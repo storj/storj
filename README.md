@@ -4,7 +4,7 @@
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
 [![Release](https://img.shields.io/github/release/golang-standards/project-layout.svg?style=flat-square)](https://github.com/storj/storj/releases/latest)
 
-<img src="https://github.com/storj/storj/raw/master/logo/logo.png" width="100">
+<img src="https://github.com/Storj/storj/tree/wip/logo" width="100">
 
 ----
 
