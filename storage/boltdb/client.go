@@ -1,40 +1,35 @@
 package boltdb
 
 import (
-	"time"
-
+	"errors"
 	"github.com/boltdb/bolt"
+	"time"
 )
 
-var defaultTimeout = 1 * time.Second
+var (
+	defaultTimeout = 1 * time.Second
+
+	ErrDbOpen = errors.New("error boltdb failed to open")
+	ErrInitDb = errors.New("error instantiating boltdb")
+)
 
 // Client is the storage interface for the Bolt database
 type Client struct {
-	DB          *bolt.DB
-	UsersBucket *bolt.Bucket
+	db *bolt.DB
 }
 
 // New instantiates a new BoltDB client
-func New() (*Client, error) {
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: defaultTimeout})
+func New(path string) (*Client, error) {
+	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
-		return nil, err
-	}
-
-	b := &bolt.Bucket{}
-	err = db.Update(func(tx *bolt.Tx) error {
-		b, err = tx.CreateBucketIfNotExists([]byte("users"))
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
+		return nil, ErrDbOpen
 	}
 
 	return &Client{
-		DB: db,
+		db: db,
 	}, nil
+}
+
+func (c *Client) Close() error {
+	return c.db.Close()
 }
