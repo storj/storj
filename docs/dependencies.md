@@ -34,3 +34,8 @@ These are only suggestions based on previous experience and our goals with this 
 
 [viper](https://github.com/spf13/viper)
 
+### Error Handling
+
+[zeebo](https://github.com/zeebo/errs)
+
+
