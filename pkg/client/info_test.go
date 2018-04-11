@@ -33,26 +33,6 @@ const (
 	mockHost        = "1.2.3.4"
 )
 
-var unmarshalTests = []struct {
-	raw       string
-	errString string
-}{
-	{"", "some error"},
-	{"{", "some error"}, // syntax error
-	{"{}", "some error"},
-	{`{"info":{}}`, "some error"},
-	{fmt.Sprintf(`{"info":{description":"%s","version":"%s"},"host":"%s"}`,
-		mockDescription, mockVersion, mockHost), "some error"},
-	{fmt.Sprintf(`{"info":{"title":"%s","version":"%s"},"host":"%s"}`,
-		mockTitle, mockVersion, mockHost), "some error"},
-	{fmt.Sprintf(`{"info":{"title":"%s","description":"%s"},"host":"%s"}`,
-		mockTitle, mockDescription, mockHost), "some error"},
-	{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"}}`,
-		mockTitle, mockDescription, mockVersion), "some error"},
-	{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"},"host":"%s"}`,
-		mockTitle, mockDescription, mockVersion, mockHost), ""},
-}
-
 func TestUnmarshalJSON(t *testing.T) {
 	for i, tt := range []struct {
 		raw       string
