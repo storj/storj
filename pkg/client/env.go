@@ -38,7 +38,7 @@ func NewEnv() Env {
 	return Env{
 		URL:      DefaultURL,
 		User:     os.Getenv("STORJ_BRIDGE_USER"),
-		Password: sha256Hash(os.Getenv("STORJ_BRIDGE_PASS")),
+		Password: sha256Sum(os.Getenv("STORJ_BRIDGE_PASS")),
 		Mnemonic: os.Getenv("STORJ_ENCRYPTION_KEY"),
 	}
 }

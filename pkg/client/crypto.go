@@ -27,7 +27,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 
 	bip39 "github.com/tyler-smith/go-bip39"
 )
@@ -40,33 +39,27 @@ const (
 
 var bucketMetaMagic = []byte{66, 150, 71, 16, 50, 114, 88, 160, 163, 35, 154, 65, 162, 213, 226, 215, 70, 138, 57, 61, 52, 19, 210, 170, 38, 164, 162, 200, 86, 201, 2, 81}
 
-func sha256Hash(str string) string {
-	h := sha256.New()
-	h.Write([]byte(str))
-	return fmt.Sprintf("%x", h.Sum(nil))
+func sha256Sum(str string) string {
+	checksum := sha256.Sum256([]byte(str))
+	return hex.EncodeToString(checksum[:])
 }
 
 func mnemonicToSeed(mnemonic string) (string, error) {
-	seedHex, err := bip39.NewSeedWithErrorChecking(mnemonic, "")
+	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, "")
 	if err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(seedHex), nil
+	return hex.EncodeToString(seed), nil
 }
 
 func getDeterministicKey(key, id string) (string, error) {
-	sha512Input := key + id
-	sha512InputHex, err := hex.DecodeString(sha512Input)
+	input, err := hex.DecodeString(key + id)
 	if err != nil {
 		return "", err
 	}
-	hasher := sha512.New()
-	hasher.Write(sha512InputHex)
-	if err != nil {
-		return "", err
-	}
-	sha512Str := hex.EncodeToString(hasher.Sum(nil))
-	return sha512Str[0 : len(sha512Str)/2], nil
+	checksum := sha512.Sum512(input)
+	str := hex.EncodeToString(checksum[:])
+	return str[0 : len(str)/2], nil
 }
 
 func generateBucketKey(mnemonic, bucketID string) (string, error) {
