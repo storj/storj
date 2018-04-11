@@ -16,7 +16,7 @@
 // along with The Storj client library.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-package storj
+package client
 
 import (
 	"fmt"
