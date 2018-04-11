@@ -63,11 +63,12 @@ func getInfo() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Storj bridge: %s\n\n", env.URL)
-	fmt.Printf("Title:       %s\n", info.Title)
-	fmt.Printf("Description: %s\n", info.Description)
-	fmt.Printf("Version:     %s\n", info.Version)
-	fmt.Printf("Host:        %s\n", info.Host)
+	fmt.Printf("Storj bridge: %s\n\n"+
+		"Title:       %s\n"+
+		"Description: %s\n"+
+		"Version:     %s\n"+
+		"Host:        %s\n",
+		env.URL, info.Title, info.Description, info.Version, info.Host)
 }
 
 func listBuckets() {
