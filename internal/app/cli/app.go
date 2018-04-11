@@ -22,7 +22,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli"
-	storj "storj.io/storj/pkg/client"
+	"storj.io/storj/pkg/client"
 )
 
 // New creates a new storj cli application with the respective commands and metainfo.
@@ -57,8 +57,8 @@ func New() *cli.App {
 }
 
 func getInfo() {
-	env := storj.NewEnv()
-	info, err := storj.GetInfo(env)
+	env := client.NewEnv()
+	info, err := client.GetInfo(env)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -72,7 +72,7 @@ func getInfo() {
 }
 
 func listBuckets() {
-	buckets, err := storj.GetBuckets(storj.NewEnv())
+	buckets, err := client.GetBuckets(client.NewEnv())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
