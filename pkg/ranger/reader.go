@@ -32,8 +32,10 @@ func (f *fatalReader) Read(p []byte) (n int, err error) {
 // ByteRanger turns a byte slice into a Ranger
 type ByteRanger []byte
 
+// Size implements Ranger.Size
 func (b ByteRanger) Size() int64 { return int64(len(b)) }
 
+// Range implements Ranger.Range
 func (b ByteRanger) Range(offset, length int64) io.Reader {
 	if offset < 0 {
 		return FatalReader(Error.New("negative offset"))
