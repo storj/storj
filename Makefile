@@ -10,3 +10,8 @@ lint:
 	--enable=gosimple \
 	--exclude=.*\.pb\.go \
 	./...
+
+
+proto:
+	@echo "Running ${@}"
+	./scripts/build-protos.sh
