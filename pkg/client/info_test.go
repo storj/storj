@@ -35,37 +35,67 @@ const (
 
 func TestUnmarshalJSON(t *testing.T) {
 	for i, tt := range []struct {
-		raw       string
+		json      string
+		info      Info
 		errString string
 	}{
-		{"", "unexpected end of JSON input"},
-		{"{", "unexpected end of JSON input"},
-		{"{}", "Missing info element in JSON response"},
-		{`{"info":{}}`, "Missing title element in JSON response"},
+		{"", Info{}, "unexpected end of JSON input"},
+		{"{", Info{}, "unexpected end of JSON input"},
+		{"{}", Info{}, ""},
+		{`{"info":{}}`, Info{}, ""},
+		{`{"info":10}`, Info{}, ""},
+		{`{"info":{"title":10,"description":10,"version":10},"host":10}`, Info{}, ""},
 		{fmt.Sprintf(`{"info":{"description":"%s","version":"%s"},"host":"%s"}`,
 			mockDescription, mockVersion, mockHost),
-			"Missing title element in JSON response"},
+			Info{
+				Description: mockDescription,
+				Version:     mockVersion,
+				Host:        mockHost,
+			},
+			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","version":"%s"},"host":"%s"}`,
 			mockTitle, mockVersion, mockHost),
-			"Missing description element in JSON response"},
+			Info{
+				Title:   mockTitle,
+				Version: mockVersion,
+				Host:    mockHost,
+			},
+			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s"},"host":"%s"}`,
 			mockTitle, mockDescription, mockHost),
-			"Missing version element in JSON response"},
+			Info{
+				Title:       mockTitle,
+				Description: mockDescription,
+				Host:        mockHost,
+			},
+			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"}}`,
 			mockTitle, mockDescription, mockVersion),
-			"Missing host element in JSON response"},
+			Info{
+				Title:       mockTitle,
+				Description: mockDescription,
+				Version:     mockVersion,
+			},
+			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"},"host":"%s"}`,
-			mockTitle, mockDescription, mockVersion, mockHost), ""},
+			mockTitle, mockDescription, mockVersion, mockHost),
+			Info{
+				Title:       mockTitle,
+				Description: mockDescription,
+				Version:     mockVersion,
+				Host:        mockHost,
+			},
+			""},
 	} {
 		var info Info
-		err := json.Unmarshal([]byte(tt.raw), &info)
+		err := json.Unmarshal([]byte(tt.json), &info)
 		errTag := fmt.Sprintf("Test case #%d", i)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
 		}
 		if assert.NoError(t, err, errTag) {
-			checkInfo(info, t, errTag)
+			assert.Equal(t, tt.info, info, errTag)
 		}
 	}
 }
@@ -85,14 +115,10 @@ func TestGetInfo(t *testing.T) {
 			continue
 		}
 		if assert.NoError(t, err, errTag) {
-			checkInfo(info, t, errTag)
+			assert.Equal(t, mockTitle, info.Title, errTag)
+			assert.Equal(t, mockDescription, info.Description, errTag)
+			assert.Equal(t, mockVersion, info.Version, errTag)
+			assert.Equal(t, mockHost, info.Host, errTag)
 		}
 	}
-}
-
-func checkInfo(info Info, t *testing.T, errTag string) {
-	assert.Equal(t, mockTitle, info.Title, errTag)
-	assert.Equal(t, mockDescription, info.Description, errTag)
-	assert.Equal(t, mockVersion, info.Version, errTag)
-	assert.Equal(t, mockHost, info.Host, errTag)
 }

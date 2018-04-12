@@ -20,7 +20,6 @@ package client
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,36 +33,25 @@ type Info struct {
 	Host        string
 }
 
+type swagger struct {
+	Info swaggerInfo
+	Host string
+}
+
+type swaggerInfo struct {
+	Title       string
+	Description string
+	Version     string
+}
+
 // UnmarshalJSON overrides the unmarshalling for Info to correctly extract the data from the Swagger JSON response
 func (info *Info) UnmarshalJSON(b []byte) error {
-	var f interface{}
-	json.Unmarshal(b, &f)
-	m := f.(map[string]interface{})
-	v, ok := m["info"]
-	if !ok {
-		return errors.New("Missing info element in JSON response")
-	}
-	i := v.(map[string]interface{})
-	v, ok = i["title"]
-	if !ok {
-		return errors.New("Missing title element in JSON response")
-	}
-	info.Title = v.(string)
-	v, ok = i["description"]
-	if !ok {
-		return errors.New("Missing description element in JSON response")
-	}
-	info.Description = v.(string)
-	v, ok = i["version"]
-	if !ok {
-		return errors.New("Missing version element in JSON response")
-	}
-	info.Version = v.(string)
-	v, ok = m["host"]
-	if !ok {
-		return errors.New("Missing host element in JSON response")
-	}
-	info.Host = v.(string)
+	var s swagger
+	json.Unmarshal(b, &s)
+	info.Title = s.Info.Title
+	info.Description = s.Info.Description
+	info.Version = s.Info.Version
+	info.Host = s.Host
 	return nil
 }
 
