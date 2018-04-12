@@ -1,0 +1,63 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+import "duration.proto";
+
+// NodeTransport is an enum of possible transports for the overlay network
+enum NodeTransport {
+    TCP = 0;
+}
+
+// Overlay defines the interface for communication with the overlay network
+service Overlay {
+    // Lookup finds a nodes address from the network
+    rpc Lookup(LookupRequest) returns (LookupResponse);
+    // FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
+    rpc FindStorageNodes(FindStorageNodesRequest) returns (FindStorageNodesResponse);
+}
+
+// LookupRequest is is request message for the lookup rpc call
+message LookupRequest {
+    string nodeID = 1;
+}
+
+// LookupResponse is is response message for the lookup rpc call
+message LookupResponse {
+    NodeAddress nodeAddress = 1;
+}
+
+// FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
+message FindStorageNodesResponse {
+    repeated Node node = 1;
+}
+
+// FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
+message FindStorageNodesRequest {
+    int64 objectSize = 1;
+    google.protobuf.Duration contractLength = 2;
+    OverlayOptions opts = 3;
+}
+
+// NodeAddress contains the information needed to communicate with a node on the network
+message NodeAddress {
+    NodeTransport transport = 1;
+    string address = 2;
+}
+
+// OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
+message OverlayOptions {
+    google.protobuf.Duration maxLatency = 1;
+    NodeRep minReputation = 2; // Not sure what NodeRep is yet.
+    int64 minSpeedKbps = 3;
+}
+
+// NodeRep is the reputation characteristics of a node
+message NodeRep {}
+
+// Node represents a node in the overlay network
+message Node {
+    string id = 1;
+    NodeAddress address = 2;
+}
