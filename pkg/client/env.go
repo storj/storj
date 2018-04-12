@@ -4,11 +4,20 @@
 package client
 
 import (
-	"os"
+	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // DefaultURL of the Storj Bridge API endpoint
 const DefaultURL = "https://api.storj.io"
+
+func init() {
+	viper.SetEnvPrefix("storj")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+	viper.SetDefault("bridge", DefaultURL)
+}
 
 // Env contains parameters for accessing the Storj network
 type Env struct {
@@ -21,9 +30,9 @@ type Env struct {
 // NewEnv creates new Env struct with default values
 func NewEnv() Env {
 	return Env{
-		URL:      DefaultURL,
-		User:     os.Getenv("STORJ_BRIDGE_USER"),
-		Password: sha256Sum(os.Getenv("STORJ_BRIDGE_PASS")),
-		Mnemonic: os.Getenv("STORJ_ENCRYPTION_KEY"),
+		URL:      viper.GetString("bridge"),
+		User:     viper.GetString("bridge-user"),
+		Password: sha256Sum(viper.GetString("bridge-pass")),
+		Mnemonic: viper.GetString("encryption-key"),
 	}
 }

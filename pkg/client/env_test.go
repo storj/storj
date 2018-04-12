@@ -6,6 +6,7 @@ package client
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/julienschmidt/httprouter"
@@ -13,6 +14,7 @@ import (
 )
 
 const (
+	testBridgeURL  = "http://example.com"
 	testBridgeUser = "testuser@storj.io"
 	testBridgePass = "secret"
 )
@@ -72,8 +74,26 @@ func TestNewEnv(t *testing.T) {
 	}{
 		{Env{}, ""},
 		{NewEnv(), DefaultURL},
-		{Env{URL: "http://example.com"}, "http://example.com"},
+		{Env{URL: testBridgeURL}, testBridgeURL},
 	} {
 		assert.Equal(t, tt.url, tt.env.URL)
 	}
+}
+
+func TestNewEnvVars(t *testing.T) {
+	os.Setenv("STORJ_BRIDGE", testBridgeURL)
+	defer os.Unsetenv("STORJ_BRIDGE")
+	os.Setenv("STORJ_BRIDGE_USER", testBridgeUser)
+	defer os.Unsetenv("STORJ_BRIDGE_USER")
+	os.Setenv("STORJ_BRIDGE_PASS", testBridgePass)
+	defer os.Unsetenv("STORJ_BRIDGE_PASS")
+	os.Setenv("STORJ_ENCRYPTION_KEY", testMnemonic)
+	defer os.Unsetenv("STORJ_ENCRYPTION_KEY")
+
+	env := NewEnv()
+
+	assert.Equal(t, testBridgeURL, env.URL)
+	assert.Equal(t, testBridgeUser, env.User)
+	assert.Equal(t, sha256Sum(testBridgePass), env.Password)
+	assert.Equal(t, testMnemonic, env.Mnemonic)
 }

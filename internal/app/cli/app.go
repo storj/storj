@@ -39,6 +39,16 @@ func New() *cli.App {
 			},
 		},
 	}
+
+	cli.AppHelpTemplate = fmt.Sprintf(`%s
+ENVIRONMENT VARIABLES:
+   STORJ_BRIDGE          the bridge host (e.g. https://api.storj.io)
+   STORJ_BRIDGE_USER     bridge username
+   STORJ_BRIDGE_PASS     bridge password
+   STORJ_ENCRYPTION_KEY  file encryption key
+
+`, cli.AppHelpTemplate)
+
 	return app
 }
 
