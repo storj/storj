@@ -5,10 +5,10 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 // Bucket metdata
@@ -33,7 +33,7 @@ func GetBuckets(env Env) ([]Bucket, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return []Bucket{}, fmt.Errorf("Unexpected response code: %d", resp.StatusCode)
+		return []Bucket{}, UnexpectedStatusCode.New(strconv.Itoa(resp.StatusCode))
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

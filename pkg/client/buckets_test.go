@@ -23,8 +23,8 @@ func TestGetBuckets(t *testing.T) {
 		buckets   []Bucket
 		errString string
 	}{
-		{NewMockNoAuthEnv(), "", nil, "Unexpected response code: 401"},
-		{NewMockBadPassEnv(), "", nil, "Unexpected response code: 401"},
+		{NewMockNoAuthEnv(), "", nil, "unexpected status code: 401"},
+		{NewMockBadPassEnv(), "", nil, "unexpected status code: 401"},
 		{NewMockEnv(), "[]", []Bucket{}, ""},
 		{NewMockEnv(),
 			`[

@@ -91,7 +91,7 @@ func TestGetInfo(t *testing.T) {
 		errString string
 	}{
 		{NewMockNoAuthEnv(), ""},
-		{Env{URL: mockBridgeURL + "/info"}, "Unexpected response code: 404"},
+		{Env{URL: mockBridgeURL + "/info"}, "unexpected status code: 404"},
 	} {
 		info, err := GetInfo(tt.env)
 		errTag := fmt.Sprintf("Test case #%d", i)

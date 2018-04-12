@@ -5,9 +5,9 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
 
 // Info struct of the GetInfo() response
@@ -49,7 +49,7 @@ func GetInfo(env Env) (Info, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return info, fmt.Errorf("Unexpected response code: %d", resp.StatusCode)
+		return info, UnexpectedStatusCode.New(strconv.Itoa(resp.StatusCode))
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
