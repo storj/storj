@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/coyle/storj/protos/overlay"
+	"github.com/storj/storj/protos/overlay"
 	"google.golang.org/grpc"
 )
 
