@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const mockMnemonic = "uncle obtain april oxygen cover patient layer abuse off text royal normal"
+const testMnemonic = "uncle obtain april oxygen cover patient layer abuse off text royal normal"
 
 func TestDecryptBucketName(t *testing.T) {
 	for i, tt := range []struct {
@@ -20,10 +20,10 @@ func TestDecryptBucketName(t *testing.T) {
 		errString     string
 	}{
 		{"", "", "", "Invalid mnemonic"},
-		{"", mockMnemonic, "", "Invalid encrypted name"},
-		{mockEncryptedBucketName, "", "", "Invalid mnemonic"},
-		{mockEncryptedBucketName, mockMnemonic, mockDecryptedBucketName, ""},
-		{mockEncryptedBucketNameDiffMnemonic, mockMnemonic, "", "cipher: message authentication failed"},
+		{"", testMnemonic, "", "Invalid encrypted name"},
+		{testEncryptedBucketName, "", "", "Invalid mnemonic"},
+		{testEncryptedBucketName, testMnemonic, testDecryptedBucketName, ""},
+		{testEncryptedBucketNameDiffMnemonic, testMnemonic, "", "cipher: message authentication failed"},
 	} {
 		decryptedName, err := decryptBucketName(tt.encryptedName, tt.mnemonic)
 		errTag := fmt.Sprintf("Test case #%d", i)

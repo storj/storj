@@ -6,16 +6,19 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	mockTitle       = "Storj Bridge"
-	mockDescription = "Some description"
-	mockVersion     = "1.2.3"
-	mockHost        = "1.2.3.4"
+	testTitle       = "Storj Bridge"
+	testDescription = "Some description"
+	testVersion     = "1.2.3"
+	testHost        = "1.2.3.4"
 )
 
 func TestUnmarshalJSON(t *testing.T) {
@@ -31,44 +34,44 @@ func TestUnmarshalJSON(t *testing.T) {
 		{`{"info":10}`, Info{}, ""},
 		{`{"info":{"title":10,"description":10,"version":10},"host":10}`, Info{}, ""},
 		{fmt.Sprintf(`{"info":{"description":"%s","version":"%s"},"host":"%s"}`,
-			mockDescription, mockVersion, mockHost),
+			testDescription, testVersion, testHost),
 			Info{
-				Description: mockDescription,
-				Version:     mockVersion,
-				Host:        mockHost,
+				Description: testDescription,
+				Version:     testVersion,
+				Host:        testHost,
 			},
 			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","version":"%s"},"host":"%s"}`,
-			mockTitle, mockVersion, mockHost),
+			testTitle, testVersion, testHost),
 			Info{
-				Title:   mockTitle,
-				Version: mockVersion,
-				Host:    mockHost,
+				Title:   testTitle,
+				Version: testVersion,
+				Host:    testHost,
 			},
 			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s"},"host":"%s"}`,
-			mockTitle, mockDescription, mockHost),
+			testTitle, testDescription, testHost),
 			Info{
-				Title:       mockTitle,
-				Description: mockDescription,
-				Host:        mockHost,
+				Title:       testTitle,
+				Description: testDescription,
+				Host:        testHost,
 			},
 			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"}}`,
-			mockTitle, mockDescription, mockVersion),
+			testTitle, testDescription, testVersion),
 			Info{
-				Title:       mockTitle,
-				Description: mockDescription,
-				Version:     mockVersion,
+				Title:       testTitle,
+				Description: testDescription,
+				Version:     testVersion,
 			},
 			""},
 		{fmt.Sprintf(`{"info":{"title":"%s","description":"%s","version":"%s"},"host":"%s"}`,
-			mockTitle, mockDescription, mockVersion, mockHost),
+			testTitle, testDescription, testVersion, testHost),
 			Info{
-				Title:       mockTitle,
-				Description: mockDescription,
-				Version:     mockVersion,
-				Host:        mockHost,
+				Title:       testTitle,
+				Description: testDescription,
+				Version:     testVersion,
+				Host:        testHost,
 			},
 			""},
 	} {
@@ -86,12 +89,20 @@ func TestUnmarshalJSON(t *testing.T) {
 }
 
 func TestGetInfo(t *testing.T) {
+	router := httprouter.New()
+	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		fmt.Fprintf(w, `{"info":{"title":"%s","description":"%s","version":"%s"},"host":"%s"}`,
+			testTitle, testDescription, testVersion, testHost)
+	})
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
 	for i, tt := range []struct {
 		env       Env
 		errString string
 	}{
-		{NewMockNoAuthEnv(), ""},
-		{Env{URL: mockBridgeURL + "/info"}, "unexpected status code: 404"},
+		{NewTestEnv(ts), ""},
+		{Env{URL: ts.URL + "/info"}, "unexpected status code: 404"},
 	} {
 		info, err := GetInfo(tt.env)
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -100,10 +111,10 @@ func TestGetInfo(t *testing.T) {
 			continue
 		}
 		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, mockTitle, info.Title, errTag)
-			assert.Equal(t, mockDescription, info.Description, errTag)
-			assert.Equal(t, mockVersion, info.Version, errTag)
-			assert.Equal(t, mockHost, info.Host, errTag)
+			assert.Equal(t, testTitle, info.Title, errTag)
+			assert.Equal(t, testDescription, info.Description, errTag)
+			assert.Equal(t, testVersion, info.Version, errTag)
+			assert.Equal(t, testHost, info.Host, errTag)
 		}
 	}
 }
