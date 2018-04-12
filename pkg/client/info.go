@@ -19,14 +19,12 @@ type Info struct {
 }
 
 type swagger struct {
-	Info swaggerInfo
+	Info struct {
+		Title       string
+		Description string
+		Version     string
+	}
 	Host string
-}
-
-type swaggerInfo struct {
-	Title       string
-	Description string
-	Version     string
 }
 
 // UnmarshalJSON overrides the unmarshalling for Info to correctly extract the data from the Swagger JSON response
