@@ -36,6 +36,9 @@ func TestGetBuckets(t *testing.T) {
 	}{
 		{NewNoAuthTestEnv(ts), "", nil, "unexpected status code: 401"},
 		{NewBadPassTestEnv(ts), "", nil, "unexpected status code: 401"},
+		{NewTestEnv(ts), "", []Bucket{}, "unexpected end of JSON input"},
+		{NewTestEnv(ts), "{", []Bucket{}, "unexpected end of JSON input"},
+		{NewTestEnv(ts), "{}", []Bucket{}, "json: cannot unmarshal object into Go value of type []client.Bucket"},
 		{NewTestEnv(ts), "[]", []Bucket{}, ""},
 		{NewTestEnv(ts),
 			`[

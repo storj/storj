@@ -41,6 +41,9 @@ func GetBuckets(env Env) ([]Bucket, error) {
 	}
 	var buckets []Bucket
 	err = json.Unmarshal(b, &buckets)
+	if err != nil {
+		return buckets, err
+	}
 	for i, b := range buckets {
 		decryptedName, err := decryptBucketName(b.Name, env.Mnemonic)
 		if err != nil {
