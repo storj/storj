@@ -16,6 +16,8 @@ func TestByteRanger(t *testing.T) {
 		substr               string
 		fail                 bool
 	}{
+		{"", 0, 0, 0, "", false},
+		{"abcdef", 6, 0, 0, "", false},
 		{"abcdef", 6, 0, 6, "abcdef", false},
 		{"abcdef", 6, 0, 5, "abcde", false},
 		{"abcdef", 6, 0, 4, "abcd", false},

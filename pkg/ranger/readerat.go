@@ -29,7 +29,7 @@ type readerAtReader struct {
 	offset, length int64
 }
 
-func (r *readerAtRanger) Range(offset, length int64) io.Reader {
+func (r *readerAtRanger) Range(offset, length int64) io.ReadCloser {
 	if offset < 0 {
 		return FatalReader(Error.New("negative offset"))
 	}
@@ -50,4 +50,8 @@ func (r *readerAtReader) Read(p []byte) (n int, err error) {
 	r.offset += int64(n)
 	r.length -= int64(n)
 	return n, err
+}
+
+func (r *readerAtReader) Close() error {
+	return nil
 }
