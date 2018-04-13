@@ -11,7 +11,6 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 
 	bip39 "github.com/tyler-smith/go-bip39"
 )
@@ -63,7 +62,7 @@ func decryptMeta(encryptedName string, key []byte) ([]byte, error) {
 		return []byte{}, err
 	}
 	if len(nameBase64) <= gcmDigestSize+ivSize {
-		return []byte{}, errors.New("Invalid encrypted name")
+		return []byte{}, CryptoError.New("Invalid encrypted name")
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
