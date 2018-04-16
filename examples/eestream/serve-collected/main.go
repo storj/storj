@@ -37,8 +37,9 @@ func Main() error {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	decrypter, err := eestream.NewSecretboxDecrypter(encKey[:],
-		es.DecodedBlockSize())
+	var firstNonce [24]byte
+	decrypter, err := eestream.NewSecretboxDecrypter(
+		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
 	}
