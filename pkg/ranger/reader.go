@@ -57,11 +57,11 @@ func (c *concatReader) Range(offset, length int64) io.ReadCloser {
 	if offset >= r1Size {
 		return c.r2.Range(offset-r1Size, length)
 	}
-	return ioutil.NopCloser(io.MultiReader(
+	return readcloser.MultiReadCloser(
 		c.r1.Range(offset, r1Size-offset),
 		readcloser.LazyReadCloser(func() io.ReadCloser {
 			return c.r2.Range(0, length-(r1Size-offset))
-		})))
+		}))
 }
 
 func concat2(r1, r2 Ranger) Ranger {
