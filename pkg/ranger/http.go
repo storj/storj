@@ -71,6 +71,7 @@ func (r *httpRanger) Range(offset, length int64) io.ReadCloser {
 		return readcloser.FatalReadCloser(err)
 	}
 	if resp.StatusCode != http.StatusPartialContent {
+		resp.Body.Close()
 		return readcloser.FatalReadCloser(
 			Error.New("unexpected status code: %d (expected %d)",
 				resp.StatusCode, http.StatusPartialContent))
