@@ -81,29 +81,14 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 }
 
 func (dr *decodedReader) Close() error {
-	// we're going to kick off a bunch of goroutines. make a
-	// channel to catch those goroutine errors. importantly,
-	// the channel has a buffer size to contain all the errors
-	// even if we read none, so we can return without receiving
-	// every channel value
-	errs := make(chan error, len(dr.rs))
-	for i := range dr.rs {
-		go func(i int) {
-			// close the reader
-			err := dr.rs[i].Close()
-			errs <- err
-		}(i)
-	}
-	// catch all the errors
-	for range dr.rs {
-		err := <-errs
-		if err != nil {
-			// return on the first failure
-			dr.err = err
-			return err
+	var firstErr error
+	for _, c := range dr.rs {
+		err := c.Close()
+		if err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+	return firstErr
 }
 
 type decodedRanger struct {

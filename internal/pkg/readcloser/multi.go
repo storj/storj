@@ -32,21 +32,12 @@ func (l *multiReadCloser) Read(p []byte) (n int, err error) {
 }
 
 func (l *multiReadCloser) Close() error {
-	// close all in parallel
-	errs := make(chan error, len(l.closers))
-	for i := range l.closers {
-		go func(i int) {
-			err := l.closers[i].Close()
-			errs <- err
-		}(i)
-	}
-	// catch all the errors
-	for range l.closers {
-		err := <-errs
-		if err != nil {
-			// return on the first failure
-			return err
+	var firstErr error
+	for _, c := range l.closers {
+		err := c.Close()
+		if err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+	return firstErr
 }
