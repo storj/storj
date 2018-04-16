@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/pkg/eestream"
 )
 

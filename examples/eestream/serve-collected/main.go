@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/ranger"
 )
