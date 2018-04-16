@@ -20,15 +20,18 @@ func randData(amount int) []byte {
 }
 
 func TestSecretbox(t *testing.T) {
-	key := randData(32)
-	encrypter, err := NewSecretboxEncrypter(key, 4*1024)
+	var key [32]byte
+	copy(key[:], randData(32))
+	var firstNonce [24]byte
+	copy(firstNonce[:], randData(24))
+	encrypter, err := NewSecretboxEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data := randData(encrypter.InBlockSize() * 10)
 	encrypted := TransformReader(bytes.NewReader(data),
 		encrypter, 0)
-	decrypter, err := NewSecretboxDecrypter(key, 4*1024)
+	decrypter, err := NewSecretboxDecrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
