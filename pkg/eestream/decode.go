@@ -7,11 +7,12 @@ import (
 	"io"
 	"io/ioutil"
 
+	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
 
 type decodedReader struct {
-	rs     map[int]io.Reader
+	rs     map[int]io.ReadCloser
 	es     ErasureScheme
 	inbufs map[int][]byte
 	outbuf []byte
@@ -21,7 +22,7 @@ type decodedReader struct {
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
 // combined Reader. The map, 'rs', must be a mapping of erasure piece numbers
 // to erasure piece streams.
-func DecodeReaders(rs map[int]io.Reader, es ErasureScheme) io.Reader {
+func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme) io.ReadCloser {
 	dr := &decodedReader{
 		rs:     rs,
 		es:     es,
@@ -79,6 +80,32 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
+func (dr *decodedReader) Close() error {
+	// we're going to kick off a bunch of goroutines. make a
+	// channel to catch those goroutine errors. importantly,
+	// the channel has a buffer size to contain all the errors
+	// even if we read none, so we can return without receiving
+	// every channel value
+	errs := make(chan error, len(dr.rs))
+	for i := range dr.rs {
+		go func(i int) {
+			// close the reader
+			err := dr.rs[i].Close()
+			errs <- err
+		}(i)
+	}
+	// catch all the errors
+	for range dr.rs {
+		err := <-errs
+		if err != nil {
+			// return on the first failure
+			dr.err = err
+			return err
+		}
+	}
+	return nil
+}
+
 type decodedRanger struct {
 	es     ErasureScheme
 	rrs    map[int]ranger.Ranger
@@ -123,14 +150,14 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.DecodedBlockSize())
 }
 
-func (dr *decodedRanger) Range(offset, length int64) io.Reader {
+func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, dr.es.DecodedBlockSize())
 
 	// go ask for ranges for all those block boundaries
-	readers := make(map[int]io.Reader, len(dr.rrs))
+	readers := make(map[int]io.ReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
 		readers[i] = rr.Range(
 			firstBlock*int64(dr.es.EncodedBlockSize()),
@@ -142,8 +169,8 @@ func (dr *decodedRanger) Range(offset, length int64) io.Reader {
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))
 	if err != nil {
-		return ranger.FatalReader(Error.Wrap(err))
+		return readcloser.FatalReadCloser(Error.Wrap(err))
 	}
 	// length might not have included all of the blocks, limit what we return
-	return io.LimitReader(r, length)
+	return readcloser.LimitReadCloser(r, length)
 }

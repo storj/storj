@@ -20,9 +20,9 @@ func TestRS(t *testing.T) {
 	}
 	rs := NewRSScheme(fc, 8*1024)
 	readers := EncodeReader(bytes.NewReader(data), rs)
-	readerMap := make(map[int]io.Reader, len(readers))
+	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
-		readerMap[i] = reader
+		readerMap[i] = ioutil.NopCloser(reader)
 	}
 	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
 	if err != nil {

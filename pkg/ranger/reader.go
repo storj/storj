@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+
+	"storj.io/storj/internal/pkg/readcloser"
 )
 
 // A Ranger is a flexible data stream type that allows for more effective
@@ -15,23 +17,6 @@ import (
 type Ranger interface {
 	Size() int64
 	Range(offset, length int64) io.ReadCloser
-}
-
-// FatalReader returns a Reader that always fails with err.
-func FatalReader(err error) io.ReadCloser {
-	return &fatalReader{Err: err}
-}
-
-type fatalReader struct {
-	Err error
-}
-
-func (f *fatalReader) Read(p []byte) (n int, err error) {
-	return 0, f.Err
-}
-
-func (f *fatalReader) Close() error {
-	return nil
 }
 
 // ByteRanger turns a byte slice into a Ranger
@@ -43,10 +28,13 @@ func (b ByteRanger) Size() int64 { return int64(len(b)) }
 // Range implements Ranger.Range
 func (b ByteRanger) Range(offset, length int64) io.ReadCloser {
 	if offset < 0 {
-		return FatalReader(Error.New("negative offset"))
+		return readcloser.FatalReadCloser(Error.New("negative offset"))
+	}
+	if length < 0 {
+		return readcloser.FatalReadCloser(Error.New("negative length"))
 	}
 	if offset+length > int64(len(b)) {
-		return FatalReader(Error.New("buffer runoff"))
+		return readcloser.FatalReadCloser(Error.New("buffer runoff"))
 	}
 
 	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length]))
@@ -71,7 +59,7 @@ func (c *concatReader) Range(offset, length int64) io.ReadCloser {
 	}
 	return ioutil.NopCloser(io.MultiReader(
 		c.r1.Range(offset, r1Size-offset),
-		LazyReader(func() io.ReadCloser {
+		readcloser.LazyReadCloser(func() io.ReadCloser {
 			return c.r2.Range(0, length-(r1Size-offset))
 		})))
 }
@@ -93,33 +81,6 @@ func Concat(r ...Ranger) Ranger {
 		mid := len(r) / 2
 		return concat2(Concat(r[:mid]...), Concat(r[mid:]...))
 	}
-}
-
-type lazyReader struct {
-	fn func() io.ReadCloser
-	r  io.ReadCloser
-}
-
-// LazyReader returns an Reader that doesn't initialize the backing Reader
-// until the first Read.
-func LazyReader(reader func() io.ReadCloser) io.ReadCloser {
-	return &lazyReader{fn: reader}
-}
-
-func (l *lazyReader) Read(p []byte) (n int, err error) {
-	if l.r == nil {
-		l.r = l.fn()
-		l.fn = nil
-	}
-	return l.r.Read(p)
-}
-
-func (l *lazyReader) Close() error {
-	if l.r == nil {
-		l.r = l.fn()
-		l.fn = nil
-	}
-	return l.r.Close()
 }
 
 type subrange struct {
