@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -111,7 +112,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		mw := multipart.NewWriter(pw)
 		w.Header().Set("Content-Type",
 			"multipart/byteranges; boundary="+mw.Boundary())
-		sendContent = func() io.ReadCloser { return pr }
+		sendContent = func() io.ReadCloser { return ioutil.NopCloser(pr) }
 		// cause writing goroutine to fail and exit if CopyN doesn't finish.
 		defer pr.Close()
 		go func() {
