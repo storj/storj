@@ -21,4 +21,5 @@ To store a value to a PUT request body, use the format:
 
 TODO:
 - add zap logger throughout
-- replace http routes with grpc + protobufs
+- add functions for grpc + protobufs
+- add http tests

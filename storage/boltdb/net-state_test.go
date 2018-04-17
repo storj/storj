@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package boltdb
 
 import (
@@ -21,6 +24,7 @@ func TestNetState(t *testing.T) {
 	}
 	defer func() {
 		c.Close()
+		os.Remove(c.Path)
 	}()
 
 	testFile := File{
@@ -35,7 +39,7 @@ func TestNetState(t *testing.T) {
 
 	// tests Put function
 	if err := c.Put(testFile); err != nil {
-		t.Error("Expected testFile saved to files bucket")
+		t.Error("Failed to save testFile to files bucket")
 	}
 
 	// tests Get function
@@ -49,14 +53,14 @@ func TestNetState(t *testing.T) {
 
 	// tests Delete function
 	if err := c.Delete([]byte("test/path")); err != nil {
-		t.Error("Expected to delete testfile")
+		t.Error("Failed to delete testfile")
 	}
 
 	// tests List function
 	if err := c.Put(testFile2); err != nil {
-		t.Error("Expected testFile2 saved to files bucket")
+		t.Error("Failed to save testFile2 to files bucket")
 	}
-	testFiles, err := c.List([]byte("files"))
+	testFiles, err := c.List()
 	if err != nil {
 		t.Error("Failed to list file keys")
 	}

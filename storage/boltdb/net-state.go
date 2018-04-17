@@ -1,35 +1,42 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package boltdb
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 
 	"github.com/boltdb/bolt"
 )
 
+// File Path and Value are saved to boltdb
 type File struct {
 	Path  string `json:"path"`
 	Value string `json:"value"`
 }
 
+const (
+	fileBucketName = "files"
+)
+
 var (
-	ErrCreatingFileBucket = errors.New("error creating file bucket")
-	ErrFileNotFound       = errors.New("error file not found")
-	ErrIterKeys           = errors.New("error unable to iterate through bucket keys")
-	ErrDeletingFile       = errors.New("error unable to delete file key")
+	errCreatingFileBucket = Error.New("error creating file bucket")
+	errFileNotFound       = Error.New("error file not found")
+	errIterKeys           = Error.New("error unable to iterate through bucket keys")
+	errDeletingFile       = Error.New("error unable to delete file key")
 )
 
 func (client *Client) Put(file File) error {
 	return client.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte("files"))
+		b, err := tx.CreateBucketIfNotExists([]byte(fileBucketName))
 		if err != nil {
-			return ErrCreatingFileBucket
+			return errCreatingFileBucket
 		}
 
 		fileKey := []byte(file.Path)
 
-		fileBytes, err := json.Marshal(file)
+		fileBytes, err := json.Marshal(file.Value)
 		if err != nil {
 			log.Println(err)
 		}
@@ -41,30 +48,30 @@ func (client *Client) Put(file File) error {
 func (client *Client) Get(fileKey []byte) (File, error) {
 	var fileInfo File
 	err := client.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("files"))
+		b := tx.Bucket([]byte(fileBucketName))
 		v := b.Get(fileKey)
 		if v == nil {
-			return ErrFileNotFound
-		} else {
-			unmarshalErr := json.Unmarshal(v, &fileInfo)
-			return unmarshalErr
+			return errFileNotFound
 		}
+		unmarshalErr := json.Unmarshal(v, &fileInfo.Value)
+		return unmarshalErr
 	})
 
+	fileInfo.Path = string(fileKey)
 	return fileInfo, err
 }
 
-func (client *Client) List(bucketName []byte) ([]string, error) {
+func (client *Client) List() ([]string, error) {
 	var paths []string
 	err := client.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucketName)
+		b := tx.Bucket([]byte(fileBucketName))
 
 		err := b.ForEach(func(key, value []byte) error {
 			paths = append(paths, string(key))
 			return nil
 		})
 		if err != nil {
-			return ErrIterKeys
+			return errIterKeys
 		}
 		return nil
 	})
@@ -74,9 +81,9 @@ func (client *Client) List(bucketName []byte) ([]string, error) {
 
 func (client *Client) Delete(fileKey []byte) error {
 	if err := client.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte("files")).Delete(fileKey)
+		return tx.Bucket([]byte(fileBucketName)).Delete(fileKey)
 	}); err != nil {
-		return ErrDeletingFile
+		return errDeletingFile
 	}
 	return nil
 }

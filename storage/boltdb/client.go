@@ -1,21 +1,25 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package boltdb
 
 import (
-	"errors"
-	"github.com/boltdb/bolt"
 	"time"
+
+	"github.com/boltdb/bolt"
 )
 
 var (
 	defaultTimeout = 1 * time.Second
 
-	ErrDbOpen = errors.New("error boltdb failed to open")
-	ErrInitDb = errors.New("error instantiating boltdb")
+	ErrDbOpen = Error.New("error boltdb failed to open")
+	ErrInitDb = Error.New("error instantiating boltdb")
 )
 
 // Client is the storage interface for the Bolt database
 type Client struct {
-	db *bolt.DB
+	db   *bolt.DB
+	Path string
 }
 
 // New instantiates a new BoltDB client
@@ -26,7 +30,8 @@ func New(path string) (*Client, error) {
 	}
 
 	return &Client{
-		db: db,
+		db:   db,
+		Path: path,
 	}, nil
 }
 
