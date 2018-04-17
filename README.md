@@ -23,20 +23,31 @@ The [community site](https://storj.io/community.html) hosts all information abou
 building storj from source, how to contribute code
 and documentation, who to contact about what, etc.
 
+### Install VGO
+
+```Go
+go get -u golang.org/x/vgo
+```
+
 ### Set up protobufs
 
 In order to develop on storj, you will need to have protobufs and gRPC installed on your system.
 
-1. Grab the latest release and follow the install steps for your system from [here](https://github.com/google/protobuf/releases)
+1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases)
 
-2. Get the protoc go plugin     
+2. place the `protoc` binary in your path. i.e
+    ```bash 
+    mv $HOME/Downloads/protoc-3.5.1-osx-x86_64/bin/protoc /usr/local/bin
+    ```
+
+3. Get the protoc go plugin     
     ```Go
     go get -u github.com/golang/protobuf/protoc-gen-go
     ```
 
-3. Get gRPC
+4. Get gRPC
     ```Go
-    go get -u google.golang.org/grpc
+    vgo get -u google.golang.org/grpc
     ```
 
 
