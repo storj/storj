@@ -6,9 +6,9 @@ import (
 	"net"
 	"testing"
 
-	proto "github.com/coyle/storj/protos/overlay"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	proto "storj.io/storj/protos/overlay"
 )
 
 const (

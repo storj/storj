@@ -3,7 +3,7 @@ package overlay
 import (
 	"context"
 
-	proto "github.com/coyle/storj/protos/overlay"
+	proto "storj.io/storj/protos/overlay"
 )
 
 // Overlay implements our overlay RPC service

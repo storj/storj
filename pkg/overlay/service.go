@@ -4,7 +4,7 @@ import (
 	"google.golang.org/grpc"
 
 	// "storj.io/storj/protos/overlay"
-	"github.com/coyle/storj/protos/overlay"
+	"storj.io/storj/protos/overlay"
 )
 
 // NewServer creates a new Overlay Service Server
