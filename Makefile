@@ -15,3 +15,6 @@ lint:
 proto:
 	@echo "Running ${@}"
 	./scripts/build-protos.sh
+
+build-dev-deps:
+	go get -u github.com/golang/protobuf/protoc-gen-go

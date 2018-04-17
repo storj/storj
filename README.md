@@ -45,9 +45,8 @@ In order to develop on storj, you will need to have the protobuf compiler instal
 Use vgo to install both dev and non-dev dependencies
 
 1. Install development dependencies
-    ```bash
-    # shouldn't change your pwd
-    (cd ./dev && vgo install)
+    ```
+    make build-dev-deps
     ```
 
 1. Install project dependencies
