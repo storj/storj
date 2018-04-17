@@ -1,9 +1,12 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package pstore // import "storj.io/storj/pkg/pstore"
 
 import (
+	"bufio"
 	"fmt"
-  "bufio"
-  "io"
+	"io"
 	"os"
 	"path"
 )
@@ -14,31 +17,31 @@ type argError struct {
 }
 
 func (e *argError) Error() string {
-  return fmt.Sprintf("HashError (%s): %s", string(e.arg), e.msg)
+	return fmt.Sprintf("HashError (%s): %s", string(e.arg), e.msg)
 }
 
 type fsError struct {
-  path string
-  msg string
+	path string
+	msg  string
 }
 
 func (e *fsError) Error() string {
-  return fmt.Sprintf("FSError (%s): %s", e.path, e.msg)
+	return fmt.Sprintf("FSError (%s): %s", e.path, e.msg)
 }
 
-func Store(hash string, r *bufio.Reader, dir string) (error) {
-  fmt.Println("Storing...")
-  if len(hash) < 20 {
-    return &argError{hash, "Hash is too short"}
-  }
+func Store(hash string, r *bufio.Reader, dir string) error {
+	fmt.Println("Storing...")
+	if len(hash) < 20 {
+		return &argError{hash, "Hash is too short"}
+	}
 	if dir == "" {
-    return &argError{dir, "No path provided"}
-  }
+		return &argError{dir, "No path provided"}
+	}
 
 	// Folder structure
-  folder1 := string(hash[0:2])
-  folder2 := string(hash[2:4])
-  fileName := string(hash[4:])
+	folder1 := string(hash[0:2])
+	folder2 := string(hash[2:4])
+	fileName := string(hash[4:])
 
 	// Create directory path string
 	dirpath := path.Join(dir, folder1, folder2)
@@ -62,7 +65,7 @@ func Store(hash string, r *bufio.Reader, dir string) (error) {
 	defer file.Close()
 
 	// Buffer for reading data
-  buffer := make([]byte, 4096)
+	buffer := make([]byte, 4096)
 	for {
 		// Read data from read stream into buffer
 		n, err := r.Read(buffer)
@@ -74,21 +77,21 @@ func Store(hash string, r *bufio.Reader, dir string) (error) {
 		_, err = file.Write(buffer[:n])
 	}
 
-  return nil
+	return nil
 }
 
-func Retrieve(hash string, w *bufio.Writer, dir string) (error) {
-  fmt.Println("Retrieving...")
+func Retrieve(hash string, w *bufio.Writer, dir string) error {
+	fmt.Println("Retrieving...")
 	if len(hash) < 20 {
 		return &argError{hash, "Hash too short"}
 	}
 	if dir == "" {
-    return &argError{dir, "No path provided"}
-  }
+		return &argError{dir, "No path provided"}
+	}
 
 	folder1 := string(hash[0:2])
-  folder2 := string(hash[2:4])
-  fileName := string(hash[4:])
+	folder2 := string(hash[2:4])
+	fileName := string(hash[4:])
 
 	filePath := path.Join(dir, folder1, folder2, fileName)
 
@@ -99,7 +102,7 @@ func Retrieve(hash string, w *bufio.Writer, dir string) (error) {
 	// Close when finished
 	defer file.Close()
 
-	file.Seek(0,0)
+	file.Seek(0, 0)
 	buffer := make([]byte, 4096)
 	for {
 		// Read data from read stream into buffer
@@ -112,7 +115,7 @@ func Retrieve(hash string, w *bufio.Writer, dir string) (error) {
 		fmt.Println("read bytes: ", n)
 		// Write to buffer to the file we opened earlier
 		writtenbytes, writeError := w.Write(buffer[:n])
-		fmt.Println("written bytes: ",writtenbytes)
+		fmt.Println("written bytes: ", writtenbytes)
 		if writeError != nil {
 			fmt.Println("Write Error:", writeError)
 		}
@@ -121,30 +124,26 @@ func Retrieve(hash string, w *bufio.Writer, dir string) (error) {
 
 	w.Flush()
 
-  return nil
+	return nil
 }
 
-func Delete(hash string, dir string) (error) {
-  fmt.Println("Deleting...")
+func Delete(hash string, dir string) error {
+	fmt.Println("Deleting...")
 	if len(hash) < 20 {
 		return &argError{hash, "Hash too short"}
 	}
 	if dir == "" {
-    return &argError{dir, "No path provided"}
-  }
+		return &argError{dir, "No path provided"}
+	}
 
 	folder1 := string(hash[0:2])
-  folder2 := string(hash[2:4])
-  fileName := string(hash[4:])
+	folder2 := string(hash[2:4])
+	fileName := string(hash[4:])
 
 	err := os.Remove(path.Join(dir, folder1, folder2, fileName))
 	if err != nil {
 		return err
 	}
 
-  return nil
-}
-
-func GetStoreInfo(dir string) {
-  fmt.Println("Getting store info")
+	return nil
 }

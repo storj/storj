@@ -1,139 +1,152 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package pstore // import "storj.io/storj/pkg/pstore"
 
 import (
-    "testing"
-    "os"
-    "path"
-    "bufio"
-    "fmt"
+	"bufio"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"path"
+	"testing"
 )
 
-
-var testFile = path.Join(os.TempDir(), "test.txt")
-
-func createTestFile() (error) {
-  file, createFileErr := os.Create(testFile)
-
-  if createFileErr != nil {
-    return createFileErr
-  }
-
-  b := []byte{'b', 'u', 't', 't', 's'}
-  _, writeToFileErr := file.Write(b)
-
-  if writeToFileErr != nil {
-    return writeToFileErr
-  }
-
-  return nil
-}
-
-func deleteTestFile() (error) {
-  err := os.Remove(testFile)
-  if err != nil {
-    return err
-  }
-
-  return nil
-}
+var tmpfile string
 
 func TestStore(t *testing.T) {
-  createTestFile()
-  defer deleteTestFile()
-  file, openTestFileErr := os.Open(testFile)
-  if openTestFileErr != nil {
-    t.Errorf("Could not open test file")
-    return
-  }
+	file, err := os.Open(tmpfile)
+	if err != nil {
+		t.Errorf("Error opening tmp file: %s", err.Error())
+		return
+	}
 
-  defer file.Close()
+	reader := bufio.NewReader(file)
+	defer file.Close()
 
-  reader := bufio.NewReader(file)
+	hash := "0123456789ABCDEFGHIJ"
+	Store(hash, reader, os.TempDir())
 
-  hash := "0123456789ABCDEFGHIJ"
-  Store(hash, reader, os.TempDir())
+	folder1 := string(hash[0:2])
+	folder2 := string(hash[2:4])
+	fileName := string(hash[4:])
 
-  folder1 := string(hash[0:2])
-  folder2 := string(hash[2:4])
-  fileName := string(hash[4:])
+	createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
+	defer os.RemoveAll(path.Join(os.TempDir(), folder1))
+	_, lStatErr := os.Lstat(createdFilePath)
+	if lStatErr != nil {
+		t.Errorf("No file was created from Store(): %s", lStatErr.Error())
+		return
+	}
 
-  createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
-  defer os.RemoveAll(path.Join(os.TempDir(), folder1))
-  _, lStatErr := os.Lstat(createdFilePath)
-  if lStatErr != nil {
-    t.Errorf("No file was created from Store(): %s", lStatErr.Error())
-    return
-  }
+	createdFile, openCreatedError := os.Open(createdFilePath)
+	if openCreatedError != nil {
+		t.Errorf("Error: %s opening created file %s", openCreatedError.Error(), createdFilePath)
+	}
+	defer createdFile.Close()
 
-  createdFile, openCreatedError := os.Open(createdFilePath)
-  if openCreatedError != nil {
-    t.Errorf("Error: %s opening created file %s", openCreatedError.Error() ,createdFilePath)
-  }
-  defer createdFile.Close()
+	buffer := make([]byte, 5)
+	createdFile.Seek(0, 0)
+	_, _ = createdFile.Read(buffer)
 
-  buffer := make([]byte, 5)
-  _, _ = createdFile.Read(buffer)
-
-
-  if string(buffer) != "butts" {
-    t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
-  }
+	if string(buffer) != "butts" {
+		t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
+	}
 }
 
 func TestRetrieve(t *testing.T) {
-  createTestFile()
-  defer deleteTestFile()
-  file, openTestFileErr := os.Open(testFile)
-  if openTestFileErr != nil {
-    t.Errorf("Could not open test file")
-    return
-  }
+	file, err := os.Open(tmpfile)
+	if err != nil {
+		t.Errorf("Error opening tmp file: %s", err.Error())
+		return
+	}
 
-  defer file.Close()
+	reader := bufio.NewReader(file)
+	defer file.Close()
 
-  reader := bufio.NewReader(file)
+	hash := "0123456789ABCDEFGHIJ"
+	Store(hash, reader, os.TempDir())
 
-  hash := "0123456789ABCDEFGHIJ"
-  Store(hash, reader, os.TempDir())
+	// Create file for retrieving data into
+	retrievalFilePath := path.Join(os.TempDir(), "retrieved.txt")
+	retrievalFile, retrievalFileError := os.OpenFile(retrievalFilePath, os.O_RDWR|os.O_CREATE, 0777)
+	if retrievalFileError != nil {
+		t.Errorf("Error creating file: %s", retrievalFileError.Error())
+		return
+	}
+	defer retrievalFile.Close()
 
-  // Create file for retrieving data into
-  retrievalFilePath := path.Join(os.TempDir(), "retrieved.txt")
-  retrievalFile, retrievalFileError := os.OpenFile(retrievalFilePath, os.O_RDWR|os.O_CREATE, 0777)
-  if retrievalFileError != nil {
-    t.Errorf("Error creating file: %s", retrievalFileError.Error())
-    return
-  }
-  defer retrievalFile.Close()
+	writer := bufio.NewWriter(retrievalFile)
 
-  writer := bufio.NewWriter(retrievalFile)
+	retrieveErr := Retrieve(hash, writer, os.TempDir())
 
-  retrieveErr := Retrieve(hash, writer, os.TempDir())
+	if retrieveErr != nil {
+		t.Errorf("Retrieve Error: %s", retrieveErr.Error())
+	}
 
-  if retrieveErr != nil {
-    t.Errorf("Retrieve Error: %s", retrieveErr.Error())
-  }
+	buffer := make([]byte, 5)
 
-  buffer := make([]byte, 5)
+	retrievalFile.Seek(0, 0)
+	_, _ = retrievalFile.Read(buffer)
 
-  retrievalFile.Seek(0,0)
-  _, _ = retrievalFile.Read(buffer)
+	fmt.Printf("Retrieved data: %s", string(buffer))
 
-  fmt.Printf("Retrieved data: %s", string(buffer))
-
-  if string(buffer) != "butts" {
-    t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
-  }
-  // Verify that the contents of the retrieve match what was stored
-  // delete the folders and file
+	if string(buffer) != "butts" {
+		t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
+	}
 }
 
 func TestDelete(t *testing.T) {
-  // Run Store()
-  // Verify files exist
-  // Run Delete()
-  // Verify that the files are no longer existing
+	file, err := os.Open(tmpfile)
+	if err != nil {
+		t.Errorf("Error opening tmp file: %s", err.Error())
+		return
+	}
+
+	reader := bufio.NewReader(file)
+	defer file.Close()
+
+	hash := "0123456789ABCDEFGHIJ"
+	Store(hash, reader, os.TempDir())
+
+	folder1 := string(hash[0:2])
+	folder2 := string(hash[2:4])
+	fileName := string(hash[4:])
+
+	_, existErr := os.Stat(path.Join(os.TempDir(), folder1, folder2, fileName))
+	if existErr != nil {
+		t.Errorf("Failed to Store test file")
+		return
+	}
+
+	Delete(hash, os.TempDir())
+	_, deletedExistErr := os.Stat(path.Join(os.TempDir(), folder1, folder2, fileName))
+	if deletedExistErr == nil {
+		t.Errorf("Failed to Delete test file")
+		return
+	}
 }
 
-func TestGetStoreInfo(t *testing.T) {
-    GetStoreInfo("/tmp/")
+func TestMain(m *testing.M) {
+	content := []byte("butts")
+	tmpfilePtr, err := ioutil.TempFile("", "api_test")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// defer os.Remove(tmpfile.Name()) // clean up
+	tmpfile = tmpfilePtr.Name()
+
+	if _, err := tmpfilePtr.Write(content); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := tmpfilePtr.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	m.Run()
+
+	os.Exit(0)
 }
