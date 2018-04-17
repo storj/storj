@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package reputation
 
 import (
@@ -45,28 +48,24 @@ func createTable(createStmt string, db *sql.DB) {
 // creates a reputation row struct with a name field base on the name parameter
 func createNamedRow(seed int, name string) RepRow {
 	return RepRow{
-		name,
-		"",
-		seed,
-		seed,
-		seed,
-		seed,
-		seed,
-		seed,
-		0,
+		name:               name,
+		timestamp:          "",
+		uptime:             seed,
+		auditSuccess:       seed,
+		auditFail:          seed,
+		latency:            seed,
+		amountOfDataStored: seed,
+		falseClaims:        seed,
+		shardsModified:     0,
 	}
 }
 
 // create a slice of reputation row with random data with the number of rows based on the max row parameter
-func createRandRows(maxRows int) []RepRow {
-	var res []RepRow
+func createRandRows(numRows int) []RepRow {
+	res := make([]RepRow, 0, numRows)
 
-	for i := 0; i < maxRows+1; i++ {
-		uid := uuid.New()
-
-		row := createNamedRow(i, uid.String())
-
-		res = append(res, row)
+	for i := 0; i <= numRows; i++ {
+		res = append(res, createNamedRow(i, uuid.New().String()))
 	}
 
 	return res
@@ -77,9 +76,7 @@ func createNamedRandRows(names []string) []RepRow {
 	var res []RepRow
 
 	for idx, name := range names {
-		row := createNamedRow(idx, name)
-
-		res = append(res, row)
+		res = append(res, createNamedRow(idx, name))
 	}
 
 	return res
@@ -96,6 +93,7 @@ func insertRows(db *sql.DB, rows []RepRow, insertString string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer insertStmt.Close()
 
 	for _, row := range rows {
 		_, err = insertStmt.Exec(
@@ -114,7 +112,6 @@ func insertRows(db *sql.DB, rows []RepRow, insertString string) {
 	}
 	tx.Commit()
 
-	defer insertStmt.Close()
 }
 
 // side effect function that prints the rows from the query string
@@ -123,42 +120,13 @@ func selectFromDB(db *sql.DB, selectString string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer rows.Close()
 
-	for rows.Next() {
-		var name string
-		var timestamp string
-		var uptime int
-		var auditSuccess int
-		var auditFail int
-		var latency int
-		var amountOfDataStored int
-		var falseClaims int
-		var shardsModified int
+	transformedRows := iterOnDBRows(rows)
 
-		err = rows.Scan(
-			&name,
-			&timestamp,
-			&uptime,
-			&auditSuccess,
-			&auditFail,
-			&latency,
-			&amountOfDataStored,
-			&falseClaims,
-			&shardsModified)
-		if err != nil {
-			log.Fatal(err)
-		}
-
+	for _, row := range transformedRows {
 		// side effect
-		fmt.Println(name,
-			timestamp,
-			uptime,
-			auditSuccess,
-			auditFail,
-			latency,
-			amountOfDataStored,
-			falseClaims,
-			shardsModified)
+		fmt.Println(row)
 	}
 
 	err = rows.Err()
@@ -166,72 +134,56 @@ func selectFromDB(db *sql.DB, selectString string) {
 		log.Fatal(err)
 	}
 
-	defer rows.Close()
 }
 
-// function that returns a slice of reputation rows based on the query string
-func getRepRows(db *sql.DB, selectString string) []RepRow {
+func iterOnDBRows(rows *sql.Rows) []RepRow {
 	var res []RepRow
 
-	rows, err := db.Query(selectString)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	for rows.Next() {
-		var name string
-		var timestamp string
-		var uptime int
-		var auditSuccess int
-		var auditFail int
-		var latency int
-		var amountOfDataStored int
-		var falseClaims int
-		var shardsModified int
+		var row RepRow
 
-		err = rows.Scan(
-			&name,
-			&timestamp,
-			&uptime,
-			&auditSuccess,
-			&auditFail,
-			&latency,
-			&amountOfDataStored,
-			&falseClaims,
-			&shardsModified,
+		err := rows.Scan(
+			&row.name,
+			&row.timestamp,
+			&row.uptime,
+			&row.auditSuccess,
+			&row.auditFail,
+			&row.latency,
+			&row.amountOfDataStored,
+			&row.falseClaims,
+			&row.shardsModified,
 		)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		currentRow := RepRow{
-			name,
-			timestamp,
-			uptime,
-			auditSuccess,
-			auditFail,
-			latency,
-			amountOfDataStored,
-			falseClaims,
-			shardsModified,
-		}
-
-		res = append(res, currentRow)
+		res = append(res, row)
 	}
+
+	return res
+}
+
+// function that returns a slice of reputation rows based on the query string
+func getRepRows(db *sql.DB, selectString string) []RepRow {
+	rows, err := db.Query(selectString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	res := iterOnDBRows(rows)
 
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer rows.Close()
 
 	return res
 }
 
 // close sqlite3
 func cleanUpDB(db *sql.DB) {
-	defer db.Close()
+	db.Close()
 }
 
 // finds the ration of audit success from the success and failure fields of a given reputaion row struct
@@ -287,52 +239,18 @@ func naiveReputation(db *sql.DB, queryString string) RepRow {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer rows.Close()
 
-	for rows.Next() {
-		var name string
-		var timestamp string
-		var uptime int
-		var auditSuccess int
-		var auditFail int
-		var latency int
-		var amountOfDataStored int
-		var falseClaims int
-		var shardsModified int
+	transformedRows := iterOnDBRows(rows)
 
-		err = rows.Scan(
-			&name,
-			&timestamp,
-			&uptime,
-			&auditSuccess,
-			&auditFail,
-			&latency,
-			&amountOfDataStored,
-			&falseClaims,
-			&shardsModified)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		currentRow := RepRow{
-			name,
-			timestamp,
-			uptime,
-			auditSuccess,
-			auditFail,
-			latency,
-			amountOfDataStored,
-			falseClaims,
-			shardsModified}
-
-		bestRep = bestRep.greaterRep(currentRow)
+	for _, row := range transformedRows {
+		bestRep = bestRep.greaterRep(row)
 	}
 
 	err = rows.Err()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer rows.Close()
 
 	return bestRep
 }
@@ -408,6 +326,5 @@ func repRowMorphism(rows []RepRow, col column, op mutOp, scalar int) []RepRow {
 
 // NewReputationRow this is the apply function for the reputation row struct
 func NewReputationRow(name string) RepRow {
-	res := RepRow{name, "", 0, 0, 0, 0, 0, 0, 0}
-	return res
+	return RepRow{name, "", 0, 0, 0, 0, 0, 0, 0}
 }
