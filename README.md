@@ -29,25 +29,31 @@ and documentation, who to contact about what, etc.
 go get -u golang.org/x/vgo
 ```
 
-### Set up protobufs
+### Install non-go development dependencies
 
-In order to develop on storj, you will need to have protobufs and gRPC installed on your system.
+In order to develop on storj, you will need to have the protobuf compiler installed on your system.
 
 1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases)
 
-2. place the `protoc` binary in your path. i.e
+1. place the `protoc` binary in your path. i.e
     ```bash 
-    mv $HOME/Downloads/protoc-3.5.1-osx-x86_64/bin/protoc /usr/local/bin
+    mv $HOME/Downloads/protoc-<version>-<arch>/bin/protoc /usr/local/bin
     ```
 
-3. Get the protoc go plugin     
-    ```Go
-    go get -u github.com/golang/protobuf/protoc-gen-go
+### Install go dependencies
+
+Use vgo to install both dev and non-dev dependencies
+
+1. Install development dependencies
+    ```bash
+    # shouldn't change your pwd
+    (cd ./dev && vgo install)
     ```
 
-4. Get gRPC
-    ```Go
-    vgo get -u google.golang.org/grpc
+1. Install project dependencies
+    ```bash
+    # in project root
+    vgo install
     ```
 
 
