@@ -8,18 +8,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/zeebo/errs"
 
-	"github.com/storj/storage/boltdb"
-)
-
-var (
-	// Error is the default route errs class
-	Error      = errs.Class("routes err")
-	errReadReq = Error.New("error reading request body")
+	"storj.io/storj/storage/boltdb"
 )
 
 type NetStateRoutes struct {
@@ -54,6 +46,7 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 	if err := n.DB.Put(file); err != nil {
 		http.Error(w, "err saving file", http.StatusInternalServerError)
 		log.Println(err)
+		return
 	}
 
 	fmt.Fprintf(w, "PUT to %s\n", givenPath)
@@ -64,7 +57,9 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 
 	fileInfo, err := n.DB.Get([]byte(fileKey))
 	if err != nil {
+		http.Error(w, "err getting file", http.StatusInternalServerError)
 		log.Println(err)
+		return
 	}
 
 	bytes, err := json.Marshal(fileInfo)
@@ -85,8 +80,13 @@ func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprou
 		log.Println(err)
 		return
 	}
-	keyString := strings.Join(fileKeys, "")
-	_, err = w.Write([]byte(keyString))
+	bytes, err := json.Marshal(fileKeys)
+	if err != nil {
+		http.Error(w, "internal error: unable to marshal path list", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+	_, err = w.Write(bytes)
 	if err != nil {
 		log.Printf("failed writing response: %v", err)
 	}
@@ -97,6 +97,7 @@ func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httpr
 	if err := n.DB.Delete([]byte(fileKey)); err != nil {
 		http.Error(w, "internal error: unable to delete file", http.StatusInternalServerError)
 		log.Printf("err deleting file %v", err)
+		return
 	}
 
 	fmt.Fprintf(w, "Deleted file key: %s", fileKey)

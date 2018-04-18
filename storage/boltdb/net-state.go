@@ -21,17 +21,14 @@ const (
 )
 
 var (
-	errCreatingFileBucket = Error.New("error creating file bucket")
-	errFileNotFound       = Error.New("error file not found")
-	errIterKeys           = Error.New("error unable to iterate through bucket keys")
-	errDeletingFile       = Error.New("error unable to delete file key")
+	errFileNotFound = Error.New("error file not found")
 )
 
 func (client *Client) Put(file File) error {
 	return client.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(fileBucketName))
 		if err != nil {
-			return errCreatingFileBucket
+			return err
 		}
 
 		fileKey := []byte(file.Path)
@@ -71,7 +68,7 @@ func (client *Client) List() ([]string, error) {
 			return nil
 		})
 		if err != nil {
-			return errIterKeys
+			return err
 		}
 		return nil
 	})
@@ -83,7 +80,7 @@ func (client *Client) Delete(fileKey []byte) error {
 	if err := client.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket([]byte(fileBucketName)).Delete(fileKey)
 	}); err != nil {
-		return errDeletingFile
+		return err
 	}
 	return nil
 }

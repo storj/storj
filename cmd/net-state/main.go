@@ -6,44 +6,40 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/storj/netstate/routes"
-	"github.com/storj/storage/boltdb"
-)
-
-var (
-	// Error is the default main errs class
-	Error = errs.Class("main err")
-
-	errLoggerFail = Error.New("zap logger failed to start")
+	"storj.io/storj/netstate/routes"
+	"storj.io/storj/storage/boltdb"
 )
 
 func main() {
+	err := Main()
+	if err != nil {
+		log.Fatalf("fatal error: %v", err)
+		os.Exit(1)
+	}
+}
+
+func Main() error {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		log.Println(errLoggerFail)
-		return
+		return err
 	}
 	defer logger.Sync()
 	logger.Info("serving on localhost:3000")
 
 	bdb, err := boltdb.New("netstate.db")
 	if err != nil {
-		logger.Fatal("db error:",
-			zap.Error(boltdb.ErrInitDb),
-			zap.Error(err),
-		)
-		return
+		return err
 	}
 	defer bdb.Close()
 
-	file := routes.NewNetStateRoutes(bdb)
+	routes := routes.NewNetStateRoutes(bdb)
 
-	http.ListenAndServe(":3000", start(file))
+	return http.ListenAndServe(":3000", start(routes))
 }
 
 func start(f *routes.NetStateRoutes) *httprouter.Router {
