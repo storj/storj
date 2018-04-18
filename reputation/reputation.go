@@ -4,6 +4,7 @@
 package reputation
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"log"
@@ -136,6 +137,7 @@ func selectFromDB(db *sql.DB, selectString string) {
 
 }
 
+// iterOnDBRows iterate on rows in the database to transform into slice of RepRow
 func iterOnDBRows(rows *sql.Rows) []RepRow {
 	var res []RepRow
 
@@ -186,12 +188,16 @@ func cleanUpDB(db *sql.DB) {
 	db.Close()
 }
 
-// finds the ration of audit success from the success and failure fields of a given reputaion row struct
+// finds the ratio of audit success from the success and failure fields of a given reputaion row struct
 func (row RepRow) auditSuccessRatio() float64 {
 	return float64(row.auditSuccess) / float64(row.auditSuccess+row.auditFail)
 }
 
-// naive formula for obtaining repuataion
+/*
+  naiveRep is naive formula for obtaining a repuataion score (scalar)
+  this method favors uptime, hence being multiplied by 100
+  and nullifys a score if there is a case of data modification
+*/
 func (row RepRow) naiveRep() float64 {
 	var mutator int
 
@@ -208,7 +214,12 @@ func (row RepRow) naiveRep() float64 {
 		float64(row.falseClaims)) * float64(mutator)
 }
 
-// compares reputation rows and returns the greater reputation of the two
+/*
+  compares reputation rows and returns the greater reputation of the two
+  this method condsiders a reputation greater:
+  if the time is more recent it is greater
+  else use naive reputation method
+*/
 func (row RepRow) greaterRep(other RepRow) RepRow {
 	myRep := row.naiveRep()
 	otherRep := other.naiveRep()
@@ -245,6 +256,141 @@ func naiveReputation(db *sql.DB, queryString string) RepRow {
 
 	for _, row := range transformedRows {
 		bestRep = bestRep.greaterRep(row)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return bestRep
+}
+
+/*
+  endian method hot encodes the two RepRow structs
+  greater values gets a one, ties and other values are zeros
+  then compares and returns the largest
+  order is as follows:
+  timestamp, most recent values are greater
+  shardsModified, if any value other than zero is found a zero is needed
+  falseClaims, more false claims equal a zero
+  auditSuccessRatio, higher ratio equals a one
+  uptime, higher uptime equals a one
+  latency, lower latency equals a one
+  amountOfDataStored, more data equals a one
+*/
+func (row RepRow) endian(other RepRow) RepRow {
+	var rowEndian bytes.Buffer
+	var otherEndian bytes.Buffer
+
+	switch {
+	case row.timestamp > other.timestamp:
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.timestamp < other.timestamp:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	if row.shardsModified > 0 {
+		rowEndian.WriteString("0")
+	} else {
+		rowEndian.WriteString("1")
+	}
+	if other.shardsModified > 0 {
+		otherEndian.WriteString("0")
+	} else {
+		otherEndian.WriteString("1")
+	}
+
+	switch {
+	case row.falseClaims < other.falseClaims:
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.falseClaims > other.falseClaims:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	switch {
+	case row.auditSuccessRatio() > other.auditSuccessRatio():
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.auditSuccessRatio() < other.auditSuccessRatio():
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	switch {
+	case row.uptime > other.uptime:
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.uptime < other.uptime:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	switch {
+	case row.latency < other.latency:
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.latency > other.latency:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	switch {
+	case row.amountOfDataStored > other.amountOfDataStored:
+		rowEndian.WriteString("1")
+		otherEndian.WriteString("0")
+	case row.amountOfDataStored < other.amountOfDataStored:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("1")
+	default:
+		rowEndian.WriteString("0")
+		otherEndian.WriteString("0")
+	}
+
+	var res RepRow
+
+	if rowEndian.String() > otherEndian.String() {
+		res = row
+	} else {
+		res = other
+	}
+
+	return res
+}
+
+// endianReputation based on the most significant fields of RepRow
+func endianReputation(db *sql.DB, queryString string) RepRow {
+	bestRep := RepRow{"identity", "", 0, 0, 0, 0, 0, 0, 0}
+
+	rows, err := db.Query(queryString)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	transformedRows := iterOnDBRows(rows)
+
+	for _, row := range transformedRows {
+		bestRep = bestRep.endian(row)
 	}
 
 	err = rows.Err()

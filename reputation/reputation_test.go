@@ -412,3 +412,100 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 
 	os.Remove("./TestMorphismAndInsertOfRow.db")
 }
+
+func TestEndianMorphismAndInsertOfRow(t *testing.T) {
+	db := startDB("./TestEndianMorphismAndInsertOfRow.db")
+
+	createStmt := ` CREATE table reputation (
+		name text not null,
+		timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
+		uptime interger,
+		audit_success interger,
+		audit_fail interger,
+		latency interger,
+		amount_of_data_stored interger,
+		false_claims interger,
+		shards_modified interger,
+	PRIMARY KEY(name, timestamp)
+	);`
+
+	insertStmt := `INSERT into reputation (
+		name,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	) values (?, ?, ?, ?, ?, ?, ?, ?);`
+
+	selectAllStmt := `SELECT
+		name,
+		timestamp,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	FROM reputation`
+
+	selectAliceStmt := `SELECT
+		name,
+		timestamp,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	FROM reputation
+	WHERE name = 'Alice'`
+
+	createTable(createStmt, db)
+
+	rows := []RepRow{
+		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	}
+
+	insertRows(db, rows, insertStmt)
+
+	bestRep := endianReputation(db, selectAllStmt)
+
+	if bestRep.name != "Dave" {
+		t.Error(
+			"expected Dave got", bestRep.name,
+		)
+	}
+
+	aliceNewRep := getRepRows(db, selectAliceStmt)
+	aliceNewRow := repRowMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
+
+	insertRows(db, aliceNewRow, insertStmt)
+
+	newAndOldRows := getRepRows(db, selectAllStmt)
+	if len(newAndOldRows) != 6 {
+		t.Error(
+			"expected 6 rows in the db got", newAndOldRows,
+		)
+	}
+
+	morphRep := endianReputation(db, selectAllStmt)
+
+	if morphRep.name != "Alice" {
+		t.Error(
+			"expected Alice got", morphRep.name,
+		)
+	}
+
+	cleanUpDB(db)
+
+	os.Remove("./TestEndianMorphismAndInsertOfRow.db")
+}
