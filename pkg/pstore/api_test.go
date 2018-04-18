@@ -361,6 +361,4 @@ func TestMain(m *testing.M) {
 	}
 
 	m.Run()
-
-	os.Exit(0)
 }
