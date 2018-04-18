@@ -23,6 +23,39 @@ The [community site](https://storj.io/community.html) hosts all information abou
 building storj from source, how to contribute code
 and documentation, who to contact about what, etc.
 
+### Install VGO
+
+```Go
+go get -u golang.org/x/vgo
+```
+
+### Install non-go development dependencies
+
+In order to develop on storj, you will need to have the protobuf compiler installed on your system.
+
+1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases)
+
+1. place the `protoc` binary in your path. i.e
+    ```bash 
+    mv $HOME/Downloads/protoc-<version>-<arch>/bin/protoc /usr/local/bin
+    ```
+
+### Install go dependencies
+
+Use vgo to install both dev and non-dev dependencies
+
+1. Install development dependencies
+    ```
+    make build-dev-deps
+    ```
+
+1. Install project dependencies
+    ```bash
+    # in project root
+    vgo install
+    ```
+
+
 If you want to build storj right away there are two options:
 
 ##### You have a working [Go environment](https://golang.org/doc/install).
