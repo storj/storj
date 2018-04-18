@@ -423,7 +423,7 @@ const (
 	overWrite mutOp = "overWrite"
 )
 
-// performs an operation that is passed to it on a value with the scalar
+// performOp performs an operation that is passed to it on a value with the scalar
 func performOp(op mutOp, value int, scalar int) int {
 	switch op {
 	case "increment":
@@ -440,26 +440,26 @@ func performOp(op mutOp, value int, scalar int) int {
 // morphism is the name of this function becuse it does not directly change the RepRow (more map/functor like)
 func (row RepRow) morphism(col column, op mutOp, scalar int) RepRow {
 	switch col {
-	case "uptime":
+	case uptimeColumn:
 		row.uptime = performOp(op, row.uptime, scalar)
-	case "auditSuccess":
+	case auditSuccessColumn:
 		row.auditSuccess = performOp(op, row.auditSuccess, scalar)
-	case "auditFail":
+	case auditFailColumn:
 		row.auditFail = performOp(op, row.auditFail, scalar)
-	case "latency":
+	case latencyColumn:
 		row.latency = performOp(op, row.latency, scalar)
-	case "amountOfDataStored":
+	case amountOfDataStoredColumn:
 		row.amountOfDataStored = performOp(op, row.amountOfDataStored, scalar)
-	case "falseClaims":
+	case falseClaimsColumn:
 		row.falseClaims = performOp(op, row.falseClaims, scalar)
-	case "shardsModified":
+	case shardsModifiedColumn:
 		row.shardsModified = performOp(op, row.shardsModified, scalar)
 	}
 
 	return row
 }
 
-// this is more like map because the slice is the functor
+// repRowMorphism this is more like map because the slice is the functor
 func repRowMorphism(rows []RepRow, col column, op mutOp, scalar int) []RepRow {
 	var res []RepRow
 
