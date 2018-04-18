@@ -4,22 +4,16 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"storj.io/storj/pkg/pstore"
 	"github.com/urfave/cli"
+	"github.com/zeebo/errs"
 	"log"
 	"os"
 	"sort"
 )
 
-type argError struct {
-	msg string
-}
-
-func (e *argError) Error() string {
-	return fmt.Sprintf("ArgError: %s", e.msg)
-}
+var ArgError = errs.Class("argError")
 
 func main() {
 	app := cli.NewApp()
@@ -38,38 +32,31 @@ func main() {
 			ArgsUsage: "[hash] [dataPath] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return &argError{"Missing data Hash"}
+					return ArgError.New("Missing data Hash")
 				}
 
-				// NB: Use stdin if no file specified
-				// files that don't exist cause infinite loop
 				if c.Args().Get(1) == "" {
-					return &argError{"No input file specified"}
+					return ArgError.New("No input file specified")
 				}
 
 				if c.Args().Get(2) == "" {
-					return &argError{"No output directory specified"}
+					return ArgError.New("No output directory specified")
 				}
 
 				file, err := os.Open(c.Args().Get(1))
 				if err != nil {
 					return err
 				}
-				fileInfo, existErr := os.Stat(c.Args().Get(1))
-
-				if os.IsNotExist(existErr) {
-					return existErr
-				}
-
-				if fileInfo.IsDir() {
-					return &argError{fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1))}
-				}
 				// Close the file when we are done
 				defer file.Close()
 
-				reader := bufio.NewReader(file)
+				fileInfo, err := os.Stat(c.Args().Get(1))
 
-				err = piecestore.Store(c.Args().Get(0), reader, c.Args().Get(2))
+				if fileInfo.IsDir() {
+					return ArgError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1)))
+				}
+
+				err = pstore.Store(c.Args().Get(0), file, int64(fileInfo.Size()), 0, c.Args().Get(2))
 
 				return err
 			},
@@ -81,23 +68,22 @@ func main() {
 			ArgsUsage: "[hash] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return &argError{"Missing data Hash"}
+					return ArgError.New("Missing data Hash")
 				}
 				if c.Args().Get(1) == "" {
-					return &argError{"Missing file path"}
+					return ArgError.New("Missing file path")
 				}
-				fileInfo, existErr := os.Stat(c.Args().Get(1))
+				fileInfo, err := os.Stat(c.Args().Get(1))
 
-				if os.IsNotExist(existErr) {
-					return existErr
+				if os.IsNotExist(err) {
+					return err
 				}
 
-				if fileInfo.IsDir() {
-					return &argError{fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1))}
+				if fileInfo.IsDir() != true {
+					return ArgError.New(fmt.Sprintf("Path (%s) is a file, not a directory", c.Args().Get(1)))
 				}
-				w := bufio.NewWriter(os.Stdout)
 
-				err := piecestore.Retrieve(c.Args().Get(0), w, c.Args().Get(1))
+				err = pstore.Retrieve(c.Args().Get(0), os.Stdout, 5, 0, c.Args().Get(1))
 
 				return err
 			},
@@ -109,12 +95,12 @@ func main() {
 			ArgsUsage: "[hash] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return &argError{"Missing data Hash"}
+					return ArgError.New("Missing data Hash")
 				}
 				if c.Args().Get(1) == "" {
-					return &argError{"No directory specified"}
+					return ArgError.New("No directory specified")
 				}
-				err := piecestore.Delete(c.Args().Get(0), c.Args().Get(1))
+				err := pstore.Delete(c.Args().Get(0), c.Args().Get(1))
 
 				return err
 			},
