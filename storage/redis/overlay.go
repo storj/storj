@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package redis
 
 import (
@@ -22,16 +25,9 @@ func NewOverlayClient(address, password string, db int) (*OverlayClient, error) 
 		return nil, err
 	}
 
-	o := &OverlayClient{
+	return &OverlayClient{
 		DB: rc,
-	}
-
-	// ping here to verify we are able to connect to the redis instacne with the initialized client.
-	if err := o.DB.Ping(); err != nil {
-		return nil, err
-	}
-
-	return o, nil
+	}, nil
 }
 
 // Get looks up the provided nodeID from the redis cache
