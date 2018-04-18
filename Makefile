@@ -15,3 +15,8 @@ lint:
 proto:
 	@echo "Running ${@}"
 	./scripts/build-protos.sh
+
+build-dev-deps:
+	go get -u github.com/golang/protobuf/protoc-gen-go
+	go get -u gopkg.in/alecthomas/gometalinter.v2
+	gometalinter.v2 --install
