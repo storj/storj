@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
 
@@ -20,7 +21,7 @@ type Transformer interface {
 }
 
 type transformedReader struct {
-	r        io.Reader
+	r        io.ReadCloser
 	t        Transformer
 	blockNum int64
 	inbuf    []byte
@@ -29,8 +30,8 @@ type transformedReader struct {
 
 // TransformReader applies a Transformer to a Reader. startingBlockNum should
 // probably be 0 unless you know you're already starting at a block offset.
-func TransformReader(r io.Reader, t Transformer,
-	startingBlockNum int64) io.Reader {
+func TransformReader(r io.ReadCloser, t Transformer,
+	startingBlockNum int64) io.ReadCloser {
 	return &transformedReader{
 		r:        r,
 		t:        t,
@@ -62,6 +63,10 @@ func (t *transformedReader) Read(p []byte) (n int, err error) {
 	// resize the buffer
 	t.outbuf = t.outbuf[:len(t.outbuf)-n]
 	return n, nil
+}
+
+func (t *transformedReader) Close() error {
+	return t.r.Close()
 }
 
 type transformedRanger struct {
@@ -99,7 +104,7 @@ func calcEncompassingBlocks(offset, length int64, blockSize int) (
 	return firstBlock, 1 + lastBlock - firstBlock
 }
 
-func (t *transformedRanger) Range(offset, length int64) io.Reader {
+func (t *transformedRanger) Range(offset, length int64) io.ReadCloser {
 	// Range may not have been called for block-aligned offsets and lengths, so
 	// let's figure out which blocks encompass the request
 	firstBlock, blockCount := calcEncompassingBlocks(
@@ -117,10 +122,10 @@ func (t *transformedRanger) Range(offset, length int64) io.Reader {
 		offset-firstBlock*int64(t.t.OutBlockSize()))
 	if err != nil {
 		if err == io.EOF {
-			return bytes.NewReader(nil)
+			return ioutil.NopCloser(bytes.NewReader(nil))
 		}
-		return ranger.FatalReader(Error.Wrap(err))
+		return readcloser.FatalReadCloser(Error.Wrap(err))
 	}
 	// the range might have been too long. only return what was requested
-	return io.LimitReader(r, length)
+	return readcloser.LimitReadCloser(r, length)
 }

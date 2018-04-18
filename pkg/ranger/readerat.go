@@ -5,6 +5,8 @@ package ranger
 
 import (
 	"io"
+
+	"storj.io/storj/internal/pkg/readcloser"
 )
 
 type readerAtRanger struct {
@@ -29,12 +31,15 @@ type readerAtReader struct {
 	offset, length int64
 }
 
-func (r *readerAtRanger) Range(offset, length int64) io.Reader {
+func (r *readerAtRanger) Range(offset, length int64) io.ReadCloser {
 	if offset < 0 {
-		return FatalReader(Error.New("negative offset"))
+		return readcloser.FatalReadCloser(Error.New("negative offset"))
+	}
+	if length < 0 {
+		return readcloser.FatalReadCloser(Error.New("negative length"))
 	}
 	if offset+length > r.size {
-		return FatalReader(Error.New("buffer runoff"))
+		return readcloser.FatalReadCloser(Error.New("buffer runoff"))
 	}
 	return &readerAtReader{r: r.r, offset: offset, length: length}
 }
@@ -50,4 +55,8 @@ func (r *readerAtReader) Read(p []byte) (n int, err error) {
 	r.offset += int64(n)
 	r.length -= int64(n)
 	return n, err
+}
+
+func (r *readerAtReader) Close() error {
+	return nil
 }

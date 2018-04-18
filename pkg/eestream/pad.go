@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 
+	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
 
@@ -55,19 +57,20 @@ func UnpadSlow(data ranger.Ranger) (ranger.Ranger, error) {
 }
 
 // PadReader is like Pad but works on a basic Reader instead of a Ranger.
-func PadReader(data io.Reader, blockSize int) io.Reader {
+func PadReader(data io.ReadCloser, blockSize int) io.ReadCloser {
 	cr := newCountingReader(data)
-	return io.MultiReader(cr, ranger.LazyReader(func() io.Reader {
-		return bytes.NewReader(makePadding(cr.N, blockSize))
-	}))
+	return readcloser.MultiReadCloser(cr,
+		readcloser.LazyReadCloser(func() io.ReadCloser {
+			return ioutil.NopCloser(bytes.NewReader(makePadding(cr.N, blockSize)))
+		}))
 }
 
 type countingReader struct {
-	R io.Reader
+	R io.ReadCloser
 	N int64
 }
 
-func newCountingReader(r io.Reader) *countingReader {
+func newCountingReader(r io.ReadCloser) *countingReader {
 	return &countingReader{R: r}
 }
 
@@ -75,4 +78,8 @@ func (cr *countingReader) Read(p []byte) (n int, err error) {
 	n, err = cr.R.Read(p)
 	cr.N += int64(n)
 	return n, err
+}
+
+func (cr *countingReader) Close() error {
+	return cr.R.Close()
 }
