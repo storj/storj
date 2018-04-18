@@ -27,7 +27,7 @@ type RepRow struct {
 	shardsModified     int
 }
 
-// starts a sqlite3 database from the file path parameter
+// startDB starts a sqlite3 database from the file path parameter
 func startDB(filePath string) *sql.DB {
 	db, err := sql.Open("sqlite3", filePath)
 	if err != nil {
@@ -37,7 +37,7 @@ func startDB(filePath string) *sql.DB {
 	return db
 }
 
-// creates a table in sqlite3 based on the create table string parameter
+// createTable creates a table in sqlite3 based on the create table string parameter
 func createTable(createStmt string, db *sql.DB) {
 	_, err := db.Exec(createStmt)
 	if err != nil {
@@ -46,7 +46,7 @@ func createTable(createStmt string, db *sql.DB) {
 	}
 }
 
-// creates a reputation row struct with a name field base on the name parameter
+// createNamedRow creates a reputation row struct with a name field base on the name parameter
 func createNamedRow(seed int, name string) RepRow {
 	return RepRow{
 		name:               name,
@@ -61,7 +61,7 @@ func createNamedRow(seed int, name string) RepRow {
 	}
 }
 
-// create a slice of reputation row with random data with the number of rows based on the max row parameter
+// createRandRows create a slice of reputation row with random data with the number of rows based on the max row parameter
 func createRandRows(numRows int) []RepRow {
 	res := make([]RepRow, 0, numRows)
 
@@ -72,7 +72,7 @@ func createRandRows(numRows int) []RepRow {
 	return res
 }
 
-// creates a slice of reputation row structs filled with random data with the name column from the names slice
+// createNameRandRows creates a slice of reputation row structs filled with random data with the name column from the names slice
 func createNamedRandRows(names []string) []RepRow {
 	var res []RepRow
 
@@ -83,7 +83,7 @@ func createNamedRandRows(names []string) []RepRow {
 	return res
 }
 
-// inserts the slice of reputation row structs based on the insert string
+// insertRows inserts the slice of reputation row structs based on the insert string
 func insertRows(db *sql.DB, rows []RepRow, insertString string) {
 	tx, err := db.Begin()
 	if err != nil {
@@ -115,7 +115,7 @@ func insertRows(db *sql.DB, rows []RepRow, insertString string) {
 
 }
 
-// side effect function that prints the rows from the query string
+// selectFromDB side effect function that prints the rows from the query string
 func selectFromDB(db *sql.DB, selectString string) {
 	rows, err := db.Query(selectString)
 	if err != nil {
@@ -165,7 +165,7 @@ func iterOnDBRows(rows *sql.Rows) []RepRow {
 	return res
 }
 
-// function that returns a slice of reputation rows based on the query string
+// getRepRows function that returns a slice of reputation rows based on the query string
 func getRepRows(db *sql.DB, selectString string) []RepRow {
 	rows, err := db.Query(selectString)
 	if err != nil {
@@ -183,12 +183,12 @@ func getRepRows(db *sql.DB, selectString string) []RepRow {
 	return res
 }
 
-// close sqlite3
+// cleanUpDB close sqlite3
 func cleanUpDB(db *sql.DB) {
 	db.Close()
 }
 
-// finds the ratio of audit success from the success and failure fields of a given reputaion row struct
+// auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct
 func (row RepRow) auditSuccessRatio() float64 {
 	return float64(row.auditSuccess) / float64(row.auditSuccess+row.auditFail)
 }
@@ -215,7 +215,7 @@ func (row RepRow) naiveRep() float64 {
 }
 
 /*
-  compares reputation rows and returns the greater reputation of the two
+  greaterRep compares reputation rows and returns the greater reputation of the two
   this method condsiders a reputation greater:
   if the time is more recent it is greater
   else use naive reputation method
@@ -242,7 +242,7 @@ func (row RepRow) greaterRep(other RepRow) RepRow {
 	return res
 }
 
-// finds the naive reputation of the resulting rows from the query string
+// naiveReputation finds the naive reputation of the resulting rows from the query string
 func naiveReputation(db *sql.DB, queryString string) RepRow {
 	bestRep := RepRow{"identity", "", 0, 0, 0, 0, 0, 0, 0}
 
