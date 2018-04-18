@@ -5,6 +5,6 @@ for i in $FILES
 do
   if ! grep -q 'Copyright' "$i"
   then
-    echo " missing copyrioght header for $i"
+    echo " missing copyright header for $i"
   fi
 done
