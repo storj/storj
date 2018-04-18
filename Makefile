@@ -1,5 +1,5 @@
-lint:
-	@echo "gometalinter"
+lint: check-copyrights
+	@echo "Running ${@}"
 	@gometalinter.v2 \
 	--deadline=60s \
 	--disable-all \
@@ -11,7 +11,12 @@ lint:
 	--exclude=.*\.pb\.go \
 	./...
 
+check-copyrights:
+	@echo "Running ${@}"
+	@./scripts/check-for-header.sh
+
 
 proto:
 	@echo "Running ${@}"
 	./scripts/build-protos.sh
+	
