@@ -1,27 +1,21 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package overlay
 
 import (
-	"fmt"
-	"net"
-
-	"github.com/storj/storj/protos/overlay"
 	"google.golang.org/grpc"
+
+	"storj.io/storj/protos/overlay"
 )
 
-// NewServer creates a new Overlay Service Server and begins serving requests on the provided port
-func NewServer(port uint32) (*grpc.Server, error) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return nil, err
-	}
+// NewServer creates a new Overlay Service Server
+func NewServer() *grpc.Server {
+
 	grpcServer := grpc.NewServer()
 	overlay.RegisterOverlayServer(grpcServer, &Overlay{})
 
-	if err := grpcServer.Serve(lis); err != nil {
-		return nil, err
-	}
-
-	return grpcServer, nil
+	return grpcServer
 }
 
 // NewClient connects to grpc server at the provided address with the provided options
