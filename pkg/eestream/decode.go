@@ -60,18 +60,17 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 				errs <- readerError{i, err}
 			}(i)
 		}
-		// copy the inbufs map
-		inbufs := make(map[int][]byte)
 		// catch all the errors
+		inbufs := make(map[int][]byte)
 		for range dr.rs {
 			re := <-errs
-			err = re.err
-			if err == nil {
+			if re.err == nil {
+				// add inbuf for decoding only if no error
 				inbufs[re.i] = dr.inbufs[re.i]
-			} else if err == io.EOF {
+			} else if re.err == io.EOF {
 				// return on the first EOF
-				dr.err = err
-				return 0, err
+				dr.err = re.err
+				return 0, re.err
 			}
 		}
 		// we have all the input buffers, fill the decoded output buffer
