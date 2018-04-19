@@ -401,19 +401,6 @@ func endianReputation(db *sql.DB, queryString string) RepRow {
 	return bestRep
 }
 
-type column string
-
-// coproduct/sum type for the column type
-const (
-	uptimeColumn             column = "uptime"
-	auditSuccessColumn       column = "auditSuccess"
-	auditFailColumn          column = "auditFail"
-	latencyColumn            column = "latency"
-	amountOfDataStoredColumn column = "amountOfDataStored"
-	falseClaimsColumn        column = "falseClaims"
-	shardsModifiedColumn     column = "shardsModified"
-)
-
 type mutOp string
 
 // coproduct/sum type for the mutation operation type
@@ -426,16 +413,29 @@ const (
 // performOp performs an operation that is passed to it on a value with the scalar
 func performOp(op mutOp, value int, scalar int) int {
 	switch op {
-	case "increment":
+	case increment:
 		value = value + scalar
-	case "decrement":
+	case decrement:
 		value = value - scalar
-	case "overWrite":
+	case overWrite:
 		value = scalar
 	}
 
 	return value
 }
+
+type column string
+
+// coproduct/sum type for the column type
+const (
+	uptimeColumn             column = "uptime"
+	auditSuccessColumn       column = "auditSuccess"
+	auditFailColumn          column = "auditFail"
+	latencyColumn            column = "latency"
+	amountOfDataStoredColumn column = "amountOfDataStored"
+	falseClaimsColumn        column = "falseClaims"
+	shardsModifiedColumn     column = "shardsModified"
+)
 
 // morphism is the name of this function becuse it does not directly change the RepRow (more map/functor like)
 func (row RepRow) morphism(col column, op mutOp, scalar int) RepRow {
