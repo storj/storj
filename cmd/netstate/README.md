@@ -11,6 +11,8 @@ To run:
 go run cmd/net-state/main.go
 ```
 
+You can also run using these flags: `-port=<port-number> -prod=<bool> -db=<db-name>`
+
 Then you can use http methods (Put, Get, List, and Delete) to interact with small values stored on BoltDB.
 To store a value to a PUT request body, use the format:
 ```
@@ -20,6 +22,4 @@ To store a value to a PUT request body, use the format:
 ```
 
 TODO:
-- add zap logger throughout
 - add functions for grpc + protobufs
-- add http tests

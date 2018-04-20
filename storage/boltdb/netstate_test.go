@@ -4,10 +4,13 @@
 package boltdb
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func tempfile() string {
@@ -18,7 +21,8 @@ func tempfile() string {
 }
 
 func TestNetState(t *testing.T) {
-	c, err := New(tempfile())
+	logger, _ := zap.NewDevelopment()
+	c, err := New(logger, tempfile())
 	if err != nil {
 		t.Error("Failed to create test db")
 	}
@@ -29,12 +33,12 @@ func TestNetState(t *testing.T) {
 
 	testFile := File{
 		Path:  `test/path`,
-		Value: `test value`,
+		Value: []byte(`test value`),
 	}
 
 	testFile2 := File{
 		Path:  `test/path2`,
-		Value: `value2`,
+		Value: []byte(`value2`),
 	}
 
 	// tests Put function
@@ -47,7 +51,7 @@ func TestNetState(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to get saved test value")
 	}
-	if retrvFile.Value != testFile.Value {
+	if !bytes.Equal(retrvFile.Value, testFile.Value) {
 		t.Error("Retrieved file was not same as original file")
 	}
 
