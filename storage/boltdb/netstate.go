@@ -4,27 +4,22 @@
 package boltdb
 
 import (
-	"encoding/json"
-	"log"
-
 	"github.com/boltdb/bolt"
 )
 
 // File Path and Value are saved to boltdb
 type File struct {
 	Path  string `json:"path"`
-	Value string `json:"value"`
+	Value []byte `json:"value"`
 }
 
 const (
 	fileBucketName = "files"
 )
 
-var (
-	errFileNotFound = Error.New("error file not found")
-)
-
+// Put saves the file path and value as a kv pair in the "files" bucket
 func (client *Client) Put(file File) error {
+	client.logger.Debug("entering Client.Put(File)")
 	return client.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(fileBucketName))
 		if err != nil {
@@ -32,33 +27,31 @@ func (client *Client) Put(file File) error {
 		}
 
 		fileKey := []byte(file.Path)
-
-		fileBytes, err := json.Marshal(file.Value)
-		if err != nil {
-			log.Println(err)
-		}
-
-		return b.Put(fileKey, fileBytes)
+		return b.Put(fileKey, file.Value)
 	})
 }
 
+// Get retrieves the value stored at the file path key
 func (client *Client) Get(fileKey []byte) (File, error) {
+	client.logger.Debug("entering Client.Get(fileKey)")
 	var fileInfo File
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
 		v := b.Get(fileKey)
 		if v == nil {
-			return errFileNotFound
+			return Error.New("file %#v not found", string(fileKey))
 		}
-		unmarshalErr := json.Unmarshal(v, &fileInfo.Value)
-		return unmarshalErr
+		fileInfo.Value = v
+		return nil
 	})
 
 	fileInfo.Path = string(fileKey)
 	return fileInfo, err
 }
 
+// List creates a string array of all keys in in the "files" bucket
 func (client *Client) List() ([]string, error) {
+	client.logger.Debug("entering Client.List()")
 	var paths []string
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
@@ -67,20 +60,16 @@ func (client *Client) List() ([]string, error) {
 			paths = append(paths, string(key))
 			return nil
 		})
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 
 	return paths, err
 }
 
+// Delete deletes a kv pair from the "files" bucket, given the key
 func (client *Client) Delete(fileKey []byte) error {
-	if err := client.db.Update(func(tx *bolt.Tx) error {
+	client.logger.Debug("entering Client.Delete(fileKey)")
+	return client.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket([]byte(fileBucketName)).Delete(fileKey)
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }

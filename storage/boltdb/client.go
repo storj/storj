@@ -7,31 +7,40 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"go.uber.org/zap"
 )
 
 var (
 	defaultTimeout = 1 * time.Second
 )
 
+const (
+	// fileMode sets permissions so owner can read and write
+	fileMode = 0600
+)
+
 // Client is the storage interface for the Bolt database
 type Client struct {
-	db   *bolt.DB
-	Path string
+	logger *zap.Logger
+	db     *bolt.DB
+	Path   string
 }
 
 // New instantiates a new BoltDB client
-func New(path string) (*Client, error) {
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: defaultTimeout})
+func New(logger *zap.Logger, path string) (*Client, error) {
+	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		db:   db,
-		Path: path,
+		logger: logger,
+		db:     db,
+		Path:   path,
 	}, nil
 }
 
+// Close closes a BoltDB client
 func (c *Client) Close() error {
 	return c.db.Close()
 }
