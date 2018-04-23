@@ -61,7 +61,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			}(i)
 		}
 		// catch all the errors
-		inbufs := make(map[int][]byte)
+		inbufs := make(map[int][]byte, len(dr.inbufs))
 		for range dr.rs {
 			re := <-errs
 			if re.err == nil {
