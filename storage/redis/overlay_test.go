@@ -6,9 +6,10 @@ package redis
 import (
 	"testing"
 
-	"github.com/coyle/storj/protos/overlay"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/protos/overlay"
 )
 
 func TestGet(t *testing.T) {
