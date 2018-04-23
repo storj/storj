@@ -33,14 +33,14 @@ func NewAesGcmEncrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		return nil, Error.New("NewCipher Encryption creation Error")
+		return nil, err 
 	}
 	aesgcmEncrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, Error.New("NewGCM Encryption creation Error")
+		return nil, err 
 	}
 	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
-		return nil, Error.New("block size too small")
+		return nil, err 
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
@@ -95,11 +95,11 @@ func NewAesGcmDecrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		return nil, Error.New("NewCipher Decryption creation Error")
+		return nil, err 
 	}
 	aesgcmDecrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, Error.New("NewGCM Decryption creation Error")
+		return nil, err 
 	}
 	if encryptedBlockSize <= aesgcmDecrypt.Overhead() {
 		return nil, Error.New("block size too small")
@@ -129,7 +129,7 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 
 	plaintext, err := s.aesgcm.Open(out, n[:], in, nil)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
 	//fmt.Printf("Decryption text %x\n", plaintext)
