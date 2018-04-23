@@ -13,7 +13,7 @@ type aesgcmEncrypter struct {
 	key           [32]byte
 	startingNonce [12]byte
 	overhead      int
-	//aesgcm        AEAD
+	aesgcm        cipher.AEAD
 }
 
 // NewAesGcmEncrypter returns a Transformer that encrypts the data passing
@@ -33,21 +33,21 @@ func NewAesGcmEncrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		panic(err.Error())
+		return nil, Error.New("NewCipher Encryption creation Error")
 	}
-	aesgcm, err := cipher.NewGCM(block)
+	aesgcmEncrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return nil, Error.New("NewGCM Encryption creation Error")
 	}
-	if encryptedBlockSize <= aesgcm.Overhead() {
+	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
 		return nil, Error.New("block size too small")
 	}
 	return &aesgcmEncrypter{
-		blockSize:     encryptedBlockSize - aesgcm.Overhead(),
+		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
 		key:           *key,
 		startingNonce: *startingNonce,
-		overhead:      aesgcm.Overhead(),
-		//aesgcm:        aesgcmEncryp,
+		overhead:      aesgcmEncrypt.Overhead(),
+		aesgcm:        aesgcmEncrypt,
 	}, nil
 }
 
@@ -70,20 +70,12 @@ func calcGcmNonce(startingNonce *[12]byte, blockNum int64) (rv [12]byte,
 
 func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	block, err := aes.NewCipher(s.key[:])
-	if err != nil {
-		panic(err.Error())
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
 	n, err := calcGcmNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	ciphertext := aesgcm.Seal(out, n[:], in, nil)
+	ciphertext := s.aesgcm.Seal(out, n[:], in, nil)
 	//fmt.Printf("Encryption text %x\n", ciphertext)
 	return ciphertext, nil
 }
@@ -93,7 +85,7 @@ type aesgcmDecrypter struct {
 	key           [32]byte
 	startingNonce [12]byte
 	overhead      int
-	//aesgcm        AEAD
+	aesgcm        cipher.AEAD
 }
 
 // NewAesGcmDecrypter returns a Transformer that decrypts the data passing
@@ -103,21 +95,21 @@ func NewAesGcmDecrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		panic(err.Error())
+		return nil, Error.New("NewCipher Decryption creation Error")
 	}
-	aesgcm, err := cipher.NewGCM(block)
+	aesgcmDecrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return nil, Error.New("NewGCM Decryption creation Error")
 	}
-	if encryptedBlockSize <= aesgcm.Overhead() {
+	if encryptedBlockSize <= aesgcmDecrypt.Overhead() {
 		return nil, Error.New("block size too small")
 	}
 	return &aesgcmDecrypter{
-		blockSize:     encryptedBlockSize - aesgcm.Overhead(),
+		blockSize:     encryptedBlockSize - aesgcmDecrypt.Overhead(),
 		key:           *key,
 		startingNonce: *startingNonce,
-		overhead:      aesgcm.Overhead(),
-		//aesgcm:        aesgcmDecryp,
+		overhead:      aesgcmDecrypt.Overhead(),
+		aesgcm:        aesgcmDecrypt,
 	}, nil
 }
 func (s *aesgcmDecrypter) InBlockSize() int {
@@ -130,20 +122,12 @@ func (s *aesgcmDecrypter) OutBlockSize() int {
 
 func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	block, err := aes.NewCipher(s.key[:])
-	if err != nil {
-		panic(err.Error())
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
 	n, err := calcGcmNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	plaintext, err := aesgcm.Open(out, n[:], in, nil)
+	plaintext, err := s.aesgcm.Open(out, n[:], in, nil)
 	if err != nil {
 		panic(err.Error())
 	}
