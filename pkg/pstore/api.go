@@ -6,11 +6,12 @@
 package pstore // import "storj.io/storj/pkg/pstore"
 
 import (
-	"github.com/zeebo/errs"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/zeebo/errs"
 )
 
 // Errors
@@ -45,10 +46,12 @@ func pathByHash(hash, dir string) (string, error) {
 	returns (error) if failed and nil if successful
 */
 func Store(hash string, r io.Reader, length int64, offset int64, dir string) error {
-	if len(hash) < 20 {
-		return ArgError.New("Hash is too short. Must be atleast 20 bytes")
+	if offset < 0 {
+		return ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
-
+	if length < 0 {
+		return ArgError.New("Length is less than 0. Must be greater than or equal to 0")
+	}
 	if dir == "" {
 		return ArgError.New("No path provided")
 	}
@@ -90,16 +93,12 @@ func Store(hash string, r io.Reader, length int64, offset int64, dir string) err
 
 	hash 		(string)		Hash of the stored data
 	w 			(io.Writer)	File/Stream that recieves the stored data
-	length 	(length)		Amount of data to read
+	length 	(length)		Amount of data to read. Read all data if -1
 	offset 	(offset)		Offset of the data that you are reading. Useful for multiple connections to split the data transfer
 	dir 		(string)		pstore directory containing all other data stored
 	returns (error) if failed and nil if successful
 */
 func Retrieve(hash string, w io.Writer, length int64, offset int64, dir string) error {
-	if len(hash) < 20 {
-		return ArgError.New("Hash is too short. Must be atleast 20 bytes")
-	}
-
 	if dir == "" {
 		return ArgError.New("No path provided")
 	}
@@ -110,14 +109,17 @@ func Retrieve(hash string, w io.Writer, length int64, offset int64, dir string) 
 	}
 
 	fileInfo, err := os.Stat(dataPath)
+	if err != nil {
+		return err
+	}
 
 	// If offset is greater than file size return
 	if offset >= fileInfo.Size() || offset < 0 {
 		return ArgError.New("Invalid offset: %v", offset)
 	}
 
-	// If length is 0 read the entire file
-	if length <= 0 {
+	// If length less than 0 read the entire file
+	if length <= -1 {
 		length = fileInfo.Size()
 	}
 
@@ -145,6 +147,35 @@ func Retrieve(hash string, w io.Writer, length int64, offset int64, dir string) 
 }
 
 /*
+	RetrieveByRanger
+
+	Retrieve data from pstore directory
+
+	hash 		(string)				Hash of the stored data
+	dir 		(string)				pstore directory containing all other data stored
+	returns (RangerCloser) 	File/Stream that recieves the stored data
+	returns (error) 				if failed and nil if successful
+*/
+func RetrieveByRanger(hash string, dir string) (ranger.RangerCloser, error) {
+  dataPath, err := pathByHash(hash, dir)
+  if err != nil {
+    return nil, err
+  }
+
+  fh, err := os.Open(dataPath)
+  if err != nil {
+    return nil, err
+  }
+
+  rv, err := ranger.FileRanger(fh)
+  if err != nil {
+    fh.Close()
+    return nil, err
+  }
+  return rv, nil
+}
+
+/*
 	Delete
 
 	Delete data from farmer
@@ -154,9 +185,6 @@ func Retrieve(hash string, w io.Writer, length int64, offset int64, dir string) 
 	returns (error) if failed and nil if successful
 */
 func Delete(hash string, dir string) error {
-	if len(hash) < 20 {
-		return ArgError.New("Hash is too short. Must be atleast 20 bytes")
-	}
 	if dir == "" {
 		return ArgError.New("No path provided")
 	}
@@ -164,6 +192,10 @@ func Delete(hash string, dir string) error {
 	dataPath, err := pathByHash(hash, dir)
 	if err != nil {
 		return err
+	}
+
+	if _, err = os.Stat(dataPath); os.IsNotExist(err) {
+		return ArgError.New("Hash folder does not exist")
 	}
 
 	if err = os.Remove(dataPath); err != nil {
