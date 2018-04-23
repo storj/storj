@@ -31,9 +31,7 @@ type aesgcmEncrypter struct {
 // from crypto/rand as often as possible.
 func NewAesGcmEncrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
-	ptrkey := *key
-	slicekey := ptrkey[:]
-	block, err := aes.NewCipher(slicekey)
+	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		panic(err.Error())
 	}
@@ -72,9 +70,7 @@ func calcGcmNonce(startingNonce *[12]byte, blockNum int64) (rv [12]byte,
 
 func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	key := s.key
-	slicekey := key[:]
-	block, err := aes.NewCipher(slicekey)
+	block, err := aes.NewCipher(s.key[:])
 	if err != nil {
 		panic(err.Error())
 	}
@@ -86,9 +82,8 @@ func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) (
 	if err != nil {
 		return nil, err
 	}
-	var nslice = n[:]
 
-	ciphertext := aesgcm.Seal(out, nslice, in, nil)
+	ciphertext := aesgcm.Seal(out, n[:], in, nil)
 	//fmt.Printf("Encryption text %x\n", ciphertext)
 	return ciphertext, nil
 }
@@ -106,9 +101,7 @@ type aesgcmDecrypter struct {
 // startingNonce.
 func NewAesGcmDecrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
-	ptrkey := *key
-	slicekey := ptrkey[:]
-	block, err := aes.NewCipher(slicekey)
+	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		panic(err.Error())
 	}
@@ -137,9 +130,7 @@ func (s *aesgcmDecrypter) OutBlockSize() int {
 
 func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	key := s.key
-	slicekey := key[:]
-	block, err := aes.NewCipher(slicekey)
+	block, err := aes.NewCipher(s.key[:])
 	if err != nil {
 		panic(err.Error())
 	}
@@ -151,9 +142,8 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	if err != nil {
 		return nil, err
 	}
-	var nslice = n[:]
 
-	plaintext, err := aesgcm.Open(out, nslice, in, nil)
+	plaintext, err := aesgcm.Open(out, n[:], in, nil)
 	if err != nil {
 		panic(err.Error())
 	}
