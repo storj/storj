@@ -25,7 +25,6 @@ func TestPad(t *testing.T) {
 		{"abcdef", 9, 12},
 		{"abcdef", 10, 4},
 		{"abcdef", 11, 5},
-		{"abcdef", 11, 5},
 		{"abcde", 7, 9},
 		{"abcdefg", 7, 7},
 		{"abcdef", 512, 506},

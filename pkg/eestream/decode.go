@@ -19,6 +19,11 @@ type decodedReader struct {
 	err    error
 }
 
+type readerError struct {
+	i   int // reader index in the map
+	err error
+}
+
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
 // combined Reader. The map, 'rs', must be a mapping of erasure piece numbers
 // to erasure piece streams.
@@ -47,25 +52,29 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		// the channel has a buffer size to contain all the errors
 		// even if we read none, so we can return without receiving
 		// every channel value
-		errs := make(chan error, len(dr.rs))
+		errs := make(chan readerError, len(dr.rs))
 		for i := range dr.rs {
 			go func(i int) {
 				// fill the buffer from the piece input
 				_, err := io.ReadFull(dr.rs[i], dr.inbufs[i])
-				errs <- err
+				errs <- readerError{i, err}
 			}(i)
 		}
 		// catch all the errors
+		inbufs := make(map[int][]byte, len(dr.inbufs))
 		for range dr.rs {
-			err := <-errs
-			if err != nil {
-				// return on the first failure
-				dr.err = err
-				return 0, err
+			re := <-errs
+			if re.err == nil {
+				// add inbuf for decoding only if no error
+				inbufs[re.i] = dr.inbufs[re.i]
+			} else if re.err == io.EOF {
+				// return on the first EOF
+				dr.err = re.err
+				return 0, re.err
 			}
 		}
 		// we have all the input buffers, fill the decoded output buffer
-		dr.outbuf, err = dr.es.Decode(dr.outbuf, dr.inbufs)
+		dr.outbuf, err = dr.es.Decode(dr.outbuf, inbufs)
 		if err != nil {
 			return 0, err
 		}
