@@ -29,8 +29,8 @@ func TestSecretbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := randData(encrypter.InBlockSize() * 10)
-	encrypted := TransformReader(bytes.NewReader(data),
-		encrypter, 0)
+	encrypted := TransformReader(
+		ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
 	decrypter, err := NewSecretboxDecrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
