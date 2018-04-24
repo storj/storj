@@ -1,0 +1,49 @@
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
+<html>
+  <body>
+    <form class="form-horizontal" enctype="multipart/form-data" action="/upload" method="post">
+      <fieldset>
+
+      <!-- Form Name -->
+      <legend>Upload File</legend>
+
+      <!-- File Button -->
+      <div class="form-group">
+        <div class="col-md-4">
+          <input id="dataFile" name="uploadfile" class="input-file" type="file">
+        </div>
+      </div>
+
+      <!-- Text input-->
+      <div class="form-group">
+        <label class="col-md-4 control-label" for="offset">Data offset</label>
+        <div class="col-md-4">
+        <input id="dataOffset" name="offset" type="number" class="form-control input-md">
+        </div>
+      </div>
+
+      <!-- Text input-->
+      <div class="form-group">
+        <label class="col-md-4 control-label" for="size">Data size</label>
+        <div class="col-md-4">
+        <input id="dataSize" name="size" type="number" class="form-control input-md">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+      </div>
+
+      </fieldset>
+      </form>
+      <br />
+      <a href="/">Home</a>
+
+  </body>
+</html>
