@@ -2,7 +2,7 @@ node('node') {
 
     // Install the desired Go version
     def root = tool name: 'Go 1.10.1', type: 'go'
- 
+    
     // Export environment variables pointing to the directory where Go was installed
     withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
         sh 'go version'
@@ -16,6 +16,7 @@ node('node') {
     stage 'Test'
 
       sh """#!/bin/bash -e
+        echo $root
         make build-dev-deps lint
       """
 
