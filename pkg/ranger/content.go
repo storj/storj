@@ -141,7 +141,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 
 	w.WriteHeader(code)
 
-	if r.Method != "HEAD" {
+	if r.Method != http.MethodHead {
 		r := sendContent()
 		defer r.Close()
 		io.CopyN(w, r, sendSize)
@@ -178,7 +178,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request,
 	}
 	switch checkIfNoneMatch(w, r) {
 	case condFalse:
-		if r.Method == "GET" || r.Method == "HEAD" {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
 			writeNotModified(w)
 			return true, ""
 		}
@@ -284,7 +284,7 @@ func checkIfNoneMatch(w http.ResponseWriter, r *http.Request) condResult {
 }
 
 func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
-	if r.Method != "GET" && r.Method != "HEAD" {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return condNone
 	}
 	ims := r.Header.Get("If-Modified-Since")
@@ -305,7 +305,7 @@ func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
 
 func checkIfRange(w http.ResponseWriter, r *http.Request, modtime time.Time) (
 	rv condResult) {
-	if r.Method != "GET" && r.Method != "HEAD" {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return condNone
 	}
 	ir := r.Header.Get("If-Range")
@@ -419,6 +419,7 @@ func parseRange(s string, size int64) ([]httpRange, error) {
 	if !strings.HasPrefix(s, b) {
 		return nil, errors.New("invalid range")
 	}
+
 	var ranges []httpRange
 	noOverlap := false
 	for _, ra := range strings.Split(s[len(b):], ",") {

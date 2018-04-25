@@ -1,14 +1,17 @@
+.PHONY: test lint
+
 lint: check-copyrights
 	@echo "Running ${@}"
-	@gometalinter.v2 \
+	@gometalinter \
 	--deadline=60s \
 	--disable-all \
 	--enable=golint \
 	--enable=goimports \
 	--enable=vet \
 	--enable=deadcode \
-	--enable=gosimple \
+	--enable=goconst \
 	--exclude=.*\.pb\.go \
+	--exclude=.*_test.go \
 	./...
 
 check-copyrights:
@@ -23,5 +26,8 @@ proto:
 
 build-dev-deps:
 	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u gopkg.in/alecthomas/gometalinter.v2
-	gometalinter.v2 --install
+	go get -u github.com/alecthomas/gometalinter
+	gometalinter --install --force
+
+test:
+	go test -v ./...

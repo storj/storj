@@ -1,0 +1,11 @@
+language: go
+
+go:
+  - 1.10.x
+  - tip
+
+
+before_install:
+  - make build-dev-deps
+  - go get -u golang.org/x/vgo
+  - vgo install
