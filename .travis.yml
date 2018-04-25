@@ -7,5 +7,6 @@ go:
 
 before_install:
   - make build-dev-deps
-  - go get -u golang.org/x/vgo
-  - vgo install
+
+script:
+  - make lint
