@@ -3,7 +3,7 @@ node('node') {
   def root = tool name: 'Go 1.10', type: 'go'
 
   // Export environment variables pointing to the directory where Go was installed
-  withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
+  withEnv(["GOROOT=${root}", "GOPATH=${root}/bin"]) {
     sh 'go version'
   }
 
