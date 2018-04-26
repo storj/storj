@@ -28,6 +28,8 @@ build-dev-deps:
 	@echo "PATH is: ${PATH}"
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get -u github.com/alecthomas/gometalinter
+	go get -u github.com/spf13/viper
+	go get -u github.com/tyler-smith/go-bip39
 	gometalinter --install --force
 
 test:
