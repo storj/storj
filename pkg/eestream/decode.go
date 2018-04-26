@@ -144,11 +144,6 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.DecodedBlockSize())
 }
 
-type indexReadCloser struct {
-	i int
-	r io.ReadCloser
-}
-
 func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
@@ -158,6 +153,10 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	// go ask for ranges for all those block boundaries
 	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
+	type indexReadCloser struct {
+		i int
+		r io.ReadCloser
+	}
 	result := make(chan indexReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
 		go func(i int, rr ranger.Ranger) {

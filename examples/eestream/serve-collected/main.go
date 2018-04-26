@@ -33,12 +33,6 @@ func main() {
 	}
 }
 
-type indexRangerError struct {
-	i   int
-	rr  ranger.Ranger
-	err error
-}
-
 func Main() error {
 	encKey := sha256.Sum256([]byte(*key))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
@@ -54,10 +48,15 @@ func Main() error {
 	}
 	// initialize http rangers in parallel to save from network latency
 	rrs := map[int]ranger.Ranger{}
+	type indexRangerError struct {
+		i   int
+		rr  ranger.Ranger
+		err error
+	}
 	result := make(chan indexRangerError, *rsn)
 	for i := 0; i < *rsn; i++ {
 		go func(i int) {
-			url := fmt.Sprintf("http://localhost:%d", 10000+i)
+			url := fmt.Sprintf("http://18.184.133.99:%d", 10000+i)
 			rr, err := ranger.HTTPRanger(url)
 			result <- indexRangerError{i, rr, err}
 		}(i)
