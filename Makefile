@@ -36,6 +36,7 @@ build-dev-deps:
 	go get -u google.golang.org/grpc
 	go get -u github.com/go-redis/redis
 	go get -u github.com/gogo/protobuf/proto
+	go get -u github.com/urfave/cli
 	gometalinter --install --force
 
 test:
