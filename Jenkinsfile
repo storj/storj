@@ -6,7 +6,7 @@ node('node') {
 
   withEnv(["GOROOT=${env.JENKINS_HOME}/go", "PATH+GO=${env.JENKINS_HOME}/go/bin", "PATH=$PATH:${env.JENKINS_HOME}/go/bin"]) {
     sh "export GOPATH=${env.JENKINS_HOME}/go/bin"
-    sh "export PATH=$PATH:$GOPATH"
+    sh "export PATH=$PATH:${env.JENKINS_HOME}/go/bin"
     sh 'go version'
   }
 
@@ -28,7 +28,7 @@ node('node') {
 
     stage('Test') {
       sh """#!/bin/bash -e
-        export PATH="$PATH:$GOPATH"
+        export PATH="$PATH:${env.JENKINS_HOME}"
         echo $root
         echo "path="
         echo $PATH
