@@ -1,12 +1,15 @@
 node('node') {
+  /*
   environment {
     GOROOT  = '${env.JENKINS_HOME}'
     GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
   }
+  */
 
-  withEnv(["GOROOT=${env.JENKINS_HOME}/go", "PATH+GO=${env.JENKINS_HOME}/go/bin", "PATH=$PATH:${env.JENKINS_HOME}/go/bin"]) {
-    sh "export GOPATH=${env.JENKINS_HOME}/go/bin"
-    sh "export PATH=$PATH:${env.JENKINS_HOME}/go/bin"
+  // Install the desired Go version
+  def root = tool name: 'Go 1.10', type: 'go'
+
+  withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
     sh 'go version'
   }
 
@@ -18,17 +21,12 @@ node('node') {
     sh 'env'
     sh 'go version'
 
-    // Install the desired Go version
-    def root = tool name: 'Go 1.10', type: 'go'
-
-
     stage('Checkout') {
       checkout scm
     }
 
     stage('Test') {
       sh """#!/bin/bash -e
-        export PATH="$PATH:${env.JENKINS_HOME}"
         echo $root
         echo "path="
         echo $PATH
