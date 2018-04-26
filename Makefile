@@ -27,8 +27,8 @@ proto:
 build-dev-deps:
 	@echo "PATH is: ${PATH}"
 	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u gopkg.in/alecthomas/gometalinter.v1
-	gometalinter.v1 --install --force
+	go get -u github.com/alecthomas/gometalinter
+	gometalinter --install --force
 
 test:
 	go test -v ./...
