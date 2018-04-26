@@ -26,7 +26,7 @@ proto:
 
 build-dev-deps:
 	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u github.com/alecthomas/gometalinter
+	go get -u gopkg.in/alecthomas/gometalinter.v1
 	gometalinter --install --force
 
 test:
