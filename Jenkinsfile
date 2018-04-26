@@ -14,30 +14,31 @@ node('node') {
     }
 
     stage('Test') {
-      sh """#!/bin/bash -e
-        export PATH=$GOPATH:$PATH
-        echo $root
-        echo "path="
-        echo $PATH
-        make build-dev-deps lint
-      """
+      sh 'make build-dev-deps lint'
+//    sh """#!/bin/bash -e
+//      export PATH=$GOPATH:$PATH
+//      echo $root
+//      echo "path="
+//      echo $PATH
+//      make build-dev-deps lint
+//    """
     }
 
     stage('Build Docker') {
-        echo 'Build'
+        print 'Build'
     }
 
     stage('Deploy') {
-        echo 'Deploy'
+        print 'Deploy'
     }
 
     stage('Cleanup') {
-      echo 'prune and cleanup'
+      print 'prune and cleanup'
     }
   }
 
   catch (err) {
-    echo 'Error: ' + err
     currentBuild.result = "FAILURE"
+    throw err
   }
 }
