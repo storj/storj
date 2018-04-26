@@ -1,14 +1,18 @@
 node('node') {
   try {
     // Export environment variables pointing to the directory where Go was installed
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=$PATH:${root}"]) {
-      sh 'echo $GOROOT'
-      sh 'echo $PATH'
-      sh 'echo $WORKSPACE'
-      sh 'echo ENV VARS...'
-      sh 'env'
-      sh 'go version'
+    environment {
+      GOROOT  = '${env.JENKINS_HOME}'
+      PATH+GO = '${env.JENKINS_HOME}/bin'
+      GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
     }
+
+    sh 'echo $GOROOT'
+    sh 'echo $PATH'
+    sh 'echo $WORKSPACE'
+    sh 'echo ENV VARS...'
+    sh 'env'
+    sh 'go version'
 
     // Install the desired Go version
     def root = tool name: 'Go 1.10', type: 'go'
