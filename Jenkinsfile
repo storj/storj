@@ -4,6 +4,10 @@ node('node') {
     GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
   }
 
+  withEnv(["GOROOT=${env.JENKINS_HOME}/go", "PATH+GO=$GOROOT/bin", "PATH=$PATH:$GOROOT/bin"]) {
+    sh 'go version'
+  }
+
   try {
     sh 'echo $GOROOT'
     sh 'echo $PATH'
