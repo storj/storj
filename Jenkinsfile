@@ -1,11 +1,10 @@
 node('node') {
-  try {
-    // Export environment variables pointing to the directory where Go was installed
-    environment {
-      GOROOT  = '${env.JENKINS_HOME}'
-      GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
-    }
+  environment {
+    GOROOT  = '${env.JENKINS_HOME}'
+    GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
+  }
 
+  try {
     sh 'echo $GOROOT'
     sh 'echo $PATH'
     sh 'echo $WORKSPACE'
