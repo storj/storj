@@ -1,7 +1,7 @@
 node('node') {
   try {
     // Export environment variables pointing to the directory where Go was installed
-    withEnv(["GOROOT=${WORKSPACE}", "PATH+GO=${GOROOT}/bin", "GOPATH=${PATH}:${GOROOT}/bin"]) {
+    withEnv(["GOROOT=${WORKSPACE}", "PATH+GO=${GOROOT}/bin", "GOPATH=${PATH}:${WORKSPACE}/bin"]) {
       sh 'go version'
     }
 
