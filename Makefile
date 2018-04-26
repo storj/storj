@@ -30,6 +30,12 @@ build-dev-deps:
 	go get -u github.com/alecthomas/gometalinter
 	go get -u github.com/spf13/viper
 	go get -u github.com/tyler-smith/go-bip39
+	go get -u github.com/zeebo/errs
+	go get -u github.com/vivint/infectious
+	go get -u golang.org/x/crypto/nacl/secretbox
+	go get -u google.golang.org/grpc
+	go get -u github.com/go-redis/redis
+	go get -u github.com/gogo/protobuf/proto
 	gometalinter --install --force
 
 test:
