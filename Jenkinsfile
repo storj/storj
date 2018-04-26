@@ -1,20 +1,19 @@
 node('node') {
+  // Install the desired Go version
+  def root = tool name: 'Go 1.10', type: 'go'
 
-    // Install the desired Go version
-    def root = tool name: 'Go 1.10', type: 'go'
+  // Export environment variables pointing to the directory where Go was installed
+  withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
+    sh 'go version'
+  }
 
-    // Export environment variables pointing to the directory where Go was installed
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
-        sh 'go version'
-    }
   try {
 
-    stage 'Checkout'
-
+    stage('Checkout') {
       checkout scm
+    }
 
-    stage 'Test'
-
+    stage('Test') {
       sh """#!/bin/bash -e
         export PATH=$GOPATH:$PATH
         echo $root
@@ -22,31 +21,23 @@ node('node') {
         echo $PATH
         make build-dev-deps lint
       """
+    }
 
-    stage 'Build Docker'
+    stage('Build Docker') {
         echo 'Build'
+    }
 
-    stage 'Deploy'
+    stage('Deploy') {
         echo 'Deploy'
+    }
 
-
-    stage 'Cleanup'
-
+    stage('Cleanup') {
       echo 'prune and cleanup'
-
+    }
   }
 
   catch (err) {
+    echo 'Error: ' + err
     currentBuild.result = "FAILURE"
-
-    /*
-    mail body: "project build error is here: ${env.BUILD_URL}" ,
-      from: 'build@storj.io',
-      replyTo: 'build@storj.io',
-      subject: 'project build failed',
-      to: "${env.CHANGE_AUTHOR_EMAIL}"
-
-      throw err
-    */
   }
 }
