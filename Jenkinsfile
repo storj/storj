@@ -26,12 +26,16 @@ node('node') {
     }
 
     stage('Test') {
-      sh """#!/bin/bash -e
+      withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
+        sh 'make build-dev-deps lint'
+      }
+
+/*      sh """#!/bin/bash -e
         echo $root
         echo "path="
         echo $PATH
         make build-dev-deps lint
-      """
+      """*/
     }
 
     stage('Build Docker') {
