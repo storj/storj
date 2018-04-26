@@ -16,6 +16,7 @@ node('node') {
     stage 'Test'
 
       sh """#!/bin/bash -e
+        export PATH=$GOPATH:$PATH
         echo $root
         echo "path="
         echo $PATH
