@@ -10,7 +10,7 @@ node('node') {
   def root = tool name: 'Go 1.10', type: 'go'
 
   try {
-    sh 'mkdir ${root}/go'
+    sh "mkdir ${root}/go"
     withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=${root}/go"]) {
       stage('Checkout') {
         checkout scm
