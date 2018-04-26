@@ -15,13 +15,6 @@ node('node') {
   }
 
   try {
-    sh 'echo $GOROOT'
-    sh 'echo $PATH'
-    sh 'echo $WORKSPACE'
-    sh 'echo ENV VARS...'
-    sh 'env'
-    sh 'go version'
-
     stage('Checkout') {
       checkout scm
     }
