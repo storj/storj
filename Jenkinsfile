@@ -14,6 +14,7 @@ node('node') {
     }
 
     stage('Test') {
+      def root = tool name: 'Go 1.10', type: 'go'
       withEnv(["GOROOT=${WORKSPACE}", "PATH+GO=${GOROOT}/bin"]) {
         sh 'go version'
         sh 'make build-dev-deps lint'
