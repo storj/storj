@@ -11,7 +11,7 @@ node('node') {
 
   try {
     // should only make this dir if it doesnt exist - sh "mkdir ${root}/go"
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=${root}/go", "PATH+GO=${root}/go/bin"]) {
+    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin:${root}/go/bin", "GOPATH=${root}/go"]) {
       stage('Checkout') {
         checkout scm
       }
