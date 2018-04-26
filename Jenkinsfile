@@ -28,6 +28,7 @@ node('node') {
 
     stage('Test') {
       withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
+        sh 'echo $GOROOT'
         sh 'echo $PATH'
         sh 'make build-dev-deps lint'
       }
