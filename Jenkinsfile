@@ -17,10 +17,10 @@ node('node') {
       }
 
       stage('Test') {
-        sh 'go env GOPATH'
         sh 'echo $GOROOT'
         sh 'echo $GOPATH'
         sh 'echo $PATH'
+        sh 'go env GOPATH'
         sh 'make build-dev-deps lint'
       }
 
