@@ -6,6 +6,7 @@ node('node') {
 
   withEnv(["GOROOT=${env.JENKINS_HOME}/go", "PATH+GO=${env.JENKINS_HOME}/go/bin", "PATH=$PATH:${env.JENKINS_HOME}/go/bin"]) {
     sh "export GOPATH=${env.JENKINS_HOME}/go/bin"
+    sh "export PATH=$PATH:$GOPATH"
     sh 'go version'
   }
 
