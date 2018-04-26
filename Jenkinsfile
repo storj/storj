@@ -10,13 +10,14 @@ node('node') {
   def root = tool name: 'Go 1.10', type: 'go'
 
   try {
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "PATH=${PATH}:${env.JENKINS_HOME}/go/bin"]) {
+    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
       stage('Checkout') {
         checkout scm
       }
 
       stage('Test') {
         sh 'echo $GOROOT'
+        sh 'echo $GOPATH'
         sh 'echo $PATH'
         sh 'make build-dev-deps lint'
       }
