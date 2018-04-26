@@ -5,7 +5,7 @@ node('node') {
       sh 'echo $GOROOT'
       sh 'echo $PATH'
       sh 'echo $WORKSPACE'
-      sh 'ENV VARS...'
+      sh 'echo ENV VARS...'
       sh 'env'
       sh 'go version'
     }
