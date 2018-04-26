@@ -10,7 +10,7 @@ node('node') {
   def root = tool name: 'Go 1.10', type: 'go'
 
   try {
-    sh "mkdir ${root}/go"
+    // should only make this dir if it doesnt exist - sh "mkdir ${root}/go"
     withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=${root}/go", "PATH+GO=${root}/go/bin"]) {
       stage('Checkout') {
         checkout scm
