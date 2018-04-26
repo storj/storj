@@ -144,6 +144,11 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.DecodedBlockSize())
 }
 
+type indexReadCloser struct {
+	i int
+	r io.ReadCloser
+}
+
 func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
@@ -151,11 +156,21 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 		offset, length, dr.es.DecodedBlockSize())
 
 	// go ask for ranges for all those block boundaries
+	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
+	result := make(chan indexReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
-		readers[i] = rr.Range(
-			firstBlock*int64(dr.es.EncodedBlockSize()),
-			blockCount*int64(dr.es.EncodedBlockSize()))
+		go func(i int, rr ranger.Ranger) {
+			r := rr.Range(
+				firstBlock*int64(dr.es.EncodedBlockSize()),
+				blockCount*int64(dr.es.EncodedBlockSize()))
+			result <- indexReadCloser{i, r}
+		}(i, rr)
+	}
+	// wait for all goroutines to finish and save result in readers map
+	for range dr.rrs {
+		res := <-result
+		readers[res.i] = res.r
 	}
 	// decode from all those ranges
 	r := DecodeReaders(readers, dr.es)
