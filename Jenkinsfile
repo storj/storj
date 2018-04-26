@@ -11,7 +11,7 @@ node('node') {
 
   try {
     sh "mkdir ${root}/go"
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=${root}/go"]) {
+    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "GOPATH=${root}/go", "PATH+GO=${root}/go/bin"]) {
       stage('Checkout') {
         checkout scm
       }
