@@ -14,7 +14,7 @@ node('node') {
     }
 
     stage('Test') {
-      sh 'make build-dev-deps lint'
+      sh 'PATH=$GOPATH:$PATH make build-dev-deps lint'
 //    sh """#!/bin/bash -e
 //      export PATH=$GOPATH:$PATH
 //      echo $root
