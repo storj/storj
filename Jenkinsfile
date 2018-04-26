@@ -11,7 +11,7 @@ node('node') {
 
   try {
     // should only make this dir if it doesnt exist - sh "mkdir ${root}/go"
-    sh "mkdir ${root}/src/storj.io"
+    // sh "mkdir ${root}/src/storj.io"
     sh "ln -s ${env.WORKSPACE} ${root}/src/storj.io/storj"
     withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin:${root}/go/bin", "GOPATH=${root}/go"]) {
       stage('Checkout') {
