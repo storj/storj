@@ -13,14 +13,7 @@ node('node') {
     }
 
     stage('Test') {
-      sh 'export PATH=$GOPATH:$PATH && make build-dev-deps lint'
-//    sh """#!/bin/bash -e
-//      export PATH=$GOPATH:$PATH
-//      echo $root
-//      echo "path="
-//      echo $PATH
-//      make build-dev-deps lint
-//    """
+      sh 'make build-dev-deps lint'
     }
 
     stage('Build Docker') {
