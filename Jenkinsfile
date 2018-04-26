@@ -1,7 +1,7 @@
 node('node') {
   try {
     // Export environment variables pointing to the directory where Go was installed
-    withEnv(["GOROOT=${WORKSPACE}"]) {
+    withEnv(["GOROOT=${WORKSPACE}", "PATH+GO=${GOROOT}/bin", "GOPATH=${PATH}:${GOROOT}/bin"]) {
       sh 'go version'
     }
 
@@ -14,11 +14,7 @@ node('node') {
     }
 
     stage('Test') {
-      def root = tool name: 'Go 1.10', type: 'go'
-      withEnv(["GOROOT=${WORKSPACE}", "PATH+GO=${GOROOT}/bin"]) {
-        sh 'go version'
-        sh 'make build-dev-deps lint'
-      }
+      sh 'make build-dev-deps lint'
     }
 
     stage('Build Docker') {
