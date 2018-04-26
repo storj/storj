@@ -11,6 +11,7 @@ node('node') {
 
   withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
     sh 'go version'
+    sh 'echo $PATH'
   }
 
   try {
@@ -27,6 +28,7 @@ node('node') {
 
     stage('Test') {
       withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin"]) {
+        sh 'echo $PATH'
         sh 'make build-dev-deps lint'
       }
 
