@@ -469,9 +469,9 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 
 	rows := []RepRow{
 		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		RepRow{"Bob", "", 10, 10, 5, 1, 100, 0, 0},
+		RepRow{"Carol", "", 5, 10, 5, 3, 100, 0, 0},
+		RepRow{"Dave", "", 15, 10, 5, 5, 500, 0, 0},
 		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 

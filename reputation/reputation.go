@@ -225,13 +225,15 @@ func (row RepRow) greaterRep(other RepRow) RepRow {
 	otherRep := other.naiveRep()
 	myTime := row.timestamp
 	otherTime := other.timestamp
+	myName := row.name
+	otherName := other.name
 
 	var res RepRow
 
 	switch {
-	case myTime < otherTime:
+	case myTime < otherTime && myName == otherName:
 		res = other
-	case myTime > otherTime:
+	case myTime > otherTime && myName == otherName:
 		res = row
 	case myRep > otherRep:
 		res = row
@@ -271,7 +273,7 @@ func naiveReputation(db *sql.DB, queryString string) RepRow {
   greater values gets a one, ties and other values are zeros
   then compares and returns the largest
   order is as follows:
-  timestamp, most recent values are greater
+  timestamp, most recent values of rows with the same name equals a one
   shardsModified, if any value other than zero is found a zero is needed
   falseClaims, more false claims equal a zero
   auditSuccessRatio, higher ratio equals a one
@@ -284,10 +286,10 @@ func (row RepRow) endian(other RepRow) RepRow {
 	var otherEndian bytes.Buffer
 
 	switch {
-	case row.timestamp > other.timestamp:
+	case row.timestamp > other.timestamp && row.name == other.name:
 		rowEndian.WriteString("1")
 		otherEndian.WriteString("0")
-	case row.timestamp < other.timestamp:
+	case row.timestamp < other.timestamp && row.name == other.name:
 		rowEndian.WriteString("0")
 		otherEndian.WriteString("1")
 	default:
@@ -373,6 +375,11 @@ func (row RepRow) endian(other RepRow) RepRow {
 	} else {
 		res = other
 	}
+
+	fmt.Printf("endian: %v, me: %v\n", rowEndian.String(), row.name)
+	fmt.Printf("endian: %v, other: %v\n", otherEndian.String(), other.name)
+
+	fmt.Printf("WINNER: %v\n\n", res.name)
 
 	return res
 }
