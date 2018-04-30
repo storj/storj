@@ -10,9 +10,17 @@ import (
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/zeebo/errs"
 	// import of sqlite3 for side effects
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// Error is an error class for errors related to the reputation package
+var StartDBError = errs.Class("reputation start sqlite3 error")
+var CreateTableError = errs.Class("reputation table creation error")
+var InsertError = errs.Class("reputation insertion error")
+var SelectError = errs.Class("reputation selection error")
+var IterError = errs.Class("reputation iteration error")
 
 // RepRow is the Data type for Rows in Reputation table
 type RepRow struct {
@@ -28,22 +36,24 @@ type RepRow struct {
 }
 
 // startDB starts a sqlite3 database from the file path parameter
-func startDB(filePath string) *sql.DB {
+func startDB(filePath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", filePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q\n", err)
+		return nil, StartDBError.Wrap(err)
 	}
 
-	return db
+	return db, nil
 }
 
 // createTable creates a table in sqlite3 based on the create table string parameter
-func createTable(createStmt string, db *sql.DB) {
+func createTable(createStmt string, db *sql.DB) error {
 	_, err := db.Exec(createStmt)
 	if err != nil {
 		log.Printf("%q: %s\n", err, createStmt)
-		return
+		return InsertError.Wrap(err)
 	}
+	return nil
 }
 
 // createNamedRow creates a reputation row struct with a name field base on the name parameter
@@ -84,15 +94,18 @@ func createNamedRandRows(names []string) []RepRow {
 }
 
 // insertRows inserts the slice of reputation row structs based on the insert string
-func insertRows(db *sql.DB, rows []RepRow, insertString string) {
+func insertRows(db *sql.DB, rows []RepRow, insertString string) error {
 	tx, err := db.Begin()
+	defer tx.Rollback()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, insertString)
+		return InsertError.Wrap(err)
 	}
 
 	insertStmt, err := tx.Prepare(insertString)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, insertString)
+		return InsertError.Wrap(err)
 	}
 	defer insertStmt.Close()
 
@@ -108,22 +121,25 @@ func insertRows(db *sql.DB, rows []RepRow, insertString string) {
 			row.shardsModified,
 		)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("%q: %s\n", err, insertString)
+			return InsertError.Wrap(err)
 		}
 	}
 	tx.Commit()
 
+	return nil
 }
 
 // selectFromDB side effect function that prints the rows from the query string
-func selectFromDB(db *sql.DB, selectString string) {
+func selectFromDB(db *sql.DB, selectString string) error {
 	rows, err := db.Query(selectString)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, selectString)
+		return SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
-	transformedRows := iterOnDBRows(rows)
+	transformedRows, err := iterOnDBRows(rows)
 
 	for _, row := range transformedRows {
 		// side effect
@@ -132,13 +148,15 @@ func selectFromDB(db *sql.DB, selectString string) {
 
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, selectString)
+		return SelectError.Wrap(err)
 	}
 
+	return nil
 }
 
 // iterOnDBRows iterate on rows in the database to transform into slice of RepRow
-func iterOnDBRows(rows *sql.Rows) []RepRow {
+func iterOnDBRows(rows *sql.Rows) ([]RepRow, error) {
 	var res []RepRow
 
 	for rows.Next() {
@@ -156,31 +174,34 @@ func iterOnDBRows(rows *sql.Rows) []RepRow {
 			&row.shardsModified,
 		)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("%q\n", err)
+			return nil, IterError.Wrap(err)
 		}
 
 		res = append(res, row)
 	}
 
-	return res
+	return res, nil
 }
 
 // getRepRows function that returns a slice of reputation rows based on the query string
-func getRepRows(db *sql.DB, selectString string) []RepRow {
+func getRepRows(db *sql.DB, selectString string) ([]RepRow, error) {
 	rows, err := db.Query(selectString)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, selectString)
+		return nil, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
-	res := iterOnDBRows(rows)
+	res, err := iterOnDBRows(rows)
 
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, selectString)
+		return nil, SelectError.Wrap(err)
 	}
 
-	return res
+	return res, nil
 }
 
 // cleanUpDB close sqlite3
@@ -245,16 +266,17 @@ func (row RepRow) greaterRep(other RepRow) RepRow {
 }
 
 // naiveReputation finds the naive reputation of the resulting rows from the query string
-func naiveReputation(db *sql.DB, queryString string) RepRow {
+func naiveReputation(db *sql.DB, queryString string) (RepRow, error) {
 	bestRep := RepRow{"identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, queryString)
+		return bestRep, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
-	transformedRows := iterOnDBRows(rows)
+	transformedRows, err := iterOnDBRows(rows)
 
 	for _, row := range transformedRows {
 		bestRep = bestRep.greaterRep(row)
@@ -262,10 +284,11 @@ func naiveReputation(db *sql.DB, queryString string) RepRow {
 
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, queryString)
+		return bestRep, SelectError.Wrap(err)
 	}
 
-	return bestRep
+	return bestRep, nil
 }
 
 /*
@@ -385,16 +408,17 @@ func (row RepRow) endian(other RepRow) RepRow {
 }
 
 // endianReputation based on the most significant fields of RepRow
-func endianReputation(db *sql.DB, queryString string) RepRow {
+func endianReputation(db *sql.DB, queryString string) (RepRow, error) {
 	bestRep := RepRow{"identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, queryString)
+		return bestRep, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
-	transformedRows := iterOnDBRows(rows)
+	transformedRows, err := iterOnDBRows(rows)
 
 	for _, row := range transformedRows {
 		bestRep = bestRep.endian(row)
@@ -402,10 +426,11 @@ func endianReputation(db *sql.DB, queryString string) RepRow {
 
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%q: %s\n", err, queryString)
+		return bestRep, SelectError.Wrap(err)
 	}
 
-	return bestRep
+	return bestRep, nil
 }
 
 type mutOp string
