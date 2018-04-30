@@ -1,14 +1,17 @@
+.PHONY: test lint
+
 lint: check-copyrights
 	@echo "Running ${@}"
-	@gometalinter.v2 \
+	@gometalinter \
 	--deadline=60s \
 	--disable-all \
 	--enable=golint \
 	--enable=goimports \
 	--enable=vet \
 	--enable=deadcode \
-	--enable=gosimple \
+	--enable=goconst \
 	--exclude=.*\.pb\.go \
+	--exclude=.*_test.go \
 	./...
 
 check-copyrights:
@@ -22,6 +25,19 @@ proto:
 
 
 build-dev-deps:
+	@echo "PATH is: ${PATH}"
 	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u gopkg.in/alecthomas/gometalinter.v2
-	gometalinter.v2 --install
+	go get -u github.com/alecthomas/gometalinter
+	go get -u github.com/spf13/viper
+	go get -u github.com/tyler-smith/go-bip39
+	go get -u github.com/zeebo/errs
+	go get -u github.com/vivint/infectious
+	go get -u golang.org/x/crypto/nacl/secretbox
+	go get -u google.golang.org/grpc
+	go get -u github.com/go-redis/redis
+	go get -u github.com/gogo/protobuf/proto
+	go get -u github.com/urfave/cli
+	gometalinter --install --force
+
+test:
+	go test -v ./...

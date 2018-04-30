@@ -1,0 +1,47 @@
+node('node') {
+  /*
+  environment {
+    GOROOT  = '${env.JENKINS_HOME}'
+    GOPATH  = '$PATH:${env.JENKINS_HOME}/bin'
+  }
+  */
+
+  // Install the desired Go version
+  def root = tool name: 'Go 1.10', type: 'go'
+
+  try {
+    // should only make this dir if it doesnt exist - sh "mkdir ${root}/go"
+    // sh "mkdir ${root}/src/storj.io"
+    sh "ln -s ${env.WORKSPACE} ${root}/src/storj.io/storj"
+    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin:${root}/go/bin", "GOPATH=${root}/go"]) {
+      stage('Checkout') {
+        checkout scm
+      }
+
+      stage('Test') {
+        sh 'echo $GOROOT'
+        sh 'echo $GOPATH'
+        sh 'echo $PATH'
+        sh 'go env GOPATH'
+        sh 'make build-dev-deps lint'
+      }
+
+      stage('Build Docker') {
+          print 'Build'
+      }
+
+      stage('Deploy') {
+          print 'Deploy'
+      }
+
+      stage('Cleanup') {
+        print 'prune and cleanup'
+      }
+    }
+  }
+
+  catch (err) {
+    currentBuild.result = "FAILURE"
+    throw err
+  }
+}

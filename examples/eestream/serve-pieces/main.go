@@ -27,6 +27,7 @@ func main() {
 	}
 }
 
+// Main is the exported CLI executable function
 func Main() error {
 	pieces, err := ioutil.ReadDir(flag.Arg(0))
 	if err != nil {
