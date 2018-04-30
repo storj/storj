@@ -76,7 +76,6 @@ func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) (
 	}
 
 	ciphertext := s.aesgcm.Seal(out, n[:], in, nil)
-	//fmt.Printf("Encryption text %x\n", ciphertext)
 	return ciphertext, nil
 }
 
@@ -132,6 +131,5 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 		return nil, err
 	}
 
-	//fmt.Printf("Decryption text %x\n", plaintext)
 	return plaintext, nil
 }
