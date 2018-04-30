@@ -8,10 +8,10 @@ import (
 	"os"
 )
 
-// FileHandleRanger returns a Closer from a file handle. The
+// FileHandleRanger returns a RangeCloser from a file handle. The
 // Closer's Close method will call fh.Close().
 // Footgun: If FileHandleRanger fails, fh.Close will not have been called.
-func FileHandleRanger(fh *os.File) (Closer, error) {
+func FileHandleRanger(fh *os.File) (RangeCloser, error) {
 	stat, err := fh.Stat()
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -25,8 +25,8 @@ func FileHandleRanger(fh *os.File) (Closer, error) {
 	}, nil
 }
 
-// FileRanger returns a Closer from a path.
-func FileRanger(path string) (Closer, error) {
+// FileRanger returns a RangeCloser from a path.
+func FileRanger(path string) (RangeCloser, error) {
 	fh, err := os.Open(path)
 	if err != nil {
 		return nil, err

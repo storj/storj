@@ -19,15 +19,15 @@ type Ranger interface {
 	Range(offset, length int64) io.ReadCloser
 }
 
-// A Closer is a Ranger that must be closed when finished
-type Closer interface {
+// A RangeCloser is a Ranger that must be closed when finished
+type RangeCloser interface {
 	Ranger
 	io.Closer
 }
 
-// NopCloser makes an existing Ranger function as a Closer
+// NopCloser makes an existing Ranger function as a RangeCloser
 // with a no-op for Close()
-func NopCloser(r Ranger) Closer {
+func NopCloser(r Ranger) RangeCloser {
 	return struct {
 		Ranger
 		io.Closer
