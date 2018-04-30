@@ -25,6 +25,8 @@ proto:
 
 
 build-dev-deps:
+	go get -u golang.org/x/vgo
+	vgo install ./...
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --force
