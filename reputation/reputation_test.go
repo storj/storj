@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateTable(t *testing.T) {
-	db := startDB("./TestCreateTable.db")
+	db, _ := startDB("./TestCreateTable.db")
 
 	createStmt := `
 	CREATE table foo (id interger not null primary key, name text);
@@ -20,7 +20,7 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestRowInsertAndQuery(t *testing.T) {
-	db := startDB("./TestRowInsertAndQuery.db")
+	db, _ := startDB("./TestRowInsertAndQuery.db")
 
 	createStmt := `
 	CREATE table reputation (
@@ -71,7 +71,7 @@ func TestRowInsertAndQuery(t *testing.T) {
 }
 
 func TestFindNode(t *testing.T) {
-	db := startDB("./TestFindNode.db")
+	db, _ := startDB("./TestFindNode.db")
 
 	createStmt := `
 	CREATE table reputation (
@@ -112,17 +112,17 @@ func TestFindNode(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []RepRow{
-		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
 
-	bestRep := naiveReputation(db, selectStmt)
+	bestRep, _ := naiveReputation(db, selectStmt)
 
 	if bestRep.name != "Carol" {
 		t.Error(
@@ -137,7 +137,7 @@ func TestFindNode(t *testing.T) {
 }
 
 func TestUpdateNode(t *testing.T) {
-	db := startDB("./TestUpdateNode.db")
+	db, _ := startDB("./TestUpdateNode.db")
 
 	createStmt := `
 	CREATE table reputation (
@@ -178,17 +178,17 @@ func TestUpdateNode(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []RepRow{
-		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
 
-	bestRep := naiveReputation(db, selectStmt)
+	bestRep, _ := naiveReputation(db, selectStmt)
 
 	if bestRep.name != "Carol" {
 		t.Error(
@@ -197,16 +197,16 @@ func TestUpdateNode(t *testing.T) {
 		)
 	}
 
-	rows1 := []RepRow{
-		RepRow{"Alice", "", 6, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 11, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 1, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 16, 10, 0, 5, 500, 0, 0},
-		RepRow{"Eve", "", 6, 10, 5, 5, 100, 0, 1},
+	rows1 := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 6, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 11, 20, 0, 10, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 1, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 16, 10, 0, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 6, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows1, insertStmt)
-	bestRep1 := naiveReputation(db, selectStmt)
+	bestRep1, _ := naiveReputation(db, selectStmt)
 
 	if bestRep1.name != "Dave" {
 		t.Error(
@@ -221,7 +221,7 @@ func TestUpdateNode(t *testing.T) {
 }
 
 func TestFindNodeNoFail(t *testing.T) {
-	db := startDB("./TestFindNodeNoFail.db")
+	db, _ := startDB("./TestFindNodeNoFail.db")
 
 	createStmt := `
 	CREATE table reputation (
@@ -264,17 +264,17 @@ func TestFindNodeNoFail(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []RepRow{
-		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
 
-	bestRep := naiveReputation(db, noFailStmt)
+	bestRep, _ := naiveReputation(db, noFailStmt)
 
 	if bestRep.name != "Bob" {
 		t.Error(
@@ -289,9 +289,9 @@ func TestFindNodeNoFail(t *testing.T) {
 }
 
 func TestMorphismOfRow(t *testing.T) {
-	alice := NewReputationRow("Alice") //RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0}
+	alice := NewReputationRow("Alice")
 	alice = alice.morphism(uptimeColumn, overWrite, 5)
-	// col need else NaN
+	// col needed else NaN
 	alice = alice.morphism(auditSuccessColumn, overWrite, 10)
 
 	op1 := alice.morphism(uptimeColumn, increment, 1)
@@ -325,7 +325,7 @@ func TestMorphismOfRow(t *testing.T) {
 }
 
 func TestMorphismAndInsertOfRow(t *testing.T) {
-	db := startDB("./TestMorphismAndInsertOfRow.db")
+	db, _ := startDB("./TestMorphismAndInsertOfRow.db")
 
 	createStmt := ` CREATE table reputation (
 		name text not null,
@@ -366,17 +366,17 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []RepRow{
-		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		RepRow{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
 
-	aliceRep := naiveReputation(db, selectAliceStmt)
+	aliceRep, _ := naiveReputation(db, selectAliceStmt)
 
 	aliceNaiveRep := fmt.Sprintf("%.2f", aliceRep.naiveRep())
 
@@ -387,19 +387,19 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 		)
 	}
 
-	aliceNewRep := getRepRows(db, selectAliceStmt)
-	aliceNewRow := repRowMorphism(aliceNewRep, shardsModifiedColumn, increment, 2)
+	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
+	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, shardsModifiedColumn, increment, 2)
 
 	insertRows(db, aliceNewRow, insertStmt)
 
-	aliceRows := getRepRows(db, selectAliceStmt)
+	aliceRows, _ := getNodeReputationRecords(db, selectAliceStmt)
 	if len(aliceRows) != 2 {
 		t.Error(
 			"expected 2 rows in the db got", aliceRows,
 		)
 	}
 
-	morphRep := naiveReputation(db, selectAliceStmt)
+	morphRep, _ := naiveReputation(db, selectAliceStmt)
 
 	if morphRep.naiveRep() != float64(0) {
 		t.Error(
@@ -414,7 +414,7 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 }
 
 func TestEndianMorphismAndInsertOfRow(t *testing.T) {
-	db := startDB("./TestEndianMorphismAndInsertOfRow.db")
+	db, _ := startDB("./TestEndianMorphismAndInsertOfRow.db")
 
 	createStmt := ` CREATE table reputation (
 		name text not null,
@@ -467,17 +467,17 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []RepRow{
-		RepRow{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		RepRow{"Bob", "", 10, 10, 5, 1, 100, 0, 0},
-		RepRow{"Carol", "", 5, 10, 5, 3, 100, 0, 0},
-		RepRow{"Dave", "", 15, 10, 5, 5, 500, 0, 0},
-		RepRow{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 10, 5, 1, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 5, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 5, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
 
-	bestRep := endianReputation(db, selectAllStmt)
+	bestRep, _ := endianReputation(db, selectAllStmt)
 
 	if bestRep.name != "Dave" {
 		t.Error(
@@ -485,19 +485,19 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 		)
 	}
 
-	aliceNewRep := getRepRows(db, selectAliceStmt)
-	aliceNewRow := repRowMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
+	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
+	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
 
 	insertRows(db, aliceNewRow, insertStmt)
 
-	newAndOldRows := getRepRows(db, selectAllStmt)
+	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)
 	if len(newAndOldRows) != 6 {
 		t.Error(
 			"expected 6 rows in the db got", newAndOldRows,
 		)
 	}
 
-	morphRep := endianReputation(db, selectAllStmt)
+	morphRep, _ := endianReputation(db, selectAllStmt)
 
 	if morphRep.name != "Alice" {
 		t.Error(
@@ -508,4 +508,153 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 	cleanUpDB(db)
 
 	os.Remove("./TestEndianMorphismAndInsertOfRow.db")
+}
+
+func TestEndianPrune(t *testing.T) {
+	db, _ := startDB("./TestEndianPrune.db")
+
+	createStmt := ` CREATE table reputation (
+		name text not null,
+		timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
+		uptime interger,
+		audit_success interger,
+		audit_fail interger,
+		latency interger,
+		amount_of_data_stored interger,
+		false_claims interger,
+		shards_modified interger,
+	PRIMARY KEY(name, timestamp)
+	);`
+
+	insertStmt := `INSERT into reputation (
+		name,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	) values (?, ?, ?, ?, ?, ?, ?, ?);`
+
+	selectAllStmt := `SELECT
+		name,
+		timestamp,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	FROM reputation`
+
+	selectAliceStmt := `SELECT
+		name,
+		timestamp,
+		uptime,
+		audit_success,
+		audit_fail,
+		latency,
+		amount_of_data_stored,
+		false_claims,
+		shards_modified
+	FROM reputation
+	WHERE name = 'Alice'`
+
+	deletStmt := `DELETE FROM reputation
+		WHERE
+		name = ?
+		AND
+		timestamp != ?
+		AND
+		uptime != ?
+		AND
+		audit_success != ?
+		AND
+		audit_fail != ?
+		AND
+		latency != ?
+		AND
+		amount_of_data_stored != ?
+		AND
+		false_claims != ?
+		AND
+		shards_modified != ?`
+
+	createTable(createStmt, db)
+
+	rows := []NodeReputationRecord{
+		NodeReputationRecord{"Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		NodeReputationRecord{"Bob", "", 10, 10, 5, 1, 100, 0, 0},
+		NodeReputationRecord{"Carol", "", 5, 10, 5, 3, 100, 0, 0},
+		NodeReputationRecord{"Dave", "", 15, 10, 5, 5, 500, 0, 0},
+		NodeReputationRecord{"Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	}
+
+	insertRows(db, rows, insertStmt)
+
+	bestRep, _ := endianReputation(db, selectAllStmt)
+
+	if bestRep.name != "Dave" {
+		t.Error(
+			"expected Dave got", bestRep.name,
+		)
+	}
+
+	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
+
+	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 10)
+	insertRows(db, aliceNewRow, insertStmt)
+
+	aliceNewRow1 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 2)
+	insertRows(db, aliceNewRow1, insertStmt)
+
+	aliceNewRow2 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 22)
+	insertRows(db, aliceNewRow2, insertStmt)
+
+	aliceNewRow3 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 30)
+	insertRows(db, aliceNewRow3, insertStmt)
+
+	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)
+	if len(newAndOldRows) != 9 {
+		t.Error(
+			"expected 9 rows in the db got", newAndOldRows,
+		)
+	}
+
+	morphRep, _ := endianReputation(db, selectAllStmt)
+
+	if morphRep.name != "Alice" {
+		t.Error(
+			"expected Alice got", morphRep.name,
+		)
+	}
+
+	onlyAlices, _ := getNodeReputationRecords(db, selectAliceStmt)
+	if len(onlyAlices) != 5 {
+		t.Error(
+			"expected 5 rows in the db got", onlyAlices,
+		)
+	}
+
+	bestAlice, _ := endianReputation(db, selectAliceStmt)
+
+	if bestAlice.uptime != 30 {
+		t.Error(
+			"expected uptime of 30 got", bestAlice.uptime,
+		)
+	}
+	pruneNodeReputationRecords(db, bestAlice, deletStmt)
+
+	onlyAlice, _ := getNodeReputationRecords(db, selectAliceStmt)
+	if len(onlyAlice) != 1 {
+		t.Error(
+			"expected 1 rows in the db got", onlyAlice,
+		)
+	}
+
+	cleanUpDB(db)
+
+	os.Remove("./TestEndianPrune.db")
 }
