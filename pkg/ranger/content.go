@@ -34,30 +34,6 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 
 	code := http.StatusOK
 
-	// If Content-Type isn't set, use the file's extension to find it, but
-	// if the Content-Type is unset explicitly, do not sniff the type.
-	ctypes, haveType := w.Header()["Content-Type"]
-	var ctype string
-	if !haveType {
-		ctype = mime.TypeByExtension(filepath.Ext(name))
-		if ctype == "" {
-			// read a chunk to decide between utf-8 text and binary
-			var buf [sniffLen]byte
-			amount := content.Size()
-			if amount > sniffLen {
-				amount = sniffLen
-			}
-			// TODO: cache this somewhere so we don't have to pull it out again
-			r := content.Range(0, amount)
-			defer r.Close()
-			n, _ := io.ReadFull(r, buf[:])
-			ctype = http.DetectContentType(buf[:n])
-		}
-		w.Header().Set("Content-Type", ctype)
-	} else if len(ctypes) > 0 {
-		ctype = ctypes[0]
-	}
-
 	size := content.Size()
 
 	if size <= 0 {
@@ -105,6 +81,30 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		code = http.StatusPartialContent
 		w.Header().Set("Content-Range", ra.contentRange(size))
 	case len(ranges) > 1:
+		// If Content-Type isn't set, use the file's extension to find it, but
+		// if the Content-Type is unset explicitly, do not sniff the type.
+		ctypes, haveType := w.Header()["Content-Type"]
+		var ctype string
+		if !haveType {
+			ctype = mime.TypeByExtension(filepath.Ext(name))
+			if ctype == "" {
+				// read a chunk to decide between utf-8 text and binary
+				var buf [sniffLen]byte
+				amount := content.Size()
+				if amount > sniffLen {
+					amount = sniffLen
+				}
+				// TODO: cache this somewhere so we don't have to pull it out again
+				r := content.Range(0, amount)
+				defer r.Close()
+				n, _ := io.ReadFull(r, buf[:])
+				ctype = http.DetectContentType(buf[:n])
+			}
+			w.Header().Set("Content-Type", ctype)
+		} else if len(ctypes) > 0 {
+			ctype = ctypes[0]
+		}
+
 		sendSize = rangesMIMESize(ranges, ctype, size)
 		code = http.StatusPartialContent
 
