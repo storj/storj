@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/kataras/iris"
-	"github.com/storj/storj/routes"
-	"github.com/storj/storj/storage/boltdb"
+
+	"storj.io/storj/routes"
+	"storj.io/storj/storage/boltdb"
 )
 
 func main() {

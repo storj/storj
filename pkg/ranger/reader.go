@@ -6,6 +6,9 @@ package ranger
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
+
+	"storj.io/storj/internal/pkg/readcloser"
 )
 
 // A Ranger is a flexible data stream type that allows for more effective
@@ -13,20 +16,25 @@ import (
 // any subranges.
 type Ranger interface {
 	Size() int64
-	Range(offset, length int64) io.Reader
+	Range(offset, length int64) io.ReadCloser
 }
 
-// FatalReader returns a Reader that always fails with err.
-func FatalReader(err error) io.Reader {
-	return &fatalReader{Err: err}
+// A RangerCloser is a Ranger that must be closed when finished
+type RangerCloser interface {
+	Ranger
+	io.Closer
 }
 
-type fatalReader struct {
-	Err error
-}
-
-func (f *fatalReader) Read(p []byte) (n int, err error) {
-	return 0, f.Err
+// NopCloser makes an existing Ranger function as a RangerCloser
+// with a no-op for Close()
+func NopCloser(r Ranger) RangerCloser {
+	return struct {
+		Ranger
+		io.Closer
+	}{
+		Ranger: r,
+		Closer: ioutil.NopCloser(nil),
+	}
 }
 
 // ByteRanger turns a byte slice into a Ranger
@@ -36,15 +44,18 @@ type ByteRanger []byte
 func (b ByteRanger) Size() int64 { return int64(len(b)) }
 
 // Range implements Ranger.Range
-func (b ByteRanger) Range(offset, length int64) io.Reader {
+func (b ByteRanger) Range(offset, length int64) io.ReadCloser {
 	if offset < 0 {
-		return FatalReader(Error.New("negative offset"))
+		return readcloser.FatalReadCloser(Error.New("negative offset"))
+	}
+	if length < 0 {
+		return readcloser.FatalReadCloser(Error.New("negative length"))
 	}
 	if offset+length > int64(len(b)) {
-		return FatalReader(Error.New("buffer runoff"))
+		return readcloser.FatalReadCloser(Error.New("buffer runoff"))
 	}
 
-	return bytes.NewReader(b[offset : offset+length])
+	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length]))
 }
 
 type concatReader struct {
@@ -56,7 +67,7 @@ func (c *concatReader) Size() int64 {
 	return c.r1.Size() + c.r2.Size()
 }
 
-func (c *concatReader) Range(offset, length int64) io.Reader {
+func (c *concatReader) Range(offset, length int64) io.ReadCloser {
 	r1Size := c.r1.Size()
 	if offset+length <= r1Size {
 		return c.r1.Range(offset, length)
@@ -64,9 +75,9 @@ func (c *concatReader) Range(offset, length int64) io.Reader {
 	if offset >= r1Size {
 		return c.r2.Range(offset-r1Size, length)
 	}
-	return io.MultiReader(
+	return readcloser.MultiReadCloser(
 		c.r1.Range(offset, r1Size-offset),
-		LazyReader(func() io.Reader {
+		readcloser.LazyReadCloser(func() io.ReadCloser {
 			return c.r2.Range(0, length-(r1Size-offset))
 		}))
 }
@@ -90,25 +101,6 @@ func Concat(r ...Ranger) Ranger {
 	}
 }
 
-type lazyReader struct {
-	fn func() io.Reader
-	r  io.Reader
-}
-
-// LazyReader returns an Reader that doesn't initialize the backing Reader
-// until the first Read.
-func LazyReader(reader func() io.Reader) io.Reader {
-	return &lazyReader{fn: reader}
-}
-
-func (l *lazyReader) Read(p []byte) (n int, err error) {
-	if l.r == nil {
-		l.r = l.fn()
-		l.fn = nil
-	}
-	return l.r.Read(p)
-}
-
 type subrange struct {
 	r              Ranger
 	offset, length int64
@@ -130,6 +122,6 @@ func (s *subrange) Size() int64 {
 	return s.length
 }
 
-func (s *subrange) Range(offset, length int64) io.Reader {
+func (s *subrange) Range(offset, length int64) io.ReadCloser {
 	return s.r.Range(offset+s.offset, length)
 }

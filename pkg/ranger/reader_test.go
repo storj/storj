@@ -16,6 +16,9 @@ func TestByteRanger(t *testing.T) {
 		substr               string
 		fail                 bool
 	}{
+		{"", 0, 0, 0, "", false},
+		{"abcdef", 6, 0, 0, "", false},
+		{"abcdef", 6, 3, 0, "", false},
 		{"abcdef", 6, 0, 6, "abcdef", false},
 		{"abcdef", 6, 0, 5, "abcde", false},
 		{"abcdef", 6, 0, 4, "abcd", false},
@@ -24,6 +27,7 @@ func TestByteRanger(t *testing.T) {
 		{"abcdefg", 7, 1, 4, "bcde", false},
 		{"abcdef", 6, 0, 7, "", true},
 		{"abcdef", 6, -1, 7, "abcde", true},
+		{"abcdef", 6, 0, -1, "abcde", true},
 	} {
 		r := ByteRanger([]byte(example.data))
 		if r.Size() != example.size {

@@ -5,7 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kataras/iris"
-	"github.com/storj/storj/storage/boltdb"
+
+	"storj.io/storj/storage/boltdb"
 )
 
 // Users contains items needed to process requests to the user namespace
