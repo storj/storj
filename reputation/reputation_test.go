@@ -563,24 +563,26 @@ func TestEndianPrune(t *testing.T) {
 	WHERE name = 'Alice'`
 
 	deletStmt := `DELETE FROM reputation
-		WHERE
-		name = ?
-		AND
-		timestamp != ?
-		AND
-		uptime != ?
-		AND
-		audit_success != ?
-		AND
-		audit_fail != ?
-		AND
-		latency != ?
-		AND
-		amount_of_data_stored != ?
-		AND
-		false_claims != ?
-		AND
-		shards_modified != ?`
+	WHERE name = ?
+	AND timestamp NOT IN (
+	SELECT timestamp FROM reputation WHERE
+	name = ?
+	AND
+	timestamp = ?
+	AND
+	uptime = ?
+	AND
+	audit_success = ?
+	AND
+	audit_fail = ?
+	AND
+	latency = ?
+	AND
+	amount_of_data_stored = ?
+	AND
+	false_claims = ?
+	AND
+	shards_modified = ?)`
 
 	createTable(createStmt, db)
 
@@ -631,15 +633,14 @@ func TestEndianPrune(t *testing.T) {
 		)
 	}
 
-	onlyAlices, _ := getNodeReputationRecords(db, selectAliceStmt)
-	if len(onlyAlices) != 5 {
+	onlyAlice, _ := getNodeReputationRecords(db, selectAliceStmt)
+	if len(onlyAlice) != 5 {
 		t.Error(
-			"expected 5 rows in the db got", onlyAlices,
+			"expected 5 rows in the db got", onlyAlice,
 		)
 	}
 
 	bestAlice, _ := endianReputation(db, selectAliceStmt)
-
 	if bestAlice.uptime != 30 {
 		t.Error(
 			"expected uptime of 30 got", bestAlice.uptime,
@@ -647,10 +648,11 @@ func TestEndianPrune(t *testing.T) {
 	}
 	pruneNodeReputationRecords(db, bestAlice, deletStmt)
 
-	onlyAlice, _ := getNodeReputationRecords(db, selectAliceStmt)
-	if len(onlyAlice) != 1 {
+	oneAlice, _ := getNodeReputationRecords(db, selectAliceStmt)
+	if len(oneAlice) != 1 {
 		t.Error(
-			"expected 1 rows in the db got", onlyAlice,
+			"expected 1 row in the db got", oneAlice,
+			"the remaining alice should be", bestAlice,
 		)
 	}
 

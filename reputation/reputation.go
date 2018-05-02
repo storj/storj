@@ -223,24 +223,42 @@ func getNodeReputationRecords(db *sql.DB, selectString string) ([]NodeReputation
 	return res, nil
 }
 
+// func genDeleteStmt(deleteString string, recordToKeep NodeReputationRecord) string {
+// 	return fmt.Sprintf(deleteString,
+// 		recordToKeep.name,
+// 		recordToKeep.timestamp,
+// 		recordToKeep.uptime,
+// 		recordToKeep.auditSuccess,
+// 		recordToKeep.auditFail,
+// 		recordToKeep.latency,
+// 		recordToKeep.amountOfDataStored,
+// 		recordToKeep.falseClaims,
+// 		recordToKeep.shardsModified,
+// 	)
+// }
+
 /*
-  pruneNodeReputationRecords is very distructive!
+  pruneNodeReputationRecords is very destructive!
   this function is used to make a snapshot of the current node
   it removes the data that is older than the node passed in
 */
 func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, deleteString string) error {
-	deleteStmt, err := db.Prepare(deleteString)
-	if err != nil {
-		log.Printf("%q: %s\n", err, deleteString)
-		return DeleteError.Wrap(err)
-	}
 	tx, err := db.Begin()
 	defer tx.Rollback()
 	if err != nil {
 		log.Printf("%q: %s\n", err, deleteString)
 		return DeleteError.Wrap(err)
 	}
-	_, err = tx.Stmt(deleteStmt).Exec(
+
+	deleteStmt, err := tx.Prepare(deleteString)
+	if err != nil {
+		log.Printf("%q: %s\n", err, deleteString)
+		return DeleteError.Wrap(err)
+	}
+	defer deleteStmt.Close()
+
+	_, err = deleteStmt.Exec(
+		recordToKeep.name,
 		recordToKeep.name,
 		recordToKeep.timestamp,
 		recordToKeep.uptime,
@@ -254,11 +272,10 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, d
 	if err != nil {
 		log.Printf("%q: %v\n", err, deleteStmt)
 		return DeleteError.Wrap(err)
-	} else {
-		tx.Commit()
-		return nil
 	}
+	tx.Commit()
 
+	return nil
 }
 
 // cleanUpDB close sqlite3
@@ -354,7 +371,7 @@ func naiveReputation(db *sql.DB, queryString string) (NodeReputationRecord, erro
 
 /*
   endian method hot encodes the two NodeReputationRecord structs
-  greater values gets a one, ties and other values are zeros
+  desired values are set to a one, other values are set to zeros
   then compares and returns the largest
   order is as follows:
   timestamp, most recent values of rows with the same name equals a one
@@ -463,7 +480,7 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 	fmt.Printf("endian: %v, me: %v\n", rowEndian.String(), row.name)
 	fmt.Printf("endian: %v, other: %v\n", otherEndian.String(), other.name)
 
-	fmt.Printf("WINNER: %v\n\n", res.name)
+	fmt.Printf("WINNER: %v\n\n", res)
 
 	return res
 }
