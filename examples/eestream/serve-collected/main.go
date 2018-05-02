@@ -33,6 +33,7 @@ func main() {
 	}
 }
 
+// Main collects the pieces and decodes
 func Main() error {
 	encKey := sha256.Sum256([]byte(*key))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
@@ -40,8 +41,8 @@ func Main() error {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	var firstNonce [24]byte
-	decrypter, err := eestream.NewSecretboxDecrypter(
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAesGcmDecrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
