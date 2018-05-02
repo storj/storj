@@ -223,20 +223,6 @@ func getNodeReputationRecords(db *sql.DB, selectString string) ([]NodeReputation
 	return res, nil
 }
 
-// func genDeleteStmt(deleteString string, recordToKeep NodeReputationRecord) string {
-// 	return fmt.Sprintf(deleteString,
-// 		recordToKeep.name,
-// 		recordToKeep.timestamp,
-// 		recordToKeep.uptime,
-// 		recordToKeep.auditSuccess,
-// 		recordToKeep.auditFail,
-// 		recordToKeep.latency,
-// 		recordToKeep.amountOfDataStored,
-// 		recordToKeep.falseClaims,
-// 		recordToKeep.shardsModified,
-// 	)
-// }
-
 /*
   pruneNodeReputationRecords is very destructive!
   this function is used to make a snapshot of the current node

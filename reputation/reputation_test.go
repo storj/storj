@@ -568,7 +568,7 @@ func TestEndianPrune(t *testing.T) {
 	SELECT timestamp FROM reputation WHERE
 	name = ?
 	AND
-	timestamp = ?
+	timestamp = STRFTIME('%Y-%m-%d %H:%M:%f', ?)
 	AND
 	uptime = ?
 	AND
@@ -658,5 +658,5 @@ func TestEndianPrune(t *testing.T) {
 
 	cleanUpDB(db)
 
-	os.Remove("./TestEndianPrune.db")
+	// os.Remove("./TestEndianPrune.db")
 }
