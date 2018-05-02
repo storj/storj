@@ -62,15 +62,24 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		}
 		// catch all the errors
 		inbufs := make(map[int][]byte, len(dr.inbufs))
+		eofbufs := 0
+		errbufs := 0
 		for range dr.rs {
 			re := <-errs
 			if re.err == nil {
 				// add inbuf for decoding only if no error
 				inbufs[re.i] = dr.inbufs[re.i]
 			} else if re.err == io.EOF {
-				// return on the first EOF
-				dr.err = re.err
-				return 0, re.err
+				// keep track of inbufs at EOF
+				eofbufs++
+			} else {
+				// keep track of inbufs returning error
+				errbufs++
+			}
+			// if enough inbufs are at EOF - return EOF
+			if eofbufs > 0 && eofbufs+errbufs+dr.es.RequiredCount() > dr.es.TotalCount() {
+				dr.err = io.EOF
+				return 0, dr.err
 			}
 		}
 		// we have all the input buffers, fill the decoded output buffer
