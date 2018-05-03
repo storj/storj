@@ -39,16 +39,10 @@ func TestRS(t *testing.T) {
 	}
 }
 
-// Some pieces will read error
+// Some pieces will read error.
+// Test will pass if at least required number of pieces are still good.
 func TestRSErrors(t *testing.T) {
-	for i, tt := range []struct {
-		dataSize    int
-		blockSize   int
-		required    int
-		total       int
-		problematic int
-		fail        bool
-	}{
+	for i, tt := range []testCase{
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
@@ -68,170 +62,78 @@ func TestRSErrors(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		data := randData(tt.dataSize)
-		fc, err := infectious.NewFEC(tt.required, tt.total)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		rs := NewRSScheme(fc, tt.blockSize)
-		readers := EncodeReader(bytes.NewReader(data), rs)
-		// read all readers in []byte buffers to avoid deadlock if later
-		// we don't read in parallel from all of them
-		pieces, err := readAll(readers)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readerMap := make(map[int]io.ReadCloser, len(readers))
-		// some readers will return error on read
-		for i := 0; i < tt.problematic; i++ {
-			readerMap[i] = readcloser.FatalReadCloser(
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			return readcloser.FatalReadCloser(
 				errors.New("I am an error piece"))
-		}
-		// the rest will operate normally
-		for i := tt.problematic; i < tt.total; i++ {
-			readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
-		}
-		data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
-		if tt.fail {
-			assert.Error(t, err, errTag)
-		} else if assert.NoError(t, err, errTag) {
-			assert.Equal(t, data, data2, errTag)
-		}
+		})
 	}
 }
 
-// Some pieces will read EOF at the beginning (byte 0)
+// Some pieces will read EOF at the beginning (byte 0).
+// Test will pass if those pieces are less than required.
 func TestRSEOF(t *testing.T) {
-	for i, tt := range []struct {
-		dataSize    int
-		blockSize   int
-		required    int
-		total       int
-		problematic int
-		fail        bool
-	}{
+	for i, tt := range []testCase{
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		{4 * 1024, 1024, 1, 2, 1, false},
+		{4 * 1024, 1024, 1, 2, 1, true},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		{4 * 1024, 1024, 2, 4, 2, false},
+		{4 * 1024, 1024, 2, 4, 2, true},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, false},
-		{6 * 1024, 1024, 3, 7, 4, false},
+		{6 * 1024, 1024, 3, 7, 3, true},
+		{6 * 1024, 1024, 3, 7, 4, true},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		data := randData(tt.dataSize)
-		fc, err := infectious.NewFEC(tt.required, tt.total)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		rs := NewRSScheme(fc, tt.blockSize)
-		readers := EncodeReader(bytes.NewReader(data), rs)
-		// read all readers in []byte buffers to avoid deadlock if later
-		// we don't read in parallel from all of them
-		pieces, err := readAll(readers)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readerMap := make(map[int]io.ReadCloser, len(readers))
-		// some readers will return EOF at the beginning
-		for i := 0; i < tt.problematic; i++ {
-			readerMap[i] = readcloser.LimitReadCloser(
-				ioutil.NopCloser(bytes.NewReader(pieces[i])), 0)
-		}
-		// the rest will operate normally
-		for i := tt.problematic; i < tt.total; i++ {
-			readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
-		}
-		data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
-		if !tt.fail && assert.NoError(t, err, errTag) {
-			assert.Equal(t, data, data2, errTag)
-		}
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			return readcloser.LimitReadCloser(
+				ioutil.NopCloser(bytes.NewReader(in)), 0)
+		})
 	}
 }
 
-// Some pieces will read EOF at a random byte
+// Some pieces will read EOF earlier than expected
+// Test will pass if those pieces are less than required.
 func TestRSEarlyEOF(t *testing.T) {
-	for i, tt := range []struct {
-		dataSize    int
-		blockSize   int
-		required    int
-		total       int
-		problematic int
-		fail        bool
-	}{
+	for i, tt := range []testCase{
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		{4 * 1024, 1024, 1, 2, 1, false},
+		{4 * 1024, 1024, 1, 2, 1, true},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		{4 * 1024, 1024, 2, 4, 2, false},
+		{4 * 1024, 1024, 2, 4, 2, true},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, false},
-		{6 * 1024, 1024, 3, 7, 4, false},
+		{6 * 1024, 1024, 3, 7, 3, true},
+		{6 * 1024, 1024, 3, 7, 4, true},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		data := randData(tt.dataSize)
-		fc, err := infectious.NewFEC(tt.required, tt.total)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		rs := NewRSScheme(fc, tt.blockSize)
-		readers := EncodeReader(bytes.NewReader(data), rs)
-		// read all readers in []byte buffers to avoid deadlock if later
-		// we don't read in parallel from all of them
-		pieces, err := readAll(readers)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readerMap := make(map[int]io.ReadCloser, len(readers))
-		// some readers will return EOF earlier
-		for i := 0; i < tt.problematic; i++ {
-			readerMap[i] = readcloser.LimitReadCloser(
-				ioutil.NopCloser(bytes.NewReader(pieces[i])),
-				int64(rand.Intn(tt.dataSize)))
-		}
-		// the rest will operate normally
-		for i := tt.problematic; i < tt.total; i++ {
-			readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
-		}
-		data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
-		if !tt.fail && assert.NoError(t, err, errTag) {
-			assert.Equal(t, data, data2, errTag)
-		}
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			// Read EOF after 500 bytes
+			return readcloser.LimitReadCloser(
+				ioutil.NopCloser(bytes.NewReader(in)), 500)
+		})
 	}
 }
 
-// Some pieces will read EOF later than expected
+// Some pieces will read EOF later than expected.
+// Test will pass if at least required number of pieces are still good.
 func TestRSLateEOF(t *testing.T) {
-	for i, tt := range []struct {
-		dataSize    int
-		blockSize   int
-		required    int
-		total       int
-		problematic int
-		fail        bool
-	}{
+	for i, tt := range []testCase{
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
@@ -251,35 +153,88 @@ func TestRSLateEOF(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		data := randData(tt.dataSize)
-		fc, err := infectious.NewFEC(tt.required, tt.total)
-		if !assert.NoError(t, err, errTag) {
-			continue
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			// extend the input with random number of zero bytes
+			random := make([]byte, 1+rand.Intn(10000))
+			extended := append(in, random...)
+			return ioutil.NopCloser(bytes.NewReader(extended))
+		})
+	}
+}
+
+// Some pieces will read random data.
+// Test will pass if there are enough good pieces for error correction.
+func TestRSRandomData(t *testing.T) {
+	for i, tt := range []testCase{
+		{4 * 1024, 1024, 1, 1, 0, false},
+		{4 * 1024, 1024, 1, 1, 1, true},
+		{4 * 1024, 1024, 1, 2, 0, false},
+		{4 * 1024, 1024, 1, 2, 1, true},
+		{4 * 1024, 1024, 1, 2, 2, true},
+		{4 * 1024, 1024, 2, 4, 0, false},
+		{4 * 1024, 1024, 2, 4, 1, false},
+		{4 * 1024, 1024, 2, 4, 2, true},
+		{4 * 1024, 1024, 2, 4, 3, true},
+		{4 * 1024, 1024, 2, 4, 4, true},
+		{6 * 1024, 1024, 3, 7, 0, false},
+		{6 * 1024, 1024, 3, 7, 1, false},
+		{6 * 1024, 1024, 3, 7, 2, false},
+		{6 * 1024, 1024, 3, 7, 3, true},
+		{6 * 1024, 1024, 3, 7, 4, true},
+		{6 * 1024, 1024, 3, 7, 5, true},
+		{6 * 1024, 1024, 3, 7, 6, true},
+		{6 * 1024, 1024, 3, 7, 7, true},
+	} {
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			// extend the input with random number of zero bytes
+			random := make([]byte, len(in))
+			return ioutil.NopCloser(bytes.NewReader(random))
+		})
+	}
+}
+
+type testCase struct {
+	dataSize    int
+	blockSize   int
+	required    int
+	total       int
+	problematic int
+	fail        bool
+}
+
+type problematicReadCloser func([]byte) io.ReadCloser
+
+func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadCloser) {
+	errTag := fmt.Sprintf("Test case #%d", i)
+	data := randData(tt.dataSize)
+	fc, err := infectious.NewFEC(tt.required, tt.total)
+	if !assert.NoError(t, err, errTag) {
+		return
+	}
+	rs := NewRSScheme(fc, tt.blockSize)
+	readers := EncodeReader(bytes.NewReader(data), rs)
+	// read all readers in []byte buffers to avoid deadlock if later
+	// we don't read in parallel from all of them
+	pieces, err := readAll(readers)
+	if !assert.NoError(t, err, errTag) {
+		return
+	}
+	readerMap := make(map[int]io.ReadCloser, len(readers))
+	// some readers will return EOF later
+	for i := 0; i < tt.problematic; i++ {
+		readerMap[i] = fn(pieces[i])
+	}
+	// the rest will operate normally
+	for i := tt.problematic; i < tt.total; i++ {
+		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
+	}
+	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
+	if tt.fail {
+		if err == nil && bytes.Compare(data, data2) == 0 {
+			assert.Fail(t, "expected to fail, but didn't", errTag)
 		}
-		rs := NewRSScheme(fc, tt.blockSize)
-		readers := EncodeReader(bytes.NewReader(data), rs)
-		// read all readers in []byte buffers to avoid deadlock if later
-		// we don't read in parallel from all of them
-		pieces, err := readAll(readers)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		readerMap := make(map[int]io.ReadCloser, len(readers))
-		// some readers will return EOF later
-		for i := 0; i < tt.problematic; i++ {
-			readerMap[i] = readcloser.LimitReadCloser(
-				ioutil.NopCloser(bytes.NewReader(pieces[i])),
-				int64(tt.dataSize+1+rand.Intn(tt.dataSize)))
-		}
-		// the rest will operate normally
-		for i := tt.problematic; i < tt.total; i++ {
-			readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
-		}
-		data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
-		if !tt.fail && assert.NoError(t, err, errTag) {
-			assert.Equal(t, data, data2, errTag)
-		}
+	} else if assert.NoError(t, err, errTag) {
+		assert.Equal(t, data, data2, errTag)
 	}
 }
 

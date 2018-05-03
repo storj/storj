@@ -63,7 +63,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		// catch all the errors
 		inbufs := make(map[int][]byte, len(dr.inbufs))
 		eofbufs := 0
-		errbufs := 0
 		for range dr.rs {
 			re := <-errs
 			if re.err == nil {
@@ -72,12 +71,8 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			} else if re.err == io.EOF {
 				// keep track of inbufs at EOF
 				eofbufs++
-			} else {
-				// keep track of inbufs returning error
-				errbufs++
 			}
-			// if enough inbufs are at EOF - return EOF
-			if eofbufs > 0 && eofbufs+errbufs+dr.es.RequiredCount() > dr.es.TotalCount() {
+			if eofbufs >= dr.es.RequiredCount() {
 				dr.err = io.EOF
 				return 0, dr.err
 			}
