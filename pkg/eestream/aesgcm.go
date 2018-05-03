@@ -16,7 +16,7 @@ type aesgcmEncrypter struct {
 	aesgcm        cipher.AEAD
 }
 
-// NewAesGcmEncrypter returns a Transformer that encrypts the data passing
+// NewAESGCMEncrypter returns a Transformer that encrypts the data passing
 // through with key.
 //
 // startingNonce is treated as a big-endian encoded unsigned
@@ -29,18 +29,18 @@ type aesgcmEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewAesGcmEncrypter(key *[32]byte, startingNonce *[12]byte,
+func NewAESGCMEncrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	aesgcmEncrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
-		return nil, err 
+		return nil, err
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
@@ -59,7 +59,7 @@ func (s *aesgcmEncrypter) OutBlockSize() int {
 	return s.blockSize + s.overhead
 }
 
-func calcGcmNonce(startingNonce *[12]byte, blockNum int64) (rv [12]byte,
+func calcGCMNonce(startingNonce *[12]byte, blockNum int64) (rv [12]byte,
 	err error) {
 	if copy(rv[:], (*startingNonce)[:]) != len(rv) {
 		return rv, Error.New("didn't copy memory?!")
@@ -70,7 +70,7 @@ func calcGcmNonce(startingNonce *[12]byte, blockNum int64) (rv [12]byte,
 
 func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	n, err := calcGcmNonce(&s.startingNonce, blockNum)
+	n, err := calcGCMNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -87,18 +87,18 @@ type aesgcmDecrypter struct {
 	aesgcm        cipher.AEAD
 }
 
-// NewAesGcmDecrypter returns a Transformer that decrypts the data passing
+// NewAESGCMDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
-func NewAesGcmDecrypter(key *[32]byte, startingNonce *[12]byte,
+func NewAESGCMDecrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	aesgcmDecrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	if encryptedBlockSize <= aesgcmDecrypt.Overhead() {
 		return nil, Error.New("block size too small")
@@ -121,15 +121,10 @@ func (s *aesgcmDecrypter) OutBlockSize() int {
 
 func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	[]byte, error) {
-	n, err := calcGcmNonce(&s.startingNonce, blockNum)
+	n, err := calcGCMNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	plaintext, err := s.aesgcm.Open(out, n[:], in, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return plaintext, nil
+	return s.aesgcm.Open(out, n[:], in, nil)
 }

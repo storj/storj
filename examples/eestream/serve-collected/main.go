@@ -42,7 +42,7 @@ func Main() error {
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	var firstNonce [12]byte
-	decrypter, err := eestream.NewAesGcmDecrypter(
+	decrypter, err := eestream.NewAESGCMDecrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err

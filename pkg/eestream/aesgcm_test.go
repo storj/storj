@@ -14,14 +14,14 @@ func TestAesGcm(t *testing.T) {
 	copy(key[:], randData(32))
 	var firstNonce [12]byte
 	copy(firstNonce[:], randData(12))
-	encrypter, err := NewAesGcmEncrypter(&key, &firstNonce, 4*1024)
+	encrypter, err := NewAESGCMEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data := randData(encrypter.InBlockSize() * 10)
 	encrypted := TransformReader(
 		ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
-	decrypter, err := NewAesGcmDecrypter(&key, &firstNonce, 4*1024)
+	decrypter, err := NewAESGCMDecrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
