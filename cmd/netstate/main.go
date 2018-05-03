@@ -13,8 +13,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
-	"github.com/storj/netstate/routes"
-	"github.com/storj/storage/boltdb"
+	"storj.io/storj/netstate/routes"
+	"storj.io/storj/storage/boltdb"
 )
 
 var (
