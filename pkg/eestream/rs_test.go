@@ -39,6 +39,26 @@ func TestRS(t *testing.T) {
 	}
 }
 
+// Check that io.ReadFull will return io.ErrUnexpectedEOF
+// if DecodeReaders return less data than expected.
+func TestRSUnexectedEOF(t *testing.T) {
+	data := randData(32 * 1024)
+	fc, err := infectious.NewFEC(2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := NewRSScheme(fc, 8*1024)
+	readers := EncodeReader(bytes.NewReader(data), rs)
+	readerMap := make(map[int]io.ReadCloser, len(readers))
+	for i, reader := range readers {
+		readerMap[i] = ioutil.NopCloser(reader)
+	}
+	// Try ReadFull more data from DecodeReaders than available
+	data2 := make([]byte, len(data)+1024)
+	_, err = io.ReadFull(DecodeReaders(readerMap, rs), data2)
+	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
+}
+
 // Some pieces will read error.
 // Test will pass if at least required number of pieces are still good.
 func TestRSErrors(t *testing.T) {
