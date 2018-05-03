@@ -11,7 +11,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
-	"github.com/storj/storage/boltdb"
+	"storj.io/storj/storage/boltdb"
 )
 
 // NetStateRoutes maintains access to a boltdb client and zap logger
