@@ -35,7 +35,8 @@ var DeleteError = errs.Class("reputation deletion error")
 
 // NodeReputationRecord is the Data type for Rows in Reputation table
 type NodeReputationRecord struct {
-	name               string
+	source             string
+	nodeName           string
 	timestamp          string
 	uptime             int
 	auditSuccess       int
@@ -68,9 +69,9 @@ func createTable(createStmt string, db *sql.DB) error {
 }
 
 // createNamedRow creates a reputation row struct with a name field base on the name parameter
-func createNamedRow(seed int, name string) NodeReputationRecord {
+func createNamedRow(seed int, nodeName string) NodeReputationRecord {
 	return NodeReputationRecord{
-		name:               name,
+		nodeName:           nodeName,
 		timestamp:          "",
 		uptime:             seed,
 		auditSuccess:       seed,
@@ -122,7 +123,7 @@ func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) er
 
 	for _, row := range rows {
 		_, err = insertStmt.Exec(
-			row.name,
+			row.nodeName,
 			row.uptime,
 			row.auditSuccess,
 			row.auditFail,
@@ -178,7 +179,7 @@ func iterOnDBRows(rows *sql.Rows) ([]NodeReputationRecord, error) {
 		var row NodeReputationRecord
 
 		err := rows.Scan(
-			&row.name,
+			&row.nodeName,
 			&row.timestamp,
 			&row.uptime,
 			&row.auditSuccess,
@@ -244,8 +245,8 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, d
 	defer deleteStmt.Close()
 
 	_, err = deleteStmt.Exec(
-		recordToKeep.name,
-		recordToKeep.name,
+		recordToKeep.nodeName,
+		recordToKeep.nodeName,
 		recordToKeep.timestamp,
 		recordToKeep.uptime,
 		recordToKeep.auditSuccess,
@@ -306,8 +307,8 @@ func (row NodeReputationRecord) greaterRep(other NodeReputationRecord) NodeReput
 	otherRep := other.naiveRep()
 	myTime := row.timestamp
 	otherTime := other.timestamp
-	myName := row.name
-	otherName := other.name
+	myName := row.nodeName
+	otherName := other.nodeName
 
 	var res NodeReputationRecord
 
@@ -327,7 +328,7 @@ func (row NodeReputationRecord) greaterRep(other NodeReputationRecord) NodeReput
 
 // naiveReputation finds the naive reputation of the resulting rows from the query string
 func naiveReputation(db *sql.DB, queryString string) (NodeReputationRecord, error) {
-	bestRep := NodeReputationRecord{"identity", "", 0, 0, 0, 0, 0, 0, 0}
+	bestRep := NodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -373,10 +374,10 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 	var otherEndian bytes.Buffer
 
 	switch {
-	case row.timestamp > other.timestamp && row.name == other.name:
+	case row.timestamp > other.timestamp && row.nodeName == other.nodeName:
 		rowEndian.WriteString("1")
 		otherEndian.WriteString("0")
-	case row.timestamp < other.timestamp && row.name == other.name:
+	case row.timestamp < other.timestamp && row.nodeName == other.nodeName:
 		rowEndian.WriteString("0")
 		otherEndian.WriteString("1")
 	default:
@@ -463,8 +464,8 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 		res = other
 	}
 
-	fmt.Printf("endian: %v, me: %v\n", rowEndian.String(), row.name)
-	fmt.Printf("endian: %v, other: %v\n", otherEndian.String(), other.name)
+	fmt.Printf("endian: %v, me: %v\n", rowEndian.String(), row.nodeName)
+	fmt.Printf("endian: %v, other: %v\n", otherEndian.String(), other.nodeName)
 
 	fmt.Printf("WINNER: %v\n\n", res)
 
@@ -473,7 +474,7 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 
 // endianReputation based on the most significant fields of NodeReputationRecord
 func endianReputation(db *sql.DB, queryString string) (NodeReputationRecord, error) {
-	bestRep := NodeReputationRecord{"identity", "", 0, 0, 0, 0, 0, 0, 0}
+	bestRep := NodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -571,6 +572,6 @@ func NodeReputationRecordMorphism(rows []NodeReputationRecord, col column, op mu
 }
 
 // NewReputationRow this is the apply function for the reputation row struct, returns a new NodeReputationRecord
-func NewReputationRow(name string) NodeReputationRecord {
-	return NodeReputationRecord{name, "", 0, 0, 0, 0, 0, 0, 0}
+func NewReputationRow(source string, name string) NodeReputationRecord {
+	return NodeReputationRecord{source, name, "", 0, 0, 0, 0, 0, 0, 0}
 }
