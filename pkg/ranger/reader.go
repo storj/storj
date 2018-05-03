@@ -19,6 +19,24 @@ type Ranger interface {
 	Range(offset, length int64) io.ReadCloser
 }
 
+// A RangerCloser is a Ranger that must be closed when finished
+type RangerCloser interface {
+	Ranger
+	io.Closer
+}
+
+// NopCloser makes an existing Ranger function as a RangerCloser
+// with a no-op for Close()
+func NopCloser(r Ranger) RangerCloser {
+	return struct {
+		Ranger
+		io.Closer
+	}{
+		Ranger: r,
+		Closer: ioutil.NopCloser(nil),
+	}
+}
+
 // ByteRanger turns a byte slice into a Ranger
 type ByteRanger []byte
 

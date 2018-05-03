@@ -65,16 +65,12 @@ func Main() error {
 		if err != nil {
 			return err
 		}
-		fh, err := os.Open(filepath.Join(flag.Arg(0), piece.Name()))
+		r, err := ranger.FileRanger(filepath.Join(flag.Arg(0), piece.Name()))
 		if err != nil {
 			return err
 		}
-		defer fh.Close()
-		fs, err := fh.Stat()
-		if err != nil {
-			return err
-		}
-		rrs[piecenum] = ranger.ReaderAtRanger(fh, fs.Size())
+		defer r.Close()
+		rrs[piecenum] = r
 	}
 	rr, err := eestream.Decode(rrs, es)
 	if err != nil {
