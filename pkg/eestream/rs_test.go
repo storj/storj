@@ -154,8 +154,8 @@ func TestRSLateEOF(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
-			// extend the input with random number of zero bytes
-			random := make([]byte, 1+rand.Intn(10000))
+			// extend the input with random number of random bytes
+			random := randData(1 + rand.Intn(10000))
 			extended := append(in, random...)
 			return ioutil.NopCloser(bytes.NewReader(extended))
 		})
@@ -186,9 +186,8 @@ func TestRSRandomData(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 7, true},
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
-			// extend the input with random number of zero bytes
-			random := make([]byte, len(in))
-			return ioutil.NopCloser(bytes.NewReader(random))
+			// return random data instead of expected one
+			return ioutil.NopCloser(bytes.NewReader(randData(len(in))))
 		})
 	}
 }
