@@ -46,13 +46,29 @@ func Main() error {
 	if err != nil {
 		return err
 	}
+	// initialize http rangers in parallel to save from network latency
 	rrs := map[int]ranger.Ranger{}
-	for i := 0; i < 40; i++ {
-		url := fmt.Sprintf("http://localhost:%d", 10000+i)
-		rrs[i], err = ranger.HTTPRanger(url)
-		if err != nil {
+	type indexRangerError struct {
+		i   int
+		rr  ranger.Ranger
+		err error
+	}
+	result := make(chan indexRangerError, *rsn)
+	for i := 0; i < *rsn; i++ {
+		go func(i int) {
+			url := fmt.Sprintf("http://18.184.133.99:%d", 10000+i)
+			rr, err := ranger.HTTPRanger(url)
+			result <- indexRangerError{i, rr, err}
+		}(i)
+	}
+	// wait for all goroutines to finish and save result in rrs map
+	for i := 0; i < *rsn; i++ {
+		res := <-result
+		if res.err != nil {
+			// return on the first failure
 			return err
 		}
+		rrs[res.i] = res.rr
 	}
 	rr, err := eestream.Decode(rrs, es)
 	if err != nil {

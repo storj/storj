@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	proto "github.com/coyle/storj/protos/overlay" // naming proto to avoid confusion with this package
+	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
 func TestNewServer(t *testing.T) {
