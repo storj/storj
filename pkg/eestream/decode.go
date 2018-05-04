@@ -6,6 +6,8 @@ package eestream
 import (
 	"io"
 	"io/ioutil"
+	"reflect"
+	"strings"
 
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
@@ -14,14 +16,22 @@ import (
 type decodedReader struct {
 	rs     map[int]io.ReadCloser
 	es     ErasureScheme
-	inbufs map[int][]byte
 	outbuf []byte
 	err    error
+	chans  map[int]chan block
+	cb     int // current block number
 }
 
 type readerError struct {
 	i   int // reader index in the map
 	err error
+}
+
+type block struct {
+	i    int    // reader index in the map
+	num  int    // block number
+	data []byte // block data
+	err  error  // error reading the block
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
@@ -31,11 +41,34 @@ func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme) io.ReadCloser {
 	dr := &decodedReader{
 		rs:     rs,
 		es:     es,
-		inbufs: make(map[int][]byte, len(rs)),
 		outbuf: make([]byte, 0, es.DecodedBlockSize()),
+		chans:  make(map[int]chan block, len(rs)),
 	}
+	// Kick off a goroutine for each reader. Each reads a block from the
+	// reader and adds it to a buffered channel. If an error is read
+	// (including EOF), a block with the error is added to the channel,
+	// the channel is closed and the gourtine exits.
+	// TODO: Ensure that goroutines of slow readers really exit and don't
+	// block on adding blocks to the buffered channel.
 	for i := range rs {
-		dr.inbufs[i] = make([]byte, es.EncodedBlockSize())
+		dr.chans[i] = make(chan block, 5) // TODO make this configurable
+		go func(i int, ch chan block) {
+			// close the channel when the goroutine exits
+			defer close(ch)
+			blockNum := 0
+			for {
+				// read the next block
+				data := make([]byte, es.EncodedBlockSize())
+				_, err := io.ReadFull(dr.rs[i], data)
+				// add it to the channel
+				ch <- block{i, blockNum, data, err}
+				if err != nil {
+					// exit the goroutine (will close the channel)
+					return
+				}
+				blockNum++
+			}
+		}(i, dr.chans[i])
 	}
 	return dr
 }
@@ -47,41 +80,73 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		if dr.err != nil {
 			return 0, err
 		}
-		// we're going to kick off a bunch of goroutines. make a
-		// channel to catch those goroutine errors. importantly,
-		// the channel has a buffer size to contain all the errors
-		// even if we read none, so we can return without receiving
-		// every channel value
-		errs := make(chan readerError, len(dr.rs))
-		for i := range dr.rs {
-			go func(i int) {
-				// fill the buffer from the piece input
-				_, err := io.ReadFull(dr.rs[i], dr.inbufs[i])
-				errs <- readerError{i, err}
-			}(i)
-		}
-		// catch all the errors
-		inbufs := make(map[int][]byte, len(dr.inbufs))
+		// Run a selector on the readers' buffered channels
 		eofbufs := 0
-		for range dr.rs {
-			re := <-errs
-			if re.err == nil {
-				// add inbuf for decoding only if no error
-				inbufs[re.i] = dr.inbufs[re.i]
-			} else if re.err == io.EOF {
-				// keep track of inbufs at EOF
-				eofbufs++
+		inbufs := make(map[int][]byte, len(dr.chans))
+		cases := make([]reflect.SelectCase, len(dr.chans))
+		for i, ch := range dr.chans {
+			cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
+		}
+		for len(cases) > 0 {
+			chosen, value, ok := reflect.Select(cases)
+			if !ok {
+				// the channel is closed - remove it from further selects
+				cases = append(cases[:chosen], cases[chosen+1:]...)
+				continue
 			}
-			if eofbufs >= dr.es.RequiredCount() {
-				dr.err = io.EOF
+			b := value.Interface().(block)
+			if b.err != nil {
+				// remove the channel from further selects
+				cases = append(cases[:chosen], cases[chosen+1:]...)
+				if b.err == io.EOF {
+					// keep track of readers at EOF
+					eofbufs++
+					// if enough readers are at EOF, return it
+					if eofbufs >= dr.es.RequiredCount() {
+						dr.err = io.EOF
+						return 0, dr.err
+					}
+				}
+				continue
+			}
+			// check if this is the expected block number
+			// if not (slow reader), discard it and make another select
+			if b.num == dr.cb {
+				inbufs[b.i] = b.data
+				// remove the channel from further selects to avoid reading
+				// the next block if reader is fast
+				cases = append(cases[:chosen], cases[chosen+1:]...)
+			}
+			// TODO is required+1 enough to detect errors in polynomials of any degree?
+			if len(inbufs) >= dr.es.RequiredCount()+1 ||
+				len(inbufs) >= dr.es.TotalCount() {
+				// we have enough input buffers, fill the decoded output buffer
+				dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
+				if dr.err == nil {
+					break
+				}
+				// TODO is there better way for error comparision?
+				if strings.Contains(dr.err.Error(), "not enough shares") ||
+					strings.Contains(dr.err.Error(), "too many errors") {
+					// read more input buffers to have enough for error correction
+					continue
+				}
 				return 0, dr.err
 			}
 		}
-		// we have all the input buffers, fill the decoded output buffer
-		dr.outbuf, err = dr.es.Decode(dr.outbuf, inbufs)
-		if err != nil {
-			return 0, err
+		// if error occurred and was not return yet, return it now
+		if dr.err != nil {
+			return 0, dr.err
 		}
+		// if no error and no decoding yet, decode now what's available
+		if len(dr.outbuf) <= 0 {
+			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
+			if dr.err != nil {
+				return 0, dr.err
+			}
+		}
+		// increment the block counter
+		dr.cb++
 	}
 
 	// copy what data we have to the output

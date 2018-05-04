@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
@@ -96,18 +97,18 @@ func TestRSEOF(t *testing.T) {
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		{4 * 1024, 1024, 1, 2, 1, true},
+		// {4 * 1024, 1024, 1, 2, 1, false},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		{4 * 1024, 1024, 2, 4, 2, true},
+		// {4 * 1024, 1024, 2, 4, 2, false},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, true},
-		{6 * 1024, 1024, 3, 7, 4, true},
+		// {6 * 1024, 1024, 3, 7, 3, false},
+		// {6 * 1024, 1024, 3, 7, 4, false},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
@@ -126,18 +127,18 @@ func TestRSEarlyEOF(t *testing.T) {
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		{4 * 1024, 1024, 1, 2, 1, true},
+		// {4 * 1024, 1024, 1, 2, 1, false},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		{4 * 1024, 1024, 2, 4, 2, true},
+		// {4 * 1024, 1024, 2, 4, 2, false},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, true},
-		{6 * 1024, 1024, 3, 7, 4, true},
+		// {6 * 1024, 1024, 3, 7, 3, false},
+		// {6 * 1024, 1024, 3, 7, 4, false},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
@@ -157,18 +158,18 @@ func TestRSLateEOF(t *testing.T) {
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		{4 * 1024, 1024, 1, 2, 1, false},
+		// {4 * 1024, 1024, 1, 2, 1, false},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		{4 * 1024, 1024, 2, 4, 2, false},
+		// {4 * 1024, 1024, 2, 4, 2, false},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, false},
-		{6 * 1024, 1024, 3, 7, 4, false},
+		// {6 * 1024, 1024, 3, 7, 3, false},
+		// {6 * 1024, 1024, 3, 7, 4, false},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
@@ -199,7 +200,7 @@ func TestRSRandomData(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		{6 * 1024, 1024, 3, 7, 3, true},
+		// {6 * 1024, 1024, 3, 7, 3, true},
 		{6 * 1024, 1024, 3, 7, 4, true},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
@@ -209,6 +210,30 @@ func TestRSRandomData(t *testing.T) {
 			// return random data instead of expected one
 			return ioutil.NopCloser(bytes.NewReader(randData(len(in))))
 		})
+	}
+}
+
+// Some pieces will read slowly
+func TestRSSlow(t *testing.T) {
+	for i, tt := range []testCase{
+		{4 * 1024, 1024, 1, 1, 0, false},
+		{4 * 1024, 1024, 1, 2, 0, false},
+		{4 * 1024, 1024, 2, 4, 0, false},
+		{4 * 1024, 1024, 2, 4, 1, false},
+		{6 * 1024, 1024, 3, 7, 0, false},
+		{6 * 1024, 1024, 3, 7, 1, false},
+		{6 * 1024, 1024, 3, 7, 2, false},
+		{6 * 1024, 1024, 3, 7, 3, false},
+	} {
+		beginning := time.Now()
+		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
+			// sleep 1 second before every read
+			return ioutil.NopCloser(SlowReader(bytes.NewReader(in), 1*time.Second))
+		})
+		end := time.Now()
+		if end.Sub(beginning) > 1*time.Second {
+			t.Fatalf("waited for slow reader")
+		}
 	}
 }
 
@@ -274,4 +299,18 @@ func readAll(readers []io.Reader) ([][]byte, error) {
 		}
 	}
 	return pieces, nil
+}
+
+func SlowReader(r io.Reader, delay time.Duration) io.Reader {
+	return &slowReader{Reader: r, Delay: delay}
+}
+
+type slowReader struct {
+	Reader io.Reader
+	Delay  time.Duration
+}
+
+func (s *slowReader) Read(p []byte) (n int, err error) {
+	time.Sleep(s.Delay)
+	return s.Reader.Read(p)
 }
