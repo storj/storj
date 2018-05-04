@@ -3,24 +3,29 @@ package main
 import  (
 	"fmt"
 	"os"
-//	"flag"
+	"flag"
 )
-
+ 
 type httpHeaders struct {
-	X_API_KEY string
+	XApiKey string
 	Connection string 
-	Cache_Control string
-	Upgrade_Insecure_Requests string 
+	CacheControl string
+	UpgradeInsecureRequests string 
 	Accept string
-	Accept_Language string
+	AcceptLanguage string
 }
 
 func main() {
-	httpRequestHeaders := createHeaderStruct()
-	_setEnv()
-	validateApiKeyWithEnv(httpRequestHeaders)
-	validateApiKeyWithFlags(httpRequestHeaders)
+	key := flag.String("key", "", "this is your API KEY")
+	flag.Parse()
 	
+	httpRequestHeaders := createHeaderStruct()
+	if len(*key) == 0 {
+		_setEnv()
+		validateApiKeyWithEnv(httpRequestHeaders)
+	} else {
+		validateApiKeyWithFlags(httpRequestHeaders, key)
+	}
 }
 
 func createHeaderStruct() *httpHeaders {
@@ -28,12 +33,12 @@ func createHeaderStruct() *httpHeaders {
 	// client can set headers x-api-key with 
 	//req.Header.Add("x-api-key", "apikey")
 	requestHeader := httpHeaders {
-		X_API_KEY: "12345",
+		XApiKey: "12345",
 		Connection: "keep-alive",
-		Cache_Control: "max-age=0",
-		Upgrade_Insecure_Requests: "1",
+		CacheControl: "max-age=0",
+		UpgradeInsecureRequests: "1",
 		Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8" ,
-		Accept_Language: "en-US,en;q=0.9",
+		AcceptLanguage: "en-US,en;q=0.9",
 	}
 	return &requestHeader
 }
@@ -43,18 +48,24 @@ func _setEnv() {
 }
 
 func validateApiKeyWithEnv(headers* httpHeaders)(bool) {
+	// validates env key with apikey header
+	
 	envApiKey := os.Getenv("APIKEY")
 	switch {		
 	case len(envApiKey) == 0:
 		return false
-	case envApiKey != headers.X_API_KEY:
+	case envApiKey != headers.XApiKey:
 		return false
 	}
 	return true
 }
 
+func validateApiKeyWithFlags(headers* httpHeaders, key *string)(bool) {
+	// validates flag with apikey header
 
-func validateApiKeyWithFlags(headers* httpHeaders) {
-	
-	//fmt.Println(headers)
+	if headers.XApiKey == *key {
+		return true
+	} else {
+		return false
+	}
 }
