@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/uuid"
 	"github.com/zeebo/errs"
 	// import of sqlite3 for side effects
 	_ "github.com/mattn/go-sqlite3"
@@ -68,51 +67,14 @@ func createTable(createStmt string, db *sql.DB) error {
 	return nil
 }
 
-// createNamedRow creates a reputation row struct with a name field base on the name parameter
-func createNamedRow(seed int, nodeName string) NodeReputationRecord {
-	return NodeReputationRecord{
-		nodeName:           nodeName,
-		timestamp:          "",
-		uptime:             seed,
-		auditSuccess:       seed,
-		auditFail:          seed,
-		latency:            seed,
-		amountOfDataStored: seed,
-		falseClaims:        seed,
-		shardsModified:     0,
-	}
-}
-
-// createRandRows create a slice of reputation row with random data with the number of rows based on the max row parameter
-func createRandRows(numRows int) []NodeReputationRecord {
-	res := make([]NodeReputationRecord, 0, numRows)
-
-	for i := 0; i <= numRows; i++ {
-		res = append(res, createNamedRow(i, uuid.New().String()))
-	}
-
-	return res
-}
-
-// createNameRandRows creates a slice of reputation row structs filled with random data with the name column from the names slice
-func createNamedRandRows(names []string) []NodeReputationRecord {
-	var res []NodeReputationRecord
-
-	for idx, name := range names {
-		res = append(res, createNamedRow(idx, name))
-	}
-
-	return res
-}
-
 // insertRows inserts the slice of reputation row structs based on the insert string
 func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) error {
 	tx, err := db.Begin()
-	defer tx.Rollback()
 	if err != nil {
 		log.Printf("%q: %s\n", err, insertString)
 		return InsertError.Wrap(err)
 	}
+	defer tx.Rollback()
 
 	insertStmt, err := tx.Prepare(insertString)
 	if err != nil {
@@ -137,9 +99,7 @@ func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) er
 			return InsertError.Wrap(err)
 		}
 	}
-	tx.Commit()
-
-	return nil
+	return tx.Commit()
 }
 
 // selectFromDB side effect function that prints the rows from the query string
@@ -231,11 +191,11 @@ func getNodeReputationRecords(db *sql.DB, selectString string) ([]NodeReputation
 */
 func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, deleteString string) error {
 	tx, err := db.Begin()
-	defer tx.Rollback()
 	if err != nil {
 		log.Printf("%q: %s\n", err, deleteString)
 		return DeleteError.Wrap(err)
 	}
+	defer tx.Rollback()
 
 	deleteStmt, err := tx.Prepare(deleteString)
 	if err != nil {
@@ -260,14 +220,12 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, d
 		log.Printf("%q: %v\n", err, deleteStmt)
 		return DeleteError.Wrap(err)
 	}
-	tx.Commit()
-
-	return nil
+	return tx.Commit()
 }
 
 // cleanUpDB close sqlite3
-func cleanUpDB(db *sql.DB) {
-	db.Close()
+func cleanUpDB(db *sql.DB) error {
+	return db.Close()
 }
 
 // auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct

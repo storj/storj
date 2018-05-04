@@ -1,5 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package reputation
 
 import (
@@ -21,57 +22,6 @@ func TestCreateTable(t *testing.T) {
 
 func TestRowInsertAndQuery(t *testing.T) {
 	db, _ := startDB("./TestRowInsertAndQuery.db")
-
-	createStmt := `
-	CREATE table node_reputation (
-		node_name text not null primary key,
-		timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), 
-		uptime interger,
-		audit_success interger,
-		audit_fail interger,
-		latency interger,
-		amount_of_data_stored interger,
-		false_claims interger,
-		shards_modified interger
-	);`
-
-	insertStmt := `INSERT into node_reputation (
-		node_name,
-		uptime,
-		audit_success,
-		audit_fail,
-		latency,
-		amount_of_data_stored,
-		false_claims,
-		shards_modified
-	) values (?, ?, ?, ?, ?, ?, ?, ?);`
-
-	selectStmt := `SELECT 
-	    node_name,
-		timestamp,
-		uptime,
-		audit_success,
-		audit_fail,
-		latency,
-		amount_of_data_stored,
-		false_claims,
-		shards_modified
-	FROM node_reputation
-	LIMIT 2`
-
-	createTable(createStmt, db)
-
-	insertRows(db, createRandRows(100), insertStmt)
-
-	selectFromDB(db, selectStmt)
-
-	cleanUpDB(db)
-
-	os.Remove("./TestRowInsertAndQuery.db")
-}
-
-func TestFindNode(t *testing.T) {
-	db, _ := startDB("./TestFindNode.db")
 
 	createStmt := `
 	CREATE table node_reputation (
@@ -133,7 +83,7 @@ func TestFindNode(t *testing.T) {
 
 	cleanUpDB(db)
 
-	os.Remove("./TestFindNode.db")
+	os.Remove("./TestRowInsertAndQuery.db")
 }
 
 func TestUpdateNode(t *testing.T) {
