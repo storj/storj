@@ -65,6 +65,10 @@ If you want to build Storj right away there are two options:
 ```
 $ go get -d storj.io/storj
 $ cd $GOPATH/src/storj.io/storj
+$ go get -u gopkg.in/alecthomas/gometalinter.v2
+$ go get -u github.com/kataras/iris
+$ go get -u github.com/boltdb/bolt
+$ go get -u github.com/google/uuid
 $ make
 ```
 

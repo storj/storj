@@ -2,6 +2,7 @@ module "storj.io/storj"
 
 require (
 	"github.com/spf13/viper" v1.0.2
+	"github.com/stretchr/testify" v1.2.1
 	"github.com/tyler-smith/go-bip39" v0.0.0-20160629163856-8e7a99b3e716
 	"github.com/urfave/cli" v1.20.0
 	"github.com/zeebo/errs" v0.1.0
