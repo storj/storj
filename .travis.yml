@@ -1,0 +1,11 @@
+language: go
+
+go:
+  - 1.10.x
+
+
+before_install:
+  - make build-dev-deps
+
+script:
+  - make lint

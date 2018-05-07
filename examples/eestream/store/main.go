@@ -36,6 +36,7 @@ func main() {
 	}
 }
 
+// Main is the exported CLI executable function
 func Main() error {
 	err := os.MkdirAll(flag.Arg(0), 0755)
 	if err != nil {

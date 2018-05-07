@@ -42,6 +42,7 @@ func main() {
 	}
 }
 
+// Main is the exported CLI executable function
 func Main() error {
 	encKey := sha256.Sum256([]byte(*key))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
