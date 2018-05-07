@@ -6,7 +6,7 @@ import (
 	"storj.io/storj/protos/overlay"
 )
 
-type nodeID string
+type NodeID string
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
@@ -14,8 +14,8 @@ type DHT interface {
 	GetRoutingTable(ctx context.Context) RoutingTable
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node overlay.Node) overlay.Node
-	FindNode(ctx context.Context, ID nodeID) overlay.Node
-	FindValue(ctx context.Context)
+	FindNode(ctx context.Context, ID NodeID) overlay.Node
+	FindValue(ctx context.Context, ID NodeID) overlay.Node
 }
 
 // RoutingTable contains information on nodes we have locally
@@ -26,11 +26,11 @@ type RoutingTable interface {
 
 // Bucket is a set of methods to act on kademlia k buckets
 type Bucket interface {
-	MoveToTail(ID nodeID) error
-	MoveToHead(ID nodeID) error
-	Has(ID nodeID) bool
-	Add(ID nodeID) error
-	Remove(ID nodeID) error
-	Get(ID nodeID) overlay.Node
+	MoveToTail(ID NodeID) error
+	MoveToHead(ID NodeID) error
+	Has(ID NodeID) bool
+	Add(ID NodeID) error
+	Remove(ID NodeID) error
+	Get(ID NodeID) overlay.Node
 	Len() int
 }
