@@ -25,11 +25,13 @@ proto:
 
 
 build-dev-deps:
-	go get -u golang.org/x/vgo
-	vgo install ./...
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
 test:
 	go test -v ./...
+
+install-deps:
+	git clone https://github.com/storj/storj-vendor.git
+	mv storj-vendor/src ./vendor
