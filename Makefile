@@ -10,6 +10,7 @@ lint: check-copyrights
 	--enable=vet \
 	--enable=deadcode \
 	--enable=goconst \
+	--enable=gosimple \
 	--exclude=.*\.pb\.go \
 	--exclude=.*_test.go \
 	./...
@@ -36,4 +37,5 @@ install-deps:
 	git clone https://github.com/storj/storj-vendor.git
 	mv storj-vendor/src ./vendor
 	go get -t -v ./... || true
+	go get -u storj.io/storj
 	ls ./*
