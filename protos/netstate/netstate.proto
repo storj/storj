@@ -1,0 +1,51 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+package netstate;
+
+// NetState defines the interface for interacting with the network state persistence layer
+service NetState {
+  // Put formats and hands off a file path to be saved to boltdb
+  rpc Put(FilePath) returns (PutResponse);
+  // Get formats and hands off a file path to get from boltdb
+  rpc Get(FilePath) returns (GetResponse);
+  // List calls the bolt client's List function and returns all file paths
+  rpc List(ListRequest) returns (ListResponse);
+  // Delete formats and hands off a file path to delete from boltdb
+  rpc Delete(FilePath) returns (DeleteResponse);
+}
+
+// FilePath is a request message for Put, Get, and Delete rpc calls
+message FilePath {
+  string path = 1;
+  // smallValue is a value too small to be broken up and stored
+  // in different places. Using 'required' now, but eventually
+  // should be optional.
+  string smallValue = 2;
+}
+
+// ListRequest is a request message for the List rpc call
+message ListRequest {
+  string request = 1;
+}
+
+// PutResponse is a response message for the Put rpc call
+message PutResponse {
+  string confirmation = 1;
+}
+
+// GetResponse is a response message for the Get rpc call
+message GetResponse {
+  string content = 1;
+}
+
+// ListResponse is a response message for the List rpc call
+message ListResponse {
+  repeated string filepath = 1;
+}
+
+// DeleteResponse is a response message for the Delete rpc call
+message DeleteResponse {
+  string confirmation = 1;
+}
