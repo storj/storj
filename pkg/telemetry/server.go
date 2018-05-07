@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/admission"
 	"github.com/zeebo/admission/admproto"
-	"github.com/zeebo/float16"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
@@ -94,13 +93,21 @@ func (h handlerWrapper) Handle(ctx context.Context, m *admission.Message) {
 		return
 	}
 	r := admproto.NewReaderWith(m.Scratch[:])
-	data, application_b, instance_b := r.Begin(data)
+	data, application_b, instance_b, err := r.Begin(data)
+	if err != nil {
+		finish(&err)
+		return
+	}
 	application, instance := string(application_b), string(instance_b)
 	var key []byte
-	var value float16.Float16
+	var value float64
 	for len(data) > 0 {
-		data, key, value = r.Next(data)
-		h.h.Metric(application, instance, key, value.Float64())
+		data, key, value, err = r.Next(data)
+		if err != nil {
+			finish(&err)
+			return
+		}
+		h.h.Metric(application, instance, key, value)
 	}
 
 	finish(nil)
