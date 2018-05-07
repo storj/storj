@@ -85,6 +85,7 @@ func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) er
 
 	for _, row := range rows {
 		_, err = insertStmt.Exec(
+			row.source,
 			row.nodeName,
 			row.uptime,
 			row.auditSuccess,
@@ -131,6 +132,20 @@ func selectFromDB(db *sql.DB, selectString string) error {
 	return nil
 }
 
+func genSelectByColumn(selectAll string, col column, value string) string {
+	where := " WHERE"
+
+	switch col {
+	case nodeNameColumn:
+		where = where + " node_name = '" + value + "'"
+
+	default:
+		where = ""
+	}
+
+	return selectAll + where
+}
+
 // iterOnDBRows iterate on rows in the database to transform into slice of NodeReputationRecord
 func iterOnDBRows(rows *sql.Rows) ([]NodeReputationRecord, error) {
 	var res []NodeReputationRecord
@@ -139,6 +154,7 @@ func iterOnDBRows(rows *sql.Rows) ([]NodeReputationRecord, error) {
 		var row NodeReputationRecord
 
 		err := rows.Scan(
+			&row.source,
 			&row.nodeName,
 			&row.timestamp,
 			&row.uptime,
@@ -206,6 +222,7 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, d
 
 	_, err = deleteStmt.Exec(
 		recordToKeep.nodeName,
+		recordToKeep.source,
 		recordToKeep.nodeName,
 		recordToKeep.timestamp,
 		recordToKeep.uptime,
@@ -487,6 +504,8 @@ type column string
 
 // coproduct/sum type for the column type
 const (
+	sourceColumn             column = "source"
+	nodeNameColumn           column = "nodeName"
 	uptimeColumn             column = "uptime"
 	auditSuccessColumn       column = "auditSuccess"
 	auditFailColumn          column = "auditFail"
