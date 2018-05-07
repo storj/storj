@@ -21,11 +21,13 @@ type Transformer interface {
 }
 
 type transformedReader struct {
-	r        io.ReadCloser
-	t        Transformer
-	blockNum int64
-	inbuf    []byte
-	outbuf   []byte
+	r            io.ReadCloser
+	t            Transformer
+	blockNum     int64
+	inbuf        []byte
+	outbuf       []byte
+	expectedSize int64
+	bytesRead    int
 }
 
 // TransformReader applies a Transformer to a Reader. startingBlockNum should
@@ -41,12 +43,31 @@ func TransformReader(r io.ReadCloser, t Transformer,
 	}
 }
 
+// TransformReaderSize creates a TransformReader with expected size,
+// i.e. the number of bytes that is expected to be read from this reader.
+// If less than the expected bytes are read, the reader will return
+// io.ErrUnexpectedEOF instead of io.EOF.
+func TransformReaderSize(r io.ReadCloser, t Transformer,
+	startingBlockNum int64, expectedSize int64) io.ReadCloser {
+	return &transformedReader{
+		r:            r,
+		t:            t,
+		blockNum:     startingBlockNum,
+		inbuf:        make([]byte, t.InBlockSize()),
+		outbuf:       make([]byte, 0, t.OutBlockSize()),
+		expectedSize: expectedSize,
+	}
+}
+
 func (t *transformedReader) Read(p []byte) (n int, err error) {
 	if len(t.outbuf) <= 0 {
 		// If there's no more buffered data left, let's fill the buffer with
 		// the next block
-		_, err = io.ReadFull(t.r, t.inbuf)
-		if err != nil {
+		b, err := io.ReadFull(t.r, t.inbuf)
+		t.bytesRead += b
+		if err == io.EOF && int64(t.bytesRead) < t.expectedSize {
+			return 0, io.ErrUnexpectedEOF
+		} else if err != nil {
 			return 0, err
 		}
 		t.outbuf, err = t.t.Transform(t.outbuf, t.inbuf, t.blockNum)
@@ -111,10 +132,11 @@ func (t *transformedRanger) Range(offset, length int64) io.ReadCloser {
 		offset, length, t.t.OutBlockSize())
 	// okay, now let's get the range on the underlying ranger for those blocks
 	// and then Transform it.
-	r := TransformReader(
+	r := TransformReaderSize(
 		t.rr.Range(
 			firstBlock*int64(t.t.InBlockSize()),
-			blockCount*int64(t.t.InBlockSize())), t.t, firstBlock)
+			blockCount*int64(t.t.InBlockSize())),
+		t.t, firstBlock, blockCount*int64(t.t.InBlockSize()))
 	// the range we got potentially includes more than we wanted. if the
 	// offset started past the beginning of the first block, we need to
 	// swallow the first few bytes
