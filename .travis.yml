@@ -7,6 +7,7 @@ go:
 before_install:
   - make install-deps
   - make build-dev-deps
+  - go get -t -v ./...
 
 script:
   - make lint
