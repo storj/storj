@@ -34,4 +34,5 @@ test:
 
 install-deps:
 	git clone https://github.com/storj/storj-vendor.git
+	ls ./*
 	mv storj-vendor/src ./vendor
