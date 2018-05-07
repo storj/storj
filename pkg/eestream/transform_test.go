@@ -5,9 +5,13 @@ package eestream
 
 import (
 	"bytes"
+	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/ranger"
 )
@@ -121,6 +125,68 @@ func TestCRCSubranges(t *testing.T) {
 			if !bytes.Equal(read, data[i:j]) {
 				t.Fatalf("bad subrange")
 			}
+		}
+	}
+}
+
+type nopTransformer struct {
+	blockSize int
+}
+
+func NopTransformer(blockSize int) Transformer {
+	return &nopTransformer{blockSize: blockSize}
+}
+
+func (t *nopTransformer) InBlockSize() int {
+	return t.blockSize
+}
+
+func (t *nopTransformer) OutBlockSize() int {
+	return t.blockSize
+}
+
+func (t *nopTransformer) Transform(out, in []byte, blockNum int64) (
+	[]byte, error) {
+	out = append(out, in...)
+	return out, nil
+}
+
+func TestTransformer(t *testing.T) {
+	transformer := NopTransformer(4 * 1024)
+	data := randData(transformer.InBlockSize() * 10)
+	transformed := TransformReader(
+		ioutil.NopCloser(bytes.NewReader(data)), transformer, 0)
+	data2, err := ioutil.ReadAll(transformed)
+	if assert.NoError(t, err) {
+		assert.Equal(t, data, data2)
+	}
+}
+
+func TestTransformerSize(t *testing.T) {
+	for i, tt := range []struct {
+		blockSize     int
+		blocks        int
+		expectedSize  int64
+		unexpectedEOF bool
+	}{
+		{4, 10, 0, false},
+		{4, 10, 3 * 10, false},
+		{4, 10, 4*10 - 1, false},
+		{4, 10, 4 * 10, false},
+		{4, 10, 4*10 + 1, true},
+		{4, 10, 4 * 11, true},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		transformer := NopTransformer(tt.blockSize)
+		data := randData(transformer.InBlockSize() * tt.blocks)
+		transformed := TransformReaderSize(
+			ioutil.NopCloser(bytes.NewReader(data)),
+			transformer, 0, tt.expectedSize)
+		data2, err := ioutil.ReadAll(transformed)
+		if tt.unexpectedEOF {
+			assert.EqualError(t, err, io.ErrUnexpectedEOF.Error(), errTag)
+		} else if assert.NoError(t, err, errTag) {
+			assert.Equal(t, data, data2, errTag)
 		}
 	}
 }
