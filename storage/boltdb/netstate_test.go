@@ -14,9 +14,15 @@ import (
 )
 
 func tempfile() string {
-	f, _ := ioutil.TempFile("", "TempBolt-")
+	f, err := ioutil.TempFile("", "TempBolt-")
+	if err != nil {
+		panic(err)
+	}
 	f.Close()
-	os.Remove(f.Name())
+	err := os.Remove(f.Name())
+	if err != nil {
+		panic(err)
+	}
 	return f.Name()
 }
 
