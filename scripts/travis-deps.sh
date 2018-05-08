@@ -3,6 +3,7 @@ set -x
 mkdir -p $HOME/gopath-staging
 cd $HOME/gopath-staging
 git clone --depth=1 --recursive --shallow-submodules https://github.com/storj/storj-vendor.git .
+./setup.sh
 mkdir -p src/storj.io
 mv $HOME/gopath/src/github.com/storj/storj src/storj.io
 rm -rf $HOME/gopath
