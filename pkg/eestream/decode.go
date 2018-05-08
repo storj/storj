@@ -97,9 +97,9 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			// non-blocking select - harvest available input buffers
 			chosen, value, ok := reflect.Select(cases)
 			if chosen == 0 {
-				// default case - no more input buffers available, check if we have enough
-				// TODO is required+1 enough to detect errors in polynomials of any degree?
-				if len(inbufs) >= dr.es.RequiredCount()+1 ||
+				// default case - no more input buffers available
+				// required+1 will be enough to decode or detect most errors
+				if len(inbufs) >= dr.es.RequiredCount() ||
 					len(inbufs) >= dr.es.TotalCount() {
 					// we have enough input buffers, fill the decoded output buffer
 					dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
@@ -145,7 +145,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 				cases = append(cases[:chosen], cases[chosen+1:]...)
 			}
 		}
-		// if no decoding yet, decode now what's available
+		// if not decoded yet, decode now what's available
 		if len(dr.outbuf) <= 0 {
 			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
 			if dr.err != nil {
