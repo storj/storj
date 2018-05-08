@@ -28,7 +28,7 @@ type RoutingTable interface {
 	CacheSize() int
 
 	GetBucket(id string) (bucket Bucket, ok bool)
-	GetBuckets(cb func(Bucket) (keep_going bool))
+	GetBuckets() ([]*Bucket, error)
 
 	FindNear(id NodeID, limit, offset int) ([]overlay.Node, error)
 
