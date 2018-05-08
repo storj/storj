@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package kademlia
 
 import (
@@ -12,12 +15,12 @@ type NodeID string
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, limit, offset int) []overlay.Node
-	GetRoutingTable(ctx context.Context) RoutingTable
+	GetNodes(ctx context.Context, start string, limit int) ([]overlay.Node, error)
+
+	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
-	Ping(ctx context.Context, node overlay.Node) overlay.Node
-	FindNode(ctx context.Context, ID NodeID) overlay.Node
-	FindValue(ctx context.Context, ID NodeID) overlay.Node
+	Ping(ctx context.Context, node overlay.Node) (overlay.Node, error)
+	FindNode(ctx context.Context, ID NodeID) (overlay.Node, error)
 }
 
 // RoutingTable contains information on nodes we have locally
@@ -30,7 +33,7 @@ type RoutingTable interface {
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]*Bucket, error)
 
-	FindNear(id NodeID, limit, offset int) ([]overlay.Node, error)
+	FindNear(id NodeID, limit int) ([]overlay.Node, error)
 
 	ConnectionSuccess(id string, address overlay.NodeAddress)
 	ConnectionFailed(id string, address overlay.NodeAddress)
