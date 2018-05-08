@@ -83,12 +83,44 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		// Run a selector on the readers' buffered channels
 		eofbufs := 0
 		inbufs := make(map[int][]byte, len(dr.chans))
-		cases := make([]reflect.SelectCase, len(dr.chans))
+		// use reflect to select from the array of channels
+		cases := make([]reflect.SelectCase, len(dr.chans)+1)
+		// default case for non-blocking selection
+		cases[0] = reflect.SelectCase{
+			Dir: reflect.SelectDefault, Chan: reflect.Value{}}
 		for i, ch := range dr.chans {
-			cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
+			cases[i+1] = reflect.SelectCase{
+				Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
 		}
-		for len(cases) > 0 {
+		// iterate until the new block is received from enough channels
+		for len(cases) > 1 {
+			// non-blocking select - harvest available input buffers
 			chosen, value, ok := reflect.Select(cases)
+			if chosen == 0 {
+				// default case - no more input buffers available, check if we have enough
+				// TODO is required+1 enough to detect errors in polynomials of any degree?
+				if len(inbufs) >= dr.es.RequiredCount()+1 ||
+					len(inbufs) >= dr.es.TotalCount() {
+					// we have enough input buffers, fill the decoded output buffer
+					dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
+					if dr.err == nil {
+						break
+					}
+					// TODO is there better way for error comparision?
+					if !strings.Contains(dr.err.Error(), "not enough shares") &&
+						!strings.Contains(dr.err.Error(), "too many errors") {
+						return 0, dr.err
+					}
+				}
+				// if enough readers are at EOF, return it
+				if eofbufs >= dr.es.RequiredCount() {
+					dr.err = io.EOF
+					return 0, dr.err
+				}
+				// blocking select - wait for more input buffers
+				chosen, value, ok = reflect.Select(cases[1:])
+				chosen++
+			}
 			if !ok {
 				// the channel is closed - remove it from further selects
 				cases = append(cases[:chosen], cases[chosen+1:]...)
@@ -101,11 +133,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 				if b.err == io.EOF {
 					// keep track of readers at EOF
 					eofbufs++
-					// if enough readers are at EOF, return it
-					if eofbufs >= dr.es.RequiredCount() {
-						dr.err = io.EOF
-						return 0, dr.err
-					}
 				}
 				continue
 			}
@@ -117,31 +144,17 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 				// the next block if reader is fast
 				cases = append(cases[:chosen], cases[chosen+1:]...)
 			}
-			// TODO is required+1 enough to detect errors in polynomials of any degree?
-			if len(inbufs) >= dr.es.RequiredCount()+1 ||
-				len(inbufs) >= dr.es.TotalCount() {
-				// we have enough input buffers, fill the decoded output buffer
-				dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
-				if dr.err == nil {
-					break
-				}
-				// TODO is there better way for error comparision?
-				if strings.Contains(dr.err.Error(), "not enough shares") ||
-					strings.Contains(dr.err.Error(), "too many errors") {
-					// read more input buffers to have enough for error correction
-					continue
-				}
-				return 0, dr.err
-			}
 		}
-		// if error occurred and was not return yet, return it now
-		if dr.err != nil {
-			return 0, dr.err
-		}
-		// if no error and no decoding yet, decode now what's available
+		// if no decoding yet, decode now what's available
 		if len(dr.outbuf) <= 0 {
 			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
 			if dr.err != nil {
+				// if enough readers are at EOF, return it
+				if eofbufs >= dr.es.RequiredCount() {
+					dr.err = io.EOF
+					return 0, dr.err
+				}
+				// otherwise return the decode error
 				return 0, dr.err
 			}
 		}
