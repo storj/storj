@@ -3,7 +3,7 @@
 
 package reputation
 
-var createStmt string = `CREATE table node_reputation (
+var createStmt = `CREATE table node_reputation (
 	source text not null,
 	node_name text not null,
 	timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) not null,
@@ -17,7 +17,7 @@ var createStmt string = `CREATE table node_reputation (
 PRIMARY KEY(node_name, timestamp)
 );`
 
-var insertStmt string = `INSERT into node_reputation (
+var insertStmt = `INSERT into node_reputation (
 	source,
 	node_name,
 	uptime,
@@ -29,7 +29,7 @@ var insertStmt string = `INSERT into node_reputation (
 	shards_modified
 ) values (?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
-var selectAllStmt string = `SELECT
+var selectAllStmt = `SELECT
 	source,
 	node_name,
 	timestamp,
@@ -42,7 +42,7 @@ var selectAllStmt string = `SELECT
 	shards_modified
 FROM node_reputation`
 
-var noFailStmt string = `SELECT
+var noFailStmt = `SELECT
 	source,
 	node_name,
 	timestamp,
@@ -57,7 +57,7 @@ FROM node_reputation
 WHERE audit_fail == 0
 	AND amount_of_data_stored <= 200`
 
-var deletStmt string = `DELETE FROM node_reputation
+var deletStmt = `DELETE FROM node_reputation
 WHERE node_name = ?
 AND timestamp NOT IN (
 SELECT timestamp FROM node_reputation WHERE

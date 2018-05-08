@@ -10,32 +10,32 @@ service Bridge {
 }
 
 message NodeReputation {
-    required string source = 1;
-    required string nodeName = 2;
-	required string timestamp = 3;
-	optional int64 uptime = 4;
-	optional int64 auditSuccess = 5;
-	optional int64 auditFail = 6;
-	optional int64 latency = 7;
-	optional int64 amountOfDataStored = 8;
-	optional int64 falseClaims = 9;
-	optional int64 shardsModified = 10;
+    string source = 1;
+    string nodeName = 2;
+	string timestamp = 3;
+	int64 uptime = 4;
+	int64 auditSuccess = 5;
+	int64 auditFail = 6;
+	int64 latency = 7;
+	int64 amountOfDataStored = 8;
+	int64 falseClaims = 9;
+	int64 shardsModified = 10;
 }
 
 message BridgeReply {
-    required string bridgeName = 1;
-    required string nodeName = 2;
-    required string source = 3;
+    string bridgeName = 1;
+    string nodeName = 2;
+    string source = 3;
 
     enum ReplyType {
         UPDATE_SUCCESS = 0;
         UPDATE_FAILED = 1;
     }
 
-    required ReplyType status = 4 [default = UPDATE_FAILED];
+    ReplyType status = 4;
 }
 
 message NodeQuery {
-    required string source = 1;
-    required string nodeName = 2;
+    string source = 1;
+    string nodeName = 2;
 }
