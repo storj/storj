@@ -16,9 +16,10 @@ import (
 )
 
 const (
+	// DefaultInterval is the interval telemetry data is sent on, if no other interval is specified
 	DefaultInterval = time.Hour
 
-	// MTUs are often 1500, though a good argument could be made for 512
+	// DefaultPacketSize MTUs are often 1500, though a good argument could be made for 512
 	DefaultPacketSize = 1000
 )
 
@@ -57,9 +58,9 @@ type Client struct {
 	opts     admmonkit.Options
 }
 
-// NewClient constructs a telemetry client that sends packets to remote_addr
+// NewClient constructs a telemetry client that sends packets to remoteAddr
 // over UDP.
-func NewClient(remote_addr string, opts ClientOpts) (rv *Client, err error) {
+func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 	if opts.Interval == 0 {
 		opts.Interval = DefaultInterval
 	}
@@ -99,7 +100,7 @@ func NewClient(remote_addr string, opts ClientOpts) (rv *Client, err error) {
 		opts: admmonkit.Options{
 			Application: opts.Application,
 			InstanceId:  []byte(opts.Instance),
-			Address:     remote_addr,
+			Address:     remoteAddr,
 			PacketSize:  opts.PacketSize,
 			Registry:    opts.Registry,
 			ProtoOpts:   admproto.Options{FloatEncoding: opts.FloatEncoding},

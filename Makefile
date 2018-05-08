@@ -10,6 +10,7 @@ lint: check-copyrights
 	--enable=vet \
 	--enable=deadcode \
 	--enable=goconst \
+	--enable=gosimple \
 	--exclude=.*\.pb\.go \
 	--exclude=.*_test.go \
 	./...
@@ -25,11 +26,16 @@ proto:
 
 
 build-dev-deps:
-	go get -u golang.org/x/vgo
-	vgo install ./...
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
 test:
 	go test -v ./...
+
+install-deps:
+	git clone https://github.com/storj/storj-vendor.git
+	mv storj-vendor/src ./vendor
+	go get -t -v ./... || true
+	mkdir -p ${GOPATH}/src/storj.io/storj
+	ln -sf $(GOPATH)/src/github.com/storj/storj $(GOPATH)/src/storj.io/storj
