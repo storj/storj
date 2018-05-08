@@ -20,8 +20,7 @@ service NetState {
 message FilePath {
   string path = 1;
   // smallValue is a value too small to be broken up and stored
-  // in different places. Using 'required' now, but eventually
-  // should be optional.
+  // in different places
   string smallValue = 2;
 }
 
