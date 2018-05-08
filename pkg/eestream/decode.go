@@ -19,7 +19,8 @@ type decodedReader struct {
 	outbuf []byte
 	err    error
 	chans  map[int]chan block
-	cb     int // current block number
+	cb     int64 // current block number
+	eb     int64 // expected number of blocks
 }
 
 type readerError struct {
@@ -29,7 +30,7 @@ type readerError struct {
 
 type block struct {
 	i    int    // reader index in the map
-	num  int    // block number
+	num  int64  // block number
 	data []byte // block data
 	err  error  // error reading the block
 }
@@ -37,12 +38,21 @@ type block struct {
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
 // combined Reader. The map, 'rs', must be a mapping of erasure piece numbers
 // to erasure piece streams.
-func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme) io.ReadCloser {
+func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme,
+	expectedSize int64) io.ReadCloser {
+	if expectedSize < 0 {
+		return readcloser.FatalReadCloser(Error.New("negative expected size"))
+	}
+	if expectedSize%int64(es.DecodedBlockSize()) != 0 {
+		return readcloser.FatalReadCloser(
+			Error.New("expected size not a factor decoded block size"))
+	}
 	dr := &decodedReader{
 		rs:     rs,
 		es:     es,
 		outbuf: make([]byte, 0, es.DecodedBlockSize()),
 		chans:  make(map[int]chan block, len(rs)),
+		eb:     expectedSize / int64(es.DecodedBlockSize()),
 	}
 	// Kick off a goroutine for each reader. Each reads a block from the
 	// reader and adds it to a buffered channel. If an error is read
@@ -55,7 +65,7 @@ func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme) io.ReadCloser {
 		go func(i int, ch chan block) {
 			// close the channel when the goroutine exits
 			defer close(ch)
-			blockNum := 0
+			blockNum := int64(0)
 			for {
 				// read the next block
 				data := make([]byte, es.EncodedBlockSize())
@@ -80,8 +90,12 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		if dr.err != nil {
 			return 0, err
 		}
+		// return EOF is the expected blocks are read
+		if dr.cb >= dr.eb {
+			dr.err = io.EOF
+			return 0, dr.err
+		}
 		// Run a selector on the readers' buffered channels
-		eofbufs := 0
 		inbufs := make(map[int][]byte, len(dr.chans))
 		// use reflect to select from the array of channels
 		cases := make([]reflect.SelectCase, len(dr.chans)+1)
@@ -99,7 +113,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			if chosen == 0 {
 				// default case - no more input buffers available
 				// required+1 will be enough to decode or detect most errors
-				if len(inbufs) >= dr.es.RequiredCount() ||
+				if len(inbufs) >= dr.es.RequiredCount()+1 ||
 					len(inbufs) >= dr.es.TotalCount() {
 					// we have enough input buffers, fill the decoded output buffer
 					dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
@@ -111,11 +125,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 						!strings.Contains(dr.err.Error(), "too many errors") {
 						return 0, dr.err
 					}
-				}
-				// if enough readers are at EOF, return it
-				if eofbufs >= dr.es.RequiredCount() {
-					dr.err = io.EOF
-					return 0, dr.err
 				}
 				// blocking select - wait for more input buffers
 				chosen, value, ok = reflect.Select(cases[1:])
@@ -130,10 +139,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			if b.err != nil {
 				// remove the channel from further selects
 				cases = append(cases[:chosen], cases[chosen+1:]...)
-				if b.err == io.EOF {
-					// keep track of readers at EOF
-					eofbufs++
-				}
 				continue
 			}
 			// check if this is the expected block number
@@ -149,11 +154,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		if len(dr.outbuf) <= 0 {
 			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
 			if dr.err != nil {
-				// if enough readers are at EOF, return it
-				if eofbufs >= dr.es.RequiredCount() {
-					dr.err = io.EOF
-					return 0, dr.err
-				}
 				// otherwise return the decode error
 				return 0, dr.err
 			}
@@ -254,7 +254,7 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 		readers[res.i] = res.r
 	}
 	// decode from all those ranges
-	r := DecodeReaders(readers, dr.es)
+	r := DecodeReaders(readers, dr.es, length)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))

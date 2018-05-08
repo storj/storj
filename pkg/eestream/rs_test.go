@@ -31,7 +31,7 @@ func TestRS(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
+	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, 32*1024))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 	}
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
-	_, err = io.ReadFull(DecodeReaders(readerMap, rs), data2)
+	_, err = io.ReadFull(DecodeReaders(readerMap, rs, 32*1024), data2)
 	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
 }
 
@@ -97,18 +97,18 @@ func TestRSEOF(t *testing.T) {
 		{4 * 1024, 1024, 1, 1, 0, false},
 		{4 * 1024, 1024, 1, 1, 1, true},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		// {4 * 1024, 1024, 1, 2, 1, true},
+		{4 * 1024, 1024, 1, 2, 1, false},
 		{4 * 1024, 1024, 1, 2, 2, true},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		// {4 * 1024, 1024, 2, 4, 2, true},
+		{4 * 1024, 1024, 2, 4, 2, false},
 		{4 * 1024, 1024, 2, 4, 3, true},
 		{4 * 1024, 1024, 2, 4, 4, true},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		// {6 * 1024, 1024, 3, 7, 3, true},
-		// {6 * 1024, 1024, 3, 7, 4, true},
+		{6 * 1024, 1024, 3, 7, 3, false},
+		{6 * 1024, 1024, 3, 7, 4, false},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
 		{6 * 1024, 1024, 3, 7, 7, true},
@@ -156,23 +156,23 @@ func TestRSEarlyEOF(t *testing.T) {
 func TestRSLateEOF(t *testing.T) {
 	for i, tt := range []testCase{
 		{4 * 1024, 1024, 1, 1, 0, false},
-		{4 * 1024, 1024, 1, 1, 1, true},
+		{4 * 1024, 1024, 1, 1, 1, false},
 		{4 * 1024, 1024, 1, 2, 0, false},
-		// {4 * 1024, 1024, 1, 2, 1, false},
-		{4 * 1024, 1024, 1, 2, 2, true},
+		{4 * 1024, 1024, 1, 2, 1, false},
+		{4 * 1024, 1024, 1, 2, 2, false},
 		{4 * 1024, 1024, 2, 4, 0, false},
 		{4 * 1024, 1024, 2, 4, 1, false},
-		// {4 * 1024, 1024, 2, 4, 2, false},
-		{4 * 1024, 1024, 2, 4, 3, true},
-		{4 * 1024, 1024, 2, 4, 4, true},
+		{4 * 1024, 1024, 2, 4, 2, false},
+		{4 * 1024, 1024, 2, 4, 3, false},
+		{4 * 1024, 1024, 2, 4, 4, false},
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		// {6 * 1024, 1024, 3, 7, 3, false},
-		// {6 * 1024, 1024, 3, 7, 4, false},
-		{6 * 1024, 1024, 3, 7, 5, true},
-		{6 * 1024, 1024, 3, 7, 6, true},
-		{6 * 1024, 1024, 3, 7, 7, true},
+		{6 * 1024, 1024, 3, 7, 3, false},
+		{6 * 1024, 1024, 3, 7, 4, false},
+		{6 * 1024, 1024, 3, 7, 5, false},
+		{6 * 1024, 1024, 3, 7, 6, false},
+		{6 * 1024, 1024, 3, 7, 7, false},
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// extend the input with random number of random bytes
@@ -200,7 +200,7 @@ func TestRSRandomData(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 0, false},
 		{6 * 1024, 1024, 3, 7, 1, false},
 		{6 * 1024, 1024, 3, 7, 2, false},
-		// {6 * 1024, 1024, 3, 7, 3, true},
+		{6 * 1024, 1024, 3, 7, 3, true},
 		{6 * 1024, 1024, 3, 7, 4, true},
 		{6 * 1024, 1024, 3, 7, 5, true},
 		{6 * 1024, 1024, 3, 7, 6, true},
@@ -271,7 +271,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	for i := tt.problematic; i < tt.total; i++ {
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
-	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs))
+	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, int64(tt.dataSize)))
 	if tt.fail {
 		if err == nil && bytes.Compare(data, data2) == 0 {
 			assert.Fail(t, "expected to fail, but didn't", errTag)
