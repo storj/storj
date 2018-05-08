@@ -4,9 +4,9 @@
 package auth
 
 import  (
-	"fmt"
 	"os"
 	"net/http"
+	"crypto/subtle"
 	
 	"github.com/spf13/viper"
 )
@@ -27,6 +27,8 @@ func InitializeHeaders() *http.Header {
 
 func setEnv() {
 	// if flag is not set, we'll set the env
+	// desgined to match xApiKey
+	
 	viper.SetEnvPrefix("API") 
 	os.Setenv("API_KEY", "12345")
 	viper.AutomaticEnv()
@@ -34,21 +36,27 @@ func setEnv() {
 
 func ValidateApiKey(header string)(bool) {
 	// validates env key with apikey header
-		
+
 	apiKey := viper.GetString("key")
 
 	if len(apiKey) == 0 {
 		setEnv()
 	}
 
-	apiKey = viper.GetString("key")
+	var apiKeyByte []byte = []byte(viper.GetString("key"))
+	var xApiKeyByte []byte = []byte(header)
+	
+	switch  {		
+		case len(apiKeyByte) == 0:
+			return false
+		case len(apiKeyByte) > 0:
+			result := subtle.ConstantTimeCompare(apiKeyByte, xApiKeyByte)
+			if result > 0 {
+				return true
+			} else {
+				return false
+			}	 
+		 }
 
-	switch {		
-	  case len(apiKey) == 0:
-		  return false
-	  case apiKey != header:
-		  return false
-	  }
-	  
 	return true
 }
