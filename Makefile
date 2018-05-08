@@ -37,5 +37,5 @@ install-deps:
 	git clone https://github.com/storj/storj-vendor.git
 	mv storj-vendor/src ./vendor
 	go get -t -v ./... || true
-	mkdir $(GOPATH)/src/storj.io/storj
-	ln -sf $(GOPATH)/src/github.com/storj/storj $(GOPATH)/src/storj.io/storj
+	mkdir ${GOPATH}/src/storj.io/storj
+	ln -sf ${GOPATH}/src/github.com/storj/storj ${GOPATH}/src/storj.io/storj
