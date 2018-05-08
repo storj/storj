@@ -19,7 +19,7 @@ func tempfile() string {
 		panic(err)
 	}
 	f.Close()
-	err := os.Remove(f.Name())
+	err = os.Remove(f.Name())
 	if err != nil {
 		panic(err)
 	}
