@@ -10,4 +10,4 @@ install:
   - make build-dev-deps
 
 script:
-  - make lint
+  - make test
