@@ -225,13 +225,12 @@ func TestRSSlow(t *testing.T) {
 		{6 * 1024, 1024, 3, 7, 2, false},
 		{6 * 1024, 1024, 3, 7, 3, false},
 	} {
-		beginning := time.Now()
+		start := time.Now()
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// sleep 1 second before every read
 			return ioutil.NopCloser(SlowReader(bytes.NewReader(in), 1*time.Second))
 		})
-		end := time.Now()
-		if end.Sub(beginning) > 1*time.Second {
+		if time.Since(start) > 1*time.Second {
 			t.Fatalf("waited for slow reader")
 		}
 	}
