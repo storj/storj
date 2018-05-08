@@ -42,11 +42,7 @@ type RoutingTable interface {
 
 // Bucket is a set of methods to act on kademlia k buckets
 type Bucket interface {
-	MoveToTail(ID NodeID) error
-	MoveToHead(ID NodeID) error
-	Has(ID NodeID) bool
-	Add(ID NodeID) error
-	Remove(ID NodeID) error
-	Get(ID NodeID) overlay.Node
-	Len() int
+	Routing() []overlay.Node
+	Cache() []overlay.Node
+	Midpoint() string
 }
