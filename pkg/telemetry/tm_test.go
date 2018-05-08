@@ -16,7 +16,7 @@ var (
 )
 
 func TestMetrics(t *testing.T) {
-	s, err := Listen(":0")
+	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
 	defer s.Close()
 
