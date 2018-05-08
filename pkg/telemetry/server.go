@@ -22,8 +22,10 @@ type Handler interface {
 	Metric(application, instance string, key []byte, val float64)
 }
 
+// HandlerFunc turns a func into a Handler
 type HandlerFunc func(application, instance string, key []byte, val float64)
 
+// Metric implements the Handler interface
 func (f HandlerFunc) Metric(a, i string, k []byte, v float64) { f(a, i, k, v) }
 
 // Server listens for incoming metrics
@@ -93,12 +95,12 @@ func (h handlerWrapper) Handle(ctx context.Context, m *admission.Message) {
 		return
 	}
 	r := admproto.NewReaderWith(m.Scratch[:])
-	data, application_b, instance_b, err := r.Begin(data)
+	data, applicationB, instanceB, err := r.Begin(data)
 	if err != nil {
 		finish(&err)
 		return
 	}
-	application, instance := string(application_b), string(instance_b)
+	application, instance := string(applicationB), string(instanceB)
 	var key []byte
 	var value float64
 	for len(data) > 0 {

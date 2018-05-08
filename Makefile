@@ -1,4 +1,4 @@
-.PHONY: test lint
+.PHONY: test lint proto check-copyrights build-dev-deps
 
 lint: check-copyrights
 	@echo "Running ${@}"
@@ -18,18 +18,15 @@ check-copyrights:
 	@echo "Running ${@}"
 	@./scripts/check-for-header.sh
 
-
 proto:
 	@echo "Running ${@}"
 	./scripts/build-protos.sh
 
-
 build-dev-deps:
-	go get -u golang.org/x/vgo
-	vgo install ./...
 	go get -u github.com/golang/protobuf/protoc-gen-go
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
-test:
-	go test -v ./...
+test: lint
+	go install -v ./...
+	go test ./...
