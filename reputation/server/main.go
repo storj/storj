@@ -11,6 +11,11 @@ import (
 
 func main() {
 
+	err := reputation.SetServerDB("./ServerDB")
+	if err != nil {
+		fmt.Println("err")
+	}
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 7777))
 	if err != nil {
 		fmt.Println("err")

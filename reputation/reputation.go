@@ -67,6 +67,15 @@ func createTable(createStmt string, db *sql.DB) error {
 	return nil
 }
 
+// SetServerDB public function for a server
+func SetServerDB(filepath string) error {
+	db, err := startDB(filepath)
+	if err != nil {
+		return err
+	}
+	return createTable(createStmt, db)
+}
+
 // insertRows inserts the slice of reputation row structs based on the insert string
 func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) error {
 	tx, err := db.Begin()
