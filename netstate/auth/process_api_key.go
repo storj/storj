@@ -28,14 +28,14 @@ func InitializeHeaders() *http.Header {
 func setEnv() {
 	// if flag is not set, we'll set the env
 	// desgined to match xApiKey
-	
+
 	viper.SetEnvPrefix("API") 
 	os.Setenv("API_KEY", "12345")
 	viper.AutomaticEnv()
 }
 
 func ValidateApiKey(header string)(bool) {
-	// validates env key with apikey header
+	// validates apikey with xApiKey header
 
 	apiKey := viper.GetString("key")
 
@@ -57,6 +57,5 @@ func ValidateApiKey(header string)(bool) {
 				return false
 			}	 
 		 }
-
-	return true
+	return false
 }
