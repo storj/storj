@@ -1,9 +1,13 @@
 Purpose of this is to process an API Key to see if it matches the correct client.
 
-To use, run:
-`$ go run process_api_key.go --key=yourApiKey`
+**Import the following libraries with:**
+`go get -u github.com/spf13/viper`
+`go get -u github.com/spf13/pflag`
 
-Default api key is preset with the mocked headers. 
+**To use, run in** *examples/auth/main.go*:
+`$ go run main.go --key=yourkey`
 
-Where this is going:
+Default api key is preset with the mocked headers. This will be changed later.
+
+**Where this is going**:
 We're going to be using macaroons to validate a token and permissions. This is a small step to building in that direction.
