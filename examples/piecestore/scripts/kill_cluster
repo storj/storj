@@ -1,0 +1,12 @@
+#!/bin/bash
+
+lsof -i tcp:8080 | awk 'NR!=1 {print $2}' | xargs kill 
+lsof -i tcp:8081 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8082 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8083 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8084 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8085 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8086 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8087 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8088 | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:8089 | awk 'NR!=1 {print $2}' | xargs kill
