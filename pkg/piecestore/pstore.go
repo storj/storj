@@ -77,21 +77,21 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 	defer dataFile.Close()
 
 	buffer := make([]byte, 4096)
-  for {
-    // Read data from read stream into buffer
-    n, err := r.Read(buffer)
-    if err == io.EOF {
-      break
-    }
-
-    // Write the buffer to the stream we opened earlier
-    _, err = dataFileSection.Write(buffer[:n])
+	for {
+		// Read data from read stream into buffer
+		n, err := r.Read(buffer)
 		if err == io.EOF {
 			break
-		} else if (err != nil) {
+		}
+
+		// Write the buffer to the stream we opened earlier
+		_, err = dataFileSection.Write(buffer[:n])
+		if err == io.EOF {
+			break
+		} else if err != nil {
 			return err
 		}
-  }
+	}
 
 	return nil
 }
@@ -150,15 +150,15 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 
 	var total int64 = 0
 	buffer := make([]byte, 4096)
-  for {
-    // Read data from read stream into buffer
-    n, err := dataFileSection.Read(buffer)
-    if err == io.EOF {
-      return total, io.EOF
-    }
+	for {
+		// Read data from read stream into buffer
+		n, err := dataFileSection.Read(buffer)
+		if err == io.EOF {
+			return total, io.EOF
+		}
 
-    // Write the buffer to the stream we opened earlier
-    n, err = w.Write(buffer[:n])
+		// Write the buffer to the stream we opened earlier
+		n, err = w.Write(buffer[:n])
 
 		total += int64(n)
 
@@ -166,7 +166,7 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 
 			return 0, err
 		}
-  }
+	}
 }
 
 /*
