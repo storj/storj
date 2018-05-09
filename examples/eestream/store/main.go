@@ -36,7 +36,11 @@ func main() {
 	}
 }
 
+<<<<<<< HEAD
 //Main runs the pieceing logic
+=======
+// Main is the exported CLI executable function
+>>>>>>> upstream/master
 func Main() error {
 	err := os.MkdirAll(flag.Arg(0), 0755)
 	if err != nil {

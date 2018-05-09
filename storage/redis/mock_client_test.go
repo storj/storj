@@ -15,7 +15,10 @@ type mockRedisClient struct {
 	pingCalled int
 }
 
+// ErrMissingKey is the error returned if a key is not in the mock store
 var ErrMissingKey = errors.New("missing")
+
+// ErrForced is the error returned when the forced error flag is passed to mock an error
 var ErrForced = errors.New("error forced by using 'error' key in mock")
 
 func (m *mockRedisClient) Get(key string) ([]byte, error) {
