@@ -11,8 +11,6 @@ import (
 
 	"github.com/aleitner/FilePiece"
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/pkg/ranger"
 )
 
 // Errors
@@ -155,34 +153,6 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	}
 
 	return nil
-}
-
-/*
-	RetrieveRanger
-
-	Get Ranger for Retrieving data from pstore directory
-
-	hash 					(string)		Hash of the stored data
-	dir 					(string)		pstore directory containing all other data stored
-	returns 			(ranger.RangerCloser, error) if failed and ranger if successful
-*/
-func RetrieveRanger(hash string, dir string) (ranger.RangerCloser, error) {
-	dataPath, err := pathByHash(hash, dir)
-	if err != nil {
-		return nil, err
-	}
-
-	fh, err := os.Open(dataPath)
-	if err != nil {
-		return nil, err
-	}
-
-	rv, err := ranger.FileRanger(fh)
-	if err != nil {
-		fh.Close()
-		return nil, err
-	}
-	return rv, nil
 }
 
 /*
