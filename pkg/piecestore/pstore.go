@@ -205,7 +205,7 @@ func Delete(hash string, dir string) error {
 	}
 
 	if _, err = os.Stat(dataPath); os.IsNotExist(err) {
-		return ArgError.New("Hash folder does not exist")
+		return nil
 	}
 
 	if err = os.Remove(dataPath); err != nil {

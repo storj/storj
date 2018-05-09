@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package pstore
 
 import (
@@ -515,10 +518,7 @@ func TestDelete(t *testing.T) {
 		falseHash := ""
 
 		err = Delete(falseHash, os.TempDir())
-		assert.NotNil(err)
-		if err != nil {
-			assert.NotEqual(err.Error(), "argError: Hash folder does not exist", "They should be equal")
-		}
+		assert.Nil(err)
 	})
 }
 
