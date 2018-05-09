@@ -79,21 +79,21 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 	defer dataFile.Close()
 
 	buffer := make([]byte, 4096)
-  for {
-    // Read data from read stream into buffer
-    n, err := r.Read(buffer)
-    if err == io.EOF {
-      break
-    }
-
-    // Write the buffer to the stream we opened earlier
-    _, err = dataFileSection.Write(buffer[:n])
+	for {
+		// Read data from read stream into buffer
+		n, err := r.Read(buffer)
 		if err == io.EOF {
 			break
-		} else if (err != nil) {
+		}
+
+		// Write the buffer to the stream we opened earlier
+		_, err = dataFileSection.Write(buffer[:n])
+		if err == io.EOF {
+			break
+		} else if err != nil {
 			return err
 		}
-  }
+	}
 
 	return nil
 }
@@ -151,9 +151,7 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	dataFileSection := io.NewSectionReader(dataFile, readPosOffset, length)
 
 	if _, err := io.Copy(w, dataFileSection); err != nil {
-		if err != io.EOF {
-			return err
-		}
+		return err
 	}
 
 	return nil
@@ -169,22 +167,22 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	returns 			(ranger.RangerCloser, error) if failed and ranger if successful
 */
 func RetrieveRanger(hash string, dir string) (ranger.RangerCloser, error) {
-  dataPath, err := pathByHash(hash, dir)
-  if err != nil {
-    return nil, err
-  }
+	dataPath, err := pathByHash(hash, dir)
+	if err != nil {
+		return nil, err
+	}
 
-  fh, err := os.Open(dataPath)
-  if err != nil {
-    return nil, err
-  }
+	fh, err := os.Open(dataPath)
+	if err != nil {
+		return nil, err
+	}
 
-  rv, err := ranger.FileRanger(fh)
-  if err != nil {
-    fh.Close()
-    return nil, err
-  }
-  return rv, nil
+	rv, err := ranger.FileRanger(fh)
+	if err != nil {
+		fh.Close()
+		return nil, err
+	}
+	return rv, nil
 }
 
 /*
