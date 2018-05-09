@@ -1,0 +1,14 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+$DIR"/../bin/piece-store-server" 8080 &
+$DIR"/../bin/piece-store-server" 8081 &
+$DIR"/../bin/piece-store-server" 8082 &
+$DIR"/../bin/piece-store-server" 8083 &
+$DIR"/../bin/piece-store-server" 8084 &
+$DIR"/../bin/piece-store-server" 8085 &
+$DIR"/../bin/piece-store-server" 8086 &
+$DIR"/../bin/piece-store-server" 8087 &
+$DIR"/../bin/piece-store-server" 8088 &
+$DIR"/../bin/piece-store-server" 8089 &
