@@ -254,10 +254,12 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		err = Retrieve(hash, retrievalFile, int64(fi.Size()), 0, os.TempDir())
+		_, err = Retrieve(hash, retrievalFile, int64(fi.Size()), 0, os.TempDir())
 
 		if err != nil {
-			t.Errorf("Retrieve Error: %s", err.Error())
+			if err != io.EOF {
+				t.Errorf("Retrieve Error: %s", err.Error())
+			}
 		}
 
 		buffer := make([]byte, 5)
@@ -300,10 +302,12 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		err = Retrieve(hash, retrievalFile, int64(fi.Size()), 2, os.TempDir())
+		_, err = Retrieve(hash, retrievalFile, int64(fi.Size()), 2, os.TempDir())
 
 		if err != nil {
-			t.Errorf("Retrieve Error: %s", err.Error())
+			if err != io.EOF {
+				t.Errorf("Retrieve Error: %s", err.Error())
+			}
 		}
 
 		buffer := make([]byte, 3)
@@ -346,10 +350,12 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		err = Retrieve(hash, retrievalFile, 3, 0, os.TempDir())
+		_, err = Retrieve(hash, retrievalFile, 3, 0, os.TempDir())
 
 		if err != nil {
-			t.Errorf("Retrieve Error: %s", err.Error())
+			if err != io.EOF {
+				t.Errorf("Retrieve Error: %s", err.Error())
+			}
 		}
 
 		buffer := make([]byte, 3)
@@ -394,7 +400,7 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		err = Retrieve(hash, retrievalFile, int64(fi.Size()), -1, os.TempDir())
+		_, err = Retrieve(hash, retrievalFile, int64(fi.Size()), -1, os.TempDir())
 		assert.NotNil(err)
 		if err != nil {
 			assert.Equal("argError: Invalid offset: -1", err.Error(), err.Error())
@@ -430,10 +436,12 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		err = Retrieve(hash, retrievalFile, -1, 0, os.TempDir())
+		_, err = Retrieve(hash, retrievalFile, -1, 0, os.TempDir())
 
 		if err != nil {
-			t.Errorf("Retrieve Error: %s", err.Error())
+			if err != io.EOF {
+				t.Errorf("Retrieve Error: %s", err.Error())
+			}
 		}
 
 		buffer := make([]byte, 5)
@@ -518,7 +526,10 @@ func TestDelete(t *testing.T) {
 		falseHash := ""
 
 		err = Delete(falseHash, os.TempDir())
-		assert.Nil(err)
+		assert.NotNil(err)
+		if err != nil {
+			assert.NotEqual(err.Error(), "argError: Hash folder does not exist", "They should be equal")
+		}
 	})
 }
 
