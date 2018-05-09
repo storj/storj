@@ -12,7 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/prometheus/common/log"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -60,8 +60,11 @@ func main() {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-signalChan
 
-	// TODO(coyle): use zap logger
-	log.Infof("Closing with: %v\n", sig)
+	// TODO(coyle): actually use zap logger the right way
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+
+	logger.Info(fmt.Sprintf("Closing Overlay Server. Received %v", sig))
 
 }
 
