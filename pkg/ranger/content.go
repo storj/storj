@@ -34,30 +34,6 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 
 	code := http.StatusOK
 
-	// If Content-Type isn't set, use the file's extension to find it, but
-	// if the Content-Type is unset explicitly, do not sniff the type.
-	ctypes, haveType := w.Header()["Content-Type"]
-	var ctype string
-	if !haveType {
-		ctype = mime.TypeByExtension(filepath.Ext(name))
-		if ctype == "" {
-			// read a chunk to decide between utf-8 text and binary
-			var buf [sniffLen]byte
-			amount := content.Size()
-			if amount > sniffLen {
-				amount = sniffLen
-			}
-			// TODO: cache this somewhere so we don't have to pull it out again
-			r := content.Range(0, amount)
-			defer r.Close()
-			n, _ := io.ReadFull(r, buf[:])
-			ctype = http.DetectContentType(buf[:n])
-		}
-		w.Header().Set("Content-Type", ctype)
-	} else if len(ctypes) > 0 {
-		ctype = ctypes[0]
-	}
-
 	size := content.Size()
 
 	if size <= 0 {
@@ -105,6 +81,30 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		code = http.StatusPartialContent
 		w.Header().Set("Content-Range", ra.contentRange(size))
 	case len(ranges) > 1:
+		// If Content-Type isn't set, use the file's extension to find it, but
+		// if the Content-Type is unset explicitly, do not sniff the type.
+		ctypes, haveType := w.Header()["Content-Type"]
+		var ctype string
+		if !haveType {
+			ctype = mime.TypeByExtension(filepath.Ext(name))
+			if ctype == "" {
+				// read a chunk to decide between utf-8 text and binary
+				var buf [sniffLen]byte
+				amount := content.Size()
+				if amount > sniffLen {
+					amount = sniffLen
+				}
+				// TODO: cache this somewhere so we don't have to pull it out again
+				r := content.Range(0, amount)
+				defer r.Close()
+				n, _ := io.ReadFull(r, buf[:])
+				ctype = http.DetectContentType(buf[:n])
+			}
+			w.Header().Set("Content-Type", ctype)
+		} else if len(ctypes) > 0 {
+			ctype = ctypes[0]
+		}
+
 		sendSize = rangesMIMESize(ranges, ctype, size)
 		code = http.StatusPartialContent
 
@@ -141,7 +141,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 
 	w.WriteHeader(code)
 
-	if r.Method != "HEAD" {
+	if r.Method != http.MethodHead {
 		r := sendContent()
 		defer r.Close()
 		io.CopyN(w, r, sendSize)
@@ -178,7 +178,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request,
 	}
 	switch checkIfNoneMatch(w, r) {
 	case condFalse:
-		if r.Method == "GET" || r.Method == "HEAD" {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
 			writeNotModified(w)
 			return true, ""
 		}
@@ -284,7 +284,7 @@ func checkIfNoneMatch(w http.ResponseWriter, r *http.Request) condResult {
 }
 
 func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
-	if r.Method != "GET" && r.Method != "HEAD" {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return condNone
 	}
 	ims := r.Header.Get("If-Modified-Since")
@@ -305,7 +305,7 @@ func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
 
 func checkIfRange(w http.ResponseWriter, r *http.Request, modtime time.Time) (
 	rv condResult) {
-	if r.Method != "GET" && r.Method != "HEAD" {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return condNone
 	}
 	ir := r.Header.Get("If-Range")
@@ -419,6 +419,7 @@ func parseRange(s string, size int64) ([]httpRange, error) {
 	if !strings.HasPrefix(s, b) {
 		return nil, errors.New("invalid range")
 	}
+
 	var ranges []httpRange
 	noOverlap := false
 	for _, ra := range strings.Split(s[len(b):], ",") {

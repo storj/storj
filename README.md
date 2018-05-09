@@ -8,19 +8,18 @@
 
 ----
 
-Storj is a platform, cryptocurrency, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces called 'shards', and stored in a decentralized network of computers around the globe. No one but you has a complete copy of your file, not even in an ecrypted form.
+Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces called 'shards' and stored in a global decentralized network of computers. Only you have access and the ability to retrieve all shards from the network, decrypt them, and finally re-combine all file pieces into your original file.
 
 ----
 
 ## To start using Storj
 
-See our documentation at [storj docs](https://docs.storj.io/docs).
+See our documentation at [Storj docs](https://docs.storj.io/docs).
 
 
-## To start developing storj
+## To start developing Storj
 
-The [community site](https://storj.io/community.html) hosts all information about
-building storj from source, how to contribute code
+The [community site](https://storj.io/community.html) hosts all information about building storj from source, how to contribute code
 and documentation, who to contact about what, etc.
 
 ### Install VGO
@@ -31,32 +30,35 @@ go get -u golang.org/x/vgo
 
 ### Install non-go development dependencies
 
-In order to develop on storj, you will need to have the protobuf compiler installed on your system.
+In order to develop on Storj, you will need to have the `protobuf` compiler installed on your system.
 
-1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases)
+1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases).
 
-1. place the `protoc` binary in your path. i.e
-    ```bash 
+1. place the `protoc` binary in your path. i.e.
+
+    ```bash
     mv $HOME/Downloads/protoc-<version>-<arch>/bin/protoc /usr/local/bin
     ```
 
 ### Install go dependencies
 
-Use vgo to install both dev and non-dev dependencies
+Use vgo to install both dev and non-dev dependencies.
 
 1. Install development dependencies
+
     ```
     make build-dev-deps
     ```
 
 1. Install project dependencies
+
     ```bash
     # in project root
     vgo install
     ```
 
 
-If you want to build storj right away there are two options:
+If you want to build Storj right away there are two options:
 
 ##### You have a working [Go environment](https://golang.org/doc/install).
 
@@ -78,12 +80,7 @@ For the full story, head over to the [developer's documentation].
 
 ## Support
 
-If you need support, start with the [troubleshooting guide],
-and work your way through the process that we've outlined.
-
-That said, if you have questions, reach out to us
-[twitter](https://twitter.com/storjproject).
+If you need support, start with the [troubleshooting guide], and work your way through the process that we've outlined.
 
 
-
-
+That said, if you have any questions or suggestions please reach out to us on [rocketchat](https://storj.io/community.html) or [twitter](https://twitter.com/storjproject).
