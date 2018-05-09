@@ -5,6 +5,7 @@ package pstore
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
