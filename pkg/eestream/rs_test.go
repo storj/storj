@@ -31,7 +31,7 @@ func TestRS(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, 32*1024))
+	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, 32*1024, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 	}
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
-	_, err = io.ReadFull(DecodeReaders(readerMap, rs, 32*1024), data2)
+	_, err = io.ReadFull(DecodeReaders(readerMap, rs, 32*1024, 0), data2)
 	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
 }
 
@@ -272,7 +272,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	for i := tt.problematic; i < tt.total; i++ {
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
-	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, int64(tt.dataSize)))
+	data2, err := ioutil.ReadAll(DecodeReaders(readerMap, rs, int64(tt.dataSize), 3*1024))
 	if tt.fail {
 		if err == nil && bytes.Compare(data, data2) == 0 {
 			assert.Fail(t, "expected to fail, but didn't", errTag)

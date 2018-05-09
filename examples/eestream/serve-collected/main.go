@@ -71,7 +71,7 @@ func Main() error {
 		}
 		rrs[res.i] = res.rr
 	}
-	rr, err := eestream.Decode(rrs, es)
+	rr, err := eestream.Decode(rrs, es, 4*1024*1024)
 	if err != nil {
 		return err
 	}
