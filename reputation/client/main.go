@@ -25,12 +25,24 @@ func main() {
 			Source:      "Bob",
 			NodeName:    "Alice",
 			ColumnName:  "Uptime",
-			ColumnValue: "111",
-		})
+			ColumnValue: "2",
+		},
+	)
 
 	if err != nil {
-		fmt.Println("response err")
+		fmt.Println("Update response err")
 	}
 	fmt.Println("Reply receive", response.Status)
+
+	agg, err := c.QueryAggregatedNodeInfo(context.Background(),
+		&reputation.NodeQuery{
+			Source:   "Bob",
+			NodeName: "Alice",
+		},
+	)
+	if err != nil {
+		fmt.Println("Agg respnse err")
+	}
+	fmt.Println("Agg receive", agg)
 
 }
