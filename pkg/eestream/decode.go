@@ -23,11 +23,6 @@ type decodedReader struct {
 	eb     int64 // expected number of blocks
 }
 
-type readerError struct {
-	i   int // reader index in the map
-	err error
-}
-
 type block struct {
 	i    int    // reader index in the map
 	num  int64  // block number
