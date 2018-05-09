@@ -6,42 +6,53 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
-	"os"
 
-	"google.golang.org/grpc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
 
-	pb "github.com/storj/protos/netstate/netstate"
+	"storj.io/storj/pkg/netstate"
+	"storj.io/storj/storage/boltdb"
 )
 
 var (
-	port int
+	port   int
+	dbPath string
+	prod   bool
 )
 
 func initializeFlags() {
 	flag.IntVar(&port, "port", 8080, "port")
+	flag.StringVar(&dbPath, "db", "netstate.db", "db path")
+	flag.BoolVar(&prod, "prod", false, "environment this service is running in")
 	flag.Parse()
 }
 
 func main() {
-	err := Main()
-	if err != nil {
-		log.Fatalf("fatal error: %v", err)
-		os.Exit(1)
-	}
-}
-
-func Main() {
 	initializeFlags()
 
+	// No err here because no vars passed into NewDevelopment().
+	// The default won't return an error, but if args are passed in,
+	// then there will need to be error handling.
+	logger, _ := zap.NewDevelopment()
+	if prod {
+		logger, _ = zap.NewProduction()
+	}
+	defer logger.Sync()
+
+	bdb, err := boltdb.New(logger, dbPath)
+	if err != nil {
+		return
+	}
+	defer bdb.Close()
+
+	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		grpclog.Fatalf("failed to listen: %v", err)
 	}
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-	pb.RegisterNetStateServer(grpcServer, newServer())
-	grpcServer.Serve(lis)
+
+	ns := netstate.NewServer(logger, bdb)
+	go ns.Serve(lis)
+	defer ns.GracefulStop()
 }

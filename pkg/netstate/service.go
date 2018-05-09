@@ -7,12 +7,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/storj/protos/netstate"
-	"github.com/storj/storage/boltdb"
+	"storj.io/storj/protos/netstate"
 )
 
 // NewServer creates a new NetState Server
-func NewServer(logger *zap.Logger, db *boltdb.Client) *grpc.Server {
+func NewServer(logger *zap.Logger, db Client) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	netstate.RegisterNetStateServer(grpcServer, &NetState{
 		DB:     db,

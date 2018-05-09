@@ -25,9 +25,7 @@ message FilePath {
 }
 
 // ListRequest is a request message for the List rpc call
-message ListRequest {
-  string request = 1;
-}
+message ListRequest {}
 
 // PutResponse is a response message for the Put rpc call
 message PutResponse {
@@ -41,7 +39,7 @@ message GetResponse {
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
-  repeated string filepath = 1;
+  repeated string filepaths = 1;
 }
 
 // DeleteResponse is a response message for the Delete rpc call
