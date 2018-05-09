@@ -5,7 +5,7 @@ syntax = "proto3";
 package reputation;
 
 service Bridge {
-    rpc UpdateReputation(NodeReputation) returns (BridgeReply) {}
+    rpc UpdateReputation(NodeUpdate) returns (BridgeReply) {}
     rpc QueryAggregatedNodeInfo(NodeQuery) returns (NodeReputation) {}
 }
 
@@ -38,4 +38,11 @@ message BridgeReply {
 message NodeQuery {
     string source = 1;
     string nodeName = 2;
+}
+
+message NodeUpdate {
+    string source = 1;
+    string nodeName = 2;
+    string columnName = 3;
+    string columnValue = 4;
 }

@@ -11,7 +11,7 @@ import (
 
 func main() {
 
-	err := reputation.SetServerDB("./ServerDB")
+	_, err := reputation.SetServerDB("./Server.db")
 	if err != nil {
 		fmt.Println("err")
 	}

@@ -14,29 +14,23 @@ func main() {
 
 	conn, err := grpc.Dial(":7777", grpc.WithInsecure())
 	if err != nil {
-		fmt.Println("err")
+		fmt.Println("conn err")
 	}
 	defer conn.Close()
 
 	c := reputation.NewBridgeClient(conn)
 
 	response, err := c.UpdateReputation(context.Background(),
-		&reputation.NodeReputation{
-			Source:             "Bob",
-			NodeName:           "Alice",
-			Timestamp:          "",
-			Uptime:             1,
-			AuditSuccess:       1,
-			AuditFail:          0,
-			Latency:            1,
-			AmountOfDataStored: 1,
-			FalseClaims:        0,
-			ShardsModified:     0,
+		&reputation.NodeUpdate{
+			Source:      "Bob",
+			NodeName:    "Alice",
+			ColumnName:  "Uptime",
+			ColumnValue: "111",
 		})
 
 	if err != nil {
-		fmt.Println("err")
+		fmt.Println("response err")
 	}
-	fmt.Println("Reply %v", response)
+	fmt.Println("Reply receive", response.Status)
 
 }

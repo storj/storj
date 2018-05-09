@@ -22,12 +22,12 @@ func TestRowInsertAndQuery(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -51,12 +51,12 @@ func TestUpdateNode(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -70,12 +70,12 @@ func TestUpdateNode(t *testing.T) {
 		)
 	}
 
-	rows1 := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 6, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 11, 20, 0, 10, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 1, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 16, 10, 0, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 6, 10, 5, 5, 100, 0, 1},
+	rows1 := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 6, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 11, 20, 0, 10, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 1, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 16, 10, 0, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 6, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows1, insertStmt)
@@ -98,12 +98,12 @@ func TestFindNodeNoFail(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -123,7 +123,7 @@ func TestFindNodeNoFail(t *testing.T) {
 }
 
 func TestMorphismOfRow(t *testing.T) {
-	alice := NewReputationRow("Test", "Alice")
+	alice := newReputationRow("Test", "Alice")
 	alice = alice.morphism(uptimeColumn, overWrite, 5)
 	// col needed else NaN
 	alice = alice.morphism(auditSuccessColumn, overWrite, 10)
@@ -163,12 +163,12 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -187,7 +187,7 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 	}
 
 	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
-	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, shardsModifiedColumn, increment, 2)
+	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, shardsModifiedColumn, increment, 2)
 
 	insertRows(db, aliceNewRow, insertStmt)
 
@@ -217,12 +217,12 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 10, 5, 1, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 5, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 5, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 10, 5, 1, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 5, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 5, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -237,7 +237,7 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 
 	selectAliceStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, "Alice")
 	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
-	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
+	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
 
 	insertRows(db, aliceNewRow, insertStmt)
 
@@ -266,12 +266,12 @@ func TestEndianPrune(t *testing.T) {
 
 	createTable(createStmt, db)
 
-	rows := []NodeReputationRecord{
-		NodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		NodeReputationRecord{"Test", "Bob", "", 10, 10, 5, 1, 100, 0, 0},
-		NodeReputationRecord{"Test", "Carol", "", 5, 10, 5, 3, 100, 0, 0},
-		NodeReputationRecord{"Test", "Dave", "", 15, 10, 5, 5, 500, 0, 0},
-		NodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
+	rows := []nodeReputationRecord{
+		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
+		nodeReputationRecord{"Test", "Bob", "", 10, 10, 5, 1, 100, 0, 0},
+		nodeReputationRecord{"Test", "Carol", "", 5, 10, 5, 3, 100, 0, 0},
+		nodeReputationRecord{"Test", "Dave", "", 15, 10, 5, 5, 500, 0, 0},
+		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
 	}
 
 	insertRows(db, rows, insertStmt)
@@ -287,16 +287,16 @@ func TestEndianPrune(t *testing.T) {
 	selectAliceStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, "Alice")
 	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
 
-	aliceNewRow := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 10)
+	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 10)
 	insertRows(db, aliceNewRow, insertStmt)
 
-	aliceNewRow1 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 2)
+	aliceNewRow1 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 2)
 	insertRows(db, aliceNewRow1, insertStmt)
 
-	aliceNewRow2 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 22)
+	aliceNewRow2 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 22)
 	insertRows(db, aliceNewRow2, insertStmt)
 
-	aliceNewRow3 := NodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 30)
+	aliceNewRow3 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 30)
 	insertRows(db, aliceNewRow3, insertStmt)
 
 	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)

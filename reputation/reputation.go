@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/zeebo/errs"
 	// import of sqlite3 for side effects
@@ -32,18 +33,18 @@ var IterError = errs.Class("reputation iteration error")
 // DeleteError is an error class for errors related to the reputation package
 var DeleteError = errs.Class("reputation deletion error")
 
-// NodeReputationRecord is the Data type for Rows in Reputation table
-type NodeReputationRecord struct {
+// nodeReputationRecord is the Data type for Rows in Reputation table
+type nodeReputationRecord struct {
 	source             string
 	nodeName           string
 	timestamp          string
-	uptime             int
-	auditSuccess       int
-	auditFail          int
-	latency            int
-	amountOfDataStored int
-	falseClaims        int
-	shardsModified     int
+	uptime             int64
+	auditSuccess       int64
+	auditFail          int64
+	latency            int64
+	amountOfDataStored int64
+	falseClaims        int64
+	shardsModified     int64
 }
 
 // startDB starts a sqlite3 database from the file path parameter
@@ -68,16 +69,23 @@ func createTable(createStmt string, db *sql.DB) error {
 }
 
 // SetServerDB public function for a server
-func SetServerDB(filepath string) error {
+func SetServerDB(filepath string) (*sql.DB, error) {
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		db, err := startDB(filepath)
+		if err != nil {
+			return nil, err
+		}
+		return nil, createTable(createStmt, db)
+	}
 	db, err := startDB(filepath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return createTable(createStmt, db)
+	return db, nil
 }
 
 // insertRows inserts the slice of reputation row structs based on the insert string
-func insertRows(db *sql.DB, rows []NodeReputationRecord, insertString string) error {
+func insertRows(db *sql.DB, rows []nodeReputationRecord, insertString string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("%q: %s\n", err, insertString)
@@ -155,12 +163,12 @@ func genSelectByColumn(selectAll string, col column, value string) string {
 	return selectAll + where
 }
 
-// iterOnDBRows iterate on rows in the database to transform into slice of NodeReputationRecord
-func iterOnDBRows(rows *sql.Rows) ([]NodeReputationRecord, error) {
-	var res []NodeReputationRecord
+// iterOnDBRows iterate on rows in the database to transform into slice of nodeReputationRecord
+func iterOnDBRows(rows *sql.Rows) ([]nodeReputationRecord, error) {
+	var res []nodeReputationRecord
 
 	for rows.Next() {
-		var row NodeReputationRecord
+		var row nodeReputationRecord
 
 		err := rows.Scan(
 			&row.source,
@@ -186,7 +194,7 @@ func iterOnDBRows(rows *sql.Rows) ([]NodeReputationRecord, error) {
 }
 
 // getNodeReputationRecords function that returns a slice of reputation rows based on the query string
-func getNodeReputationRecords(db *sql.DB, selectString string) ([]NodeReputationRecord, error) {
+func getNodeReputationRecords(db *sql.DB, selectString string) ([]nodeReputationRecord, error) {
 	rows, err := db.Query(selectString)
 	if err != nil {
 		log.Printf("%q: %s\n", err, selectString)
@@ -214,7 +222,7 @@ func getNodeReputationRecords(db *sql.DB, selectString string) ([]NodeReputation
   this function is used to make a snapshot of the current node
   it removes the data that is older than the node passed in
 */
-func pruneNodeReputationRecords(db *sql.DB, recordToKeep NodeReputationRecord, deleteString string) error {
+func pruneNodeReputationRecords(db *sql.DB, recordToKeep nodeReputationRecord, deleteString string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("%q: %s\n", err, deleteString)
@@ -255,7 +263,7 @@ func cleanUpDB(db *sql.DB) error {
 }
 
 // auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct
-func (row NodeReputationRecord) auditSuccessRatio() float64 {
+func (row nodeReputationRecord) auditSuccessRatio() float64 {
 	return float64(row.auditSuccess) / float64(row.auditSuccess+row.auditFail)
 }
 
@@ -264,8 +272,8 @@ func (row NodeReputationRecord) auditSuccessRatio() float64 {
   this method favors uptime, hence being multiplied by 100
   and nullifys a score if there is a case of data modification
 */
-func (row NodeReputationRecord) naiveRep() float64 {
-	var mutator int
+func (row nodeReputationRecord) naiveRep() float64 {
+	var mutator int64
 
 	if row.shardsModified > 0 {
 		mutator = 0
@@ -286,7 +294,7 @@ func (row NodeReputationRecord) naiveRep() float64 {
   if the time is more recent it is greater
   else use naive reputation method
 */
-func (row NodeReputationRecord) greaterRep(other NodeReputationRecord) NodeReputationRecord {
+func (row nodeReputationRecord) greaterRep(other nodeReputationRecord) nodeReputationRecord {
 	myRep := row.naiveRep()
 	otherRep := other.naiveRep()
 	myTime := row.timestamp
@@ -294,7 +302,7 @@ func (row NodeReputationRecord) greaterRep(other NodeReputationRecord) NodeReput
 	myName := row.nodeName
 	otherName := other.nodeName
 
-	var res NodeReputationRecord
+	var res nodeReputationRecord
 
 	switch {
 	case myTime < otherTime && myName == otherName:
@@ -311,8 +319,8 @@ func (row NodeReputationRecord) greaterRep(other NodeReputationRecord) NodeReput
 }
 
 // naiveReputation finds the naive reputation of the resulting rows from the query string
-func naiveReputation(db *sql.DB, queryString string) (NodeReputationRecord, error) {
-	bestRep := NodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
+func naiveReputation(db *sql.DB, queryString string) (nodeReputationRecord, error) {
+	bestRep := nodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -341,7 +349,7 @@ func naiveReputation(db *sql.DB, queryString string) (NodeReputationRecord, erro
 }
 
 /*
-  endian method hot encodes the two NodeReputationRecord structs
+  endian method hot encodes the two nodeReputationRecord structs
   desired values are set to a one, other values are set to zeros
   then compares and returns the largest
   order is as follows:
@@ -353,7 +361,7 @@ func naiveReputation(db *sql.DB, queryString string) (NodeReputationRecord, erro
   latency, lower latency equals a one
   amountOfDataStored, more data equals a one
 */
-func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputationRecord {
+func (row nodeReputationRecord) endian(other nodeReputationRecord) nodeReputationRecord {
 	var rowEndian bytes.Buffer
 	var otherEndian bytes.Buffer
 
@@ -440,7 +448,7 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 		otherEndian.WriteString("0")
 	}
 
-	var res NodeReputationRecord
+	var res nodeReputationRecord
 
 	if rowEndian.String() > otherEndian.String() {
 		res = row
@@ -456,9 +464,25 @@ func (row NodeReputationRecord) endian(other NodeReputationRecord) NodeReputatio
 	return res
 }
 
-// endianReputation based on the most significant fields of NodeReputationRecord
-func endianReputation(db *sql.DB, queryString string) (NodeReputationRecord, error) {
-	bestRep := NodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
+// serde converts private reocrd to public reputation
+func (row nodeReputationRecord) serde() NodeReputation {
+	return NodeReputation{
+		Source:             row.source,
+		NodeName:           row.nodeName,
+		Timestamp:          row.timestamp,
+		Uptime:             row.uptime,
+		AuditSuccess:       row.auditSuccess,
+		AuditFail:          row.auditFail,
+		Latency:            row.latency,
+		AmountOfDataStored: row.amountOfDataStored,
+		FalseClaims:        row.falseClaims,
+		ShardsModified:     row.shardsModified,
+	}
+}
+
+// endianReputation based on the most significant fields of nodeReputationRecord
+func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, error) {
+	bestRep := nodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -496,7 +520,7 @@ const (
 )
 
 // performOp performs an operation that is passed to it on a value with the scalar
-func performOp(op mutOp, value int, scalar int) int {
+func performOp(op mutOp, value int64, scalar int64) int64 {
 	switch op {
 	case increment:
 		value = value + scalar
@@ -524,8 +548,8 @@ const (
 	shardsModifiedColumn     column = "shardsModified"
 )
 
-// morphism is the name of this function becuse it does not directly change the NodeReputationRecord (more map/functor like)
-func (row NodeReputationRecord) morphism(col column, op mutOp, scalar int) NodeReputationRecord {
+// morphism is the name of this function becuse it does not directly change the nodeReputationRecord (more map/functor like)
+func (row nodeReputationRecord) morphism(col column, op mutOp, scalar int64) nodeReputationRecord {
 	switch col {
 	case uptimeColumn:
 		row.uptime = performOp(op, row.uptime, scalar)
@@ -546,9 +570,9 @@ func (row NodeReputationRecord) morphism(col column, op mutOp, scalar int) NodeR
 	return row
 }
 
-// NodeReputationRecordMorphism this is more like fmap because the slice is the functor, returns a new NodeReputationRecord slice
-func NodeReputationRecordMorphism(rows []NodeReputationRecord, col column, op mutOp, scalar int) []NodeReputationRecord {
-	var res []NodeReputationRecord
+// nodeReputationRecordMorphism this is more like fmap because the slice is the functor, returns a new nodeReputationRecord slice
+func nodeReputationRecordMorphism(rows []nodeReputationRecord, col column, op mutOp, scalar int64) []nodeReputationRecord {
+	var res []nodeReputationRecord
 
 	for _, row := range rows {
 		res = append(res, row.morphism(col, op, scalar))
@@ -557,7 +581,21 @@ func NodeReputationRecordMorphism(rows []NodeReputationRecord, col column, op mu
 	return res
 }
 
-// NewReputationRow this is the apply function for the reputation row struct, returns a new NodeReputationRecord
-func NewReputationRow(source string, name string) NodeReputationRecord {
-	return NodeReputationRecord{source, name, "", 0, 0, 0, 0, 0, 0, 0}
+// newReputationRow this is the apply function for the reputation row struct, returns a new nodeReputationRecord
+func newReputationRow(source string, name string) nodeReputationRecord {
+	return nodeReputationRecord{source, name, "", 0, 0, 0, 0, 0, 0, 0}
+}
+
+// byNodeName function
+func byNodeName(db *sql.DB, nodeName string) []NodeReputation {
+	selectNodeStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, nodeName)
+	rows, _ := getNodeReputationRecords(db, selectNodeStmt)
+
+	var nodes []NodeReputation
+
+	for _, row := range rows {
+		nodes = append(nodes, row.serde())
+	}
+
+	return nodes
 }
