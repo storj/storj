@@ -4,6 +4,7 @@
 package eestream
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -14,6 +15,8 @@ import (
 )
 
 type decodedReader struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 	rs     map[int]io.ReadCloser
 	es     ErasureScheme
 	outbuf []byte
@@ -36,8 +39,8 @@ type block struct {
 // be returned by the Reader. maxBufferMemory is the maximum memory (in bytes)
 // to be allocated for read buffers. If set to 0, the minimum possible memory
 // will be used.
-func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme,
-	expectedSize int64, maxBufferMemory int) io.ReadCloser {
+func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
+	es ErasureScheme, expectedSize int64, maxBufferMemory int) io.ReadCloser {
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
 	}
@@ -53,7 +56,10 @@ func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme,
 	if chanSize < 1 {
 		chanSize = 1
 	}
+	context, cancel := context.WithCancel(ctx)
 	dr := &decodedReader{
+		ctx:    context,
+		cancel: cancel,
 		rs:     rs,
 		es:     es,
 		outbuf: make([]byte, 0, es.DecodedBlockSize()),
@@ -71,18 +77,22 @@ func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme,
 		go func(i int, ch chan block) {
 			// close the channel when the goroutine exits
 			defer close(ch)
-			blockNum := int64(0)
-			for {
+			for blockNum := int64(0); ; blockNum++ {
 				// read the next block
 				data := make([]byte, es.EncodedBlockSize())
 				_, err := io.ReadFull(dr.rs[i], data)
 				// add it to the channel
-				ch <- block{i, blockNum, data, err}
-				if err != nil {
+				select {
+				case ch <- block{i, blockNum, data, err}:
+					if err != nil {
+						// exit the goroutine (will close the channel)
+						return
+					}
+				case <-ctx.Done():
+					// Close() has been called
 					// exit the goroutine (will close the channel)
 					return
 				}
-				blockNum++
 			}
 		}(i, dr.chans[i])
 	}
@@ -178,6 +188,9 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 }
 
 func (dr *decodedReader) Close() error {
+	// cancel the context to terminate reader goroutines
+	dr.cancel()
+	// close the readers
 	var firstErr error
 	for _, c := range dr.rs {
 		err := c.Close()
@@ -189,6 +202,7 @@ func (dr *decodedReader) Close() error {
 }
 
 type decodedRanger struct {
+	ctx             context.Context
 	es              ErasureScheme
 	rrs             map[int]ranger.Ranger
 	inSize          int64
@@ -200,8 +214,8 @@ type decodedRanger struct {
 // to erasure piece rangers. maxBufferMemory is the maximum memory (in bytes)
 // to be allocated for read buffers. If set to 0, the minimum possible memory
 // will be used.
-func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, maxBufferMemory int) (
-	ranger.Ranger, error) {
+func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
+	es ErasureScheme, maxBufferMemory int) (ranger.Ranger, error) {
 	if maxBufferMemory < 0 {
 		return nil, Error.New("negative max buffer memory")
 	}
@@ -227,6 +241,7 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, maxBufferMemory int) (
 		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
+		ctx:             ctx,
 		es:              es,
 		rrs:             rrs,
 		inSize:          size,
@@ -267,7 +282,7 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 		readers[res.i] = res.r
 	}
 	// decode from all those ranges
-	r := DecodeReaders(readers, dr.es, length, dr.maxBufferMemory)
+	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.maxBufferMemory)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))

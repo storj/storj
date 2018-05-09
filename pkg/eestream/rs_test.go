@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -31,7 +32,7 @@ func TestRS(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	decoder := DecodeReaders(readerMap, rs, 32*1024, 0)
+	decoder := DecodeReaders(context.Background(), readerMap, rs, 32*1024, 0)
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if err != nil {
@@ -56,7 +57,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	decoder := DecodeReaders(readerMap, rs, 32*1024, 0)
+	decoder := DecodeReaders(context.Background(), readerMap, rs, 32*1024, 0)
 	defer decoder.Close()
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
@@ -276,7 +277,8 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	for i := tt.problematic; i < tt.total; i++ {
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
-	decoder := DecodeReaders(readerMap, rs, int64(tt.dataSize), 3*1024)
+	decoder := DecodeReaders(context.Background(),
+		readerMap, rs, int64(tt.dataSize), 3*1024)
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
