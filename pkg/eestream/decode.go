@@ -10,7 +10,6 @@ import (
 	"reflect"
 
 	"github.com/vivint/infectious"
-
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
@@ -103,66 +102,18 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
 		if dr.err != nil {
-			return 0, err
+			return 0, dr.err
 		}
 		// return EOF is the expected blocks are read
 		if dr.cb >= dr.eb {
 			dr.err = io.EOF
 			return 0, dr.err
 		}
-		// Run a selector on the readers' buffered channels
+		// read the input buffers of the next block - may also decode it
 		inbufs := make(map[int][]byte, len(dr.chans))
-		// use reflect to select from the array of channels
-		cases := make([]reflect.SelectCase, len(dr.chans)+1)
-		// default case for non-blocking selection
-		cases[0] = reflect.SelectCase{
-			Dir: reflect.SelectDefault, Chan: reflect.Value{}}
-		for i, ch := range dr.chans {
-			cases[i+1] = reflect.SelectCase{
-				Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
-		}
-		// iterate until the new block is received from enough channels
-		for len(cases) > 1 {
-			// non-blocking select - harvest available input buffers
-			chosen, value, ok := reflect.Select(cases)
-			if chosen == 0 {
-				// default case - no more input buffers available
-				// required+1 will be enough to decode or detect most errors
-				if len(inbufs) >= dr.es.RequiredCount()+1 ||
-					len(inbufs) >= dr.es.TotalCount() {
-					// we have enough input buffers, fill the decoded output buffer
-					dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
-					if dr.err == nil {
-						break
-					}
-					if !infectious.NotEnoughShares.Contains(dr.err) &&
-						!infectious.TooManyErrors.Contains(dr.err) {
-						return 0, dr.err
-					}
-				}
-				// blocking select - wait for more input buffers
-				chosen, value, ok = reflect.Select(cases[1:])
-				chosen++
-			}
-			if !ok {
-				// the channel is closed - remove it from further selects
-				cases = append(cases[:chosen], cases[chosen+1:]...)
-				continue
-			}
-			b := value.Interface().(block)
-			if b.err != nil {
-				// remove the channel from further selects
-				cases = append(cases[:chosen], cases[chosen+1:]...)
-				continue
-			}
-			// check if this is the expected block number
-			// if not (slow reader), discard it and make another select
-			if b.num == dr.cb {
-				inbufs[b.i] = b.data
-				// remove the channel from further selects to avoid reading
-				// the next block if reader is fast
-				cases = append(cases[:chosen], cases[chosen+1:]...)
-			}
+		dr.err = dr.readBlock(inbufs)
+		if dr.err != nil {
+			return 0, dr.err
 		}
 		// if not decoded yet, decode now what's available
 		if len(dr.outbuf) <= 0 {
@@ -197,6 +148,76 @@ func (dr *decodedReader) Close() error {
 		}
 	}
 	return firstErr
+}
+
+func (dr *decodedReader) makeSelectCases() []reflect.SelectCase {
+	cases := make([]reflect.SelectCase, len(dr.chans)+1)
+	// default case for non-blocking selection
+	cases[0] = reflect.SelectCase{
+		Dir: reflect.SelectDefault, Chan: reflect.Value{}}
+	// case for each channel
+	for i, ch := range dr.chans {
+		cases[i+1] = reflect.SelectCase{
+			Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
+	}
+	return cases
+}
+
+func (dr *decodedReader) removeCase(
+	cases []reflect.SelectCase, index int) []reflect.SelectCase {
+	return append(cases[:index], cases[index+1:]...)
+}
+
+func (dr *decodedReader) readBlock(inbufs map[int][]byte) error {
+	// use reflect to select from the array of channels
+	cases := dr.makeSelectCases()
+	// iterate until the new block is received from enough channels
+	for len(cases) > 1 {
+		// non-blocking select - harvest available input buffers
+		chosen, value, ok := reflect.Select(cases)
+		if chosen == 0 {
+			// default case - no more input buffers available
+			// required+1 will be enough to decode or detect most errors
+			if len(inbufs) >= dr.es.RequiredCount()+1 ||
+				len(inbufs) >= dr.es.TotalCount() {
+				// we have enough input buffers, fill the decoded output buffer
+				var err error
+				dr.outbuf, err = dr.es.Decode(dr.outbuf, inbufs)
+				if err == nil {
+					return nil
+				}
+				// if error is detected, iterate more to try error correction
+				// with more input buffers
+				if !infectious.NotEnoughShares.Contains(err) &&
+					!infectious.TooManyErrors.Contains(err) {
+					return err
+				}
+			}
+			// blocking select - wait for more input buffers
+			chosen, value, ok = reflect.Select(cases[1:])
+			chosen++
+		}
+		if !ok {
+			// the channel is closed - remove it from further selects
+			cases = dr.removeCase(cases, chosen)
+			continue
+		}
+		b := value.Interface().(block)
+		if b.err != nil {
+			// read error - remove the channel from further selects
+			cases = dr.removeCase(cases, chosen)
+			continue
+		}
+		// check if this is the expected block number
+		// if not (slow reader), discard it and make another select
+		if b.num == dr.cb {
+			inbufs[b.i] = b.data
+			// remove the channel from further selects to avoid reading
+			// the next block if reader is fast
+			cases = dr.removeCase(cases, chosen)
+		}
+	}
+	return nil
 }
 
 type decodedRanger struct {
