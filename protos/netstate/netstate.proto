@@ -18,10 +18,10 @@ service NetState {
 
 // FilePath is a request message for Put, Get, and Delete rpc calls
 message FilePath {
-  string path = 1;
+  bytes path = 1;
   // smallValue is a value too small to be broken up and stored
   // in different places
-  string smallValue = 2;
+  bytes smallValue = 2;
 }
 
 // ListRequest is a request message for the List rpc call
@@ -34,12 +34,12 @@ message PutResponse {
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  string content = 1;
+  bytes content = 1;
 }
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
-  repeated string filepaths = 1;
+  repeated bytes filepaths = 1;
 }
 
 // DeleteResponse is a response message for the Delete rpc call

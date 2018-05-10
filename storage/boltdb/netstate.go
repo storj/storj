@@ -9,7 +9,7 @@ import (
 
 // File Path and Value are saved to boltdb
 type File struct {
-	Path  string `json:"path"`
+	Path  []byte `json:"path"`
 	Value []byte `json:"value"`
 }
 
@@ -45,19 +45,19 @@ func (client *Client) Get(fileKey []byte) (File, error) {
 		return nil
 	})
 
-	fileInfo.Path = string(fileKey)
+	fileInfo.Path = fileKey
 	return fileInfo, err
 }
 
 // List creates a string array of all keys in in the "files" bucket
-func (client *Client) List() ([]string, error) {
+func (client *Client) List() ([][]byte, error) {
 	client.logger.Debug("entering Client.List()")
-	var paths []string
+	var paths [][]byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
 
 		err := b.ForEach(func(key, value []byte) error {
-			paths = append(paths, string(key))
+			paths = append(paths, key)
 			return nil
 		})
 		return err

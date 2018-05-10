@@ -32,7 +32,7 @@ func NewServer(db DB, logger *zap.Logger) *Server {
 type DB interface {
 	Put(boltdb.File) error
 	Get([]byte) (boltdb.File, error)
-	List() ([]string, error)
+	List() ([][]byte, error)
 	Delete([]byte) error
 }
 
@@ -41,7 +41,7 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 	s.logger.Debug("entering NetState.Put(...)")
 
 	file := boltdb.File{
-		Path:  filepath.Path,
+		Path:  []byte(filepath.Path),
 		Value: []byte(filepath.SmallValue),
 	}
 
@@ -60,14 +60,14 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 func (s *Server) Get(ctx context.Context, filepath *proto.FilePath) (*proto.GetResponse, error) {
 	s.logger.Debug("entering NetState.Get(...)")
 
-	fileInfo, err := s.DB.Get([]byte(filepath.Path))
+	fileInfo, err := s.DB.Get(filepath.Path)
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, err
 	}
 
 	return &proto.GetResponse{
-		Content: string(fileInfo.Value),
+		Content: fileInfo.Value,
 	}, nil
 }
 
@@ -83,7 +83,7 @@ func (s *Server) List(ctx context.Context, req *proto.ListRequest) (*proto.ListR
 
 	s.logger.Debug("file paths retrieved")
 	return &proto.ListResponse{
-		// filePaths is an array of strings
+		// filePaths is an array of byte arrays
 		Filepaths: filePaths,
 	}, nil
 }

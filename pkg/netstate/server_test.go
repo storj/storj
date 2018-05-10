@@ -4,6 +4,8 @@
 package netstate
 
 import (
+	"bytes"
+
 	"storj.io/storj/storage/boltdb"
 )
 
@@ -21,15 +23,15 @@ func (m *mockDB) Put(f boltdb.File) error {
 func (m *mockDB) Get(path []byte) (boltdb.File, error) {
 	m.timesCalled++
 
-	f := boltdb.File{
-		Path:  string(path),
-		Value: []byte("here is a value"),
+	for i := range m.puts {
+		if bytes.Equal(path, m.puts[i].Path) {
+			return m.puts[i], nil
+		}
 	}
-
-	return f, nil
+	panic("Failed to get the given file")
 }
 
-func (m *mockDB) List() ([]string, error) {
+func (m *mockDB) List() ([][]byte, error) {
 	m.timesCalled++
 	return nil, nil
 }

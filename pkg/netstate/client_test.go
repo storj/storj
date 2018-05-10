@@ -4,6 +4,7 @@
 package netstate
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -41,19 +42,19 @@ func TestNetStateClient(t *testing.T) {
 
 	// example file path to put/get
 	fp := proto.FilePath{
-		Path:       "here/is/a/path",
-		SmallValue: "oatmeal",
+		Path:       []byte("here/is/a/path"),
+		SmallValue: []byte("oatmeal"),
 	}
 
 	if mdb.timesCalled != 0 {
 		t.Error("Expected mockdb to be called 0 times")
 	}
 
-	// Tests NetState.Put
-	res, err := c.Put(ctx, &fp)
+	// Tests Server.Put
+	putRes, err := c.Put(ctx, &fp)
 	assert.NoError(t, err)
 
-	if res.Confirmation != "success" {
+	if putRes.Confirmation != "success" {
 		t.Error("Failed to receive success Put response")
 	}
 
@@ -61,7 +62,20 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to call mockdb correctly")
 	}
 
-	if mdb.puts[0].Path != fp.Path || string(mdb.puts[0].Value) != fp.SmallValue {
-		t.Error("Expected path to be in mockdb")
+	if !bytes.Equal(mdb.puts[0].Path, fp.Path) {
+		t.Error("Expected saved path to equal given path")
+	}
+
+	if !bytes.Equal(mdb.puts[0].Value, fp.SmallValue) {
+		t.Error("Expected saved value to equal given value")
+	}
+
+	// Tests Server.Get
+	getRes, err := c.Get(ctx, &fp)
+	assert.NoError(t, err)
+
+	if !bytes.Equal(getRes.Content, fp.SmallValue) {
+		fmt.Printf("content: %s", getRes.Content)
+		t.Error("Expected to get same content that was put")
 	}
 }

@@ -50,7 +50,7 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	file := boltdb.File{
-		Path:  givenPath,
+		Path:  []byte(givenPath),
 		Value: []byte(msg.Value),
 	}
 

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -19,7 +18,7 @@ func tempfile() string {
 		panic(err)
 	}
 	f.Close()
-	err := os.Remove(f.Name())
+	err = os.Remove(f.Name())
 	if err != nil {
 		panic(err)
 	}
@@ -38,12 +37,12 @@ func TestNetState(t *testing.T) {
 	}()
 
 	testFile := File{
-		Path:  `test/path`,
+		Path:  []byte(`test/path`),
 		Value: []byte(`test value`),
 	}
 
 	testFile2 := File{
-		Path:  `test/path2`,
+		Path:  []byte(`test/path2`),
 		Value: []byte(`value2`),
 	}
 
@@ -76,8 +75,7 @@ func TestNetState(t *testing.T) {
 	}
 
 	// tests List + Delete function
-	testString := strings.Join(testFiles, "")
-	if testString != "test/path2" {
+	if !bytes.Equal(testFiles[0], []byte("test/path2")) {
 		t.Error("Expected only testFile2 in list")
 	}
 }
