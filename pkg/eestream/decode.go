@@ -120,7 +120,6 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		if len(dr.outbuf) <= 0 {
 			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
 			if dr.err != nil {
-				// otherwise return the decode error
 				return 0, dr.err
 			}
 		}
