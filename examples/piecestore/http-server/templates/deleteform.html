@@ -5,40 +5,17 @@
 
 <html>
   <body>
-    <form class="form-horizontal" enctype="multipart/form-data" action="/upload" method="post">
+    <form class="form-horizontal" action="/delete" method="post">
       <fieldset>
 
       <!-- Form Name -->
-      <legend>Upload File</legend>
-
-      <!-- File Button -->
-      <div class="form-group">
-        <div class="col-md-4">
-          <input id="dataFile" name="uploadfile" class="input-file" type="file">
-        </div>
-      </div>
+      <legend>Delete File</legend>
 
       <!-- Text input-->
       <div class="form-group">
         <label class="col-md-4 control-label" for="hash">Hash</label>
         <div class="col-md-4">
         <input id="hash" name="hash" placeholder="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" class="form-control input-md" type="text">
-        </div>
-      </div>
-
-      <!-- Text input-->
-      <div class="form-group">
-        <label class="col-md-4 control-label" for="offset">pstore offset</label>
-        <div class="col-md-4">
-        <input id="offset" name="offset" placeholder="0" type="number" class="form-control input-md">
-        </div>
-      </div>
-
-      <!-- Text input-->
-      <div class="form-group">
-        <label class="col-md-4 control-label" for="size">Data size</label>
-        <div class="col-md-4">
-        <input id="size" name="size" placeholder="-1" type="number" class="form-control input-md">
         </div>
       </div>
 
