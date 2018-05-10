@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )

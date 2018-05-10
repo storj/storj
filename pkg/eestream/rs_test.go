@@ -6,6 +6,7 @@ package eestream
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/pkg/ranger"
 )
 
 func TestRS(t *testing.T) {
@@ -63,6 +65,53 @@ func TestRSUnexectedEOF(t *testing.T) {
 	data2 := make([]byte, len(data)+1024)
 	_, err = io.ReadFull(decoder, data2)
 	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
+}
+
+func TestRSRanger(t *testing.T) {
+	data := randData(32 * 1024)
+	fc, err := infectious.NewFEC(2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := NewRSScheme(fc, 8*1024)
+	encKey := sha256.Sum256([]byte("the secret key"))
+	var firstNonce [24]byte
+	encrypter, err := NewSecretboxEncrypter(
+		&encKey, &firstNonce, rs.DecodedBlockSize())
+	if err != nil {
+		t.Fatal(err)
+	}
+	readers := EncodeReader(TransformReader(PadReader(ioutil.NopCloser(
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
+	pieces, err := readAll(readers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rrs := map[int]ranger.Ranger{}
+	for i, piece := range pieces {
+		rrs[i] = ranger.ByteRanger(piece)
+	}
+	decrypter, err := NewSecretboxDecrypter(
+		&encKey, &firstNonce, rs.DecodedBlockSize())
+	rr, err := Decode(context.Background(), rrs, rs, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr, err = Transform(rr, decrypter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr, err = UnpadSlow(rr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data2, err := ioutil.ReadAll(rr.Range(0, rr.Size()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, data2) {
+		t.Fatalf("rs encode/decode failed")
+	}
 }
 
 // Some pieces will read error.
