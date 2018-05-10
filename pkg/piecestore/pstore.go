@@ -148,7 +148,7 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	// Created a section reader so that we can concurrently retrieve the same file.
 	dataFileChunk := fpiece.NewChunk(dataFile, readPosOffset, length)
 
-	total, err := io.CopyN(w, &dataFileChunk, length)
+	total, err := io.CopyN(w, dataFileChunk, length)
 
 	return total, err
 }
