@@ -99,11 +99,9 @@ func DownloadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	_, err := pstore.Retrieve(hash, w, length, pstoreOffset, dataDir)
 
 	if err != nil {
-		if err != io.EOF {
-			fmt.Printf("Error: %s\n", err.Error())
-			w.Write([]byte(err.Error()))
-			return
-		}
+		fmt.Printf("Error: %s\n", err.Error())
+		w.Write([]byte(err.Error()))
+		return
 	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename="+hash)
