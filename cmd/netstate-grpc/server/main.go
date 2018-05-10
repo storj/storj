@@ -9,9 +9,10 @@ import (
 	"net"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/netstate"
+	proto "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
 )
 
@@ -24,7 +25,7 @@ var (
 func initializeFlags() {
 	flag.IntVar(&port, "port", 8080, "port")
 	flag.StringVar(&dbPath, "db", "netstate.db", "db path")
-	flag.BoolVar(&prod, "prod", false, "environment this service is running in")
+	flag.BoolVar(&prod, "prod", false, "type of environment where this service runs")
 	flag.Parse()
 }
 
@@ -49,10 +50,12 @@ func main() {
 	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		grpclog.Fatalf("failed to listen: %v", err)
+		logger.Fatal("failed to listen", zap.Error(err))
 	}
 
-	ns := netstate.NewServer(logger, bdb)
-	go ns.Serve(lis)
-	defer ns.GracefulStop()
+	grpcServer := grpc.NewServer()
+	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, logger))
+
+	defer grpcServer.GracefulStop()
+	grpcServer.Serve(lis)
 }

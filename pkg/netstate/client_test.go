@@ -21,15 +21,21 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	srv := NewServer(logger, mockDB{
+	mdb := &mockDB{
 		timesCalled: 0,
-	})
-	go srv.Serve(lis)
-	defer srv.Stop()
+	}
+
+	grpcServer := grpc.NewServer()
+	proto.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
+
+	defer grpcServer.GracefulStop()
+	go grpcServer.Serve(lis)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	assert.NoError(t, err)
+
+	c := proto.NewNetStateClient(conn)
 
 	ctx := context.Background()
 
@@ -39,6 +45,23 @@ func TestNetStateClient(t *testing.T) {
 		SmallValue: "oatmeal",
 	}
 
+	if mdb.timesCalled != 0 {
+		t.Error("Expected mockdb to be called 0 times")
+	}
+
 	// Tests NetState.Put
-	c.Put(ctx, &fp)
+	res, err := c.Put(ctx, &fp)
+	assert.NoError(t, err)
+
+	if res.Confirmation != "success" {
+		t.Error("Failed to receive success Put response")
+	}
+
+	if mdb.timesCalled != 1 {
+		t.Error("Failed to call mockdb correctly")
+	}
+
+	if mdb.puts[0].Path != fp.Path || string(mdb.puts[0].Value) != fp.SmallValue {
+		t.Error("Expected path to be in mockdb")
+	}
 }
