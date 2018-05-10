@@ -38,11 +38,11 @@ func PathByHash(hash, dir string) (string, error) {
 	Store data into piece store
 
 	hash 		(string)				Hash of the data to be stored
-	r 			(io.Reader)	    File/Stream that contains the contents of the data to be stored
+	r 			(io.Reader)	        File/Stream that contains the contents of the data to be stored
 	length 	(length)				Size of the data to be stored
 	psFileOffset 	(offset)  Offset of the data that you are writing. Useful for multiple connections to split the data transfer
 	dir 		(string)				pstore directory containing all other data stored
-	returns (error) 				if failed and nil if successful
+	returns (error) if 		  failed and nil if successful
 */
 func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir string) error {
 	if psFileOffset < 0 {
@@ -55,7 +55,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 		return ArgError.New("No path provided")
 	}
 
-	dataPath, err := pathByHash(hash, dir)
+	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 		return err
 	}
 
-	dataFileSection := fpiece.NewChunk(dataFile, psFileOffset, length)
+	dataFileChunk := fpiece.NewChunk(dataFile, psFileOffset, length)
 
 	// Close when finished
 	defer dataFile.Close()
@@ -85,7 +85,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 		}
 
 		// Write the buffer to the stream we opened earlier
-		_, err = dataFileSection.Write(buffer[:n])
+		_, err = dataFileChunk.Write(buffer[:n])
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -113,7 +113,7 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 		return 0, ArgError.New("No path provided")
 	}
 
-	dataPath, err := pathByHash(hash, dir)
+	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
 		return 0, err
 	}
@@ -146,27 +146,11 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	defer dataFile.Close()
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileSection := io.NewSectionReader(dataFile, readPosOffset, length)
+	dataFileChunk := fpiece.NewChunk(dataFile, readPosOffset, length)
 
-	var total int64 = 0
-	buffer := make([]byte, 4096)
-	for {
-		// Read data from read stream into buffer
-		n, err := dataFileSection.Read(buffer)
-		if err == io.EOF {
-			return total, io.EOF
-		}
+	total, err := io.CopyN(w, dataFileChunk, length)
 
-		// Write the buffer to the stream we opened earlier
-		n, err = w.Write(buffer[:n])
-
-		total += int64(n)
-
-		if err != nil {
-
-			return 0, err
-		}
-	}
+	return total, err
 }
 
 /*
@@ -183,7 +167,7 @@ func Delete(hash string, dir string) error {
 		return ArgError.New("No path provided")
 	}
 
-	dataPath, err := pathByHash(hash, dir)
+	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
 		return err
 	}
