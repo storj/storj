@@ -8,7 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
-	"strings"
+
+	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
@@ -69,9 +70,7 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 	// Kick off a goroutine for each reader. Each reads a block from the
 	// reader and adds it to a buffered channel. If an error is read
 	// (including EOF), a block with the error is added to the channel,
-	// the channel is closed and the gourtine exits.
-	// TODO: Ensure that goroutines of slow readers really exit and don't
-	// block on adding blocks to the buffered channel.
+	// the channel is closed and the goroutine exits.
 	for i := range rs {
 		dr.chans[i] = make(chan block, chanSize)
 		go func(i int, ch chan block) {
@@ -136,9 +135,8 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 					if dr.err == nil {
 						break
 					}
-					// TODO is there better way for error comparision?
-					if !strings.Contains(dr.err.Error(), "not enough shares") &&
-						!strings.Contains(dr.err.Error(), "too many errors") {
+					if !infectious.NotEnoughShares.Contains(dr.err) &&
+						!infectious.TooManyErrors.Contains(dr.err) {
 						return 0, dr.err
 					}
 				}
