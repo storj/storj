@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package routeguide;
+
+service RouteGuide {
+
+  rpc Retrieve(ShardRetrieval) returns (stream ShardRetrievalStream) {}
+
+  rpc Store(stream ShardStore) returns (ShardStoreSummary) {}
+
+  rpc Delete(ShardDelete) returns (ShardDeleteSummary) {}
+
+}
+
+// The request message containing the user's name.
+message ShardStore {
+  string hash = 1;
+  int64 size = 2;
+  int64 ttl = 3;
+  int64 storeOffset = 4;
+
+  bytes content = 5;
+}
+
+message ShardRetrieval {
+  string hash = 1;
+  int64 size = 2;
+  int64 storeOffset = 3;
+}
+
+message ShardRetrievalStream {
+  int64 size = 1;
+  bytes content = 2;
+}
+
+message ShardDelete {
+  string hash = 1;
+}
+
+message ShardDeleteSummary {
+  int64 status = 1;
+  string message = 2;
+  int64 elapsedTime = 3;
+}
+
+message ShardStoreSummary {
+  int64 status = 1;
+  string message = 2;
+  int64 totalReceived = 3;
+  int64 elapsedTime = 4;
+}
