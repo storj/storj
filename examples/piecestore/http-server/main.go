@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,16 +12,19 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
+	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/piecestore"
 )
 
 var dataDir string
+var dbPath string
 
 func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
+	var ttl int64
 	// in your case file would be fileupload
 	file, header, err := r.FormFile("uploadfile")
 	if err != nil {
@@ -31,6 +35,23 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// We have to do stupid conversions
 	// Is there a better way to convert []string into ints?
 	r.ParseForm()
+
+	// get Unix TTL
+	ttlStr := strings.Join(r.Form["ttl"], "")
+	if ttlStr == "" {
+		ttl = time.Now().Unix() + 2592000
+	} else {
+		ttl, err = strconv.ParseInt(ttlStr, 10, 32)
+	}
+	if err != nil {
+		fmt.Printf("Error: ", err.Error())
+		return
+	}
+	if ttl <= time.Now().Unix() {
+		fmt.Printf("Error: Invalid TTL. Expiration date has already passed")
+		return
+	}
+
 	var dataSize int64
 	dataSizeStr := strings.Join(r.Form["size"], "")
 	dataSizeInt64, _ := strconv.ParseInt(dataSizeStr, 10, 64)
@@ -59,6 +80,19 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	err = pstore.Store(dataHash, file, dataSize, pstoreOffset, dataDir)
 
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		return
+	}
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		return
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%v", "%v")`, dataHash, time.Now().Unix(), ttl))
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 		return
@@ -110,6 +144,25 @@ func DownloadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	fmt.Printf("Successfully downloaded file %s...\n", hash)
 }
 
+func DeleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	r.ParseForm()
+	hash := strings.Join(r.Form["hash"], "")
+
+	db, err := sql.Open("sqlite3", dbPath)
+	defer db.Close()
+	_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		return
+	}
+	err = pstore.Delete(hash, dataDir)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
+		w.Write([]byte(err.Error()))
+		return
+	}
+}
+
 func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if err := renderByPath(w, "./server/templates/index.html"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -131,6 +184,13 @@ func ShowDownloadForm(w http.ResponseWriter, r *http.Request, _ httprouter.Param
 	}
 }
 
+func ShowDeleteForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if err := renderByPath(w, "./server/templates/deleteform.html"); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func renderByPath(w http.ResponseWriter, path string) error {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
@@ -141,6 +201,50 @@ func renderByPath(w http.ResponseWriter, path string) error {
 
 	tmpl.Execute(w, "")
 	return nil
+}
+
+// go routine to check ttl database for expired entries
+// pass in DB and location of file for deletion
+func dbChecker(db *sql.DB, dir string) {
+	tickChan := time.NewTicker(time.Second * 5).C
+	for {
+		select {
+		case <-tickChan:
+			rows, err := db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
+			if err != nil {
+				fmt.Printf("Error: ", err.Error())
+			}
+			defer rows.Close()
+
+			// iterate though selected rows
+			// tried to wrap this inside (if rows != nil) but seems rows has value even if no entries meet condition. Thoughts?
+			for rows.Next() {
+				var expHash string
+				var expires int64
+
+				err = rows.Scan(&expHash, &expires)
+				if err != nil {
+					fmt.Printf("Error: ", err.Error())
+					return
+				}
+
+				// delete file on local machine
+				err = pstore.Delete(expHash, dir)
+				if err != nil {
+					fmt.Printf("Error: ", err.Error())
+					return
+				}
+				fmt.Println("Deleted file: ", expHash)
+			}
+
+			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
+			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
+			if err != nil {
+				fmt.Printf("Error: ", err.Error())
+				return
+			}
+		}
+	}
 }
 
 func main() {
@@ -154,14 +258,33 @@ func main() {
 
 	fmt.Printf("Starting server at port %s...\n", port)
 
+	dbPath = "ttl-data.db"
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT, `created` INT(10), `expires` INT(10));")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	dataDir = path.Join("./piece-store-data/", port)
+
+	go func() {
+		dbChecker(db, dataDir)
+	}()
 
 	router := httprouter.New()
 	router.GET("/", Index)
 	router.GET("/upload", ShowUploadForm)
 	router.GET("/download", ShowDownloadForm)
+	router.GET("/delete", ShowDeleteForm)
 	router.ServeFiles("/files/*filepath", http.Dir(dataDir))
 	router.POST("/upload", UploadFile)
 	router.POST("/download", DownloadFile)
+	router.POST("/delete", DeleteFile)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
