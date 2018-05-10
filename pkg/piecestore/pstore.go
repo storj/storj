@@ -20,7 +20,7 @@ var (
 )
 
 // creates datapath from hash and dir
-func pathByHash(hash, dir string) (string, error) {
+func PathByHash(hash, dir string) (string, error) {
 	if len(hash) < 20 {
 		return "", ArgError.New("Invalid hash length")
 	}
@@ -38,11 +38,11 @@ func pathByHash(hash, dir string) (string, error) {
 	Store data into piece store
 
 	hash 		(string)				Hash of the data to be stored
-	r 			(io.Reader)	        File/Stream that contains the contents of the data to be stored
+	r 			(io.Reader)	    File/Stream that contains the contents of the data to be stored
 	length 	(length)				Size of the data to be stored
 	psFileOffset 	(offset)  Offset of the data that you are writing. Useful for multiple connections to split the data transfer
 	dir 		(string)				pstore directory containing all other data stored
-	returns (error) if 		  failed and nil if successful
+	returns (error) 				if failed and nil if successful
 */
 func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir string) error {
 	if psFileOffset < 0 {
