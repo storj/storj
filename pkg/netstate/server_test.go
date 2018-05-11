@@ -12,6 +12,7 @@ import (
 type mockDB struct {
 	timesCalled int
 	puts        []boltdb.File
+	filePaths   [][]byte
 }
 
 func (m *mockDB) Put(f boltdb.File) error {
@@ -20,23 +21,35 @@ func (m *mockDB) Put(f boltdb.File) error {
 	return nil
 }
 
-func (m *mockDB) Get(path []byte) (boltdb.File, error) {
+func (m *mockDB) Get(path []byte) ([]byte, error) {
 	m.timesCalled++
 
-	for i := range m.puts {
-		if bytes.Equal(path, m.puts[i].Path) {
-			return m.puts[i], nil
+	for _, file := range m.puts {
+		if bytes.Equal(path, file.Path) {
+			return file.Value, nil
 		}
 	}
-	panic("Failed to get the given file")
+	panic("failed to get the given file")
 }
 
 func (m *mockDB) List() ([][]byte, error) {
 	m.timesCalled++
-	return nil, nil
+
+	for _, file := range m.puts {
+		m.filePaths = append(m.filePaths, file.Path)
+	}
+
+	return m.filePaths, nil
 }
 
-func (m *mockDB) Delete([]byte) error {
+func (m *mockDB) Delete(path []byte) error {
 	m.timesCalled++
+
+	for i, file := range m.puts {
+		if bytes.Equal(path, file.Path) {
+			m.puts = append(m.puts[:i], m.puts[i+1:]...)
+		}
+	}
+
 	return nil
 }

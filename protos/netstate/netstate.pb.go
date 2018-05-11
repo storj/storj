@@ -9,10 +9,12 @@ It is generated from these files:
 
 It has these top-level messages:
 	FilePath
+	GetRequest
 	ListRequest
 	PutResponse
 	GetResponse
 	ListResponse
+	DeleteRequest
 	DeleteResponse
 */
 package netstate
@@ -37,7 +39,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// FilePath is a request message for Put, Get, and Delete rpc calls
+// FilePath is a request message for the Put rpc call
 type FilePath struct {
 	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	// smallValue is a value too small to be broken up and stored
@@ -64,14 +66,39 @@ func (m *FilePath) GetSmallValue() []byte {
 	return nil
 }
 
+// GetRequest is a request message for the Get rpc call
+type GetRequest struct {
+	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (m *GetRequest) Reset()                    { *m = GetRequest{} }
+func (m *GetRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetRequest) ProtoMessage()               {}
+func (*GetRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *GetRequest) GetPath() []byte {
+	if m != nil {
+		return m.Path
+	}
+	return nil
+}
+
 // ListRequest is a request message for the List rpc call
 type ListRequest struct {
+	Bucket []byte `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 }
 
 func (m *ListRequest) Reset()                    { *m = ListRequest{} }
 func (m *ListRequest) String() string            { return proto.CompactTextString(m) }
 func (*ListRequest) ProtoMessage()               {}
-func (*ListRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*ListRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *ListRequest) GetBucket() []byte {
+	if m != nil {
+		return m.Bucket
+	}
+	return nil
+}
 
 // PutResponse is a response message for the Put rpc call
 type PutResponse struct {
@@ -81,7 +108,7 @@ type PutResponse struct {
 func (m *PutResponse) Reset()                    { *m = PutResponse{} }
 func (m *PutResponse) String() string            { return proto.CompactTextString(m) }
 func (*PutResponse) ProtoMessage()               {}
-func (*PutResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*PutResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *PutResponse) GetConfirmation() string {
 	if m != nil {
@@ -92,17 +119,17 @@ func (m *PutResponse) GetConfirmation() string {
 
 // GetResponse is a response message for the Get rpc call
 type GetResponse struct {
-	Content []byte `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	SmallValue []byte `protobuf:"bytes,1,opt,name=smallValue,proto3" json:"smallValue,omitempty"`
 }
 
 func (m *GetResponse) Reset()                    { *m = GetResponse{} }
 func (m *GetResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()               {}
-func (*GetResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*GetResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
-func (m *GetResponse) GetContent() []byte {
+func (m *GetResponse) GetSmallValue() []byte {
 	if m != nil {
-		return m.Content
+		return m.SmallValue
 	}
 	return nil
 }
@@ -115,11 +142,27 @@ type ListResponse struct {
 func (m *ListResponse) Reset()                    { *m = ListResponse{} }
 func (m *ListResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListResponse) ProtoMessage()               {}
-func (*ListResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*ListResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 func (m *ListResponse) GetFilepaths() [][]byte {
 	if m != nil {
 		return m.Filepaths
+	}
+	return nil
+}
+
+type DeleteRequest struct {
+	Path []byte `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (m *DeleteRequest) Reset()                    { *m = DeleteRequest{} }
+func (m *DeleteRequest) String() string            { return proto.CompactTextString(m) }
+func (*DeleteRequest) ProtoMessage()               {}
+func (*DeleteRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+
+func (m *DeleteRequest) GetPath() []byte {
+	if m != nil {
+		return m.Path
 	}
 	return nil
 }
@@ -132,7 +175,7 @@ type DeleteResponse struct {
 func (m *DeleteResponse) Reset()                    { *m = DeleteResponse{} }
 func (m *DeleteResponse) String() string            { return proto.CompactTextString(m) }
 func (*DeleteResponse) ProtoMessage()               {}
-func (*DeleteResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (*DeleteResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *DeleteResponse) GetConfirmation() string {
 	if m != nil {
@@ -143,10 +186,12 @@ func (m *DeleteResponse) GetConfirmation() string {
 
 func init() {
 	proto.RegisterType((*FilePath)(nil), "netstate.FilePath")
+	proto.RegisterType((*GetRequest)(nil), "netstate.GetRequest")
 	proto.RegisterType((*ListRequest)(nil), "netstate.ListRequest")
 	proto.RegisterType((*PutResponse)(nil), "netstate.PutResponse")
 	proto.RegisterType((*GetResponse)(nil), "netstate.GetResponse")
 	proto.RegisterType((*ListResponse)(nil), "netstate.ListResponse")
+	proto.RegisterType((*DeleteRequest)(nil), "netstate.DeleteRequest")
 	proto.RegisterType((*DeleteResponse)(nil), "netstate.DeleteResponse")
 }
 
@@ -163,12 +208,12 @@ const _ = grpc.SupportPackageIsVersion4
 type NetStateClient interface {
 	// Put formats and hands off a file path to be saved to boltdb
 	Put(ctx context.Context, in *FilePath, opts ...grpc.CallOption) (*PutResponse, error)
-	// Get formats and hands off a file path to get from boltdb
-	Get(ctx context.Context, in *FilePath, opts ...grpc.CallOption) (*GetResponse, error)
+	// Get formats and hands off a file path to get a small value from boltdb
+	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	// List calls the bolt client's List function and returns all file paths
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	// Delete formats and hands off a file path to delete from boltdb
-	Delete(ctx context.Context, in *FilePath, opts ...grpc.CallOption) (*DeleteResponse, error)
+	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 }
 
 type netStateClient struct {
@@ -188,7 +233,7 @@ func (c *netStateClient) Put(ctx context.Context, in *FilePath, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *netStateClient) Get(ctx context.Context, in *FilePath, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *netStateClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
 	err := grpc.Invoke(ctx, "/netstate.NetState/Get", in, out, c.cc, opts...)
 	if err != nil {
@@ -206,7 +251,7 @@ func (c *netStateClient) List(ctx context.Context, in *ListRequest, opts ...grpc
 	return out, nil
 }
 
-func (c *netStateClient) Delete(ctx context.Context, in *FilePath, opts ...grpc.CallOption) (*DeleteResponse, error) {
+func (c *netStateClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	out := new(DeleteResponse)
 	err := grpc.Invoke(ctx, "/netstate.NetState/Delete", in, out, c.cc, opts...)
 	if err != nil {
@@ -220,12 +265,12 @@ func (c *netStateClient) Delete(ctx context.Context, in *FilePath, opts ...grpc.
 type NetStateServer interface {
 	// Put formats and hands off a file path to be saved to boltdb
 	Put(context.Context, *FilePath) (*PutResponse, error)
-	// Get formats and hands off a file path to get from boltdb
-	Get(context.Context, *FilePath) (*GetResponse, error)
+	// Get formats and hands off a file path to get a small value from boltdb
+	Get(context.Context, *GetRequest) (*GetResponse, error)
 	// List calls the bolt client's List function and returns all file paths
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	// Delete formats and hands off a file path to delete from boltdb
-	Delete(context.Context, *FilePath) (*DeleteResponse, error)
+	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 }
 
 func RegisterNetStateServer(s *grpc.Server, srv NetStateServer) {
@@ -251,7 +296,7 @@ func _NetState_Put_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _NetState_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FilePath)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -263,7 +308,7 @@ func _NetState_Get_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: "/netstate.NetState/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetStateServer).Get(ctx, req.(*FilePath))
+		return srv.(NetStateServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -287,7 +332,7 @@ func _NetState_List_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _NetState_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FilePath)
+	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -299,7 +344,7 @@ func _NetState_Delete_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: "/netstate.NetState/Delete",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetStateServer).Delete(ctx, req.(*FilePath))
+		return srv.(NetStateServer).Delete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -332,23 +377,24 @@ var _NetState_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("netstate.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 273 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x91, 0x4f, 0x4b, 0x03, 0x31,
-	0x10, 0xc5, 0x59, 0xb7, 0xd4, 0xed, 0xec, 0xda, 0x43, 0x40, 0x09, 0x45, 0xa4, 0xe4, 0x62, 0x0f,
-	0x52, 0xea, 0xdf, 0xa3, 0x27, 0xb1, 0x17, 0x91, 0x25, 0x82, 0xf7, 0x58, 0xa6, 0x34, 0x90, 0x26,
-	0x6b, 0x33, 0xfb, 0x71, 0xfd, 0x2e, 0xb2, 0xdb, 0x5d, 0x37, 0x2b, 0x82, 0xf4, 0x96, 0xf9, 0x4d,
-	0x26, 0xf3, 0xde, 0x0b, 0x8c, 0x2d, 0x92, 0x27, 0x45, 0x38, 0x2f, 0x76, 0x8e, 0x1c, 0x4b, 0xda,
-	0x5a, 0x3c, 0x42, 0xf2, 0xac, 0x0d, 0xe6, 0x8a, 0x36, 0x8c, 0xc1, 0xa0, 0x50, 0xb4, 0xe1, 0xd1,
-	0x34, 0x9a, 0x65, 0xb2, 0x3e, 0xb3, 0x0b, 0x00, 0xbf, 0x55, 0xc6, 0xbc, 0x2b, 0x53, 0x22, 0x3f,
-	0xaa, 0x3b, 0x01, 0x11, 0x27, 0x90, 0xbe, 0x68, 0x4f, 0x12, 0x3f, 0x4b, 0xf4, 0x24, 0xae, 0x21,
-	0xcd, 0x4b, 0x92, 0xe8, 0x0b, 0x67, 0x3d, 0x32, 0x01, 0xd9, 0xca, 0xd9, 0xb5, 0xde, 0x6d, 0x15,
-	0x69, 0x67, 0xeb, 0x97, 0x47, 0xb2, 0xc7, 0xc4, 0x25, 0xa4, 0x4b, 0xec, 0x46, 0x38, 0x1c, 0xaf,
-	0x9c, 0x25, 0xb4, 0xd4, 0xe8, 0x68, 0x4b, 0x71, 0x05, 0xd9, 0x7e, 0x55, 0x73, 0xf3, 0x1c, 0x46,
-	0x6b, 0x6d, 0xb0, 0x92, 0xe9, 0x79, 0x34, 0x8d, 0x67, 0x99, 0xec, 0x80, 0xb8, 0x83, 0xf1, 0x13,
-	0x1a, 0x24, 0x3c, 0x44, 0xcc, 0xcd, 0x57, 0x04, 0xc9, 0x2b, 0xd2, 0x5b, 0x95, 0x0d, 0x5b, 0x40,
-	0x9c, 0x97, 0xc4, 0xd8, 0xfc, 0x27, 0xbd, 0x36, 0xaa, 0xc9, 0x69, 0xc7, 0x42, 0xbf, 0x0b, 0x88,
-	0x97, 0xf8, 0xef, 0x44, 0x68, 0xf7, 0x1e, 0x06, 0x95, 0x29, 0x16, 0xb4, 0x83, 0x3c, 0x27, 0x67,
-	0xbf, 0x71, 0x33, 0xf6, 0x00, 0xc3, 0xbd, 0xbb, 0x3f, 0x77, 0xf1, 0x8e, 0xf5, 0x33, 0xf8, 0x18,
-	0xd6, 0xff, 0x7f, 0xfb, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x97, 0x24, 0xb3, 0x83, 0x11, 0x02, 0x00,
-	0x00,
+	// 302 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x4d, 0x4b, 0xc3, 0x40,
+	0x10, 0x25, 0xb6, 0x94, 0x74, 0x12, 0x7b, 0x18, 0xb4, 0x86, 0x20, 0x12, 0x56, 0x84, 0x1e, 0xb4,
+	0x68, 0xd5, 0x93, 0xe0, 0x49, 0xec, 0x45, 0x24, 0x44, 0xf0, 0xbe, 0x2d, 0x53, 0x1a, 0xdc, 0x26,
+	0xb1, 0x3b, 0xf9, 0xc7, 0xfe, 0x10, 0xc9, 0x57, 0xb3, 0xb1, 0x22, 0xde, 0x32, 0xef, 0x23, 0x79,
+	0x33, 0x2f, 0x30, 0x4a, 0x88, 0x35, 0x4b, 0xa6, 0x69, 0xb6, 0x4d, 0x39, 0x45, 0xbb, 0x99, 0xc5,
+	0x23, 0xd8, 0xcf, 0xb1, 0xa2, 0x50, 0xf2, 0x1a, 0x11, 0xfa, 0x99, 0xe4, 0xb5, 0x67, 0x05, 0xd6,
+	0xc4, 0x8d, 0xca, 0x67, 0x3c, 0x03, 0xd0, 0x1b, 0xa9, 0xd4, 0xbb, 0x54, 0x39, 0x79, 0x07, 0x25,
+	0x63, 0x20, 0x22, 0x00, 0x98, 0x13, 0x47, 0xf4, 0x99, 0x93, 0xe6, 0xdf, 0xde, 0x20, 0x2e, 0xc0,
+	0x79, 0x89, 0xf5, 0x4e, 0x32, 0x86, 0xc1, 0x22, 0x5f, 0x7e, 0x10, 0xd7, 0xa2, 0x7a, 0x12, 0x37,
+	0xe0, 0x84, 0x39, 0x47, 0xa4, 0xb3, 0x34, 0xd1, 0x84, 0x02, 0xdc, 0x65, 0x9a, 0xac, 0xe2, 0xed,
+	0x46, 0x72, 0x9c, 0x26, 0xa5, 0x78, 0x18, 0x75, 0x30, 0x71, 0x05, 0x4e, 0xf9, 0xed, 0xda, 0xd2,
+	0x8d, 0x6a, 0xed, 0x45, 0xbd, 0x04, 0xb7, 0x0a, 0x52, 0xeb, 0x4f, 0x61, 0xb8, 0x8a, 0x15, 0x15,
+	0x21, 0xb5, 0x67, 0x05, 0xbd, 0x89, 0x1b, 0xb5, 0x80, 0x38, 0x87, 0xc3, 0x27, 0x52, 0xc4, 0xf4,
+	0xd7, 0x6e, 0x77, 0x30, 0x6a, 0x44, 0xff, 0xcf, 0x3d, 0xfb, 0xb2, 0xc0, 0x7e, 0x25, 0x7e, 0x2b,
+	0x0a, 0xc0, 0x6b, 0xe8, 0x85, 0x39, 0x23, 0x4e, 0x77, 0x15, 0x35, 0x7d, 0xf8, 0xc7, 0x2d, 0x66,
+	0x9e, 0x66, 0x06, 0xbd, 0x39, 0x31, 0x1e, 0xb5, 0x6c, 0xdb, 0x80, 0xe9, 0x31, 0x6f, 0x73, 0x0f,
+	0xfd, 0x62, 0x77, 0x34, 0x68, 0xa3, 0x14, 0x7f, 0xfc, 0x13, 0xae, 0x6d, 0x0f, 0x30, 0xa8, 0xf6,
+	0xc3, 0x93, 0x56, 0xd1, 0x39, 0x8b, 0xef, 0xed, 0x13, 0x95, 0x79, 0x31, 0x28, 0xff, 0xb5, 0xdb,
+	0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x0c, 0x07, 0x2f, 0xb8, 0x7d, 0x02, 0x00, 0x00,
 }

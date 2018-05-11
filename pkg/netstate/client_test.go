@@ -71,11 +71,59 @@ func TestNetStateClient(t *testing.T) {
 	}
 
 	// Tests Server.Get
-	getRes, err := c.Get(ctx, &fp)
+	getReq := proto.GetRequest{
+		Path: []byte("here/is/a/path"),
+	}
+
+	getRes, err := c.Get(ctx, &getReq)
 	assert.NoError(t, err)
 
-	if !bytes.Equal(getRes.Content, fp.SmallValue) {
-		fmt.Printf("content: %s", getRes.Content)
+	if !bytes.Equal(getRes.SmallValue, fp.SmallValue) {
 		t.Error("Expected to get same content that was put")
+	}
+
+	if mdb.timesCalled != 2 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
+
+	// Puts another file path to test delete and list
+	fp2 := proto.FilePath{
+		Path:       []byte("here/is/another/path"),
+		SmallValue: []byte("raisins"),
+	}
+
+	putRes2, err := c.Put(ctx, &fp2)
+	assert.NoError(t, err)
+
+	if putRes2.Confirmation != "success" {
+		t.Error("Failed to receive success Put response")
+	}
+
+	// Test Server.Delete
+	delReq := proto.DeleteRequest{
+		Path: []byte("here/is/a/path"),
+	}
+
+	delRes, err := c.Delete(ctx, &delReq)
+	if err != nil {
+		t.Error("Failed to delete file path")
+	}
+
+	if delRes.Confirmation != "success" {
+		t.Error("Failed to receive success delete response")
+	}
+
+	// Tests Server.List
+	listReq := proto.ListRequest{
+		Bucket: []byte("files"),
+	}
+
+	listRes, err := c.List(ctx, &listReq)
+	if err != nil {
+		t.Error("Failed to list file paths")
+	}
+
+	if !bytes.Equal(listRes.Filepaths[0], []byte("here/is/another/path")) {
+		t.Error("Failed to list correct file path")
 	}
 }

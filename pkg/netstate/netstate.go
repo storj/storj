@@ -31,7 +31,7 @@ func NewServer(db DB, logger *zap.Logger) *Server {
 // db clients other than bolt
 type DB interface {
 	Put(boltdb.File) error
-	Get([]byte) (boltdb.File, error)
+	Get([]byte) ([]byte, error)
 	List() ([][]byte, error)
 	Delete([]byte) error
 }
@@ -57,17 +57,17 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 }
 
 // Get formats and hands off a file path to get from boltdb
-func (s *Server) Get(ctx context.Context, filepath *proto.FilePath) (*proto.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
 	s.logger.Debug("entering NetState.Get(...)")
 
-	fileInfo, err := s.DB.Get(filepath.Path)
+	fileValue, err := s.DB.Get(req.Path)
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, err
 	}
 
 	return &proto.GetResponse{
-		Content: fileInfo.Value,
+		SmallValue: fileValue,
 	}, nil
 }
 
@@ -89,10 +89,10 @@ func (s *Server) List(ctx context.Context, req *proto.ListRequest) (*proto.ListR
 }
 
 // Delete formats and hands off a file path to delete from boltdb
-func (s *Server) Delete(ctx context.Context, filepath *proto.FilePath) (*proto.DeleteResponse, error) {
+func (s *Server) Delete(ctx context.Context, req *proto.DeleteRequest) (*proto.DeleteResponse, error) {
 	s.logger.Debug("entering NetState.Delete(...)")
 
-	err := s.DB.Delete([]byte(filepath.Path))
+	err := s.DB.Delete(req.Path)
 	if err != nil {
 		s.logger.Error("err deleting file", zap.Error(err))
 		return nil, err

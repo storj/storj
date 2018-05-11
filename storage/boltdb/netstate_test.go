@@ -52,11 +52,11 @@ func TestNetState(t *testing.T) {
 	}
 
 	// tests Get function
-	retrvFile, err := c.Get([]byte("test/path"))
+	retrvValue, err := c.Get([]byte("test/path"))
 	if err != nil {
 		t.Error("Failed to get saved test value")
 	}
-	if !bytes.Equal(retrvFile.Value, testFile.Value) {
+	if !bytes.Equal(retrvValue, testFile.Value) {
 		t.Error("Retrieved file was not same as original file")
 	}
 

@@ -32,21 +32,20 @@ func (client *Client) Put(file File) error {
 }
 
 // Get retrieves the value stored at the file path key
-func (client *Client) Get(fileKey []byte) (File, error) {
+func (client *Client) Get(fileKey []byte) ([]byte, error) {
 	client.logger.Debug("entering Client.Get(fileKey)")
-	var fileInfo File
+	var fileValue []byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
 		v := b.Get(fileKey)
 		if v == nil {
 			return Error.New("file %#v not found", string(fileKey))
 		}
-		fileInfo.Value = v
+		fileValue = v
 		return nil
 	})
 
-	fileInfo.Path = fileKey
-	return fileInfo, err
+	return fileValue, err
 }
 
 // List creates a string array of all keys in in the "files" bucket

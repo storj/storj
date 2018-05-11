@@ -8,15 +8,15 @@ package netstate;
 service NetState {
   // Put formats and hands off a file path to be saved to boltdb
   rpc Put(FilePath) returns (PutResponse);
-  // Get formats and hands off a file path to get from boltdb
-  rpc Get(FilePath) returns (GetResponse);
+  // Get formats and hands off a file path to get a small value from boltdb
+  rpc Get(GetRequest) returns (GetResponse);
   // List calls the bolt client's List function and returns all file paths
   rpc List(ListRequest) returns (ListResponse);
   // Delete formats and hands off a file path to delete from boltdb
-  rpc Delete(FilePath) returns (DeleteResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
 }
 
-// FilePath is a request message for Put, Get, and Delete rpc calls
+// FilePath is a request message for the Put rpc call
 message FilePath {
   bytes path = 1;
   // smallValue is a value too small to be broken up and stored
@@ -24,8 +24,15 @@ message FilePath {
   bytes smallValue = 2;
 }
 
+// GetRequest is a request message for the Get rpc call
+message GetRequest {
+  bytes path = 1;
+}
+
 // ListRequest is a request message for the List rpc call
-message ListRequest {}
+message ListRequest {
+  bytes bucket = 1;
+}
 
 // PutResponse is a response message for the Put rpc call
 message PutResponse {
@@ -34,12 +41,16 @@ message PutResponse {
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  bytes content = 1;
+  bytes smallValue = 1;
 }
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
   repeated bytes filepaths = 1;
+}
+
+message DeleteRequest {
+  bytes path = 1;
 }
 
 // DeleteResponse is a response message for the Delete rpc call
