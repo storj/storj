@@ -85,7 +85,7 @@ func (s *ShardStreamReader) Read(b []byte) (int, error) {
 }
 
 // Begin Download Shard from Server
-func RetrieveShardRequest(conn *grpc.ClientConn, hash string, length int64, offset int64) (*ShardStreamReader, error) {
+func RetrieveShardRequest(conn *grpc.ClientConn, hash string, length int64, offset int64) (io.Reader, error) {
   c := pb.NewRouteGuideClient(conn)
 
   stream, err := c.Retrieve(context.Background(), &pb.ShardRetrieval{Hash: hash, Size: length, StoreOffset: offset})
