@@ -3,10 +3,22 @@
 
 package storj
 
+/*
+#cgo CFLAGS: -I .
+#cgo LDFLAGS: -L . -lstorj
+#cgo LDFLAGS: -L /usr/lib -lcurl -lnettle -ljson-c -luv -lm
+#include "storj.h"
+
+void getbucketscallback(uv_work_t *work_req, int status); // Forward declaration.
+void storj_uv_run_cgo(storj_env_t *env);
+*/
+import "C"
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
+	"unsafe"
 
 	"github.com/minio/cli"
 
@@ -15,6 +27,32 @@ import (
 	"github.com/minio/minio/pkg/hash"
 )
 
+// global storj env structure declaration
+var gGoEnvT *C.storj_env_t
+
+// Env contains parameters for accessing the Storj network
+type Env struct {
+	URL      string
+	User     string
+	Password string
+	Mnemonic string
+}
+
+//export getbucketscallback
+func getbucketscallback(workreq *C.uv_work_t, status C.int) {
+	fmt.Printf("Go.getbucketscallback(): called with status = %d\n", status)
+}
+
+// NewEnv creates new Env struct with default values
+func NewEnv() Env {
+	return Env{
+		URL:      "https://api.storj.io", //viper.GetString("bridge"),
+		User:     "kishore@storj.io",     //viper.GetString("bridge-user"),
+		Password: sha256Sum("Njoy4ever"),
+		Mnemonic: "surface excess rude either pink bone pact ready what ability current plug",
+	}
+}
+
 func init() {
 	cmd.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
@@ -22,6 +60,9 @@ func init() {
 		Action:          storjGatewayMain,
 		HideHelpCommand: true,
 	})
+
+	gGoEnvT = C.storj_go_init()
+
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -49,6 +90,7 @@ func (s *Storj) Production() bool {
 
 type storjObjects struct {
 	cmd.GatewayUnsupported
+	Env
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
@@ -78,6 +120,17 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []cmd.BucketInfo, err error) {
+	x := C.storj_util_timestamp()
+	fmt.Println("STORJ LIST BUCKETS COMMAND ", x)
+
+	fmt.Printf("Go.main(): calling C function with callback to us\n")
+	//C.some_c_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
+	//C.storj_bridge_get_buckets(gGoEnvT, nil, (C.uv_after_work_cb)(unsafe.Pointer(C.getbucketscallback_cgo)))
+	response := C.storj_bridge_get_buckets((*C.storj_env_t)(gGoEnvT), nil, (C.uv_after_work_cb)(unsafe.Pointer(C.getbucketscallback)))
+
+	C.storj_uv_run_cgo(gGoEnvT)
+	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
+
 	return []cmd.BucketInfo{{
 		Name:    "test-bucket",
 		Created: time.Now(),
@@ -115,5 +168,5 @@ func (s *storjObjects) Shutdown(context.Context) error {
 }
 
 func (s *storjObjects) StorageInfo(context.Context) cmd.StorageInfo {
-	panic("TODO")
+	return cmd.StorageInfo{}
 }
