@@ -3,6 +3,7 @@ syntax = "proto3";
 package routeguide;
 
 service RouteGuide {
+  rpc Shard(ShardHash) returns (ShardSummary) {}
 
   rpc Retrieve(ShardRetrieval) returns (stream ShardRetrievalStream) {}
 
@@ -12,7 +13,6 @@ service RouteGuide {
 
 }
 
-// The request message containing the user's name.
 message ShardStore {
   string hash = 1;
   int64 size = 2;
@@ -20,6 +20,16 @@ message ShardStore {
   int64 storeOffset = 4;
 
   bytes content = 5;
+}
+
+message ShardHash {
+  string hash = 1;
+}
+
+message ShardSummary {
+  string hash = 1;
+  int64 size = 2;
+  int64 expiration = 3;
 }
 
 message ShardRetrieval {

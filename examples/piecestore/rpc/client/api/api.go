@@ -15,7 +15,26 @@ import (
 
 var ServerError = errs.Class("serverError")
 
+// Struct containing Shard information from ShardMetaRequest
+type ShardMeta struct {
+  Hash       string
+  Size       int64
+  Expiration int64
+}
 
+// Request info about a shard by Shard Hash
+func ShardMetaRequest(conn *grpc.ClientConn, hash string) (*ShardMeta, error) {
+  c := pb.NewRouteGuideClient(conn)
+
+  reply, err := c.Shard(context.Background(), &pb.ShardHash{Hash: hash})
+  if err != nil {
+    return nil, err
+  }
+
+  return &ShardMeta{Hash: reply.Hash, Size: reply.Size, Expiration: reply.Expiration}, nil
+}
+
+// Upload Shard to Server
 func StoreShardRequest(conn *grpc.ClientConn, hash string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) (error) {
   c := pb.NewRouteGuideClient(conn)
 
@@ -49,33 +68,35 @@ func StoreShardRequest(conn *grpc.ClientConn, hash string, data io.Reader, dataO
   return nil
 }
 
-func RetrieveShardRequest(conn *grpc.ClientConn, hash string, data io.Writer, length int64, offset int64) (error) {
+// Struct for reading shard download stream from server
+type ShardStreamReader struct {
+  stream pb.RouteGuide_RetrieveClient
+}
+
+// Read method for shard download stream
+func (s *ShardStreamReader) Read(b []byte) (int, error) {
+  shardData, err := s.stream.Recv()
+  if err != nil {
+    return 0, err
+  }
+
+  n := copy(b, shardData.Content)
+  return n, err
+}
+
+// Begin Download Shard from Server
+func RetrieveShardRequest(conn *grpc.ClientConn, hash string, length int64, offset int64) (*ShardStreamReader, error) {
   c := pb.NewRouteGuideClient(conn)
 
   stream, err := c.Retrieve(context.Background(), &pb.ShardRetrieval{Hash: hash, Size: length, StoreOffset: offset})
   if err != nil {
-    return err
+    return nil, err
   }
 
-  for {
-		shardData, err := stream.Recv()
-    if err != nil {
-      if err == io.EOF {
-        break
-      }
-      return err
-    }
-
-    _, err = data.Write(shardData.Content)
-    if err != nil {
-      return err
-    }
-
-  }
-
-  return nil
+  return &ShardStreamReader{stream: stream}, err
 }
 
+// Delete Shard From Server
 func DeleteShardRequest(conn *grpc.ClientConn, hash string) (error) {
   c := pb.NewRouteGuideClient(conn)
 

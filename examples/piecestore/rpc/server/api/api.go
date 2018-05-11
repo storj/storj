@@ -110,9 +110,6 @@ func (s *Server) Retrieve(shardMeta *pb.ShardRetrieval, stream pb.RouteGuide_Ret
 			return err
 		}
 
-		fmt.Println(n)
-
-
 		// Write the buffer to the stream we opened earlier
 		if err := stream.Send(&pb.ShardRetrievalStream{Size: n, Content: writeBuff.Bytes()}); err != nil {
 			fmt.Println("%v.Send() = %v", stream, err)
@@ -123,6 +120,21 @@ func (s *Server) Retrieve(shardMeta *pb.ShardRetrieval, stream pb.RouteGuide_Ret
 	}
 
 	return nil
+}
+
+func (s *Server) Shard(ctx context.Context, in *pb.ShardHash) (*pb.ShardSummary, error) {
+	fmt.Println("Getting Meta data...")
+
+	path, err := pstore.PathByHash(in.Hash, s.PieceStoreDir)
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Read database to calculate expiration
+
+	return &pb.ShardSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: 0}, nil
 }
 
 func (s *Server) Delete(ctx context.Context, in *pb.ShardDelete) (*pb.ShardDeleteSummary, error) {

@@ -15,10 +15,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/aleitner/piece-store/rpc-client/api"
-	"github.com/aleitner/piece-store/rpc-client/utils"
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/examples/piecestore/rpc/client/api"
+	"storj.io/storj/examples/piecestore/rpc/client/utils"
 )
 
 var ArgError = errs.Class("argError")
@@ -113,7 +114,33 @@ func main() {
 					return err
 				}
 
-				err = api.RetrieveShardRequest(conn, hash, dataFile, -1, 0)
+				shardInfo, err := api.ShardMetaRequest(conn, hash)
+				if err != nil {
+					return err
+				}
+
+				reader, err := api.RetrieveShardRequest(conn, hash, shardInfo.Size, 0)
+
+				var totalRead int64 = 0
+				for totalRead < shardInfo.Size {
+					b := make([]byte, 4096)
+					n, err := reader.Read(b)
+					if err != nil {
+						if err == io.EOF {
+							break
+						}
+						return err
+					}
+					fmt.Printf("Length of b: %v\n", len(b))
+
+					n, err = dataFile.Write(b[:n])
+					if err != nil {
+						return err
+					}
+					fmt.Printf("Written bytes: %v\n", n)
+
+					totalRead += int64(n)
+				}
 
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of hash: %s\n", hash)
