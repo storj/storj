@@ -23,8 +23,8 @@ proto:
 	./scripts/build-protos.sh
 
 build-dev-deps:
-	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u github.com/alecthomas/gometalinter
+	go get github.com/golang/protobuf/protoc-gen-go
+	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
 test: lint
