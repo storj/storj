@@ -71,7 +71,7 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 
 	fileKey := ps.ByName("path")
 
-	fileInfo, err := n.DB.Get([]byte(fileKey))
+	fileValue, err := n.DB.Get([]byte(fileKey))
 	if err != nil {
 		http.Error(w, "err getting file", http.StatusInternalServerError)
 		n.logger.Error("err getting file", zap.Error(err))
@@ -79,7 +79,7 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, err = w.Write(fileInfo.Value)
+	_, err = w.Write(fileValue)
 	if err != nil {
 		n.logger.Error("err writing response", zap.Error(err))
 	}
