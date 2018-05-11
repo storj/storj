@@ -131,13 +131,11 @@ func main() {
 						}
 						return err
 					}
-					fmt.Printf("Length of b: %v\n", len(b))
 
 					n, err = dataFile.Write(b[:n])
 					if err != nil {
 						return err
 					}
-					fmt.Printf("Written bytes: %v\n", n)
 
 					totalRead += int64(n)
 				}

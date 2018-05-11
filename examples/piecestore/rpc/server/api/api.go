@@ -133,8 +133,27 @@ func (s *Server) Shard(ctx context.Context, in *pb.ShardHash) (*pb.ShardSummary,
 	}
 
 	// TODO: Read database to calculate expiration
+	db, err := sql.Open("sqlite3", s.DbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
 
-	return &pb.ShardSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: 0}, nil
+	rows, err := db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, in.Hash))
+	if err != nil {
+		return nil, err
+	}
+
+	var ttl int64
+
+	for rows.Next() {
+		 err = rows.Scan(&ttl)
+		 if err != nil {
+			 return nil, err
+		 }
+	}
+
+	return &pb.ShardSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 func (s *Server) Delete(ctx context.Context, in *pb.ShardDelete) (*pb.ShardDeleteSummary, error) {
