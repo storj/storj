@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package reputation
+package nodereputation
 
 import (
 	"bytes"
@@ -467,8 +467,8 @@ func (row nodeReputationRecord) endian(other nodeReputationRecord) nodeReputatio
 }
 
 // serde converts private reocrd to public reputation
-func (row nodeReputationRecord) serde() NodeReputation {
-	return NodeReputation{
+func (row nodeReputationRecord) serde() NodeReputationRecord {
+	return NodeReputationRecord{
 		Source:             row.source,
 		NodeName:           row.nodeName,
 		Timestamp:          row.timestamp,
@@ -589,7 +589,7 @@ func newReputationRow(source string, name string) nodeReputationRecord {
 }
 
 // byNodeName function used in handler by update reputation
-func byNodeName(db *sql.DB, nodeName string) NodeReputation {
+func byNodeName(db *sql.DB, nodeName string) NodeReputationRecord {
 	selectNodeStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, nodeName)
 	row, _ := endianReputation(db, selectNodeStmt)
 
@@ -597,17 +597,17 @@ func byNodeName(db *sql.DB, nodeName string) NodeReputation {
 }
 
 // insertNodeUpdate used in handler by query agg node info
-func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
-	res := BridgeReply_UPDATE_FAILED
+func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
+	res := UpdateReply_UPDATE_FAILED
 	newRecord := newReputationRow(in.Source, in.NodeName)
 
 	switch strings.ToLower(in.ColumnName) {
 	case "uptime":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(uptimeColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -615,9 +615,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "auditsuccess":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(auditSuccessColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -625,9 +625,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "auditFail":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(auditFailColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -635,9 +635,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "latency":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(latencyColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -645,9 +645,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "amountofdatastored":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(amountOfDataStoredColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -655,9 +655,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "falseclaims":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(falseClaimsColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -665,9 +665,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) BridgeReply_ReplyType {
 	case "shardsmodified":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = BridgeReply_UPDATE_FAILED
+			res = UpdateReply_UPDATE_FAILED
 		} else {
-			res = BridgeReply_UPDATE_SUCCESS
+			res = UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(shardsModifiedColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}

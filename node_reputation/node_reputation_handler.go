@@ -1,4 +1,7 @@
-package reputation
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package nodereputation
 
 import (
 	"golang.org/x/net/context"
@@ -8,7 +11,7 @@ import (
 type Server struct{}
 
 // UpdateReputation in handler
-func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*BridgeReply, error) {
+func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*UpdateReply, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -16,7 +19,7 @@ func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*BridgeR
 
 	status := insertNodeUpdate(db, in)
 
-	return &BridgeReply{
+	return &UpdateReply{
 		BridgeName: "Storj",
 		NodeName:   in.NodeName,
 		Status:     status,
@@ -24,7 +27,7 @@ func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*BridgeR
 }
 
 // QueryAggregatedNodeInfo in handler
-func (s *Server) QueryAggregatedNodeInfo(ctx context.Context, in *NodeQuery) (*NodeReputation, error) {
+func (s *Server) QueryAggregatedNodeInfo(ctx context.Context, in *NodeQuery) (*NodeReputationRecord, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err

@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package reputation
+package nodereputation
 
 var createStmt = `CREATE table node_reputation (
 	source text not null,

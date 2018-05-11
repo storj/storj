@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"storj.io/storj/reputation"
+	"storj.io/storj/node_reputation"
 )
 
 func main() {
@@ -18,10 +18,10 @@ func main() {
 	}
 	defer conn.Close()
 
-	c := reputation.NewBridgeClient(conn)
+	c := nodereputation.NewNodeReputationClient(conn)
 
 	response, err := c.UpdateReputation(context.Background(),
-		&reputation.NodeUpdate{
+		&nodereputation.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
 			ColumnName:  "Uptime",
@@ -35,7 +35,7 @@ func main() {
 	fmt.Println("Reply receive", response.Status)
 
 	agg, err := c.QueryAggregatedNodeInfo(context.Background(),
-		&reputation.NodeQuery{
+		&nodereputation.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},

@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"net"
 
-	"storj.io/storj/reputation"
-
 	"google.golang.org/grpc"
+	"storj.io/storj/node_reputation"
 )
 
 func main() {
 
-	_, err := reputation.SetServerDB("./Server.db")
+	_, err := nodereputation.SetServerDB("./Server.db")
 	if err != nil {
 		fmt.Println("err")
 	}
@@ -21,11 +20,11 @@ func main() {
 		fmt.Println("err")
 	}
 
-	s := reputation.Server{}
+	s := nodereputation.Server{}
 
 	grpcServer := grpc.NewServer()
 
-	reputation.RegisterBridgeServer(grpcServer, &s)
+	nodereputation.RegisterNodeReputationServer(grpcServer, &s)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Println("err")
