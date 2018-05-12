@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/examples/piecestore/rpc/client/api"
 	"storj.io/storj/examples/piecestore/rpc/client/utils"
+	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
 )
 
 var ArgError = errs.Class("argError")
@@ -35,6 +36,7 @@ func main() {
     log.Fatalf("did not connect: %s", err)
   }
   defer conn.Close()
+	client := pb.NewPieceStoreRoutesClient(conn)
 
 	app.Commands = []cli.Command{
     {
@@ -71,7 +73,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				err = api.StoreShardRequest(conn, hash, dataSection, fileOffset, length, ttl, storeOffset)
+				err = api.StorePieceRequest(client, hash, dataSection, fileOffset, length, ttl, storeOffset)
 
 				if err != nil {
 					fmt.Printf("Failed to store file of hash: %s\n", hash)
@@ -114,15 +116,20 @@ func main() {
 					return err
 				}
 
-				shardInfo, err := api.ShardMetaRequest(conn, hash)
+				pieceInfo, err := api.PieceMetaRequest(client, hash)
 				if err != nil {
 					return err
 				}
 
-				reader, err := api.RetrieveShardRequest(conn, hash, shardInfo.Size, 0)
+				reader, err := api.RetrievePieceRequest(client, hash, 0, pieceInfo.Size)
+				if err != nil {
+					fmt.Printf("Failed to retrieve file of hash: %s\n", hash)
+					os.Remove(dataPath)
+					return err
+				}
 
 				var totalRead int64 = 0
-				for totalRead < shardInfo.Size {
+				for totalRead < pieceInfo.Size {
 					b := make([]byte, 4096)
 					n, err := reader.Read(b)
 					if err != nil {
@@ -131,13 +138,11 @@ func main() {
 						}
 						return err
 					}
-					fmt.Printf("Length of b: %v\n", len(b))
 
 					n, err = dataFile.Write(b[:n])
 					if err != nil {
 						return err
 					}
-					fmt.Printf("Written bytes: %v\n", n)
 
 					totalRead += int64(n)
 				}
@@ -161,7 +166,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return ArgError.New("Missing data Hash")
 				}
-				err = api.DeleteShardRequest(conn, c.Args().Get(0))
+				err = api.DeletePieceRequest(client, c.Args().Get(0))
 
 				return err
       },

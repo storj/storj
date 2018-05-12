@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+// protoc -I ./examples/piecestore/rpc/protobuf/ ./examples/piecestore/rpc/protobuf/piece_store.proto --go_out=plugins=grpc:./examples/piecestore/rpc/protobuf
+
+package piecestoreroutes;
+
+service PieceStoreRoutes {
+  rpc Piece(PieceHash) returns (PieceSummary) {}
+
+  rpc Retrieve(PieceRetrieval) returns (stream PieceRetrievalStream) {}
+
+  rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
+
+  rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
+
+}
+
+message PieceStore {
+  string hash = 1;
+  int64 size = 2;
+  int64 ttl = 3;
+  int64 storeOffset = 4;
+
+  bytes content = 5;
+}
+
+message PieceHash {
+  string hash = 1;
+}
+
+message PieceSummary {
+  string hash = 1;
+  int64 size = 2;
+  int64 expiration = 3;
+}
+
+message PieceRetrieval {
+  string hash = 1;
+  int64 size = 2;
+  int64 storeOffset = 3;
+}
+
+message PieceRetrievalStream {
+  int64 size = 1;
+  bytes content = 2;
+}
+
+message PieceDelete {
+  string hash = 1;
+}
+
+message PieceDeleteSummary {
+  int64 status = 1;
+  string message = 2;
+  int64 elapsedTime = 3;
+}
+
+message PieceStoreSummary {
+  int64 status = 1;
+  string message = 2;
+  int64 totalReceived = 3;
+  int64 elapsedTime = 4;
+}
