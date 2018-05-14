@@ -40,24 +40,24 @@ func TestGRPCRanger(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		client := NewMockRouteGuideClient(ctrl)
+		client := NewMockPieceStoreRoutesClient(ctrl)
 		calls := []*gomock.Call{
-			client.EXPECT().Shard(
+			client.EXPECT().Piece(
 				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(&pb.ShardSummary{Size: int64(len(tt.data))}, nil),
+			).Return(&pb.PieceSummary{Size: int64(len(tt.data))}, nil),
 		}
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			stream := NewMockRouteGuide_RetrieveClient(ctrl)
+			stream := NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 			calls = append(calls,
 				client.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
 				stream.EXPECT().Recv().Return(
-					&pb.ShardRetrievalStream{
+					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Recv().Return(&pb.ShardRetrievalStream{}, io.EOF),
+				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 		gomock.InOrder(calls...)
@@ -102,19 +102,19 @@ func TestGRPCRangerSize(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		client := NewMockRouteGuideClient(ctrl)
+		client := NewMockPieceStoreRoutesClient(ctrl)
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			stream := NewMockRouteGuide_RetrieveClient(ctrl)
+			stream := NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 			gomock.InOrder(
 				client.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
 				stream.EXPECT().Recv().Return(
-					&pb.ShardRetrievalStream{
+					&pb.PieceRetrievalStream{
 						Size:    tt.size,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Recv().Return(&pb.ShardRetrievalStream{}, io.EOF),
+				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 
