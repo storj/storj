@@ -18,6 +18,10 @@ var (
 	port string
 )
 
+const (
+	success string = "success"
+)
+
 func initializeFlags() {
 	flag.StringVar(&port, "port", ":8080", "port")
 	flag.Parse()
@@ -54,15 +58,15 @@ func main() {
 
 	// Example Puts
 	putRes, err := client.Put(ctx, &fp)
-	if err != nil || putRes.Confirmation != "success" {
+	if err != nil || putRes.Confirmation != success {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	putRes2, err := client.Put(ctx, &fp2)
-	if err != nil || putRes2.Confirmation != "success" {
+	if err != nil || putRes2.Confirmation != success {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	putRes3, err := client.Put(ctx, &fp3)
-	if err != nil || putRes3.Confirmation != "success" {
+	if err != nil || putRes3.Confirmation != success {
 		logger.Error("failed to put", zap.Error(err))
 	}
 
