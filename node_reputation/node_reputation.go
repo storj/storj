@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/zeebo/errs"
 	// import of sqlite3 for side effects
@@ -162,7 +161,7 @@ const (
 	notEqual     whereOpt = "!="
 )
 
-func optToString(opt whereOpt) string {
+func (opt whereOpt) toString() string {
 	res := ""
 	switch opt {
 	case equal:
@@ -184,7 +183,7 @@ func optToString(opt whereOpt) string {
 
 func genWhereStatement(selectAll string, col column, opt whereOpt, value string) string {
 	where := " WHERE"
-	operand := optToString(opt)
+	operand := opt.toString()
 
 	switch col {
 	case sourceColumn:
@@ -404,100 +403,105 @@ func naiveReputation(db *sql.DB, queryString string) (nodeReputationRecord, erro
   endian method hot encodes the two nodeReputationRecord structs
   desired values are set to a one, other values are set to zeros
   then compares and returns the largest
-  order is as follows:
-  timestamp, most recent values of rows with the same name equals a one
-  shardsModified, if any value other than zero is found a zero is needed
-  falseClaims, more false claims equal a zero
-  auditSuccessRatio, higher ratio equals a one
-  uptime, higher uptime equals a one
-  latency, lower latency equals a one
-  amountOfDataStored, more data equals a one
+  order of evaluation is ordered from most significant column (first)
+  to the least significant column (last position in the slice)
 */
-func (row nodeReputationRecord) endian(other nodeReputationRecord) nodeReputationRecord {
+func (row nodeReputationRecord) endian(other nodeReputationRecord, orderOfEval []column) nodeReputationRecord {
 	var rowEndian bytes.Buffer
 	var otherEndian bytes.Buffer
 
-	switch {
-	case row.timestamp > other.timestamp && row.nodeName == other.nodeName:
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.timestamp < other.timestamp && row.nodeName == other.nodeName:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
-	}
+	for _, order := range orderOfEval {
+		switch order {
+		case timestampColumn:
+			switch {
+			case row.timestamp > other.timestamp && row.nodeName == other.nodeName:
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.timestamp < other.timestamp && row.nodeName == other.nodeName:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
 
-	if row.shardsModified > 0 {
-		rowEndian.WriteString("0")
-	} else {
-		rowEndian.WriteString("1")
-	}
-	if other.shardsModified > 0 {
-		otherEndian.WriteString("0")
-	} else {
-		otherEndian.WriteString("1")
-	}
+		case shardsModifiedColumn:
+			if row.shardsModified > 0 {
+				rowEndian.WriteString("0")
+			} else {
+				rowEndian.WriteString("1")
+			}
+			if other.shardsModified > 0 {
+				otherEndian.WriteString("0")
+			} else {
+				otherEndian.WriteString("1")
+			}
 
-	switch {
-	case row.falseClaims < other.falseClaims:
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.falseClaims > other.falseClaims:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
-	}
+		case falseClaimsColumn:
+			switch {
+			case row.falseClaims < other.falseClaims:
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.falseClaims > other.falseClaims:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
 
-	switch {
-	case row.auditSuccessRatio() > other.auditSuccessRatio():
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.auditSuccessRatio() < other.auditSuccessRatio():
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
-	}
+		case auditSuccessColumn:
+			switch {
+			case row.auditSuccessRatio() > other.auditSuccessRatio():
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.auditSuccessRatio() < other.auditSuccessRatio():
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
 
-	switch {
-	case row.uptime > other.uptime:
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.uptime < other.uptime:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
-	}
+		case uptimeColumn:
+			switch {
+			case row.uptime > other.uptime:
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.uptime < other.uptime:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
 
-	switch {
-	case row.latency < other.latency:
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.latency > other.latency:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
-	}
+		case latencyColumn:
+			switch {
+			case row.latency < other.latency:
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.latency > other.latency:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
 
-	switch {
-	case row.amountOfDataStored > other.amountOfDataStored:
-		rowEndian.WriteString("1")
-		otherEndian.WriteString("0")
-	case row.amountOfDataStored < other.amountOfDataStored:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("1")
-	default:
-		rowEndian.WriteString("0")
-		otherEndian.WriteString("0")
+		case amountOfDataStoredColumn:
+			switch {
+			case row.amountOfDataStored > other.amountOfDataStored:
+				rowEndian.WriteString("1")
+				otherEndian.WriteString("0")
+			case row.amountOfDataStored < other.amountOfDataStored:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("1")
+			default:
+				rowEndian.WriteString("0")
+				otherEndian.WriteString("0")
+			}
+		}
 	}
 
 	var res nodeReputationRecord
@@ -532,7 +536,17 @@ func (row nodeReputationRecord) serde() NodeReputationRecord {
 	}
 }
 
-// endianReputation based on the most significant fields of nodeReputationRecord
+/*
+  endianReputation based on the most significant fields of nodeReputationRecord
+  order is as follows:
+  timestamp, most recent values of rows with the same name equals a one
+  shardsModified, if any value other than zero is found a zero is needed
+  falseClaims, more false claims equal a zero
+  auditSuccessRatio, higher ratio equals a one
+  uptime, higher uptime equals a one
+  latency, lower latency equals a one
+  amountOfDataStored, more data equals a one
+*/
 func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, error) {
 	bestRep := nodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
 
@@ -549,8 +563,18 @@ func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, err
 		return bestRep, SelectError.Wrap(err)
 	}
 
+	order := []column{
+		timestampColumn,
+		shardsModifiedColumn,
+		falseClaimsColumn,
+		auditSuccessColumn,
+		uptimeColumn,
+		latencyColumn,
+		amountOfDataStoredColumn,
+	}
+
 	for _, row := range transformedRows {
-		bestRep = bestRep.endian(row)
+		bestRep = bestRep.endian(row, order)
 	}
 
 	err = rows.Err()
@@ -666,36 +690,36 @@ func (opt NodeFilter_Operand) toWhereOpt() whereOpt {
 	return res
 }
 
-func stringColumnToColumn(s string) column {
+func (col ColumnName) toColumn() column {
 	res := sourceColumn
-	switch strings.ToLower(s) {
-	case "source":
+	switch col {
+	case ColumnName_source:
 		res = sourceColumn
-	case "nodename":
+	case ColumnName_node_name:
 		res = nodeNameColumn
-	case "timestamp":
+	case ColumnName_timestamp:
 		res = timestampColumn
-	case "uptime":
+	case ColumnName_uptime:
 		res = uptimeColumn
-	case "auditsuccess":
+	case ColumnName_audit_success:
 		res = auditSuccessColumn
-	case "auditFail":
+	case ColumnName_audit_fail:
 		res = auditFailColumn
-	case "latency":
+	case ColumnName_latency:
 		res = latencyColumn
-	case "amountofdatastored":
+	case ColumnName_amount_of_data_stored:
 		res = amountOfDataStoredColumn
-	case "falseclaims":
+	case ColumnName_false_claims:
 		res = falseClaimsColumn
-	case "shardsmodified":
+	case ColumnName_shards_modified:
 		res = shardsModifiedColumn
 	}
 
 	return res
 }
 
-func selectNodeWhere(db *sql.DB, colString string, operand NodeFilter_Operand, value string) NodeReputationRecords {
-	selectNodeStmt := genWhereStatement(selectAllStmt, stringColumnToColumn(colString), operand.toWhereOpt(), value)
+func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, value string) NodeReputationRecords {
+	selectNodeStmt := genWhereStatement(selectAllStmt, col.toColumn(), operand.toWhereOpt(), value)
 	nodes, _ := getNodeReputationRecords(db, selectNodeStmt)
 
 	var records []*NodeReputationRecord
@@ -716,8 +740,8 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	res := UpdateReply_UPDATE_FAILED
 	newRecord := newReputationRow(in.Source, in.NodeName)
 
-	switch strings.ToLower(in.ColumnName) {
-	case "uptime":
+	switch in.ColumnName.toColumn() {
+	case uptimeColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -728,7 +752,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "auditsuccess":
+	case auditSuccessColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -739,7 +763,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "auditFail":
+	case auditFailColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -750,7 +774,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "latency":
+	case latencyColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -761,7 +785,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "amountofdatastored":
+	case amountOfDataStoredColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -772,7 +796,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "falseclaims":
+	case falseClaimsColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED
@@ -783,7 +807,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
-	case "shardsmodified":
+	case shardsModifiedColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
 			res = UpdateReply_UPDATE_FAILED

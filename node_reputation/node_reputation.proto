@@ -48,13 +48,13 @@ message NodeQuery {
 message NodeUpdate {
     string source = 1;
     string nodeName = 2;
-    string columnName = 3;
+    ColumnName columnName = 3;
     string columnValue = 4;
 }
 
 message NodeFilter {
     string source = 1;
-    string columnName = 2;
+    ColumnName columnName = 2;
 
     enum Operand {
         EQUAL_TO = 0;
@@ -67,4 +67,17 @@ message NodeFilter {
 
     Operand operand = 3;
     string columnValue = 4;
+}
+
+enum ColumnName {
+	source = 0;
+	node_name = 1;
+    uptime = 2;
+    timestamp = 3;
+	audit_success = 4;
+	audit_fail = 5;
+	latency = 6;
+	amount_of_data_stored = 7;
+	false_claims = 8;
+	shards_modified = 9;
 }

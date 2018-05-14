@@ -38,7 +38,7 @@ func TestNodeReputationClient(t *testing.T) {
 		&NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  "Uptime",
+			ColumnName:  ColumnName_uptime,
 			ColumnValue: "2",
 		},
 	)
