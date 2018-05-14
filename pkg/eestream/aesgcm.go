@@ -40,7 +40,7 @@ func NewAESGCMEncrypter(key *[32]byte, startingNonce *[12]byte,
 		return nil, err
 	}
 	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
-		return nil, err
+		return nil, Error.New("block size too small")
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
