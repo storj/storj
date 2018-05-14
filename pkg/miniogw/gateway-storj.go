@@ -43,15 +43,15 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	fmt.Printf("Go.getbucketscallback(): called with status = %d\n", status)
 	//C.assert(status == 0)
 
-	var req *C.struct_get_buckets_request_t
-	req = (*C.struct_get_buckets_request_t)(workreq.data)
+	var req *C.get_buckets_request_t
+	req = (*C.get_buckets_request_t)(workreq.data)
 
 	fmt.Println(" req", req)
 	// get_buckets_request_t *req = work_req->data;
 
-	//if req.status_code == 401 {
-	//fmt.printf("Invalid user credentials.\n")
-	//} //else if (req->status_code == 403) {
+	if req.status_code == 401 {
+		fmt.Printf("Invalid user credentials.\n")
+	} //else if (req->status_code == 403) {
 	//    printf("Forbidden, user not active.\n");
 	// } else if (req->status_code != 200 && req->status_code != 304) {
 	//     printf("Request failed with status code: %i\n", req->status_code);
@@ -59,12 +59,14 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	//     printf("No buckets.\n");
 	// }
 
-	// for (int i = 0; i < req->total_buckets; i++) {
-	//     storj_bucket_meta_t *bucket = &req->buckets[i];
-	//     printf("ID: %s \tDecrypted: %s \tCreated: %s \tName: %s\n",
-	//            bucket->id, bucket->decrypted ? "true" : "false",
-	//            bucket->created, bucket->name);
-	// }
+	for i := uint(0); i < uint(req.total_buckets); i++ {
+
+		bucket := (*C.storj_bucket_meta_t)(unsafe.Pointer(uintptr(unsafe.Pointer(req.buckets)) + uintptr(i)))
+		fmt.Println(bucket)
+		//     printf("ID: %s \tDecrypted: %s \tCreated: %s \tName: %s\n",
+		//            bucket->id, bucket->decrypted ? "true" : "false",
+		//            bucket->created, bucket->name);
+	}
 
 	// storj_free_get_buckets_request(req);
 	// free(work_req);
