@@ -99,6 +99,10 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to receive success Put response")
 	}
 
+	if mdb.timesCalled != 3 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
+
 	// Test Server.Delete
 	delReq := proto.DeleteRequest{
 		Path: []byte("here/is/a/path"),
@@ -113,6 +117,10 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to receive success delete response")
 	}
 
+	if mdb.timesCalled != 4 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
+
 	// Tests Server.List
 	listReq := proto.ListRequest{
 		Bucket: []byte("files"),
@@ -125,5 +133,9 @@ func TestNetStateClient(t *testing.T) {
 
 	if !bytes.Equal(listRes.Filepaths[0], []byte("here/is/another/path")) {
 		t.Error("Failed to list correct file path")
+	}
+
+	if mdb.timesCalled != 5 {
+		t.Error("Failed to call mockdb correct number of times")
 	}
 }

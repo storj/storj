@@ -38,7 +38,7 @@ type DB interface {
 
 // Put formats and hands off a file path to be saved to boltdb
 func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutResponse, error) {
-	s.logger.Debug("entering NetState.Put(...)")
+	s.logger.Debug("entering netstate put")
 
 	file := boltdb.File{
 		Path:  []byte(filepath.Path),
@@ -49,7 +49,7 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 		s.logger.Error("err putting file", zap.Error(err))
 		return nil, err
 	}
-	s.logger.Debug("the file was put to the db")
+	s.logger.Debug("put to the db: " + string(file.Path))
 
 	return &proto.PutResponse{
 		Confirmation: "success",
@@ -58,7 +58,7 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
-	s.logger.Debug("entering NetState.Get(...)")
+	s.logger.Debug("entering netstate get")
 
 	fileValue, err := s.DB.Get(req.Path)
 	if err != nil {
@@ -73,7 +73,7 @@ func (s *Server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResp
 
 // List calls the bolt client's List function and returns all file paths
 func (s *Server) List(ctx context.Context, req *proto.ListRequest) (*proto.ListResponse, error) {
-	s.logger.Debug("entering NetState.List(...)")
+	s.logger.Debug("entering netstate list")
 
 	filePaths, err := s.DB.List()
 	if err != nil {
@@ -90,14 +90,14 @@ func (s *Server) List(ctx context.Context, req *proto.ListRequest) (*proto.ListR
 
 // Delete formats and hands off a file path to delete from boltdb
 func (s *Server) Delete(ctx context.Context, req *proto.DeleteRequest) (*proto.DeleteResponse, error) {
-	s.logger.Debug("entering NetState.Delete(...)")
+	s.logger.Debug("entering netstate delete")
 
 	err := s.DB.Delete(req.Path)
 	if err != nil {
 		s.logger.Error("err deleting file", zap.Error(err))
 		return nil, err
 	}
-	s.logger.Debug("file deleted")
+	s.logger.Debug("deleted: " + string(req.Path))
 	return &proto.DeleteResponse{
 		Confirmation: "success",
 	}, nil

@@ -19,7 +19,7 @@ const (
 
 // Put saves the file path and value as a kv pair in the "files" bucket
 func (client *Client) Put(file File) error {
-	client.logger.Debug("entering Client.Put(File)")
+	client.logger.Debug("entering bolt put")
 	return client.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(fileBucketName))
 		if err != nil {
@@ -33,7 +33,7 @@ func (client *Client) Put(file File) error {
 
 // Get retrieves the value stored at the file path key
 func (client *Client) Get(fileKey []byte) ([]byte, error) {
-	client.logger.Debug("entering Client.Get(fileKey)")
+	client.logger.Debug("entering bolt get: " + string(fileKey))
 	var fileValue []byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
@@ -50,7 +50,7 @@ func (client *Client) Get(fileKey []byte) ([]byte, error) {
 
 // List creates a string array of all keys in in the "files" bucket
 func (client *Client) List() ([][]byte, error) {
-	client.logger.Debug("entering Client.List()")
+	client.logger.Debug("entering bolt list")
 	var paths [][]byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(fileBucketName))
@@ -67,7 +67,7 @@ func (client *Client) List() ([][]byte, error) {
 
 // Delete deletes a kv pair from the "files" bucket, given the key
 func (client *Client) Delete(fileKey []byte) error {
-	client.logger.Debug("entering Client.Delete(fileKey)")
+	client.logger.Debug("entering bolt delete: " + string(fileKey))
 	return client.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket([]byte(fileBucketName)).Delete(fileKey)
 	})

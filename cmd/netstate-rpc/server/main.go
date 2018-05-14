@@ -57,5 +57,8 @@ func main() {
 	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, logger))
 
 	defer grpcServer.GracefulStop()
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		logger.Error("Failed to serve:", zap.Error(err))
+	}
 }
