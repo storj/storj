@@ -26,8 +26,8 @@ func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*UpdateR
 	}, nil
 }
 
-// QueryAggregatedNodeInfo in handler
-func (s *Server) QueryAggregatedNodeInfo(ctx context.Context, in *NodeQuery) (*NodeReputationRecord, error) {
+// NodeReputation in handler
+func (s *Server) NodeReputation(ctx context.Context, in *NodeQuery) (*NodeReputationRecord, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -35,4 +35,14 @@ func (s *Server) QueryAggregatedNodeInfo(ctx context.Context, in *NodeQuery) (*N
 	node := byNodeName(db, in.NodeName)
 
 	return &node, nil
+}
+
+func (s *Server) FilterNodeReputation(ctx context.Context, in *NodeFilter) (*NodeReputationRecords, error) {
+	db, err := SetServerDB("./Server.db")
+	if err != nil {
+		return nil, err
+	}
+	nodes := selectWhereNode(db, in.ColumnName, in.Operand, in.ColumnValue)
+
+	return &nodes, nil
 }

@@ -5,8 +5,9 @@ syntax = "proto3";
 package nodereputation;
 
 service NodeReputation {
+    rpc NodeReputation(NodeQuery) returns (NodeReputationRecord) {}
     rpc UpdateReputation(NodeUpdate) returns (UpdateReply) {}
-    rpc QueryAggregatedNodeInfo(NodeQuery) returns (NodeReputationRecord) {}
+    rpc FilterNodeReputation(NodeFilter) returns (NodeReputationRecords) {}
 }
 
 message NodeReputationRecord {
@@ -20,6 +21,10 @@ message NodeReputationRecord {
 	int64 amountOfDataStored = 8;
 	int64 falseClaims = 9;
 	int64 shardsModified = 10;
+}
+
+message NodeReputationRecords {
+    repeated NodeReputationRecord records = 1;
 }
 
 message UpdateReply {
@@ -45,4 +50,22 @@ message NodeUpdate {
     string nodeName = 2;
     string columnName = 3;
     string columnValue = 4;
+}
+
+message NodeFilter {
+    string source = 1;
+    string nodeName = 2;
+    string columnName = 3;
+
+    enum Operand {
+        EQUAL_TO = 0;
+        GREATER_THAN = 1;
+        GREATER_THAN_EQUAL_TO = 2;
+        LESS_THAN = 3;
+        LESS_THAN_EQUAL_TO = 4;
+        NOT_EQUAL_TO = 5;
+    }
+
+    Operand operand = 4;
+    string columnValue = 5;
 }

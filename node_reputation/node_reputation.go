@@ -151,12 +151,62 @@ func selectFromDB(db *sql.DB, selectString string) error {
 	return nil
 }
 
-func genSelectByColumn(selectAll string, col column, value string) string {
+type whereOpt string
+
+const (
+	equal        whereOpt = "="
+	greater      whereOpt = ">"
+	greaterEqual whereOpt = ">="
+	less         whereOpt = "<"
+	lessEqual    whereOpt = "<="
+	notEqual     whereOpt = "!="
+)
+
+func optToString(opt whereOpt) string {
+	res := ""
+	switch opt {
+	case equal:
+		res = "="
+	case greater:
+		res = ">"
+	case greaterEqual:
+		res = ">="
+	case less:
+		res = "<"
+	case lessEqual:
+		res = "<="
+	case notEqual:
+		res = "!="
+	}
+
+	return res
+}
+
+func genWhereStatement(selectAll string, col column, opt whereOpt, value string) string {
 	where := " WHERE"
+	operand := optToString(opt)
 
 	switch col {
+	case sourceColumn:
+		where = where + " source" + operand + " '" + value + "'"
 	case nodeNameColumn:
-		where = where + " node_name = '" + value + "'"
+		where = where + " node_name" + operand + " '" + value + "'"
+	case timestampColumn:
+		where = where + " timestamp" + operand + " STRFTIME('%Y-%m-%d %H:%M:%f'," + value + ")"
+	case uptimeColumn:
+		where = where + " uptime" + operand + " " + value
+	case auditSuccessColumn:
+		where = where + " audit_succes" + operand + " " + value
+	case auditFailColumn:
+		where = where + " audit_fail" + operand + " " + value
+	case latencyColumn:
+		where = where + " latency" + operand + " " + value
+	case amountOfDataStoredColumn:
+		where = where + " amount_of_data_stored" + operand + " " + value
+	case falseClaimsColumn:
+		where = where + " false_claims" + operand + " " + value
+	case shardsModifiedColumn:
+		where = where + " shards_modified" + operand + " " + value
 
 	default:
 		where = ""
@@ -541,6 +591,7 @@ type column string
 const (
 	sourceColumn             column = "source"
 	nodeNameColumn           column = "nodeName"
+	timestampColumn          column = "timestamp"
 	uptimeColumn             column = "uptime"
 	auditSuccessColumn       column = "auditSuccess"
 	auditFailColumn          column = "auditFail"
@@ -590,10 +641,74 @@ func newReputationRow(source string, name string) nodeReputationRecord {
 
 // byNodeName function used in handler by update reputation
 func byNodeName(db *sql.DB, nodeName string) NodeReputationRecord {
-	selectNodeStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, nodeName)
+	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, nodeName)
 	row, _ := endianReputation(db, selectNodeStmt)
 
 	return row.serde()
+}
+
+func (opt NodeFilter_Operand) toWhereOpt() whereOpt {
+	res := notEqual
+	switch opt {
+	case NodeFilter_EQUAL_TO:
+		res = equal
+	case NodeFilter_GREATER_THAN:
+		res = greater
+	case NodeFilter_GREATER_THAN_EQUAL_TO:
+		res = greaterEqual
+	case NodeFilter_LESS_THAN:
+		res = less
+	case NodeFilter_LESS_THAN_EQUAL_TO:
+		res = lessEqual
+	case NodeFilter_NOT_EQUAL_TO:
+		res = notEqual
+	}
+	return res
+}
+
+func stringColumnToColumn(s string) column {
+	res := sourceColumn
+	switch strings.ToLower(s) {
+	case "source":
+		res = sourceColumn
+	case "nodename":
+		res = nodeNameColumn
+	case "timestamp":
+		res = timestampColumn
+	case "uptime":
+		res = uptimeColumn
+	case "auditsuccess":
+		res = auditSuccessColumn
+	case "auditFail":
+		res = auditFailColumn
+	case "latency":
+		res = latencyColumn
+	case "amountofdatastored":
+		res = amountOfDataStoredColumn
+	case "falseclaims":
+		res = falseClaimsColumn
+	case "shardsmodified":
+		res = shardsModifiedColumn
+	}
+
+	return res
+}
+
+func selectWhereNode(db *sql.DB, colString string, operand NodeFilter_Operand, value string) NodeReputationRecords {
+	selectNodeStmt := genWhereStatement(selectAllStmt, stringColumnToColumn(colString), operand.toWhereOpt(), value)
+	nodes, _ := getNodeReputationRecords(db, selectNodeStmt)
+
+	var records []*NodeReputationRecord
+
+	for _, node := range nodes {
+		n := node.serde()
+		records = append(records, &n)
+	}
+
+	return NodeReputationRecords{
+		Records: records,
+	}
+
 }
 
 // insertNodeUpdate used in handler by query agg node info
@@ -612,6 +727,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "auditsuccess":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -622,6 +738,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "auditFail":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -632,6 +749,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "latency":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -642,6 +760,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "amountofdatastored":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -652,6 +771,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "falseclaims":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -662,6 +782,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
+
 	case "shardsmodified":
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
@@ -674,7 +795,7 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		insertRows(db, morph, insertStmt)
 
 	default:
-		res = 1
+		res = UpdateReply_UPDATE_FAILED
 
 	}
 

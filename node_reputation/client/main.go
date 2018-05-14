@@ -25,7 +25,7 @@ func main() {
 			Source:      "Bob",
 			NodeName:    "Alice",
 			ColumnName:  "Uptime",
-			ColumnValue: "2",
+			ColumnValue: "30",
 		},
 	)
 
