@@ -18,9 +18,9 @@ func main() {
 	}
 	defer conn.Close()
 
-	c := nodereputation.NewNodeReputationClient(conn)
+	client := nodereputation.NewNodeReputationClient(conn)
 
-	response, err := c.UpdateReputation(context.Background(),
+	response, err := client.UpdateReputation(context.Background(),
 		&nodereputation.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
@@ -34,15 +34,42 @@ func main() {
 	}
 	fmt.Println("Reply receive", response.Status)
 
-	agg, err := c.QueryAggregatedNodeInfo(context.Background(),
+	rep, err := client.NodeReputation(context.Background(),
 		&nodereputation.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},
 	)
 	if err != nil {
-		fmt.Println("Agg respnse err")
+		fmt.Println("Rep respnse err")
 	}
-	fmt.Println("Agg receive", agg)
+	fmt.Println("Rep receive", rep)
+
+	response1, err := client.UpdateReputation(context.Background(),
+		&nodereputation.NodeUpdate{
+			Source:      "Bob",
+			NodeName:    "Alice",
+			ColumnName:  "Uptime",
+			ColumnValue: "3",
+		},
+	)
+
+	if err != nil {
+		fmt.Println("Update response1 err")
+	}
+	fmt.Println("Reply receive", response1.Status)
+
+	filter, err := client.FilterNodeReputation(context.Background(),
+		&nodereputation.NodeFilter{
+			Source:      "Bob",
+			ColumnName:  "Uptime",
+			Operand:     nodereputation.NodeFilter_LESS_THAN,
+			ColumnValue: "10",
+		},
+	)
+	if err != nil {
+		fmt.Println("Filter response err")
+	}
+	fmt.Println("Filter reply", filter.Records)
 
 }

@@ -694,7 +694,7 @@ func stringColumnToColumn(s string) column {
 	return res
 }
 
-func selectWhereNode(db *sql.DB, colString string, operand NodeFilter_Operand, value string) NodeReputationRecords {
+func selectNodeWhere(db *sql.DB, colString string, operand NodeFilter_Operand, value string) NodeReputationRecords {
 	selectNodeStmt := genWhereStatement(selectAllStmt, stringColumnToColumn(colString), operand.toWhereOpt(), value)
 	nodes, _ := getNodeReputationRecords(db, selectNodeStmt)
 

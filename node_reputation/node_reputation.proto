@@ -54,8 +54,7 @@ message NodeUpdate {
 
 message NodeFilter {
     string source = 1;
-    string nodeName = 2;
-    string columnName = 3;
+    string columnName = 2;
 
     enum Operand {
         EQUAL_TO = 0;
@@ -66,6 +65,6 @@ message NodeFilter {
         NOT_EQUAL_TO = 5;
     }
 
-    Operand operand = 4;
-    string columnValue = 5;
+    Operand operand = 3;
+    string columnValue = 4;
 }

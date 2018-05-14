@@ -173,7 +173,7 @@ func TestMorphismAndInsertOfRow(t *testing.T) {
 
 	insertRows(db, rows, insertStmt)
 
-	selectAliceStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, "Alice")
+	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
 
 	aliceRep, _ := naiveReputation(db, selectAliceStmt)
 
@@ -235,7 +235,7 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 		)
 	}
 
-	selectAliceStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, "Alice")
+	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
 	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
 	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
 
@@ -284,7 +284,7 @@ func TestEndianPrune(t *testing.T) {
 		)
 	}
 
-	selectAliceStmt := genSelectByColumn(selectAllStmt, nodeNameColumn, "Alice")
+	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
 	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
 
 	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 10)

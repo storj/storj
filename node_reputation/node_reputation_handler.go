@@ -37,12 +37,13 @@ func (s *Server) NodeReputation(ctx context.Context, in *NodeQuery) (*NodeReputa
 	return &node, nil
 }
 
+// FilterNodeReputation in handler
 func (s *Server) FilterNodeReputation(ctx context.Context, in *NodeFilter) (*NodeReputationRecords, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
 	}
-	nodes := selectWhereNode(db, in.ColumnName, in.Operand, in.ColumnValue)
+	nodes := selectNodeWhere(db, in.ColumnName, in.Operand, in.ColumnValue)
 
 	return &nodes, nil
 }
