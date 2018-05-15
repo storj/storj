@@ -76,24 +76,9 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 	// Close when finished
 	defer dataFile.Close()
 
-	buffer := make([]byte, 4096)
-	for {
-		// Read data from read stream into buffer
-		n, err := r.Read(buffer)
-		if err == io.EOF {
-			break
-		}
+	_, err = io.CopyN(dataFileChunk, r, length)
 
-		// Write the buffer to the stream we opened earlier
-		_, err = dataFileChunk.Write(buffer[:n])
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }
 
 /*
