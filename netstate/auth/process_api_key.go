@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// InitializeHeaders : mocks HTTP headers to preset X-API-Key
 func InitializeHeaders() *http.Header {
-	// mock HTTP request headers
 
 	httpHeaders := http.Header{
 		"Accept-Encoding": {"gzip, deflate"},
@@ -24,21 +24,19 @@ func InitializeHeaders() *http.Header {
 	return &httpHeaders
 }
 
-func ValidateApiKey(header string) bool {
-	// validates apikey with xApiKey header
+// ValidateAPIKey : validates the X-API-Key header to an env/flag input
+func ValidateAPIKey(header string) bool {
 
-	var apiKeyByte []byte = []byte(viper.GetString("key"))
-	var xApiKeyByte []byte = []byte(header)
+	var apiKeyByte = []byte(viper.GetString("key"))
+	var xAPIKeyByte = []byte(header)
 
 	switch {
 	case len(apiKeyByte) == 0:
 		return false
 	case len(apiKeyByte) > 0:
-		result := subtle.ConstantTimeCompare(apiKeyByte, xApiKeyByte)
+		result := subtle.ConstantTimeCompare(apiKeyByte, xAPIKeyByte)
 		if result == 1 {
 			return true
-		} else {
-			return false
 		}
 	}
 	return false

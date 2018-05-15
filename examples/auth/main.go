@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// example of how the auth package is working.
+// see readme in auth/ for how to run
 func main() {
-	// example of how the auth package is working. 
-	// see readme in auth/ for how to run
-	
+
 	pflag.String("key", "", "this is your API KEY")
 	viper.BindPFlag("key", pflag.Lookup("key"))
 	pflag.Parse()
@@ -26,8 +26,8 @@ func main() {
 	viper.AutomaticEnv()
 
 	httpRequestHeaders := auth.InitializeHeaders()
-	xApiKey := httpRequestHeaders.Get("X-Api-Key")
+	xAPIKey := httpRequestHeaders.Get("X-Api-Key")
 
-	isAuthorized := auth.ValidateApiKey(xApiKey)
+	isAuthorized := auth.ValidateAPIKey(xAPIKey)
 	fmt.Println(isAuthorized)
 }
