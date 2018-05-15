@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/google/uuid"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/redis"
 )
 
@@ -79,14 +79,14 @@ func Main() error {
 }
 
 func serve(c *cli.Context) error {
+	ctx := context.Background()
 	uid := uuid.New().String()
-	logger, err := newLogger(env, zap.Fields(zap.String("SrvID", uid)))
+
+	logger, err := utils.NewLogger(env, zap.Fields(zap.String("SrvID", uid)))
 	if err != nil {
 		return err
 	}
 	defer logger.Sync()
-	// TODO(coyle): metrics
-	ctx := context.Background()
 
 	ctx, cf := context.WithCancel(context.WithValue(ctx, id, uid))
 	defer cf()
@@ -128,15 +128,4 @@ func serve(c *cli.Context) error {
 	logger.Info("Failed to initialize TCP connection", zap.Any("sig", sig))
 
 	return nil
-}
-
-func newLogger(e string, options ...zap.Option) (*zap.Logger, error) {
-	switch strings.ToLower(e) {
-	case "dev", "development":
-		return zap.NewDevelopment(options...)
-	case "prod", "production":
-		return zap.NewProduction(options...)
-	}
-
-	return zap.NewNop(), nil
 }
