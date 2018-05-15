@@ -132,7 +132,7 @@ func (s *Server) Shard(ctx context.Context, in *pb.ShardHash) (*pb.ShardSummary,
 		return nil, err
 	}
 
-	// TODO: Read database to calculate expiration
+	// Read database to calculate expiration
 	db, err := sql.Open("sqlite3", s.DbPath)
 	if err != nil {
 		return nil, err
