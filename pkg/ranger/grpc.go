@@ -26,14 +26,14 @@ func GRPCRanger(client pb.PieceStoreRoutesClient, hash string) (Ranger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &grpcRanger{client, hash, shard.Size}, nil
+	return &grpcRanger{client: client, hash: hash, size: shard.Size}, nil
 }
 
 // GRPCRangerSize creates a GRPCRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
 func GRPCRangerSize(client pb.PieceStoreRoutesClient, hash string, size int64) Ranger {
-	return &grpcRanger{client, hash, size}
+	return &grpcRanger{client: client, hash: hash, size: size}
 }
 
 // Size implements Ranger.Size
