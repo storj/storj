@@ -48,8 +48,8 @@ func Main() error {
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [24]byte
-	encrypter, err := eestream.NewSecretboxEncrypter(
+	var firstNonce [12]byte
+	encrypter, err := eestream.NewAESGCMEncrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
