@@ -5,6 +5,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -57,10 +58,10 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
-	return nil
+	return errors.New("TODO")
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
 func (o *OverlayClient) Refresh(ctx context.Context) error {
-	return nil
+	return errors.New("TODO")
 }
