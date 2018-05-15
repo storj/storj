@@ -150,8 +150,10 @@ func selectFromDB(db *sql.DB, selectString string) error {
 	return nil
 }
 
+// base type for the filter operation for a sql where clause
 type whereOpt string
 
+// coproduct/sum type for the generation of the sql string statement
 const (
 	equal        whereOpt = "="
 	greater      whereOpt = ">"
@@ -161,6 +163,7 @@ const (
 	notEqual     whereOpt = "!="
 )
 
+// toString is a method to convert the sum type to a string for the sql string
 func (opt whereOpt) toString() string {
 	res := ""
 	switch opt {
@@ -181,6 +184,7 @@ func (opt whereOpt) toString() string {
 	return res
 }
 
+// genWhereStatement is a function that makes a sql string with a single where clause
 func genWhereStatement(selectAll string, col column, opt whereOpt, value string) string {
 	where := " WHERE"
 	operand := opt.toString()
@@ -520,7 +524,7 @@ func (row nodeReputationRecord) endian(other nodeReputationRecord, orderOfEval [
 	return res
 }
 
-// serde converts private reocrd to public reputation
+// serde converts private record to public reputation record
 func (row nodeReputationRecord) serde() NodeReputationRecord {
 	return NodeReputationRecord{
 		Source:             row.source,
@@ -664,13 +668,18 @@ func newReputationRow(source string, name string) nodeReputationRecord {
 }
 
 // byNodeName function used in handler by update reputation
-func byNodeName(db *sql.DB, nodeName string) NodeReputationRecord {
+func byNodeName(db *sql.DB, nodeName string) (NodeReputationRecord, error) {
+	var recordForError NodeReputationRecord
 	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, nodeName)
-	row, _ := endianReputation(db, selectNodeStmt)
+	row, err := endianReputation(db, selectNodeStmt)
+	if err != nil {
+		return recordForError, err
+	}
 
-	return row.serde()
+	return row.serde(), nil
 }
 
+// toWhereOpt is a method to convert a proto operand to a where operation
 func (opt NodeFilter_Operand) toWhereOpt() whereOpt {
 	res := notEqual
 	switch opt {
@@ -690,6 +699,7 @@ func (opt NodeFilter_Operand) toWhereOpt() whereOpt {
 	return res
 }
 
+// toColum method converts a proto column type to a sum column type
 func (col ColumnName) toColumn() column {
 	res := sourceColumn
 	switch col {
@@ -718,11 +728,16 @@ func (col ColumnName) toColumn() column {
 	return res
 }
 
-func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, value string) NodeReputationRecords {
-	selectNodeStmt := genWhereStatement(selectAllStmt, col.toColumn(), operand.toWhereOpt(), value)
-	nodes, _ := getNodeReputationRecords(db, selectNodeStmt)
-
+// selectNodeWhere is a function that queries the reputation db and finds nodes that satisfies the where clause
+func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, value string) (NodeReputationRecords, error) {
 	var records []*NodeReputationRecord
+	recordsForError := NodeReputationRecords{Records: records}
+
+	selectNodeStmt := genWhereStatement(selectAllStmt, col.toColumn(), operand.toWhereOpt(), value)
+	nodes, err := getNodeReputationRecords(db, selectNodeStmt)
+	if err != nil {
+		return recordsForError, err
+	}
 
 	for _, node := range nodes {
 		n := node.serde()
@@ -731,8 +746,7 @@ func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, val
 
 	return NodeReputationRecords{
 		Records: records,
-	}
-
+	}, nil
 }
 
 // insertNodeUpdate used in handler by query agg node info
