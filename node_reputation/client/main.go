@@ -24,7 +24,7 @@ func main() {
 		&nodereputation.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  "Uptime",
+			ColumnName:  nodereputation.ColumnName_uptime,
 			ColumnValue: "30",
 		},
 	)
@@ -49,7 +49,7 @@ func main() {
 		&nodereputation.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  "Uptime",
+			ColumnName:  nodereputation.ColumnName_uptime,
 			ColumnValue: "3",
 		},
 	)
@@ -62,7 +62,7 @@ func main() {
 	filter, err := client.FilterNodeReputation(context.Background(),
 		&nodereputation.NodeFilter{
 			Source:      "Bob",
-			ColumnName:  "Uptime",
+			ColumnName:  nodereputation.ColumnName_uptime,
 			Operand:     nodereputation.NodeFilter_LESS_THAN,
 			ColumnValue: "10",
 		},
