@@ -25,9 +25,6 @@ import (
 // SrvID is the unique operational identifier for the service
 type SrvID string
 
-// ReqID is the unique identifier for each request that the overlay service handles
-type ReqID string
-
 var (
 	redisAddress  string
 	redisPassword string
