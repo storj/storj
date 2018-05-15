@@ -33,11 +33,7 @@ func main() {
 	}
 }
 
-<<<<<<< HEAD
-// Main collects the pieces and decodes
-=======
 // Main is the exported CLI executable function
->>>>>>> upstream/master
 func Main() error {
 	encKey := sha256.Sum256([]byte(*key))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
