@@ -59,7 +59,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	// attach the api service to the server
-	pb.RegisterRouteGuideServer(grpcServer, &s)
+	pb.RegisterPieceStoreRoutesServer(grpcServer, &s)
 
 	// routinely check DB for and delete expired entries
 	go func() {
