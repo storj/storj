@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -71,7 +72,7 @@ func Main() error {
 		}
 		rrs[res.i] = res.rr
 	}
-	rr, err := eestream.Decode(rrs, es)
+	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
 	if err != nil {
 		return err
 	}
