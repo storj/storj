@@ -3,22 +3,10 @@
 
 package storj
 
-/*
-#cgo CFLAGS: -I .
-#cgo LDFLAGS: -L . -lstorj
-#cgo LDFLAGS: -L /usr/lib -lcurl -lnettle -ljson-c -luv -lm
-#include "storj.h"
-
-void getbucketscallback(uv_work_t *work_req, int status); // Forward declaration.
-void storj_uv_run_cgo(storj_env_t *env);
-*/
-import "C"
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
-	"unsafe"
 
 	"github.com/minio/cli"
 
@@ -27,61 +15,6 @@ import (
 	"github.com/minio/minio/pkg/hash"
 )
 
-// global storj env structure declaration
-var gGoEnvT *C.storj_env_t
-
-// Env contains parameters for accessing the Storj network
-type Env struct {
-	URL      string
-	User     string
-	Password string
-	Mnemonic string
-}
-
-//export getbucketscallback
-func getbucketscallback(workreq *C.uv_work_t, status C.int) {
-	fmt.Printf("Go.getbucketscallback(): called with status = %d\n", status)
-	//C.assert(status == 0)
-
-	var req *C.get_buckets_request_t
-	req = (*C.get_buckets_request_t)(workreq.data)
-
-	fmt.Println(" req", req)
-	// get_buckets_request_t *req = work_req->data;
-
-	if req.status_code == 401 {
-		fmt.Printf("Invalid user credentials.\n")
-	} //else if (req->status_code == 403) {
-	//    printf("Forbidden, user not active.\n");
-	// } else if (req->status_code != 200 && req->status_code != 304) {
-	//     printf("Request failed with status code: %i\n", req->status_code);
-	// } else if (req->total_buckets == 0) {
-	//     printf("No buckets.\n");
-	// }
-
-	for i := uint(0); i < uint(req.total_buckets); i++ {
-
-		bucket := (*C.storj_bucket_meta_t)(unsafe.Pointer(uintptr(unsafe.Pointer(req.buckets)) + uintptr(i)))
-		fmt.Println(bucket)
-		//     printf("ID: %s \tDecrypted: %s \tCreated: %s \tName: %s\n",
-		//            bucket->id, bucket->decrypted ? "true" : "false",
-		//            bucket->created, bucket->name);
-	}
-
-	// storj_free_get_buckets_request(req);
-	// free(work_req);
-}
-
-// NewEnv creates new Env struct with default values
-func NewEnv() Env {
-	return Env{
-		URL:      "https://api.storj.io", //viper.GetString("bridge"),
-		User:     "kishore@storj.io",     //viper.GetString("bridge-user"),
-		Password: sha256Sum("Njoy4ever"),
-		Mnemonic: "surface excess rude either pink bone pact ready what ability current plug",
-	}
-}
-
 func init() {
 	cmd.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
@@ -89,9 +22,6 @@ func init() {
 		Action:          storjGatewayMain,
 		HideHelpCommand: true,
 	})
-
-	gGoEnvT = C.storj_go_init()
-
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -119,7 +49,6 @@ func (s *Storj) Production() bool {
 
 type storjObjects struct {
 	cmd.GatewayUnsupported
-	Env
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
@@ -149,17 +78,6 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []cmd.BucketInfo, err error) {
-	x := C.storj_util_timestamp()
-	fmt.Println("STORJ LIST BUCKETS COMMAND ", x)
-
-	fmt.Printf("Go.main(): calling C function with callback to us\n")
-	//C.some_c_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
-	//C.storj_bridge_get_buckets(gGoEnvT, nil, (C.uv_after_work_cb)(unsafe.Pointer(C.getbucketscallback_cgo)))
-	response := C.storj_bridge_get_buckets((*C.storj_env_t)(gGoEnvT), nil, (C.uv_after_work_cb)(unsafe.Pointer(C.getbucketscallback)))
-
-	C.storj_uv_run_cgo(gGoEnvT)
-	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
-
 	return []cmd.BucketInfo{{
 		Name:    "test-bucket",
 		Created: time.Now(),
@@ -197,5 +115,5 @@ func (s *storjObjects) Shutdown(context.Context) error {
 }
 
 func (s *storjObjects) StorageInfo(context.Context) cmd.StorageInfo {
-	return cmd.StorageInfo{}
+	panic("TODO")
 }
