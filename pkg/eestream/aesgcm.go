@@ -88,7 +88,7 @@ type aesgcmDecrypter struct {
 }
 
 // NewAESGCMDecrypter returns a Transformer that decrypts the data passing
-// through with key. See the comments for NewSecretboxEncrypter about
+// through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
 func NewAESGCMDecrypter(key *[32]byte, startingNonce *[12]byte,
 	encryptedBlockSize int) (Transformer, error) {
