@@ -6,16 +6,14 @@ package process
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/utils"
 )
 
@@ -27,15 +25,14 @@ type Service interface {
 	Process(context.Context) error
 	SetLogger(*zap.Logger) error
 	SetMetricHandler(*monkit.Registry) error
-	GetServer() *grpc.Server
 }
 
 var (
 	id ID = "SrvID"
 )
 
-// Serve initializes a new Service
-func Serve(s Service) error {
+// Main initializes a new Service
+func Main(s Service) error {
 	flag.Parse()
 	ctx := context.Background()
 	uid := uuid.New().String()
@@ -51,25 +48,17 @@ func Serve(s Service) error {
 
 	s.SetLogger(logger)
 	s.SetMetricHandler(monkit.NewRegistry())
-	s.Process(ctx)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	if err != nil {
-		logger.Error("Failed to initialize TCP connection", zap.Error(err))
+	if err := s.Process(ctx); err != nil {
 		return err
 	}
-
-	ss := s.GetServer()
-	// Start gRPC server
-	go ss.Serve(lis)
-	defer ss.GracefulStop()
 
 	signalChan := make(chan os.Signal)
 
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-signalChan
 
-	logger.Info("Failed to initialize TCP connection", zap.Any("sig", sig))
+	logger.Info("Stopping", zap.Any("sig", sig))
 
 	return nil
 }

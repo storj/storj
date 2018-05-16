@@ -6,13 +6,15 @@ package overlay
 import (
 	"context"
 	"flag"
+	"fmt"
+	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/protos/overlay"
+	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis"
 )
 
@@ -36,7 +38,7 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (overlay.OverlayClie
 		return nil, err
 	}
 
-	return overlay.NewOverlayClient(conn), nil
+	return proto.NewOverlayClient(conn), nil
 }
 
 // Service contains all methods needed to implement the process.Service interface
@@ -65,6 +67,18 @@ func (s *Service) Process(ctx context.Context) error {
 	// send off cache refreshes concurrently
 	go cache.Refresh(ctx)
 
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	if err != nil {
+		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
+		return err
+	}
+
+	grpcServer := grpc.NewServer()
+	proto.RegisterOverlayServer(grpcServer, &Overlay{})
+
+	go grpcServer.Serve(lis)
+	go cleanup(ctx, grpcServer)
+	// defer grpcServer.GracefulStop()
 	return nil
 
 }
@@ -75,16 +89,17 @@ func (s *Service) SetLogger(l *zap.Logger) error {
 	return nil
 }
 
-// GetServer creates a new Overlay Service Server
-func (s *Service) GetServer() *grpc.Server {
-	grpcServer := grpc.NewServer()
-	overlay.RegisterOverlayServer(grpcServer, &Overlay{})
-
-	return grpcServer
-}
-
 // SetMetricHandler adds the initialized metric handler to the Service
 func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
+}
+
+func cleanup(ctx context.Context, s *grpc.Server) {
+
+	select {
+	case <-ctx.Done():
+		s.GracefulStop()
+	}
+
 }
