@@ -6,6 +6,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -30,7 +31,8 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 	}
 
 	return &OverlayClient{
-		DB: rc,
+		DB:  rc,
+		DHT: DHT,
 	}, nil
 }
 
@@ -58,10 +60,20 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
-	return errors.New("TODO")
+	rt, err := o.DHT.GetRoutingTable(ctx)
+	buckets, _ := rt.GetBuckets()
+
+	fmt.Println("Buckets: ", buckets)
+	fmt.Println("Routing table: ", rt)
+
+	if err != nil {
+		return errors.New("Error getting routing table")
+	}
+
+	return errors.New("BOOTSTRAP TODO")
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
 func (o *OverlayClient) Refresh(ctx context.Context) error {
-	return errors.New("TODO")
+	return errors.New("REFRESH TODO")
 }
