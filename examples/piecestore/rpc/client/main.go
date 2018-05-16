@@ -127,6 +127,7 @@ func main() {
 					os.Remove(dataPath)
 					return err
 				}
+				defer reader.Close()
 
 				var totalRead int64 = 0
 				for totalRead < pieceInfo.Size {

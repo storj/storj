@@ -153,7 +153,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 		 }
 	}
 
-	return &pb.ShardSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
+	return &pb.PieceSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
