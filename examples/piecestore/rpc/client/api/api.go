@@ -82,8 +82,17 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
   return n, err
 }
 
+// Close Read Stream
+func (s *PieceStreamReader) Close() (error) {
+  if err := s.stream.CloseSend(); err != nil {
+    return err
+  }
+
+  return nil
+}
+
 // Begin Download Piece from Server
-func RetrievePieceRequest(c pb.PieceStoreRoutesClient, hash string, offset int64, length int64 ) (io.Reader, error) {
+func RetrievePieceRequest(c pb.PieceStoreRoutesClient, hash string, offset int64, length int64 ) (io.ReadCloser, error) {
   stream, err := c.Retrieve(context.Background(), &pb.PieceRetrieval{Hash: hash, Size: length, StoreOffset: offset})
   if err != nil {
     return nil, err

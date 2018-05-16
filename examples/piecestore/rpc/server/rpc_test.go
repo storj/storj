@@ -73,15 +73,6 @@ func TestRetrieve(t *testing.T) {
     }
     defer pstore.Delete(testHash, s.PieceStoreDir)
 
-    // Set up a connection to the Server.
-    const address = "localhost:3000"
-    conn, err := grpc.Dial(address, grpc.WithInsecure())
-    if err != nil {
-        t.Fatalf("did not connect: %v", err)
-    }
-    defer conn.Close()
-    c := pb.NewPieceStoreRoutesClient(conn)
-
     // set up test cases
     tests := []struct{
         hash string
