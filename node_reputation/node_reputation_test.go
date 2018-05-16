@@ -4,7 +4,6 @@
 package nodereputation
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -128,22 +127,22 @@ func TestEndianPrune(t *testing.T) {
 	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
 	aliceNewRep, _ := endianReputation(db, selectAliceStmt)
 
-	alice1 := aliceNewRep.morphism(uptimeColumn, overWrite, 10)
-	alice2 := aliceNewRep.morphism(uptimeColumn, overWrite, 2)
-	alice3 := aliceNewRep.morphism(uptimeColumn, overWrite, 22)
-	alice4 := aliceNewRep.morphism(uptimeColumn, overWrite, 30)
-
-	aliceNewRow := []nodeReputationRecord{
-		alice1,
-		alice2,
-		alice3,
-		alice4,
-	}
-
-	err := insertRows(db, aliceNewRow, insertStmt)
-	if err != nil {
-		fmt.Printf("%v\n\n\n", aliceNewRow)
-	}
+	insertRows(db,
+		[]nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 10)},
+		insertStmt,
+	)
+	insertRows(db,
+		[]nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 2)},
+		insertStmt,
+	)
+	insertRows(db,
+		[]nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 22)},
+		insertStmt,
+	)
+	insertRows(db,
+		[]nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 30)},
+		insertStmt,
+	)
 
 	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)
 	if len(newAndOldRows) != 9 {
