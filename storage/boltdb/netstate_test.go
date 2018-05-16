@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -38,12 +37,12 @@ func TestNetState(t *testing.T) {
 	}()
 
 	testFile := File{
-		Path:  `test/path`,
+		Path:  []byte(`test/path`),
 		Value: []byte(`test value`),
 	}
 
 	testFile2 := File{
-		Path:  `test/path2`,
+		Path:  []byte(`test/path2`),
 		Value: []byte(`value2`),
 	}
 
@@ -53,11 +52,11 @@ func TestNetState(t *testing.T) {
 	}
 
 	// tests Get function
-	retrvFile, err := c.Get([]byte("test/path"))
+	retrvValue, err := c.Get([]byte("test/path"))
 	if err != nil {
 		t.Error("Failed to get saved test value")
 	}
-	if !bytes.Equal(retrvFile.Value, testFile.Value) {
+	if !bytes.Equal(retrvValue, testFile.Value) {
 		t.Error("Retrieved file was not same as original file")
 	}
 
@@ -76,8 +75,7 @@ func TestNetState(t *testing.T) {
 	}
 
 	// tests List + Delete function
-	testString := strings.Join(testFiles, "")
-	if testString != "test/path2" {
+	if !bytes.Equal(testFiles[0], []byte("test/path2")) {
 		t.Error("Expected only testFile2 in list")
 	}
 }

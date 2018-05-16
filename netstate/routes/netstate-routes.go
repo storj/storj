@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
@@ -36,7 +37,7 @@ func NewNetStateRoutes(logger *zap.Logger, db *boltdb.Client) *NetStateRoutes {
 // Put takes the given path and small value from the user and formats the values
 // to be given to boltdb.Put
 func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	n.logger.Debug("entering NetStateRoutes.Put(...)")
+	n.logger.Debug("entering netstate http put")
 
 	givenPath := ps.ByName("path")
 	var msg Message
@@ -50,7 +51,7 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	file := boltdb.File{
-		Path:  givenPath,
+		Path:  []byte(givenPath),
 		Value: []byte(msg.Value),
 	}
 
@@ -60,18 +61,18 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 		return
 	}
 
-	n.logger.Debug("the file was put to the db")
-
+	n.logger.Debug("put to the db: " + givenPath)
+	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "PUT to %s\n", givenPath)
 }
 
 // Get takes the given file path from the user and calls the bolt client's Get function
 func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	n.logger.Debug("entering NetStateRoutes.Get(...)")
+	n.logger.Debug("entering netstate http get")
 
 	fileKey := ps.ByName("path")
 
-	fileInfo, err := n.DB.Get([]byte(fileKey))
+	fileValue, err := n.DB.Get([]byte(fileKey))
 	if err != nil {
 		http.Error(w, "err getting file", http.StatusInternalServerError)
 		n.logger.Error("err getting file", zap.Error(err))
@@ -79,40 +80,49 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, err = w.Write(fileInfo.Value)
+	_, err = w.Write(fileValue)
 	if err != nil {
 		n.logger.Error("err writing response", zap.Error(err))
 	}
-	n.logger.Debug("response written")
+	w.WriteHeader(http.StatusOK)
+	n.logger.Debug("response written: " + string(fileValue))
 }
 
 // List calls the bolt client's List function and responds with a list of all saved file paths
 // or "filekeys"
 func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	n.logger.Debug("entering NetStateRoutes.List(...)")
+	n.logger.Debug("entering netstate http list")
 
-	fileKeys, err := n.DB.List()
+	filePaths, err := n.DB.List()
 	if err != nil {
 		http.Error(w, "internal error: unable to list paths", http.StatusInternalServerError)
 		n.logger.Error("err listing file paths", zap.Error(err))
 		return
 	}
-	bytes, err := json.Marshal(fileKeys)
+
+	var pathList []string
+	for _, path := range filePaths {
+		pathList = append(pathList, string(path))
+	}
+
+	bytes, err := json.Marshal(pathList)
 	if err != nil {
 		http.Error(w, "internal error: unable to marshal path list", http.StatusInternalServerError)
 		n.logger.Error("err marshaling path list", zap.Error(err))
 		return
 	}
+
 	_, err = w.Write(bytes)
 	if err != nil {
 		n.logger.Error("err writing response", zap.Error(err))
 	}
-	n.logger.Debug("response written")
+	w.WriteHeader(http.StatusOK)
+	n.logger.Debug("response written: " + strings.Join(pathList, ", "))
 }
 
 // Delete takes a given file path and calls the bolt client's Delete function
 func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	n.logger.Debug("entering NetStateRoutes.Delete(...)")
+	n.logger.Debug("entering netstate http delete")
 
 	fileKey := ps.ByName("path")
 	if err := n.DB.Delete([]byte(fileKey)); err != nil {
@@ -120,6 +130,7 @@ func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httpr
 		n.logger.Error("err deleting file", zap.Error(err))
 		return
 	}
-	n.logger.Debug("file deleted")
+	n.logger.Debug("deleted file: " + fileKey)
+	w.WriteHeader(204)
 	fmt.Fprintf(w, "Deleted file key: %s", fileKey)
 }
