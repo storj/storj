@@ -6,9 +6,6 @@ package process
 import (
 	"context"
 	"flag"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -49,16 +46,5 @@ func Main(s Service) error {
 	s.SetLogger(logger)
 	s.SetMetricHandler(monkit.NewRegistry())
 
-	if err := s.Process(ctx); err != nil {
-		return err
-	}
-
-	signalChan := make(chan os.Signal)
-
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-signalChan
-
-	logger.Info("Stopping", zap.Any("sig", sig))
-
-	return nil
+	return s.Process(ctx)
 }

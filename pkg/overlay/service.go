@@ -32,7 +32,7 @@ func init() {
 
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
-func NewClient(serverAddr *string, opts ...grpc.DialOption) (overlay.OverlayClient, error) {
+func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err
@@ -76,10 +76,8 @@ func (s *Service) Process(ctx context.Context) error {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{})
 
-	go grpcServer.Serve(lis)
-	go cleanup(ctx, grpcServer)
-	// defer grpcServer.GracefulStop()
-	return nil
+	defer grpcServer.GracefulStop()
+	return grpcServer.Serve(lis)
 
 }
 
@@ -93,13 +91,4 @@ func (s *Service) SetLogger(l *zap.Logger) error {
 func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
-}
-
-func cleanup(ctx context.Context, s *grpc.Server) {
-
-	select {
-	case <-ctx.Done():
-		s.GracefulStop()
-	}
-
 }
