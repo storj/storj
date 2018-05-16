@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -42,6 +43,7 @@ func main() {
 	}
 }
 
+// Main is the exported CLI executable function
 func Main() error {
 	encKey := sha256.Sum256([]byte(*key))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
@@ -49,8 +51,8 @@ func Main() error {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	var firstNonce [24]byte
-	decrypter, err := eestream.NewSecretboxDecrypter(
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAESGCMDecrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
@@ -72,7 +74,7 @@ func Main() error {
 		defer r.Close()
 		rrs[piecenum] = r
 	}
-	rr, err := eestream.Decode(rrs, es)
+	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
 	if err != nil {
 		return err
 	}
