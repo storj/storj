@@ -166,7 +166,7 @@ func TestStore(t *testing.T) {
 
 		hash := "11111111"
 
-		err = Store(hash, file, 5, 0, os.TempDir())
+		_, err = Store(hash, file, 5, 0, os.TempDir())
 		assert.NotNil(err)
 		if err != nil {
 			assert.Equal(err.Error(), "argError: Invalid hash length", "They should have the same error message")
@@ -192,7 +192,7 @@ func TestStore(t *testing.T) {
 
 		hash := "0123456789ABCDEFGHIJ"
 
-		err = Store(hash, file, int64(fi.Size()), -12, os.TempDir())
+		_, err = Store(hash, file, int64(fi.Size()), -12, os.TempDir())
 
 		assert.NotNil(err)
 		if err != nil {
@@ -219,7 +219,7 @@ func TestStore(t *testing.T) {
 
 		hash := "0123456789ABCDEFGHIJ"
 
-		err = Store(hash, file, -1, 0, os.TempDir())
+		_, err = Store(hash, file, -1, 0, os.TempDir())
 		assert.NotNil(err)
 		if err != nil {
 			assert.Equal(err.Error(), "argError: Length is less than 0. Must be greater than or equal to 0", err.Error())
