@@ -27,8 +27,7 @@ func InitializeHeaders() *http.Header {
 
 // ValidateAPIKey : validates the X-API-Key header to an env/flag input
 func ValidateAPIKey(header string) bool {
-	fmt.Println("inside library")
-	fmt.Println(viper.GetString("key"))
+	
 	var apiKeyByte = []byte(viper.GetString("key"))
 	var xAPIKeyByte = []byte(header)
 
