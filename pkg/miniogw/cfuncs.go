@@ -4,7 +4,9 @@ package storj
 
 #include "storj.h"
 
+//------------------------------------------------------------------------------
 // The gateway function
+//------------------------------------------------------------------------------
 void storj_uv_run_cgo(storj_env_t *env)
 {
 	printf("entering into storj_uv_run_cgo()\n");
@@ -19,14 +21,11 @@ void storj_uv_run_cgo(storj_env_t *env)
 	printf("done with storj_uv_run_cgo()\n");
 }
 
-int size_of_buckets_struct(void)
-{
-	return sizeof(storj_bucket_meta_t);
-}
-
+//------------------------------------------------------------------------------
+// Returns the pointer to the array at the index
+//------------------------------------------------------------------------------
 storj_bucket_meta_t *bucket_index(storj_bucket_meta_t *array, int index) {
   return &array[index];
 }
-
 */
 import "C"

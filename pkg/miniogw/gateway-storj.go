@@ -25,7 +25,7 @@ import (
 
 	"github.com/minio/cli"
 
-	"github.com/minio/minio/cmd"
+	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 )
@@ -34,12 +34,21 @@ import (
 var gGoEnvT *C.storj_env_t
 
 // Env contains parameters for accessing the Storj network
-type Env struct {
-	URL      string
-	User     string
-	Password string
-	Mnemonic string
+// type Env struct {
+// 	URL      string
+// 	User     string
+// 	Password string
+// 	Mnemonic string
+// }
+
+// S3CliAPI contains parameters for accessing the Storj network
+type S3CliAPI struct {
+	env        *C.storj_env_t
+	bucketInfo []minio.Bucket
 }
+
+// gS3CliApi global S3 interface structure
+var gS3CliAPI S3CliAPI
 
 //export getbucketscallback
 func getbucketscallback(workreq *C.uv_work_t, status C.int) {
@@ -48,7 +57,6 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	var req *C.get_buckets_request_t
 	req = (*C.get_buckets_request_t)(unsafe.Pointer(workreq.data))
 
-	// get_buckets_request_t *req = work_req->data;
 	if req.status_code == 401 {
 		fmt.Printf("Invalid user credentials.\n")
 	} else if req.status_code == 403 {
@@ -60,8 +68,12 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	}
 
 	for i := uint(1); i < uint(req.total_buckets); i++ {
-		//bucket := (*C.storj_bucket_meta_t)(unsafe.Pointer(uintptr(unsafe.Pointer(req.buckets)) + uintptr(i)*uintptr(C.size_of_buckets_struct())))
 		bucket := C.bucket_index(req.buckets, C.int(i))
+
+		//gS3CliApi.buckets = append(gS3CliApi.buckets, C.GoString(bucket.name))
+		gS3CliAPI.bucketInfo = append(gS3CliAPI.bucketInfo, minio.Bucket{Name: C.GoString(bucket.name), CreationDate: C.GoString(bucket.created)})
+		//gS3CliApi.created = append(gS3CliApi.created, C.GoString(bucket.created))
+
 		fmt.Printf("ID: %s \tDecrypted: %t \tCreated: %s \tName: %s\n",
 			C.GoString(bucket.id), bucket.decrypted,
 			C.GoString(bucket.created), C.GoString(bucket.name))
@@ -72,17 +84,17 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 }
 
 // NewEnv creates new Env struct with default values
-func NewEnv() Env {
-	return Env{
-		URL:      "https://api.storj.io", //viper.GetString("bridge"),
-		User:     "kishore@storj.io",     //viper.GetString("bridge-user"),
-		Password: sha256Sum("Njoy4ever"),
-		Mnemonic: "surface excess rude either pink bone pact ready what ability current plug",
-	}
-}
+// func NewEnv() Env {
+// 	return Env{
+// 		URL:      "https://api.storj.io", //viper.GetString("bridge"),
+// 		User:     "kishore@storj.io",     //viper.GetString("bridge-user"),
+// 		Password: sha256Sum("xxxxxxx"),
+// 		Mnemonic: "surface excess rude either pink bone pact ready what ability current plug",
+// 	}
+// }
 
 func init() {
-	cmd.RegisterGatewayCommand(cli.Command{
+	minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
 		Usage:           "Storj",
 		Action:          storjGatewayMain,
@@ -94,7 +106,7 @@ func init() {
 }
 
 func storjGatewayMain(ctx *cli.Context) {
-	cmd.StartGateway(ctx, &Storj{})
+	minio.StartGateway(ctx, &Storj{})
 }
 
 // Storj is the implementation of a minio cmd.Gateway
@@ -107,7 +119,7 @@ func (s *Storj) Name() string {
 
 // NewGatewayLayer implements cmd.Gateway
 func (s *Storj) NewGatewayLayer(creds auth.Credentials) (
-	cmd.ObjectLayer, error) {
+	minio.ObjectLayer, error) {
 	return &storjObjects{}, nil
 }
 
@@ -117,8 +129,8 @@ func (s *Storj) Production() bool {
 }
 
 type storjObjects struct {
-	cmd.GatewayUnsupported
-	Env
+	minio.GatewayUnsupported
+	//Env
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
@@ -131,7 +143,7 @@ func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
-	bucketInfo cmd.BucketInfo, err error) {
+	bucketInfo minio.BucketInfo, err error) {
 	panic("TODO")
 }
 
@@ -142,12 +154,12 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 }
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
-	object string) (objInfo cmd.ObjectInfo, err error) {
+	object string) (objInfo minio.ObjectInfo, err error) {
 	panic("TODO")
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
-	buckets []cmd.BucketInfo, err error) {
+	buckets []minio.BucketInfo, err error) {
 	x := C.storj_util_timestamp()
 	fmt.Println("STORJ LIST BUCKETS COMMAND ", x)
 
@@ -159,17 +171,26 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	C.storj_uv_run_cgo(gGoEnvT)
 	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
 
-	return []cmd.BucketInfo{{
-		Name:    "test-bucket",
-		Created: time.Now(),
-	}}, nil
+	b := make([]minio.BucketInfo, len(gS3CliAPI.bucketInfo))
+	for i, bi := range gS3CliAPI.bucketInfo {
+		t, err := time.Parse(time.RFC3339, bi.CreationDate)
+		if err != nil {
+			t = time.Now()
+		}
+		b[i] = minio.BucketInfo{
+			Name:    bi.Name,
+			Created: t,
+		}
+	}
+
+	return b, err
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
-	delimiter string, maxKeys int) (result cmd.ListObjectsInfo, err error) {
-	return cmd.ListObjectsInfo{
+	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+	return minio.ListObjectsInfo{
 		IsTruncated: false,
-		Objects: []cmd.ObjectInfo{{
+		Objects: []minio.ObjectInfo{{
 			Bucket:      "test-bucket",
 			Name:        "test-file",
 			ModTime:     time.Now(),
@@ -186,7 +207,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
-	data *hash.Reader, metadata map[string]string) (objInfo cmd.ObjectInfo,
+	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	panic("TODO")
 }
@@ -195,6 +216,6 @@ func (s *storjObjects) Shutdown(context.Context) error {
 	panic("TODO")
 }
 
-func (s *storjObjects) StorageInfo(context.Context) cmd.StorageInfo {
-	return cmd.StorageInfo{}
+func (s *storjObjects) StorageInfo(context.Context) minio.StorageInfo {
+	return minio.StorageInfo{}
 }
