@@ -59,5 +59,5 @@ func (r *grpcRanger) Range(offset, length int64) io.ReadCloser {
 	if err != nil {
 		return readcloser.FatalReadCloser(Error.Wrap(err))
 	}
-	return ioutil.NopCloser(reader)
+	return reader
 }
