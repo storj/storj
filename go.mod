@@ -1,29 +1,30 @@
-module storj.io/storj
+module "storj.io/storj"
 
 require (
-	github.com/fsnotify/fsnotify v1.4.7
-	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
-	github.com/gogo/protobuf v1.0.0
-	github.com/golang/protobuf v1.0.0
-	github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce
-	github.com/magiconair/properties v1.7.6
-	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
-	github.com/pelletier/go-toml v1.1.0
-	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
-	github.com/spf13/afero v1.1.0
-	github.com/spf13/cast v1.2.0
-	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
-	github.com/spf13/pflag v1.0.1
-	github.com/spf13/viper v1.0.2
-	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
-	github.com/urfave/cli v1.20.0
-	github.com/vivint/infectious v0.0.0-20180418194855-57d6abddc3d4
-	github.com/zeebo/errs v0.1.0
-	golang.org/x/crypto v0.0.0-20180410182641-f70185d77e82
-	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
-	golang.org/x/sys v0.0.0-20180430173509-4adea008a5e5
-	golang.org/x/text v0.3.0
-	google.golang.org/genproto v0.0.0-20180427144745-86e600f69ee4
-	google.golang.org/grpc v1.11.3
-	gopkg.in/yaml.v2 v2.2.1
+	"github.com/aleitner/FilePiece" v0.0.0-20180516062859-b020bc25bf96
+	"github.com/fsnotify/fsnotify" v1.4.7
+	"github.com/go-redis/redis" v0.0.0-20180417061816-9ccc23344a52
+	"github.com/gogo/protobuf" v1.0.0
+	"github.com/golang/protobuf" v1.0.0
+	"github.com/hashicorp/hcl" v0.0.0-20180404174102-ef8a98b0bbce
+	"github.com/magiconair/properties" v1.7.6
+	"github.com/mitchellh/mapstructure" v0.0.0-20180220230111-00c29f56e238
+	"github.com/pelletier/go-toml" v1.1.0
+	"github.com/spacemonkeygo/errors" v0.0.0-20171212215202-9064522e9fd1
+	"github.com/spf13/afero" v1.1.0
+	"github.com/spf13/cast" v1.2.0
+	"github.com/spf13/jWalterWeatherman" v0.0.0-20180109140146-7c0cea34c8ec
+	"github.com/spf13/pflag" v1.0.1
+	"github.com/spf13/viper" v1.0.2
+	"github.com/tyler-smith/go-bip39" v0.0.0-20160629163856-8e7a99b3e716
+	"github.com/urfave/cli" v1.20.0
+	"github.com/vivint/infectious" v0.0.0-20180418194855-57d6abddc3d4
+	"github.com/zeebo/errs" v0.1.0
+	"golang.org/x/crypto" v0.0.0-20180410182641-f70185d77e82
+	"golang.org/x/net" v0.0.0-20180420171651-5f9ae10d9af5
+	"golang.org/x/sys" v0.0.0-20180430173509-4adea008a5e5
+	"golang.org/x/text" v0.3.0
+	"google.golang.org/genproto" v0.0.0-20180427144745-86e600f69ee4
+	"google.golang.org/grpc" v1.11.3
+	"gopkg.in/yaml.v2" v2.2.1
 )

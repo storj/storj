@@ -41,6 +41,16 @@ func HTTPRanger(URL string) (Ranger, error) {
 	}, nil
 }
 
+// HTTPRangerSize creates an HTTPRanger with known size.
+// Use it if you know the content size. This will safe the extra HEAD request
+// for retrieving the content size.
+func HTTPRangerSize(URL string, size int64) Ranger {
+	return &httpRanger{
+		URL:  URL,
+		size: size,
+	}
+}
+
 // Size implements Ranger.Size
 func (r *httpRanger) Size() int64 {
 	return r.size
