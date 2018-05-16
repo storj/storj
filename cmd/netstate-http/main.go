@@ -31,6 +31,8 @@ func initializeFlags() {
 	flag.Parse()
 }
 
+// server will pull from these creds and compare with client creds
+// will switch to macroons later
 func setEnv() {
 	viper.SetEnvPrefix("API")
 	os.Setenv("API_KEY", "abc123")
