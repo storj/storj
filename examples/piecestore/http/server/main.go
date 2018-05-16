@@ -77,7 +77,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	defer file.Close()
 	fmt.Printf("Uploading file (%s), Hash: (%s), Offset: (%v), Size: (%v)...\n", header.Filename, dataHash, pstoreOffset, dataSize)
 
-	err = pstore.Store(dataHash, file, dataSize, pstoreOffset, dataDir)
+	_, err = pstore.Store(dataHash, file, dataSize, pstoreOffset, dataDir)
 
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
