@@ -42,21 +42,6 @@ var selectAllStmt = `SELECT
 	shards_modified
 FROM node_reputation`
 
-var noFailStmt = `SELECT
-	source,
-	node_name,
-	timestamp,
-	uptime,
-	audit_success,
-	audit_fail,
-	latency,
-	amount_of_data_stored,
-	false_claims,
-	shards_modified
-FROM node_reputation
-WHERE audit_fail == 0
-	AND amount_of_data_stored <= 200`
-
 var deletStmt = `DELETE FROM node_reputation
 WHERE node_name = ?
 AND timestamp NOT IN (

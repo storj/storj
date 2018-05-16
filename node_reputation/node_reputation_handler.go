@@ -57,6 +57,23 @@ func (s *Server) FilterNodeReputation(ctx context.Context, in *NodeFilter) (*Nod
 	return &nodes, nil
 }
 
+// PruneNodeReputation compresses a node's reputation
+func (s *Server) PruneNodeReputation(ctx context.Context, in *NodeQuery) (*UpdateReply, error) {
+	db, err := SetServerDB("./Server.db")
+	if err != nil {
+		return nil, err
+	}
+
+	status := deleteByNodeName(db, in.NodeName)
+
+	return &UpdateReply{
+		BridgeName: "Storj",
+		NodeName:   in.NodeName,
+		Status:     status,
+	}, nil
+
+}
+
 // byNodeName function used in handler by update reputation
 func byNodeName(db *sql.DB, nodeName string) (NodeReputationRecord, error) {
 	var recordForError NodeReputationRecord
@@ -66,7 +83,26 @@ func byNodeName(db *sql.DB, nodeName string) (NodeReputationRecord, error) {
 		return recordForError, err
 	}
 
-	return row.serde(), nil
+	return row.serde(row.naiveScore()), nil
+}
+
+// deleteByNodeName compresses a node's reputation
+func deleteByNodeName(db *sql.DB, nodeName string) UpdateReply_ReplyType {
+	res := UpdateReply_UPDATE_FAILED
+	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, nodeName)
+	row, err := endianReputation(db, selectNodeStmt)
+	if err != nil {
+		res = UpdateReply_UPDATE_FAILED
+	}
+
+	err = pruneNodeReputationRecords(db, row, deletStmt)
+	if err != nil {
+		res = UpdateReply_UPDATE_FAILED
+	}
+
+	res = UpdateReply_UPDATE_SUCCESS
+
+	return res
 }
 
 // toWhereOpt is a method to convert a proto operand to a where operation
@@ -130,7 +166,7 @@ func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, val
 	}
 
 	for _, node := range nodes {
-		n := node.serde()
+		n := node.serde(node.naiveScore())
 		records = append(records, &n)
 	}
 
@@ -142,7 +178,15 @@ func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, val
 // insertNodeUpdate used in handler by update node reputation
 func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	res := UpdateReply_UPDATE_FAILED
-	newRecord := newReputationRow(in.Source, in.NodeName)
+
+	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, in.NodeName)
+	row, err := endianReputation(db, selectNodeStmt)
+	if err != nil {
+		res = UpdateReply_UPDATE_FAILED
+	}
+
+	row.source = in.Source
+	newRecord := row
 
 	switch in.ColumnName.toColumn() {
 	case uptimeColumn:

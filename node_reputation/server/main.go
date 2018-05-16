@@ -13,7 +13,7 @@ import (
 
 func main() {
 
-	_, err := nodereputation.SetServerDB("./Server.db")
+	db, err := nodereputation.SetServerDB("./Server.db")
 	if err != nil {
 		fmt.Println("err")
 	}
@@ -32,5 +32,8 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Println("err")
 	}
+
+	defer grpcServer.GracefulStop()
+	defer nodereputation.EndServerDB(db)
 
 }

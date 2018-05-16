@@ -5,7 +5,6 @@ package nodereputation
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 
 	"github.com/zeebo/errs"
@@ -72,6 +71,11 @@ func startDB(filePath string) (*sql.DB, error) {
 	return db, nil
 }
 
+// EndServerDB cleans up the passed in database
+func EndServerDB(db *sql.DB) error {
+	return closeDB(db)
+}
+
 // createTable creates a table in sqlite3 based on the create table string parameter
 func createTable(createStmt string, db *sql.DB) error {
 	_, err := db.Exec(createStmt)
@@ -128,32 +132,6 @@ func insertRows(db *sql.DB, rows []nodeReputationRecord, insertString string) er
 		}
 	}
 	return tx.Commit()
-}
-
-// selectFromDB side effect function that prints the rows from the query string
-func selectFromDB(db *sql.DB, selectString string) error {
-	rows, err := db.Query(selectString)
-	if err != nil {
-		return SelectError.Wrap(err)
-	}
-	defer rows.Close()
-
-	transformedRows, err := iterOnDBRows(rows)
-	if err != nil {
-		return SelectError.Wrap(err)
-	}
-
-	for _, row := range transformedRows {
-		// side effect
-		fmt.Println(row)
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return SelectError.Wrap(err)
-	}
-
-	return nil
 }
 
 // base type for the filter operation for a sql where clause
@@ -311,7 +289,7 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep nodeReputationRecord, d
 	return tx.Commit()
 }
 
-// cleanUpDB close sqlite3
-func cleanUpDB(db *sql.DB) error {
+// closeDB close sqlite3
+func closeDB(db *sql.DB) error {
 	return db.Close()
 }

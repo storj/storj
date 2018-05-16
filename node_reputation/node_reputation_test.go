@@ -17,111 +17,6 @@ func TestCreateTable(t *testing.T) {
 	os.Remove("./TestCreateTable.db")
 }
 
-func TestRowInsertAndQuery(t *testing.T) {
-	db, _ := startDB("./TestRowInsertAndQuery.db")
-
-	createTable(createStmt, db)
-
-	rows := []nodeReputationRecord{
-		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
-	}
-
-	insertRows(db, rows, insertStmt)
-
-	bestRep, _ := naiveReputation(db, selectAllStmt)
-
-	if bestRep.nodeName != "Carol" {
-		t.Error(
-			"expected Carol got", bestRep.nodeName,
-			"with a reputation of", bestRep.naiveRep(),
-		)
-	}
-
-	cleanUpDB(db)
-
-	os.Remove("./TestRowInsertAndQuery.db")
-}
-
-func TestUpdateNode(t *testing.T) {
-	db, _ := startDB("./TestUpdateNode.db")
-
-	createTable(createStmt, db)
-
-	rows := []nodeReputationRecord{
-		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
-	}
-
-	insertRows(db, rows, insertStmt)
-
-	bestRep, _ := naiveReputation(db, selectAllStmt)
-
-	if bestRep.nodeName != "Carol" {
-		t.Error(
-			"expected Carol got", bestRep.nodeName,
-			"with a reputation of", bestRep.naiveRep(),
-		)
-	}
-
-	rows1 := []nodeReputationRecord{
-		nodeReputationRecord{"Test", "Alice", "", 6, 10, 5, 5, 100, 0, 0},
-		nodeReputationRecord{"Test", "Bob", "", 11, 20, 0, 10, 100, 0, 0},
-		nodeReputationRecord{"Test", "Carol", "", 1, 10, 5, 3, 100, 0, 0},
-		nodeReputationRecord{"Test", "Dave", "", 16, 10, 0, 5, 500, 0, 0},
-		nodeReputationRecord{"Test", "Eve", "", 6, 10, 5, 5, 100, 0, 1},
-	}
-
-	insertRows(db, rows1, insertStmt)
-	bestRep1, _ := naiveReputation(db, selectAllStmt)
-
-	if bestRep1.nodeName != "Dave" {
-		t.Error(
-			"expected Dave got", bestRep1.nodeName,
-			"with a reputation of", bestRep1.naiveRep(),
-		)
-	}
-
-	cleanUpDB(db)
-
-	os.Remove("./TestUpdateNode.db")
-}
-
-func TestFindNodeNoFail(t *testing.T) {
-	db, _ := startDB("./TestFindNodeNoFail.db")
-
-	createTable(createStmt, db)
-
-	rows := []nodeReputationRecord{
-		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
-	}
-
-	insertRows(db, rows, insertStmt)
-
-	bestRep, _ := naiveReputation(db, noFailStmt)
-
-	if bestRep.nodeName != "Bob" {
-		t.Error(
-			"expected Bob got", bestRep.nodeName,
-			"with a reputation of", bestRep.naiveRep(),
-		)
-	}
-
-	cleanUpDB(db)
-
-	os.Remove("./TestFindNodeNoFail.db")
-}
-
 func TestMorphismOfRow(t *testing.T) {
 	alice := newReputationRow("Test", "Alice")
 	alice = alice.morphism(uptimeColumn, overWrite, 5)
@@ -150,66 +45,12 @@ func TestMorphismOfRow(t *testing.T) {
 	}
 
 	op4 := alice.morphism(shardsModifiedColumn, overWrite, 1)
-	if op4.naiveRep() != float64(0) {
+	if op4.naiveScore() != float32(0) {
 		t.Error(
-			"expected reputation of 0 got", op4.naiveRep(),
+			"expected reputation of 0 got", op4.naiveScore(),
 		)
 	}
 
-}
-
-func TestMorphismAndInsertOfRow(t *testing.T) {
-	db, _ := startDB("./TestMorphismAndInsertOfRow.db")
-
-	createTable(createStmt, db)
-
-	rows := []nodeReputationRecord{
-		nodeReputationRecord{"Test", "Alice", "", 5, 10, 5, 5, 100, 0, 0},
-		nodeReputationRecord{"Test", "Bob", "", 10, 20, 0, 10, 100, 0, 0},
-		nodeReputationRecord{"Test", "Carol", "", 50, 10, 5, 3, 100, 0, 0},
-		nodeReputationRecord{"Test", "Dave", "", 15, 10, 0, 5, 500, 0, 0},
-		nodeReputationRecord{"Test", "Eve", "", 5, 10, 5, 5, 100, 0, 1},
-	}
-
-	insertRows(db, rows, insertStmt)
-
-	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
-
-	aliceRep, _ := naiveReputation(db, selectAliceStmt)
-
-	aliceNaiveRep := fmt.Sprintf("%.2f", aliceRep.naiveRep())
-
-	if aliceNaiveRep != "605.67" {
-		t.Error(
-			"expected Alice got", aliceRep.nodeName,
-			"with a reputation of 605.67", aliceNaiveRep,
-		)
-	}
-
-	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
-	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, shardsModifiedColumn, increment, 2)
-
-	insertRows(db, aliceNewRow, insertStmt)
-
-	aliceRows, _ := getNodeReputationRecords(db, selectAliceStmt)
-	if len(aliceRows) != 2 {
-		t.Error(
-			"expected 2 rows in the db got", aliceRows,
-		)
-	}
-
-	morphRep, _ := naiveReputation(db, selectAliceStmt)
-
-	if morphRep.naiveRep() != float64(0) {
-		t.Error(
-			"expected reputation of 0 for Alice got", morphRep.naiveRep(),
-			"expected Alice with shards modified greater that 0", morphRep,
-		)
-	}
-
-	cleanUpDB(db)
-
-	os.Remove("./TestMorphismAndInsertOfRow.db")
 }
 
 func TestEndianMorphismAndInsertOfRow(t *testing.T) {
@@ -236,8 +77,8 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 	}
 
 	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
-	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
-	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 20)
+	aliceNewRep, _ := endianReputation(db, selectAliceStmt)
+	aliceNewRow := []nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 20)}
 
 	insertRows(db, aliceNewRow, insertStmt)
 
@@ -256,7 +97,7 @@ func TestEndianMorphismAndInsertOfRow(t *testing.T) {
 		)
 	}
 
-	cleanUpDB(db)
+	closeDB(db)
 
 	os.Remove("./TestEndianMorphismAndInsertOfRow.db")
 }
@@ -285,19 +126,25 @@ func TestEndianPrune(t *testing.T) {
 	}
 
 	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
-	aliceNewRep, _ := getNodeReputationRecords(db, selectAliceStmt)
+	aliceNewRep, _ := endianReputation(db, selectAliceStmt)
+	fmt.Printf("%v\n\n\n", aliceNewRep)
 
-	aliceNewRow := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 10)
-	insertRows(db, aliceNewRow, insertStmt)
+	alice1 := aliceNewRep.morphism(uptimeColumn, overWrite, 10)
+	alice2 := aliceNewRep.morphism(uptimeColumn, overWrite, 2)
+	alice3 := aliceNewRep.morphism(uptimeColumn, overWrite, 22)
+	alice4 := aliceNewRep.morphism(uptimeColumn, overWrite, 30)
 
-	aliceNewRow1 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 2)
-	insertRows(db, aliceNewRow1, insertStmt)
+	aliceNewRow := []nodeReputationRecord{
+		alice1,
+		alice2,
+		alice3,
+		alice4,
+	}
 
-	aliceNewRow2 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 22)
-	insertRows(db, aliceNewRow2, insertStmt)
-
-	aliceNewRow3 := nodeReputationRecordMorphism(aliceNewRep, uptimeColumn, overWrite, 30)
-	insertRows(db, aliceNewRow3, insertStmt)
+	err := insertRows(db, aliceNewRow, insertStmt)
+	if err != nil {
+		fmt.Printf("%v\n\n\n", aliceNewRow)
+	}
 
 	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)
 	if len(newAndOldRows) != 9 {
@@ -337,7 +184,7 @@ func TestEndianPrune(t *testing.T) {
 		)
 	}
 
-	cleanUpDB(db)
+	closeDB(db)
 
 	os.Remove("./TestEndianPrune.db")
 }

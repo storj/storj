@@ -8,6 +8,7 @@ service NodeReputation {
     rpc NodeReputation(NodeQuery) returns (NodeReputationRecord) {}
     rpc UpdateReputation(NodeUpdate) returns (UpdateReply) {}
     rpc FilterNodeReputation(NodeFilter) returns (NodeReputationRecords) {}
+    rpc PruneNodeReputation(NodeQuery) returns (UpdateReply) {}
 }
 
 message NodeReputationRecord {
@@ -20,7 +21,8 @@ message NodeReputationRecord {
 	int64 latency = 7;
 	int64 amountOfDataStored = 8;
 	int64 falseClaims = 9;
-	int64 shardsModified = 10;
+    int64 shardsModified = 10;
+    float score = 11;
 }
 
 message NodeReputationRecords {

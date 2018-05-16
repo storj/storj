@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-	//"storj.io/storj/node_reputation"
 )
 
 func TestNodeReputationClient(t *testing.T) {

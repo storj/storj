@@ -12,16 +12,16 @@ import (
 )
 
 // auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct
-func (row nodeReputationRecord) auditSuccessRatio() float64 {
-	return float64(row.auditSuccess) / float64(row.auditSuccess+row.auditFail)
+func (row nodeReputationRecord) auditSuccessRatio() float32 {
+	return float32(row.auditSuccess) / float32(row.auditSuccess+row.auditFail)
 }
 
 /*
-  naiveRep is naive formula for obtaining a repuataion score (scalar)
+  naiveScore is naive formula for obtaining a repuataion score (scalar)
   this method favors uptime, hence being multiplied by 100
   and nullifys a score if there is a case of data modification
 */
-func (row nodeReputationRecord) naiveRep() float64 {
+func (row nodeReputationRecord) naiveScore() float32 {
 	var mutator int64
 
 	if row.shardsModified > 0 {
@@ -30,68 +30,11 @@ func (row nodeReputationRecord) naiveRep() float64 {
 		mutator = 1
 	}
 
-	return (float64(row.uptime*100) +
+	return (float32(row.uptime*100) +
 		row.auditSuccessRatio() +
-		float64(row.latency) +
-		float64(row.amountOfDataStored) -
-		float64(row.falseClaims)) * float64(mutator)
-}
-
-/*
-  greaterRep compares reputation rows and returns the greater reputation of the two
-  this method condsiders a reputation greater:
-  if the time is more recent it is greater
-  else use naive reputation method
-*/
-func (row nodeReputationRecord) greaterRep(other nodeReputationRecord) nodeReputationRecord {
-	myRep := row.naiveRep()
-	otherRep := other.naiveRep()
-	myTime := row.timestamp
-	otherTime := other.timestamp
-	myName := row.nodeName
-	otherName := other.nodeName
-
-	var res nodeReputationRecord
-
-	switch {
-	case myTime < otherTime && myName == otherName:
-		res = other
-	case myTime > otherTime && myName == otherName:
-		res = row
-	case myRep > otherRep:
-		res = row
-	default:
-		res = other
-	}
-
-	return res
-}
-
-// naiveReputation finds the naive reputation of the resulting rows from the query string
-func naiveReputation(db *sql.DB, queryString string) (nodeReputationRecord, error) {
-	bestRep := nodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
-
-	rows, err := db.Query(queryString)
-	if err != nil {
-		return bestRep, SelectError.Wrap(err)
-	}
-	defer rows.Close()
-
-	transformedRows, err := iterOnDBRows(rows)
-	if err != nil {
-		return bestRep, SelectError.Wrap(err)
-	}
-
-	for _, row := range transformedRows {
-		bestRep = bestRep.greaterRep(row)
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return bestRep, SelectError.Wrap(err)
-	}
-
-	return bestRep, nil
+		float32(row.latency) +
+		float32(row.amountOfDataStored) -
+		float32(row.falseClaims)) * float32(mutator)
 }
 
 /*
@@ -218,7 +161,7 @@ func (row nodeReputationRecord) endian(other nodeReputationRecord, orderOfEval [
 }
 
 // serde converts private record to public reputation record
-func (row nodeReputationRecord) serde() NodeReputationRecord {
+func (row nodeReputationRecord) serde(score float32) NodeReputationRecord {
 	return NodeReputationRecord{
 		Source:             row.source,
 		NodeName:           row.nodeName,
@@ -230,6 +173,7 @@ func (row nodeReputationRecord) serde() NodeReputationRecord {
 		AmountOfDataStored: row.amountOfDataStored,
 		FalseClaims:        row.falseClaims,
 		ShardsModified:     row.shardsModified,
+		Score:              score,
 	}
 }
 
@@ -245,7 +189,7 @@ func (row nodeReputationRecord) serde() NodeReputationRecord {
   amountOfDataStored, more data equals a one
 */
 func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, error) {
-	bestRep := nodeReputationRecord{"self", "identity", "", 0, 0, 0, 0, 0, 0, 0}
+	bestRep := newReputationRow("self", "identity")
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -323,17 +267,6 @@ func (row nodeReputationRecord) morphism(col column, op mutOp, scalar int64) nod
 	}
 
 	return row
-}
-
-// nodeReputationRecordMorphism this is more like fmap because the slice is the functor, returns a new nodeReputationRecord slice
-func nodeReputationRecordMorphism(rows []nodeReputationRecord, col column, op mutOp, scalar int64) []nodeReputationRecord {
-	var res []nodeReputationRecord
-
-	for _, row := range rows {
-		res = append(res, row.morphism(col, op, scalar))
-	}
-
-	return res
 }
 
 // newReputationRow this is the apply function for the reputation row struct, returns a new nodeReputationRecord
