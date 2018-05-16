@@ -12,9 +12,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/netstate/auth"
-
+	"storj.io/storj/storage/boltdb"
 )
 
 // NetStateRoutes maintains access to a boltdb client and zap logger
@@ -41,7 +40,7 @@ func NewNetStateRoutes(logger *zap.Logger, db *boltdb.Client) *NetStateRoutes {
 func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http put")
 
-	// check xapiheader sent from client to the one set 
+	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
 	result := auth.ValidateAPIKey(xAPIHeader)
 
@@ -82,8 +81,8 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 // Get takes the given file path from the user and calls the bolt client's Get function
 func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http get")
-	
-	// check xapiheader sent from client to the one set 
+
+	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
 	result := auth.ValidateAPIKey(xAPIHeader)
 
@@ -116,7 +115,7 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http list")
 
-	// check xapiheader sent from client to the one set 
+	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
 	result := auth.ValidateAPIKey(xAPIHeader)
 
@@ -157,10 +156,10 @@ func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprou
 func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http delete")
 
-	// check xapiheader sent from client to the one set 
+	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
 	result := auth.ValidateAPIKey(xAPIHeader)
-	
+
 	if result == false {
 		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
 		n.logger.Error("unauthorized: API credentials invalid")

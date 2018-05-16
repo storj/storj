@@ -4,8 +4,8 @@
 package auth
 
 import (
-	"fmt"
 	"crypto/subtle"
+	"fmt"
 	"net/http"
 
 	"github.com/spf13/viper"
