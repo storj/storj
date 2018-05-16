@@ -127,7 +127,6 @@ func TestEndianPrune(t *testing.T) {
 
 	selectAliceStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, "Alice")
 	aliceNewRep, _ := endianReputation(db, selectAliceStmt)
-	fmt.Printf("%v\n\n\n", aliceNewRep)
 
 	alice1 := aliceNewRep.morphism(uptimeColumn, overWrite, 10)
 	alice2 := aliceNewRep.morphism(uptimeColumn, overWrite, 2)
