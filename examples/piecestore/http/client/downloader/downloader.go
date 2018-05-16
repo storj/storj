@@ -1,4 +1,7 @@
-package main
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package downloader
 
 import (
 	"fmt"
@@ -9,16 +12,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aleitner/FilePiece"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/examples/piecestore/http/client/utils"
 )
 
 var downError = errs.Class("downloadError")
 
 // Prepare shard and download it
-func downloadShard(i int, downloadState *state) error {
-	fileMeta := downloadState.fileMeta
+func downloadShard(i int, downloadState *utils.State) error {
+	fileMeta := downloadState.FileMeta
 	shard := &fileMeta.Shards[i-1]
-	shard.Progress = In_Progress
+	shard.Progress = utils.InProgress
 
 	if i == fileMeta.TotalShards && fileMeta.TailShardSize > 0 {
 		shard.Size = fileMeta.TailShardSize
@@ -46,79 +52,63 @@ func downloadShard(i int, downloadState *state) error {
 	defer resp.Body.Close()
 
 	// Write the body to file
-	downloadState.file.Seek(shard.Offset, 0)
-	_, err = io.Copy(downloadState.file, resp.Body)
+	chunk := fpiece.NewChunk(downloadState.File, shard.Offset, shard.Size)
+	_, err = io.Copy(chunk, resp.Body)
 	if err != nil {
 		return err
 	}
-
-	// Write the body to file
-	// var totalWritten int64 = 0
-	// buffer := make([]byte, 4096)
-	// for totalWritten < shard.Size {
-	// 	// Read data from read stream into buffer
-	// 	n, err := resp.Body.Read(buffer)
-	// 	if err == io.EOF {
-	// 		break
-	// 	}
-	//
-	// 	// Write the buffer to the file we opened earlier
-	// 	writtenBytes, err := downloadState.file.WriteAt(buffer[:n], totalWritten + shard.Offset)
-	//   totalWritten += int64(writtenBytes)
-	// }
-	//
-	// fmt.Println("Total Written ", totalWritten)
 
 	if err != nil {
 		return err
 	}
 
 	if resp.StatusCode == 200 {
-		shard.Progress = Complete
+		shard.Progress = utils.Complete
 		fmt.Printf("Successfully downloaded shard (%v) from farmer (%s)\n", i, shard.Locations[0])
-		return nil
 	} else {
-		shard.Progress = Awaiting
+		shard.Progress = utils.Awaiting
 		fmt.Printf("Failed to download shard (%v) from farmer (%s)\n", i, shard.Locations[0])
-		return nil
 	}
 
+	go queueDownload(downloadState)
+
+	return nil
 }
 
 // work queue
-func queue_download(downloadState *state) {
-	fileMeta := downloadState.fileMeta
+func queueDownload(downloadState *utils.State) {
+	fileMeta := downloadState.FileMeta
 
 	for i := 1; i <= fileMeta.TotalShards; i++ {
-		if fileMeta.Shards[i-1].Progress == Awaiting {
-			// TODO Separate into go subroutines
-			downloadShard(i, downloadState)
+		if fileMeta.Shards[i-1].Progress == utils.Awaiting {
+			go downloadShard(i, downloadState)
 		}
 	}
 
 	completed := 0
 	for i := 1; i <= fileMeta.TotalShards; i++ {
-		if fileMeta.Shards[i-1].Progress == Complete {
-			completed += 1
+		if fileMeta.Shards[i-1].Progress == utils.Complete {
+			completed++
 		}
 	}
 
 	if completed == fileMeta.TotalShards {
-		fileMeta.Progress = Complete
+		fileMeta.Progress = utils.Complete
 	}
 }
 
-func prepareDownload(hash string, path string) error {
+// PrepareDownload -- Begin downloading file of hash to path
+func PrepareDownload(hash string, path string) error {
 
 	// Load file by Hash
 	blacklist := []string{}
-	fileMeta := &fileMetaData{}
-	err := loadProgress(hash, fileMeta)
+	fileMeta := &utils.FileMetaData{}
+	err := utils.LoadProgress(hash, fileMeta)
 	if err != nil {
 		return err
 	}
 
-	if fileMeta.Progress != Complete {
+	if fileMeta.Progress != utils.Complete {
 		return downError.New("Can't download data because it was not successfully uploaded.")
 	}
 
@@ -128,16 +118,16 @@ func prepareDownload(hash string, path string) error {
 	}
 	defer file.Close()
 
-	fileMeta.Progress = In_Progress
+	fileMeta.Progress = utils.InProgress
 	for i := 1; i <= fileMeta.TotalShards; i++ {
-		fileMeta.Shards[i-1].Progress = Awaiting
+		fileMeta.Shards[i-1].Progress = utils.Awaiting
 	}
 
-	downloadState := state{blacklist, fileMeta, file, path}
+	downloadState := utils.State{blacklist, fileMeta, file, path}
 
-	queue_download(&downloadState)
+	queueDownload(&downloadState)
 
-	if downloadState.fileMeta.Progress == Complete {
+	if downloadState.FileMeta.Progress == utils.Awaiting {
 		fmt.Println("Successfully downloaded data!")
 	} else {
 		fmt.Println("Upload failed.")

@@ -1,7 +1,11 @@
-package main
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package uploader
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -10,6 +14,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/aleitner/FilePiece"
+
+	"storj.io/storj/examples/piecestore/http/client/utils"
 )
 
 // Prepare an http Request for posting shard to a farmer
@@ -22,8 +30,8 @@ func prepareDataUploadReq(uri string, params map[string]string, offset int64, sh
 	}
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileSection := io.NewSectionReader(file, offset, shardSize)
-	_, err = io.Copy(part, dataFileSection)
+	chunk := fpiece.NewChunk(file, offset, shardSize)
+	_, err = io.Copy(part, chunk)
 
 	for key, val := range params {
 		_ = writer.WriteField(key, val)
@@ -51,7 +59,7 @@ func getAvailableFarmers(exclude []string) []string {
 
 	// Find and remove "two"
 	for i, farmer := range farmers {
-		if stringInSlice(farmer, exclude) {
+		if utils.StringInSlice(farmer, exclude) {
 			farmers = append(farmers[:i], farmers[i+1:]...)
 			break
 		}
@@ -71,17 +79,17 @@ func determineShardCount(size int64) (int, int64, int64) {
 	shardCount := size / minSize
 	remainder := size % minSize
 	if remainder > 0 {
-		shardCount += 1
+		shardCount++
 	}
 
 	return int(shardCount), minSize, remainder
 }
 
 // Prepare shard and upload it
-func uploadShard(i int, uploadState *state) error {
-	fileMeta := uploadState.fileMeta
+func uploadShard(i int, uploadState *utils.State) error {
+	fileMeta := uploadState.FileMeta
 	shard := &fileMeta.Shards[i-1]
-	shard.Progress = In_Progress
+	shard.Progress = utils.InProgress
 
 	if i == fileMeta.TotalShards && fileMeta.TailShardSize > 0 {
 		shard.Size = fileMeta.TailShardSize
@@ -89,13 +97,17 @@ func uploadShard(i int, uploadState *state) error {
 		shard.Size = fileMeta.AvgShardSize
 	}
 
-	farmers := getAvailableFarmers(uploadState.blacklist)
+	farmers := getAvailableFarmers(uploadState.Blacklist)
+	if len(farmers) <= 0 {
+		shard.Progress = utils.Failed
+		return errors.New("Not enough farmers")
+	}
 	farmer := farmers[0]
 
 	// Shard data start position
 	shard.Offset = fileMeta.AvgShardSize * int64(i-1)
 
-	hash, err := determineHash(uploadState.file, shard.Offset, shard.Size)
+	hash, err := utils.DetermineHash(uploadState.File, shard.Offset, shard.Size)
 	if err != nil {
 		return err
 	}
@@ -107,7 +119,7 @@ func uploadShard(i int, uploadState *state) error {
 		"size":   strconv.FormatInt(shard.Size, 10),
 	}
 
-	request, err := prepareDataUploadReq(farmer+"/upload", extraParams, shard.Offset, shard.Size, uploadState.filePath, uploadState.file)
+	request, err := prepareDataUploadReq(farmer+"/upload", extraParams, shard.Offset, shard.Size, uploadState.FilePath, uploadState.File)
 	if err != nil {
 		return err
 	}
@@ -128,42 +140,42 @@ func uploadShard(i int, uploadState *state) error {
 
 	if resp.StatusCode == 200 {
 		shard.Locations = append(shard.Locations, farmer)
-		shard.Progress = Complete
+		shard.Progress = utils.Complete
 		fmt.Printf("Successfully uploaded shard (%v) to farmer (%s)\n", i, farmer)
-		return nil
 	} else {
-		uploadState.blacklist = append(uploadState.blacklist, farmer)
-		shard.Progress = Awaiting
+		uploadState.Blacklist = append(uploadState.Blacklist, farmer)
+		shard.Progress = utils.Awaiting
 		fmt.Printf("Failed to upload shard (%v) to farmer (%s)\n", i, farmer)
-		return nil
 	}
+
+	go queueUpload(uploadState)
+	return nil
 }
 
 // work queue
-func queue_upload(uploadState *state) {
-	fileMeta := uploadState.fileMeta
+func queueUpload(uploadState *utils.State) {
+	fileMeta := uploadState.FileMeta
 
 	for i := 1; i <= fileMeta.TotalShards; i++ {
-		if fileMeta.Shards[i-1].Progress == Awaiting {
-			// TODO Separate into go subroutines
-			uploadShard(i, uploadState)
+		if fileMeta.Shards[i-1].Progress == utils.Awaiting {
+			go uploadShard(i, uploadState)
 		}
 	}
 
 	completed := 0
 	for i := 1; i <= fileMeta.TotalShards; i++ {
-		if fileMeta.Shards[i-1].Progress == Complete {
-			completed += 1
+		if fileMeta.Shards[i-1].Progress == utils.Complete {
+			completed++
 		}
 	}
 
 	if completed == fileMeta.TotalShards {
-		fileMeta.Progress = Complete
+		fileMeta.Progress = utils.Complete
 	}
 }
 
-// Prepare the upload meta data
-func prepareUpload(dataPath string) error {
+// PrepareUpload -- Begin uploading data from dataPath
+func PrepareUpload(dataPath string) error {
 	file, err := os.Open(dataPath)
 	if err != nil {
 		return err
@@ -175,7 +187,7 @@ func prepareUpload(dataPath string) error {
 		return err
 	}
 
-	hash, err := determineHash(file, 0, fileInfo.Size())
+	hash, err := utils.DetermineHash(file, 0, fileInfo.Size())
 	if err != nil {
 		return err
 	}
@@ -186,22 +198,22 @@ func prepareUpload(dataPath string) error {
 
 	// create the state
 	blacklist := []string{}
-	fileMeta := fileMetaData{fileInfo.Size(), hash, shardCount, avgShardSize, tailShardSize, []shard{}, In_Progress}
+	fileMeta := utils.FileMetaData{fileInfo.Size(), hash, shardCount, avgShardSize, tailShardSize, []utils.Shard{}, utils.InProgress}
 	for i := 1; i <= shardCount; i++ {
-		fileMeta.Shards = append(fileMeta.Shards, shard{i, "", 0, 0, []string{}, Awaiting})
+		fileMeta.Shards = append(fileMeta.Shards, utils.Shard{i, "", 0, 0, []string{}, utils.Awaiting})
 	}
 
-	uploadState := state{blacklist, &fileMeta, file, dataPath}
+	uploadState := utils.State{blacklist, &fileMeta, file, dataPath}
 
-	queue_upload(&uploadState)
+	queueUpload(&uploadState)
 
-	if uploadState.fileMeta.Progress == Complete {
+	if uploadState.FileMeta.Progress == utils.Complete {
 		fmt.Println("Successfully uploaded data!")
 	} else {
 		fmt.Println("Upload failed.")
 	}
 
-	err = saveProgress(*uploadState.fileMeta)
+	err = utils.SaveProgress(*uploadState.FileMeta)
 	if err != nil {
 		return err
 	}

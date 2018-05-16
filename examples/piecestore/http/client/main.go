@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -6,44 +9,13 @@ import (
 
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/examples/piecestore/http/client/downloader"
+	"storj.io/storj/examples/piecestore/http/client/uploader"
+	"storj.io/storj/examples/piecestore/http/client/utils"
 )
 
-type Progress int
-
-const (
-	Awaiting    Progress = 0
-	In_Progress Progress = 1
-	Complete    Progress = 2
-	Failed      Progress = 3
-)
-
-type shard struct {
-	N         int
-	Hash      string
-	Offset    int64
-	Size      int64
-	Locations []string
-	Progress  Progress
-}
-
-type fileMetaData struct {
-	Size          int64
-	Hash          string
-	TotalShards   int
-	AvgShardSize  int64
-	TailShardSize int64
-	Shards        []shard
-	Progress      Progress
-}
-
-type state struct {
-	blacklist []string
-	fileMeta  *fileMetaData
-	file      *os.File
-	filePath  string
-}
-
-var ArgError = errs.Class("argError")
+var argError = errs.Class("argError")
 
 func main() {
 	app := cli.NewApp()
@@ -61,10 +33,10 @@ func main() {
 			ArgsUsage: "[path]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return ArgError.New("No path provided")
+					return argError.New("No path provided")
 				}
 
-				err := prepareUpload(c.Args().Get(0))
+				err := uploader.PrepareUpload(c.Args().Get(0))
 				if err != nil {
 					return err
 				}
@@ -79,14 +51,14 @@ func main() {
 			ArgsUsage: "[hash] [path]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return ArgError.New("No hash provided")
+					return argError.New("No hash provided")
 				}
 
 				if c.Args().Get(1) == "" {
-					return ArgError.New("No path provided")
+					return argError.New("No path provided")
 				}
 
-				err := prepareDownload(c.Args().Get(0), c.Args().Get(1))
+				err := downloader.PrepareDownload(c.Args().Get(0), c.Args().Get(1))
 				if err != nil {
 					return err
 				}
@@ -99,7 +71,7 @@ func main() {
 			Aliases: []string{"l"},
 			Usage:   "List all files",
 			Action: func(c *cli.Context) error {
-				err := listFiles()
+				err := utils.ListFiles()
 				if err != nil {
 					return err
 				}

@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -16,18 +19,20 @@ import (
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/mattn/go-sqlite3"
 
+	"storj.io/storj/examples/piecestore/http/server/utils"
 	"storj.io/storj/pkg/piecestore"
 )
 
 var dataDir string
 var dbPath string
 
-func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// UploadFile -- HTTP endpoint for sending data to pstore
+func uploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var ttl int64
 	// in your case file would be fileupload
 	file, header, err := r.FormFile("uploadfile")
 	if err != nil {
-		fmt.Printf("Error: ", err.Error())
+		fmt.Printf("Error: %s\n", err.Error())
 		return
 	}
 
@@ -43,7 +48,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		ttl, err = strconv.ParseInt(ttlStr, 10, 32)
 	}
 	if err != nil {
-		fmt.Printf("Error: ", err.Error())
+		fmt.Printf("Error: %s\n", err.Error())
 		return
 	}
 	if ttl <= time.Now().Unix() {
@@ -71,7 +76,7 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	dataHash := strings.Join(r.Form["hash"], "")
 	if dataHash == "" {
-		dataHash = String(20)
+		dataHash = utils.String(20)
 	}
 
 	defer file.Close()
@@ -105,7 +110,8 @@ func UploadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Write([]byte(message))
 }
 
-func DownloadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// DownloadFile -- HTTP endpoint for retrieving data from pstore
+func downloadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.ParseForm()
 
 	hash := strings.Join(r.Form["hash"], "")
@@ -143,7 +149,8 @@ func DownloadFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	fmt.Printf("Successfully downloaded file %s...\n", hash)
 }
 
-func DeleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// DeleteFile -- HTTP endpoint for deleting data from pstore
+func deleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.ParseForm()
 	hash := strings.Join(r.Form["hash"], "")
 
@@ -162,28 +169,29 @@ func DeleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 }
 
-func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// Index -- web root page
+func index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if err := renderByPath(w, "./server/templates/index.html"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func ShowUploadForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func showUploadForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if err := renderByPath(w, "./server/templates/uploadform.html"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func ShowDownloadForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func showDownloadForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if err := renderByPath(w, "./server/templates/downloadform.html"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func ShowDeleteForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func showDeleteForm(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if err := renderByPath(w, "./server/templates/deleteform.html"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -211,7 +219,7 @@ func dbChecker(db *sql.DB, dir string) {
 		case <-tickChan:
 			rows, err := db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: ", err.Error())
+				fmt.Printf("Error: %s\n", err.Error())
 			}
 			defer rows.Close()
 
@@ -223,14 +231,14 @@ func dbChecker(db *sql.DB, dir string) {
 
 				err = rows.Scan(&expHash, &expires)
 				if err != nil {
-					fmt.Printf("Error: ", err.Error())
+					fmt.Printf("Error: %s\n", err.Error())
 					return
 				}
 
 				// delete file on local machine
 				err = pstore.Delete(expHash, dir)
 				if err != nil {
-					fmt.Printf("Error: ", err.Error())
+					fmt.Printf("Error: %s\n", err.Error())
 					return
 				}
 				fmt.Println("Deleted file: ", expHash)
@@ -239,7 +247,7 @@ func dbChecker(db *sql.DB, dir string) {
 			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
 			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: ", err.Error())
+				fmt.Printf("Error: %s\n", err.Error())
 				return
 			}
 		}
@@ -277,13 +285,13 @@ func main() {
 	}()
 
 	router := httprouter.New()
-	router.GET("/", Index)
-	router.GET("/upload", ShowUploadForm)
-	router.GET("/download", ShowDownloadForm)
-	router.GET("/delete", ShowDeleteForm)
+	router.GET("/", index)
+	router.GET("/upload", showUploadForm)
+	router.GET("/download", showDownloadForm)
+	router.GET("/delete", showDeleteForm)
 	router.ServeFiles("/files/*filepath", http.Dir(dataDir))
-	router.POST("/upload", UploadFile)
-	router.POST("/download", DownloadFile)
-	router.POST("/delete", DeleteFile)
+	router.POST("/upload", uploadFile)
+	router.POST("/download", downloadFile)
+	router.POST("/delete", deleteFile)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }

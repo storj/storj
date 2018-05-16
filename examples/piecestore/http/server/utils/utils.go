@@ -1,4 +1,7 @@
-package main
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package utils
 
 import (
 	"math/rand"
@@ -7,10 +10,10 @@ import (
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-var seededRand *rand.Rand = rand.New(
+var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-func StringWithCharset(length int, charset string) string {
+func stringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
@@ -18,6 +21,7 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
+// String -- Get random string of specified length
 func String(length int) string {
-	return StringWithCharset(length, charset)
+	return stringWithCharset(length, charset)
 }
