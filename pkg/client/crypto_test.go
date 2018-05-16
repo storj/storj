@@ -4,7 +4,6 @@
 package client
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,13 +25,12 @@ func TestDecryptBucketName(t *testing.T) {
 		{testEncryptedBucketNameDiffMnemonic, testMnemonic, "", "cipher: message authentication failed"},
 	} {
 		decryptedName, err := decryptBucketName(tt.encryptedName, tt.mnemonic)
-		errTag := fmt.Sprintf("Test case #%d", i)
 		if tt.errString != "" {
-			assert.EqualError(t, err, tt.errString, errTag)
+			assert.Containsf(t, err.Error(), tt.errString, "Test case #%d", i)
 			continue
 		}
-		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, tt.decryptedName, decryptedName, errTag)
+		if assert.NoErrorf(t, err, "Test case #%d", i) {
+			assert.Equalf(t, tt.decryptedName, decryptedName, "Test case #%d", i)
 		}
 	}
 }
