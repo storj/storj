@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -52,7 +51,6 @@ type nodeReputationRecord struct {
 func startDB(filePath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", filePath)
 	if err != nil {
-		log.Printf("%q\n", err)
 		return nil, StartDBError.Wrap(err)
 	}
 
@@ -63,8 +61,7 @@ func startDB(filePath string) (*sql.DB, error) {
 func createTable(createStmt string, db *sql.DB) error {
 	_, err := db.Exec(createStmt)
 	if err != nil {
-		log.Printf("%q: %s\n", err, createStmt)
-		return InsertError.Wrap(err)
+		return CreateTableError.Wrap(err)
 	}
 	return nil
 }
@@ -89,14 +86,12 @@ func SetServerDB(filepath string) (*sql.DB, error) {
 func insertRows(db *sql.DB, rows []nodeReputationRecord, insertString string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("%q: %s\n", err, insertString)
 		return InsertError.Wrap(err)
 	}
 	defer tx.Rollback()
 
 	insertStmt, err := tx.Prepare(insertString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, insertString)
 		return InsertError.Wrap(err)
 	}
 	defer insertStmt.Close()
@@ -114,7 +109,6 @@ func insertRows(db *sql.DB, rows []nodeReputationRecord, insertString string) er
 			row.shardsModified,
 		)
 		if err != nil {
-			log.Printf("%q: %s\n", err, insertString)
 			return InsertError.Wrap(err)
 		}
 	}
@@ -125,14 +119,12 @@ func insertRows(db *sql.DB, rows []nodeReputationRecord, insertString string) er
 func selectFromDB(db *sql.DB, selectString string) error {
 	rows, err := db.Query(selectString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
 	transformedRows, err := iterOnDBRows(rows)
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return SelectError.Wrap(err)
 	}
 
@@ -143,7 +135,6 @@ func selectFromDB(db *sql.DB, selectString string) error {
 
 	err = rows.Err()
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return SelectError.Wrap(err)
 	}
 
@@ -238,7 +229,6 @@ func iterOnDBRows(rows *sql.Rows) ([]nodeReputationRecord, error) {
 			&row.shardsModified,
 		)
 		if err != nil {
-			log.Printf("%q\n", err)
 			return nil, IterError.Wrap(err)
 		}
 
@@ -252,20 +242,17 @@ func iterOnDBRows(rows *sql.Rows) ([]nodeReputationRecord, error) {
 func getNodeReputationRecords(db *sql.DB, selectString string) ([]nodeReputationRecord, error) {
 	rows, err := db.Query(selectString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return nil, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
 	res, err := iterOnDBRows(rows)
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return nil, SelectError.Wrap(err)
 	}
 
 	err = rows.Err()
 	if err != nil {
-		log.Printf("%q: %s\n", err, selectString)
 		return nil, SelectError.Wrap(err)
 	}
 
@@ -280,14 +267,12 @@ func getNodeReputationRecords(db *sql.DB, selectString string) ([]nodeReputation
 func pruneNodeReputationRecords(db *sql.DB, recordToKeep nodeReputationRecord, deleteString string) error {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("%q: %s\n", err, deleteString)
 		return DeleteError.Wrap(err)
 	}
 	defer tx.Rollback()
 
 	deleteStmt, err := tx.Prepare(deleteString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, deleteString)
 		return DeleteError.Wrap(err)
 	}
 	defer deleteStmt.Close()
@@ -306,7 +291,6 @@ func pruneNodeReputationRecords(db *sql.DB, recordToKeep nodeReputationRecord, d
 		recordToKeep.shardsModified,
 	)
 	if err != nil {
-		log.Printf("%q: %v\n", err, deleteStmt)
 		return DeleteError.Wrap(err)
 	}
 	return tx.Commit()
@@ -379,14 +363,12 @@ func naiveReputation(db *sql.DB, queryString string) (nodeReputationRecord, erro
 
 	rows, err := db.Query(queryString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
 	transformedRows, err := iterOnDBRows(rows)
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 
@@ -396,7 +378,6 @@ func naiveReputation(db *sql.DB, queryString string) (nodeReputationRecord, erro
 
 	err = rows.Err()
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 
@@ -556,14 +537,12 @@ func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, err
 
 	rows, err := db.Query(queryString)
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 	defer rows.Close()
 
 	transformedRows, err := iterOnDBRows(rows)
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 
@@ -583,7 +562,6 @@ func endianReputation(db *sql.DB, queryString string) (nodeReputationRecord, err
 
 	err = rows.Err()
 	if err != nil {
-		log.Printf("%q: %s\n", err, queryString)
 		return bestRep, SelectError.Wrap(err)
 	}
 
