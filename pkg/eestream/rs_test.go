@@ -75,8 +75,8 @@ func TestRSRanger(t *testing.T) {
 	}
 	rs := NewRSScheme(fc, 8*1024)
 	encKey := sha256.Sum256([]byte("the secret key"))
-	var firstNonce [24]byte
-	encrypter, err := NewSecretboxEncrypter(
+	var firstNonce [12]byte
+	encrypter, err := NewAESGCMEncrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func TestRSRanger(t *testing.T) {
 	for i, piece := range pieces {
 		rrs[i] = ranger.ByteRanger(piece)
 	}
-	decrypter, err := NewSecretboxDecrypter(
+	decrypter, err := NewAESGCMDecrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())
 	rr, err := Decode(context.Background(), rrs, rs, 0)
 	if err != nil {
