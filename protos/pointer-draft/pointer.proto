@@ -5,79 +5,6 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-// Whatever final version of the Pointer data structure that
-// results from this will be integrated with the NetState
-// proto file, so that Pointers are saved at given Paths
-// (instead of the current SmallValue).
-
-// ==============================================================
-// ==============================================================
-// VERSION 1 ====================================================
-
-// Following this JSON draft, which is a conglomerate of the current properties
-// for frame, bucket entry, pointer, and shard in service-storage-models:
-
-// {
-//   "user": "",
-//   "name": "",
-//   "created": "",
-//   "index": "",
-//   "hmac": {
-//     "value": "",
-//     "type": ""
-//   },
-//   "erasure": "",
-//   "shards": [
-//     {
-//       "hash": "",
-//       "parity": false,
-//       "bytes": "",
-//       "farmers": [
-//         {
-//           "begin": "",
-//           "end": "",
-//           "id": ""
-//         }
-//       ]
-//     }
-//   ]
-// }
-
-// Stream - not sure how to distinguish between remote or inline in this version
-message Stream {
-  string name = 1;
-  // created is a date
-  int64 created = 2;
-  HMAC hmac = 3;
-  ErasureType type = 4;
-  // this transpiles to an array in Go
-  repeated Segment segments = 5;
-}
-
-// HMAC and/or ErasureType could be enums
-message HMAC {
-  string value = 1;
-  string type = 2;
-}
-
-message ErasureType {}
-
-message Segment {
-  string hash = 1;
-  bool parity = 2;
-  repeated Farmer farmers = 3;
-}
-
-message Farmer {
-  int64 beginDate = 1;
-  int64 endDate = 2;
-  string ID = 3;
-}
-
-// ==============================================================
-// ==============================================================
-// VERSION 2 ====================================================
-
 message RedundancyScheme {
   enum SchemeType {
     RS = 1;
@@ -95,7 +22,7 @@ message EncryptionScheme {
   enum EncryptionType {
     AESGCM = 1;
     SECRETBOX = 2;
-    // we should only allow authenticated encryption schemes
+    // only allow authenticated encryption schemes
   }
   EncryptionType type = 1;
   bytes encrypted_encryption_key = 2;
@@ -105,7 +32,8 @@ message EncryptionScheme {
 message RemotePiece {
   int64 piece_num = 1;
   string node_id = 2;
-  int64 size = 3;  // full size, including merkle tree
+  bool parity = 3;
+  int64 size = 4;  // full size, including merkle tree
 }
 
 message InlineSegment {
@@ -116,9 +44,21 @@ message RemoteSegment {
   RedundancyScheme redundancy = 1;
   bytes piece_name = 2;
   repeated RemotePiece remote_pieces = 3;
+  repeated Farmer farmers = 4; // list of farmers
 
-  bytes merkle_root = 4; // the root hash of the hashes of all of these pieces
-  int64 merkle_size = 5; // the amount of space the merkle tree takes up at the end of each chunk
+  bytes merkle_root = 5; // the root hash of the hashes of all of these pieces
+  int64 merkle_size = 6; // the amount of space the merkle tree takes up at the end of each chunk
+}
+
+message Farmer {
+  int64 beginDate = 1;
+  int64 endDate = 2;
+  string ID = 3;
+}
+
+message HMAC {
+  string value = 1;
+  string type = 2;
 }
 
 message Pointer {
@@ -126,12 +66,15 @@ message Pointer {
     INLINE = 1;
     REMOTE = 2;
   }
-  DataType type = 1;
-  EncryptionScheme encryption = 2;
 
-  InlineSegment inline = 3;
-  RemoteSegment remote = 4;
-  int64 encrypted_unencrypted_size = 5;  // the size of the unencrypted object (!)
+  int64 created = 1; // date that pointer was created
+  DataType type = 2;
+  HMAC signature = 3;
+  EncryptionScheme encryption = 4;
 
-  google.protobuf.Duration expiration = 6;  // when the object expires
+  InlineSegment inline = 5;
+  RemoteSegment remote = 6;
+  int64 encrypted_unencrypted_size = 7;  // the size of the unencrypted object (!)
+
+  google.protobuf.Duration expiration = 8;  // when the object expires
 }
