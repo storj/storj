@@ -1,7 +1,7 @@
 module "storj.io/storj"
 
 require (
-	"github.com/aleitner/FilePiece" v0.0.0-20180510073054-1702c958d4f0
+	"github.com/aleitner/FilePiece" v0.0.0-20180516062859-b020bc25bf96
 	"github.com/fsnotify/fsnotify" v1.4.7
 	"github.com/go-redis/redis" v0.0.0-20180417061816-9ccc23344a52
 	"github.com/gogo/protobuf" v1.0.0
