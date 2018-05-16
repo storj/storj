@@ -30,6 +30,15 @@ func init() {
 	flag.IntVar(&db, "db", 0, "The network cache database")
 }
 
+// NewServer creates a new Overlay Service Server
+func NewServer() *grpc.Server {
+
+	grpcServer := grpc.NewServer()
+	proto.RegisterOverlayServer(grpcServer, &Overlay{})
+
+	return grpcServer
+}
+
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
