@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/netstate/auth"
+
 )
 
 // NetStateRoutes maintains access to a boltdb client and zap logger
@@ -39,13 +41,24 @@ func NewNetStateRoutes(logger *zap.Logger, db *boltdb.Client) *NetStateRoutes {
 func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http put")
 
+	xAPIHeader := r.Header.Get("X-Api-Key")
+	// check xapiheader sent from client to the one set 
+	result := auth.ValidateAPIKey(xAPIHeader)
+	fmt.Println(result)
+
+	if result == false {
+		http.Error(w, "unauthorized: invalid credentials", http.StatusUnauthorized)
+		n.logger.Error("unauthorized: API credentials invalid")
+		return
+	}
+
 	givenPath := ps.ByName("path")
 	var msg Message
 
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&msg)
 	if err != nil {
-		http.Error(w, "bad request: err decoding response", http.StatusBadRequest)
+		http.Error(w, "bad request", http.StatusBadRequest)
 		n.logger.Error("err decoding response", zap.Error(err))
 		return
 	}

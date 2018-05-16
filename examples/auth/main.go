@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"storj.io/storj/netstate/auth"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"storj.io/storj/netstate/auth"
 )
 
 // example of how the auth package is working.
