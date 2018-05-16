@@ -4,18 +4,28 @@
 package overlay
 
 import (
-	"google.golang.org/grpc"
+	"context"
+	"flag"
 
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/protos/overlay"
+	"storj.io/storj/storage/redis"
 )
 
-// NewServer creates a new Overlay Service Server
-func NewServer() *grpc.Server {
+var (
+	redisAddress  string
+	redisPassword string
+	db            int
+)
 
-	grpcServer := grpc.NewServer()
-	overlay.RegisterOverlayServer(grpcServer, &Overlay{})
-
-	return grpcServer
+func init() {
+	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
+	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
+	flag.IntVar(&db, "db", 0, "The network cache database")
 }
 
 // NewClient connects to grpc server at the provided address with the provided options
@@ -27,4 +37,54 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (overlay.OverlayClie
 	}
 
 	return overlay.NewOverlayClient(conn), nil
+}
+
+// Service contains all methods needed to implement the process.Service interface
+type Service struct {
+	logger  *zap.Logger
+	metrics *monkit.Registry
+}
+
+// Process is the main function that executes the service
+func (s *Service) Process(ctx context.Context) error {
+	// bootstrap network
+	kad := kademlia.Kademlia{}
+
+	kad.Bootstrap(ctx)
+	// bootstrap cache
+	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+	if err != nil {
+		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+		return err
+	}
+	if err := cache.Bootstrap(ctx); err != nil {
+		s.logger.Error("Failed to boostrap cache", zap.Error(err))
+		return err
+	}
+
+	// send off cache refreshes concurrently
+	go cache.Refresh(ctx)
+
+	return nil
+
+}
+
+// SetLogger adds the initialized logger to the Service
+func (s *Service) SetLogger(l *zap.Logger) error {
+	s.logger = l
+	return nil
+}
+
+// GetServer creates a new Overlay Service Server
+func (s *Service) GetServer() *grpc.Server {
+	grpcServer := grpc.NewServer()
+	overlay.RegisterOverlayServer(grpcServer, &Overlay{})
+
+	return grpcServer
+}
+
+// SetMetricHandler adds the initialized metric handler to the Service
+func (s *Service) SetMetricHandler(m *monkit.Registry) error {
+	s.metrics = m
+	return nil
 }
