@@ -92,7 +92,11 @@ func SetServerDB(filepath string) (*sql.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		return nil, createTable(createStmt, db)
+		err = createTable(createStmt, db)
+		if err != nil {
+			return nil, err
+		}
+		return db, nil
 	}
 	db, err := startDB(filepath)
 	if err != nil {
