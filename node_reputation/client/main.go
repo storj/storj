@@ -73,6 +73,42 @@ func main() {
 	if err != nil {
 		fmt.Println("Filter response err")
 	}
-	fmt.Println("Filter reply", filter.Records)
+	fmt.Println("Filter reply uptime less than 10", filter.Records)
 
+	response2, err := client.UpdateReputation(context.Background(),
+		&nodereputation.NodeUpdate{
+			Source:      "Bob",
+			NodeName:    "Alice",
+			ColumnName:  nodereputation.ColumnName_uptime,
+			ColumnValue: "42",
+		},
+	)
+
+	if err != nil {
+		fmt.Println("Update response2 err")
+	}
+	fmt.Println("Reply receive", response2.Status)
+
+	prune, err := client.PruneNodeReputation(context.Background(),
+		&nodereputation.NodeQuery{
+			Source:   "Bob",
+			NodeName: "Alice",
+		},
+	)
+	if err != nil {
+		fmt.Println("Prune err")
+	}
+
+	fmt.Println("Prune status", prune.Status)
+
+	rep2, err := client.NodeReputation(context.Background(),
+		&nodereputation.NodeQuery{
+			Source:   "Bob",
+			NodeName: "Alice",
+		},
+	)
+	if err != nil {
+		fmt.Println("Rep2 respnse err")
+	}
+	fmt.Println("Rep2 receive", rep2)
 }

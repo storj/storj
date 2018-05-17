@@ -13,7 +13,13 @@ import (
 
 // auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct
 func (row nodeReputationRecord) auditSuccessRatio() float32 {
-	return float32(row.auditSuccess) / float32(row.auditSuccess+row.auditFail)
+	res := float32(0)
+	total := row.auditSuccess + row.auditFail
+
+	if total > 0 {
+		res = float32(row.auditSuccess) / float32(total)
+	}
+	return res
 }
 
 /*
