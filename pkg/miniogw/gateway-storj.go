@@ -118,15 +118,14 @@ func listfilescallback(workreq *C.uv_work_t, status C.int) {
 	for i := uint(0); i < uint(req.total_files); i++ {
 		//file * C.storj_file_meta_t = unsafe.Pointer(&req.files[i])
 		file := C.file_index(req.files, C.int(i))
-		fmt.Printf("file name = %s\n", C.GoString(file.filename))
-		// printf("ID: %s \tSize: %" PRIu64 " bytes \tDecrypted: %s \tType: %s \tCreated: %s \tName: %s\n",
-		// 	file->id,
-		// 	file->size,
-		// 	file->decrypted ? "true" : "false",
-		// 	file->mimetype,
-		// 	file->created,
-		// 	file->filename);
-
+		//fmt.Printf("file name = %s\n", C.GoString(file.filename))
+		fmt.Printf("ID: %s \tSize: %d \tDecrypted: %t \tType: %s \tCreated: %s \tName: %s\n",
+			C.GoString(file.id),
+			C.int(file.size),
+			file.decrypted,
+			C.GoString(file.mimetype),
+			C.GoString(file.created),
+			C.GoString(file.filename))
 	}
 
 cleanup:
