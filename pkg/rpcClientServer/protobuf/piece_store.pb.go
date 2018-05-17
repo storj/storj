@@ -38,7 +38,7 @@ func (m *PieceStore) Reset()         { *m = PieceStore{} }
 func (m *PieceStore) String() string { return proto.CompactTextString(m) }
 func (*PieceStore) ProtoMessage()    {}
 func (*PieceStore) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{0}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{0}
 }
 func (m *PieceStore) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStore.Unmarshal(m, b)
@@ -104,7 +104,7 @@ func (m *PieceHash) Reset()         { *m = PieceHash{} }
 func (m *PieceHash) String() string { return proto.CompactTextString(m) }
 func (*PieceHash) ProtoMessage()    {}
 func (*PieceHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{1}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{1}
 }
 func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceHash.Unmarshal(m, b)
@@ -144,7 +144,7 @@ func (m *PieceSummary) Reset()         { *m = PieceSummary{} }
 func (m *PieceSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceSummary) ProtoMessage()    {}
 func (*PieceSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{2}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{2}
 }
 func (m *PieceSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceSummary.Unmarshal(m, b)
@@ -198,7 +198,7 @@ func (m *PieceRetrieval) Reset()         { *m = PieceRetrieval{} }
 func (m *PieceRetrieval) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrieval) ProtoMessage()    {}
 func (*PieceRetrieval) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{3}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{3}
 }
 func (m *PieceRetrieval) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrieval.Unmarshal(m, b)
@@ -251,7 +251,7 @@ func (m *PieceRetrievalStream) Reset()         { *m = PieceRetrievalStream{} }
 func (m *PieceRetrievalStream) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrievalStream) ProtoMessage()    {}
 func (*PieceRetrievalStream) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{4}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{4}
 }
 func (m *PieceRetrievalStream) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrievalStream.Unmarshal(m, b)
@@ -296,7 +296,7 @@ func (m *PieceDelete) Reset()         { *m = PieceDelete{} }
 func (m *PieceDelete) String() string { return proto.CompactTextString(m) }
 func (*PieceDelete) ProtoMessage()    {}
 func (*PieceDelete) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{5}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{5}
 }
 func (m *PieceDelete) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDelete.Unmarshal(m, b)
@@ -336,7 +336,7 @@ func (m *PieceDeleteSummary) Reset()         { *m = PieceDeleteSummary{} }
 func (m *PieceDeleteSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceDeleteSummary) ProtoMessage()    {}
 func (*PieceDeleteSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{6}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{6}
 }
 func (m *PieceDeleteSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDeleteSummary.Unmarshal(m, b)
@@ -391,7 +391,7 @@ func (m *PieceStoreSummary) Reset()         { *m = PieceStoreSummary{} }
 func (m *PieceStoreSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceStoreSummary) ProtoMessage()    {}
 func (*PieceStoreSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_29885aa92091288a, []int{7}
+	return fileDescriptor_piece_store_bf39a52d0aa9290e, []int{7}
 }
 func (m *PieceStoreSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStoreSummary.Unmarshal(m, b)
@@ -683,9 +683,9 @@ var _PieceStoreRoutes_serviceDesc = grpc.ServiceDesc{
 	Metadata: "piece_store.proto",
 }
 
-func init() { proto.RegisterFile("piece_store.proto", fileDescriptor_piece_store_29885aa92091288a) }
+func init() { proto.RegisterFile("piece_store.proto", fileDescriptor_piece_store_bf39a52d0aa9290e) }
 
-var fileDescriptor_piece_store_29885aa92091288a = []byte{
+var fileDescriptor_piece_store_bf39a52d0aa9290e = []byte{
 	// 417 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0x4f, 0xcf, 0xd2, 0x40,
 	0x10, 0xc6, 0x59, 0x0a, 0x28, 0x03, 0x1a, 0xd8, 0x18, 0xd3, 0x54, 0xc5, 0xba, 0x12, 0xd3, 0x13,
