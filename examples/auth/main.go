@@ -43,5 +43,5 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("the rsponse is: ", resp)
+	fmt.Println("the response is: ", resp)
 }
