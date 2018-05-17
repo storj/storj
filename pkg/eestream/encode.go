@@ -6,7 +6,6 @@ package eestream
 import (
 	"io"
 	"io/ioutil"
-	"sync"
 
 	"storj.io/storj/pkg/ranger"
 )
@@ -38,71 +37,66 @@ type ErasureScheme interface {
 }
 
 type encodedReader struct {
-	r               io.Reader
-	es              ErasureScheme
-	cv              *sync.Cond
-	inbuf           []byte
-	outbufs         [][]byte
-	piecesRemaining int
-	err             error
+	r       io.Reader
+	es      ErasureScheme
+	inbuf   []byte
+	outbufs [][]byte
+	chans   map[int]chan []byte
+	err     error
 }
 
 // EncodeReader will take a Reader and an ErasureScheme and return a slice of
 // Readers
-func EncodeReader(r io.Reader, es ErasureScheme) []io.Reader {
+func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reader {
 	er := &encodedReader{
 		r:       r,
 		es:      es,
-		cv:      sync.NewCond(&sync.Mutex{}),
 		inbuf:   make([]byte, es.DecodedBlockSize()),
 		outbufs: make([][]byte, es.TotalCount()),
+		chans:   make(map[int]chan []byte, es.TotalCount()),
 	}
 	readers := make([]io.Reader, 0, es.TotalCount())
 	for i := 0; i < es.TotalCount(); i++ {
-		er.outbufs[i] = make([]byte, 0, es.EncodedBlockSize())
 		readers = append(readers, &encodedPiece{
 			er: er,
 			i:  i,
 		})
 	}
-	return readers
-}
-
-func (er *encodedReader) wait() (err error) {
-	// have we already failed? just return that
-	if er.err != nil {
-		return er.err
+	if maxBufferMemory < 0 {
+		er.err = Error.New("negative max buffer memory")
+		return readers
 	}
-	// are other pieces still using buffer? wait on a condition variable for
-	// the last remaining piece to fill all the buffers.
-	if er.piecesRemaining > 0 {
-		er.cv.Wait()
-		// whoever broadcast a wakeup either set an error or filled the buffers.
-		// er.err might be nil, which means the buffers are filled.
-		return er.err
+	chanSize := maxBufferMemory / (es.TotalCount() * es.EncodedBlockSize())
+	if chanSize < 1 {
+		chanSize = 1
 	}
-
-	// we are going to set an error or fill the buffers
-	defer er.cv.Broadcast()
-	defer func() {
-		// at the end of this function, if we're returning an error, set er.err
-		if err != nil {
-			er.err = err
+	for i := 0; i < es.TotalCount(); i++ {
+		er.chans[i] = make(chan []byte, chanSize)
+	}
+	go func() {
+		defer func() {
+			for i := range er.chans {
+				close(er.chans[i])
+			}
+		}()
+		for {
+			_, err := io.ReadFull(er.r, er.inbuf)
+			if err != nil {
+				return
+			}
+			err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+				// the data []byte is reused by infecious, so add a copy to
+				// the channel
+				tmp := make([]byte, len(data))
+				copy(tmp, data)
+				er.chans[num] <- tmp
+			})
+			if err != nil {
+				return
+			}
 		}
 	}()
-	_, err = io.ReadFull(er.r, er.inbuf)
-	if err != nil {
-		return err
-	}
-	err = er.es.Encode(er.inbuf, func(num int, data []byte) {
-		er.outbufs[num] = append(er.outbufs[num], data...)
-	})
-	if err != nil {
-		return err
-	}
-	// reset piecesRemaining
-	er.piecesRemaining = er.es.TotalCount()
-	return nil
+	return readers
 }
 
 type encodedPiece struct {
@@ -111,16 +105,17 @@ type encodedPiece struct {
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
-	// lock! threadsafety matters here
-	ep.er.cv.L.Lock()
-	defer ep.er.cv.L.Unlock()
-
+	if ep.er.err != nil {
+		return 0, ep.er.err
+	}
 	outbufs, i := ep.er.outbufs, ep.i
 	if len(outbufs[i]) <= 0 {
-		// if we don't have any buffered result yet, wait until we do
-		err := ep.er.wait()
-		if err != nil {
-			return 0, err
+		// take the next block from the cannel or block if channel is empty
+		var ok bool
+		outbufs[i], ok = <-ep.er.chans[i]
+		if !ok {
+			// channel is closed
+			return 0, io.EOF
 		}
 	}
 
@@ -130,10 +125,6 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 	copy(outbufs[i], outbufs[i][n:])
 	// and shrink the buffer
 	outbufs[i] = outbufs[i][:len(outbufs[i])-n]
-	// if there's nothing left, decrement the amount of pieces we have
-	if len(outbufs[i]) <= 0 {
-		ep.er.piecesRemaining--
-	}
 	return n, nil
 }
 
@@ -141,20 +132,25 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	es ErasureScheme
-	rr ranger.Ranger
+	es              ErasureScheme
+	rr              ranger.Ranger
+	maxBufferMemory int
 }
 
 // NewEncodedRanger creates an EncodedRanger
-func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme) (*EncodedRanger,
-	error) {
+func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme,
+	maxBufferMemory int) (*EncodedRanger, error) {
 	if rr.Size()%int64(es.DecodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
+	if maxBufferMemory < 0 {
+		return nil, Error.New("negative max buffer memory")
+	}
 	return &EncodedRanger{
-		es: es,
-		rr: rr,
+		es:              es,
+		rr:              rr,
+		maxBufferMemory: maxBufferMemory,
 	}, nil
 }
 
@@ -174,7 +170,7 @@ func (er *EncodedRanger) Range(offset, length int64) ([]io.Reader, error) {
 	// okay, now let's encode the reader for the range containing the blocks
 	readers := EncodeReader(er.rr.Range(
 		firstBlock*int64(er.es.DecodedBlockSize()),
-		blockCount*int64(er.es.DecodedBlockSize())), er.es)
+		blockCount*int64(er.es.DecodedBlockSize())), er.es, er.maxBufferMemory)
 
 	for i, r := range readers {
 		// the offset might start a few bytes in, so we potentially have to

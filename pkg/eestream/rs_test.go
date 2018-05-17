@@ -29,7 +29,7 @@ func TestRS(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers := EncodeReader(bytes.NewReader(data), rs, 0)
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
@@ -54,7 +54,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers := EncodeReader(bytes.NewReader(data), rs, 0)
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
@@ -65,6 +65,17 @@ func TestRSUnexectedEOF(t *testing.T) {
 	data2 := make([]byte, len(data)+1024)
 	_, err = io.ReadFull(decoder, data2)
 	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
+}
+func TestEncoderNegativeMaxBufferMemory(t *testing.T) {
+	data := randData(32 * 1024)
+	fc, err := infectious.NewFEC(2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := NewRSScheme(fc, 8*1024)
+	readers := EncodeReader(bytes.NewReader(data), rs, -1)
+	_, err = readAll(readers)
+	assert.EqualError(t, err, "eestream error: negative max buffer memory")
 }
 
 func TestRSRanger(t *testing.T) {
@@ -82,7 +93,7 @@ func TestRSRanger(t *testing.T) {
 		t.Fatal(err)
 	}
 	readers := EncodeReader(TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 0)
 	pieces, err := readAll(readers)
 	if err != nil {
 		t.Fatal(err)
@@ -309,7 +320,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 		return
 	}
 	rs := NewRSScheme(fc, tt.blockSize)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers := EncodeReader(bytes.NewReader(data), rs, 3*1024)
 	// read all readers in []byte buffers to avoid deadlock if later
 	// we don't read in parallel from all of them
 	pieces, err := readAll(readers)

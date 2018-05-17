@@ -55,7 +55,8 @@ func Main() error {
 		return err
 	}
 	readers := eestream.EncodeReader(eestream.TransformReader(
-		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0), es)
+		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0),
+		es, 4*1024*1024)
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
