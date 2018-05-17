@@ -73,30 +73,31 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 	for i := 0; i < es.TotalCount(); i++ {
 		er.chans[i] = make(chan []byte, chanSize)
 	}
-	go func() {
-		defer func() {
-			for i := range er.chans {
-				close(er.chans[i])
-			}
-		}()
-		for {
-			_, err := io.ReadFull(er.r, er.inbuf)
-			if err != nil {
-				return
-			}
-			err = er.es.Encode(er.inbuf, func(num int, data []byte) {
-				// the data []byte is reused by infecious, so add a copy to
-				// the channel
-				tmp := make([]byte, len(data))
-				copy(tmp, data)
-				er.chans[num] <- tmp
-			})
-			if err != nil {
-				return
-			}
+	go er.fillBuffer()
+	return readers
+}
+
+func (er *encodedReader) fillBuffer() {
+	defer func() {
+		for i := range er.chans {
+			close(er.chans[i])
 		}
 	}()
-	return readers
+	for {
+		_, err := io.ReadFull(er.r, er.inbuf)
+		if err != nil {
+			return
+		}
+		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+			// data is reused by infecious, so add a copy to the channel
+			tmp := make([]byte, len(data))
+			copy(tmp, data)
+			er.chans[num] <- tmp
+		})
+		if err != nil {
+			return
+		}
+	}
 }
 
 type encodedPiece struct {
