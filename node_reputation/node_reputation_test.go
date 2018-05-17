@@ -6,6 +6,7 @@ package nodereputation
 import (
 	"os"
 	"testing"
+	"time"
 )
 
 func TestCreateTable(t *testing.T) {
@@ -143,11 +144,13 @@ func TestEndianPrune(t *testing.T) {
 		[]nodeReputationRecord{aliceNewRep.morphism(uptimeColumn, overWrite, 30)},
 		insertStmt,
 	)
+	time.Sleep(50 * time.Millisecond)
 
 	newAndOldRows, _ := getNodeReputationRecords(db, selectAllStmt)
 	if len(newAndOldRows) != 9 {
 		t.Error(
-			"expected 9 rows in the db got", newAndOldRows,
+			"expected 9 rows in the db got", len(newAndOldRows),
+			"raw rows", newAndOldRows,
 		)
 	}
 
