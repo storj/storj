@@ -4,38 +4,96 @@
 package eestream
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
+	"reflect"
+
+	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
 
 type decodedReader struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 	rs     map[int]io.ReadCloser
 	es     ErasureScheme
-	inbufs map[int][]byte
 	outbuf []byte
 	err    error
+	chans  map[int]chan block
+	cb     int64 // current block number
+	eb     int64 // expected number of blocks
 }
 
-type readerError struct {
-	i   int // reader index in the map
-	err error
+type block struct {
+	i    int    // reader index in the map
+	num  int64  // block number
+	data []byte // block data
+	err  error  // error reading the block
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
 // combined Reader. The map, 'rs', must be a mapping of erasure piece numbers
-// to erasure piece streams.
-func DecodeReaders(rs map[int]io.ReadCloser, es ErasureScheme) io.ReadCloser {
+// to erasure piece streams. expectedSize is the number of bytes expected to
+// be returned by the Reader. maxBufferMemory is the maximum memory (in bytes)
+// to be allocated for read buffers. If set to 0, the minimum possible memory
+// will be used.
+func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
+	es ErasureScheme, expectedSize int64, maxBufferMemory int) io.ReadCloser {
+	if expectedSize < 0 {
+		return readcloser.FatalReadCloser(Error.New("negative expected size"))
+	}
+	if expectedSize%int64(es.DecodedBlockSize()) != 0 {
+		return readcloser.FatalReadCloser(
+			Error.New("expected size not a factor decoded block size"))
+	}
+	if maxBufferMemory < 0 {
+		return readcloser.FatalReadCloser(
+			Error.New("negative max buffer memory"))
+	}
+	chanSize := maxBufferMemory / (len(rs) * es.EncodedBlockSize())
+	if chanSize < 1 {
+		chanSize = 1
+	}
+	context, cancel := context.WithCancel(ctx)
 	dr := &decodedReader{
+		ctx:    context,
+		cancel: cancel,
 		rs:     rs,
 		es:     es,
-		inbufs: make(map[int][]byte, len(rs)),
 		outbuf: make([]byte, 0, es.DecodedBlockSize()),
+		chans:  make(map[int]chan block, len(rs)),
+		eb:     expectedSize / int64(es.DecodedBlockSize()),
 	}
+	// Kick off a goroutine for each reader. Each reads a block from the
+	// reader and adds it to a buffered channel. If an error is read
+	// (including EOF), a block with the error is added to the channel,
+	// the channel is closed and the goroutine exits.
 	for i := range rs {
-		dr.inbufs[i] = make([]byte, es.EncodedBlockSize())
+		dr.chans[i] = make(chan block, chanSize)
+		go func(i int, ch chan block) {
+			// close the channel when the goroutine exits
+			defer close(ch)
+			for blockNum := int64(0); ; blockNum++ {
+				// read the next block
+				data := make([]byte, es.EncodedBlockSize())
+				_, err := io.ReadFull(dr.rs[i], data)
+				// add it to the channel
+				select {
+				case ch <- block{i, blockNum, data, err}:
+					if err != nil {
+						// exit the goroutine (will close the channel)
+						return
+					}
+				case <-ctx.Done():
+					// Close() has been called
+					// exit the goroutine (will close the channel)
+					return
+				}
+			}
+		}(i, dr.chans[i])
 	}
 	return dr
 }
@@ -45,43 +103,28 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
 		if dr.err != nil {
-			return 0, err
+			return 0, dr.err
 		}
-		// we're going to kick off a bunch of goroutines. make a
-		// channel to catch those goroutine errors. importantly,
-		// the channel has a buffer size to contain all the errors
-		// even if we read none, so we can return without receiving
-		// every channel value
-		errs := make(chan readerError, len(dr.rs))
-		for i := range dr.rs {
-			go func(i int) {
-				// fill the buffer from the piece input
-				_, err := io.ReadFull(dr.rs[i], dr.inbufs[i])
-				errs <- readerError{i, err}
-			}(i)
+		// return EOF is the expected blocks are read
+		if dr.cb >= dr.eb {
+			dr.err = io.EOF
+			return 0, dr.err
 		}
-		// catch all the errors
-		inbufs := make(map[int][]byte, len(dr.inbufs))
-		eofbufs := 0
-		for range dr.rs {
-			re := <-errs
-			if re.err == nil {
-				// add inbuf for decoding only if no error
-				inbufs[re.i] = dr.inbufs[re.i]
-			} else if re.err == io.EOF {
-				// keep track of inbufs at EOF
-				eofbufs++
-			}
-			if eofbufs >= dr.es.RequiredCount() {
-				dr.err = io.EOF
+		// read the input buffers of the next block - may also decode it
+		inbufs := make(map[int][]byte, len(dr.chans))
+		dr.err = dr.readBlock(inbufs)
+		if dr.err != nil {
+			return 0, dr.err
+		}
+		// if not decoded yet, decode now what's available
+		if len(dr.outbuf) <= 0 {
+			dr.outbuf, dr.err = dr.es.Decode(dr.outbuf, inbufs)
+			if dr.err != nil {
 				return 0, dr.err
 			}
 		}
-		// we have all the input buffers, fill the decoded output buffer
-		dr.outbuf, err = dr.es.Decode(dr.outbuf, inbufs)
-		if err != nil {
-			return 0, err
-		}
+		// increment the block counter
+		dr.cb++
 	}
 
 	// copy what data we have to the output
@@ -94,6 +137,9 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 }
 
 func (dr *decodedReader) Close() error {
+	// cancel the context to terminate reader goroutines
+	dr.cancel()
+	// close the readers
 	var firstErr error
 	for _, c := range dr.rs {
 		err := c.Close()
@@ -104,17 +150,94 @@ func (dr *decodedReader) Close() error {
 	return firstErr
 }
 
+func (dr *decodedReader) makeSelectCases() []reflect.SelectCase {
+	cases := make([]reflect.SelectCase, len(dr.chans)+1)
+	// default case for non-blocking selection
+	cases[0] = reflect.SelectCase{
+		Dir: reflect.SelectDefault, Chan: reflect.Value{}}
+	// case for each channel
+	for i, ch := range dr.chans {
+		cases[i+1] = reflect.SelectCase{
+			Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)}
+	}
+	return cases
+}
+
+func (dr *decodedReader) removeCase(
+	cases []reflect.SelectCase, index int) []reflect.SelectCase {
+	return append(cases[:index], cases[index+1:]...)
+}
+
+func (dr *decodedReader) readBlock(inbufs map[int][]byte) error {
+	// use reflect to select from the array of channels
+	cases := dr.makeSelectCases()
+	// iterate until the new block is received from enough channels
+	for len(cases) > 1 {
+		// non-blocking select - harvest available input buffers
+		chosen, value, ok := reflect.Select(cases)
+		if chosen == 0 {
+			// default case - no more input buffers available
+			// required+1 will be enough to decode or detect most errors
+			if len(inbufs) >= dr.es.RequiredCount()+1 ||
+				len(inbufs) >= dr.es.TotalCount() {
+				// we have enough input buffers, fill the decoded output buffer
+				var err error
+				dr.outbuf, err = dr.es.Decode(dr.outbuf, inbufs)
+				if err == nil {
+					return nil
+				}
+				// if error is detected, iterate more to try error correction
+				// with more input buffers
+				if !infectious.NotEnoughShares.Contains(err) &&
+					!infectious.TooManyErrors.Contains(err) {
+					return err
+				}
+			}
+			// blocking select - wait for more input buffers
+			chosen, value, ok = reflect.Select(cases[1:])
+			chosen++
+		}
+		if !ok {
+			// the channel is closed - remove it from further selects
+			cases = dr.removeCase(cases, chosen)
+			continue
+		}
+		b := value.Interface().(block)
+		if b.err != nil {
+			// read error - remove the channel from further selects
+			cases = dr.removeCase(cases, chosen)
+			continue
+		}
+		// check if this is the expected block number
+		// if not (slow reader), discard it and make another select
+		if b.num == dr.cb {
+			inbufs[b.i] = b.data
+			// remove the channel from further selects to avoid reading
+			// the next block if reader is fast
+			cases = dr.removeCase(cases, chosen)
+		}
+	}
+	return nil
+}
+
 type decodedRanger struct {
-	es     ErasureScheme
-	rrs    map[int]ranger.Ranger
-	inSize int64
+	ctx             context.Context
+	es              ErasureScheme
+	rrs             map[int]ranger.Ranger
+	inSize          int64
+	maxBufferMemory int
 }
 
 // Decode takes a map of Rangers and an ErasureSchema and returns a combined
 // Ranger. The map, 'rrs', must be a mapping of erasure piece numbers
-// to erasure piece rangers.
-func Decode(rrs map[int]ranger.Ranger, es ErasureScheme) (
-	ranger.Ranger, error) {
+// to erasure piece rangers. maxBufferMemory is the maximum memory (in bytes)
+// to be allocated for read buffers. If set to 0, the minimum possible memory
+// will be used.
+func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
+	es ErasureScheme, maxBufferMemory int) (ranger.Ranger, error) {
+	if maxBufferMemory < 0 {
+		return nil, Error.New("negative max buffer memory")
+	}
 	size := int64(-1)
 	for _, rr := range rrs {
 		if size == -1 {
@@ -137,9 +260,11 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme) (
 		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
-		es:     es,
-		rrs:    rrs,
-		inSize: size,
+		ctx:             ctx,
+		es:              es,
+		rrs:             rrs,
+		inSize:          size,
+		maxBufferMemory: maxBufferMemory,
 	}, nil
 }
 
@@ -176,7 +301,7 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 		readers[res.i] = res.r
 	}
 	// decode from all those ranges
-	r := DecodeReaders(readers, dr.es)
+	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.maxBufferMemory)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))
