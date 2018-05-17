@@ -27,5 +27,12 @@ void storj_uv_run_cgo(storj_env_t *env)
 storj_bucket_meta_t *bucket_index(storj_bucket_meta_t *array, int index) {
   return &array[index];
 }
+
+//------------------------------------------------------------------------------
+// Returns the pointer to the array at the index
+//------------------------------------------------------------------------------
+storj_file_meta_t *file_index(storj_file_meta_t *array, int index) {
+  return &array[index];
+}
 */
 import "C"

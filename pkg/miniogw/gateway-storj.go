@@ -8,18 +8,20 @@ package storj
 #cgo LDFLAGS: -L . -lstorj
 #cgo LDFLAGS: -L /usr/lib -lcurl -lnettle -ljson-c -luv -lm
 #include "storj.h"
-#include <assert.h>
 
 void getbucketscallback(uv_work_t *work_req, int status); // Forward declaration.
+void listfilescallback(uv_work_t *work_req, int status);  // Forward declaration.
 void storj_uv_run_cgo(storj_env_t *env);
 int size_of_buckets_struct(void);
 storj_bucket_meta_t *bucket_index(storj_bucket_meta_t *array, int index);
+storj_file_meta_t *file_index(storj_file_meta_t *array, int index);
 */
 import "C"
 import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -45,6 +47,7 @@ var gGoEnvT *C.storj_env_t
 type S3CliAPI struct {
 	env        *C.storj_env_t
 	bucketInfo []minio.Bucket
+	bucketID   []string
 }
 
 // gS3CliApi global S3 interface structure
@@ -67,11 +70,12 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 		fmt.Printf("No buckets.\n")
 	}
 
-	for i := uint(1); i < uint(req.total_buckets); i++ {
+	for i := uint(0); i < uint(req.total_buckets); i++ {
 		bucket := C.bucket_index(req.buckets, C.int(i))
 
 		//gS3CliApi.buckets = append(gS3CliApi.buckets, C.GoString(bucket.name))
 		gS3CliAPI.bucketInfo = append(gS3CliAPI.bucketInfo, minio.Bucket{Name: C.GoString(bucket.name), CreationDate: C.GoString(bucket.created)})
+		gS3CliAPI.bucketID = append(gS3CliAPI.bucketID, C.GoString(bucket.id))
 		//gS3CliApi.created = append(gS3CliApi.created, C.GoString(bucket.created))
 
 		fmt.Printf("ID: %s \tDecrypted: %t \tCreated: %s \tName: %s\n",
@@ -80,6 +84,55 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	}
 
 	C.storj_free_get_buckets_request(req)
+	C.free(unsafe.Pointer(workreq))
+}
+
+//export listfilescallback
+func listfilescallback(workreq *C.uv_work_t, status C.int) {
+	fmt.Printf("Go.listfilescallback(): called with status = %d\n", status)
+
+	var req *C.list_files_request_t
+	req = (*C.list_files_request_t)(unsafe.Pointer(workreq.data))
+
+	if req.status_code == 404 {
+		fmt.Printf("Bucket id [%s] does not exist\n", C.GoString(req.bucket_id))
+		goto cleanup
+	} else if req.status_code == 400 {
+		fmt.Printf("Bucket id [%s] is invalid\n", C.GoString(req.bucket_id))
+		goto cleanup
+	} else if req.status_code == 401 {
+		fmt.Printf("Invalid user credentials.\n")
+		goto cleanup
+	} else if req.status_code == 403 {
+		fmt.Printf("Forbidden, user not active.\n")
+		goto cleanup
+	} else if req.status_code != 200 {
+		fmt.Printf("Request failed with status code: %d\n", C.int(req.status_code))
+	}
+
+	if req.total_files == 0 {
+		fmt.Printf("No files for bucket.\n")
+		goto cleanup
+	}
+
+	for i := uint(0); i < uint(req.total_files); i++ {
+		//file * C.storj_file_meta_t = unsafe.Pointer(&req.files[i])
+		file := C.file_index(req.files, C.int(i))
+		fmt.Printf("file name = %s\n", C.GoString(file.filename))
+		// printf("ID: %s \tSize: %" PRIu64 " bytes \tDecrypted: %s \tType: %s \tCreated: %s \tName: %s\n",
+		// 	file->id,
+		// 	file->size,
+		// 	file->decrypted ? "true" : "false",
+		// 	file->mimetype,
+		// 	file->created,
+		// 	file->filename);
+
+	}
+
+cleanup:
+
+	fmt.Printf("hello clean up \n")
+	C.storj_free_list_files_request(req)
 	C.free(unsafe.Pointer(workreq))
 }
 
@@ -188,6 +241,26 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+
+	var bucketID string
+	for i := 0x00; i < len(gS3CliAPI.bucketInfo); i++ {
+		ret := strings.Compare(gS3CliAPI.bucketInfo[i].Name, bucket)
+		if ret == 0x00 {
+			bucketID = gS3CliAPI.bucketID[i]
+			fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s; ret = %d\n", gS3CliAPI.bucketInfo[i].Name, ret)
+			break
+		}
+		/* Invalid bucket name handle here... */
+		if i == (len(gS3CliAPI.bucketInfo) - 1) {
+			fmt.Printf("Invalid bucket name \n")
+		}
+	}
+
+	fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s \n", bucketID)
+	response := C.storj_bridge_list_files((*C.storj_env_t)(gGoEnvT), C.CString(bucketID), nil, (C.uv_after_work_cb)(unsafe.Pointer(C.listfilescallback)))
+	C.storj_uv_run_cgo(gGoEnvT)
+	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
+
 	return minio.ListObjectsInfo{
 		IsTruncated: false,
 		Objects: []minio.ObjectInfo{{
