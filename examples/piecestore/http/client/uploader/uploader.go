@@ -199,13 +199,13 @@ func PrepareUpload(dataPath string) error {
 	// create the state
 	blacklist := []string{}
 	fileMeta := utils.FileMetaData{
-		Size: fileInfo.Size(),
-		Hash: hash,
-		TotalShards: shardCount,
-		AvgShardSize: avgShardSize,
+		Size:          fileInfo.Size(),
+		Hash:          hash,
+		TotalShards:   shardCount,
+		AvgShardSize:  avgShardSize,
 		TailShardSize: tailShardSize,
-		Shards: []utils.Shard{},
-		Progress: utils.InProgress,
+		Shards:        []utils.Shard{},
+		Progress:      utils.InProgress,
 	}
 
 	for i := 1; i <= shardCount; i++ {
