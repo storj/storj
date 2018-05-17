@@ -1,8 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
 
-// Package main implements a simple gRPC client that demonstrates how to use gRPC-Go libraries
-// to perform unary, client streaming, server streaming and full duplex RPCs.
-//
-// It interacts with the route guide service whose definition can be found in routeguide/route_guide.proto.
 package main
 
 import (
@@ -18,34 +16,34 @@ import (
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/examples/piecestore/rpc/client/api"
-	"storj.io/storj/examples/piecestore/rpc/client/utils"
-	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
+	"storj.io/storj/pkg/rpcClientServer/client/api"
+	"storj.io/storj/pkg/rpcClientServer/client/utils"
+	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 )
 
-var ArgError = errs.Class("argError")
+var argError = errs.Class("argError")
 
 func main() {
 
 	app := cli.NewApp()
 
 	// Set up connection with rpc server
-  var conn *grpc.ClientConn
-  conn, err := grpc.Dial(":7777", grpc.WithInsecure())
-  if err != nil {
-    log.Fatalf("did not connect: %s", err)
-  }
-  defer conn.Close()
+	var conn *grpc.ClientConn
+	conn, err := grpc.Dial(":7777", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %s", err)
+	}
+	defer conn.Close()
 	client := pb.NewPieceStoreRoutesClient(conn)
 
 	app.Commands = []cli.Command{
-    {
-      Name:    "upload",
-      Aliases: []string{"u"},
-      Usage:   "upload data",
-      Action:  func(c *cli.Context) error {
+		{
+			Name:    "upload",
+			Aliases: []string{"u"},
+			Usage:   "upload data",
+			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return ArgError.New("No input file specified")
+					return argError.New("No input file specified")
 				}
 
 				file, err := os.Open(c.Args().Get(0))
@@ -58,12 +56,12 @@ func main() {
 				fileInfo, err := os.Stat(c.Args().Get(0))
 
 				if fileInfo.IsDir() {
-					return ArgError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
+					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
 				}
 
 				var fileOffset, storeOffset int64 = 0, 0
-				var length int64 = fileInfo.Size()
-				var ttl int64 = time.Now().Unix() + 86400
+				var length = fileInfo.Size()
+				var ttl = time.Now().Unix() + 86400
 
 				hash, err := utils.DetermineHash(file, fileOffset, length)
 				if err != nil {
@@ -81,27 +79,27 @@ func main() {
 				}
 
 				fmt.Printf("successfully Stored file of hash: %s\n", hash)
-        return nil
-      },
-    },
-    {
-      Name:    "download",
-      Aliases: []string{"d"},
-      Usage:   "download data",
-      Action:  func(c *cli.Context) error {
+				return nil
+			},
+		},
+		{
+			Name:    "download",
+			Aliases: []string{"d"},
+			Usage:   "download data",
+			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return ArgError.New("No hash specified")
+					return argError.New("No hash specified")
 				}
 
 				hash := c.Args().Get(0)
 
 				if c.Args().Get(1) == "" {
-					return ArgError.New("No output file specified")
+					return argError.New("No output file specified")
 				}
 				_, err := os.Stat(c.Args().Get(1))
 
 				if !os.IsNotExist(err) {
-					return ArgError.New("Path already exists: "+ c.Args().Get(1))
+					return argError.New("Path already exists: " + c.Args().Get(1))
 				}
 
 				dataPath := c.Args().Get(1)
@@ -129,7 +127,7 @@ func main() {
 				}
 				defer reader.Close()
 
-				var totalRead int64 = 0
+				var totalRead int64
 				for totalRead < pieceInfo.Size {
 					b := make([]byte, 4096)
 					n, err := reader.Read(b)
@@ -155,24 +153,24 @@ func main() {
 				}
 
 				fmt.Printf("Successfully retrieved file of hash: %s\n", hash)
-        return nil
+				return nil
 
-      },
-    },
+			},
+		},
 		{
-      Name:    "delete",
-      Aliases: []string{"x"},
-      Usage:   "delete data",
-      Action:  func(c *cli.Context) error {
+			Name:    "delete",
+			Aliases: []string{"x"},
+			Usage:   "delete data",
+			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return ArgError.New("Missing data Hash")
+					return argError.New("Missing data Hash")
 				}
 				err = api.DeletePieceRequest(client, c.Args().Get(0))
 
 				return err
-      },
-    },
-  }
+			},
+		},
+	}
 
 	err = app.Run(os.Args)
 	if err != nil {

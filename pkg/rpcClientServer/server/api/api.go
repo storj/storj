@@ -1,7 +1,6 @@
-// Package main implements a simple gRPC server that demonstrates how to use gRPC-Go libraries
-// to perform unary, client streaming, server streaming and full duplex RPCs.
-//
-// It implements the route guide service whose definition can be found in routeguide/route_guide.proto.
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package api
 
 import (
@@ -12,30 +11,31 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"golang.org/x/net/context"
 
-	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
+	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 
 	"storj.io/storj/pkg/piecestore"
 )
 
+// Server -- GRPC server meta data used in route calls
 type Server struct {
-  PieceStoreDir string
-	DbPath string
+	PieceStoreDir string
+	DbPath        string
 }
 
+// StoreData -- Struct matching database
 type StoreData struct {
-	Ttl int64
+	TTL  int64
 	Hash string
 	Size int64
 }
 
+// Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
-  fmt.Println("Storing data...")
+	fmt.Println("Storing data...")
 	startTime := time.Now()
-	var total int64 = 0
+	var total int64
 	var storeMeta *StoreData
 	for {
 		pieceData, err := stream.Recv()
@@ -49,15 +49,15 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 			}
 			defer db.Close()
 
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, storeMeta.Hash, time.Now().Unix(), storeMeta.Ttl))
+			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, storeMeta.Hash, time.Now().Unix(), storeMeta.TTL))
 			if err != nil {
 				return err
 			}
 			return stream.SendAndClose(&pb.PieceStoreSummary{
-				Status:   0,
-				Message: "OK",
+				Status:        0,
+				Message:       "OK",
 				TotalReceived: total,
-				ElapsedTime:  int64(endTime.Sub(startTime).Seconds()),
+				ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
 			})
 		}
 		if err != nil {
@@ -65,54 +65,56 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		}
 
 		if storeMeta == nil {
-			storeMeta = &StoreData{Ttl: pieceData.Ttl, Hash: pieceData.Hash, Size: pieceData.Size}
+			storeMeta = &StoreData{TTL: pieceData.Ttl, Hash: pieceData.Hash, Size: pieceData.Size}
 		}
 
 		length := int64(len(pieceData.Content))
 
 		// Write chunk received to disk
-		err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total + pieceData.StoreOffset, s.PieceStoreDir)
+		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
 
 		if err != nil {
 			fmt.Println("Store data Error: ", err.Error())
 			endTime := time.Now()
 			return stream.SendAndClose(&pb.PieceStoreSummary{
-				Status:   -1,
-				Message: err.Error(),
+				Status:        -1,
+				Message:       err.Error(),
 				TotalReceived: total,
-				ElapsedTime:  int64(endTime.Sub(startTime).Seconds()),
+				ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
 			})
 		}
 
 		total += length
 	}
-  return nil
 }
 
+// Retrieve -- Retrieve data from piecestore and send to client
 func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
-  fmt.Println("Retrieving data...")
+	fmt.Println("Retrieving data...")
 
 	path, err := pstore.PathByHash(pieceMeta.Hash, s.PieceStoreDir)
+	if err != nil {
+		return err
+	}
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 
-	var total int64 = 0
+	var total int64
 	for total < fileInfo.Size() {
 
 		b := []byte{}
 		writeBuff := bytes.NewBuffer(b)
 
-		n, err := pstore.Retrieve(pieceMeta.Hash, writeBuff, 4096, pieceMeta.StoreOffset + total, s.PieceStoreDir)
+		n, err := pstore.Retrieve(pieceMeta.Hash, writeBuff, 4096, pieceMeta.StoreOffset+total, s.PieceStoreDir)
 		if err != nil {
 			return err
 		}
 
 		// Write the buffer to the stream we opened earlier
 		if err := stream.Send(&pb.PieceRetrievalStream{Size: n, Content: writeBuff.Bytes()}); err != nil {
-			fmt.Println("%v.Send() = %v", stream, err)
 			return err
 		}
 
@@ -122,6 +124,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 	return nil
 }
 
+// Piece -- Send meta data about a stored by by Hash
 func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary, error) {
 	fmt.Println("Getting Meta data...")
 
@@ -147,15 +150,16 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	var ttl int64
 
 	for rows.Next() {
-		 err = rows.Scan(&ttl)
-		 if err != nil {
-			 return nil, err
-		 }
+		err = rows.Scan(&ttl)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.PieceSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
+// Delete -- Delete data by Hash from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	fmt.Println("Deleting data")
 	startTime := time.Now()
@@ -163,9 +167,9 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 	if err != nil {
 		endTime := time.Now()
 		return &pb.PieceDeleteSummary{
-			Status:   -1,
-		  Message: err.Error(),
-		  ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
+			Status:      -1,
+			Message:     err.Error(),
+			ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
 		}, err
 	}
 	db, err := sql.Open("sqlite3", s.DbPath)
@@ -177,26 +181,26 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 	result, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, in.Hash))
 	if err != nil {
 		return &pb.PieceDeleteSummary{
-			Status:   -1,
-		  Message: err.Error(),
-		  ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
+			Status:      -1,
+			Message:     err.Error(),
+			ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
 		}, err
 	}
 	rowsDeleted, err := result.RowsAffected()
 	if err != nil {
 		return nil, err
-		}
+	}
 	if rowsDeleted == 0 || rowsDeleted > 1 {
 		return &pb.PieceDeleteSummary{
-			Status:   -1,
-		  Message: fmt.Sprintf("Rows affected: (%d) does not equal 1", rowsDeleted),
-		  ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
+			Status:      -1,
+			Message:     fmt.Sprintf("Rows affected: (%d) does not equal 1", rowsDeleted),
+			ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
 		}, nil
-		}
+	}
 	endTime := time.Now()
-  return &pb.PieceDeleteSummary{
-		Status:  0,
-		Message: "OK",
+	return &pb.PieceDeleteSummary{
+		Status:      0,
+		Message:     "OK",
 		ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
 	}, nil
 }

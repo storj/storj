@@ -1,14 +1,17 @@
-package utils // import github.com/cam-a/storj-client
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package utils
 
 import (
-  "database/sql"
-  "fmt"
-  "time"
+	"database/sql"
+	"fmt"
+	"time"
 
-  "github.com/aleitner/piece-store/src"
+	"storj.io/storj/pkg/piecestore"
 )
 
-// go routine to check ttl database for expired entries
+// DbChecker -- go routine to check ttl database for expired entries
 // pass in DB and location of file for deletion
 func DbChecker(db *sql.DB, dir string) {
 	tickChan := time.NewTicker(time.Second * 5).C
@@ -17,7 +20,7 @@ func DbChecker(db *sql.DB, dir string) {
 		case <-tickChan:
 			rows, err := db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: ", err.Error())
+				fmt.Printf("Error: %s\n", err.Error())
 			}
 			defer rows.Close()
 
@@ -29,23 +32,23 @@ func DbChecker(db *sql.DB, dir string) {
 
 				err = rows.Scan(&expHash, &expires)
 				if err != nil {
-					fmt.Printf("Error: ", err.Error())
+					fmt.Printf("Error: %s\n", err.Error())
 					return
 				}
 
 				// delete file on local machine
 				err = pstore.Delete(expHash, dir)
 				if err != nil {
-					fmt.Printf("Error: ", err.Error())
+					fmt.Printf("Error: %s\n", err.Error())
 					return
 				}
-				fmt.Println("Deleted file: ", expHash)
+				fmt.Printf("Deleted file: %s\n", expHash)
 			}
 
 			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
 			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: ", err.Error())
+				fmt.Printf("Error: %s\n", err.Error())
 				return
 			}
 		}

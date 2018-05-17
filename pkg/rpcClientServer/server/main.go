@@ -1,7 +1,6 @@
-// Package main implements a simple gRPC server that demonstrates how to use gRPC-Go libraries
-// to perform unary, client streaming, server streaming and full duplex RPCs.
-//
-// It implements the route guide service whose definition can be found in routeguide/route_guide.proto.
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -17,9 +16,9 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"storj.io/storj/examples/piecestore/rpc/server/api"
-	"storj.io/storj/examples/piecestore/rpc/server/utils"
-	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
+	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
+	"storj.io/storj/pkg/rpcClientServer/server/api"
+	"storj.io/storj/pkg/rpcClientServer/server/utils"
 )
 
 func main() {
@@ -46,14 +45,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-  // create a listener on TCP port
-  lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
-  if err != nil {
-    log.Fatalf("failed to listen: %v", err)
-  }
+	// create a listener on TCP port
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
 
-  // create a server instance
-  s := api.Server{dataDir, dbPath}
+	// create a server instance
+	s := api.Server{dataDir, dbPath}
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()
@@ -66,8 +65,8 @@ func main() {
 		utils.DbChecker(db, dataDir)
 	}()
 
-  // start the server
-  if err := grpcServer.Serve(lis); err != nil {
-    log.Fatalf("failed to serve: %s", err)
-  }
+	// start the server
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %s", err)
+	}
 }
