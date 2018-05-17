@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	//"storj.io/storj/netstate/auth"
 )
 
 // example of how the auth package is working.
@@ -28,7 +27,7 @@ func main() {
 	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 
-	// json string we will include in the PUT request
+	// json string we will be included in the PUT request
 	var jsonString = []byte(`{"value":"hello world"}`)
 
 	client := &http.Client{}
