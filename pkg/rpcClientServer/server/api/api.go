@@ -93,6 +93,9 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 	fmt.Println("Retrieving data...")
 
 	path, err := pstore.PathByHash(pieceMeta.Hash, s.PieceStoreDir)
+	if err != nil {
+		return err
+	}
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
