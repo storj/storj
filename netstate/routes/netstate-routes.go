@@ -42,9 +42,8 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 
 	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
-	result := auth.ValidateAPIKey(xAPIHeader)
 
-	if result == false {
+	if !auth.ValidateAPIKey(xAPIHeader) {
 		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
 		n.logger.Error("unauthorized: API credentials invalid")
 		return
@@ -84,9 +83,8 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 
 	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
-	result := auth.ValidateAPIKey(xAPIHeader)
 
-	if result == false {
+	if !auth.ValidateAPIKey(xAPIHeader) {
 		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
 		n.logger.Error("unauthorized: API credentials invalid")
 		return
@@ -117,9 +115,8 @@ func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprou
 
 	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
-	result := auth.ValidateAPIKey(xAPIHeader)
 
-	if result == false {
+	if !auth.ValidateAPIKey(xAPIHeader) {
 		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
 		n.logger.Error("unauthorized: API credentials invalid")
 		return
@@ -158,9 +155,8 @@ func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httpr
 
 	// check xapiheader sent from client to the one set
 	xAPIHeader := r.Header.Get("X-Api-Key")
-	result := auth.ValidateAPIKey(xAPIHeader)
 
-	if result == false {
+	if !auth.ValidateAPIKey(xAPIHeader) {
 		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
 		n.logger.Error("unauthorized: API credentials invalid")
 		return
