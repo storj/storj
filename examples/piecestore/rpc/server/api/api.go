@@ -129,6 +129,9 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	fmt.Println("Getting Meta data...")
 
 	path, err := pstore.PathByHash(in.Hash, s.PieceStoreDir)
+	if err != nil {
+		return nil, err
+	}
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
