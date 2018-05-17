@@ -16,7 +16,7 @@ import (
 func TestNodeReputationClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 7777))
 	if err != nil {
-		fmt.Println("err")
+		fmt.Println("net listen err")
 	}
 
 	grpcServer := grpc.NewServer()

@@ -185,7 +185,10 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 		res = UpdateReply_UPDATE_FAILED
 	}
 
-	row.source = in.Source
+	if row.nodeName != in.NodeName {
+		row.source = in.Source
+		row.nodeName = in.NodeName
+	}
 	newRecord := row
 
 	switch in.ColumnName.toColumn() {
