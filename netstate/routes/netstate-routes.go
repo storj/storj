@@ -12,6 +12,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
+	"storj.io/storj/netstate/auth"
 	"storj.io/storj/storage/boltdb"
 )
 
@@ -39,13 +40,23 @@ func NewNetStateRoutes(logger *zap.Logger, db *boltdb.Client) *NetStateRoutes {
 func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http put")
 
+	// check xapiheader sent from client to the one set
+	xAPIHeader := r.Header.Get("X-Api-Key")
+
+	if !auth.ValidateAPIKey(xAPIHeader) {
+		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
+		n.logger.Error("unauthorized: API credentials invalid")
+		return
+	}
+
+	// if correct api header, proceed with request
 	givenPath := ps.ByName("path")
 	var msg Message
 
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&msg)
 	if err != nil {
-		http.Error(w, "bad request: err decoding response", http.StatusBadRequest)
+		http.Error(w, "err decoding response", http.StatusBadRequest)
 		n.logger.Error("err decoding response", zap.Error(err))
 		return
 	}
@@ -70,6 +81,15 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http get")
 
+	// check xapiheader sent from client to the one set
+	xAPIHeader := r.Header.Get("X-Api-Key")
+
+	if !auth.ValidateAPIKey(xAPIHeader) {
+		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
+		n.logger.Error("unauthorized: API credentials invalid")
+		return
+	}
+
 	fileKey := ps.ByName("path")
 
 	fileValue, err := n.DB.Get([]byte(fileKey))
@@ -92,6 +112,15 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 // or "filekeys"
 func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http list")
+
+	// check xapiheader sent from client to the one set
+	xAPIHeader := r.Header.Get("X-Api-Key")
+
+	if !auth.ValidateAPIKey(xAPIHeader) {
+		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
+		n.logger.Error("unauthorized: API credentials invalid")
+		return
+	}
 
 	filePaths, err := n.DB.List()
 	if err != nil {
@@ -123,6 +152,15 @@ func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprou
 // Delete takes a given file path and calls the bolt client's Delete function
 func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http delete")
+
+	// check xapiheader sent from client to the one set
+	xAPIHeader := r.Header.Get("X-Api-Key")
+
+	if !auth.ValidateAPIKey(xAPIHeader) {
+		http.Error(w, "unauthorized: invalid API credentials", http.StatusUnauthorized)
+		n.logger.Error("unauthorized: API credentials invalid")
+		return
+	}
 
 	fileKey := ps.ByName("path")
 	if err := n.DB.Delete([]byte(fileKey)); err != nil {

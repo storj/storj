@@ -4,10 +4,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"net/http"
 	"os"
-
-	"storj.io/storj/netstate/auth"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -17,17 +17,30 @@ import (
 // see readme in auth/ for how to run
 func main() {
 
+	// set client api credentials
+	// hardcoded as an example
 	pflag.String("key", "", "this is your API KEY")
 	viper.BindPFlag("key", pflag.Lookup("key"))
 	pflag.Parse()
 
 	viper.SetEnvPrefix("API")
-	os.Setenv("API_KEY", "12345")
+	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 
-	httpRequestHeaders := auth.InitializeHeaders()
-	xAPIKey := httpRequestHeaders.Get("X-Api-Key")
+	// json string we will be included in the PUT request
+	var jsonString = []byte(`{"value":"hello world"}`)
 
-	isAuthorized := auth.ValidateAPIKey(xAPIKey)
-	fmt.Println(isAuthorized)
+	client := &http.Client{}
+	req, err := http.NewRequest("PUT", "http://localhost:3000/file/my/test/file", bytes.NewBuffer(jsonString))
+	req.Header.Add("X-Api-Key", viper.GetString("key"))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("the response is: ", resp)
 }
