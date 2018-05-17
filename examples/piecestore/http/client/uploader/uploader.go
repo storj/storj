@@ -148,7 +148,7 @@ func uploadShard(i int, uploadState *utils.State) error {
 		fmt.Printf("Failed to upload shard (%v) to farmer (%s)\n", i, farmer)
 	}
 
-	go queueUpload(uploadState)
+	queueUpload(uploadState)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func queueUpload(uploadState *utils.State) {
 
 	for i := 1; i <= fileMeta.TotalShards; i++ {
 		if fileMeta.Shards[i-1].Progress == utils.Awaiting {
-			go uploadShard(i, uploadState)
+			uploadShard(i, uploadState)
 		}
 	}
 

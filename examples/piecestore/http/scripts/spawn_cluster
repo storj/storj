@@ -2,13 +2,14 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$DIR"/../bin/piece-store-server" 8080 &
-$DIR"/../bin/piece-store-server" 8081 &
-$DIR"/../bin/piece-store-server" 8082 &
-$DIR"/../bin/piece-store-server" 8083 &
-$DIR"/../bin/piece-store-server" 8084 &
-$DIR"/../bin/piece-store-server" 8085 &
-$DIR"/../bin/piece-store-server" 8086 &
-$DIR"/../bin/piece-store-server" 8087 &
-$DIR"/../bin/piece-store-server" 8088 &
-$DIR"/../bin/piece-store-server" 8089 &
+vgo build -o piece-store-server $DIR"/../server/main.go"
+$DIR"/piece-store-server" 8080 &
+$DIR"/piece-store-server" 8081 &
+$DIR"/piece-store-server" 8082 &
+$DIR"/piece-store-server" 8083 &
+$DIR"/piece-store-server" 8084 &
+$DIR"/piece-store-server" 8085 &
+$DIR"/piece-store-server" 8086 &
+$DIR"/piece-store-server" 8087 &
+$DIR"/piece-store-server" 8088 &
+$DIR"/piece-store-server" 8089 &
