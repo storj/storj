@@ -46,13 +46,22 @@ var (
 )
 
 // Main initializes a new Service
-func Main(s Service) error {
+func Main(s Service) (err error) {
 	flagfile.Load()
+
 	ctx := context.Background()
+
 	instanceId := s.InstanceId()
 	if instanceId == "" {
 		instanceId = telemetry.DefaultInstanceId()
 	}
+
+	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceId))
+	defer cf()
+
+	registry := monkit.Default
+	scope := registry.ScopeNamed("process")
+	defer scope.TaskNamed("main")(&ctx)(&err)
 
 	logger, err := utils.NewLogger(*logDisposition,
 		zap.Fields(zap.String(string(id), instanceId)))
@@ -63,17 +72,18 @@ func Main(s Service) error {
 	defer zap.ReplaceGlobals(logger)()
 	defer zap.RedirectStdLog(logger)()
 
-	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceId))
-	defer cf()
-
 	s.SetLogger(logger)
+	s.SetMetricHandler(registry)
 
-	registry := monkit.Default
 	err = initMetrics(ctx, registry, instanceId)
 	if err != nil {
 		logger.Error("failed to configure telemetry", zap.Error(err))
 	}
-	s.SetMetricHandler(registry)
+
+	err = initDebug(ctx, logger, registry)
+	if err != nil {
+		logger.Error("failed to start debug endpoints", zap.Error(err))
+	}
 
 	return s.Process(ctx)
 }
