@@ -12,7 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
+	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 )
 
 func TestGRPCRanger(t *testing.T) {

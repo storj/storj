@@ -8,10 +8,10 @@ import (
 	"io"
 	"io/ioutil"
 
-	"storj.io/storj/examples/piecestore/rpc/client/api"
 	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/pkg/rpcClientServer/client/api"
 
-	pb "storj.io/storj/examples/piecestore/rpc/protobuf"
+	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 )
 
 type grpcRanger struct {
