@@ -102,5 +102,5 @@ func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	return nil
 }
 
-// InstanceId implements Service.InstanceId
-func (s *Service) InstanceId() string { return "" }
+// InstanceID implements Service.InstanceID
+func (s *Service) InstanceID() string { return "" }

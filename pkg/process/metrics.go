@@ -26,7 +26,7 @@ var (
 		"application suffix")
 )
 
-func initMetrics(ctx context.Context, r *monkit.Registry, instanceId string) (
+func initMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 	err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
 		return Error.New("telemetry disabled")
@@ -34,7 +34,7 @@ func initMetrics(ctx context.Context, r *monkit.Registry, instanceId string) (
 	c, err := telemetry.NewClient(*metricCollector, telemetry.ClientOpts{
 		Interval:      *metricInterval,
 		Application:   *metricApp + *metricAppSuffix,
-		Instance:      instanceId,
+		Instance:      instanceID,
 		Registry:      r,
 		FloatEncoding: admproto.Float32Encoding,
 	})

@@ -17,10 +17,10 @@ var (
 )
 
 func main() {
-	process.Must(process.Main(process.ServiceFunc(Main)))
+	process.Must(process.Main(process.ServiceFunc(run)))
 }
 
-func Main(ctx context.Context) error {
+func run(ctx context.Context) error {
 	s, err := telemetry.Listen(*addr)
 	if err != nil {
 		return err

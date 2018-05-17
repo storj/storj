@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	unknownInstanceID = "unknown"
+)
+
 func jitter(t time.Duration) time.Duration {
 	nanos := rand.NormFloat64()*float64(t/4) + float64(t)
 	if nanos <= 0 {
@@ -18,18 +22,18 @@ func jitter(t time.Duration) time.Duration {
 	return time.Duration(nanos)
 }
 
-// DefaultInstanceId will return the first non-nil mac address if possible,
+// DefaultInstanceID will return the first non-nil mac address if possible,
 // unknown otherwise.
-func DefaultInstanceId() string {
+func DefaultInstanceID() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		log.Printf("failed to determine default instance id: %v", err)
-		return "unknown"
+		return unknownInstanceID
 	}
 	for _, iface := range ifaces {
 		if iface.HardwareAddr != nil {
 			return iface.HardwareAddr.String()
 		}
 	}
-	return "unknown"
+	return unknownInstanceID
 }

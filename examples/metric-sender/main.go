@@ -12,10 +12,10 @@ import (
 
 func main() {
 	flag.Set("metrics.interval", "1s")
-	process.Must(process.Main(process.ServiceFunc(Main)))
+	process.Must(process.Main(process.ServiceFunc(run)))
 }
 
-func Main(ctx context.Context) error {
+func run(ctx context.Context) error {
 	// just go to sleep and let the background telemetry start sending
 	select {}
 }

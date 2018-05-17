@@ -21,6 +21,7 @@ var (
 	logDisposition = flag.String("log.disp", "prod",
 		"switch to 'dev' to get more output")
 
+	// Error is a process error class
 	Error = errs.Class("ProcessError")
 )
 
@@ -35,13 +36,13 @@ type Service interface {
 	SetLogger(*zap.Logger) error
 	SetMetricHandler(*monkit.Registry) error
 
-	// InstanceId should return a server or process instance identifier that is
+	// InstanceID should return a server or process instance identifier that is
 	// stable across restarts, or the empty string to use the first non-nil
 	// MAC address
-	InstanceId() string
+	InstanceID() string
 }
 
-var (
+const (
 	id ID = "SrvID"
 )
 
@@ -51,12 +52,12 @@ func Main(s Service) (err error) {
 
 	ctx := context.Background()
 
-	instanceId := s.InstanceId()
-	if instanceId == "" {
-		instanceId = telemetry.DefaultInstanceId()
+	instanceID := s.InstanceID()
+	if instanceID == "" {
+		instanceID = telemetry.DefaultInstanceID()
 	}
 
-	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceId))
+	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceID))
 	defer cf()
 
 	registry := monkit.Default
@@ -64,7 +65,7 @@ func Main(s Service) (err error) {
 	defer scope.TaskNamed("main")(&ctx)(&err)
 
 	logger, err := utils.NewLogger(*logDisposition,
-		zap.Fields(zap.String(string(id), instanceId)))
+		zap.Fields(zap.String(string(id), instanceID)))
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func Main(s Service) (err error) {
 	s.SetLogger(logger)
 	s.SetMetricHandler(registry)
 
-	err = initMetrics(ctx, registry, instanceId)
+	err = initMetrics(ctx, registry, instanceID)
 	if err != nil {
 		logger.Error("failed to configure telemetry", zap.Error(err))
 	}

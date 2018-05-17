@@ -73,7 +73,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 		}
 	}
 	if opts.Instance == "" {
-		opts.Instance = DefaultInstanceId()
+		opts.Instance = DefaultInstanceID()
 	}
 	if opts.Registry == nil {
 		opts.Registry = monkit.Default
