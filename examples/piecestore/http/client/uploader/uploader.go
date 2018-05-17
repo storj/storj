@@ -198,12 +198,21 @@ func PrepareUpload(dataPath string) error {
 
 	// create the state
 	blacklist := []string{}
-	fileMeta := utils.FileMetaData{fileInfo.Size(), hash, shardCount, avgShardSize, tailShardSize, []utils.Shard{}, utils.InProgress}
-	for i := 1; i <= shardCount; i++ {
-		fileMeta.Shards = append(fileMeta.Shards, utils.Shard{i, "", 0, 0, []string{}, utils.Awaiting})
+	fileMeta := utils.FileMetaData{
+		Size: fileInfo.Size(),
+		Hash: hash,
+		TotalShards: shardCount,
+		AvgShardSize: avgShardSize,
+		TailShardSize: tailShardSize,
+		Shards: []utils.Shard{},
+		Progress: utils.InProgress,
 	}
 
-	uploadState := utils.State{blacklist, &fileMeta, file, dataPath}
+	for i := 1; i <= shardCount; i++ {
+		fileMeta.Shards = append(fileMeta.Shards, utils.Shard{N: i, Hash: "", Offset: 0, Size: 0, Locations: []string{}, Progress: utils.Awaiting})
+	}
+
+	uploadState := utils.State{Blacklist: blacklist, FileMeta: &fileMeta, File: file, FilePath: dataPath}
 
 	queueUpload(&uploadState)
 

@@ -123,7 +123,7 @@ func PrepareDownload(hash string, path string) error {
 		fileMeta.Shards[i-1].Progress = utils.Awaiting
 	}
 
-	downloadState := utils.State{blacklist, fileMeta, file, path}
+	downloadState := utils.State{Blacklist: blacklist, FileMeta: fileMeta, File: file, FilePath: path}
 
 	queueDownload(&downloadState)
 
