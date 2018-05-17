@@ -11,6 +11,8 @@ import (
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
+	rt             RoutingTable
+	bootstrapNodes []overlay.Node
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
@@ -26,6 +28,10 @@ func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k Kademlia) Bootstrap(ctx context.Context) error {
+	// loop through the bootstrap nodes looking for yourself
+	// contact (all?) the nodes looking for my ID
+	// As we get responses back:
+	// add them into our buckets
 	return nil
 }
 
@@ -39,3 +45,5 @@ func (k Kademlia) Ping(ctx context.Context, node overlay.Node) (overlay.Node, er
 func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (overlay.Node, error) {
 	return overlay.Node{}, nil
 }
+
+func walk()
