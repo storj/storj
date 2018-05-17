@@ -13,6 +13,8 @@ import (
 
 	"golang.org/x/net/context"
 
+	_ "github.com/mattn/go-sqlite3"
+
 	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 
 	"storj.io/storj/pkg/piecestore"
@@ -40,9 +42,17 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	for {
 		pieceData, err := stream.Recv()
 		if err == io.EOF {
-			fmt.Println("Successfully stored data...")
 			endTime := time.Now()
-
+			if storeMeta == nil {
+				return stream.SendAndClose(&pb.PieceStoreSummary{
+					Status:        -1,
+					Message:       "No data received",
+					TotalReceived: total,
+					ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
+				})
+			}
+			fmt.Println("Successfully stored data...")
+			
 			db, err := sql.Open("sqlite3", s.DbPath)
 			if err != nil {
 				return err
