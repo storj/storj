@@ -6,7 +6,6 @@ package api
 import (
 	"io"
 	"log"
-	"time"
 
 	"golang.org/x/net/context"
 
@@ -21,7 +20,7 @@ var serverError = errs.Class("serverError")
 type PieceMeta struct {
 	Hash       string
 	Size       int64
-	Expiration time.Time
+	Expiration int64
 }
 
 // PieceMetaRequest -- Request info about a piece by Hash
