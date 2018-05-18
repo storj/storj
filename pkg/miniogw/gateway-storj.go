@@ -48,7 +48,7 @@ type S3CliAPI struct {
 	env        *C.storj_env_t
 	bucketInfo []minio.Bucket
 	bucketID   []string
-	fileInfo   []minio.ObjectInfo
+	fileInfo   minio.ListObjectsInfo
 }
 
 // gS3CliApi global S3 interface structure
@@ -119,7 +119,7 @@ func listfilescallback(workreq *C.uv_work_t, status C.int) {
 	}
 
 	/* clear the file info */
-	gS3CliAPI.fileInfo = gS3CliAPI.fileInfo[:0]
+	gS3CliAPI.fileInfo.Objects = gS3CliAPI.fileInfo.Objects[:0]
 	/* clear the bucket ID */
 	gS3CliAPI.bucketID = gS3CliAPI.bucketID[:0]
 	for i := uint(0); i < uint(req.total_files); i++ {
@@ -131,7 +131,7 @@ func listfilescallback(workreq *C.uv_work_t, status C.int) {
 		if err != nil {
 			t = time.Now()
 		}
-		gS3CliAPI.fileInfo = append(gS3CliAPI.fileInfo,
+		gS3CliAPI.fileInfo.Objects = append(gS3CliAPI.fileInfo.Objects,
 			minio.ObjectInfo{Name: C.GoString(file.filename),
 				ModTime:     t,
 				Size:        int64(C.int(file.size)),
@@ -254,18 +254,19 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 		}
 	}
 
-	return b, err
+	return b, nil
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 
 	var bucketID string
+	var bucketName string
 	for i := 0x00; i < len(gS3CliAPI.bucketInfo); i++ {
 		ret := strings.Compare(gS3CliAPI.bucketInfo[i].Name, bucket)
 		if ret == 0x00 {
 			bucketID = gS3CliAPI.bucketID[i]
-			fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s; ret = %d\n", gS3CliAPI.bucketInfo[i].Name, ret)
+			bucketName = gS3CliAPI.bucketInfo[i].Name
 			break
 		}
 		/* @TODO: Invalid bucket name handle here... */
@@ -274,21 +275,29 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		}
 	}
 
-	fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s \n", bucketID)
+	fmt.Printf("gS3CliAPI.bucketID = %s \n", bucketID)
+	fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s\n", bucketName)
+
 	response := C.storj_bridge_list_files((*C.storj_env_t)(gGoEnvT), C.CString(bucketID), nil, (C.uv_after_work_cb)(unsafe.Pointer(C.listfilescallback)))
 	C.storj_uv_run_cgo(gGoEnvT)
 	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
 
+	b := make([]minio.ObjectInfo, len(gS3CliAPI.fileInfo.Objects))
+	for i, bi := range gS3CliAPI.fileInfo.Objects {
+		b[i] = minio.ObjectInfo{
+			Bucket:      bucketName,
+			Name:        bi.Name,
+			ModTime:     bi.ModTime,
+			Size:        bi.Size,
+			IsDir:       bi.IsDir,
+			ContentType: bi.ContentType,
+		}
+	}
+
+	//return b, nil
 	return minio.ListObjectsInfo{
 		IsTruncated: false,
-		Objects: []minio.ObjectInfo{{
-			Bucket:      "test-bucket",
-			Name:        "test-file",
-			ModTime:     time.Now(),
-			Size:        0,
-			IsDir:       false,
-			ContentType: "application/octet-stream",
-		}},
+		Objects:     b,
 	}, nil
 }
 
