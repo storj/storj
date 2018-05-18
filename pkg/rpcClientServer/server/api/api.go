@@ -193,7 +193,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 	}
 	defer db.Close()
 
-	result, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, in.Hash))
+	_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, in.Hash))
 	if err != nil {
 		return &pb.PieceDeleteSummary{
 			Status:      -1,
@@ -201,17 +201,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 			ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
 		}, err
 	}
-	rowsDeleted, err := result.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-	if rowsDeleted == 0 || rowsDeleted > 1 {
-		return &pb.PieceDeleteSummary{
-			Status:      -1,
-			Message:     fmt.Sprintf("Rows affected: (%d) does not equal 1", rowsDeleted),
-			ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
-		}, nil
-	}
+
 	endTime := time.Now()
 	return &pb.PieceDeleteSummary{
 		Status:      0,
