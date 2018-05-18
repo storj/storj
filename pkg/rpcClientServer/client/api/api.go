@@ -4,6 +4,7 @@
 package api
 
 import (
+	"error"
 	"io"
 	"log"
 
@@ -82,7 +83,12 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
 	}
 
 	n := copy(b, pieceData.Content)
-	return n, err
+
+	if cap(b) < len(pieceData.Content) {
+		return n, errors.New("Buffer wasn't large enough to read all data")
+	}
+
+	return n, nil
 }
 
 // Close -- Close Read Stream

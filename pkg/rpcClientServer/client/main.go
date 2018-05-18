@@ -127,7 +127,7 @@ func main() {
 				}
 				defer reader.Close()
 
-				var totalRead int64
+				totalRead := int64(0)
 				for totalRead < pieceInfo.Size {
 					b := make([]byte, 4096)
 					n, err := reader.Read(b)

@@ -31,8 +31,6 @@ func DBCleanup(DBPath string, dir string) error {
 			}
 			defer rows.Close()
 
-			// iterate though selected rows
-			// tried to wrap this inside (if rows != nil) but seems rows has value even if no entries meet condition. Thoughts?
 			for rows.Next() {
 				var expHash string
 				var expires int64
@@ -47,7 +45,11 @@ func DBCleanup(DBPath string, dir string) error {
 				if err != nil {
 					return err
 				}
+
 				log.Printf("Deleted file: %s\n", expHash)
+				if rows.Err() != nil {
+					return rows.Err()
+				}
 			}
 
 			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
