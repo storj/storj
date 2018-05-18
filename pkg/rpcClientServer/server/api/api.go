@@ -6,6 +6,7 @@ package api
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,6 +33,25 @@ type StoreData struct {
 	Size int64
 }
 
+func storeCloseStream(stream pb.PieceStoreRoutes_StoreServer, startTime int64, total int64, err error) error {
+	endTime := time.Now()
+
+	message := "OK"
+	status := 0
+
+	if err != nil {
+		status = -1
+		message = err.Error()
+	}
+
+	return stream.SendAndClose(&pb.PieceStoreSummary{
+		Status:        status,
+		Message:       message,
+		TotalReceived: total,
+		ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
+	})
+}
+
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	fmt.Println("Storing data...")
@@ -47,13 +67,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		}
 
 		if err != nil {
-			endTime := time.Now()
-			return stream.SendAndClose(&pb.PieceStoreSummary{
-				Status:        -1,
-				Message:       err.Error(),
-				TotalReceived: total,
-				ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
-			})
+			return storeCloseStream(stream, startTime, total, err)
 		}
 
 		if storeMeta == nil {
@@ -66,42 +80,24 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
 
 		if err != nil {
-			endTime := time.Now()
-			return stream.SendAndClose(&pb.PieceStoreSummary{
-				Status:        -1,
-				Message:       err.Error(),
-				TotalReceived: total,
-				ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
-			})
+			return storeCloseStream(stream, startTime, total, err)
 		}
 
 		total += length
 	}
 
 	if total <= 0 {
-		endTime := time.Now()
-		return stream.SendAndClose(&pb.PieceStoreSummary{
-			Status:        -1,
-			Message:       "No data received",
-			TotalReceived: total,
-			ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
-		})
+		return storeCloseStream(stream, startTime, total, errors.New("No data received"))
 	}
 
 	fmt.Println("Successfully stored data...")
 
 	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
 	if err != nil {
-		return err
+		return storeCloseStream(stream, startTime, total, err)
 	}
 
-	endTime := time.Now()
-	return stream.SendAndClose(&pb.PieceStoreSummary{
-		Status:        0,
-		Message:       "OK",
-		TotalReceived: total,
-		ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
-	})
+	return storeCloseStream(stream, startTime, total, nil)
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
