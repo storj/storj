@@ -42,12 +42,15 @@ var gGoEnvT *C.storj_env_t
 // 	Password string
 // 	Mnemonic string
 // }
+type S3Bucket struct {
+	bucket   minio.Bucket
+	bucketID string
+}
 
 // S3CliAPI contains parameters for accessing the Storj network
 type S3CliAPI struct {
 	env        *C.storj_env_t
-	bucketInfo []minio.Bucket
-	bucketID   []string
+	bucketInfo []S3Bucket
 	fileInfo   minio.ListObjectsInfo
 }
 
@@ -76,16 +79,19 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 	for i := uint(0); i < uint(req.total_buckets); i++ {
 		bucket := C.bucket_index(req.buckets, C.int(i))
 
-		//gS3CliApi.buckets = append(gS3CliApi.buckets, C.GoString(bucket.name))
-		gS3CliAPI.bucketInfo = append(gS3CliAPI.bucketInfo, minio.Bucket{Name: C.GoString(bucket.name), CreationDate: C.GoString(bucket.created)})
-		gS3CliAPI.bucketID = append(gS3CliAPI.bucketID, C.GoString(bucket.id))
-		//gS3CliApi.created = append(gS3CliApi.created, C.GoString(bucket.created))
+		gS3CliAPI.bucketInfo = append(gS3CliAPI.bucketInfo,
+			S3Bucket{
+				bucket: minio.Bucket{
+					Name:         C.GoString(bucket.name),
+					CreationDate: C.GoString(bucket.created)},
+				bucketID: C.GoString(bucket.id)})
 
 		fmt.Printf("ID: %s \tDecrypted: %t \tCreated: %s \tName: %s\n",
 			C.GoString(bucket.id), bucket.decrypted,
 			C.GoString(bucket.created), C.GoString(bucket.name))
 	}
 
+	fmt.Println("bucketInfo= ", gS3CliAPI.bucketInfo)
 	C.storj_free_get_buckets_request(req)
 	C.free(unsafe.Pointer(workreq))
 }
@@ -120,19 +126,15 @@ func listfilescallback(workreq *C.uv_work_t, status C.int) {
 
 	/* clear the file info */
 	gS3CliAPI.fileInfo.Objects = gS3CliAPI.fileInfo.Objects[:0]
-	/* clear the bucket ID */
-	gS3CliAPI.bucketID = gS3CliAPI.bucketID[:0]
 	for i := uint(0); i < uint(req.total_files); i++ {
 		file := C.file_index(req.files, C.int(i))
-
-		/* get the bucket id */
-		gS3CliAPI.bucketID = append(gS3CliAPI.bucketID, C.GoString(req.bucket_id))
 		t, err := time.Parse(time.RFC3339, C.GoString(file.created))
 		if err != nil {
 			t = time.Now()
 		}
 		gS3CliAPI.fileInfo.Objects = append(gS3CliAPI.fileInfo.Objects,
-			minio.ObjectInfo{Name: C.GoString(file.filename),
+			minio.ObjectInfo{
+				Name:        C.GoString(file.filename),
 				ModTime:     t,
 				Size:        int64(C.int(file.size)),
 				ContentType: C.GoString(file.mimetype),
@@ -244,12 +246,12 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 
 	b := make([]minio.BucketInfo, len(gS3CliAPI.bucketInfo))
 	for i, bi := range gS3CliAPI.bucketInfo {
-		t, err := time.Parse(time.RFC3339, bi.CreationDate)
+		t, err := time.Parse(time.RFC3339, bi.bucket.CreationDate)
 		if err != nil {
 			t = time.Now()
 		}
 		b[i] = minio.BucketInfo{
-			Name:    bi.Name,
+			Name:    bi.bucket.Name,
 			Created: t,
 		}
 	}
@@ -262,11 +264,15 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 
 	var bucketID string
 	var bucketName string
-	for i := 0x00; i < len(gS3CliAPI.bucketInfo); i++ {
-		ret := strings.Compare(gS3CliAPI.bucketInfo[i].Name, bucket)
+	/* @TODO: Handle Zero files in a bucket name */
+	for i, v := range gS3CliAPI.bucketInfo {
+		bucketID = v.bucketID
+		bucketName = v.bucket.Name
+		fmt.Printf("ID: %s \tName: %s\n", bucketID, bucketName)
+		ret := strings.Compare(bucketName, bucket)
 		if ret == 0x00 {
-			bucketID = gS3CliAPI.bucketID[i]
-			bucketName = gS3CliAPI.bucketInfo[i].Name
+			bucketID = v.bucketID
+			bucketName = v.bucket.Name
 			break
 		}
 		/* @TODO: Invalid bucket name handle here... */
@@ -283,6 +289,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
 
 	b := make([]minio.ObjectInfo, len(gS3CliAPI.fileInfo.Objects))
+	/* @TODO: Handle Zero files in a bucket name */
 	for i, bi := range gS3CliAPI.fileInfo.Objects {
 		b[i] = minio.ObjectInfo{
 			Bucket:      bucketName,
