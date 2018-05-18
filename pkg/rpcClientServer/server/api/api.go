@@ -33,11 +33,11 @@ type StoreData struct {
 	Size int64
 }
 
-func storeCloseStream(stream pb.PieceStoreRoutes_StoreServer, startTime int64, total int64, err error) error {
+func storeCloseStream(stream pb.PieceStoreRoutes_StoreServer, startTime time.Time, total int64, err error) error {
 	endTime := time.Now()
 
 	message := "OK"
-	status := 0
+	status := int64(0)
 
 	if err != nil {
 		status = -1
@@ -148,24 +148,9 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	}
 
 	// Read database to calculate expiration
-	db, err := sql.Open("sqlite3", s.DBPath)
+	ttl, err := utils.GetTTLByHash(s.DBPath, in.Hash)
 	if err != nil {
 		return nil, err
-	}
-	defer db.Close()
-
-	rows, err := db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, in.Hash))
-	if err != nil {
-		return nil, err
-	}
-
-	var ttl int64
-
-	for rows.Next() {
-		err = rows.Scan(&ttl)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &pb.PieceSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil

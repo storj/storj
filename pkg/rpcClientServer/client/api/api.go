@@ -21,7 +21,7 @@ var serverError = errs.Class("serverError")
 type PieceMeta struct {
 	Hash       string
 	Size       int64
-	Expiration time.Duration
+	Expiration time.Time
 }
 
 // PieceMetaRequest -- Request info about a piece by Hash

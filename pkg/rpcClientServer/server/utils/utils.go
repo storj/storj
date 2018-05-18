@@ -90,3 +90,26 @@ func CreateDB(DBPath string) error {
 
 	return nil
 }
+
+// GetTTLByHash -- Find the TTL in the database by hash and return it
+func GetTTLByHash(DBPath string, hash string) (ttl int64, err error) {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
+	if err != nil {
+		return 0, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&ttl)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return ttl, nil
+}
