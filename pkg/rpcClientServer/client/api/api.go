@@ -6,6 +6,7 @@ package api
 import (
 	"io"
 	"log"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -20,7 +21,7 @@ var serverError = errs.Class("serverError")
 type PieceMeta struct {
 	Hash       string
 	Size       int64
-	Expiration int64
+	Expiration time.Duration
 }
 
 // PieceMetaRequest -- Request info about a piece by Hash
@@ -87,11 +88,7 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
 
 // Close -- Close Read Stream
 func (s *PieceStreamReader) Close() error {
-	if err := s.stream.CloseSend(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.stream.CloseSend()
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server

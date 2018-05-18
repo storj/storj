@@ -31,18 +31,12 @@ func main() {
 	}
 
 	dataDir := path.Join("./piece-store-data/", port)
-	dbPath := "ttl-data.db"
+	DBPath := "ttl-data.db"
 
 	// open ttl database
-	db, err := sql.Open("sqlite3", dbPath)
+	err := utils.CreateDB(DBPath)
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT, `created` INT(10), `expires` INT(10));")
-	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// create a listener on TCP port
@@ -52,7 +46,7 @@ func main() {
 	}
 
 	// create a server instance
-	s := api.Server{dataDir, dbPath}
+	s := api.Server{dataDir, DBPath}
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()
@@ -62,7 +56,7 @@ func main() {
 
 	// routinely check DB for and delete expired entries
 	go func() {
-		utils.DbChecker(db, dataDir)
+		utils.DBCleanup(DBPath, dataDir)
 	}()
 
 	// start the server

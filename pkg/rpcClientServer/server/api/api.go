@@ -21,7 +21,7 @@ import (
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	PieceStoreDir string
-	DbPath        string
+	DBPath        string
 }
 
 // StoreData -- Struct matching database
@@ -34,34 +34,19 @@ type StoreData struct {
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	fmt.Println("Storing data...")
+
 	startTime := time.Now()
-	var total int64
+	total := int64(0)
 	var storeMeta *StoreData
-	for {
-		pieceData, err := stream.Recv()
-		if err == io.EOF {
-			fmt.Println("Successfully stored data...")
-			endTime := time.Now()
 
-			db, err := sql.Open("sqlite3", s.DbPath)
-			if err != nil {
-				return err
-			}
-			defer db.Close()
-
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, storeMeta.Hash, time.Now().Unix(), storeMeta.TTL))
-			if err != nil {
-				return err
-			}
+	for pieceData, err := stream.Recv(); err != io.EOF {
+		if err != nil {
 			return stream.SendAndClose(&pb.PieceStoreSummary{
-				Status:        0,
-				Message:       "OK",
+				Status:        -1,
+				Message:       err.Error(),
 				TotalReceived: total,
 				ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
 			})
-		}
-		if err != nil {
-			return err
 		}
 
 		if storeMeta == nil {
@@ -74,8 +59,6 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
 
 		if err != nil {
-			fmt.Println("Store data Error: ", err.Error())
-			endTime := time.Now()
 			return stream.SendAndClose(&pb.PieceStoreSummary{
 				Status:        -1,
 				Message:       err.Error(),
@@ -86,6 +69,31 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		total += length
 	}
+
+	if total <= 0 {
+		endTime := time.Now()
+		return stream.SendAndClose(&pb.PieceStoreSummary{
+			Status:        -1,
+			Message:       "No data received",
+			TotalReceived: total,
+			ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
+		})
+	}
+
+	fmt.Println("Successfully stored data...")
+
+	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
+	if err != nil {
+		return err
+	}
+
+	endTime := time.Now()
+	return stream.SendAndClose(&pb.PieceStoreSummary{
+		Status:        0,
+		Message:       "OK",
+		TotalReceived: total,
+		ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
+	})
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
@@ -102,7 +110,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		return err
 	}
 
-	var total int64
+	total := int64(0)
 	for total < fileInfo.Size() {
 
 		b := []byte{}
@@ -136,7 +144,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	}
 
 	// Read database to calculate expiration
-	db, err := sql.Open("sqlite3", s.DbPath)
+	db, err := sql.Open("sqlite3", s.DBPath)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +180,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 			ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
 		}, err
 	}
-	db, err := sql.Open("sqlite3", s.DbPath)
+	db, err := sql.Open("sqlite3", s.DBPath)
 	if err != nil {
 		return nil, err
 	}

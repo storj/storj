@@ -11,9 +11,15 @@ import (
 	"storj.io/storj/pkg/piecestore"
 )
 
-// DbChecker -- go routine to check ttl database for expired entries
-// pass in DB and location of file for deletion
-func DbChecker(db *sql.DB, dir string) {
+// DBCleanup -- go routine to check ttl database for expired entries
+// pass in database path and location of file for deletion
+func DBCleanup(DBPath string, dir string) {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
 		select {
@@ -52,5 +58,33 @@ func DbChecker(db *sql.DB, dir string) {
 				return
 			}
 		}
+	}
+}
+
+// AddTTLToDB -- Insert TTL into database by hash
+func AddTTLToDB(DBPath string, hash string, ttl int64) error {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), ttl))
+	if err != nil {
+		return err
+	}
+}
+
+// CreateDB -- Create TTL database and table
+func CreateDB(DBPath string) error {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	if err != nil {
+		return err
 	}
 }
