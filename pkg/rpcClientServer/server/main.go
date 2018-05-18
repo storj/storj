@@ -4,7 +4,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -36,7 +35,7 @@ func main() {
 	// open ttl database
 	err := utils.CreateDB(DBPath)
 	if err != nil {
-		return err
+		log.Fatalf("failed to create database: %v", err)
 	}
 
 	// create a listener on TCP port
@@ -56,7 +55,8 @@ func main() {
 
 	// routinely check DB for and delete expired entries
 	go func() {
-		utils.DBCleanup(DBPath, dataDir)
+		err := utils.DBCleanup(DBPath, dataDir)
+		log.Printf("Error in DBCleanup: %v", err)
 	}()
 
 	// start the server

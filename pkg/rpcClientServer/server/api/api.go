@@ -16,6 +16,7 @@ import (
 	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/rpcClientServer/server/utils"
 )
 
 // Server -- GRPC server meta data used in route calls
@@ -39,8 +40,14 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	total := int64(0)
 	var storeMeta *StoreData
 
-	for pieceData, err := stream.Recv(); err != io.EOF {
+	for {
+		pieceData, err := stream.Recv();
+		if err == io.EOF {
+			break
+		}
+
 		if err != nil {
+			endTime := time.Now()
 			return stream.SendAndClose(&pb.PieceStoreSummary{
 				Status:        -1,
 				Message:       err.Error(),
@@ -59,6 +66,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
 
 		if err != nil {
+			endTime := time.Now()
 			return stream.SendAndClose(&pb.PieceStoreSummary{
 				Status:        -1,
 				Message:       err.Error(),

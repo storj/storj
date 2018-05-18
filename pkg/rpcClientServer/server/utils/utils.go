@@ -6,6 +6,7 @@ package utils
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"storj.io/storj/pkg/piecestore"
@@ -13,7 +14,7 @@ import (
 
 // DBCleanup -- go routine to check ttl database for expired entries
 // pass in database path and location of file for deletion
-func DBCleanup(DBPath string, dir string) {
+func DBCleanup(DBPath string, dir string) error {
 	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		return err
@@ -26,7 +27,7 @@ func DBCleanup(DBPath string, dir string) {
 		case <-tickChan:
 			rows, err := db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: %s\n", err.Error())
+				return err
 			}
 			defer rows.Close()
 
@@ -38,24 +39,21 @@ func DBCleanup(DBPath string, dir string) {
 
 				err = rows.Scan(&expHash, &expires)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err.Error())
-					return
+					return err
 				}
 
 				// delete file on local machine
 				err = pstore.Delete(expHash, dir)
 				if err != nil {
-					fmt.Printf("Error: %s\n", err.Error())
-					return
+					return err
 				}
-				fmt.Printf("Deleted file: %s\n", expHash)
+				log.Printf("Deleted file: %s\n", expHash)
 			}
 
 			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
 			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
-				fmt.Printf("Error: %s\n", err.Error())
-				return
+				return err
 			}
 		}
 	}
@@ -73,6 +71,8 @@ func AddTTLToDB(DBPath string, hash string, ttl int64) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
 
 // CreateDB -- Create TTL database and table
@@ -87,4 +87,6 @@ func CreateDB(DBPath string) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
