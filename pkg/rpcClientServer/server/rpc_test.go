@@ -99,14 +99,13 @@ func TestPiece(t *testing.T) {
           t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.hash, tt.size, tt.expiration, resp.Hash, resp.Size, resp.Expiration)
           continue
       }
-
-			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
-			if err != nil {
-				t.Errorf("Error cleaning test DB entry")
-				return
-			}
     }
+		// clean up DB entry
+		_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
+		if err != nil {
+			t.Errorf("Error cleaning test DB entry")
+			return
+		}
   })
 }
 
@@ -143,6 +142,20 @@ func TestRetrieve(t *testing.T) {
           content: []byte("butts"),
           err: "rpc error: code = Unknown desc = argError: Invalid hash length",
         },
+				{ // server should return expected content with offset
+          hash: testHash,
+          size: 4,
+          offset: 1,
+          content: []byte("utts"),
+          err: "",
+        },
+				{ // server should return expected content with reduced size
+          hash: testHash,
+          size: 4,
+          offset: 0,
+          content: []byte("butt"),
+          err: "",
+        },
       }
 
       for _, tt := range tests {
@@ -172,6 +185,7 @@ func TestRetrieve(t *testing.T) {
             t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.size, tt.content, resp.Size, resp.Content)
             continue
           }
+					fmt.Println(resp.Content, tt.content)
       }
   })
 }
@@ -366,7 +380,7 @@ func TestMain(m *testing.M) {
   c = pb.NewPieceStoreRoutesClient(conn)
 
   // create temp DB
-  db, err = sql.Open("sqlite3", s.DbPath)
+  db, err = sql.Open("sqlite3", s.DBPath)
   if err != nil {
     log.Fatal(err)
   }

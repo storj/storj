@@ -87,11 +87,7 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
 
 // Close -- Close Read Stream
 func (s *PieceStreamReader) Close() error {
-	if err := s.stream.CloseSend(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.stream.CloseSend()
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server
