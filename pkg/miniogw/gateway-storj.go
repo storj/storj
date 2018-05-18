@@ -48,6 +48,7 @@ type S3CliAPI struct {
 	env        *C.storj_env_t
 	bucketInfo []minio.Bucket
 	bucketID   []string
+	fileInfo   []minio.ObjectInfo
 }
 
 // gS3CliApi global S3 interface structure
@@ -70,6 +71,8 @@ func getbucketscallback(workreq *C.uv_work_t, status C.int) {
 		fmt.Printf("No buckets.\n")
 	}
 
+	/* clear the bucket */
+	gS3CliAPI.bucketInfo = gS3CliAPI.bucketInfo[:0]
 	for i := uint(0); i < uint(req.total_buckets); i++ {
 		bucket := C.bucket_index(req.buckets, C.int(i))
 
@@ -115,10 +118,26 @@ func listfilescallback(workreq *C.uv_work_t, status C.int) {
 		goto cleanup
 	}
 
+	/* clear the file info */
+	gS3CliAPI.fileInfo = gS3CliAPI.fileInfo[:0]
+	/* clear the bucket ID */
+	gS3CliAPI.bucketID = gS3CliAPI.bucketID[:0]
 	for i := uint(0); i < uint(req.total_files); i++ {
-		//file * C.storj_file_meta_t = unsafe.Pointer(&req.files[i])
 		file := C.file_index(req.files, C.int(i))
-		//fmt.Printf("file name = %s\n", C.GoString(file.filename))
+
+		/* get the bucket id */
+		gS3CliAPI.bucketID = append(gS3CliAPI.bucketID, C.GoString(req.bucket_id))
+		t, err := time.Parse(time.RFC3339, C.GoString(file.created))
+		if err != nil {
+			t = time.Now()
+		}
+		gS3CliAPI.fileInfo = append(gS3CliAPI.fileInfo,
+			minio.ObjectInfo{Name: C.GoString(file.filename),
+				ModTime:     t,
+				Size:        int64(C.int(file.size)),
+				ContentType: C.GoString(file.mimetype),
+				IsDir:       false})
+
 		fmt.Printf("ID: %s \tSize: %d \tDecrypted: %t \tType: %s \tCreated: %s \tName: %s\n",
 			C.GoString(file.id),
 			C.int(file.size),
@@ -249,7 +268,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 			fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s; ret = %d\n", gS3CliAPI.bucketInfo[i].Name, ret)
 			break
 		}
-		/* Invalid bucket name handle here... */
+		/* @TODO: Invalid bucket name handle here... */
 		if i == (len(gS3CliAPI.bucketInfo) - 1) {
 			fmt.Printf("Invalid bucket name \n")
 		}
