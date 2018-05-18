@@ -114,18 +114,26 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		return err
 	}
 
-	total := int64(0)
-	for total < pieceMeta.Size {
+	// Read the size specified
+	totalToRead := pieceMeta.Size
+	// Read the entire if specified -1
+	if pieceMeta.Size <= -1 {
+		totalToRead = fileInfo.Size()
+	}
+
+	totalRead := int64(0)
+	for totalRead < totalToRead {
 
 		b := []byte{}
 		writeBuff := bytes.NewBuffer(b)
 
+		// Read the 4kb at a time until it has to read less
 		sizeToRead := int64(4096)
-		if pieceMeta.Size - total < sizeToRead {
-			sizeToRead = pieceMeta.Size - total
+		if pieceMeta.Size - totalRead < sizeToRead {
+			sizeToRead = pieceMeta.Size - totalRead
 		}
 
-		n, err := pstore.Retrieve(pieceMeta.Hash, writeBuff, sizeToRead, pieceMeta.StoreOffset+total, s.PieceStoreDir)
+		n, err := pstore.Retrieve(pieceMeta.Hash, writeBuff, sizeToRead, pieceMeta.StoreOffset+totalRead, s.PieceStoreDir)
 		if err != nil {
 			return err
 		}
@@ -135,7 +143,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 			return err
 		}
 
-		total += n
+		totalRead += n
 	}
 
 	return nil
