@@ -6,6 +6,7 @@ package eestream
 import (
 	"io"
 	"io/ioutil"
+	"time"
 
 	"storj.io/storj/pkg/ranger"
 )
@@ -78,24 +79,60 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 }
 
 func (er *encodedReader) fillBuffer() {
-	defer func() {
-		for i := range er.chans {
-			close(er.chans[i])
-		}
-	}()
+	defer er.closeChannels()
 	for {
 		_, err := io.ReadFull(er.r, er.inbuf)
 		if err != nil {
 			return
 		}
-		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
-			// data is reused by infecious, so add a copy to the channel
-			tmp := make([]byte, len(data))
-			copy(tmp, data)
-			er.chans[num] <- tmp
-		})
+		err = er.es.Encode(er.inbuf, er.addToReader)
 		if err != nil {
 			return
+		}
+	}
+}
+
+func (er *encodedReader) addToReader(num int, data []byte) {
+	if er.chans[num] == nil {
+		// this channel is already closed for slowliness - skip it
+		return
+	}
+	// data is reused by infecious, so add a copy to the channel
+	tmp := make([]byte, len(data))
+	copy(tmp, data)
+	// add data copy to the respective reader's channel
+	for {
+		select {
+		case er.chans[num] <- tmp:
+			return
+		// block for no more than 50 ms
+		case <-time.After(50 * time.Millisecond):
+			if er.isSlowChannel(num) {
+				close(er.chans[num])
+				er.chans[num] = nil
+				return
+			}
+		}
+	}
+}
+
+func (er *encodedReader) isSlowChannel(num int) bool {
+	// check how many channels are already empty
+	ec := 0
+	for i := range er.chans {
+		if len(er.chans[i]) == 0 {
+			ec++
+		}
+	}
+	// check if more than the required channels are empty,
+	// i.e. the current channels is slow and should be closed
+	return ec >= er.es.RequiredCount()
+}
+
+func (er *encodedReader) closeChannels() {
+	for i := range er.chans {
+		if er.chans[i] != nil {
+			close(er.chans[i])
 		}
 	}
 }
@@ -116,6 +153,8 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 		outbufs[i], ok = <-ep.er.chans[i]
 		if !ok {
 			// channel is closed
+			// TODO should be different error if channel closed for slowliness
+			// which is better: io.ErrUnexpectedEOF or io.ErrClosedPipe?
 			return 0, io.EOF
 		}
 	}

@@ -66,6 +66,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 	_, err = io.ReadFull(decoder, data2)
 	assert.EqualError(t, err, io.ErrUnexpectedEOF.Error())
 }
+
 func TestEncoderNegativeMaxBufferMemory(t *testing.T) {
 	data := randData(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
@@ -380,4 +381,39 @@ type slowReader struct {
 func (s *slowReader) Read(p []byte) (n int, err error) {
 	time.Sleep(s.Delay)
 	return s.Reader.Read(p)
+}
+
+func TestEncoderStalledReaders(t *testing.T) {
+	data := randData(32 * 1024)
+	fc, err := infectious.NewFEC(2, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := NewRSScheme(fc, 8*1024)
+	readers := EncodeReader(bytes.NewReader(data), rs, 0)
+	start := time.Now()
+	_, err = readAllStalled(readers, 1)
+	assert.NoError(t, err)
+	if time.Since(start) > 1*time.Second {
+		t.Fatalf("waited for slow reader")
+	}
+}
+
+func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
+	pieces := make([][]byte, len(readers))
+	errs := make(chan error, len(readers))
+	var err error
+	for i := stalled; i < len(readers); i++ {
+		go func(i int) {
+			pieces[i], err = ioutil.ReadAll(readers[i])
+			errs <- err
+		}(i)
+	}
+	for i := stalled; i < len(readers); i++ {
+		err := <-errs
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pieces, nil
 }
