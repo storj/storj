@@ -71,14 +71,14 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return errors.New(fmt.Sprintf("Recieved %v bytes of total %v bytes", total, storeMeta.Size))
 	}
 
-	log.Println("Successfully stored data...")
+	log.Println("Successfully stored data.")
 
 	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
 	if err != nil {
 		return err
 	}
 
-	return stream.SendAndClose(&pb.PieceStoreSummary{Message: "Successfully stored data", TotalReceived: total})
+	return stream.SendAndClose(&pb.PieceStoreSummary{Message: "OK", TotalReceived: total})
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
@@ -127,6 +127,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalRead += n
 	}
 
+	log.Println("Successfully retrieved data.")
 	return nil
 }
 
@@ -150,12 +151,13 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 		return nil, err
 	}
 
+	log.Println("Meta data retrieved.")
 	return &pb.PieceSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 // Delete -- Delete data by Hash from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Println("Deleting data")
+	log.Println("Deleting data...")
 
 	if err := pstore.Delete(in.Hash, s.PieceStoreDir); err != nil {
 		return nil, err
@@ -165,5 +167,6 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
+	log.Println("Successfully deleted data.")
 	return &pb.PieceDeleteSummary{Message: "OK"}, nil
 }

@@ -4,7 +4,7 @@
 package api
 
 import (
-	"error"
+	"errors"
 	"io"
 	"log"
 
@@ -25,7 +25,7 @@ type PieceMeta struct {
 }
 
 // PieceMetaRequest -- Request info about a piece by Hash
-func PieceMetaRequest(ctx context.Context, pb.PieceStoreRoutesClient, hash string) (*PieceMeta, error) {
+func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string) (*PieceMeta, error) {
 
 	reply, err := c.Piece(ctx, &pb.PieceHash{Hash: hash})
 	if err != nil {
@@ -63,7 +63,7 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash st
 
 	log.Printf("Route summary: %v", reply)
 
-	if reply.Status != 0 {
+	if reply.Message != "OK" {
 		return serverError.New(reply.Message)
 	}
 
