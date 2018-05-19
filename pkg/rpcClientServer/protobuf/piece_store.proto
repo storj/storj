@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-// protoc -I ./examples/piecestore/rpc/protobuf/ ./examples/piecestore/rpc/protobuf/piece_store.proto --go_out=plugins=grpc:./examples/piecestore/rpc/protobuf
+// protoc -I ./pkg/rpcClientServer/protobuf/ ./pkg/rpcClientServer/protobuf/piece_store.proto --go_out=plugins=grpc:./pkg/rpcClientServer/protobuf
 
 package piecestoreroutes;
 
@@ -53,14 +53,10 @@ message PieceDelete {
 }
 
 message PieceDeleteSummary {
-  int64 status = 1;
   string message = 2;
-  int64 elapsedTime = 3;
 }
 
 message PieceStoreSummary {
-  int64 status = 1;
   string message = 2;
   int64 totalReceived = 3;
-  int64 elapsedTime = 4;
 }

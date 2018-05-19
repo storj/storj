@@ -8,9 +8,9 @@ import (
 	"io"
 	"log"
 
-	"golang.org/x/net/context"
-
 	"github.com/zeebo/errs"
+
+	"golang.org/x/net/context"
 
 	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
 )
@@ -25,9 +25,9 @@ type PieceMeta struct {
 }
 
 // PieceMetaRequest -- Request info about a piece by Hash
-func PieceMetaRequest(c pb.PieceStoreRoutesClient, hash string) (*PieceMeta, error) {
+func PieceMetaRequest(ctx context.Context, pb.PieceStoreRoutesClient, hash string) (*PieceMeta, error) {
 
-	reply, err := c.Piece(context.Background(), &pb.PieceHash{Hash: hash})
+	reply, err := c.Piece(ctx, &pb.PieceHash{Hash: hash})
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func PieceMetaRequest(c pb.PieceStoreRoutesClient, hash string) (*PieceMeta, err
 }
 
 // StorePieceRequest -- Upload Piece to Server
-func StorePieceRequest(c pb.PieceStoreRoutesClient, hash string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
-	stream, err := c.Store(context.Background())
+func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
+	stream, err := c.Store(ctx)
 
 	buffer := make([]byte, 4096)
 	for {
@@ -97,8 +97,8 @@ func (s *PieceStreamReader) Close() error {
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server
-func RetrievePieceRequest(c pb.PieceStoreRoutesClient, hash string, offset int64, length int64) (io.ReadCloser, error) {
-	stream, err := c.Retrieve(context.Background(), &pb.PieceRetrieval{Hash: hash, Size: length, StoreOffset: offset})
+func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string, offset int64, length int64) (io.ReadCloser, error) {
+	stream, err := c.Retrieve(ctx, &pb.PieceRetrieval{Hash: hash, Size: length, StoreOffset: offset})
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +107,8 @@ func RetrievePieceRequest(c pb.PieceStoreRoutesClient, hash string, offset int64
 }
 
 // DeletePieceRequest -- Delete Piece From Server
-func DeletePieceRequest(c pb.PieceStoreRoutesClient, hash string) error {
-	reply, err := c.Delete(context.Background(), &pb.PieceDelete{Hash: hash})
+func DeletePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string) error {
+	reply, err := c.Delete(ctx, &pb.PieceDelete{Hash: hash})
 	if err != nil {
 		return err
 	}

@@ -5,12 +5,11 @@ package api
 
 import (
 	"bytes"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
-	"time"
 
 	"golang.org/x/net/context"
 
@@ -35,30 +34,10 @@ type StoreData struct {
 	Size int64
 }
 
-func storeCloseStream(stream pb.PieceStoreRoutes_StoreServer, startTime time.Time, total int64, err error) error {
-	endTime := time.Now()
-
-	message := "OK"
-	status := int64(0)
-
-	if err != nil {
-		status = -1
-		message = err.Error()
-	}
-
-	return stream.SendAndClose(&pb.PieceStoreSummary{
-		Status:        status,
-		Message:       message,
-		TotalReceived: total,
-		ElapsedTime:   int64(endTime.Sub(startTime).Seconds()),
-	})
-}
-
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
-	fmt.Println("Storing data...")
+	log.Println("Storing data...")
 
-	startTime := time.Now()
 	total := int64(0)
 	var storeMeta *StoreData
 
@@ -69,7 +48,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		}
 
 		if err != nil {
-			return storeCloseStream(stream, startTime, total, err)
+			return err
 		}
 
 		if storeMeta == nil {
@@ -80,31 +59,32 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		// Write chunk received to disk
 		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
-
 		if err != nil {
-			return storeCloseStream(stream, startTime, total, err)
+			return err
 		}
 
 		total += length
 	}
 
 	if total <= 0 {
-		return storeCloseStream(stream, startTime, total, errors.New("No data received"))
+		return errors.New("No data received")
+	} else if total < storeMeta.Size {
+		return errors.New(fmt.Sprintf("Recieved %v bytes of total %v bytes", total, storeMeta.Size))
 	}
 
-	fmt.Println("Successfully stored data...")
+	log.Println("Successfully stored data...")
 
 	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
 	if err != nil {
-		return storeCloseStream(stream, startTime, total, err)
+		return err
 	}
 
-	return storeCloseStream(stream, startTime, total, nil)
+	return stream.SendAndClose(&pb.PieceStoreSummary{Message: "Successfully stored data", TotalReceived: total})
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
 func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
-	fmt.Println("Retrieving data...")
+	log.Println("Retrieving data...")
 
 	path, err := pstore.PathByHash(pieceMeta.Hash, s.PieceStoreDir)
 	if err != nil {
@@ -118,7 +98,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	// Read the size specified
 	totalToRead := pieceMeta.Size
-	// Read the entire if specified -1
+	// Read the entire file if specified -1
 	if pieceMeta.Size <= -1 {
 		totalToRead = fileInfo.Size()
 	}
@@ -153,7 +133,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 // Piece -- Send meta data about a stored by by Hash
 func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary, error) {
-	fmt.Println("Getting Meta data...")
+	log.Println("Getting Meta data...")
 
 	path, err := pstore.PathByHash(in.Hash, s.PieceStoreDir)
 	if err != nil {
@@ -176,36 +156,15 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 
 // Delete -- Delete data by Hash from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	fmt.Println("Deleting data")
-	startTime := time.Now()
-	err := pstore.Delete(in.Hash, s.PieceStoreDir)
-	if err != nil {
-		endTime := time.Now()
-		return &pb.PieceDeleteSummary{
-			Status:      -1,
-			Message:     err.Error(),
-			ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
-		}, err
-	}
-	db, err := sql.Open("sqlite3", s.DBPath)
-	if err != nil {
+	log.Println("Deleting data")
+
+	if err := pstore.Delete(in.Hash, s.PieceStoreDir); err != nil {
 		return nil, err
 	}
-	defer db.Close()
 
-	_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, in.Hash))
-	if err != nil {
-		return &pb.PieceDeleteSummary{
-			Status:      -1,
-			Message:     err.Error(),
-			ElapsedTime: int64(time.Now().Sub(startTime).Seconds()),
-		}, err
+	if err := utils.DeleteTTLByHash(s.DBPath, in.Hash); err != nil {
+		return nil, err
 	}
 
-	endTime := time.Now()
-	return &pb.PieceDeleteSummary{
-		Status:      0,
-		Message:     "OK",
-		ElapsedTime: int64(endTime.Sub(startTime).Seconds()),
-	}, nil
+	return &pb.PieceDeleteSummary{Message: "OK"}, nil
 }

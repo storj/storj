@@ -77,7 +77,7 @@ func TestPiece(t *testing.T) {
           hash: "22222222222222222222",
           size: 5,
           expiration: testExpiration,
-          err: "rpc error: code = Unknown desc = stat /tmp/test-data/3000/22/22/2222222222222222: no such file or directory",
+          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %stest-data/3000/22/22/2222222222222222: no such file or directory", os.TempDir()),
         },
     }
 
@@ -154,7 +154,7 @@ func TestRetrieve(t *testing.T) {
 					respSize: 5,
           offset: 0,
           content: []byte("butts"),
-          err: "rpc error: code = Unknown desc = stat /tmp/test-data/3000/22/22/2222222222222222: no such file or directory",
+          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %stest-data/3000/22/22/2222222222222222: no such file or directory", os.TempDir()),
         },
 				{ // server should return expected content and respSize with offset and excess reqSize
           hash: testHash,
@@ -208,31 +208,12 @@ func TestRetrieve(t *testing.T) {
 func TestStore(t *testing.T) {
   t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 
-		// create temp file for storing
-		content := []byte("butts")
-		tmpfile, err := ioutil.TempFile("", "test")
-		if err != nil {
-			t.Errorf("Error: %v\nCould not create test file", err)
-			return
-		}
-
-		defer os.Remove(tmpfile.Name()) // clean up
-		defer tmpfile.Close()
-
-		if _, err := tmpfile.Write(content); err != nil {
-			t.Errorf("Error: %v\nCould not create test file", err)
-			return
-		}
-		tmpfile.Seek(0, 0)
-		defer pstore.Delete(testHash, s.PieceStoreDir)
-
     tests := []struct{
 			hash string
 			size int64
 			ttl int64
 			offset int64
 			content []byte
-      status int64
       message string
       totalReceived int64
       err string
@@ -243,20 +224,76 @@ func TestStore(t *testing.T) {
 					ttl: testExpiration,
 					offset: 0,
 					content: []byte("butts"),
-          status: 0,
-          message: "OK",
+          message: "Successfully stored data",
           totalReceived: 5,
           err: "",
         },
+				{ // should successfully store data
+					hash: "butts",
+					size: 5,
+					ttl: testExpiration,
+					offset: 0,
+					content: []byte("butts"),
+					message: "",
+					totalReceived: 0,
+					err: "rpc error: code = Unknown desc = argError: Invalid hash length",
+				},
+				{ // should successfully store data
+					hash: "ABCDEFGHIJKLMNOPQRST",
+					size: 10,
+					ttl: testExpiration,
+					offset: 0,
+					content: []byte("butts"),
+					message: "",
+					totalReceived: 5,
+					err: "rpc error: code = Unknown desc = Recieved 5 bytes of total 10 bytes",
+				},
+				{ // should successfully store data
+					hash: testHash,
+					size: 5,
+					ttl: testExpiration,
+					offset: 10,
+					content: []byte("butts"),
+					message: "Successfully stored data",
+					totalReceived: 5,
+					err: "",
+				},
+				{ // should successfully store data
+					hash: testHash,
+					size: 5,
+					ttl: testExpiration,
+					offset: 0,
+					content: []byte(""),
+					message: "",
+					totalReceived: 0,
+					err: "rpc error: code = Unknown desc = No data received",
+				},
       }
 
-      for _, tt := range tests {
+      for i, tt := range tests {
+
+				tmpfile, err := ioutil.TempFile("", fmt.Sprintf("test%v", i))
+				if err != nil {
+					t.Errorf("Error: %v\nCould not create test file", err)
+					return
+				}
+
+				defer os.Remove(tmpfile.Name()) // clean up
+				defer tmpfile.Close()
+
+				if _, err := tmpfile.Write(tt.content); err != nil {
+					t.Errorf("Error: %v\nCould not create test file", err)
+					return
+				}
+				tmpfile.Seek(0, 0)
+
         stream, err := c.Store(context.Background())
         if err != nil {
           t.Errorf("Unexpected error: %v\n", err)
           continue
         }
 				buffer := make([]byte, 4096)
+				tmpfile.Seek(0,0)
 				for {
 					// Read data from read stream into buffer
 					n, err := tmpfile.Read(buffer)
@@ -289,8 +326,8 @@ func TestStore(t *testing.T) {
           continue
         }
 
-				if resp.Status != tt.status || resp.Message != tt.message || resp.TotalReceived != tt.totalReceived {
-					t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.status, tt.message, tt.totalReceived, resp.Status, resp.Message, resp.TotalReceived)
+				if resp.Message != tt.message || resp.TotalReceived != tt.totalReceived {
+					t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.message, tt.totalReceived, resp.Message, resp.TotalReceived)
 				}
 
 				// clean up DB entry
@@ -309,25 +346,21 @@ func TestDelete(t *testing.T) {
     // set up test cases
     tests := []struct{
       hash string
-      status int64
 			message string
       err string
     } {
         { // should successfully delete data
           hash: testHash,
-          status: 0,
 					message: "OK",
           err: "",
         },
 				{ // should err with invalid hash length
           hash: "123",
-          status: -1,
 					message: "rpc error: code = Unknown desc = argError: Invalid hash length",
           err: "rpc error: code = Unknown desc = argError: Invalid hash length",
         },
 				{ // should return OK with nonexistent file
           hash: "22222222222222222222",
-          status: 0,
 					message: "OK",
           err: "",
         },
@@ -366,8 +399,8 @@ func TestDelete(t *testing.T) {
           continue
         }
 
-        if resp.Status != tt.status || resp.Message != tt.message {
-          t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.status, tt.message, resp.Status, resp.Message)
+        if resp.Message != tt.message {
+          t.Errorf("Expected: %v\nGot: %v\n", tt.message, resp.Message)
           continue
         }
 

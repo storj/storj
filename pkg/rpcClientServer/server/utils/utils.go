@@ -115,3 +115,15 @@ func GetTTLByHash(DBPath string, hash string) (ttl int64, err error) {
 
 	return ttl, nil
 }
+
+// DeleteTTLByHash -- Find the TTL in the database by hash and delete it
+func DeleteTTLByHash(DBPath string, hash string) error {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	return err
+}
