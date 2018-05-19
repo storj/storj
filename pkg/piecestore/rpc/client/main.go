@@ -18,9 +18,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/rpcClientServer/client/api"
-	"storj.io/storj/pkg/rpcClientServer/client/utils"
-	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
+	"storj.io/storj/pkg/piecestore/rpc/client/api"
+	"storj.io/storj/pkg/piecestore/rpc/client/utils"
+	pb "storj.io/storj/pkg/piecestore/rpc/proto"
 )
 
 var argError = errs.Class("argError")

@@ -22,8 +22,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
-	"storj.io/storj/pkg/rpcClientServer/server/api"
+	pb "storj.io/storj/pkg/piecestore/rpc/proto"
+	"storj.io/storj/pkg/piecestore/rpc/server/api"
 )
 
 var tempDir string = path.Join(os.TempDir(), "test-data", "3000")
@@ -84,15 +84,19 @@ func TestPiece(t *testing.T) {
     for _, tt := range tests {
       req := &pb.PieceHash{Hash: tt.hash}
       resp, err := c.Piece(context.Background(), req)
+
       if len(tt.err) > 0 {
+
         if err != nil {
           if err.Error() == tt.err {
             continue
           }
         }
+
         t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
         continue
       }
+
       if err != nil && tt.err == "" {
         t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
         continue
@@ -102,13 +106,14 @@ func TestPiece(t *testing.T) {
           t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.hash, tt.size, tt.expiration, resp.Hash, resp.Size, resp.Expiration)
           continue
       }
+
+			// clean up DB entry
+			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
+			if err != nil {
+				t.Errorf("Error cleaning test DB entry")
+				break
+			}
     }
-		// clean up DB entry
-		_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
-		if err != nil {
-			t.Errorf("Error cleaning test DB entry")
-			return
-		}
   })
 }
 

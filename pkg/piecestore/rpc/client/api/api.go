@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
+	pb "storj.io/storj/pkg/piecestore/rpc/proto"
 )
 
 var serverError = errs.Class("serverError")
