@@ -20,7 +20,7 @@ import (
 
 	"storj.io/storj/pkg/piecestore/rpc/client/api"
 	"storj.io/storj/pkg/piecestore/rpc/client/utils"
-	pb "storj.io/storj/pkg/piecestore/rpc/proto"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var argError = errs.Class("argError")

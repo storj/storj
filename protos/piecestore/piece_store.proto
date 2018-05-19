@@ -3,8 +3,6 @@
 
 syntax = "proto3";
 
-// protoc -I ./pkg/rpcClientServer/protobuf/ ./pkg/rpcClientServer/protobuf/piece_store.proto --go_out=plugins=grpc:./pkg/rpcClientServer/protobuf
-
 package piecestoreroutes;
 
 service PieceStoreRoutes {

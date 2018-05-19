@@ -16,8 +16,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/pkg/piecestore"
-	pb "storj.io/storj/pkg/piecestore/rpc/proto"
 	"storj.io/storj/pkg/piecestore/rpc/server/utils"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 // Server -- GRPC server meta data used in route calls

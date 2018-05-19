@@ -22,8 +22,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	pb "storj.io/storj/pkg/piecestore/rpc/proto"
 	"storj.io/storj/pkg/piecestore/rpc/server/api"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var tempDir string = path.Join(os.TempDir(), "test-data", "3000")

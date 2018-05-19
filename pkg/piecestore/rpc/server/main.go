@@ -15,9 +15,9 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	pb "storj.io/storj/pkg/piecestore/rpc/proto"
 	"storj.io/storj/pkg/piecestore/rpc/server/api"
 	"storj.io/storj/pkg/piecestore/rpc/server/utils"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 func main() {
