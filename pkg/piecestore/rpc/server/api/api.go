@@ -13,8 +13,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/utils"
 	pb "storj.io/storj/protos/piecestore"
@@ -41,7 +39,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	var storeMeta *StoreData
 
 	for {
-		pieceData, err := stream.Recv();
+		pieceData, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
@@ -68,7 +66,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	if total <= 0 {
 		return errors.New("No data received")
 	} else if total < storeMeta.Size {
-		return errors.New(fmt.Sprintf("Recieved %v bytes of total %v bytes", total, storeMeta.Size))
+		return fmt.Errorf("Recieved %v bytes of total %v bytes", total, storeMeta.Size)
 	}
 
 	log.Println("Successfully stored data.")
@@ -110,7 +108,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 		// Read the 4kb at a time until it has to read less
 		sizeToRead := int64(4096)
-		if pieceMeta.Size - totalRead < sizeToRead {
+		if pieceMeta.Size-totalRead < sizeToRead {
 			sizeToRead = pieceMeta.Size - totalRead
 		}
 
