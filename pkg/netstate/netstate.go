@@ -5,6 +5,7 @@ package netstate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -13,6 +14,7 @@ import (
 
 	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/netstate/auth"
 )
 
 // Server implements the network state RPC service
@@ -42,6 +44,15 @@ type DB interface {
 // Put formats and hands off a file path to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
+	
+	xApiKeyBytes := []byte(putReq.XApiKey)
+
+	if ! auth.ValidateAPIKey(string(xApiKeyBytes)) {
+		fmt.Println("Unauthorized Request: ", codes.Unauthenticated)
+		return &pb.PutResponse{
+			Confirmation: "fail",
+		}, nil
+	}
 
 	pointerBytes, err := proto.Marshal(putReq.Pointer)
 	if err != nil {

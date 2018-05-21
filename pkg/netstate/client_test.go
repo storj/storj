@@ -54,6 +54,7 @@ func TestNetStateClient(t *testing.T) {
 			},
 			InlineSegment: []byte("oatmeal"),
 		},
+		XApiKey: []byte("abc123"),
 	}
 
 	if mdb.timesCalled != 0 {
@@ -86,6 +87,7 @@ func TestNetStateClient(t *testing.T) {
 	// Tests Server.Get
 	getReq := pb.GetRequest{
 		Path: []byte("here/is/a/path"),
+		XApiKey: []byte("abc123"),
 	}
 
 	getRes, err := c.Get(ctx, &getReq)
@@ -110,6 +112,7 @@ func TestNetStateClient(t *testing.T) {
 			},
 			InlineSegment: []byte("raisins"),
 		},
+		XApiKey: []byte("abc123"),
 	}
 
 	_, err = c.Put(ctx, &pr2)
@@ -124,6 +127,7 @@ func TestNetStateClient(t *testing.T) {
 	// Test Server.Delete
 	delReq := pb.DeleteRequest{
 		Path: []byte("here/is/a/path"),
+		XApiKey: []byte("abc123"),
 	}
 
 	_, err = c.Delete(ctx, &delReq)
@@ -141,6 +145,7 @@ func TestNetStateClient(t *testing.T) {
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
+		XApiKey: []byte("abc123"),
 	}
 
 	listRes, err := c.List(ctx, &listReq)

@@ -6,10 +6,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"github.com/spf13/viper"
+
 
 	"storj.io/storj/pkg/netstate"
 	proto "storj.io/storj/protos/netstate"
@@ -29,8 +32,16 @@ func initializeFlags() {
 	flag.Parse()
 }
 
+func setEnv() {
+	viper.SetEnvPrefix("API")
+	os.Setenv("API_KEY", "abc123")
+	viper.AutomaticEnv()
+}
+
 func main() {
 	initializeFlags()
+	setEnv()
+
 
 	// No err here because no vars passed into NewDevelopment().
 	// The default won't return an error, but if args are passed in,
