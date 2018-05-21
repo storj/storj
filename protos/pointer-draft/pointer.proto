@@ -4,6 +4,7 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 message RedundancyScheme {
   enum SchemeType {
@@ -42,18 +43,11 @@ message InlineSegment {
 
 message RemoteSegment {
   RedundancyScheme redundancy = 1;
-  bytes piece_name = 2;
+  string piece_name = 2;
   repeated RemotePiece remote_pieces = 3;
-  repeated Farmer farmers = 4; // list of farmers
 
   bytes merkle_root = 5; // the root hash of the hashes of all of these pieces
   int64 merkle_size = 6; // the amount of space the merkle tree takes up at the end of each chunk
-}
-
-message Farmer {
-  int64 beginDate = 1;
-  int64 endDate = 2;
-  string ID = 3;
 }
 
 message HMAC {
@@ -67,7 +61,7 @@ message Pointer {
     REMOTE = 2;
   }
 
-  int64 created = 1; // date that pointer was created
+  google.protobuf.Timestamp created = 1; // date that pointer was created
   DataType type = 2;
   HMAC signature = 3;
   EncryptionScheme encryption = 4;
