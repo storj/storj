@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"storj.io/storj/node_reputation"
+	nodereputation "storj.io/storj/node_reputation"
 	proto "storj.io/storj/protos/node_reputation"
 )
 
