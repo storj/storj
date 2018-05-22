@@ -20,6 +20,7 @@ const defaultNodeExpiration = 61 * time.Minute
 type OverlayClient struct {
 	DB  Client
 	DHT kademlia.DHT
+	bootstrapNodes []overlay.Node
 }
 
 // NewOverlayClient returns a pointer to a new OverlayClient instance with an initalized connection to Redis.
@@ -58,7 +59,11 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
-	return errors.New("TODO")
+	// loop through bootstrap nodes asking for random IDs
+	nodes, err := o.DHT. (ctx, "random node ID", 100)
+	if err != nil {
+		
+	}
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
