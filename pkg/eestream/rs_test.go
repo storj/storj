@@ -384,15 +384,15 @@ func (s *slowReader) Read(p []byte) (n int, err error) {
 }
 
 func TestEncoderStalledReaders(t *testing.T) {
-	data := randData(32 * 1024)
-	fc, err := infectious.NewFEC(2, 4)
+	data := randData(120 * 1024)
+	fc, err := infectious.NewFEC(30, 60)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs := NewRSScheme(fc, 8*1024)
+	rs := NewRSScheme(fc, 1024)
 	readers := EncodeReader(bytes.NewReader(data), rs, 0)
 	start := time.Now()
-	_, err = readAllStalled(readers, 1)
+	_, err = readAllStalled(readers, 25)
 	assert.NoError(t, err)
 	if time.Since(start) > 1*time.Second {
 		t.Fatalf("waited for slow reader")

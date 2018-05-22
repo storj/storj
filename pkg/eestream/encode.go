@@ -6,6 +6,7 @@ package eestream
 import (
 	"io"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"storj.io/storj/pkg/ranger"
@@ -43,6 +44,7 @@ type encodedReader struct {
 	inbuf   []byte
 	outbufs [][]byte
 	chans   map[int]chan []byte
+	mux     sync.Mutex
 	err     error
 }
 
@@ -80,16 +82,49 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 }
 
 func (er *encodedReader) fillBuffer() {
-	defer er.closeChannels()
+	// these channels will synchronize the erasure encoder output with the
+	// goroutines for adding the output to the reader buffers
+	copiers := make(map[int]chan []byte, er.es.TotalCount())
+	for i := 0; i < er.es.TotalCount(); i++ {
+		copiers[i] = make(chan []byte)
+		// closing the channel will exit the next goroutine
+		defer close(copiers[i])
+		// kick off goroutine for parallel copy of encoded data to each
+		// reader buffer
+		go er.copyData(i, copiers[i])
+	}
+	// read from the input and encode until EOF or error
 	for {
 		_, err := io.ReadFull(er.r, er.inbuf)
 		if err != nil {
 			return
 		}
-		err = er.es.Encode(er.inbuf, er.addToReader)
+		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+			// data is reused by infecious, so add a copy to the channel
+			tmp := make([]byte, len(data))
+			copy(tmp, data)
+			// send the data copy to the goroutine for adding it to the reader
+			// buffer
+			copiers[num] <- tmp
+		})
 		if err != nil {
 			return
 		}
+	}
+}
+
+// copyData waits for data from the erasure encoder and copies it to the
+// targeted reader buffer
+func (er *encodedReader) copyData(num int, copier <-chan []byte) {
+	// close the respective buffer channel when this goroutine exits
+	defer func() {
+		if er.chans[num] != nil {
+			close(er.chans[num])
+		}
+	}()
+	// process the channel until closed
+	for data := range copier {
+		er.addToReader(num, data)
 	}
 }
 
@@ -98,47 +133,42 @@ func (er *encodedReader) addToReader(num int, data []byte) {
 		// this channel is already closed for slowliness - skip it
 		return
 	}
-	// data is reused by infecious, so add a copy to the channel
-	tmp := make([]byte, len(data))
-	copy(tmp, data)
 	for {
 		// initialize timer
 		timer := time.NewTimer(50 * time.Millisecond)
 		defer timer.Stop()
-		// add data copy to the respective reader's channel
+		// add the encoded data to the respective reader buffer channel
 		select {
-		case er.chans[num] <- tmp:
+		case er.chans[num] <- data:
 			return
 		// block for no more than 50 ms
 		case <-timer.C:
-			if er.isSlowChannel(num) {
-				close(er.chans[num])
-				er.chans[num] = nil
+			if er.checkSlowChannel(num) {
 				return
 			}
 		}
 	}
 }
 
-func (er *encodedReader) isSlowChannel(num int) bool {
-	// check how many channels are already empty
+func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
+	// use mutex to avoid concurrent map iteration and map write on channels
+	er.mux.Lock()
+	defer er.mux.Unlock()
+	// check how many buffer channels are already empty
 	ec := 0
 	for i := range er.chans {
-		if len(er.chans[i]) == 0 {
+		if er.chans[i] != nil && len(er.chans[i]) == 0 {
 			ec++
 		}
 	}
-	// check if more than the required channels are empty,
-	// i.e. the current channels is slow and should be closed
-	return ec >= er.es.RequiredCount()
-}
-
-func (er *encodedReader) closeChannels() {
-	for i := range er.chans {
-		if er.chans[i] != nil {
-			close(er.chans[i])
-		}
+	// check if more than the required buffer channels are empty,
+	// i.e. the current channel is slow and should be closed
+	closed = ec >= er.es.RequiredCount()
+	if closed {
+		close(er.chans[num])
+		er.chans[num] = nil
 	}
+	return closed
 }
 
 type encodedPiece struct {
@@ -152,7 +182,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 	}
 	outbufs, i := ep.er.outbufs, ep.i
 	if len(outbufs[i]) <= 0 {
-		// take the next block from the cannel or block if channel is empty
+		// take the next block from the channel or block if channel is empty
 		var ok bool
 		outbufs[i], ok = <-ep.er.chans[i]
 		if !ok {
