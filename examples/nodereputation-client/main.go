@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	// proto "storj.io/storj/protos/node_reputation"
 	proto "storj.io/storj/protos/node_reputation"
 )
 
