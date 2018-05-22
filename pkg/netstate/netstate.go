@@ -41,6 +41,10 @@ type DB interface {
 	Delete([]byte) error
 }
 
+func isAuthValid(xApiKeyBytes []byte) bool {
+    return auth.ValidateAPIKey(string(xApiKeyBytes))
+}
+
 // Put formats and hands off a file path to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
@@ -109,6 +113,16 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 // Delete formats and hands off a file path to delete from boltdb
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	s.logger.Debug("entering netstate delete")
+
+	xApiKeyBytes := []byte(req.XApiKey)
+	if response := isAuthValid(xApiKeyBytes); !response {
+        s.logger.Error("unauthorized request")
+        fmt.Println(grpc.Errorf(codes.Unauthenticated, "Invalid API credential"))
+				
+		return &proto.DeleteResponse{
+			Confirmation: "Failed: Unauthorized Request",
+        }, nil
+	}
 
 	err := s.DB.Delete(req.Path)
 	if err != nil {
