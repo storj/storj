@@ -4,16 +4,16 @@
 package nodereputation
 
 var createStmt = `CREATE table node_reputation (
-	source text not null,
-	node_name text not null,
-	timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) not null,
-	uptime interger,
-	audit_success interger,
-	audit_fail interger,
-	latency interger,
-	amount_of_data_stored interger,
-	false_claims interger,
-	shards_modified interger,
+	source TEXT NOT NULL,
+	node_name TEXT NOT NULL,
+	timestamp timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
+	uptime INTEGER,
+	audit_success INTEGER,
+	audit_fail INTEGER,
+	latency INTEGER,
+	amount_of_data_stored INTEGER,
+	false_claims INTEGER,
+	shards_modified INTEGER,
 PRIMARY KEY(node_name, timestamp)
 );`
 
