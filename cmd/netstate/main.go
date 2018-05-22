@@ -6,7 +6,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"net"
 
 	"go.uber.org/zap"
@@ -34,7 +33,6 @@ func initializeFlags() {
 
 func setEnv() {
 	viper.SetEnvPrefix("API")
-	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 }
 
