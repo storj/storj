@@ -3,4 +3,4 @@
 
 package nodereputation
 
-//go:generate protoc --go_out=plugins=grpc:. netstate.proto
+//go:generate protoc --go_out=plugins=grpc:. nodereputation.proto

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	proto "storj.io/storj/protos/nodereputation"
 )
 
 func TestNodeReputationClient(t *testing.T) {
@@ -34,7 +35,7 @@ func TestNodeReputationClient(t *testing.T) {
 	client := NewNodeReputationClient(conn)
 
 	response, err := client.UpdateReputation(context.Background(),
-		&NodeUpdate{
+		&proto.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
 			ColumnName:  ColumnName_uptime,
@@ -65,7 +66,7 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	response1, err := client.UpdateReputation(context.Background(),
-		&NodeUpdate{
+		&proto.NodeUpdate{
 			Source:      "Test",
 			NodeName:    "Alice",
 			ColumnName:  ColumnName_uptime,
@@ -81,7 +82,7 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	queryResponse1, err := client.NodeReputation(context.Background(),
-		&NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Test",
 			NodeName: "Alice",
 		},
@@ -111,7 +112,7 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	prune, err := client.PruneNodeReputation(context.Background(),
-		&NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},
@@ -125,7 +126,7 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	queryResponse1, err = client.NodeReputation(context.Background(),
-		&NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Test",
 			NodeName: "Alice",
 		},

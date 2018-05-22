@@ -9,6 +9,7 @@ import (
 
 	// import of sqlite3 for side effects
 	_ "github.com/mattn/go-sqlite3"
+	proto "storj.io/storj/protos/node_reputation"
 )
 
 // auditSuccessRatio finds the ratio of audit success from the success and failure fields of a given reputaion row struct
@@ -167,8 +168,8 @@ func (row nodeReputationRecord) endian(other nodeReputationRecord, orderOfEval [
 }
 
 // serde converts private record to public reputation record
-func (row nodeReputationRecord) serde(score float32) NodeReputationRecord {
-	return NodeReputationRecord{
+func (row nodeReputationRecord) serde(score float32) proto.NodeReputationRecord {
+	return proto.NodeReputationRecord{
 		Source:             row.source,
 		NodeName:           row.nodeName,
 		Timestamp:          row.timestamp,

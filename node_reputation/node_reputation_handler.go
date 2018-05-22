@@ -8,13 +8,15 @@ import (
 	"strconv"
 
 	"golang.org/x/net/context"
+	//"storj.io/storj/protos/node_reputation"
+	proto "storj.io/storj/protos/node_reputation"
 )
 
 // Server is a struct
 type Server struct{}
 
 // UpdateReputation in handler
-func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*UpdateReply, error) {
+func (s *Server) UpdateReputation(ctx context.Context, in *proto.NodeUpdate) (*proto.UpdateReply, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -22,7 +24,7 @@ func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*UpdateR
 
 	status := insertNodeUpdate(db, in)
 
-	return &UpdateReply{
+	return &proto.UpdateReply{
 		BridgeName: "Storj",
 		NodeName:   in.NodeName,
 		Status:     status,
@@ -30,7 +32,7 @@ func (s *Server) UpdateReputation(ctx context.Context, in *NodeUpdate) (*UpdateR
 }
 
 // NodeReputation in handler
-func (s *Server) NodeReputation(ctx context.Context, in *NodeQuery) (*NodeReputationRecord, error) {
+func (s *Server) NodeReputation(ctx context.Context, in *proto.NodeQuery) (*proto.NodeReputationRecord, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -44,7 +46,7 @@ func (s *Server) NodeReputation(ctx context.Context, in *NodeQuery) (*NodeReputa
 }
 
 // FilterNodeReputation in handler
-func (s *Server) FilterNodeReputation(ctx context.Context, in *NodeFilter) (*NodeReputationRecords, error) {
+func (s *Server) FilterNodeReputation(ctx context.Context, in *proto.NodeFilter) (*proto.NodeReputationRecords, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -58,7 +60,7 @@ func (s *Server) FilterNodeReputation(ctx context.Context, in *NodeFilter) (*Nod
 }
 
 // PruneNodeReputation compresses a node's reputation
-func (s *Server) PruneNodeReputation(ctx context.Context, in *NodeQuery) (*UpdateReply, error) {
+func (s *Server) PruneNodeReputation(ctx context.Context, in *proto.NodeQuery) (*proto.UpdateReply, error) {
 	db, err := SetServerDB("./Server.db")
 	if err != nil {
 		return nil, err
@@ -66,7 +68,7 @@ func (s *Server) PruneNodeReputation(ctx context.Context, in *NodeQuery) (*Updat
 
 	status := deleteByNodeName(db, in.NodeName)
 
-	return &UpdateReply{
+	return &proto.UpdateReply{
 		BridgeName: "Storj",
 		NodeName:   in.NodeName,
 		Status:     status,
@@ -75,8 +77,8 @@ func (s *Server) PruneNodeReputation(ctx context.Context, in *NodeQuery) (*Updat
 }
 
 // byNodeName function used in handler by update reputation
-func byNodeName(db *sql.DB, nodeName string) (NodeReputationRecord, error) {
-	var recordForError NodeReputationRecord
+func byNodeName(db *sql.DB, nodeName string) (proto.NodeReputationRecord, error) {
+	var recordForError proto.NodeReputationRecord
 	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, nodeName)
 	row, err := endianReputation(db, selectNodeStmt)
 	if err != nil {
@@ -87,67 +89,67 @@ func byNodeName(db *sql.DB, nodeName string) (NodeReputationRecord, error) {
 }
 
 // deleteByNodeName compresses a node's reputation
-func deleteByNodeName(db *sql.DB, nodeName string) UpdateReply_ReplyType {
-	res := UpdateReply_UPDATE_FAILED
+func deleteByNodeName(db *sql.DB, nodeName string) proto.UpdateReply_ReplyType {
+	res := proto.UpdateReply_UPDATE_FAILED
 	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, nodeName)
 	row, err := endianReputation(db, selectNodeStmt)
 	if err != nil {
-		res = UpdateReply_UPDATE_FAILED
+		res = proto.UpdateReply_UPDATE_FAILED
 	}
 
 	err = pruneNodeReputationRecords(db, row, deletStmt)
 	if err != nil {
-		res = UpdateReply_UPDATE_FAILED
+		res = proto.UpdateReply_UPDATE_FAILED
 	}
 
-	res = UpdateReply_UPDATE_SUCCESS
+	res = proto.UpdateReply_UPDATE_SUCCESS
 
 	return res
 }
 
 // toWhereOpt is a method to convert a proto operand to a where operation
-func (opt NodeFilter_Operand) toWhereOpt() whereOpt {
+func toWhereOpt(opt proto.NodeFilter_Operand) whereOpt {
 	res := notEqual
 	switch opt {
-	case NodeFilter_EQUAL_TO:
+	case proto.NodeFilter_EQUAL_TO:
 		res = equal
-	case NodeFilter_GREATER_THAN:
+	case proto.NodeFilter_GREATER_THAN:
 		res = greater
-	case NodeFilter_GREATER_THAN_EQUAL_TO:
+	case proto.NodeFilter_GREATER_THAN_EQUAL_TO:
 		res = greaterEqual
-	case NodeFilter_LESS_THAN:
+	case proto.NodeFilter_LESS_THAN:
 		res = less
-	case NodeFilter_LESS_THAN_EQUAL_TO:
+	case proto.NodeFilter_LESS_THAN_EQUAL_TO:
 		res = lessEqual
-	case NodeFilter_NOT_EQUAL_TO:
+	case proto.NodeFilter_NOT_EQUAL_TO:
 		res = notEqual
 	}
 	return res
 }
 
 // toColum method converts a proto column type to a sum column type
-func (col ColumnName) toColumn() column {
+func toColumn(col proto.ColumnName) column {
 	res := sourceColumn
 	switch col {
-	case ColumnName_source:
+	case proto.ColumnName_source:
 		res = sourceColumn
-	case ColumnName_node_name:
+	case proto.ColumnName_node_name:
 		res = nodeNameColumn
-	case ColumnName_timestamp:
+	case proto.ColumnName_timestamp:
 		res = timestampColumn
-	case ColumnName_uptime:
+	case proto.ColumnName_uptime:
 		res = uptimeColumn
-	case ColumnName_audit_success:
+	case proto.ColumnName_audit_success:
 		res = auditSuccessColumn
-	case ColumnName_audit_fail:
+	case proto.ColumnName_audit_fail:
 		res = auditFailColumn
-	case ColumnName_latency:
+	case proto.ColumnName_latency:
 		res = latencyColumn
-	case ColumnName_amount_of_data_stored:
+	case proto.ColumnName_amount_of_data_stored:
 		res = amountOfDataStoredColumn
-	case ColumnName_false_claims:
+	case proto.ColumnName_false_claims:
 		res = falseClaimsColumn
-	case ColumnName_shards_modified:
+	case proto.ColumnName_shards_modified:
 		res = shardsModifiedColumn
 	}
 
@@ -155,11 +157,11 @@ func (col ColumnName) toColumn() column {
 }
 
 // selectNodeWhere is a function that queries the reputation db and finds nodes that satisfies the where clause
-func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, value string) (NodeReputationRecords, error) {
-	var records []*NodeReputationRecord
-	recordsForError := NodeReputationRecords{Records: records}
+func selectNodeWhere(db *sql.DB, col proto.ColumnName, operand proto.NodeFilter_Operand, value string) (proto.NodeReputationRecords, error) {
+	var records []*proto.NodeReputationRecord
+	recordsForError := proto.NodeReputationRecords{Records: records}
 
-	selectNodeStmt := genWhereStatement(selectAllStmt, col.toColumn(), operand.toWhereOpt(), value)
+	selectNodeStmt := genWhereStatement(selectAllStmt, toColumn(col), toWhereOpt(operand), value)
 	nodes, err := getNodeReputationRecords(db, selectNodeStmt)
 	if err != nil {
 		return recordsForError, err
@@ -170,19 +172,19 @@ func selectNodeWhere(db *sql.DB, col ColumnName, operand NodeFilter_Operand, val
 		records = append(records, &n)
 	}
 
-	return NodeReputationRecords{
+	return proto.NodeReputationRecords{
 		Records: records,
 	}, nil
 }
 
 // insertNodeUpdate used in handler by update node reputation
-func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
-	res := UpdateReply_UPDATE_FAILED
+func insertNodeUpdate(db *sql.DB, in *proto.NodeUpdate) proto.UpdateReply_ReplyType {
+	res := proto.UpdateReply_UPDATE_FAILED
 
 	selectNodeStmt := genWhereStatement(selectAllStmt, nodeNameColumn, equal, in.NodeName)
 	row, err := endianReputation(db, selectNodeStmt)
 	if err != nil {
-		res = UpdateReply_UPDATE_FAILED
+		res = proto.UpdateReply_UPDATE_FAILED
 	}
 
 	if row.nodeName != in.NodeName {
@@ -191,13 +193,13 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	}
 	newRecord := row
 
-	switch in.ColumnName.toColumn() {
+	switch toColumn(in.ColumnName) {
 	case uptimeColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(uptimeColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -206,9 +208,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case auditSuccessColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(auditSuccessColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -217,9 +219,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case auditFailColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(auditFailColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -228,9 +230,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case latencyColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(latencyColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -239,9 +241,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case amountOfDataStoredColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(amountOfDataStoredColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -250,9 +252,9 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case falseClaimsColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(falseClaimsColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
@@ -261,16 +263,16 @@ func insertNodeUpdate(db *sql.DB, in *NodeUpdate) UpdateReply_ReplyType {
 	case shardsModifiedColumn:
 		val, err := strconv.ParseInt(in.ColumnValue, 10, 64)
 		if err != nil {
-			res = UpdateReply_UPDATE_FAILED
+			res = proto.UpdateReply_UPDATE_FAILED
 		} else {
-			res = UpdateReply_UPDATE_SUCCESS
+			res = proto.UpdateReply_UPDATE_SUCCESS
 			newRecord = newRecord.morphism(shardsModifiedColumn, overWrite, val)
 		}
 		morph := []nodeReputationRecord{newRecord}
 		insertRows(db, morph, insertStmt)
 
 	default:
-		res = UpdateReply_UPDATE_FAILED
+		res = proto.UpdateReply_UPDATE_FAILED
 
 	}
 
