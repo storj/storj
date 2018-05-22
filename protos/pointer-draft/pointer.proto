@@ -1,0 +1,66 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message RedundancyScheme {
+  enum SchemeType {
+    RS = 1;
+  }
+  SchemeType type = 1;
+
+  // these values apply to RS encoding
+  int64 required = 2;  // the minimum required for reconstruction
+  int64 total = 3;     // the total amount of pieces we generated
+  int64 repair_threshold = 4;  // the amount of pieces we need to drop to before triggering repair
+  int64 success_threshold = 5;  // the amount of pieces we need to store to call it a success
+}
+
+message EncryptionScheme {
+  enum EncryptionType {
+    AESGCM = 1;
+    SECRETBOX = 2;
+    // only allow authenticated encryption schemes
+  }
+  EncryptionType type = 1;
+  bytes encrypted_encryption_key = 2;
+  bytes encrypted_starting_nonce = 3;
+}
+
+message RemotePiece {
+  int64 piece_num = 1;
+  string node_id = 2;
+  int64 size = 3;  // full size, including merkle tree
+}
+
+message InlineSegment {
+  bytes segment = 1;
+}
+
+message RemoteSegment {
+  RedundancyScheme redundancy = 1;
+  string piece_name = 2;
+  repeated RemotePiece remote_pieces = 3;
+
+  bytes merkle_root = 5; // the root hash of the hashes of all of these pieces
+  int64 merkle_size = 6; // the amount of space the merkle tree takes up at the end of each chunk
+}
+
+message Pointer {
+  enum DataType {
+    INLINE = 1;
+    REMOTE = 2;
+  }
+
+  DataType type = 1;
+  EncryptionScheme encryption = 2;
+
+  InlineSegment inline = 3;
+  RemoteSegment remote = 4;
+  int64 encrypted_unencrypted_size = 5;  // the size of the unencrypted object (!)
+
+  google.protobuf.Timestamp creation_date = 6;
+  google.protobuf.Timestamp expiration_date = 7;
+}
