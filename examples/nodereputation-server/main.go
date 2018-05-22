@@ -8,12 +8,11 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	nodereputation "storj.io/storj/node_reputation"
+	nodereputation "storj.io/storj/pkg/node_reputation"
 	proto "storj.io/storj/protos/node_reputation"
 )
 
 func main() {
-
 	db, err := nodereputation.SetServerDB("./Server.db")
 	if err != nil {
 		fmt.Println("err")
