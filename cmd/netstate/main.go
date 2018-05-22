@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc"
 	"github.com/spf13/viper"
 
-
 	"storj.io/storj/pkg/netstate"
 	proto "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
