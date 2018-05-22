@@ -15,12 +15,16 @@ void storj_uv_run_cgo(storj_env_t *env);
 int size_of_buckets_struct(void);
 storj_bucket_meta_t *bucket_index(storj_bucket_meta_t *array, int index);
 storj_file_meta_t *file_index(storj_file_meta_t *array, int index);
+int upload_file(storj_env_t *env, char *bucket_id, const char *file_path, char *file_name, void *handle);
+void file_open_test(void);
 */
 import "C"
 import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"strings"
 	"time"
 	"unsafe"
@@ -42,6 +46,8 @@ var gGoEnvT *C.storj_env_t
 // 	Password string
 // 	Mnemonic string
 // }
+
+//S3Bucket structure
 type S3Bucket struct {
 	bucket   minio.Bucket
 	bucketID string
@@ -203,6 +209,7 @@ func (s *Storj) Production() bool {
 
 type storjObjects struct {
 	minio.GatewayUnsupported
+	TempDir string // Temporary storage location for file transfers.
 	//Env
 }
 
@@ -257,6 +264,32 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	}
 
 	return b, nil
+}
+
+//GetBucketID returns the corresponding bucketID
+func GetBucketID(bucketName string) (bucketID string) {
+	var bktName string
+	/* @TODO: Handle Zero files in a bucket name */
+	for i, v := range gS3CliAPI.bucketInfo {
+		bucketID = v.bucketID
+		bktName = v.bucket.Name
+		fmt.Printf("ID: %s \tName: %s\n", bucketID, bucketName)
+		ret := strings.Compare(bktName, bucketName)
+		if ret == 0x00 {
+			bucketID = v.bucketID
+			bucketName = v.bucket.Name
+			break
+		}
+		/* @TODO: Invalid bucket name handle here... */
+		if i == (len(gS3CliAPI.bucketInfo) - 1) {
+			fmt.Printf("Invalid bucket name \n")
+			bucketID = ""
+		}
+	}
+
+	fmt.Printf("gS3CliAPI.bucketID = %s \n", bucketID)
+	fmt.Printf("gS3CliAPI.bucketInfo[n].Name = %s\n", bucketName)
+	return bucketID
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
@@ -316,7 +349,35 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	panic("TODO")
+	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
+	writer, err := os.Create(srcFile)
+	if err != nil {
+		return objInfo, err
+	}
+
+	wsize, err := io.CopyN(writer, data, data.Size())
+	if err != nil {
+		os.Remove(srcFile)
+		return objInfo, err
+	}
+	fmt.Printf("hello hello hello bucket = %s; object = %s wsize = %d\n ", bucket, object, wsize)
+
+	bucketID := GetBucketID(bucket)
+	C.file_open_test()
+	if bucketID != "" {
+		_, fileName := path.Split("/Users/kishore/Downloads/upload_testfile.txt")
+		response := C.upload_file((*C.storj_env_t)(gGoEnvT), C.CString(bucketID), C.CString("/Users/kishore/Downloads/upload_testfile.txt"), C.CString(fileName), nil)
+		C.storj_uv_run_cgo((*C.storj_env_t)(gGoEnvT))
+		fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
+	}
+
+	return minio.ObjectInfo{
+		Name:    object,
+		Bucket:  bucket,
+		ModTime: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		Size:    wsize,
+		ETag:    minio.GenETag(),
+	}, nil
 }
 
 func (s *storjObjects) Shutdown(context.Context) error {
