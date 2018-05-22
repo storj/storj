@@ -1,0 +1,85 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+package nodereputation;
+
+service NodeReputation {
+    rpc NodeReputation(NodeQuery) returns (NodeReputationRecord) {}
+    rpc UpdateReputation(NodeUpdate) returns (UpdateReply) {}
+    rpc FilterNodeReputation(NodeFilter) returns (NodeReputationRecords) {}
+    rpc PruneNodeReputation(NodeQuery) returns (UpdateReply) {}
+}
+
+message NodeReputationRecord {
+    string source = 1;
+    string nodeName = 2;
+	string timestamp = 3;
+	int64 uptime = 4;
+	int64 auditSuccess = 5;
+	int64 auditFail = 6;
+	int64 latency = 7;
+	int64 amountOfDataStored = 8;
+	int64 falseClaims = 9;
+    int64 shardsModified = 10;
+    float score = 11;
+}
+
+message NodeReputationRecords {
+    repeated NodeReputationRecord records = 1;
+}
+
+message UpdateReply {
+    string bridgeName = 1;
+    string nodeName = 2;
+    string source = 3;
+
+    enum ReplyType {
+        UPDATE_SUCCESS = 0;
+        UPDATE_FAILED = 1;
+    }
+
+    ReplyType status = 4;
+}
+
+message NodeQuery {
+    string source = 1;
+    string nodeName = 2;
+}
+
+message NodeUpdate {
+    string source = 1;
+    string nodeName = 2;
+    ColumnName columnName = 3;
+    string columnValue = 4;
+}
+
+message NodeFilter {
+    string source = 1;
+    ColumnName columnName = 2;
+
+    enum Operand {
+        EQUAL_TO = 0;
+        GREATER_THAN = 1;
+        GREATER_THAN_EQUAL_TO = 2;
+        LESS_THAN = 3;
+        LESS_THAN_EQUAL_TO = 4;
+        NOT_EQUAL_TO = 5;
+    }
+
+    Operand operand = 3;
+    string columnValue = 4;
+}
+
+enum ColumnName {
+	source = 0;
+	node_name = 1;
+    uptime = 2;
+    timestamp = 3;
+	audit_success = 4;
+	audit_fail = 5;
+	latency = 6;
+	amount_of_data_stored = 7;
+	false_claims = 8;
+	shards_modified = 9;
+}
