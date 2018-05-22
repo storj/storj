@@ -45,5 +45,3 @@ func (k Kademlia) Ping(ctx context.Context, node overlay.Node) (overlay.Node, er
 func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (overlay.Node, error) {
 	return overlay.Node{}, nil
 }
-
-func walk()
