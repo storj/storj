@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	"storj.io/storj/node_reputation"
+	proto "storj.io/storj/protos/node_reputation"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	nodereputation.RegisterNodeReputationServer(grpcServer, &s)
+	proto.RegisterNodeReputationServer(grpcServer, &s)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		fmt.Println("err")

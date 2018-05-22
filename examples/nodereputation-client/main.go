@@ -8,7 +8,8 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"storj.io/storj/node_reputation"
+	// proto "storj.io/storj/protos/node_reputation"
+	proto "storj.io/storj/protos/node_reputation"
 )
 
 func main() {
@@ -21,13 +22,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := nodereputation.NewNodeReputationClient(conn)
+	client := proto.NewNodeReputationClient(conn)
 
 	response, err := client.UpdateReputation(context.Background(),
-		&nodereputation.NodeUpdate{
+		&proto.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  nodereputation.ColumnName_uptime,
+			ColumnName:  proto.ColumnName_uptime,
 			ColumnValue: "30",
 		},
 	)
@@ -38,7 +39,7 @@ func main() {
 	fmt.Println("Reply receive", response.Status)
 
 	rep, err := client.NodeReputation(context.Background(),
-		&nodereputation.NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},
@@ -49,10 +50,10 @@ func main() {
 	fmt.Println("Rep receive", rep)
 
 	response1, err := client.UpdateReputation(context.Background(),
-		&nodereputation.NodeUpdate{
+		&proto.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  nodereputation.ColumnName_uptime,
+			ColumnName:  proto.ColumnName_uptime,
 			ColumnValue: "3",
 		},
 	)
@@ -63,10 +64,10 @@ func main() {
 	fmt.Println("Reply receive", response1.Status)
 
 	filter, err := client.FilterNodeReputation(context.Background(),
-		&nodereputation.NodeFilter{
+		&proto.NodeFilter{
 			Source:      "Bob",
-			ColumnName:  nodereputation.ColumnName_uptime,
-			Operand:     nodereputation.NodeFilter_LESS_THAN,
+			ColumnName:  proto.ColumnName_uptime,
+			Operand:     proto.NodeFilter_LESS_THAN,
 			ColumnValue: "10",
 		},
 	)
@@ -76,10 +77,10 @@ func main() {
 	fmt.Println("Filter reply uptime less than 10", filter.Records)
 
 	response2, err := client.UpdateReputation(context.Background(),
-		&nodereputation.NodeUpdate{
+		&proto.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  nodereputation.ColumnName_uptime,
+			ColumnName:  proto.ColumnName_uptime,
 			ColumnValue: "42",
 		},
 	)
@@ -90,7 +91,7 @@ func main() {
 	fmt.Println("Reply receive", response2.Status)
 
 	prune, err := client.PruneNodeReputation(context.Background(),
-		&nodereputation.NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},
@@ -102,7 +103,7 @@ func main() {
 	fmt.Println("Prune status", prune.Status)
 
 	rep2, err := client.NodeReputation(context.Background(),
-		&nodereputation.NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Bob",
 			NodeName: "Alice",
 		},
