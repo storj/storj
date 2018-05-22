@@ -101,11 +101,11 @@ func (er *encodedReader) addToReader(num int, data []byte) {
 	// data is reused by infecious, so add a copy to the channel
 	tmp := make([]byte, len(data))
 	copy(tmp, data)
-	// initialize timer
-	timer := time.NewTimer(50 * time.Millisecond)
-	defer timer.Stop()
-	// add data copy to the respective reader's channel
 	for {
+		// initialize timer
+		timer := time.NewTimer(50 * time.Millisecond)
+		defer timer.Stop()
+		// add data copy to the respective reader's channel
 		select {
 		case er.chans[num] <- tmp:
 			return
