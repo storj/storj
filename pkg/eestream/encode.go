@@ -47,7 +47,8 @@ type encodedReader struct {
 }
 
 // EncodeReader will take a Reader and an ErasureScheme and return a slice of
-// Readers
+// Readers. maxBufferMemory is the maximum memory (in bytes) to be allocated
+// for read buffers. If set to 0, the minimum possible memory will be used.
 func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reader {
 	er := &encodedReader{
 		r:       r,
