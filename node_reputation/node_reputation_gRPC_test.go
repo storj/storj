@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-	proto "storj.io/storj/protos/nodereputation"
+	proto "storj.io/storj/protos/node_reputation"
 )
 
 func TestNodeReputationClient(t *testing.T) {
@@ -22,7 +22,7 @@ func TestNodeReputationClient(t *testing.T) {
 
 	grpcServer := grpc.NewServer()
 	server := Server{}
-	RegisterNodeReputationServer(grpcServer, &server)
+	proto.RegisterNodeReputationServer(grpcServer, &server)
 
 	defer grpcServer.GracefulStop()
 	go grpcServer.Serve(lis)
@@ -32,13 +32,13 @@ func TestNodeReputationClient(t *testing.T) {
 		fmt.Println("conn err")
 	}
 
-	client := NewNodeReputationClient(conn)
+	client := proto.NewNodeReputationClient(conn)
 
 	response, err := client.UpdateReputation(context.Background(),
 		&proto.NodeUpdate{
 			Source:      "Bob",
 			NodeName:    "Alice",
-			ColumnName:  ColumnName_uptime,
+			ColumnName:  proto.ColumnName_uptime,
 			ColumnValue: "2",
 		},
 	)
@@ -52,7 +52,7 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	queryResponse, err := client.NodeReputation(context.Background(),
-		&NodeQuery{
+		&proto.NodeQuery{
 			Source:   "Test",
 			NodeName: "Alice",
 		},
@@ -69,7 +69,7 @@ func TestNodeReputationClient(t *testing.T) {
 		&proto.NodeUpdate{
 			Source:      "Test",
 			NodeName:    "Alice",
-			ColumnName:  ColumnName_uptime,
+			ColumnName:  proto.ColumnName_uptime,
 			ColumnValue: "100",
 		},
 	)
@@ -96,10 +96,10 @@ func TestNodeReputationClient(t *testing.T) {
 	}
 
 	filterResponse, err := client.FilterNodeReputation(context.Background(),
-		&NodeFilter{
+		&proto.NodeFilter{
 			Source:      "Test",
-			ColumnName:  ColumnName_uptime,
-			Operand:     NodeFilter_LESS_THAN,
+			ColumnName:  proto.ColumnName_uptime,
+			Operand:     proto.NodeFilter_LESS_THAN,
 			ColumnValue: "100",
 		},
 	)
@@ -121,7 +121,7 @@ func TestNodeReputationClient(t *testing.T) {
 		fmt.Println("Prune err")
 	}
 
-	if prune.Status != UpdateReply_UPDATE_SUCCESS {
+	if prune.Status != proto.UpdateReply_UPDATE_SUCCESS {
 		t.Error("expected prune success got", prune.Status)
 	}
 
