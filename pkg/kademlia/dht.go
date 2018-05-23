@@ -5,13 +5,19 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	bkad "github.com/coyle/kademlia"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	proto "storj.io/storj/protos/overlay"
 )
+
+// NodeErr is the class for all errros petaining to node operations
+var NodeErr = errs.Class("node error")
+var defaultTransport = "udp"
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
@@ -67,7 +73,15 @@ func (k Kademlia) Bootstrap(ctx context.Context) error {
 
 // Ping checks that the provided node is still accessible on the network
 func (k Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	return proto.Node{}, nil
+
+	ok, err := k.dht.Ping(convert(node))
+	if err != nil {
+		return proto.Node{}, err
+	}
+	if !ok {
+		return proto.Node{}, NodeErr.New("node unavailable")
+	}
+	return node, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
@@ -78,21 +92,42 @@ func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 		return proto.Node{}, err
 
 	}
-	return proto.Node{}, nil
+
+	if len(nodes) <= 0 || string(nodes[0].ID) != string(ID) {
+		// check if the IDs don't match since dht.FindNode will
+		// return the closest node if the node it's looking for
+		// is not found
+		return proto.Node{}, NodeErr.New("node not found")
+	}
+
+	node := nodes[0]
+
+	return proto.Node{
+		Id: string(node.ID),
+		Address: &proto.NodeAddress{
+			Transport: proto.NodeTransport_TCP, // TODO: defaulting to this, probably needs to be determined during lookup
+			Address:   fmt.Sprintf("%s:%d", node.IP.String(), node.Port),
+		},
+	}, nil
 }
 
 func convertNodeTypes(n []proto.Node) []*bkad.NetworkNode {
 	nn := []*bkad.NetworkNode{}
 	for i, v := range n {
-		ip := strings.Split(v.GetAddress().GetAddress(), ":")
-		if len(ip) < 2 {
-
-		}
-
-		n := bkad.NewNetworkNode(ip[0], ip[1])
-		n.ID = []byte(v.GetId())
-		nn[i] = n
+		nn[i] = convert(v)
 	}
+
+	return nn
+}
+
+func convert(n proto.Node) *bkad.NetworkNode {
+	ip := strings.Split(n.GetAddress().GetAddress(), ":")
+	if len(ip) == 1 {
+		ip = append(ip, "0")
+	}
+
+	nn := bkad.NewNetworkNode(ip[0], ip[1])
+	nn.ID = []byte(n.GetId())
 
 	return nn
 }
