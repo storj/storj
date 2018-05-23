@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 
-	bkad "github.com/prettymuchbryce/kademlia"
+	bkad "github.com/coyle/kademlia"
 	"golang.org/x/sync/errgroup"
 
 	proto "storj.io/storj/protos/overlay"
@@ -25,6 +25,7 @@ type Kademlia struct {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
+	// k.dht.Get
 	return []proto.Node{}, nil
 }
 
@@ -72,6 +73,11 @@ func (k Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error)
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
+	nodes, err := k.dht.FindNode([]byte(ID))
+	if err != nil {
+		return proto.Node{}, err
+
+	}
 	return proto.Node{}, nil
 }
 
