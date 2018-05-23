@@ -37,12 +37,12 @@ type DB interface {
 }
 
 // Put formats and hands off a file path to be saved to boltdb
-func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutResponse, error) {
+func (s *Server) Put(ctx context.Context, putReq *proto.PutRequest) (*proto.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
 	file := boltdb.File{
-		Path:  []byte(filepath.Path),
-		Value: []byte(filepath.SmallValue),
+		Path:    []byte(putReq.Path),
+		Pointer: putReq.Pointer.InlineSegment,
 	}
 
 	if err := s.DB.Put(file); err != nil {
@@ -51,9 +51,7 @@ func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutR
 	}
 	s.logger.Debug("put to the db: " + string(file.Path))
 
-	return &proto.PutResponse{
-		Confirmation: "success",
-	}, nil
+	return &proto.PutResponse{}, nil
 }
 
 // Get formats and hands off a file path to get from boltdb

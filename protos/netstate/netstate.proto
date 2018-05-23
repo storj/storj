@@ -48,10 +48,6 @@ message RemotePiece {
   int64 size = 3; // full size including merkle tree
 }
 
-message InlineSegment {
-  bytes segement = 1;
-}
-
 message RemoteSegment {
   RedundancyScheme redundancy = 1;
   string piece_name = 2;
@@ -70,7 +66,7 @@ message Pointer {
   DataType type = 1;
   EncryptionScheme encryption = 2;
 
-  InlineSegment inline = 3;
+  bytes inline_segment = 3;
   RemoteSegment remote = 4;
   int64 encrypted_unencrypted_size = 5; // size of the unencrypted object (!)
 

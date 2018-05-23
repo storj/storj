@@ -5,12 +5,14 @@ package boltdb
 
 import (
 	"github.com/boltdb/bolt"
+
+	proto "storj.io/storj/protos/netstate"
 )
 
-// File Path and Value are saved to boltdb
+// File Path and Pointer are saved to boltdb
 type File struct {
-	Path  []byte `json:"path"`
-	Value []byte `json:"value"`
+	Path    []byte        `json:"path"`
+	Pointer proto.Pointer.InlineSegment `json:"pointer"`
 }
 
 const (
@@ -27,7 +29,7 @@ func (client *Client) Put(file File) error {
 		}
 
 		fileKey := []byte(file.Path)
-		return b.Put(fileKey, file.Value)
+		return b.Put(fileKey, file.Pointer.InlineSegment)
 	})
 }
 
