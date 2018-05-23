@@ -39,6 +39,11 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 // Get looks up the provided nodeID from the redis cache
 func (o *OverlayClient) Get(key string) (*overlay.NodeAddress, error) {
 	d, err := o.DB.Get(key)
+
+	if d == nil {
+		// if not found in cache, we do another lookup in DHT
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -75,5 +80,16 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
 func (o *OverlayClient) Refresh(ctx context.Context) error {
+	// iterate over all nodes
+	// compare responses to find new nodes
+	// listen for responses from existing nodes
+	// if no response from existing, then mark it as offline for time period
+	// if responds, it refreshes in DHT
+
 	return errors.New("REFRESH TODO")
+}
+
+// Walk iterates over buckets to walk the network
+func (o *OverlayClient) Walk(ctx context.Context) error {
+	return errors.New("Walk function needs to be implemented")
 }
