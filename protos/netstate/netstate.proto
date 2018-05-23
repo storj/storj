@@ -4,7 +4,7 @@
 syntax = "proto3";
 package netstate;
 
-import "google/protobuf/timestamp.proto";
+import "timestamp.proto";
 
 // NetState defines the interface for interacting with the network state persistence layer
 service NetState {
@@ -20,7 +20,7 @@ service NetState {
 
 message RedundancyScheme {
   enum SchemeType {
-    RS = 1;
+    RS = 0;
   }
   SchemeType type = 1;
 
@@ -33,8 +33,8 @@ message RedundancyScheme {
 
 message EncryptionScheme {
   enum EncryptionType {
-    AESGCM = 1;
-    SECRETBOX = 2;
+    AESGCM = 0;
+    SECRETBOX = 1;
     // only allow authenticated encryption schemes
   }
   EncryptionType type = 1;
@@ -63,8 +63,8 @@ message RemoteSegment {
 
 message Pointer {
   enum DataType {
-    INLINE = 1;
-    REMOTE = 2;
+    INLINE = 0;
+    REMOTE = 1;
   }
 
   DataType type = 1;
