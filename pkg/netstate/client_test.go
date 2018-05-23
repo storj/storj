@@ -44,6 +44,7 @@ func TestNetStateClient(t *testing.T) {
 	ctx := context.Background()
 
 	// example file path to put/get
+<<<<<<< HEAD
 	pr1 := pb.PutRequest{
 		Path: []byte("here/is/a/path"),
 		Pointer: &pb.Pointer{
@@ -54,6 +55,11 @@ func TestNetStateClient(t *testing.T) {
 			},
 			InlineSegment: []byte("oatmeal"),
 		},
+=======
+	fp := proto.FilePath{
+		Path:       []byte("here/is/a/path"),
+		SmallValue: []byte("oatmeal"),
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 		XApiKey: []byte("abc123"),
 	}
 
@@ -84,23 +90,37 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Expected saved value to equal given value")
 	}
 
+<<<<<<< HEAD
 	// Tests Server.Get
 	getReq := pb.GetRequest{
 		Path: []byte("here/is/a/path"),
 		XApiKey: []byte("abc123"),
 	}
+=======
+	// // Tests Server.Get
+	// getReq := proto.GetRequest{
+	// 	Path: []byte("here/is/a/path"),
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
-	getRes, err := c.Get(ctx, &getReq)
-	assert.NoError(t, err)
+	// getRes, err := c.Get(ctx, &getReq)
+	// assert.NoError(t, err)
 
+<<<<<<< HEAD
 	if !bytes.Equal(getRes.Pointer, pointerBytes) {
 		t.Error("Expected to get same content that was put")
 	}
+=======
+	// if !bytes.Equal(getRes.SmallValue, fp.SmallValue) {
+	// 	t.Error("Expected to get same content that was put")
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
-	if mdb.timesCalled != 2 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	// if mdb.timesCalled != 2 {
+	// 	t.Error("Failed to call mockdb correct number of times")
+	// }
 
+<<<<<<< HEAD
 	// Puts another pointer entry to test delete and list
 	pr2 := pb.PutRequest{
 		Path: []byte("here/is/another/path"),
@@ -119,11 +139,26 @@ func TestNetStateClient(t *testing.T) {
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to Put")
 	}
+=======
+	// // Puts another file path to test delete and list
+	// fp2 := proto.FilePath{
+	// 	Path:       []byte("here/is/another/path"),
+	// 	SmallValue: []byte("raisins"),
+	// }
 
-	if mdb.timesCalled != 3 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	// putRes2, err := c.Put(ctx, &fp2)
+	// assert.NoError(t, err)
 
+	// if putRes2.Confirmation != "success" {
+	// 	t.Error("Failed to receive success Put response")
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
+
+	// if mdb.timesCalled != 3 {
+	// 	t.Error("Failed to call mockdb correct number of times")
+	// }
+
+<<<<<<< HEAD
 	// Test Server.Delete
 	delReq := pb.DeleteRequest{
 		Path: []byte("here/is/a/path"),
@@ -134,11 +169,27 @@ func TestNetStateClient(t *testing.T) {
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to delete")
 	}
+=======
+	// // Test Server.Delete
+	// delReq := proto.DeleteRequest{
+	// 	Path: []byte("here/is/a/path"),
+	// }
 
-	if mdb.timesCalled != 4 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	// delRes, err := c.Delete(ctx, &delReq)
+	// if err != nil {
+	// 	t.Error("Failed to delete file path")
+	// }
 
+	// if delRes.Confirmation != "success" {
+	// 	t.Error("Failed to receive success delete response")
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
+
+	// if mdb.timesCalled != 4 {
+	// 	t.Error("Failed to call mockdb correct number of times")
+	// }
+
+<<<<<<< HEAD
 	// Tests Server.List
 	listReq := pb.ListRequest{
 		// This pagination functionality doesn't work yet.
@@ -147,17 +198,29 @@ func TestNetStateClient(t *testing.T) {
 		Limit:           5,
 		XApiKey: []byte("abc123"),
 	}
+=======
+	// // Tests Server.List
+	// listReq := proto.ListRequest{
+	// 	Bucket: []byte("files"),
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
-	listRes, err := c.List(ctx, &listReq)
-	if err != nil {
-		t.Error("Failed to list file paths")
-	}
+	// listRes, err := c.List(ctx, &listReq)
+	// if err != nil {
+	// 	t.Error("Failed to list file paths")
+	// }
 
+<<<<<<< HEAD
 	if !bytes.Equal(listRes.Paths[0], []byte("here/is/another/path")) {
 		t.Error("Failed to list correct file path")
 	}
+=======
+	// if !bytes.Equal(listRes.Filepaths[0], []byte("here/is/another/path")) {
+	// 	t.Error("Failed to list correct file path")
+	// }
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
-	if mdb.timesCalled != 5 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	// if mdb.timesCalled != 5 {
+	// 	t.Error("Failed to call mockdb correct number of times")
+	// }
 }

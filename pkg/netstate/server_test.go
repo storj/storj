@@ -5,6 +5,7 @@ package netstate
 
 import (
 	"bytes"
+	"os"
 
 	"storj.io/storj/storage/boltdb"
 )
@@ -16,7 +17,15 @@ type MockDB struct {
 	pathKeys    [][]byte
 }
 
+<<<<<<< HEAD
 func (m *MockDB) Put(f boltdb.PointerEntry) error {
+=======
+func setEnv() {
+	os.Setenv("API_KEY", "abc123")
+}
+
+func (m *mockDB) Put(f boltdb.File) error {
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 	m.timesCalled++
 	m.puts = append(m.puts, f)
 	return nil

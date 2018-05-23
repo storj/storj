@@ -10,7 +10,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+<<<<<<< HEAD
 	"google.golang.org/grpc/status"
+=======
+	"github.com/spf13/viper"
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
 	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
@@ -49,7 +53,12 @@ func isAuthValid(xApiKeyBytes []byte) bool {
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 	
+<<<<<<< HEAD
 	xApiKeyBytes := []byte(putReq.XApiKey)
+=======
+	var apiKeyByte = []byte(viper.GetString("key"))
+	fmt.Println("server creds: ", apiKeyByte)
+>>>>>>> work in progress for modifying test suite to accomodate credentials
 
 	if ! auth.ValidateAPIKey(string(xApiKeyBytes)) {
 		fmt.Println("Unauthorized Request: ", codes.Unauthenticated)
