@@ -6,9 +6,10 @@ package netstate
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net"
+	"fmt"
 	"testing"
+	"os"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,7 @@ import (
 
 func TestNetStateClient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
+	fmt.Println("in clinet: ", os.Getenv("API_KEY"))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
@@ -91,6 +93,7 @@ func TestNetStateClient(t *testing.T) {
 	}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	// Tests Server.Get
 	getReq := pb.GetRequest{
 		Path: []byte("here/is/a/path"),
@@ -102,10 +105,18 @@ func TestNetStateClient(t *testing.T) {
 	// 	Path: []byte("here/is/a/path"),
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	// Tests Server.Get
+	getReq := proto.GetRequest{
+		Path: []byte("here/is/a/path"),
+		XApiKey: []byte("abc123"),
+	}
+>>>>>>> modified tests
 
-	// getRes, err := c.Get(ctx, &getReq)
-	// assert.NoError(t, err)
+	getRes, err := c.Get(ctx, &getReq)
+	assert.NoError(t, err)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	if !bytes.Equal(getRes.Pointer, pointerBytes) {
 		t.Error("Expected to get same content that was put")
@@ -115,11 +126,17 @@ func TestNetStateClient(t *testing.T) {
 	// 	t.Error("Expected to get same content that was put")
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	if !bytes.Equal(getRes.SmallValue, fp.SmallValue) {
+		t.Error("Expected to get same content that was put")
+	}
+>>>>>>> modified tests
 
-	// if mdb.timesCalled != 2 {
-	// 	t.Error("Failed to call mockdb correct number of times")
-	// }
+	if mdb.timesCalled != 2 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	// Puts another pointer entry to test delete and list
 	pr2 := pb.PutRequest{
@@ -145,19 +162,34 @@ func TestNetStateClient(t *testing.T) {
 	// 	Path:       []byte("here/is/another/path"),
 	// 	SmallValue: []byte("raisins"),
 	// }
+=======
+	// Puts another file path to test delete and list
+	fp2 := proto.FilePath{
+		Path:       []byte("here/is/another/path"),
+		SmallValue: []byte("raisins"),
+		XApiKey: []byte("abc123"),
+	}
+>>>>>>> modified tests
 
-	// putRes2, err := c.Put(ctx, &fp2)
-	// assert.NoError(t, err)
+	putRes2, err := c.Put(ctx, &fp2)
+	assert.NoError(t, err)
 
+<<<<<<< HEAD
 	// if putRes2.Confirmation != "success" {
 	// 	t.Error("Failed to receive success Put response")
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	if putRes2.Confirmation != "success" {
+		t.Error("Failed to receive success Put response")
+	}
+>>>>>>> modified tests
 
-	// if mdb.timesCalled != 3 {
-	// 	t.Error("Failed to call mockdb correct number of times")
-	// }
+	if mdb.timesCalled != 3 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	// Test Server.Delete
 	delReq := pb.DeleteRequest{
@@ -174,21 +206,35 @@ func TestNetStateClient(t *testing.T) {
 	// delReq := proto.DeleteRequest{
 	// 	Path: []byte("here/is/a/path"),
 	// }
+=======
+	// Test Server.Delete
+	delReq := proto.DeleteRequest{
+		Path: []byte("here/is/a/path"),
+		XApiKey: []byte("abc123"),
+	}
+>>>>>>> modified tests
 
-	// delRes, err := c.Delete(ctx, &delReq)
-	// if err != nil {
-	// 	t.Error("Failed to delete file path")
-	// }
+	delRes, err := c.Delete(ctx, &delReq)
+	if err != nil {
+		t.Error("Failed to delete file path")
+	}
 
+<<<<<<< HEAD
 	// if delRes.Confirmation != "success" {
 	// 	t.Error("Failed to receive success delete response")
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	if delRes.Confirmation != "success" {
+		t.Error("Failed to receive success delete response")
+	}
+>>>>>>> modified tests
 
-	// if mdb.timesCalled != 4 {
-	// 	t.Error("Failed to call mockdb correct number of times")
-	// }
+	if mdb.timesCalled != 4 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	// Tests Server.List
 	listReq := pb.ListRequest{
@@ -204,12 +250,20 @@ func TestNetStateClient(t *testing.T) {
 	// 	Bucket: []byte("files"),
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	// Tests Server.List
+	listReq := proto.ListRequest{
+		Bucket: []byte("files"),
+		XApiKey: []byte("abc123"),
+	}
+>>>>>>> modified tests
 
-	// listRes, err := c.List(ctx, &listReq)
-	// if err != nil {
-	// 	t.Error("Failed to list file paths")
-	// }
+	listRes, err := c.List(ctx, &listReq)
+	if err != nil {
+		t.Error("Failed to list file paths")
+	}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	if !bytes.Equal(listRes.Paths[0], []byte("here/is/another/path")) {
 		t.Error("Failed to list correct file path")
@@ -219,8 +273,13 @@ func TestNetStateClient(t *testing.T) {
 	// 	t.Error("Failed to list correct file path")
 	// }
 >>>>>>> work in progress for modifying test suite to accomodate credentials
+=======
+	if !bytes.Equal(listRes.Filepaths[0], []byte("here/is/another/path")) {
+		t.Error("Failed to list correct file path")
+	}
+>>>>>>> modified tests
 
-	// if mdb.timesCalled != 5 {
-	// 	t.Error("Failed to call mockdb correct number of times")
-	// }
+	if mdb.timesCalled != 5 {
+		t.Error("Failed to call mockdb correct number of times")
+	}
 }

@@ -6,26 +6,35 @@ package netstate
 import (
 	"bytes"
 	"os"
+	"testing"
+
+	"github.com/spf13/viper"
 
 	"storj.io/storj/storage/boltdb"
 )
 
-// MockDB mocks db functionality for testing
+const (
+	API_KEY = "abc123"
+)
+
+func TestMain(m *testing.M) {
+	viper.SetEnvPrefix("API")
+	os.Setenv("API_KEY", API_KEY)
+	viper.AutomaticEnv()
+    os.Exit(m.Run())
+}
+
 type MockDB struct {
 	timesCalled int
 	puts        []boltdb.PointerEntry
 	pathKeys    [][]byte
 }
 
-<<<<<<< HEAD
-func (m *MockDB) Put(f boltdb.PointerEntry) error {
-=======
 func setEnv() {
 	os.Setenv("API_KEY", "abc123")
 }
 
-func (m *mockDB) Put(f boltdb.File) error {
->>>>>>> work in progress for modifying test suite to accomodate credentials
+func (m *MockDB) Put(f boltdb.PointerEntry) error {
 	m.timesCalled++
 	m.puts = append(m.puts, f)
 	return nil
