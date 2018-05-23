@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	bkad "github.com/coyle/kademlia"
@@ -74,6 +75,8 @@ func (k Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error)
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 	nodes, err := k.dht.FindNode([]byte(ID))
+	fmt.Println(nodes)
+
 	if err != nil {
 		return proto.Node{}, err
 

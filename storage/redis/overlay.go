@@ -19,8 +19,8 @@ const defaultNodeExpiration = 61 * time.Minute
 
 // OverlayClient is used to store overlay data in Redis
 type OverlayClient struct {
-	DB  Client
-	DHT kademlia.DHT
+	DB             Client
+	DHT            kademlia.DHT
 	bootstrapNodes []overlay.Node
 }
 
@@ -77,13 +77,13 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 	}
 
 	return errors.New("BOOTSTRAP TODO")
-	
-	// Merge Dennis' code 	
+
+	// Merge Dennis' code
 	// loop through bootstrap nodes asking for random IDs
-	nodes, err := o.DHT. (ctx, "random node ID", 100)
-	if err != nil {
-		
-	}
+	// nodes, err := o.DHT. (ctx, "random node ID", 100)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
