@@ -51,14 +51,6 @@ var (
 // gGoEnvT global storj env structure declaration
 var gGoEnvT *C.storj_env_t
 
-// Env contains parameters for accessing the Storj network
-// type Env struct {
-// 	URL      string
-// 	User     string
-// 	Password string
-// 	Mnemonic string
-// }
-
 //S3Bucket structure
 type S3Bucket struct {
 	bucket   minio.Bucket
@@ -173,16 +165,6 @@ cleanup:
 	C.storj_free_list_files_request(req)
 	C.free(unsafe.Pointer(workreq))
 }
-
-// NewEnv creates new Env struct with default values
-// func NewEnv() Env {
-// 	return Env{
-// 		URL:      "https://api.storj.io", //viper.GetString("bridge"),
-// 		User:     "kishore@storj.io",     //viper.GetString("bridge-user"),
-// 		Password: sha256Sum("xxxxxxx"),
-// 		Mnemonic: "surface excess rude either pink bone pact ready what ability current plug",
-// 	}
-// }
 
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
@@ -346,7 +328,6 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		}
 	}
 
-	//return b, nil
 	return minio.ListObjectsInfo{
 		IsTruncated: false,
 		Objects:     b,
@@ -423,6 +404,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	Main(writer, uint(wsize))
 	bucketID := GetBucketID(bucket)
 	fmt.Println("BucketID = ", bucketID)
+
+	/* @TODO Clean up here...left here for reference...*/
 	//C.file_open_test()
 	// if bucketID != "" {
 	// 	_, fileName := path.Split("/Users/kishor/Downloads/upload_testfile.txt")
