@@ -21,19 +21,31 @@ void file_open_test(void);
 import "C"
 import (
 	"context"
+	"crypto/sha256"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/minio/cli"
+	"github.com/vivint/infectious"
+	"storj.io/storj/pkg/eestream"
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
+)
+
+var (
+	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
+	key            = flag.String("key", "a key", "the secret key")
+	rsk            = flag.Int("required", 20, "rs required")
+	rsn            = flag.Int("total", 40, "rs total")
 )
 
 // gGoEnvT global storj env structure declaration
@@ -346,6 +358,50 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
+// Main is the exported CLI executable function
+func Main(data io.ReadCloser, blockSize uint) error {
+	dir := "gateway"
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+	fc, err := infectious.NewFEC(*rsk, *rsn)
+	if err != nil {
+		return err
+	}
+	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	encKey := sha256.Sum256([]byte(*key))
+	var firstNonce [12]byte
+	encrypter, err := eestream.NewAESGCMEncrypter(
+		&encKey, &firstNonce, es.DecodedBlockSize())
+	if err != nil {
+		return err
+	}
+	readers := eestream.EncodeReader(eestream.TransformReader(
+		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0), es)
+	errs := make(chan error, len(readers))
+	for i := range readers {
+		go func(i int) {
+			fh, err := os.Create(
+				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer fh.Close()
+			_, err = io.Copy(fh, readers[i])
+			errs <- err
+		}(i)
+	}
+	for range readers {
+		err := <-errs
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
@@ -360,16 +416,20 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		os.Remove(srcFile)
 		return objInfo, err
 	}
-	fmt.Printf("hello hello hello bucket = %s; object = %s wsize = %d\n ", bucket, object, wsize)
 
+	fmt.Printf("hello hello hello bucket = %s; object = %s wsize = %d\n ", bucket, object, wsize)
+	fmt.Println(" data =", data)
+	/* @TODO Attention: Need to handle the file size limit */
+	Main(writer, uint(wsize))
 	bucketID := GetBucketID(bucket)
-	C.file_open_test()
-	if bucketID != "" {
-		_, fileName := path.Split("/Users/kishore/Downloads/upload_testfile.txt")
-		response := C.upload_file((*C.storj_env_t)(gGoEnvT), C.CString(bucketID), C.CString("/Users/kishore/Downloads/upload_testfile.txt"), C.CString(fileName), nil)
-		C.storj_uv_run_cgo((*C.storj_env_t)(gGoEnvT))
-		fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
-	}
+	fmt.Println("BucketID = ", bucketID)
+	//C.file_open_test()
+	// if bucketID != "" {
+	// 	_, fileName := path.Split("/Users/kishor/Downloads/upload_testfile.txt")
+	// 	response := C.upload_file((*C.storj_env_t)(gGoEnvT), C.CString(bucketID), C.CString("/Users/kishore/Downloads/upload_testfile.txt"), C.CString(fileName), nil)
+	// 	C.storj_uv_run_cgo((*C.storj_env_t)(gGoEnvT))
+	// 	fmt.Printf("Go.main(): calling C function with callback, returned response = %d\n", response)
+	// }
 
 	return minio.ObjectInfo{
 		Name:    object,
