@@ -17,6 +17,8 @@ import (
 
 const defaultNodeExpiration = 61 * time.Minute
 
+var ErrNodeNotFound = errors.New("Node not found")
+
 // OverlayClient is used to store overlay data in Redis
 type OverlayClient struct {
 	DB             Client
@@ -42,8 +44,7 @@ func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddre
 	d, err := o.DB.Get(key)
 
 	if d == nil {
-		node, _ := o.DHT.FindNode(ctx, kademlia.NodeID(key))
-		fmt.Println("Found node", node)
+		return nil, ErrNodeNotFound
 	}
 
 	if err != nil {
@@ -51,7 +52,6 @@ func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddre
 	}
 
 	na := &overlay.NodeAddress{}
-
 	return na, proto.Unmarshal(d, na)
 }
 
@@ -69,6 +69,13 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
+	// take bootstrap node
+	// get their route table
+	// loop through nodes in RT and get THEIR route table
+	// keep going forever and ever
+
+	// Other Possibilities: Randomly generate node ID's to ask for?
+
 	rt, err := o.DHT.GetRoutingTable(ctx)
 	if err != nil {
 		return err
