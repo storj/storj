@@ -63,7 +63,6 @@ func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.
 			return nil, e
 		}
 	}
-
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements

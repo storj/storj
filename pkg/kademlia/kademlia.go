@@ -21,7 +21,6 @@ type DHT interface {
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node overlay.Node) (overlay.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (overlay.Node, error)
-	GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error)
 }
 
 // RoutingTable contains information on nodes we have locally

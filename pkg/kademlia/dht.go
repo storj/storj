@@ -133,7 +133,3 @@ func convert(n proto.Node) *bkad.NetworkNode {
 
 	return nn
 }
-
-func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
-	return RouteTable{}, nil
-}

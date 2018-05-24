@@ -4,6 +4,8 @@
 package kademlia
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"storj.io/storj/protos/overlay"
@@ -63,4 +65,10 @@ func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 // GetBucketTimestamp retrieves the last updated time for a bucket
 func (rt RouteTable) GetBucketTimestamp(id string, bucket Bucket) (time.Time, error) {
 	return time.Now(), nil
+}
+
+func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
+	fmt.Println("GetNodeRoutingTable")
+	fmt.Println("id: ", ID)
+	return RouteTable{}, nil
 }
