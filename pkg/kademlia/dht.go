@@ -31,13 +31,13 @@ type Kademlia struct {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
-	// k.dht.Get
 	return []proto.Node{}, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
-	return RouteTable{}, nil
+	fmt.Println("pkg/kademlia/dht.go -- routing table", k.rt)
+	return k.rt, nil
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and

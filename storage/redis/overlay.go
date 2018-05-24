@@ -38,11 +38,12 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 }
 
 // Get looks up the provided nodeID from the redis cache
-func (o *OverlayClient) Get(key string) (*overlay.NodeAddress, error) {
+func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
 	d, err := o.DB.Get(key)
 
 	if d == nil {
-		// if not found in cache, we do another lookup in DHT
+		node, _ := o.DHT.FindNode(ctx, kademlia.NodeID(key))
+		fmt.Println("Found node", node)
 	}
 
 	if err != nil {
@@ -66,24 +67,15 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
+	// called after kademlia is bootstrapped
+	// needs to take RoutingTable and start to persist it into the cache
 	rt, err := o.DHT.GetRoutingTable(ctx)
-	buckets, _ := rt.GetBuckets()
-
-	fmt.Println("Buckets: ", buckets)
-	fmt.Println("Routing table: ", rt)
-
 	if err != nil {
-		return errors.New("Error getting routing table")
+		return err
 	}
 
-	return errors.New("BOOTSTRAP TODO")
-
-	// Merge Dennis' code
-	// loop through bootstrap nodes asking for random IDs
-	// nodes, err := o.DHT. (ctx, "random node ID", 100)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	fmt.Println("Routing Table: ", rt)
+	return nil
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
