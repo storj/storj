@@ -43,9 +43,8 @@ type encodedReader struct {
 	es      ErasureScheme
 	inbuf   []byte
 	outbufs [][]byte
-	chans   map[int]chan []byte
+	chans   map[int]chan block
 	mux     sync.Mutex
-	err     error
 }
 
 // EncodeReader will take a Reader and an ErasureScheme and return a slice of
@@ -57,17 +56,21 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 		es:      es,
 		inbuf:   make([]byte, es.DecodedBlockSize()),
 		outbufs: make([][]byte, es.TotalCount()),
-		chans:   make(map[int]chan []byte, es.TotalCount()),
+		chans:   make(map[int]chan block, es.TotalCount()),
+	}
+	var err error
+	if maxBufferMemory < 0 {
+		err = Error.New("negative max buffer memory")
 	}
 	readers := make([]io.Reader, 0, es.TotalCount())
 	for i := 0; i < es.TotalCount(); i++ {
 		readers = append(readers, &encodedPiece{
-			er: er,
-			i:  i,
+			er:  er,
+			i:   i,
+			err: err,
 		})
 	}
-	if maxBufferMemory < 0 {
-		er.err = Error.New("negative max buffer memory")
+	if err != nil {
 		return readers
 	}
 	chanSize := maxBufferMemory / (es.TotalCount() * es.EncodedBlockSize())
@@ -75,7 +78,7 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 		chanSize = 1
 	}
 	for i := 0; i < es.TotalCount(); i++ {
-		er.chans[i] = make(chan []byte, chanSize)
+		er.chans[i] = make(chan block, chanSize)
 	}
 	go er.fillBuffer()
 	return readers
@@ -84,9 +87,9 @@ func EncodeReader(r io.Reader, es ErasureScheme, maxBufferMemory int) []io.Reade
 func (er *encodedReader) fillBuffer() {
 	// these channels will synchronize the erasure encoder output with the
 	// goroutines for adding the output to the reader buffers
-	copiers := make(map[int]chan []byte, er.es.TotalCount())
+	copiers := make(map[int]chan block, er.es.TotalCount())
 	for i := 0; i < er.es.TotalCount(); i++ {
-		copiers[i] = make(chan []byte)
+		copiers[i] = make(chan block)
 		// closing the channel will exit the next goroutine
 		defer close(copiers[i])
 		// kick off goroutine for parallel copy of encoded data to each
@@ -94,28 +97,37 @@ func (er *encodedReader) fillBuffer() {
 		go er.copyData(i, copiers[i])
 	}
 	// read from the input and encode until EOF or error
-	for {
+	for blockNum := int64(0); ; blockNum++ {
 		_, err := io.ReadFull(er.r, er.inbuf)
 		if err != nil {
+			for i := range copiers {
+				copiers[i] <- block{i: i, num: blockNum, err: err}
+			}
 			return
 		}
 		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+			b := block{
+				i:    num,
+				num:  blockNum,
+				data: make([]byte, len(data)),
+			}
 			// data is reused by infecious, so add a copy to the channel
-			tmp := make([]byte, len(data))
-			copy(tmp, data)
-			// send the data copy to the goroutine for adding it to the reader
-			// buffer
-			copiers[num] <- tmp
+			copy(b.data, data)
+			// send the block to the goroutine for adding it to the reader buffer
+			copiers[num] <- b
 		})
 		if err != nil {
+			for i := range copiers {
+				copiers[i] <- block{i: i, num: blockNum, err: err}
+			}
 			return
 		}
 	}
 }
 
-// copyData waits for data from the erasure encoder and copies it to the
+// copyData waits for data block from the erasure encoder and copies it to the
 // targeted reader buffer
-func (er *encodedReader) copyData(num int, copier <-chan []byte) {
+func (er *encodedReader) copyData(num int, copier <-chan block) {
 	// close the respective buffer channel when this goroutine exits
 	defer func() {
 		if er.chans[num] != nil {
@@ -123,13 +135,13 @@ func (er *encodedReader) copyData(num int, copier <-chan []byte) {
 		}
 	}()
 	// process the channel until closed
-	for data := range copier {
-		er.addToReader(num, data)
+	for b := range copier {
+		er.addToReader(b)
 	}
 }
 
-func (er *encodedReader) addToReader(num int, data []byte) {
-	if er.chans[num] == nil {
+func (er *encodedReader) addToReader(b block) {
+	if er.chans[b.i] == nil {
 		// this channel is already closed for slowliness - skip it
 		return
 	}
@@ -139,11 +151,11 @@ func (er *encodedReader) addToReader(num int, data []byte) {
 		defer timer.Stop()
 		// add the encoded data to the respective reader buffer channel
 		select {
-		case er.chans[num] <- data:
+		case er.chans[b.i] <- b:
 			return
 		// block for no more than 50 ms
 		case <-timer.C:
-			if er.checkSlowChannel(num) {
+			if er.checkSlowChannel(b.i) {
 				return
 			}
 		}
@@ -172,25 +184,29 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 }
 
 type encodedPiece struct {
-	er *encodedReader
-	i  int
+	er  *encodedReader
+	i   int
+	err error
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
-	if ep.er.err != nil {
-		return 0, ep.er.err
+	if ep.err != nil {
+		return 0, ep.err
 	}
 	outbufs, i := ep.er.outbufs, ep.i
 	if len(outbufs[i]) <= 0 {
 		// take the next block from the channel or block if channel is empty
 		var ok bool
-		outbufs[i], ok = <-ep.er.chans[i]
+		b, ok := <-ep.er.chans[i]
 		if !ok {
-			// channel is closed
-			// TODO should be different error if channel closed for slowliness
-			// which is better: io.ErrUnexpectedEOF or io.ErrClosedPipe?
-			return 0, io.EOF
+			// channel was closed due to slowliness
+			return 0, io.ErrUnexpectedEOF
 		}
+		if b.err != nil {
+			ep.err = b.err
+			return 0, ep.err
+		}
+		outbufs[i] = b.data
 	}
 
 	// we have some buffer remaining for this piece. write it to the output
