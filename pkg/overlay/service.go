@@ -19,12 +19,14 @@ import (
 )
 
 var (
+	node          string
 	redisAddress  string
 	redisPassword string
 	db            int
 )
 
 func init() {
+	flag.StringVar(&node, "node", "", "Boot up a storj node")
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
@@ -32,7 +34,6 @@ func init() {
 
 // NewServer creates a new Overlay Service Server
 func NewServer() *grpc.Server {
-
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{})
 
@@ -60,21 +61,26 @@ type Service struct {
 func (s *Service) Process(ctx context.Context) error {
 	// bootstrap network
 	kad := kademlia.Kademlia{}
-
 	kad.Bootstrap(ctx)
-	// bootstrap cache
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-	if err != nil {
-		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
-		return err
-	}
-	if err := cache.Bootstrap(ctx); err != nil {
-		s.logger.Error("Failed to boostrap cache", zap.Error(err))
-		return err
-	}
 
-	// send off cache refreshes concurrently
-	go cache.Refresh(ctx)
+	// bootstrap cache
+	if redisAddress != "" {
+		fmt.Println("starting up overlay cache")
+		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+		if err != nil {
+			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+			return err
+		}
+		if err := cache.Bootstrap(ctx); err != nil {
+			s.logger.Error("Failed to boostrap cache", zap.Error(err))
+			return err
+		}
+
+		// send off cache refreshes concurrently
+		go cache.Refresh(ctx)
+	} else {
+		fmt.Println("starting storj-node")
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	if err != nil {
