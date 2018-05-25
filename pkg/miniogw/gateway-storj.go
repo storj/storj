@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/minio/cli"
@@ -34,6 +35,51 @@ var (
 	rsn            = flag.Int("total", 40, "rs total")
 )
 
+//S3Bucket structure
+type S3Bucket struct {
+	bucket   minio.Bucket
+	bucketID string
+}
+
+// S3CliAPI contains parameters for accessing the Storj network
+type S3CliAPI struct {
+	s3bucket   []S3Bucket
+	bucketInfo []minio.BucketInfo
+	fileInfo   minio.ListObjectsInfo
+}
+
+// gS3CliApi global S3 interface structure
+var gS3CliAPI S3CliAPI
+
+// gTestBucketInfo global dummy test buckets
+var gTestBucketInfo []minio.BucketInfo
+
+func createDummyBucketList() {
+	// create
+	gTestBucketInfo = make([]minio.BucketInfo, 10)
+	t := time.Now()
+	for i := 0x00; i < 0x0A; i++ {
+		gTestBucketInfo[i] = minio.BucketInfo{
+			Name:    "TestBucket#" + strconv.Itoa(i+1),
+			Created: t,
+		}
+	}
+	fmt.Println("createDummyBucketList() = ", gTestBucketInfo)
+}
+
+func createDummyBucketObjectList() {
+	// create
+	gTestBucketInfo = make([]minio.BucketInfo, 10)
+	t := time.Now()
+	for i := 0x00; i < 0x0A; i++ {
+		gTestBucketInfo[i] = minio.BucketInfo{
+			Name:    "TestBucket#" + strconv.Itoa(i+1),
+			Created: t,
+		}
+	}
+	fmt.Println("createDummyBucketList() = ", gTestBucketInfo)
+}
+
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
@@ -41,6 +87,9 @@ func init() {
 		Action:          storjGatewayMain,
 		HideHelpCommand: true,
 	})
+
+	// create dummy bucket list
+	createDummyBucketList()
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -98,10 +147,15 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
-	return []minio.BucketInfo{{
-		Name:    "test-bucket",
-		Created: time.Now(),
-	}}, nil
+
+	b := make([]minio.BucketInfo, len(gTestBucketInfo))
+	for i, bi := range gTestBucketInfo {
+		b[i] = minio.BucketInfo{
+			Name:    bi.Name,
+			Created: bi.Created,
+		}
+	}
+	return b, nil
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
