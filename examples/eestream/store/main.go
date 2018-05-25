@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
@@ -54,9 +55,9 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	readers := eestream.EncodeReader(eestream.TransformReader(
+	readers := eestream.EncodeReader(context.Background(), eestream.TransformReader(
 		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0),
-		es, 4*1024*1024)
+		es, 0, 0, 4*1024*1024)
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
