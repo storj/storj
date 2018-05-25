@@ -31,8 +31,11 @@ type Kademlia struct {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
-	// k.dht.Get
-	return []proto.Node{}, nil
+	nn, err := k.dht.FindNodes(ctx, start, limit)
+	if err != nil {
+		return []proto.Node{}, nil
+	}
+	return convertNetworkNodes(nn), nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
@@ -45,7 +48,7 @@ func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
 func (k Kademlia) Bootstrap(ctx context.Context) error {
 
 	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		BootstrapNodes: convertNodeTypes(k.bootstrapNodes),
+		BootstrapNodes: convertProtoNodes(k.bootstrapNodes),
 		IP:             k.ip,
 		Port:           k.port,
 		UseStun:        k.stun,
@@ -73,8 +76,11 @@ func (k Kademlia) Bootstrap(ctx context.Context) error {
 
 // Ping checks that the provided node is still accessible on the network
 func (k Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-
-	ok, err := k.dht.Ping(convert(node))
+	n, ok := convert(node).(*bkad.NetworkNode)
+	if !ok {
+		return proto.Node{}, NodeErr.New("unable to convert to expected type")
+	}
+	ok, err := k.dht.Ping(n)
 	if err != nil {
 		return proto.Node{}, err
 	}
@@ -111,23 +117,53 @@ func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 	}, nil
 }
 
-func convertNodeTypes(n []proto.Node) []*bkad.NetworkNode {
+func convertProtoNodes(n []proto.Node) []*bkad.NetworkNode {
 	nn := []*bkad.NetworkNode{}
 	for i, v := range n {
-		nn[i] = convert(v)
+		if bnn, ok := convert(v).(*bkad.NetworkNode); !ok {
+			continue
+		} else {
+			nn[i] = bnn
+		}
 	}
 
 	return nn
 }
 
-func convert(n proto.Node) *bkad.NetworkNode {
-	ip := strings.Split(n.GetAddress().GetAddress(), ":")
-	if len(ip) == 1 {
-		ip = append(ip, "0")
+func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
+	nn := []proto.Node{}
+	for i, v := range n {
+		if bnn, ok := convert(*v).(proto.Node); !ok {
+			continue
+		} else {
+			nn[i] = bnn
+		}
 	}
 
-	nn := bkad.NewNetworkNode(ip[0], ip[1])
-	nn.ID = []byte(n.GetId())
-
 	return nn
+}
+
+func convert(i interface{}) interface{} {
+
+	switch v := i.(type) {
+	case proto.Node:
+		ip := strings.Split(v.GetAddress().GetAddress(), ":")
+		if len(ip) == 1 {
+			ip = append(ip, "0")
+		}
+
+		nn := bkad.NewNetworkNode(ip[0], ip[1])
+		nn.ID = []byte(v.GetId())
+
+		return nn
+	case bkad.NetworkNode:
+		nn := proto.Node{
+			Id:      string(v.ID),
+			Address: &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: fmt.Sprintf("%s:%d", v.IP.String(), v.Port)}, //TODO: shouldn't default to TCP but not sure what to do yet
+		}
+		return &nn
+	default:
+		return nil
+	}
+
 }
