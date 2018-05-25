@@ -43,7 +43,6 @@ func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k Kademlia) Bootstrap(ctx context.Context) error {
-
 	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
 		BootstrapNodes: convertNodeTypes(k.bootstrapNodes),
 		IP:             k.ip,
