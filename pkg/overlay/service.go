@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -19,6 +20,7 @@ import (
 )
 
 var (
+	gui           bool
 	node          string
 	redisAddress  string
 	redisPassword string
@@ -30,6 +32,9 @@ func init() {
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
+	flag.BoolVar(&gui, "gui", false, "Serve a GUI for stats and metrics on localhost:4000")
+	flag.Parse()
+	fmt.Println("init flags")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -78,9 +83,9 @@ func (s *Service) Process(ctx context.Context) error {
 
 		// send off cache refreshes concurrently
 		go cache.Refresh(ctx)
-	} else {
-		fmt.Println("starting storj-node")
 	}
+
+	fmt.Println("starting up storj-node")
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	if err != nil {
@@ -91,9 +96,14 @@ func (s *Service) Process(ctx context.Context) error {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{})
 
+	if gui {
+		fmt.Println("starting up gui on port 4000")
+		http.Handle("/", http.FileServer(http.Dir("./static")))
+		http.ListenAndServe(":4000", nil)
+	}
+
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
-
 }
 
 // SetLogger adds the initialized logger to the Service
