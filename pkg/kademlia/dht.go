@@ -17,7 +17,9 @@ import (
 
 // NodeErr is the class for all errros petaining to node operations
 var NodeErr = errs.Class("node error")
-var defaultTransport = "udp"
+
+//TODO: shouldn't default to TCP but not sure what to do yet
+var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
@@ -29,7 +31,7 @@ type Kademlia struct {
 	dht            *bkad.DHT
 }
 
-// GetNodes returns all nodes from a starting node up to a maximum limit
+// GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
 	nn, err := k.dht.FindNodes(ctx, start, limit)
 	if err != nil {
@@ -111,7 +113,7 @@ func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 	return proto.Node{
 		Id: string(node.ID),
 		Address: &proto.NodeAddress{
-			Transport: proto.NodeTransport_TCP, // TODO: defaulting to this, probably needs to be determined during lookup
+			Transport: defaultTransport, // TODO: defaulting to this, probably needs to be determined during lookup
 			Address:   fmt.Sprintf("%s:%d", node.IP.String(), node.Port),
 		},
 	}, nil
@@ -159,7 +161,7 @@ func convert(i interface{}) interface{} {
 	case bkad.NetworkNode:
 		nn := proto.Node{
 			Id:      string(v.ID),
-			Address: &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: fmt.Sprintf("%s:%d", v.IP.String(), v.Port)}, //TODO: shouldn't default to TCP but not sure what to do yet
+			Address: &proto.NodeAddress{Transport: defaultTransport, Address: fmt.Sprintf("%s:%d", v.IP.String(), v.Port)},
 		}
 		return &nn
 	default:
