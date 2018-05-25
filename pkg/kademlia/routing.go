@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -69,21 +70,30 @@ func (rt RouteTable) FindNear(id NodeID, limit int) ([]overlay.Node, error) {
 // ConnectionSuccess handles the details of what kademlia should do when
 // a successful connection is made to node on the network
 func (rt RouteTable) ConnectionSuccess(id string, address overlay.NodeAddress) {
+	// TODO: What should we do ?
 	return
 }
 
 // ConnectionFailed handles the details of what kademlia should do when
 // a connection fails for a node on the network
 func (rt RouteTable) ConnectionFailed(id string, address overlay.NodeAddress) {
+	// TODO: What should we do ?
 	return
 }
 
 // SetBucketTimestamp updates the last updated time for a bucket
 func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
+	i, err := strconv.Atoi(id)
+	if err != nil {
+		return errors.New("unable to convert id to int")
+	}
+
+	rt.ht.SetBucketTime(i, now)
+
 	return nil
 }
 
 // GetBucketTimestamp retrieves the last updated time for a bucket
 func (rt RouteTable) GetBucketTimestamp(id string, bucket Bucket) (time.Time, error) {
-	return time.Now(), nil
+	return rt.dht.GetExpirationTime([]byte(id)), nil
 }
