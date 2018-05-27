@@ -87,7 +87,8 @@ message GetRequest {
 
 // ListRequest is a request message for the List rpc call
 message ListRequest {
-  bytes bucket = 1;
+  bytes starting_path_key = 1; // the Path key in the bucket to start listing
+  int64 limit = 2; // how many keys to list
 }
 
 // PutResponse is a response message for the Put rpc call
@@ -96,12 +97,12 @@ message PutResponse {
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  Pointer pointer = 1;
+  bytes pointer = 1; // this is a Pointer type marshalled into bytes
 }
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
-  repeated bytes filepaths = 1;
+  repeated bytes paths = 1;
 }
 
 message DeleteRequest {

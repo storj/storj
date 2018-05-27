@@ -5,57 +5,54 @@ package boltdb
 
 import (
 	"github.com/boltdb/bolt"
-
-	proto "storj.io/storj/protos/netstate"
 )
 
-// File Path and Pointer are saved to boltdb
-type File struct {
-	Path    []byte        `json:"path"`
-	Pointer proto.Pointer.InlineSegment `json:"pointer"`
+// PointerEntry - Path and Pointer are saved as a kv pair to boltdb
+type PointerEntry struct {
+	Path    []byte
+	Pointer []byte
 }
 
 const (
-	fileBucketName = "files"
+	pointerBucket = "pointers"
 )
 
-// Put saves the file path and value as a kv pair in the "files" bucket
-func (client *Client) Put(file File) error {
+// Put saves the Path and Pointer as a kv entry in the "pointers" bucket
+func (client *Client) Put(pe PointerEntry) error {
 	client.logger.Debug("entering bolt put")
 	return client.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte(fileBucketName))
+		b, err := tx.CreateBucketIfNotExists([]byte(pointerBucket))
 		if err != nil {
 			return err
 		}
 
-		fileKey := []byte(file.Path)
-		return b.Put(fileKey, file.Pointer.InlineSegment)
+		return b.Put(pe.Path, pe.Pointer)
 	})
 }
 
-// Get retrieves the value stored at the file path key
-func (client *Client) Get(fileKey []byte) ([]byte, error) {
-	client.logger.Debug("entering bolt get: " + string(fileKey))
-	var fileValue []byte
+// Get retrieves the Pointer value stored at the Path key
+func (client *Client) Get(pathKey []byte) ([]byte, error) {
+	client.logger.Debug("entering bolt get: " + string(pathKey))
+	var pointerBytes []byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(fileBucketName))
-		v := b.Get(fileKey)
+		b := tx.Bucket([]byte(pointerBucket))
+		v := b.Get(pathKey)
 		if v == nil {
-			return Error.New("file %#v not found", string(fileKey))
+			return Error.New("pointer at %#v not found", string(pathKey))
 		}
-		fileValue = v
+		pointerBytes = v
 		return nil
 	})
 
-	return fileValue, err
+	return pointerBytes, err
 }
 
-// List creates a string array of all keys in in the "files" bucket
+// List creates a byte array of all path keys in in the "pointers" bucket
 func (client *Client) List() ([][]byte, error) {
 	client.logger.Debug("entering bolt list")
 	var paths [][]byte
 	err := client.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(fileBucketName))
+		b := tx.Bucket([]byte(pointerBucket))
 
 		err := b.ForEach(func(key, value []byte) error {
 			paths = append(paths, key)
@@ -67,10 +64,10 @@ func (client *Client) List() ([][]byte, error) {
 	return paths, err
 }
 
-// Delete deletes a kv pair from the "files" bucket, given the key
-func (client *Client) Delete(fileKey []byte) error {
-	client.logger.Debug("entering bolt delete: " + string(fileKey))
+// Delete deletes a kv pair from the "pointers" bucket, given the Path key
+func (client *Client) Delete(pathKey []byte) error {
+	client.logger.Debug("entering bolt delete: " + string(pathKey))
 	return client.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte(fileBucketName)).Delete(fileKey)
+		return tx.Bucket([]byte(pointerBucket)).Delete(pathKey)
 	})
 }

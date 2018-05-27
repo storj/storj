@@ -43,6 +43,7 @@ func main() {
 
 	bdb, err := boltdb.New(logger, dbPath)
 	if err != nil {
+		logger.Fatal("failed to initiate boltdb", zap.Error(err))
 		return
 	}
 	defer bdb.Close()
