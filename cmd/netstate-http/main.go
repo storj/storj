@@ -10,10 +10,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
-	"storj.io/storj/netstate/routes"
+	"storj.io/storj/netstate-http/routes"
 	"storj.io/storj/storage/boltdb"
 )
 
@@ -58,18 +57,7 @@ func Main() error {
 	}
 	defer bdb.Close()
 
-	routes := routes.NewNetStateRoutes(logger, bdb)
+	ns := routes.NewNetStateRoutes(logger, bdb)
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), start(routes))
-}
-
-func start(f *routes.NetStateRoutes) *httprouter.Router {
-	router := httprouter.New()
-
-	router.PUT("/file/*path", f.Put)
-	router.GET("/file/*path", f.Get)
-	router.GET("/file", f.List)
-	router.DELETE("/file/*path", f.Delete)
-
-	return router
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), routes.Start(ns))
 }

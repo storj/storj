@@ -12,50 +12,57 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/netstate"
 	"storj.io/storj/storage/boltdb"
 )
 
 // NetStateRoutes maintains access to a boltdb client and zap logger
 type NetStateRoutes struct {
-	DB     *boltdb.Client
+	DB     netstate.DB
 	logger *zap.Logger
 }
 
-// Message contains the small value provided by the user to be stored
-type Message struct {
-	Value string `json:"value"`
-}
-
 // NewNetStateRoutes instantiates NetStateRoutes
-func NewNetStateRoutes(logger *zap.Logger, db *boltdb.Client) *NetStateRoutes {
+func NewNetStateRoutes(logger *zap.Logger, db netstate.DB) *NetStateRoutes {
 	return &NetStateRoutes{
 		DB:     db,
 		logger: logger,
 	}
 }
 
-// Put takes the given path and small value from the user and formats the values
-// to be given to boltdb.Put
+// Start returns a router calling the routes functions
+func Start(f *NetStateRoutes) *httprouter.Router {
+	router := httprouter.New()
+
+	router.PUT("/pointer/*path", f.Put)
+	router.GET("/pointer/*path", f.Get)
+	router.GET("/pointer", f.List)
+	router.DELETE("/pointer/*path", f.Delete)
+
+	return router
+}
+
+// Put takes the given path and pointer from the user, marshals to bytes, and calls boltdb Put
 func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http put")
 
 	givenPath := ps.ByName("path")
-	var msg Message
+	var marshalledPointer []byte
 
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&msg)
+	err := decoder.Decode(&marshalledPointer)
 	if err != nil {
 		http.Error(w, "bad request: err decoding response", http.StatusBadRequest)
 		n.logger.Error("err decoding response", zap.Error(err))
 		return
 	}
 
-	file := boltdb.File{
-		Path:  []byte(givenPath),
-		Value: []byte(msg.Value),
+	pe := boltdb.PointerEntry{
+		Path:    []byte(givenPath),
+		Pointer: marshalledPointer,
 	}
 
-	if err := n.DB.Put(file); err != nil {
+	if err := n.DB.Put(pe); err != nil {
 		http.Error(w, "err putting file", http.StatusInternalServerError)
 		n.logger.Error("err putting file", zap.Error(err))
 		return
@@ -66,13 +73,13 @@ func (n *NetStateRoutes) Put(w http.ResponseWriter, r *http.Request, ps httprout
 	fmt.Fprintf(w, "PUT to %s\n", givenPath)
 }
 
-// Get takes the given file path from the user and calls the bolt client's Get function
+// Get takes the given path from the user and calls the bolt client's Get function
 func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http get")
 
-	fileKey := ps.ByName("path")
+	pathKey := ps.ByName("path")
 
-	fileValue, err := n.DB.Get([]byte(fileKey))
+	pointerBytes, err := n.DB.Get([]byte(pathKey))
 	if err != nil {
 		http.Error(w, "err getting file", http.StatusInternalServerError)
 		n.logger.Error("err getting file", zap.Error(err))
@@ -80,12 +87,12 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, err = w.Write(fileValue)
+	_, err = w.Write(pointerBytes)
 	if err != nil {
 		n.logger.Error("err writing response", zap.Error(err))
 	}
 	w.WriteHeader(http.StatusOK)
-	n.logger.Debug("response written: " + string(fileValue))
+	n.logger.Debug("response written: " + string(pointerBytes))
 }
 
 // List calls the bolt client's List function and responds with a list of all saved file paths
@@ -93,22 +100,22 @@ func (n *NetStateRoutes) Get(w http.ResponseWriter, r *http.Request, ps httprout
 func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http list")
 
-	filePaths, err := n.DB.List()
+	pathKeys, err := n.DB.List()
 	if err != nil {
 		http.Error(w, "internal error: unable to list paths", http.StatusInternalServerError)
-		n.logger.Error("err listing file paths", zap.Error(err))
+		n.logger.Error("err listing path keys", zap.Error(err))
 		return
 	}
 
 	var pathList []string
-	for _, path := range filePaths {
+	for _, path := range pathKeys {
 		pathList = append(pathList, string(path))
 	}
 
 	bytes, err := json.Marshal(pathList)
 	if err != nil {
 		http.Error(w, "internal error: unable to marshal path list", http.StatusInternalServerError)
-		n.logger.Error("err marshaling path list", zap.Error(err))
+		n.logger.Error("err marshalling path list", zap.Error(err))
 		return
 	}
 
@@ -124,13 +131,13 @@ func (n *NetStateRoutes) List(w http.ResponseWriter, r *http.Request, ps httprou
 func (n *NetStateRoutes) Delete(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	n.logger.Debug("entering netstate http delete")
 
-	fileKey := ps.ByName("path")
-	if err := n.DB.Delete([]byte(fileKey)); err != nil {
-		http.Error(w, "internal error: unable to delete file", http.StatusInternalServerError)
-		n.logger.Error("err deleting file", zap.Error(err))
+	pathKey := ps.ByName("path")
+	if err := n.DB.Delete([]byte(pathKey)); err != nil {
+		http.Error(w, "internal error: unable to delete pointer entry", http.StatusInternalServerError)
+		n.logger.Error("err deleting pointer entry", zap.Error(err))
 		return
 	}
-	n.logger.Debug("deleted file: " + fileKey)
+	n.logger.Debug("deleted pointer entry at path: " + pathKey)
 	w.WriteHeader(204)
-	fmt.Fprintf(w, "Deleted file key: %s", fileKey)
+	fmt.Fprintf(w, "Deleted pointer entry at path: %s", pathKey)
 }

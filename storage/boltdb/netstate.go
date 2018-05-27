@@ -7,7 +7,9 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-// PointerEntry - Path and Pointer are saved as a kv pair to boltdb
+// PointerEntry - Path and Pointer are saved as a kv pair to boltdb.
+// The following boltdb methods handle the pointer type (defined in
+// the protobuf file) after it has been marshalled into bytes.
 type PointerEntry struct {
 	Path    []byte
 	Pointer []byte

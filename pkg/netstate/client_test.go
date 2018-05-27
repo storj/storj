@@ -25,7 +25,7 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	mdb := &mockDB{
+	mdb := &MockDB{
 		timesCalled: 0,
 	}
 
