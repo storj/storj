@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -31,17 +32,34 @@ func init() {
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer() *grpc.Server {
+func NewServer() (*grpc.Server, error) {
+	certPath := ""
+	keyPath := ""
 
-	grpcServer := grpc.NewServer()
+	creds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.Creds(creds)
+	grpcServer := grpc.NewServer(credsOption)
 	proto.RegisterOverlayServer(grpcServer, &Overlay{})
 
-	return grpcServer
+	return grpcServer, nil
 }
 
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	certPath := ""
+
+	creds, err := credentials.NewClientTLSFromFile(certPath, "")
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.WithTransportCredentials(creds)
+	opts = append(opts, credsOption)
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err

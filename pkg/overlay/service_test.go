@@ -19,7 +19,8 @@ func TestNewServer(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	srv := NewServer()
+	srv, err := NewServer()
+	assert.NoError(t, err)
 	assert.NotNil(t, srv)
 
 	go srv.Serve(lis)
@@ -30,7 +31,9 @@ func TestNewClient(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := NewServer()
+	srv, err := NewServer()
+	assert.NoError(t, err)
+
 	go srv.Serve(lis)
 	defer srv.Stop()
 
