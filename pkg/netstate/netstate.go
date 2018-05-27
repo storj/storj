@@ -78,20 +78,20 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	}, nil
 }
 
-// List calls the bolt client's List function and returns all file paths
+// List calls the bolt client's List function and returns all Path keys in the Pointers bucket
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering netstate list")
 
-	filePaths, err := s.DB.List()
+	pathKeys, err := s.DB.List()
 	if err != nil {
-		s.logger.Error("err listing file paths", zap.Error(err))
+		s.logger.Error("err listing path keys", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	s.logger.Debug("file paths retrieved")
+	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
-		// filePaths is an array of byte arrays
-		Filepaths: filePaths,
+		// pathKeys is an array of byte arrays
+		Paths: pathKeys,
 	}, nil
 }
 
@@ -101,9 +101,9 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteR
 
 	err := s.DB.Delete(req.Path)
 	if err != nil {
-		s.logger.Error("err deleting file", zap.Error(err))
+		s.logger.Error("err deleting pointer entry", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("deleted: " + string(req.Path))
+	s.logger.Debug("deleted pointer at path: " + string(req.Path))
 	return &pb.DeleteResponse{}, nil
 }

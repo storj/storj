@@ -56,6 +56,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, logger))
+	logger.Debug(fmt.Sprintf("server listening on port %d", port))
 
 	defer grpcServer.GracefulStop()
 	err = grpcServer.Serve(lis)

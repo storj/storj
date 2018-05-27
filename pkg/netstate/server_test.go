@@ -45,8 +45,8 @@ func (m *mockDB) List() ([][]byte, error) {
 func (m *mockDB) Delete(path []byte) error {
 	m.timesCalled++
 
-	for i, file := range m.puts {
-		if bytes.Equal(path, file.Path) {
+	for i, pointerEntry := range m.puts {
+		if bytes.Equal(path, pointerEntry.Path) {
 			m.puts = append(m.puts[:i], m.puts[i+1:]...)
 		}
 	}

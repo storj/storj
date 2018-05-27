@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -38,6 +39,8 @@ func main() {
 
 	client := proto.NewNetStateClient(conn)
 
+	logger.Debug(fmt.Sprintf("client dialed port %s", port))
+
 	ctx := context.Background()
 
 	// Example pointer paths to put
@@ -46,7 +49,7 @@ func main() {
 		Pointer: &proto.Pointer{
 			Type: proto.Pointer_INLINE,
 			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("secretsss"),
+				EncryptedEncryptionKey: []byte("key"),
 				EncryptedStartingNonce: []byte("nonce"),
 			},
 			InlineSegment: []byte("granola"),
@@ -57,7 +60,7 @@ func main() {
 		Pointer: &proto.Pointer{
 			Type: proto.Pointer_INLINE,
 			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("encrypty"),
+				EncryptedEncryptionKey: []byte("key"),
 				EncryptedStartingNonce: []byte("nonce"),
 			},
 			InlineSegment: []byte("m&ms"),
@@ -68,7 +71,7 @@ func main() {
 		Pointer: &proto.Pointer{
 			Type: proto.Pointer_INLINE,
 			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("encrypt"),
+				EncryptedEncryptionKey: []byte("key"),
 				EncryptedStartingNonce: []byte("nonce"),
 			},
 			InlineSegment: []byte("popcorn"),
@@ -91,7 +94,7 @@ func main() {
 
 	// Example Get
 	getReq := proto.GetRequest{
-		Path: []byte("so/many/file/paths"),
+		Path: []byte("so/many/pointers"),
 	}
 	getRes, err := client.Get(ctx, &getReq)
 	if err != nil || status.Code(err) == codes.Internal {
@@ -103,8 +106,8 @@ func main() {
 	// Example List
 	listReq := proto.ListRequest{
 		// This pagination functionality doesn't work yet.
-		// Just a placeholder.
-		StartingPathKey: []byte("so many pointers"),
+		// The given arguments are placeholders.
+		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
 	}
 	listRes, err := client.List(ctx, &listReq)
@@ -119,10 +122,10 @@ func main() {
 
 	// Example Delete
 	delReq := proto.DeleteRequest{
-		Path: []byte("welcome/to/my/file/journey"),
+		Path: []byte("welcome/to/my/pointer/journey"),
 	}
 	_, err = client.Delete(ctx, &delReq)
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to delete: 'welcome/to/my/file/journey'")
+		logger.Error("failed to delete: " + string(delReq.Path))
 	}
 }
