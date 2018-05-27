@@ -17,6 +17,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/minio/cli"
@@ -35,49 +36,46 @@ var (
 	rsn            = flag.Int("total", 40, "rs total")
 )
 
-//S3Bucket structure
-type S3Bucket struct {
-	bucket   minio.Bucket
-	bucketID string
-}
-
 // S3CliAPI contains parameters for accessing the Storj network
 type S3CliAPI struct {
-	s3bucket   []S3Bucket
-	bucketInfo []minio.BucketInfo
-	fileInfo   minio.ListObjectsInfo
+	totalBuckets int
+	bucketlist   []S3BucketList
 }
 
-// gS3CliApi global S3 interface structure
+//S3BucketList structure
+type S3BucketList struct {
+	bucket   minio.BucketInfo
+	filelist S3FileList
+}
+
+//S3FileList structure
+type S3FileList struct {
+	totalFiles int
+	file       minio.ListObjectsInfo
+}
+
+// gS3Gateway global S3 interface structure
 var gS3CliAPI S3CliAPI
 
-// gTestBucketInfo global dummy test buckets
-var gTestBucketInfo []minio.BucketInfo
-
+//createDummyBucketList function initializes sample buckets and files in each bucket
 func createDummyBucketList() {
-	// create
-	gTestBucketInfo = make([]minio.BucketInfo, 10)
-	t := time.Now()
-	for i := 0x00; i < 0x0A; i++ {
-		gTestBucketInfo[i] = minio.BucketInfo{
-			Name:    "TestBucket#" + strconv.Itoa(i+1),
-			Created: t,
+	gS3CliAPI.bucketlist = make([]S3BucketList, 0x0A)
+	gS3CliAPI.totalBuckets = len(gS3CliAPI.bucketlist)
+	//for i := 0x00; i < 0x0A; i++ {
+	for i, _ := range gS3CliAPI.bucketlist {
+		gS3CliAPI.bucketlist[i].bucket.Name = "TestBucket#" + strconv.Itoa(i+1)
+		gS3CliAPI.bucketlist[i].bucket.Created = time.Now()
+		gS3CliAPI.bucketlist[i].filelist.file.IsTruncated = false
+		gS3CliAPI.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
+		for j, _ := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
+			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Bucket = gS3CliAPI.bucketlist[i].bucket.Name
+			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Name = "file#" + strconv.Itoa(j+1)
+			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
+			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Size = 100
+			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
 		}
-	}
-	fmt.Println("createDummyBucketList() = ", gTestBucketInfo)
-}
-
-func createDummyBucketObjectList() {
-	// create
-	gTestBucketInfo = make([]minio.BucketInfo, 10)
-	t := time.Now()
-	for i := 0x00; i < 0x0A; i++ {
-		gTestBucketInfo[i] = minio.BucketInfo{
-			Name:    "TestBucket#" + strconv.Itoa(i+1),
-			Created: t,
-		}
-	}
-	fmt.Println("createDummyBucketList() = ", gTestBucketInfo)
+	} /* end of for loop */
+	fmt.Println("bucket name = ", gS3CliAPI.bucketlist)
 }
 
 func init() {
@@ -148,11 +146,11 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 
-	b := make([]minio.BucketInfo, len(gTestBucketInfo))
-	for i, bi := range gTestBucketInfo {
+	b := make([]minio.BucketInfo, gS3CliAPI.totalBuckets)
+	for i, bi := range gS3CliAPI.bucketlist {
 		b[i] = minio.BucketInfo{
-			Name:    bi.Name,
-			Created: bi.Created,
+			Name:    bi.bucket.Name,
+			Created: bi.bucket.Created,
 		}
 	}
 	return b, nil
@@ -160,16 +158,32 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+	var bucketName string
+	var fileList []minio.ObjectInfo
+	for i, v := range gS3CliAPI.bucketlist {
+		bucketName = v.bucket.Name
+		fmt.Printf("Name: %s\n", bucketName)
+		ret := strings.Compare(bucketName, bucket)
+		if ret == 0x00 {
+			bucketName = v.bucket.Name
+			f := make([]minio.ObjectInfo, len(gS3CliAPI.bucketlist[i].filelist.file.Objects))
+			for j, fi := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
+				f[j] = minio.ObjectInfo{
+					Bucket:      bucketName,
+					Name:        fi.Name,
+					ModTime:     fi.ModTime,
+					Size:        fi.Size,
+					IsDir:       fi.IsDir,
+					ContentType: fi.ContentType,
+				}
+			}
+			fileList = f
+			break
+		}
+	}
 	return minio.ListObjectsInfo{
 		IsTruncated: false,
-		Objects: []minio.ObjectInfo{{
-			Bucket:      "test-bucket",
-			Name:        "test-file",
-			ModTime:     time.Now(),
-			Size:        0,
-			IsDir:       false,
-			ContentType: "application/octet-stream",
-		}},
+		Objects:     fileList,
 	}, nil
 }
 
