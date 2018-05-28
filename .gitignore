@@ -16,3 +16,7 @@
 # VSCode
 /.vscode
 debug
+
+# Binaries
+./main
+./storj
