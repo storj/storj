@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	bkad "github.com/prettymuchbryce/kademlia"
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis"
@@ -65,8 +66,18 @@ type Service struct {
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
 	// bootstrap network
-	kad := kademlia.Kademlia{}
-	kad.Bootstrap(ctx)
+	// kad := kademlia.Kademlia{}
+	// kad.Bootstrap(ctx)
+
+	var bootstrapNodes []*kademlia.NetworkNode
+
+	boostrapNode := bkad.NewNetworkNode("127.0.0.1", 4001)
+
+	kad, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+		BootstrapNodes: boostrapNodes,
+		IP:             "127.0.0.1",
+		Port:           4000,
+	})
 
 	// bootstrap cache
 	if redisAddress != "" {
