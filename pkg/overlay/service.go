@@ -67,8 +67,8 @@ func (t *TlsCredFiles) ensureExists() (_ error) {
 			// TODO: generate cert
 			// - generate key as well?
 			// - overwrite old key?
-			// return generateSomething(certPath)
-			return errs.New("cert/key generation not implemented")
+			return t.generate()
+			//return errs.New("cert/key generation not implemented")
 		}
 
 		return errs.New(err.Error())

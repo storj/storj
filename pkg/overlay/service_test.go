@@ -7,14 +7,71 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 
+	"github.com/zeebo/errs"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
-	"os"
 )
+
+type tlsCredFilesTestCase struct {
+	tlsCredFiles *TlsCredFiles
+	before func (*tlsCredFilesTestCase) (error)
+	after func (*tlsCredFilesTestCase) (error)
+}
+
+func ensureRemoved(c *tlsCredFilesTestCase) (_ error) {
+	creds := c.tlsCredFiles
+	err := creds.ensureAbsPaths(); if err != nil {
+		return err
+	}
+
+	fPaths := []string{creds.certAbsPath, creds.keyAbsPath}
+	for _, fPath := range fPaths {
+		err := os.Remove(fPath); if err != nil {
+			return errs.New(err.Error())
+		}
+	}
+
+	return nil
+}
+
+func TestTlsCredFiles(t *testing.T) {
+	cases := []tlsCredFilesTestCase{
+		{
+			// generate cert/key with given filename
+			tlsCredFiles: &TlsCredFiles{
+				certRelPath: "./non-existent.cert",
+				keyRelPath:  "./non-existent.key",
+			},
+			before: ensureRemoved,
+			after: ensureRemoved,
+		},
+		{
+			// use defaults
+			tlsCredFiles: &TlsCredFiles{},
+			after: ensureRemoved,
+		},
+	}
+
+	for _, c := range cases {
+		err := c.tlsCredFiles.ensureExists(); if err != nil {
+			assert.NoError(t, err)
+		}
+
+		assert.NotEqual(t, c.tlsCredFiles.certAbsPath, "certAbsPath is an empty string")
+		assert.NotEqual(t, c.tlsCredFiles.keyAbsPath, "keyAbsPath is an empty string")
+
+		fPaths := []string{c.tlsCredFiles.certAbsPath, c.tlsCredFiles.keyAbsPath}
+		for _, fPath := range fPaths {
+			_, err := os.Stat(fPath)
+			assert.NoError(t, err)
+		}
+	}
+}
 
 func TestNewServerGeneratesCerts(t *testing.T) {
 	testCertPath := "./generate-me.cert"
@@ -26,18 +83,9 @@ func TestNewServerGeneratesCerts(t *testing.T) {
 	}
 	
 	srv, err := NewServer(tlsCredFiles)
-	fmt.Printf("%+v\n", err)
 	assert.NoError(t, err)
 	assert.NotNil(t, srv)
 
-	assert.NotEqual(t, tlsCredFiles.certAbsPath, "certAbsPath is an empty string")
-	assert.NotEqual(t, tlsCredFiles.keyAbsPath, "keyAbsPath is an empty string")
-
-	fPaths := []string{tlsCredFiles.certAbsPath, tlsCredFiles.keyAbsPath}
-	for _, fPath := range fPaths {
-		_, err := os.Stat(fPath)
-		assert.NoError(t, err)
-	}
 }
 
 func TestNewServer(t *testing.T) {
