@@ -13,13 +13,38 @@ import (
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"os"
 )
+
+func TestNewServerGeneratesCerts(t *testing.T) {
+	testCertPath := "./generate-me.cert"
+	testKeyPath := "./generate-me.key"
+	
+	tlsCredFiles := &TlsCredFiles{
+		certRelPath: testCertPath,
+		keyRelPath: testKeyPath,
+	}
+	
+	srv, err := NewServer(tlsCredFiles)
+	fmt.Printf("%+v\n", err)
+	assert.NoError(t, err)
+	assert.NotNil(t, srv)
+
+	assert.NotEqual(t, tlsCredFiles.certAbsPath, "certAbsPath is an empty string")
+	assert.NotEqual(t, tlsCredFiles.keyAbsPath, "keyAbsPath is an empty string")
+
+	fPaths := []string{tlsCredFiles.certAbsPath, tlsCredFiles.keyAbsPath}
+	for _, fPath := range fPaths {
+		_, err := os.Stat(fPath)
+		assert.NoError(t, err)
+	}
+}
 
 func TestNewServer(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	srv, err := NewServer()
+	srv, err := NewServer(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, srv)
 
@@ -31,7 +56,7 @@ func TestNewClient(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, err := NewServer()
+	srv, err := NewServer(nil)
 	assert.NoError(t, err)
 
 	go srv.Serve(lis)

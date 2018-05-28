@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"path/filepath"
+	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,7 +19,78 @@ import (
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis"
 	"google.golang.org/grpc/credentials"
+	"github.com/zeebo/errs"
 )
+
+type TlsCredFiles struct {
+	certRelPath string
+	certAbsPath string
+	keyRelPath string
+	keyAbsPath string
+}
+
+func (t *TlsCredFiles) ensureAbsPaths() (_ error){
+	if t.certAbsPath == "" {
+		if t.certRelPath == "" {
+			return errs.New("No relative certificate path provided")
+		}
+
+		certAbsPath, err := filepath.Abs(t.certRelPath); if err != nil {
+			return errs.New(err.Error())
+		}
+
+		t.certAbsPath = certAbsPath
+	}
+
+	if t.keyAbsPath == "" {
+		if t.keyRelPath == "" {
+			return errs.New("No relative key path provided")
+		}
+
+		keyAbsPath, err := filepath.Abs(t.keyRelPath); if err != nil {
+			return errs.New(err.Error())
+		}
+
+		t.keyAbsPath = keyAbsPath
+	}
+
+	return nil
+}
+
+func (t *TlsCredFiles) ensureExists() (_ error) {
+	err := t.ensureAbsPaths(); if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(t.certAbsPath); if err != nil {
+		if os.IsNotExist(err) {
+			// TODO: generate cert
+			// - generate key as well?
+			// - overwrite old key?
+			// return generateSomething(certPath)
+			return errs.New("cert/key generation not implemented")
+		}
+
+		return errs.New(err.Error())
+	}
+
+	return nil
+}
+
+func (t *TlsCredFiles) NewServerTLSFromFile() (_ credentials.TransportCredentials,_ error) {
+	t.ensureExists()
+	creds, err := credentials.NewServerTLSFromFile(t.certAbsPath, t.keyAbsPath)
+
+	return creds, errs.New(err.Error())
+}
+
+func (t *TlsCredFiles) NewClientTLSFromFile() (_ credentials.TransportCredentials, _ error) {
+	t.ensureExists()
+	creds, err := credentials.NewClientTLSFromFile(t.certAbsPath, "")
+
+	return creds, errs.New(err.Error())
+}
+
 
 var (
 	redisAddress  string
@@ -32,11 +105,16 @@ func init() {
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer() (*grpc.Server, error) {
-	certPath := ""
-	keyPath := ""
+func NewServer(tlsCredFiles *TlsCredFiles) (*grpc.Server, error) {
+	if tlsCredFiles == nil {
+		tlsCredFiles = &TlsCredFiles{
+			// TODO: better defaults, env vars, etc.
+			certRelPath: "./tls.cert",
+			keyRelPath: "./tls.key",
+		}
+	}
 
-	creds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+	creds, err := tlsCredFiles.NewServerTLSFromFile()
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +129,9 @@ func NewServer() (*grpc.Server, error) {
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	certPath := ""
+	certPath, err := filepath.Abs("./tls.cert"); if err != nil {
+		return nil, err
+	}
 
 	creds, err := credentials.NewClientTLSFromFile(certPath, "")
 	if err != nil {
