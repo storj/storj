@@ -18,67 +18,12 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-type tlsCredFilesTestCase struct {
-	tlsCredFiles *utils.TlsCredFiles
-	before func (*tlsCredFilesTestCase) (error)
-	after func (*tlsCredFilesTestCase) (error)
-}
-
-func ensureRemoved(c *tlsCredFilesTestCase) (_ error) {
-	creds := c.tlsCredFiles
-	err := creds.EnsureAbsPaths(); if err != nil {
-		return err
-	}
-
-	fPaths := []string{creds.CertAbsPath, creds.KeyAbsPath}
-	for _, fPath := range fPaths {
-		err := os.Remove(fPath); if err != nil {
-			return errs.New(err.Error())
-		}
-	}
-
-	return nil
-}
-
-func TestTlsCredFiles(t *testing.T) {
-	cases := []tlsCredFilesTestCase{
-		{
-			// generate cert/key with given filename
-			tlsCredFiles: &utils.TlsCredFiles{
-				CertRelPath: "./non-existent.cert",
-				KeyRelPath:  "./non-existent.key",
-			},
-			before: ensureRemoved,
-			after: ensureRemoved,
-		},
-		{
-			// use defaults
-			tlsCredFiles: &utils.TlsCredFiles{},
-			after: ensureRemoved,
-		},
-	}
-
-	for _, c := range cases {
-		err := c.tlsCredFiles.EnsureExists(); if err != nil {
-			assert.NoError(t, err)
-		}
-
-		assert.NotEqual(t, c.tlsCredFiles.CertAbsPath, "certAbsPath is an empty string")
-		assert.NotEqual(t, c.tlsCredFiles.KeyAbsPath, "keyAbsPath is an empty string")
-
-		fPaths := []string{c.tlsCredFiles.CertAbsPath, c.tlsCredFiles.KeyAbsPath}
-		for _, fPath := range fPaths {
-			_, err := os.Stat(fPath)
-			assert.NoError(t, err)
-		}
-	}
-}
 
 func TestNewServerGeneratesCerts(t *testing.T) {
 	testCertPath := "./generate-me.cert"
 	testKeyPath := "./generate-me.key"
 	
-	tlsCredFiles := &utils.TlsCredFiles{
+	tlsCredFiles := &utils.TlsFileOpions{
 		CertRelPath: testCertPath,
 		KeyRelPath: testKeyPath,
 	}

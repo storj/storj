@@ -24,26 +24,27 @@ var (
 	redisAddress  string
 	redisPassword string
 	db            int
+	certPath      string
+	keyPath       string
 )
 
 func init() {
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
+	flag.StringVar(&certPath, "certPath", "", "TLS Certificate file")
+	flag.StringVar(&keyPath, "keyPath", "", "TLS Key file")
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer(tlsCredFiles *utils.TlsCredFiles) (*grpc.Server, error) {
-	if tlsCredFiles == nil {
-		tlsCredFiles = &utils.TlsCredFiles{
-			// TODO: better defaults, env vars, etc.
-			CertRelPath: "./tls.cert",
-			KeyRelPath: "./tls.key",
-		}
+func NewServer() (*grpc.Server, error) {
+	t := &utils.TlsFileOpions{
+		CertRelPath: certPath,
+		KeyRelPath: keyPath,
+		Create: true,
+		Overwrite: false,
 	}
-
-	creds, err := tlsCredFiles.NewServerTLSFromFile()
-	if err != nil {
+	creds, err := utils.NewServerTLSFromFile(certPath, keyPath, true); if err != nil {
 		return nil, err
 	}
 
