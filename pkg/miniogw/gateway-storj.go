@@ -4,15 +4,11 @@
 package storj
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -59,24 +55,58 @@ var gS3CliAPI S3CliAPI
 
 //createDummyBucketList function initializes sample buckets and files in each bucket
 func createDummyBucketList() {
-	gS3CliAPI.bucketlist = make([]S3BucketList, 0x0A)
-	gS3CliAPI.totalBuckets = len(gS3CliAPI.bucketlist)
-	//for i := 0x00; i < 0x0A; i++ {
-	for i, _ := range gS3CliAPI.bucketlist {
-		gS3CliAPI.bucketlist[i].bucket.Name = "TestBucket#" + strconv.Itoa(i+1)
-		gS3CliAPI.bucketlist[i].bucket.Created = time.Now()
-		gS3CliAPI.bucketlist[i].filelist.file.IsTruncated = false
-		gS3CliAPI.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
-		for j, _ := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
-			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Bucket = gS3CliAPI.bucketlist[i].bucket.Name
-			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Name = "file#" + strconv.Itoa(j+1)
-			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
-			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Size = 100
-			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
-		}
+	gS3CliAPI.bucketlist = gS3CliAPI.bucketlist[:0]
+	for i := 0x00; i < 0x0A; i++ {
+		gS3CliAPI.bucketlist = append(gS3CliAPI.bucketlist,
+			S3BucketList{
+				bucket: minio.BucketInfo{
+					Name:    "TestBucket" + strconv.Itoa(i+1),
+					Created: time.Now(),
+				},
+			},
+		)
 	} /* end of for loop */
+
+	for i := 0x00; i < 0x0A; i++ {
+		gS3CliAPI.bucketlist[i].filelist.file.IsTruncated = false
+		gS3CliAPI.bucketlist[i].filelist.file.Objects = gS3CliAPI.bucketlist[i].filelist.file.Objects[:0]
+		for j := 0x00; j < 0x0A; j++ {
+			gS3CliAPI.bucketlist[i].filelist.file.Objects = append(
+				gS3CliAPI.bucketlist[i].filelist.file.Objects,
+				minio.ObjectInfo{
+					Bucket:      gS3CliAPI.bucketlist[i].bucket.Name,
+					Name:        gS3CliAPI.bucketlist[i].bucket.Name + "file" + strconv.Itoa(j+1),
+					ModTime:     time.Now(),
+					Size:        int64(100 + i),
+					ContentType: "application/octet-stream",
+				},
+			)
+		}
+	}
+	gS3CliAPI.totalBuckets = len(gS3CliAPI.bucketlist)
 	fmt.Println("bucket name = ", gS3CliAPI.bucketlist)
 }
+
+//createDummyBucketList function initializes sample buckets and files in each bucket
+// func createDummyBucketList() {
+// 	gS3CliAPI.bucketlist = make([]S3BucketList, 0x0A)
+// 	gS3CliAPI.totalBuckets = len(gS3CliAPI.bucketlist)
+// 	//for i := 0x00; i < 0x0A; i++ {
+// 	for i := range gS3CliAPI.bucketlist {
+// 		gS3CliAPI.bucketlist[i].bucket.Name = "TestBucket#" + strconv.Itoa(i+1)
+// 		gS3CliAPI.bucketlist[i].bucket.Created = time.Now()
+// 		gS3CliAPI.bucketlist[i].filelist.file.IsTruncated = false
+// 		gS3CliAPI.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
+// 		for j := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
+// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Bucket = gS3CliAPI.bucketlist[i].bucket.Name
+// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Name = "file#" + strconv.Itoa(j+1)
+// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
+// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Size = 100
+// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
+// 		}
+// 	} /* end of for loop */
+// 	fmt.Println("bucket name = ", gS3CliAPI.bucketlist)
+// }
 
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
@@ -88,6 +118,100 @@ func init() {
 
 	// create dummy bucket list
 	createDummyBucketList()
+}
+
+// getbucketscallback
+func getbucketscallback() (buckets []minio.BucketInfo, err error) {
+	buckets = make([]minio.BucketInfo, gS3CliAPI.totalBuckets)
+	for i, bi := range gS3CliAPI.bucketlist {
+		buckets[i] = minio.BucketInfo{
+			Name:    bi.bucket.Name,
+			Created: bi.bucket.Created,
+		}
+	}
+	fmt.Println("buckets list =", buckets)
+	return buckets, nil
+}
+
+// putobjectcallback
+func putobjectcallback(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
+	fmt.Printf("Go.putobjectcallback(): called \n")
+	var bucketName string
+	var fl []minio.ObjectInfo
+	for i, v := range gS3CliAPI.bucketlist {
+		bucketName = v.bucket.Name
+		ret := strings.Compare(bucketName, bucket)
+		if ret == 0x00 {
+			/* append the file to the filelist */
+			gS3CliAPI.bucketlist[i].filelist.file.Objects = append(
+				gS3CliAPI.bucketlist[i].filelist.file.Objects,
+				minio.ObjectInfo{
+					Bucket:      bucket,
+					Name:        object,
+					ModTime:     time.Now(),
+					Size:        filesize,
+					IsDir:       false,
+					ContentType: "application/octet-stream",
+				},
+			)
+			/* populate the filelist */
+			bucketName = v.bucket.Name
+			f := make([]minio.ObjectInfo, len(gS3CliAPI.bucketlist[i].filelist.file.Objects))
+			for j, fi := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
+				f[j] = minio.ObjectInfo{
+					Bucket:      bucketName,
+					Name:        fi.Name,
+					ModTime:     fi.ModTime,
+					Size:        fi.Size,
+					IsDir:       fi.IsDir,
+					ContentType: fi.ContentType,
+				}
+			}
+			fl = f
+			break
+		}
+	}
+	result = minio.ListObjectsInfo{
+		IsTruncated: false,
+		Objects:     fl,
+	}
+	fmt.Println("filelist: ", fl)
+	return result, nil
+}
+
+// listfilescallback
+func listfilescallback(bucket string) (result minio.ListObjectsInfo, err error) {
+	fmt.Printf("Go.listfilescallback(): called \n")
+
+	var bucketName string
+	var fl []minio.ObjectInfo
+	for i, v := range gS3CliAPI.bucketlist {
+		bucketName = v.bucket.Name
+		ret := strings.Compare(bucketName, bucket)
+		if ret == 0x00 {
+			/* populate the filelist */
+			bucketName = v.bucket.Name
+			f := make([]minio.ObjectInfo, len(gS3CliAPI.bucketlist[i].filelist.file.Objects))
+			for j, fi := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
+				f[j] = minio.ObjectInfo{
+					Bucket:      bucketName,
+					Name:        fi.Name,
+					ModTime:     fi.ModTime,
+					Size:        fi.Size,
+					IsDir:       fi.IsDir,
+					ContentType: fi.ContentType,
+				}
+			}
+			fl = f
+			break
+		}
+	}
+	result = minio.ListObjectsInfo{
+		IsTruncated: false,
+		Objects:     fl,
+	}
+	fmt.Println("filelist: ", fl)
+	return result, nil
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -145,46 +269,29 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
-
-	b := make([]minio.BucketInfo, gS3CliAPI.totalBuckets)
-	for i, bi := range gS3CliAPI.bucketlist {
-		b[i] = minio.BucketInfo{
-			Name:    bi.bucket.Name,
-			Created: bi.bucket.Created,
-		}
-	}
-	return b, nil
+	buckets, err = getbucketscallback()
+	return buckets, err
+	// return []minio.BucketInfo{{
+	// 	Name:    "test-bucket",
+	// 	Created: time.Now(),
+	// }}, nil
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
-	var bucketName string
-	var fileList []minio.ObjectInfo
-	for i, v := range gS3CliAPI.bucketlist {
-		bucketName = v.bucket.Name
-		fmt.Printf("Name: %s\n", bucketName)
-		ret := strings.Compare(bucketName, bucket)
-		if ret == 0x00 {
-			bucketName = v.bucket.Name
-			f := make([]minio.ObjectInfo, len(gS3CliAPI.bucketlist[i].filelist.file.Objects))
-			for j, fi := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
-				f[j] = minio.ObjectInfo{
-					Bucket:      bucketName,
-					Name:        fi.Name,
-					ModTime:     fi.ModTime,
-					Size:        fi.Size,
-					IsDir:       fi.IsDir,
-					ContentType: fi.ContentType,
-				}
-			}
-			fileList = f
-			break
-		}
-	}
-	return minio.ListObjectsInfo{
-		IsTruncated: false,
-		Objects:     fileList,
-	}, nil
+	result, err = listfilescallback(bucket)
+	return result, nil
+	// return minio.ListObjectsInfo{
+	// 	IsTruncated: false,
+	// 	Objects: []minio.ObjectInfo{{
+	// 		Bucket:      "test-bucket",
+	// 		Name:        "test-file",
+	// 		ModTime:     time.Now(),
+	// 		Size:        0,
+	// 		IsDir:       false,
+	// 		ContentType: "application/octet-stream",
+	// 	}},
+	// }, nil
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
@@ -194,7 +301,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 
 // Main is the exported CLI executable function
 func Main(data io.ReadCloser, blockSize uint) error {
-	dir := "gateway"
+	dir := "/tmp/gateway"
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -236,55 +343,6 @@ func Main(data io.ReadCloser, blockSize uint) error {
 	return nil
 }
 
-func postFile(filename string, targetURL string) error {
-	bodyBuf := &bytes.Buffer{}
-	bodyWriter := multipart.NewWriter(bodyBuf)
-
-	// this step is very important
-	fileWriter, err := bodyWriter.CreateFormFile("uploadfile", filename)
-	if err != nil {
-		fmt.Println("error writing to buffer")
-		return err
-	}
-
-	// open file handle
-	fh, err := os.Open(filename)
-	if err != nil {
-		fmt.Println("error opening file")
-		return err
-	}
-	defer fh.Close()
-
-	//iocopy
-	_, err = io.Copy(fileWriter, fh)
-	if err != nil {
-		return err
-	}
-
-	contentType := bodyWriter.FormDataContentType()
-	bodyWriter.Close()
-
-	resp, err := http.Post(targetURL, contentType, bodyBuf)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(resp.Status)
-	fmt.Println(string(respBody))
-	return nil
-}
-
-// sample usage
-func postMain() {
-	targetURL := "http://localhost:9090/upload"
-	filename := "./astaxie.pdf"
-	postFile(filename, targetURL)
-}
-
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
@@ -306,6 +364,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	Main(writer, uint(wsize))
 	fmt.Println("Bucket = ", bucket)
 
+	_, _ = putobjectcallback(bucket, object, wsize, metadata)
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
