@@ -14,8 +14,7 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	bkad "github.com/prettymuchbryce/kademlia"
-	"storj.io/storj/pkg/kademlia"
+	bkad "github.com/coyle/kademlia"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis"
 )
@@ -64,28 +63,25 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	// bootstrap network
-	// kad := kademlia.Kademlia{}
-	// kad.Bootstrap(ctx)
-
-	var bootstrapNodes []*kademlia.NetworkNode
-
-	boostrapNode := bkad.NewNetworkNode("127.0.0.1", 4001)
+	var bootstrapNodes []*bkad.NetworkNode
+	boostrapNode := bkad.NewNetworkNode("127.0.0.1", "4001")
 
 	kad, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		BootstrapNodes: boostrapNodes,
+		BootstrapNodes: bootstrapNodes,
 		IP:             "127.0.0.1",
-		Port:           4000,
+		Port:           "4000",
 	})
 
 	// bootstrap cache
 	if redisAddress != "" {
 		fmt.Println("starting up overlay cache")
 		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+
 		if err != nil {
 			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
 			return err
 		}
+
 		if err := cache.Bootstrap(ctx); err != nil {
 			s.logger.Error("Failed to boostrap cache", zap.Error(err))
 			return err
