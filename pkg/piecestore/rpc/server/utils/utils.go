@@ -9,6 +9,8 @@ import (
 	"log"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
+
 	"storj.io/storj/pkg/piecestore"
 )
 
