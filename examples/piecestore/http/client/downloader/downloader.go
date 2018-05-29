@@ -70,7 +70,7 @@ func downloadShard(i int, downloadState *utils.State) error {
 		fmt.Printf("Failed to download shard (%v) from farmer (%s)\n", i, shard.Locations[0])
 	}
 
-	go queueDownload(downloadState)
+	queueDownload(downloadState)
 
 	return nil
 }
@@ -81,7 +81,7 @@ func queueDownload(downloadState *utils.State) {
 
 	for i := 1; i <= fileMeta.TotalShards; i++ {
 		if fileMeta.Shards[i-1].Progress == utils.Awaiting {
-			go downloadShard(i, downloadState)
+			downloadShard(i, downloadState)
 		}
 	}
 
@@ -127,7 +127,7 @@ func PrepareDownload(hash string, path string) error {
 
 	queueDownload(&downloadState)
 
-	if downloadState.FileMeta.Progress == utils.Awaiting {
+	if downloadState.FileMeta.Progress == utils.Complete {
 		fmt.Println("Successfully downloaded data!")
 	} else {
 		fmt.Println("Upload failed.")
