@@ -87,27 +87,6 @@ func createDummyBucketList() {
 	fmt.Println("bucket name = ", gS3CliAPI.bucketlist)
 }
 
-//createDummyBucketList function initializes sample buckets and files in each bucket
-// func createDummyBucketList() {
-// 	gS3CliAPI.bucketlist = make([]S3BucketList, 0x0A)
-// 	gS3CliAPI.totalBuckets = len(gS3CliAPI.bucketlist)
-// 	//for i := 0x00; i < 0x0A; i++ {
-// 	for i := range gS3CliAPI.bucketlist {
-// 		gS3CliAPI.bucketlist[i].bucket.Name = "TestBucket#" + strconv.Itoa(i+1)
-// 		gS3CliAPI.bucketlist[i].bucket.Created = time.Now()
-// 		gS3CliAPI.bucketlist[i].filelist.file.IsTruncated = false
-// 		gS3CliAPI.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
-// 		for j := range gS3CliAPI.bucketlist[i].filelist.file.Objects {
-// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Bucket = gS3CliAPI.bucketlist[i].bucket.Name
-// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Name = "file#" + strconv.Itoa(j+1)
-// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
-// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].Size = 100
-// 			gS3CliAPI.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
-// 		}
-// 	} /* end of for loop */
-// 	fmt.Println("bucket name = ", gS3CliAPI.bucketlist)
-// }
-
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
@@ -346,7 +325,6 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	fmt.Printf("hello hello hello bucket = %s; object = %s wsize = %d\n ", bucket, object, wsize)
 	fmt.Println(" data =", data)
 	/* @TODO Attention: Need to handle the file size limit */
-
 	uploadcallback(writer, uint(wsize), bucket, object)
 	fmt.Println("Bucket = ", bucket)
 
