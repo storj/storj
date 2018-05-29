@@ -2,7 +2,7 @@
 
 This is an example gRPC client which makes CRUD requests (create, read, update, delete) for storing file paths and small values to BoltDB.
 
-The gRPC server at `storj.io/storj/cmd/netstate-rpc/server/main.go` needs to be running for this to work.
+The gRPC server at `storj.io/storj/cmd/netstate/main.go` needs to be running for this to work.
 
 To run the client:
 ```
