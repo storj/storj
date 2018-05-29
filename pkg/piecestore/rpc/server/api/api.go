@@ -57,7 +57,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		if storeFile == nil {
 
-			storeFile, err = pstore.Store_Writer(pieceData.Hash, length, pieceData.StoreOffset, s.PieceStoreDir)
+			storeFile, err = pstore.StoreWriter(pieceData.Hash, length, pieceData.StoreOffset, s.PieceStoreDir)
 			if err != nil {
 				return err
 			}
@@ -111,7 +111,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.Retrieve_Reader(pieceMeta.Hash, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(pieceMeta.Hash, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}

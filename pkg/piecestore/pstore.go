@@ -36,7 +36,7 @@ func PathByHash(hash, dir string) (string, error) {
 // 	hash 					(string)					Hash of the data to be stored
 // 	dir 					(string)					pstore directory containing all other data stored
 // 	returns 			(os.File, error) 	error if failed and nil if successful
-func Store_Writer(hash string, length int64, psFileOffset int64, dir string) (io.WriteCloser, error) {
+func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (io.WriteCloser, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
@@ -59,7 +59,6 @@ func Store_Writer(hash string, length int64, psFileOffset int64, dir string) (io
 	if err != nil {
 		return nil, err
 	}
-
 
 	return fpiece.NewChunk(dataFile, psFileOffset, length), nil
 }
@@ -94,7 +93,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 //	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	dir 					(string)		   pstore directory containing all other data stored
 // 	returns 			(os.File, error) 	error if failed and nil if successful
-func Retrieve_Reader(hash string, length int64, readPosOffset int64, dir string) (io.ReadCloser, error) {
+func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) (io.ReadCloser, error) {
 	if dir == "" {
 		return nil, ArgError.New("No path provided")
 	}
