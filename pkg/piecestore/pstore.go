@@ -32,7 +32,7 @@ func PathByHash(hash, dir string) (string, error) {
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
-// Store_Writer -- Store data into piece store in multiple writes
+// StoreWriter -- Store data into piece store in multiple writes
 // 	hash 					(string)					Hash of the data to be stored
 // 	dir 					(string)					pstore directory containing all other data stored
 // 	returns 			(os.File, error) 	error if failed and nil if successful
@@ -87,7 +87,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 	return io.CopyN(dataFileChunk, r, length)
 }
 
-// Retrieve_Reader -- Retrieve data from pstore directory
+// RetrieveReader -- Retrieve data from pstore directory
 //	hash 					(string)		   Hash of the stored data
 //	length 				(length)		   Amount of data to read. Read all data if -1
 //	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
