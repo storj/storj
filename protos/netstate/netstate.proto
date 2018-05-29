@@ -68,7 +68,7 @@ message Pointer {
 
   bytes inline_segment = 3;
   RemoteSegment remote = 4;
-  int64 encrypted_unencrypted_size = 5; // size of the unencrypted object (!)
+  bytes encrypted_unencrypted_size = 5; // size of the unencrypted object (!)
 
   google.protobuf.Timestamp creation_date = 6;
   google.protobuf.Timestamp expiration_date = 7;
