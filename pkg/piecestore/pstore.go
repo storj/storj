@@ -33,10 +33,10 @@ func PathByHash(hash, dir string) (string, error) {
 }
 
 // StoreWriter -- Store data into piece store in multiple writes
-// 	hash 					(string)					Hash of the data to be stored
-// 	dir 					(string)					pstore directory containing all other data stored
-// 	returns 			(os.File, error) 	error if failed and nil if successful
-func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (io.WriteCloser, error) {
+// 	hash 					(string)								Hash of the data to be stored
+// 	dir 					(string)								pstore directory containing all other data stored
+// 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
+func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
@@ -76,7 +76,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 	}
 
 	// Create File on file system
-	dataFileChunk, err := Store_Writer(hash, length, psFileOffset, dir)
+	dataFileChunk, err := StoreWriter(hash, length, psFileOffset, dir)
 	if err != nil {
 		return 0, err
 	}
@@ -88,12 +88,12 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 }
 
 // RetrieveReader -- Retrieve data from pstore directory
-//	hash 					(string)		   Hash of the stored data
-//	length 				(length)		   Amount of data to read. Read all data if -1
-//	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
-//	dir 					(string)		   pstore directory containing all other data stored
-// 	returns 			(os.File, error) 	error if failed and nil if successful
-func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) (io.ReadCloser, error) {
+//	hash 					(string)		   					Hash of the stored data
+//	length 				(length)		   					Amount of data to read. Read all data if -1
+//	readPosOffset	(offset)	   	 					Offset of the data that you are reading. Useful for multiple connections to split the data transfer
+//	dir 					(string)		   					pstore directory containing all other data stored
+// 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
+func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
 	if dir == "" {
 		return nil, ArgError.New("No path provided")
 	}
@@ -141,7 +141,7 @@ func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) 
 //	returns 			(int64, error) returns err if failed and the number of bytes retrieved if successful
 func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir string) (int64, error) {
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileChunk, err := Retrieve_Reader(hash, length, readPosOffset, dir)
+	dataFileChunk, err := RetrieveReader(hash, length, readPosOffset, dir)
 	if err != nil {
 		return 0, err
 	}
