@@ -271,27 +271,12 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 	buckets, err = getbucketscallback()
 	return buckets, err
-	// return []minio.BucketInfo{{
-	// 	Name:    "test-bucket",
-	// 	Created: time.Now(),
-	// }}, nil
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	result, err = listfilescallback(bucket)
 	return result, nil
-	// return minio.ListObjectsInfo{
-	// 	IsTruncated: false,
-	// 	Objects: []minio.ObjectInfo{{
-	// 		Bucket:      "test-bucket",
-	// 		Name:        "test-file",
-	// 		ModTime:     time.Now(),
-	// 		Size:        0,
-	// 		IsDir:       false,
-	// 		ContentType: "application/octet-stream",
-	// 	}},
-	// }, nil
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
@@ -299,9 +284,9 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
-// Main is the exported CLI executable function
-func Main(data io.ReadCloser, blockSize uint) error {
-	dir := "/tmp/gateway"
+//uploadcallback uploads the files
+func uploadcallback(data io.ReadCloser, blockSize uint, bucket, object string) error {
+	dir := "/tmp/gateway/" + bucket + "/" + object
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -324,7 +309,7 @@ func Main(data io.ReadCloser, blockSize uint) error {
 	for i := range readers {
 		go func(i int) {
 			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
+				filepath.Join(dir, fmt.Sprintf("%s%d.piece", object, i)))
 			if err != nil {
 				errs <- err
 				return
@@ -361,7 +346,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	fmt.Printf("hello hello hello bucket = %s; object = %s wsize = %d\n ", bucket, object, wsize)
 	fmt.Println(" data =", data)
 	/* @TODO Attention: Need to handle the file size limit */
-	Main(writer, uint(wsize))
+
+	uploadcallback(writer, uint(wsize), bucket, object)
 	fmt.Println("Bucket = ", bucket)
 
 	_, _ = putobjectcallback(bucket, object, wsize, metadata)
