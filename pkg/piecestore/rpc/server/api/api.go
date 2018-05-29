@@ -37,6 +37,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	total := int64(0)
 	var storeMeta *StoreData
+	var storeFile io.WriteCloser
 
 	for {
 		pieceData, err := stream.Recv()
@@ -54,8 +55,19 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		length := int64(len(pieceData.Content))
 
+		if storeFile == nil {
+
+			storeFile, err = pstore.Store_Writer(pieceData.Hash, length, pieceData.StoreOffset, s.PieceStoreDir)
+			if err != nil {
+				return err
+			}
+
+			defer storeFile.Close()
+		}
+
 		// Write chunk received to disk
-		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
+		_, err = io.Copy(storeFile, bytes.NewReader(pieceData.Content))
+
 		if err != nil {
 			return err
 		}
@@ -71,8 +83,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	log.Println("Successfully stored data.")
 
-	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
-	if err != nil {
+	if err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL); err != nil {
 		return err
 	}
 

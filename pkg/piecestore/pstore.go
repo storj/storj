@@ -32,73 +32,86 @@ func PathByHash(hash, dir string) (string, error) {
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
-// Store -- Store data into piece store
-// 	hash 					(string)		Hash of the data to be stored
-// 	r 			  		(io.Reader)	File/Stream that contains the contents of the data to be stored
-// 	length 				(length)		Size of the data to be stored
-// 	psFileOffset 	(offset)  	Offset of the data that you are writing. Useful for multiple connections to split the data transfer
-// 	dir 					(string)		pstore directory containing all other data stored
-// 	returns 			(error) 		error if failed and nil if successful
-func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir string) (int64, error) {
+// Store_Writer -- Store data into piece store in multiple writes
+// 	hash 					(string)					Hash of the data to be stored
+// 	dir 					(string)					pstore directory containing all other data stored
+// 	returns 			(os.File, error) 	error if failed and nil if successful
+func Store_Writer(hash string, length int64, psFileOffset int64, dir string) (io.WriteCloser, error) {
 	if psFileOffset < 0 {
-		return 0, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
-	}
-	if length < 0 {
-		return 0, ArgError.New("Length is less than 0. Must be greater than or equal to 0")
+		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
 	if dir == "" {
-		return 0, ArgError.New("No path provided")
+		return nil, ArgError.New("No path provided")
 	}
 
 	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// Create directory path on file system
 	if err = os.MkdirAll(filepath.Dir(dataPath), 0700); err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// Create File on file system
 	dataFile, err := os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
+		return nil, err
+	}
+
+
+	return fpiece.NewChunk(dataFile, psFileOffset, length), nil
+}
+
+// Store -- Store data into piece store
+// 	hash 					(string)				Hash of the data to be stored
+// 	r 			  		(io.Reader)			File/Stream that contains the contents of the data to be stored
+// 	length 				(length)				Size of the data to be stored
+// 	psFileOffset 	(offset)  			Offset of the data that you are writing. Useful for multiple connections to split the data transfer
+// 	dir 					(string)				pstore directory containing all other data stored
+// 	returns 			(int64, error) 	error if failed and nil if successful
+func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir string) (int64, error) {
+	if length < 0 {
+		return 0, ArgError.New("Length is less than 0. Must be greater than or equal to 0")
+	}
+
+	// Create File on file system
+	dataFileChunk, err := Store_Writer(hash, length, psFileOffset, dir)
+	if err != nil {
 		return 0, err
 	}
 
-	dataFileChunk := fpiece.NewChunk(dataFile, psFileOffset, length)
-
 	// Close when finished
-	defer dataFile.Close()
+	defer dataFileChunk.Close()
 
 	return io.CopyN(dataFileChunk, r, length)
 }
 
-// Retrieve -- Retrieve data from pstore directory
+// Retrieve_Reader -- Retrieve data from pstore directory
 //	hash 					(string)		   Hash of the stored data
-//	w 						(io.Writer)	   Stream that recieves the stored data
 //	length 				(length)		   Amount of data to read. Read all data if -1
 //	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	dir 					(string)		   pstore directory containing all other data stored
-//	returns 			(int64, error) returns err if failed and the number of bytes retrieved if successful
-func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir string) (int64, error) {
+// 	returns 			(os.File, error) 	error if failed and nil if successful
+func Retrieve_Reader(hash string, length int64, readPosOffset int64, dir string) (io.ReadCloser, error) {
 	if dir == "" {
-		return 0, ArgError.New("No path provided")
+		return nil, ArgError.New("No path provided")
 	}
 
 	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	fileInfo, err := os.Stat(dataPath)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	// If offset is greater than file size return
 	if readPosOffset >= fileInfo.Size() || readPosOffset < 0 {
-		return 0, ArgError.New("Invalid offset: %v", readPosOffset)
+		return nil, ArgError.New("Invalid offset: %v", readPosOffset)
 	}
 
 	// If length less than 0 read the entire file
@@ -113,17 +126,31 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 
 	dataFile, err := os.OpenFile(dataPath, os.O_RDONLY, 0755)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	// Close when finished
-	defer dataFile.Close()
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileChunk := fpiece.NewChunk(dataFile, readPosOffset, length)
+	return fpiece.NewChunk(dataFile, readPosOffset, length), nil
+}
 
-	total, err := io.CopyN(w, dataFileChunk, length)
+// Retrieve -- Retrieve data from pstore directory
+//	hash 					(string)		   	Hash of the stored data
+//	w 						(io.Writer)	   Stream that recieves the stored data
+//	length 				(length)		   Amount of data to read. Read all data if -1
+//	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
+//	dir 					(string)		   pstore directory containing all other data stored
+//	returns 			(int64, error) returns err if failed and the number of bytes retrieved if successful
+func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir string) (int64, error) {
+	// Created a section reader so that we can concurrently retrieve the same file.
+	dataFileChunk, err := Retrieve_Reader(hash, length, readPosOffset, dir)
+	if err != nil {
+		return 0, err
+	}
 
-	return total, err
+	// Close when finished
+	defer dataFileChunk.Close()
+
+	return io.CopyN(w, dataFileChunk, length)
 }
 
 // Delete -- Delete data from farmer
