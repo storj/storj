@@ -437,8 +437,8 @@ func TestRetrieve(t *testing.T) {
 		defer os.RemoveAll(retrievalFilePath)
 		defer retrievalFile.Close()
 
-		_, err = Retrieve(hash, retrievalFile, -1, 0, os.TempDir())
-
+		n, err := Retrieve(hash, retrievalFile, -1, 0, os.TempDir())
+		fmt.Println(n)
 		if err != nil {
 			if err != io.EOF {
 				t.Errorf("Retrieve Error: %s", err.Error())
@@ -453,7 +453,7 @@ func TestRetrieve(t *testing.T) {
 		fmt.Printf("Retrieved data: %s", string(buffer))
 
 		if string(buffer) != "butts" {
-			t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
+			t.Errorf("Expected data (butts) does not equal Actual data (%s)", string(buffer))
 		}
 	})
 
