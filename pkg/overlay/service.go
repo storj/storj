@@ -35,7 +35,6 @@ func init() {
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.BoolVar(&gui, "gui", false, "Serve a GUI for stats and metrics on localhost:4000")
 	flag.Parse()
-	fmt.Println("init flags")
 }
 
 // NewServer creates a new Overlay Service Server
