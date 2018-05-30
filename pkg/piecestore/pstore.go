@@ -59,7 +59,7 @@ func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fp
 		return nil, err
 	}
 
-	return fpiece.NewChunk(dataFile, psFileOffset, length), nil
+	return fpiece.NewChunk(dataFile, psFileOffset, length)
 }
 
 // RetrieveReader -- Retrieve data from pstore directory
@@ -100,7 +100,7 @@ func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) 
 	}
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	return fpiece.NewChunk(dataFile, readPosOffset, length), nil
+	return fpiece.NewChunk(dataFile, readPosOffset, length)
 }
 
 // Delete -- Delete data from farmer

@@ -16,170 +16,118 @@ import (
 )
 
 func TestStore(t *testing.T) {
-  t.Run("should return expected Store values", func(t *testing.T) {
-		assert := assert.New(t)
+  tests := []struct{
+		it string
+		hash string
+		size int64
+		offset int64
+		content []byte
+		expectedContent []byte
+    err string
+  } {
+	    {
+				it: "should successfully store data",
+				hash: "0123456789ABCDEFGHIJ",
+				size: 5,
+				offset: 0,
+				content: []byte("butts"),
+				expectedContent: []byte("butts"),
+	      err: "",
+	    },
+			{
+				it: "should successfully store data by offset",
+				hash: "0123456789ABCDEFGHIJ",
+				size: 5,
+				offset: 5,
+				content: []byte("butts"),
+				expectedContent: []byte("butts"),
+				err: "",
+			},
+			{
+				it: "should successfully store data by chunk",
+				hash: "0123456789ABCDEFGHIJ",
+				size: 2,
+				offset: 3,
+				content: []byte("butts"),
+				expectedContent: []byte("bu"),
+				err: "",
+			},
+			{
+				it: "should return an error when given an invalid hash",
+				hash: "012",
+				size: 5,
+				offset: 0,
+				content: []byte("butts"),
+				expectedContent: []byte("butts"),
+				err: "argError: Invalid hash length",
+			},
+			{
+				it: "should return an error when given negative offset",
+				hash: "0123456789ABCDEFGHIJ",
+				size: 5,
+				offset: -1,
+				content: []byte("butts"),
+				expectedContent: []byte(""),
+				err: "argError: Offset is less than 0. Must be greater than or equal to 0",
+			},
+			{
+				it: "should return an error when given negative length",
+				hash: "0123456789ABCDEFGHIJ",
+				size: -1,
+				offset: 0,
+				content: []byte("butts"),
+				expectedContent: []byte(""),
+				err: "Invalid Length",
+			},
+	 }
 
-    tests := []struct{
-			hash string
-			size int64
-			offset int64
-			content []byte
-			expectedContent []byte
-      err string
-    } {
-        { // should successfully store data
-					hash: "0123456789ABCDEFGHIJ",
-					size: 5,
-					offset: 0,
-					content: []byte("butts"),
-					expectedContent: []byte("butts"),
-          err: "",
-        },
-				{ // should successfully store data by offset
-					hash: "0123456789ABCDEFGHIJ",
-					size: 5,
-					offset: 5,
-					content: []byte("butts"),
-					expectedContent: []byte("butts"),
-					err: "",
-				},
-				{ // should successfully store data by chunk
-					hash: "0123456789ABCDEFGHIJ",
-					size: 2,
-					offset: 3,
-					content: []byte("butts"),
-					expectedContent: []byte("bu"),
-					err: "",
-				},
-				{ // should successfully store data by chunk
-					hash: "012",
-					size: 5,
-					offset: 0,
-					content: []byte("butts"),
-					expectedContent: []byte("butts"),
-					err: "argError: Invalid hash length",
-				},
-      }
-
-      for _, tt := range tests {
-				storeFile, err := StoreWriter(tt.hash, tt.size, tt.offset, os.TempDir())
-				if tt.err != "" {
-					if assert.NotNil(err) {
-						assert.Equal(err.Error(), tt.err)
-					}
-					continue
+  for _, tt := range tests {
+		t.Run(tt.it, func(t *testing.T) {
+			assert := assert.New(t)
+			storeFile, err := StoreWriter(tt.hash, tt.size, tt.offset, os.TempDir())
+			if tt.err != "" {
+				if assert.NotNil(err) {
+					assert.Equal(err.Error(), tt.err)
 				}
+				return
+			}
 
-				// Write chunk received to disk
-				_, err = storeFile.Write(tt.content)
-				assert.Nil(err)
+			// Write chunk received to disk
+			_, err = storeFile.Write(tt.content)
+			assert.Nil(err)
 
-				storeFile.Close()
+			storeFile.Close()
 
-				folder1 := string(tt.hash[0:2])
-				folder2 := string(tt.hash[2:4])
-				fileName := string(tt.hash[4:])
+			folder1 := string(tt.hash[0:2])
+			folder2 := string(tt.hash[2:4])
+			fileName := string(tt.hash[4:])
 
-				createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
+			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
-				createdFile, err := os.Open(createdFilePath)
-				if err != nil {
-					t.Errorf("Error: %s opening created file %s", err.Error(), createdFilePath)
-					continue
-				}
+			createdFile, err := os.Open(createdFilePath)
+			if err != nil {
+				t.Errorf("Error: %s opening created file %s", err.Error(), createdFilePath)
+				return
+			}
 
-				buffer := make([]byte, tt.size)
-				createdFile.Seek(tt.offset, 0)
-				_, _ = createdFile.Read(buffer)
+			buffer := make([]byte, tt.size)
+			createdFile.Seek(tt.offset, 0)
+			_, _ = createdFile.Read(buffer)
 
-				createdFile.Close()
-				os.RemoveAll(path.Join(os.TempDir(), folder1))
+			createdFile.Close()
+			os.RemoveAll(path.Join(os.TempDir(), folder1))
 
-				if string(buffer) != string(tt.expectedContent) {
-					t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
-					continue
-				}
-      }
-  })
+			if string(buffer) != string(tt.expectedContent) {
+				t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
+				return
+			}
+		})
+  }
 }
 
-// func TestStore(t *testing.T) {
+func TestRetrieve(t *testing.T) {
 
-
-// 	t.Run("it should return hash err if the hash is too short", func(t *testing.T) {
-// 		assert := assert.New(t)
-// 		file, err := os.Open(tmpfile)
-// 		if err != nil {
-// 			t.Errorf("Error opening tmp file: %s", err.Error())
-// 			return
-// 		}
-//
-// 		defer file.Close()
-//
-// 		hash := "11111111"
-//
-// 		_, err = Store(hash, file, 5, 0, os.TempDir())
-// 		assert.NotNil(err)
-// 		if err != nil {
-// 			assert.Equal(err.Error(), "argError: Invalid hash length", "They should have the same error message")
-// 		}
-// 	})
-//
-// 	// Test passing in negative offset
-// 	t.Run("it should return an error when given negative offset", func(t *testing.T) {
-// 		assert := assert.New(t)
-// 		file, err := os.Open(tmpfile)
-// 		if err != nil {
-// 			t.Errorf("Error opening tmp file: %s", err.Error())
-// 			return
-// 		}
-//
-// 		fi, err := file.Stat()
-// 		if err != nil {
-// 			t.Errorf("Could not stat test file: %s", err.Error())
-// 			return
-// 		}
-//
-// 		defer file.Close()
-//
-// 		hash := "0123456789ABCDEFGHIJ"
-//
-// 		_, err = Store(hash, file, int64(fi.Size()), -12, os.TempDir())
-//
-// 		assert.NotNil(err)
-// 		if err != nil {
-// 			assert.Equal(err.Error(), "argError: Offset is less than 0. Must be greater than or equal to 0", err.Error())
-// 		}
-// 	})
-//
-// 	// Test passing in a negative length
-// 	t.Run("it should return an error when given length less than 0", func(t *testing.T) {
-// 		assert := assert.New(t)
-// 		file, err := os.Open(tmpfile)
-// 		if err != nil {
-// 			t.Errorf("Error opening tmp file: %s", err.Error())
-// 			return
-// 		}
-//
-// 		_, err = file.Stat()
-// 		if err != nil {
-// 			t.Errorf("Could not stat test file: %s", err.Error())
-// 			return
-// 		}
-//
-// 		defer file.Close()
-//
-// 		hash := "0123456789ABCDEFGHIJ"
-//
-// 		_, err = Store(hash, file, -1, 0, os.TempDir())
-// 		assert.NotNil(err)
-// 		if err != nil {
-// 			assert.Equal(err.Error(), "argError: Length is less than 0. Must be greater than or equal to 0", err.Error())
-// 		}
-// 	})
-// }
-//
-// func TestRetrieve(t *testing.T) {
+}
 // 	t.Run("it retrieves data successfully", func(t *testing.T) {
 // 		file, err := os.Open(tmpfile)
 // 		if err != nil {
@@ -484,7 +432,6 @@ func TestStore(t *testing.T) {
 // 			assert.NotEqual(err.Error(), "argError: Hash folder does not exist", "They should be equal")
 // 		}
 // 	})
-// }
 
 func TestMain(m *testing.M) {
 	m.Run()
