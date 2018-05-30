@@ -60,20 +60,29 @@ func encrypt(text string, secret []byte) (cipherText string, err error) {
 	}
 	data := aesgcm.Seal(nil, nonce, []byte(text), nil)
 	cipherText = base64.RawURLEncoding.EncodeToString(data)
+	// prepend version number to the cipher text
+	cipherText = "1" + cipherText
 	return cipherText, nil
 }
 
 func decrypt(cipherText string, secret []byte) (text string, err error) {
+	if cipherText == "" {
+		return "", Error.New("empty cipher text")
+	}
+	// check the version number, only "1" is supported for now
+	if cipherText[0] != '1' {
+		return "", Error.New("invalid version number")
+	}
+	data, err := base64.RawURLEncoding.DecodeString(cipherText[1:])
+	if err != nil {
+		return "", err
+	}
 	key, nonce := getAESGCMKeyAndNonce(secret)
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", err
 	}
 	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	data, err := base64.RawURLEncoding.DecodeString(cipherText)
 	if err != nil {
 		return "", err
 	}
