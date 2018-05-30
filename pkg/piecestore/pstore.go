@@ -4,7 +4,6 @@
 package pstore
 
 import (
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -24,6 +23,9 @@ func PathByHash(hash, dir string) (string, error) {
 	if len(hash) < 20 {
 		return "", ArgError.New("Invalid hash length")
 	}
+	if dir == "" {
+		return "", ArgError.New("No path provided")
+	}
 
 	folder1 := string(hash[0:2])
 	folder2 := string(hash[2:4])
@@ -39,9 +41,6 @@ func PathByHash(hash, dir string) (string, error) {
 func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
-	}
-	if dir == "" {
-		return nil, ArgError.New("No path provided")
 	}
 
 	dataPath, err := PathByHash(hash, dir)
@@ -63,30 +62,6 @@ func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fp
 	return fpiece.NewChunk(dataFile, psFileOffset, length), nil
 }
 
-// Store -- Store data into piece store
-// 	hash 					(string)				Hash of the data to be stored
-// 	r 			  		(io.Reader)			File/Stream that contains the contents of the data to be stored
-// 	length 				(length)				Size of the data to be stored
-// 	psFileOffset 	(offset)  			Offset of the data that you are writing. Useful for multiple connections to split the data transfer
-// 	dir 					(string)				pstore directory containing all other data stored
-// 	returns 			(int64, error) 	error if failed and nil if successful
-func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir string) (int64, error) {
-	if length < 0 {
-		return 0, ArgError.New("Length is less than 0. Must be greater than or equal to 0")
-	}
-
-	// Create File on file system
-	dataFileChunk, err := StoreWriter(hash, length, psFileOffset, dir)
-	if err != nil {
-		return 0, err
-	}
-
-	// Close when finished
-	defer dataFileChunk.Close()
-
-	return io.CopyN(dataFileChunk, r, length)
-}
-
 // RetrieveReader -- Retrieve data from pstore directory
 //	hash 					(string)		   					Hash of the stored data
 //	length 				(length)		   					Amount of data to read. Read all data if -1
@@ -94,10 +69,6 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 //	dir 					(string)		   					pstore directory containing all other data stored
 // 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
 func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
-	if dir == "" {
-		return nil, ArgError.New("No path provided")
-	}
-
 	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
 		return nil, err
@@ -132,35 +103,11 @@ func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) 
 	return fpiece.NewChunk(dataFile, readPosOffset, length), nil
 }
 
-// Retrieve -- Retrieve data from pstore directory
-//	hash 					(string)		   	Hash of the stored data
-//	w 						(io.Writer)	   Stream that recieves the stored data
-//	length 				(length)		   Amount of data to read. Read all data if -1
-//	readPosOffset	(offset)	   	 Offset of the data that you are reading. Useful for multiple connections to split the data transfer
-//	dir 					(string)		   pstore directory containing all other data stored
-//	returns 			(int64, error) returns err if failed and the number of bytes retrieved if successful
-func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir string) (int64, error) {
-	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileChunk, err := RetrieveReader(hash, length, readPosOffset, dir)
-	if err != nil {
-		return 0, err
-	}
-
-	// Close when finished
-	defer dataFileChunk.Close()
-
-	return io.CopyN(w, dataFileChunk, length)
-}
-
 // Delete -- Delete data from farmer
 //	hash 		(string) 	Hash of the data to be stored
 //	dir 		(string) 	pstore directory containing all other data stored
 //	returns (error) 	if failed and nil if successful
 func Delete(hash string, dir string) error {
-	if dir == "" {
-		return ArgError.New("No path provided")
-	}
-
 	dataPath, err := PathByHash(hash, dir)
 	if err != nil {
 		return err

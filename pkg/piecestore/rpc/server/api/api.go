@@ -66,7 +66,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		}
 
 		// Write chunk received to disk
-		_, err = io.Copy(storeFile, bytes.NewReader(pieceData.Content))
+		storeFile.Write(pieceData.Content))
 
 		if err != nil {
 			return err
