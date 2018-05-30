@@ -69,14 +69,16 @@ type encodedReader struct {
 // 1.5x the amount of time that took so far. The Readers will be aborted as
 // soon as the timer expires or the optimum threshold is reached.
 func EncodeReader(ctx context.Context, r io.Reader, es ErasureScheme,
-	min, opt, mbm int) []io.Reader {
+	min, opt, mbm int) ([]io.Reader, error) {
 	if min == 0 {
 		min = es.TotalCount()
 	}
 	if opt == 0 {
 		opt = es.TotalCount()
 	}
-	err := checkParams(es, min, opt, mbm)
+	if err := checkParams(es, min, opt, mbm); err != nil {
+		return nil, err
+	}
 	er := &encodedReader{
 		r:     r,
 		es:    es,
@@ -90,14 +92,10 @@ func EncodeReader(ctx context.Context, r io.Reader, es ErasureScheme,
 	readers := make([]io.Reader, 0, es.TotalCount())
 	for i := 0; i < es.TotalCount(); i++ {
 		er.eps[i] = &encodedPiece{
-			er:  er,
-			err: err,
+			er: er,
 		}
 		er.eps[i].ctx, er.eps[i].cancel = context.WithCancel(er.ctx)
 		readers = append(readers, er.eps[i])
-	}
-	if err != nil {
-		return readers
 	}
 	chanSize := mbm / (es.TotalCount() * es.EncodedBlockSize())
 	if chanSize < 1 {
@@ -107,7 +105,7 @@ func EncodeReader(ctx context.Context, r io.Reader, es ErasureScheme,
 		er.eps[i].ch = make(chan block, chanSize)
 	}
 	go er.fillBuffer()
-	return readers
+	return readers, nil
 }
 
 func checkParams(es ErasureScheme, min, opt, mbm int) error {
@@ -356,12 +354,14 @@ func (er *EncodedRanger) Range(offset, length int64) ([]io.Reader, error) {
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, er.es.EncodedBlockSize())
 	// okay, now let's encode the reader for the range containing the blocks
-	readers := EncodeReader(er.ctx,
+	readers, err := EncodeReader(er.ctx,
 		er.rr.Range(
 			firstBlock*int64(er.es.DecodedBlockSize()),
 			blockCount*int64(er.es.DecodedBlockSize())),
 		er.es, er.min, er.opt, er.mbm)
-
+	if err != nil {
+		return nil, err
+	}
 	for i, r := range readers {
 		// the offset might start a few bytes in, so we potentially have to
 		// discard the beginning bytes

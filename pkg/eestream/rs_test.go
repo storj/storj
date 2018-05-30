@@ -30,7 +30,10 @@ func TestRS(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
@@ -56,7 +59,10 @@ func TestRSUnexpectedEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
@@ -84,9 +90,12 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers := EncodeReader(ctx, TransformReader(PadReader(ioutil.NopCloser(
+	readers, err := EncodeReader(ctx, TransformReader(PadReader(ioutil.NopCloser(
 		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0),
 		rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pieces, err := readAll(readers)
 	if err != nil {
 		t.Fatal(err)
@@ -142,12 +151,11 @@ func TestRSEncoderInputParams(t *testing.T) {
 		ctx := context.Background()
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
-		if err != nil {
-			t.Fatal(err)
+		if !assert.NoError(t, err, errTag) {
+			return
 		}
 		rs := NewRSScheme(fc, 8*1024)
-		readers := EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
-		_, err = readAll(readers)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -180,12 +188,11 @@ func TestRSRangerInputParams(t *testing.T) {
 		ctx := context.Background()
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
-		if err != nil {
-			t.Fatal(err)
+		if !assert.NoError(t, err, errTag) {
+			return
 		}
 		rs := NewRSScheme(fc, 8*1024)
-		readers := EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
-		_, err = readAll(readers)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -389,7 +396,10 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 		return
 	}
 	rs := NewRSScheme(fc, tt.blockSize)
-	readers := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 3*1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 3*1024)
+	if !assert.NoError(t, err, errTag) {
+		return
+	}
 	// read all readers in []byte buffers to avoid deadlock if later
 	// we don't read in parallel from all of them
 	pieces, err := readAll(readers)
@@ -458,7 +468,10 @@ func TestEncoderStalledReaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 1024)
-	readers := EncodeReader(ctx, bytes.NewReader(data), rs, 35, 50, 0)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 35, 50, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	start := time.Now()
 	_, err = readAllStalled(readers, 25)
 	assert.NoError(t, err)
