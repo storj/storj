@@ -244,6 +244,72 @@ func TestRetrieve(t *testing.T) {
   }
 }
 
+func TestDelete(t *testing.T) {
+	tests := []struct{
+		it string
+		hash string
+    err string
+  } {
+			{
+				it: "should successfully delete data",
+				hash: "11111111111111111111",
+				err: "",
+			},
+			{
+				it: "should return nil-err with non-existent hash",
+				hash: "11111111111111111111",
+				err: "",
+			},
+			{
+				it: "should err with invalid hash length",
+				hash: "111111",
+				err: "argError: Invalid hash length",
+			},
+		}
+
+	for _, tt := range tests {
+		t.Run(tt.it, func(t *testing.T) {
+			assert := assert.New(t)
+
+			folder1 := string(tt.hash[0:2])
+			folder2 := string(tt.hash[2:4])
+			fileName := string(tt.hash[4:])
+
+			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
+
+			if err := os.MkdirAll(filepath.Dir(createdFilePath), 0700); err != nil {
+				t.Errorf("Error: %s when creating dir", err.Error())
+				return
+			}
+
+			createdFile, err := os.OpenFile(createdFilePath, os.O_RDWR|os.O_CREATE, 0755)
+			if err != nil {
+				t.Errorf("Error: %s opening created file %s", err.Error(), createdFilePath)
+				return
+			}
+
+			createdFile.Close()
+
+			err = Delete(tt.hash, os.TempDir())
+			if tt.err != "" {
+				if assert.NotNil(err) {
+					assert.Equal(tt.err, err.Error())
+				}
+				return
+			} else if err != nil {
+				t.Errorf("Error: %s", err.Error())
+				return
+			}
+
+			if _, err = os.Stat(createdFilePath); os.IsExist(err) {
+				t.Errorf("Error deleting file")
+				return
+			}
+			return
+		})
+	}
+}
+
 // func TestDelete(t *testing.T) {
 // 	t.Run("it deletes data successfully", func(t *testing.T) {
 // 		file, err := os.Open(tmpfile)
