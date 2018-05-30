@@ -67,7 +67,10 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 		return 0, err
 	}
 
-	dataFileChunk, _ := fpiece.NewChunk(dataFile, psFileOffset, length)
+	dataFileChunk, err := fpiece.NewChunk(dataFile, psFileOffset, length)
+	if err != nil {
+		return 0, err
+	}
 
 	// Close when finished
 	defer dataFile.Close()
@@ -120,7 +123,10 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	defer dataFile.Close()
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileChunk, _ := fpiece.NewChunk(dataFile, readPosOffset, length)
+	dataFileChunk, err := fpiece.NewChunk(dataFile, readPosOffset, length)
+	if err != nil {
+		return 0, err
+	}
 
 	total, err := io.CopyN(w, dataFileChunk, length)
 
