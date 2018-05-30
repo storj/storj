@@ -20,3 +20,6 @@ debug
 # Binaries
 ./main
 ./storj
+
+# Jetbrains
+.idea/*
