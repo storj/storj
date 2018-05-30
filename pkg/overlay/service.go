@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -62,25 +63,26 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	err := kademlia.Bootstrap(ctx)
+	k := kademlia.Kademlia{}
+	k.Bootstrap(ctx)
 
-	// if redisAddress != "" {
-	// 	fmt.Println("starting up overlay cache")
-	// 	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+	if redisAddress != "" {
+		fmt.Println("starting up overlay cache")
+		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, k)
 
-	// 	if err != nil {
-	// 		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
-	// 		return err
-	// 	}
+		if err != nil {
+			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+			return err
+		}
 
-	// 	if err := cache.Bootstrap(ctx); err != nil {
-	// 		s.logger.Error("Failed to boostrap cache", zap.Error(err))
-	// 		return err
-	// 	}
+		if err := cache.Bootstrap(ctx); err != nil {
+			s.logger.Error("Failed to boostrap cache", zap.Error(err))
+			return err
+		}
 
-	// 	// send off cache refreshes concurrently
-	// 	go cache.Refresh(ctx)
-	// }
+		// send off cache refreshes concurrently
+		go cache.Refresh(ctx)
+	}
 
 	fmt.Println("starting up storj-node")
 
