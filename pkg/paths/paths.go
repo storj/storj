@@ -50,11 +50,11 @@ func encrypt(text string, secret []byte) (cipherText string, err error) {
 	key, nonce := getAESGCMKeyAndNonce(secret)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	data := aesgcm.Seal(nil, nonce, []byte(text), nil)
 	cipherText = base64.RawURLEncoding.EncodeToString(data)
@@ -72,20 +72,20 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	}
 	data, err := base64.RawURLEncoding.DecodeString(cipherText[1:])
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	key, nonce := getAESGCMKeyAndNonce(secret)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	decrypted, err := aesgcm.Open(nil, nonce, data, nil)
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	return string(decrypted), nil
 }
