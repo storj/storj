@@ -6,20 +6,19 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	proto "storj.io/storj/protos/netstate"
 )
 
 var (
 	port string
-)
-
-const (
-	success string = "success"
 )
 
 func initializeFlags() {
@@ -40,73 +39,93 @@ func main() {
 
 	client := proto.NewNetStateClient(conn)
 
+	logger.Debug(fmt.Sprintf("client dialed port %s", port))
+
 	ctx := context.Background()
 
-	// Examples file paths to be saved
-	fp := proto.FilePath{
-		Path:       []byte("welcome/to/my/file/journey"),
-		SmallValue: []byte("granola"),
+	// Example pointer paths to put
+	pr1 := proto.PutRequest{
+		Path: []byte("welcome/to/my/pointer/journey"),
+		Pointer: &proto.Pointer{
+			Type: proto.Pointer_INLINE,
+			Encryption: &proto.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("granola"),
+		},
 	}
-	fp2 := proto.FilePath{
-		Path:       []byte("so/many/file/paths"),
-		SmallValue: []byte("m&ms"),
+	pr2 := proto.PutRequest{
+		Path: []byte("so/many/pointers"),
+		Pointer: &proto.Pointer{
+			Type: proto.Pointer_INLINE,
+			Encryption: &proto.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("m&ms"),
+		},
 	}
-	fp3 := proto.FilePath{
-		Path:       []byte("another/file/path/for/the/pile"),
-		SmallValue: []byte("popcorn"),
+	pr3 := proto.PutRequest{
+		Path: []byte("another/pointer/for/the/pile"),
+		Pointer: &proto.Pointer{
+			Type: proto.Pointer_INLINE,
+			Encryption: &proto.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("popcorn"),
+		},
 	}
 
 	// Example Puts
-	putRes, err := client.Put(ctx, &fp)
-	if err != nil || putRes.Confirmation != success {
+	_, err = client.Put(ctx, &pr1)
+	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
-	putRes2, err := client.Put(ctx, &fp2)
-	if err != nil || putRes2.Confirmation != success {
+	_, err = client.Put(ctx, &pr2)
+	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
-	putRes3, err := client.Put(ctx, &fp3)
-	if err != nil || putRes3.Confirmation != success {
+	_, err = client.Put(ctx, &pr3)
+	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
 
 	// Example Get
 	getReq := proto.GetRequest{
-		Path: []byte("so/many/file/paths"),
+		Path: []byte("so/many/pointers"),
 	}
 	getRes, err := client.Get(ctx, &getReq)
-	if err != nil {
+	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to get", zap.Error(err))
 	}
-	value := string(getRes.SmallValue)
-	logger.Debug("get response: " + value)
+	pointer := string(getRes.Pointer)
+	logger.Debug("get response: " + pointer)
 
 	// Example List
 	listReq := proto.ListRequest{
-		// This Bucket value isn't actually used by List() now,
-		// but in the future could be used to select specific
-		// buckets to list from.
-		Bucket: []byte("files"),
+		// This pagination functionality doesn't work yet.
+		// The given arguments are placeholders.
+		StartingPathKey: []byte("test/pointer/path"),
+		Limit:           5,
 	}
 	listRes, err := client.List(ctx, &listReq)
-	if err != nil {
+	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths")
 	}
 	var stringList []string
-	for _, pathByte := range listRes.Filepaths {
+	for _, pathByte := range listRes.Paths {
 		stringList = append(stringList, string(pathByte))
 	}
 	logger.Debug("listed paths: " + strings.Join(stringList, ", "))
 
 	// Example Delete
 	delReq := proto.DeleteRequest{
-		Path: []byte("welcome/to/my/file/journey"),
+		Path: []byte("welcome/to/my/pointer/journey"),
 	}
-	delRes, err := client.Delete(ctx, &delReq)
-	if err != nil {
-		logger.Error("failed to delete: 'welcome/to/my/file/journey'")
-	}
-	if delRes.Confirmation == "success" {
-		logger.Debug("deleted: welcome/to/my/file/journey")
+	_, err = client.Delete(ctx, &delReq)
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("failed to delete: " + string(delReq.Path))
 	}
 }
