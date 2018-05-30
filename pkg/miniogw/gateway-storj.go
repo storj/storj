@@ -41,8 +41,8 @@ func init() {
 }
 
 // getbucketscallback returns the buckets list
-func (s *storjObjects) getbucketscallback() (buckets []minio.BucketInfo, err error) {
-	buckets = make([]minio.BucketInfo, s.storj.totalBuckets)
+func (s *storjObjects) getBuckets() (buckets []minio.BucketInfo, err error) {
+	buckets = make([]minio.BucketInfo, len(s.storj.bucketlist))
 	for i, bi := range s.storj.bucketlist {
 		buckets[i] = minio.BucketInfo{
 			Name:    bi.bucket.Name,
@@ -53,7 +53,7 @@ func (s *storjObjects) getbucketscallback() (buckets []minio.BucketInfo, err err
 }
 
 // putobjectcallback function handles to add the uploaded file to the bucket's file list structure
-func (s *storjObjects) putobjectcallback(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
+func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
 		// bucket string comparision
@@ -94,7 +94,7 @@ func (s *storjObjects) putobjectcallback(bucket, object string, filesize int64, 
 }
 
 // listfilescallback returns the files list for a bucket
-func (s *storjObjects) listfilescallback(bucket string) (result minio.ListObjectsInfo, err error) {
+func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, err error) {
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
 		if v.bucket.Name == bucket {
@@ -135,14 +135,12 @@ type S3BucketList struct {
 
 //S3FileList structure
 type S3FileList struct {
-	totalFiles int
-	file       minio.ListObjectsInfo
+	file minio.ListObjectsInfo
 }
 
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	totalBuckets int
-	bucketlist   []S3BucketList
+	bucketlist []S3BucketList
 }
 
 // Name implements cmd.Gateway
@@ -163,32 +161,20 @@ func (s *Storj) Production() bool {
 
 //createSampleBucketList function initializes sample buckets and files in each bucket
 func (s *Storj) createSampleBucketList() {
-	s.bucketlist = s.bucketlist[:0]
-	for i := 0; i < 10; i++ {
-		s.bucketlist = append(s.bucketlist,
-			S3BucketList{
-				bucket: minio.BucketInfo{
-					Name:    "TestBucket" + strconv.Itoa(i+1),
-					Created: time.Now(),
-				},
-			},
-		)
+	s.bucketlist = make([]S3BucketList, 10)
+	for i := range s.bucketlist {
+		s.bucketlist[i].bucket.Name = "TestBucket" + strconv.Itoa(i+1)
+		s.bucketlist[i].bucket.Created = time.Now()
 		s.bucketlist[i].filelist.file.IsTruncated = false
-		s.bucketlist[i].filelist.file.Objects = s.bucketlist[i].filelist.file.Objects[:0]
-		for j := 0; j < 10; j++ {
-			s.bucketlist[i].filelist.file.Objects = append(
-				s.bucketlist[i].filelist.file.Objects,
-				minio.ObjectInfo{
-					Bucket:      s.bucketlist[i].bucket.Name,
-					Name:        s.bucketlist[i].bucket.Name + "file" + strconv.Itoa(j+1),
-					ModTime:     time.Now(),
-					Size:        int64(100 + i),
-					ContentType: "application/octet-stream",
-				},
-			)
+		s.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
+		for j := range s.bucketlist[i].filelist.file.Objects {
+			s.bucketlist[i].filelist.file.Objects[j].Bucket = s.bucketlist[i].bucket.Name
+			s.bucketlist[i].filelist.file.Objects[j].Name = s.bucketlist[i].bucket.Name + "file" + strconv.Itoa(j+1)
+			s.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
+			s.bucketlist[i].filelist.file.Objects[j].Size = 100
+			s.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
 		}
 	}
-	s.totalBuckets = len(s.bucketlist)
 }
 
 type storjObjects struct {
@@ -224,14 +210,12 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
-	buckets, err = s.getbucketscallback()
-	return buckets, err
+	return s.getBuckets()
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
-	result, err = s.listfilescallback(bucket)
-	return result, nil
+	return s.getFiles(bucket)
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
@@ -239,9 +223,11 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
-//uploadcallback uploads the files
-func uploadcallback(data io.ReadCloser, blockSize uint, bucket, object string) error {
-	dir := "/tmp/gateway/" + bucket + "/" + object
+//encryptFile encrypts the uploaded files
+func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
+	dir := os.TempDir()
+	dir = dir + "gateway/" + bucket + "/" + object
+	fmt.Println("temp dir = ", dir)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -298,16 +284,18 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		return objInfo, err
 	}
 
-	uploadcallback(writer, uint(wsize), bucket, object)
-
-	_, _ = s.putobjectcallback(bucket, object, wsize, metadata)
+	err = encryptFile(writer, uint(wsize), bucket, object)
+	if err == nil {
+		// return values are for debugging purposes
+		_, _ = s.uploadFile(bucket, object, wsize, metadata)
+	}
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
-		ModTime: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		ModTime: time.Now(),
 		Size:    wsize,
 		ETag:    minio.GenETag(),
-	}, nil
+	}, err
 }
 
 func (s *storjObjects) Shutdown(context.Context) error {
