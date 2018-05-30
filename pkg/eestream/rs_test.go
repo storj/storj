@@ -23,18 +23,22 @@ import (
 )
 
 func TestRS(t *testing.T) {
+	ctx := context.Background()
 	data := randData(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	decoder := DecodeReaders(context.Background(), readerMap, rs, 32*1024, 0)
+	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if err != nil {
@@ -47,19 +51,23 @@ func TestRS(t *testing.T) {
 
 // Check that io.ReadFull will return io.ErrUnexpectedEOF
 // if DecodeReaders return less data than expected.
-func TestRSUnexectedEOF(t *testing.T) {
+func TestRSUnexpectedEOF(t *testing.T) {
+	ctx := context.Background()
 	data := randData(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rs := NewRSScheme(fc, 8*1024)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
 	for i, reader := range readers {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
-	decoder := DecodeReaders(context.Background(), readerMap, rs, 32*1024, 0)
+	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
 	defer decoder.Close()
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
@@ -68,6 +76,7 @@ func TestRSUnexectedEOF(t *testing.T) {
 }
 
 func TestRSRanger(t *testing.T) {
+	ctx := context.Background()
 	data := randData(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
@@ -81,8 +90,12 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers := EncodeReader(TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
+	readers, err := EncodeReader(ctx, TransformReader(PadReader(ioutil.NopCloser(
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0),
+		rs, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pieces, err := readAll(readers)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +106,7 @@ func TestRSRanger(t *testing.T) {
 	}
 	decrypter, err := NewAESGCMDecrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())
-	rr, err := Decode(context.Background(), rrs, rs, 0)
+	rr, err := Decode(ctx, rrs, rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +124,80 @@ func TestRSRanger(t *testing.T) {
 	}
 	if !bytes.Equal(data, data2) {
 		t.Fatalf("rs encode/decode failed")
+	}
+}
+
+func TestRSEncoderInputParams(t *testing.T) {
+	for i, tt := range []struct {
+		min       int
+		opt       int
+		mbm       int
+		errString string
+	}{
+		{0, 0, 0, ""},
+		{-1, 0, 0, "eestream error: negative minimum threshold"},
+		{1, 0, 0, "eestream error: minimum threshold less than required count"},
+		{5, 0, 0, "eestream error: minimum threshold greater than total count"},
+		{0, -1, 0, "eestream error: negative optimum threshold"},
+		{0, 1, 0, "eestream error: optimum threshold less than required count"},
+		{0, 5, 0, "eestream error: optimum threshold greater than total count"},
+		{3, 4, 0, ""},
+		{0, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{4, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{0, 0, -1, "eestream error: negative max buffer memory"},
+		{4, 4, 1024, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		ctx := context.Background()
+		data := randData(32 * 1024)
+		fc, err := infectious.NewFEC(2, 4)
+		if !assert.NoError(t, err, errTag) {
+			return
+		}
+		rs := NewRSScheme(fc, 8*1024)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
+		if tt.errString == "" {
+			assert.NoError(t, err, errTag)
+		} else {
+			assert.EqualError(t, err, tt.errString, errTag)
+		}
+	}
+}
+
+func TestRSRangerInputParams(t *testing.T) {
+	for i, tt := range []struct {
+		min       int
+		opt       int
+		mbm       int
+		errString string
+	}{
+		{0, 0, 0, ""},
+		{-1, 0, 0, "eestream error: negative minimum threshold"},
+		{1, 0, 0, "eestream error: minimum threshold less than required count"},
+		{5, 0, 0, "eestream error: minimum threshold greater than total count"},
+		{0, -1, 0, "eestream error: negative optimum threshold"},
+		{0, 1, 0, "eestream error: optimum threshold less than required count"},
+		{0, 5, 0, "eestream error: optimum threshold greater than total count"},
+		{3, 4, 0, ""},
+		{0, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{4, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{0, 0, -1, "eestream error: negative max buffer memory"},
+		{4, 4, 1024, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		ctx := context.Background()
+		data := randData(32 * 1024)
+		fc, err := infectious.NewFEC(2, 4)
+		if !assert.NoError(t, err, errTag) {
+			return
+		}
+		rs := NewRSScheme(fc, 8*1024)
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
+		if tt.errString == "" {
+			assert.NoError(t, err, errTag)
+		} else {
+			assert.EqualError(t, err, tt.errString, errTag)
+		}
 	}
 }
 
@@ -302,13 +389,17 @@ type problematicReadCloser func([]byte) io.ReadCloser
 
 func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadCloser) {
 	errTag := fmt.Sprintf("Test case #%d", i)
+	ctx := context.Background()
 	data := randData(tt.dataSize)
 	fc, err := infectious.NewFEC(tt.required, tt.total)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
 	rs := NewRSScheme(fc, tt.blockSize)
-	readers := EncodeReader(bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 3*1024)
+	if !assert.NoError(t, err, errTag) {
+		return
+	}
 	// read all readers in []byte buffers to avoid deadlock if later
 	// we don't read in parallel from all of them
 	pieces, err := readAll(readers)
@@ -324,8 +415,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	for i := tt.problematic; i < tt.total; i++ {
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
-	decoder := DecodeReaders(context.Background(),
-		readerMap, rs, int64(tt.dataSize), 3*1024)
+	decoder := DecodeReaders(ctx, readerMap, rs, int64(tt.dataSize), 3*1024)
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
@@ -368,4 +458,43 @@ type slowReader struct {
 func (s *slowReader) Read(p []byte) (n int, err error) {
 	time.Sleep(s.Delay)
 	return s.Reader.Read(p)
+}
+
+func TestEncoderStalledReaders(t *testing.T) {
+	ctx := context.Background()
+	data := randData(120 * 1024)
+	fc, err := infectious.NewFEC(30, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := NewRSScheme(fc, 1024)
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 35, 50, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	_, err = readAllStalled(readers, 25)
+	assert.NoError(t, err)
+	if time.Since(start) > 1*time.Second {
+		t.Fatalf("waited for slow reader")
+	}
+}
+
+func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
+	pieces := make([][]byte, len(readers))
+	errs := make(chan error, len(readers))
+	var err error
+	for i := stalled; i < len(readers); i++ {
+		go func(i int) {
+			pieces[i], err = ioutil.ReadAll(readers[i])
+			errs <- err
+		}(i)
+	}
+	for i := stalled; i < len(readers); i++ {
+		err := <-errs
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pieces, nil
 }
