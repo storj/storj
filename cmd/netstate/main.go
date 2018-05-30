@@ -43,6 +43,7 @@ func main() {
 
 	bdb, err := boltdb.New(logger, dbPath)
 	if err != nil {
+		logger.Fatal("failed to initiate boltdb", zap.Error(err))
 		return
 	}
 	defer bdb.Close()
@@ -55,6 +56,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, logger))
+	logger.Debug(fmt.Sprintf("server listening on port %d", port))
 
 	defer grpcServer.GracefulStop()
 	err = grpcServer.Serve(lis)
