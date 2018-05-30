@@ -13,7 +13,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/minio/cli"
@@ -55,7 +54,6 @@ func (s *storjObjects) getbucketscallback() (buckets []minio.BucketInfo, err err
 
 // putobjectcallback function handles to add the uploaded file to the bucket's file list structure
 func (s *storjObjects) putobjectcallback(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
-	fmt.Printf("Go.putobjectcallback(): called \n")
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
 		// bucket string comparision
@@ -97,18 +95,14 @@ func (s *storjObjects) putobjectcallback(bucket, object string, filesize int64, 
 
 // listfilescallback returns the files list for a bucket
 func (s *storjObjects) listfilescallback(bucket string) (result minio.ListObjectsInfo, err error) {
-	var bucketName string
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
-		bucketName = v.bucket.Name
-		ret := strings.Compare(bucketName, bucket)
-		if ret == 0x00 {
+		if v.bucket.Name == bucket {
 			/* populate the filelist */
-			bucketName = v.bucket.Name
 			f := make([]minio.ObjectInfo, len(s.storj.bucketlist[i].filelist.file.Objects))
 			for j, fi := range s.storj.bucketlist[i].filelist.file.Objects {
 				f[j] = minio.ObjectInfo{
-					Bucket:      bucketName,
+					Bucket:      v.bucket.Name,
 					Name:        fi.Name,
 					ModTime:     fi.ModTime,
 					Size:        fi.Size,
@@ -179,7 +173,6 @@ func (s *Storj) createSampleBucketList() {
 				},
 			},
 		)
-
 		s.bucketlist[i].filelist.file.IsTruncated = false
 		s.bucketlist[i].filelist.file.Objects = s.bucketlist[i].filelist.file.Objects[:0]
 		for j := 0; j < 10; j++ {
