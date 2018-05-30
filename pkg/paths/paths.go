@@ -14,13 +14,12 @@ import (
 // Encrypt the given path with the given key
 func Encrypt(path []string, key []byte) (encryptedPath []string, err error) {
 	encryptedPath = make([]string, len(path))
-	secret := key
 	for i, seg := range path {
-		encryptedPath[i], err = encrypt(seg, secret)
+		encryptedPath[i], err = encrypt(seg, key)
 		if err != nil {
 			return nil, err
 		}
-		secret = deriveSecret(secret, seg)
+		key = deriveSecret(key, seg)
 	}
 	return encryptedPath, nil
 }
@@ -28,13 +27,12 @@ func Encrypt(path []string, key []byte) (encryptedPath []string, err error) {
 // Decrypt the given encrypted path with the given key
 func Decrypt(encryptedPath []string, key []byte) (path []string, err error) {
 	path = make([]string, len(encryptedPath))
-	secret := key
 	for i, seg := range encryptedPath {
-		path[i], err = decrypt(seg, secret)
+		path[i], err = decrypt(seg, key)
 		if err != nil {
 			return nil, err
 		}
-		secret = deriveSecret(secret, path[i])
+		key = deriveSecret(key, path[i])
 	}
 	return path, nil
 }
