@@ -4,63 +4,64 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/netstate"
+	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
 )
 
 var (
-	port   int
-	dbPath string
-	prod   bool
+	port   = flag.Int("port", 8080, "port")
+	dbPath = flag.String("db", "netstate.db", "db path")
 )
 
-func initializeFlags() {
-	flag.IntVar(&port, "port", 8080, "port")
-	flag.StringVar(&dbPath, "db", "netstate.db", "db path")
-	flag.BoolVar(&prod, "prod", false, "type of environment where this service runs")
-	flag.Parse()
-}
-
-func main() {
-	initializeFlags()
-
-	// No err here because no vars passed into NewDevelopment().
-	// The default won't return an error, but if args are passed in,
-	// then there will need to be error handling.
-	logger, _ := zap.NewDevelopment()
-	if prod {
-		logger, _ = zap.NewProduction()
-	}
-	defer logger.Sync()
-
-	bdb, err := boltdb.New(logger, dbPath)
+func (s *serv) Process(ctx context.Context) error {
+	bdb, err := boltdb.New(s.logger, *dbPath)
 	if err != nil {
-		logger.Fatal("failed to initiate boltdb", zap.Error(err))
-		return
+		return err
 	}
 	defer bdb.Close()
 
 	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+		return err
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, logger))
-	logger.Debug(fmt.Sprintf("server listening on port %d", port))
+	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, s.logger))
+	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
 	defer grpcServer.GracefulStop()
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		logger.Error("Failed to serve:", zap.Error(err))
-	}
+	return grpcServer.Serve(lis)
+}
+
+type serv struct {
+	logger  *zap.Logger
+	metrics *monkit.Registry
+}
+
+func (s *serv) SetLogger(l *zap.Logger) error {
+	s.logger = l
+	return nil
+}
+
+func (s *serv) SetMetricHandler(m *monkit.Registry) error {
+	s.metrics = m
+	return nil
+}
+
+func (s *serv) InstanceID() string { return "" }
+
+func main() {
+	process.Must(process.Main(&serv{}))
 }
