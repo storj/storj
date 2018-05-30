@@ -38,6 +38,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	total := int64(0)
 	var storeMeta *StoreData
+	var storeFile io.WriteCloser
 
 	for {
 		pieceData, err := stream.Recv()
@@ -55,8 +56,19 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		length := int64(len(pieceData.Content))
 
+		if storeFile == nil {
+
+			storeFile, err = pstore.StoreWriter(pieceData.Hash, length, pieceData.StoreOffset, s.PieceStoreDir)
+			if err != nil {
+				return err
+			}
+
+			defer storeFile.Close()
+		}
+
 		// Write chunk received to disk
-		_, err = pstore.Store(pieceData.Hash, bytes.NewReader(pieceData.Content), length, total+pieceData.StoreOffset, s.PieceStoreDir)
+		storeFile.Write(pieceData.Content))
+
 		if err != nil {
 			return err
 		}
@@ -101,6 +113,13 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalToRead = fileInfo.Size()
 	}
 
+	storeFile, err := pstore.RetrieveReader(pieceMeta.Hash, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
+	if err != nil {
+		return err
+	}
+
+	defer storeFile.Close()
+
 	totalRead := int64(0)
 	for totalRead < totalToRead {
 
@@ -113,7 +132,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 			sizeToRead = pieceMeta.Size - totalRead
 		}
 
-		n, err := pstore.Retrieve(pieceMeta.Hash, writeBuff, sizeToRead, pieceMeta.StoreOffset+totalRead, s.PieceStoreDir)
+		n, err := io.Copy(writeBuff, storeFile)
 		if err != nil {
 			return err
 		}
