@@ -245,13 +245,9 @@ func (er *encodedReader) readerDone() {
 	defer er.mux.Unlock()
 	er.done++
 	if er.done == er.min {
-		// minimum threshold reached, wait for 1.5x the duration
-		timer := time.NewTimer(time.Since(er.start) * 3 / 2)
-		go func() {
-			<-timer.C
-			// cancel the context regardless if optimum threshold is reached
-			er.cancel()
-		}()
+		// minimum threshold reached, wait for 1.5x the duration and cancel
+		// the context regardless if optimum threshold is reached
+		time.AfterFunc(time.Since(er.start)*3/2, er.cancel)
 	}
 	if er.done == er.opt {
 		// optimum threshold reached - cancel the context
