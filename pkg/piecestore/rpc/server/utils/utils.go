@@ -14,14 +14,37 @@ import (
 	"storj.io/storj/pkg/piecestore"
 )
 
-// DBCleanup -- go routine to check ttl database for expired entries
-// pass in database path and location of file for deletion
-func DBCleanup(DBPath string, dir string) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return err
+// CheckEntries -- checks for and deletes expired TTL entries
+func CheckEntries(db *sql.DB, dir string, rows *sql.Rows) error {
+
+	for rows.Next() {
+		var expHash string
+		var expires int64
+
+		err := rows.Scan(&expHash, &expires)
+		if err != nil {
+			return err
+		}
+
+		// delete file on local machine
+		err = pstore.Delete(expHash, dir)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Deleted file: %s\n", expHash)
+		if rows.Err() != nil {
+
+			return rows.Err()
+		}
 	}
-	defer db.Close()
+
+	return nil
+}
+
+// DBCleanup -- go routine to check ttl database for expired entries
+// pass in database and location of file for deletion
+func DBCleanup(db *sql.DB, dir string) error {
 
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
@@ -31,30 +54,14 @@ func DBCleanup(DBPath string, dir string) error {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
 
-			for rows.Next() {
-				var expHash string
-				var expires int64
-
-				err = rows.Scan(&expHash, &expires)
-				if err != nil {
-					return err
-				}
-
-				// delete file on local machine
-				err = pstore.Delete(expHash, dir)
-				if err != nil {
-					return err
-				}
-
-				log.Printf("Deleted file: %s\n", expHash)
-				if rows.Err() != nil {
-					return rows.Err()
-				}
+			err = CheckEntries(db, dir, rows)
+			if err != nil {
+				rows.Close()
+				return err
 			}
+			rows.Close()
 
-			// getting error when attempting to delete DB entry while inside it, so deleting outside for loop. Thoughts?
 			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
@@ -64,14 +71,9 @@ func DBCleanup(DBPath string, dir string) error {
 }
 
 // AddTTLToDB -- Insert TTL into database by hash
-func AddTTLToDB(DBPath string, hash string, ttl int64) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func AddTTLToDB(db *sql.DB, hash string, ttl int64) error {
 
-	_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), ttl))
+	_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), ttl))
 	if err != nil {
 		return err
 	}
@@ -80,14 +82,9 @@ func AddTTLToDB(DBPath string, hash string, ttl int64) error {
 }
 
 // CreateDB -- Create TTL database and table
-func CreateDB(DBPath string) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func CreateDB(db *sql.DB) error {
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return err
 	}
@@ -96,12 +93,7 @@ func CreateDB(DBPath string) error {
 }
 
 // GetTTLByHash -- Find the TTL in the database by hash and return it
-func GetTTLByHash(DBPath string, hash string) (ttl int64, err error) {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return 0, err
-	}
-	defer db.Close()
+func GetTTLByHash(db *sql.DB, hash string) (ttl int64, err error) {
 
 	rows, err := db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
 	if err != nil {
@@ -119,13 +111,8 @@ func GetTTLByHash(DBPath string, hash string) (ttl int64, err error) {
 }
 
 // DeleteTTLByHash -- Find the TTL in the database by hash and delete it
-func DeleteTTLByHash(DBPath string, hash string) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+func DeleteTTLByHash(db *sql.DB, hash string) error {
 
-	_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
 	return err
 }

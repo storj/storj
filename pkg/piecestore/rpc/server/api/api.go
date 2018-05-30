@@ -4,6 +4,7 @@
 package api
 
 import (
+	"database/sql"
 	"bytes"
 	"errors"
 	"fmt"
@@ -21,7 +22,7 @@ import (
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	PieceStoreDir string
-	DBPath        string
+	DB            *sql.DB
 }
 
 // StoreData -- Struct matching database
@@ -71,7 +72,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	log.Println("Successfully stored data.")
 
-	err := utils.AddTTLToDB(s.DBPath, storeMeta.Hash, storeMeta.TTL)
+	err := utils.AddTTLToDB(s.DB, storeMeta.Hash, storeMeta.TTL)
 	if err != nil {
 		return err
 	}
@@ -144,7 +145,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	}
 
 	// Read database to calculate expiration
-	ttl, err := utils.GetTTLByHash(s.DBPath, in.Hash)
+	ttl, err := utils.GetTTLByHash(s.DB, in.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +162,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	if err := utils.DeleteTTLByHash(s.DBPath, in.Hash); err != nil {
+	if err := utils.DeleteTTLByHash(s.DB, in.Hash); err != nil {
 		return nil, err
 	}
 

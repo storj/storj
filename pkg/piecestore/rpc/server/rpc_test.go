@@ -28,8 +28,8 @@ import (
 
 var tempDir string = path.Join(os.TempDir(), "test-data", "3000")
 var tempDBPath string = path.Join(os.TempDir(), "test.db")
-var s = api.Server{tempDir, tempDBPath}
 var db *sql.DB
+var s api.Server
 var c pb.PieceStoreRoutesClient
 var testHash string = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
@@ -77,7 +77,7 @@ func TestPiece(t *testing.T) {
           hash: "22222222222222222222",
           size: 5,
           expiration: testExpiration,
-          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %stest-data/3000/22/22/2222222222222222: no such file or directory", os.TempDir()),
+          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
         },
     }
 
@@ -159,7 +159,7 @@ func TestRetrieve(t *testing.T) {
 					respSize: 5,
           offset: 0,
           content: []byte("butts"),
-          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %stest-data/3000/22/22/2222222222222222: no such file or directory", os.TempDir()),
+          err: fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
         },
 				{ // server should return expected content and respSize with offset and excess reqSize
           hash: testHash,
@@ -452,10 +452,13 @@ func TestMain(m *testing.M) {
   c = pb.NewPieceStoreRoutesClient(conn)
 
   // create temp DB
-  db, err = sql.Open("sqlite3", s.DBPath)
+  db, err = sql.Open("sqlite3", tempDBPath)
   if err != nil {
     log.Fatal(err)
   }
+
+	s = api.Server{tempDir, db}
+
   _, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		log.Fatal(err)
