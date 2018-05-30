@@ -8,7 +8,7 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha512"
-	"encoding/hex"
+	"encoding/base64"
 )
 
 // Encrypt the given path with the given key
@@ -59,7 +59,7 @@ func encrypt(text string, secret []byte) (cipherText string, err error) {
 		return "", err
 	}
 	data := aesgcm.Seal(nil, nonce, []byte(text), nil)
-	cipherText = hex.EncodeToString(data)
+	cipherText = base64.RawURLEncoding.EncodeToString(data)
 	return cipherText, nil
 }
 
@@ -73,16 +73,16 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := hex.DecodeString(cipherText)
+	data, err := base64.RawURLEncoding.DecodeString(cipherText)
 	if err != nil {
 		return "", err
 	}
 	decrypted, err := aesgcm.Open(nil, nonce, data, nil)
 	if err != nil {
-		return
+		return "", err
 	}
 	text = string(decrypted)
-	return
+	return text, nil
 }
 
 func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte) {
