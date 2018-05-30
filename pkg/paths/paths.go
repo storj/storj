@@ -59,8 +59,7 @@ func encrypt(text string, secret []byte) (cipherText string, err error) {
 	data := aesgcm.Seal(nil, nonce, []byte(text), nil)
 	cipherText = base64.RawURLEncoding.EncodeToString(data)
 	// prepend version number to the cipher text
-	cipherText = "1" + cipherText
-	return cipherText, nil
+	return "1" + cipherText, nil
 }
 
 func decrypt(cipherText string, secret []byte) (text string, err error) {
@@ -88,8 +87,7 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	if err != nil {
 		return "", err
 	}
-	text = string(decrypted)
-	return text, nil
+	return string(decrypted), nil
 }
 
 func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte) {
