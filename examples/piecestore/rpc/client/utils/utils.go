@@ -10,8 +10,8 @@ import (
 	"os"
 )
 
-// DetermineHash -- Get the hash for a section of data
-func DetermineHash(f *os.File, offset int64, length int64) (string, error) {
+// DetermineId -- Get the id for a section of data
+func DetermineId(f *os.File, offset int64, length int64) (string, error) {
 	h := md5.New()
 
 	fSection := io.NewSectionReader(f, offset, length)

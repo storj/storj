@@ -6,7 +6,7 @@ syntax = "proto3";
 package piecestoreroutes;
 
 service PieceStoreRoutes {
-  rpc Piece(PieceHash) returns (PieceSummary) {}
+  rpc Piece(PieceId) returns (PieceSummary) {}
 
   rpc Retrieve(PieceRetrieval) returns (stream PieceRetrievalStream) {}
 
@@ -25,7 +25,7 @@ message PieceStore {
   bytes content = 5;
 }
 
-message PieceHash {
+message PieceId {
   string id = 1;
 }
 

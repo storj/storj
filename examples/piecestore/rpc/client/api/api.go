@@ -19,28 +19,28 @@ var serverError = errs.Class("serverError")
 
 // PieceMeta -- Struct containing Piece information from PieceMetaRequest
 type PieceMeta struct {
-	Hash       string
+	Id       string
 	Size       int64
 	Expiration int64
 }
 
-// PieceMetaRequest -- Request info about a piece by Hash
-func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string) (*PieceMeta, error) {
+// PieceMetaRequest -- Request info about a piece by Id
+func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string) (*PieceMeta, error) {
 
-	reply, err := c.Piece(ctx, &pb.PieceHash{Hash: hash})
+	reply, err := c.Piece(ctx, &pb.PieceId{Id: id})
 	if err != nil {
 		return nil, err
 	}
 
-	return &PieceMeta{Hash: reply.Hash, Size: reply.Size, Expiration: reply.Expiration}, nil
+	return &PieceMeta{Id: reply.Id, Size: reply.Size, Expiration: reply.Expiration}, nil
 }
 
 // StorePieceRequest -- Upload Piece to Server
-func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
+func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
 	stream, err := c.Store(ctx)
 
 	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Hash: hash, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
 		return err
 	}
 
@@ -102,8 +102,8 @@ func (s *PieceStreamReader) Close() error {
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server
-func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string, offset int64, length int64) (io.ReadCloser, error) {
-	stream, err := c.Retrieve(ctx, &pb.PieceRetrieval{Hash: hash, Size: length, StoreOffset: offset})
+func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, offset int64, length int64) (io.ReadCloser, error) {
+	stream, err := c.Retrieve(ctx, &pb.PieceRetrieval{Id: id, Size: length, StoreOffset: offset})
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +112,8 @@ func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash
 }
 
 // DeletePieceRequest -- Delete Piece From Server
-func DeletePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string) error {
-	reply, err := c.Delete(ctx, &pb.PieceDelete{Hash: hash})
+func DeletePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string) error {
+	reply, err := c.Delete(ctx, &pb.PieceDelete{Id: id})
 	if err != nil {
 		return err
 	}
