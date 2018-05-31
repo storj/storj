@@ -19,32 +19,32 @@ var (
 	FSError  = errs.Class("fsError")
 )
 
-// PathByHash -- creates datapath from hash and dir
-func PathByHash(hash, dir string) (string, error) {
-	if len(hash) < 20 {
-		return "", ArgError.New("Invalid hash length")
+// PathById -- creates datapath from id and dir
+func PathById(id, dir string) (string, error) {
+	if len(id) < 20 {
+		return "", ArgError.New("Invalid id length")
 	}
 	if dir == "" {
 		return "", ArgError.New("No path provided")
 	}
 
-	folder1 := string(hash[0:2])
-	folder2 := string(hash[2:4])
-	fileName := string(hash[4:])
+	folder1 := string(id[0:2])
+	folder2 := string(id[2:4])
+	fileName := string(id[4:])
 
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
 // StoreWriter -- Store data into piece store in multiple writes
-// 	hash 					(string)								Hash of the data to be stored
+// 	id 					(string)								Id of the data to be stored
 // 	dir 					(string)								pstore directory containing all other data stored
 // 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
-func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
+func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
 
-	dataPath, err := PathByHash(hash, dir)
+	dataPath, err := PathById(id, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -64,13 +64,13 @@ func StoreWriter(hash string, length int64, psFileOffset int64, dir string) (*fp
 }
 
 // RetrieveReader -- Retrieve data from pstore directory
-//	hash 					(string)		   					Hash of the stored data
+//	id 					(string)		   					Id of the stored data
 //	length 				(length)		   					Amount of data to read. Read all data if -1
 //	readPosOffset	(offset)	   	 					Offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	dir 					(string)		   					pstore directory containing all other data stored
 // 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
-func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
-	dataPath, err := PathByHash(hash, dir)
+func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
+	dataPath, err := PathById(id, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +105,11 @@ func RetrieveReader(hash string, length int64, readPosOffset int64, dir string) 
 }
 
 // Delete -- Delete data from farmer
-//	hash 		(string) 	Hash of the data to be stored
+//	id 		(string) 	Id of the data to be stored
 //	dir 		(string) 	pstore directory containing all other data stored
 //	returns (error) 	if failed and nil if successful
-func Delete(hash string, dir string) error {
-	dataPath, err := PathByHash(hash, dir)
+func Delete(id string, dir string) error {
+	dataPath, err := PathById(id, dir)
 	if err != nil {
 		return err
 	}

@@ -31,13 +31,13 @@ var tempDBPath string = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
 var s api.Server
 var c pb.PieceStoreRoutesClient
-var testHash string = "11111111111111111111"
+var testId string = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
 var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -52,29 +52,29 @@ func TestPiece(t *testing.T) {
 		return
 	}
 
-	defer pstore.Delete(testHash, s.PieceStoreDir)
+	defer pstore.Delete(testId, s.PieceStoreDir)
 
 	// set up test cases
 	tests := []struct {
-		hash       string
+		id       string
 		size       int64
 		expiration int64
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			hash:       testHash,
+			id:       testId,
 			size:       5,
 			expiration: testExpiration,
 			err:        "",
 		},
-		{ // server should err with invalid hash
-			hash:       "123",
+		{ // server should err with invalid id
+			id:       "123",
 			size:       5,
 			expiration: testExpiration,
-			err:        "rpc error: code = Unknown desc = argError: Invalid hash length",
+			err:        "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			hash:       "22222222222222222222",
+			id:       "22222222222222222222",
 			size:       5,
 			expiration: testExpiration,
 			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
@@ -85,15 +85,15 @@ func TestPiece(t *testing.T) {
 		t.Run("should return expected PieceSummary values", func(t *testing.T) {
 
 				// simulate piece TTL entry
-				_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, tt.hash, testCreatedDate, testExpiration))
+				_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testExpiration))
 				if err != nil {
 					t.Errorf("Error: %v\nCould not make TTL entry", err)
 					return
 				}
 
-				defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, tt.hash))
+				defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			req := &pb.PieceHash{Hash: tt.hash}
+			req := &pb.PieceId{Id: tt.id}
 			resp, err := c.Piece(context.Background(), req)
 
 			if len(tt.err) > 0 {
@@ -113,13 +113,13 @@ func TestPiece(t *testing.T) {
 				return
 			}
 
-			if resp.Hash != tt.hash || resp.Size != tt.size || resp.Expiration != tt.expiration {
-				t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.hash, tt.size, tt.expiration, resp.Hash, resp.Size, resp.Expiration)
+			if resp.Id != tt.id || resp.Size != tt.size || resp.Expiration != tt.expiration {
+				t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.id, tt.size, tt.expiration, resp.Id, resp.Size, resp.Expiration)
 				return
 			}
 
 			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
+			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, testId))
 			if err != nil {
 				t.Errorf("Error cleaning test DB entry")
 				return
@@ -130,7 +130,7 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -143,11 +143,11 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer pstore.Delete(testHash, s.PieceStoreDir)
+	defer pstore.Delete(testId, s.PieceStoreDir)
 
 	// set up test cases
 	tests := []struct {
-		hash     string
+		id     string
 		reqSize  int64
 		respSize int64
 		offset   int64
@@ -155,23 +155,23 @@ func TestRetrieve(t *testing.T) {
 		err      string
 	}{
 		{ // should successfully retrieve data
-			hash:     testHash,
+			id:     testId,
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
 			content:  []byte("butts"),
 			err:      "",
 		},
-		{ // server should err with invalid hash
-			hash:     "123",
+		{ // server should err with invalid id
+			id:     "123",
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
 			content:  []byte("butts"),
-			err:      "rpc error: code = Unknown desc = argError: Invalid hash length",
+			err:      "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			hash:     "22222222222222222222",
+			id:     "22222222222222222222",
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -179,7 +179,7 @@ func TestRetrieve(t *testing.T) {
 			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			hash:     testHash,
+			id:     testId,
 			reqSize:  5,
 			respSize: 4,
 			offset:   1,
@@ -187,7 +187,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "",
 		},
 		{ // server should return expected content with reduced reqSize
-			hash:     testHash,
+			id:     testId,
 			reqSize:  4,
 			respSize: 4,
 			offset:   0,
@@ -198,7 +198,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			req := &pb.PieceRetrieval{Hash: tt.hash, Size: tt.reqSize, StoreOffset: tt.offset}
+			req := &pb.PieceRetrieval{Id: tt.id, Size: tt.reqSize, StoreOffset: tt.offset}
 			stream, err := c.Retrieve(context.Background(), req)
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
@@ -230,7 +230,7 @@ func TestRetrieve(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	tests := []struct {
-		hash          string
+		id          string
 		size          int64
 		ttl           int64
 		offset        int64
@@ -240,7 +240,7 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			hash:          testHash,
+			id:          testId,
 			size:          5,
 			ttl:           testExpiration,
 			offset:        0,
@@ -250,17 +250,17 @@ func TestStore(t *testing.T) {
 			err:           "",
 		},
 		{ // should successfully store data
-			hash:          "butts",
+			id:          "butts",
 			size:          5,
 			ttl:           testExpiration,
 			offset:        0,
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = argError: Invalid hash length",
+			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // should successfully store data
-			hash:          "ABCDEFGHIJKLMNOPQRST",
+			id:          "ABCDEFGHIJKLMNOPQRST",
 			size:          10,
 			ttl:           testExpiration,
 			offset:        0,
@@ -270,7 +270,7 @@ func TestStore(t *testing.T) {
 			err:           "rpc error: code = Unknown desc = Recieved 5 bytes of total 10 bytes",
 		},
 		{ // should successfully store data
-			hash:          testHash,
+			id:          testId,
 			size:          5,
 			ttl:           testExpiration,
 			offset:        10,
@@ -280,7 +280,7 @@ func TestStore(t *testing.T) {
 			err:           "",
 		},
 		{ // should successfully store data
-			hash:          testHash,
+			id:          testId,
 			size:          5,
 			ttl:           testExpiration,
 			offset:        0,
@@ -301,7 +301,7 @@ func TestStore(t *testing.T) {
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Hash: tt.hash, Size: tt.size, Ttl: tt.ttl, StoreOffset: tt.offset}); err != nil {
+			if err := stream.Send(&pb.PieceStore{Id: tt.id, Size: tt.size, Ttl: tt.ttl, StoreOffset: tt.offset}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
@@ -314,7 +314,7 @@ func TestStore(t *testing.T) {
 
 			resp, err := stream.CloseAndRecv()
 
-			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, tt.hash))
+			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			if len(tt.err) > 0 {
 				if err != nil {
@@ -340,22 +340,22 @@ func TestStore(t *testing.T) {
 func TestDelete(t *testing.T) {
 	// set up test cases
 	tests := []struct {
-		hash    string
+		id    string
 		message string
 		err     string
 	}{
 		{ // should successfully delete data
-			hash:    testHash,
+			id:    testId,
 			message: "OK",
 			err:     "",
 		},
-		{ // should err with invalid hash length
-			hash:    "123",
-			message: "rpc error: code = Unknown desc = argError: Invalid hash length",
-			err:     "rpc error: code = Unknown desc = argError: Invalid hash length",
+		{ // should err with invalid id length
+			id:    "123",
+			message: "rpc error: code = Unknown desc = argError: Invalid id length",
+			err:     "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // should return OK with nonexistent file
-			hash:    "22222222222222222223",
+			id:    "22222222222222222223",
 			message: "OK",
 			err:     "",
 		},
@@ -365,7 +365,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+			file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
 			if err != nil {
 				return
 			}
@@ -380,17 +380,17 @@ func TestDelete(t *testing.T) {
 			}
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, tt.hash, testCreatedDate, testCreatedDate))
+			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testCreatedDate))
 			if err != nil {
 				t.Errorf("Error: %v\nCould not make TTL entry", err)
 				return
 			}
 
-			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, tt.hash))
+			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(testHash, s.PieceStoreDir)
+			defer pstore.Delete(testId, s.PieceStoreDir)
 
-			req := &pb.PieceDelete{Hash: tt.hash}
+			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(context.Background(), req)
 			if len(tt.err) > 0 {
 				if err != nil {
@@ -412,7 +412,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathByHash(tt.hash, s.PieceStoreDir)
+			filePath, err := pstore.PathById(tt.id, s.PieceStoreDir)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return

@@ -25,7 +25,7 @@ func NewTTL(DBPath string) (*TTL, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return nil, err
 	}
@@ -37,21 +37,21 @@ func NewTTL(DBPath string) (*TTL, error) {
 func CheckEntries(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
-		var expHash string
+		var expId string
 		var expires int64
 
-		err := rows.Scan(&expHash, &expires)
+		err := rows.Scan(&expId, &expires)
 		if err != nil {
 			return err
 		}
 
 		// delete file on local machine
-		err = pstore.Delete(expHash, dir)
+		err = pstore.Delete(expId, dir)
 		if err != nil {
 			return err
 		}
 
-		log.Printf("Deleted file: %s\n", expHash)
+		log.Printf("Deleted file: %s\n", expId)
 		if rows.Err() != nil {
 
 			return rows.Err()
@@ -69,7 +69,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 	for {
 		select {
 		case <-tickChan:
-			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
+			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
 			}
@@ -89,10 +89,10 @@ func (ttl *TTL) DBCleanup(dir string) error {
 	}
 }
 
-// AddTTLToDB -- Insert TTL into database by hash
-func (ttl *TTL) AddTTLToDB(hash string, expiration int64) error {
+// AddTTLToDB -- Insert TTL into database by id
+func (ttl *TTL) AddTTLToDB(id string, expiration int64) error {
 
-	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), expiration))
+	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
 	if err != nil {
 		return err
 	}
@@ -100,10 +100,10 @@ func (ttl *TTL) AddTTLToDB(hash string, expiration int64) error {
 	return nil
 }
 
-// GetTTLByHash -- Find the TTL in the database by hash and return it
-func (ttl *TTL) GetTTLByHash(hash string) (expiration int64, err error) {
+// GetTTLById -- Find the TTL in the database by id and return it
+func (ttl *TTL) GetTTLById(id string) (expiration int64, err error) {
 
-	rows, err := ttl.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
+	rows, err := ttl.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id))
 	if err != nil {
 		return 0, err
 	}
@@ -118,9 +118,9 @@ func (ttl *TTL) GetTTLByHash(hash string) (expiration int64, err error) {
 	return expiration, nil
 }
 
-// DeleteTTLByHash -- Find the TTL in the database by hash and delete it
-func (ttl *TTL) DeleteTTLByHash(hash string) error {
+// DeleteTTLById -- Find the TTL in the database by id and delete it
+func (ttl *TTL) DeleteTTLById(id string) error {
 
-	_, err := ttl.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	_, err := ttl.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, id))
 	return err
 }

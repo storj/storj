@@ -15,7 +15,7 @@ import (
 func TestStore(t *testing.T) {
   tests := []struct{
 		it string
-		hash string
+		id string
 		size int64
 		offset int64
 		content []byte
@@ -24,7 +24,7 @@ func TestStore(t *testing.T) {
   } {
 	    {
 				it: "should successfully store data",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 5,
 				offset: 0,
 				content: []byte("butts"),
@@ -33,7 +33,7 @@ func TestStore(t *testing.T) {
 	    },
 			{
 				it: "should successfully store data by offset",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 5,
 				offset: 5,
 				content: []byte("butts"),
@@ -42,7 +42,7 @@ func TestStore(t *testing.T) {
 			},
 			{
 				it: "should successfully store data by chunk",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 2,
 				offset: 3,
 				content: []byte("butts"),
@@ -50,17 +50,17 @@ func TestStore(t *testing.T) {
 				err: "",
 			},
 			{
-				it: "should return an error when given an invalid hash",
-				hash: "012",
+				it: "should return an error when given an invalid id",
+				id: "012",
 				size: 5,
 				offset: 0,
 				content: []byte("butts"),
 				expectedContent: []byte("butts"),
-				err: "argError: Invalid hash length",
+				err: "argError: Invalid id length",
 			},
 			{
 				it: "should return an error when given negative offset",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 5,
 				offset: -1,
 				content: []byte("butts"),
@@ -69,7 +69,7 @@ func TestStore(t *testing.T) {
 			},
 			{
 				it: "should return an error when given negative length",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: -1,
 				offset: 0,
 				content: []byte("butts"),
@@ -81,7 +81,7 @@ func TestStore(t *testing.T) {
   for _, tt := range tests {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
-			storeFile, err := StoreWriter(tt.hash, tt.size, tt.offset, os.TempDir())
+			storeFile, err := StoreWriter(tt.id, tt.size, tt.offset, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())
@@ -98,9 +98,9 @@ func TestStore(t *testing.T) {
 
 			storeFile.Close()
 
-			folder1 := string(tt.hash[0:2])
-			folder2 := string(tt.hash[2:4])
-			fileName := string(tt.hash[4:])
+			folder1 := string(tt.id[0:2])
+			folder2 := string(tt.id[2:4])
+			fileName := string(tt.id[4:])
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
@@ -128,7 +128,7 @@ func TestStore(t *testing.T) {
 func TestRetrieve(t *testing.T) {
   tests := []struct{
 		it string
-		hash string
+		id string
 		size int64
 		offset int64
 		content []byte
@@ -137,7 +137,7 @@ func TestRetrieve(t *testing.T) {
   } {
 	    {
 				it: "should successfully retrieve data",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 5,
 				offset: 0,
 				content: []byte("butts"),
@@ -146,7 +146,7 @@ func TestRetrieve(t *testing.T) {
 	    },
 			{
 				it: "should successfully retrieve data by offset",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 5,
 				offset: 5,
 				content: []byte("butts"),
@@ -155,7 +155,7 @@ func TestRetrieve(t *testing.T) {
 	    },
 			{
 				it: "should successfully retrieve data by chunk",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 2,
 				offset: 5,
 				content: []byte("bu"),
@@ -164,7 +164,7 @@ func TestRetrieve(t *testing.T) {
 	    },
 			{
 				it: "should return an error when given negative offset",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: 0,
 				offset: -1337,
 				content: []byte("butts"),
@@ -173,7 +173,7 @@ func TestRetrieve(t *testing.T) {
 	    },
 			{
 				it: "should successfully retrieve data with negative length",
-				hash: "0123456789ABCDEFGHIJ",
+				id: "0123456789ABCDEFGHIJ",
 				size: -1,
 				offset: 0,
 				content: []byte("butts"),
@@ -186,9 +186,9 @@ func TestRetrieve(t *testing.T) {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
-			folder1 := string(tt.hash[0:2])
-			folder2 := string(tt.hash[2:4])
-			fileName := string(tt.hash[4:])
+			folder1 := string(tt.id[0:2])
+			folder2 := string(tt.id[2:4])
+			fileName := string(tt.id[4:])
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
@@ -211,7 +211,7 @@ func TestRetrieve(t *testing.T) {
 			}
 			createdFile.Close()
 
-			storeFile, err := RetrieveReader(tt.hash, tt.size, tt.offset, os.TempDir())
+			storeFile, err := RetrieveReader(tt.id, tt.size, tt.offset, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())
@@ -243,23 +243,23 @@ func TestRetrieve(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tests := []struct{
 		it string
-		hash string
+		id string
     err string
   } {
 			{
 				it: "should successfully delete data",
-				hash: "11111111111111111111",
+				id: "11111111111111111111",
 				err: "",
 			},
 			{
-				it: "should return nil-err with non-existent hash",
-				hash: "11111111111111111111",
+				it: "should return nil-err with non-existent id",
+				id: "11111111111111111111",
 				err: "",
 			},
 			{
-				it: "should err with invalid hash length",
-				hash: "111111",
-				err: "argError: Invalid hash length",
+				it: "should err with invalid id length",
+				id: "111111",
+				err: "argError: Invalid id length",
 			},
 		}
 
@@ -267,9 +267,9 @@ func TestDelete(t *testing.T) {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
-			folder1 := string(tt.hash[0:2])
-			folder2 := string(tt.hash[2:4])
-			fileName := string(tt.hash[4:])
+			folder1 := string(tt.id[0:2])
+			folder2 := string(tt.id[2:4])
+			fileName := string(tt.id[4:])
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
@@ -286,7 +286,7 @@ func TestDelete(t *testing.T) {
 
 			createdFile.Close()
 
-			err = Delete(tt.hash, os.TempDir())
+			err = Delete(tt.id, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())

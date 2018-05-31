@@ -37,13 +37,13 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	err = s.DB.AddTTLToDB(piece.Hash, piece.Ttl)
+	err = s.DB.AddTTLToDB(piece.Id, piece.Ttl)
 	if err != nil {
 		return err
 	}
 
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(piece.Hash, piece.Size, piece.StoreOffset, s.PieceStoreDir)
+	storeFile, err := pstore.StoreWriter(piece.Id, piece.Size, piece.StoreOffset, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
 	log.Println("Retrieving data...")
 
-	path, err := pstore.PathByHash(pieceMeta.Hash, s.PieceStoreDir)
+	path, err := pstore.PathById(pieceMeta.Id, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(pieceMeta.Hash, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(pieceMeta.Id, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
@@ -132,11 +132,11 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 	return nil
 }
 
-// Piece -- Send meta data about a stored by by Hash
-func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary, error) {
+// Piece -- Send meta data about a stored by by Id
+func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Println("Getting Meta data...")
 
-	path, err := pstore.PathByHash(in.Hash, s.PieceStoreDir)
+	path, err := pstore.PathById(in.Id, s.PieceStoreDir)
 	if err != nil {
 		return nil, err
 	}
@@ -147,24 +147,24 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLByHash(in.Hash)
+	ttl, err := s.DB.GetTTLById(in.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Println("Meta data retrieved.")
-	return &pb.PieceSummary{Hash: in.Hash, Size: fileInfo.Size(), Expiration: ttl}, nil
+	return &pb.PieceSummary{Id: in.Id, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
-// Delete -- Delete data by Hash from piecestore
+// Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Println("Deleting data...")
 
-	if err := pstore.Delete(in.Hash, s.PieceStoreDir); err != nil {
+	if err := pstore.Delete(in.Id, s.PieceStoreDir); err != nil {
 		return nil, err
 	}
 
-	if err := s.DB.DeleteTTLByHash(in.Hash); err != nil {
+	if err := s.DB.DeleteTTLById(in.Id); err != nil {
 		return nil, err
 	}
 
