@@ -33,7 +33,6 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
 	if err == io.EOF {
-		fmt.Println("HERE")
 		return err
 	} else if err != nil {
 		return err
@@ -116,7 +115,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 			sizeToRead = pieceMeta.Size - totalRead
 		}
 
-		n, err := io.Copy(writeBuff, storeFile)
+		n, err := io.CopyN(writeBuff, storeFile, sizeToRead)
 		if err != nil {
 			return err
 		}
