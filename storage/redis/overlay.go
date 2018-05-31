@@ -23,11 +23,11 @@ var ErrNodeNotFound = errors.New("Node not found")
 // OverlayClient is used to store overlay data in Redis
 type OverlayClient struct {
 	DB  Client
-	DHT kademlia.DHT
+	kad kademlia.Kademlia
 }
 
 // NewOverlayClient returns a pointer to a new OverlayClient instance with an initalized connection to Redis.
-func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*OverlayClient, error) {
+func NewOverlayClient(address, password string, db int, kad kademlia.Kademlia) (*OverlayClient, error) {
 	rc, err := NewRedisClient(address, password, db)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 
 	return &OverlayClient{
 		DB:  rc,
-		DHT: DHT,
+		kad: kad,
 	}, nil
 }
 
@@ -68,7 +68,8 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 	fmt.Println("Bootstrap function reached")
-	routetable, err := o.DHT.GetRoutingTable(ctx)
+	fmt.Printf("overlay boostrap kademlia: %+v\n", o.kad)
+	routetable, err := o.kad.GetRoutingTable(ctx)
 
 	fmt.Println(routetable)
 
@@ -81,10 +82,10 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 
 	// Other Possibilities: Randomly generate node ID's to ask for?
 
-	rt, err := o.DHT.GetRoutingTable(ctx)
+	rt, err := o.kad.GetRoutingTable(ctx)
 
 	fmt.Printf("%+v\n", rt)
-	fmt.Printf("%+v\n", o.DHT)
+	fmt.Printf("%+v\n", o.kad)
 
 	if err != nil {
 		return err

@@ -63,12 +63,15 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	k := kademlia.Kademlia{}
-	k.Bootstrap(ctx)
+	bootstrapNode := proto.Node{}
+	nodes := []proto.Node{}
+
+	nodes = append(nodes, bootstrapNode)
+	kad := kademlia.NewKademlia(nodes, "127.0.0.1", "4000", false)
 
 	if redisAddress != "" {
 		fmt.Println("starting up overlay cache")
-		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, k)
+		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
 
 		if err != nil {
 			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
