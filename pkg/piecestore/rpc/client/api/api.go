@@ -39,6 +39,11 @@ func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash str
 func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
 	stream, err := c.Store(ctx)
 
+	// SSend preliminary data
+	if err := stream.Send(&pb.PieceStore{Hash: hash, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
+		return err
+	}
+
 	buffer := make([]byte, 4096)
 	for {
 		// Read data from read stream into buffer
@@ -51,7 +56,7 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, hash st
 		}
 
 		// Write the buffer to the stream we opened earlier
-		if err := stream.Send(&pb.PieceStore{Hash: hash, Size: length, Ttl: ttl, StoreOffset: storeOffset, Content: buffer[:n]}); err != nil {
+		if err := stream.Send(&pb.PieceStore{Content: buffer[:n]}); err != nil {
 			return err
 		}
 	}

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -36,10 +35,17 @@ var testCreatedDate int64 = 1234567890
 var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
-  t.Run("should return expected PieceSummary values", func(t *testing.T) {
-
     // simulate piece stored with farmer
-    _, err := pstore.Store(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
+		file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+		if err != nil {
+			return
+		}
+
+		// Close when finished
+		defer file.Close()
+
+		_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
+
     if err != nil {
 			t.Errorf("Error: %v\nCould not create test piece", err)
 			return
@@ -82,46 +88,54 @@ func TestPiece(t *testing.T) {
     }
 
     for _, tt := range tests {
-      req := &pb.PieceHash{Hash: tt.hash}
-      resp, err := c.Piece(context.Background(), req)
+			t.Run("should return expected PieceSummary values", func(t *testing.T) {
 
-      if len(tt.err) > 0 {
+	      req := &pb.PieceHash{Hash: tt.hash}
+	      resp, err := c.Piece(context.Background(), req)
 
-        if err != nil {
-          if err.Error() == tt.err {
-            continue
-          }
-        }
+	      if len(tt.err) > 0 {
 
-        t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-        continue
-      }
+	        if err != nil {
+	          if err.Error() == tt.err {
+	            return
+	          }
+	        }
 
-      if err != nil && tt.err == "" {
-        t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-        continue
-      }
+	        t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+	        return
+	      }
 
-      if resp.Hash != tt.hash || resp.Size != tt.size || resp.Expiration != tt.expiration {
-          t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.hash, tt.size, tt.expiration, resp.Hash, resp.Size, resp.Expiration)
-          continue
-      }
+	      if err != nil && tt.err == "" {
+	        t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+	        return
+	      }
 
-			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
-			if err != nil {
-				t.Errorf("Error cleaning test DB entry")
-				break
-			}
-    }
-  })
+	      if resp.Hash != tt.hash || resp.Size != tt.size || resp.Expiration != tt.expiration {
+	          t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.hash, tt.size, tt.expiration, resp.Hash, resp.Size, resp.Expiration)
+	          return
+	      }
+
+				// clean up DB entry
+				_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
+				if err != nil {
+					t.Errorf("Error cleaning test DB entry")
+					return
+				}
+    })
+  }
 }
 
 func TestRetrieve(t *testing.T) {
-  t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-
     // simulate piece stored with farmer
-    _, err := pstore.Store(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
+		file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+		if err != nil {
+			return
+		}
+
+		// Close when finished
+		defer file.Close()
+
+		_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
     if err != nil {
 			t.Errorf("Error: %v\nCould not create test piece", err)
 			return
@@ -180,39 +194,38 @@ func TestRetrieve(t *testing.T) {
       }
 
       for _, tt := range tests {
+				t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
           req := &pb.PieceRetrieval{Hash: tt.hash, Size: tt.reqSize, StoreOffset: tt.offset}
           stream, err := c.Retrieve(context.Background(), req)
           if err != nil {
             t.Errorf("Unexpected error: %v\n", err)
-            continue
+            return
           }
 
           resp, err := stream.Recv()
           if len(tt.err) > 0 {
             if err != nil {
               if err.Error() == tt.err {
-                continue
+                return
               }
             }
             t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-            continue
+            return
           }
           if err != nil && tt.err == "" {
             t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-            continue
+            return
           }
 
           if resp.Size != tt.respSize || bytes.Equal(resp.Content, tt.content) != true {
             t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.respSize, tt.content, resp.Size, resp.Content)
-            continue
+            return
           }
-      }
-  })
+      })
+  }
 }
 
 func TestStore(t *testing.T) {
-  t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
-
     tests := []struct{
 			hash string
 			size int64
@@ -271,64 +284,44 @@ func TestStore(t *testing.T) {
 					content: []byte(""),
 					message: "",
 					totalReceived: 0,
-					err: "rpc error: code = Unknown desc = No data received",
+					err: "rpc error: code = Unknown desc = Recieved 0 bytes of total 5 bytes",
 				},
       }
 
-      for i, tt := range tests {
-
-				tmpfile, err := ioutil.TempFile("", fmt.Sprintf("test%v", i))
-				if err != nil {
-					t.Errorf("Error: %v\nCould not create test file", err)
-					return
-				}
-
-				defer os.Remove(tmpfile.Name()) // clean up
-				defer tmpfile.Close()
-
-				if _, err := tmpfile.Write(tt.content); err != nil {
-					t.Errorf("Error: %v\nCould not create test file", err)
-					return
-				}
-				tmpfile.Seek(0, 0)
+      for _, tt := range tests {
+  			t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 
         stream, err := c.Store(context.Background())
         if err != nil {
           t.Errorf("Unexpected error: %v\n", err)
-          continue
+          return
         }
-				buffer := make([]byte, 4096)
-				tmpfile.Seek(0,0)
-				for {
-					// Read data from read stream into buffer
-					n, err := tmpfile.Read(buffer)
-					if err != nil {
-						if err == io.EOF {
-							break
-						}
-						t.Errorf("Unexpected error: %v\n", err)
-					}
 
-					// Write the buffer to the stream we opened earlier
-					if err := stream.Send(&pb.PieceStore{Hash: tt.hash, Size: tt.size, Ttl: tt.ttl, StoreOffset: tt.offset, Content: buffer[:n]}); err != nil {
-						t.Errorf("Unexpected error: %v\n", err)
-						continue
-					}
+				// Write the buffer to the stream we opened earlier
+				if err := stream.Send(&pb.PieceStore{Hash: tt.hash, Size: tt.size, Ttl: tt.ttl, StoreOffset: tt.offset}); err != nil {
+					t.Errorf("Unexpected error: %v\n", err)
+					return
+				}
+
+				// Write the buffer to the stream we opened earlier
+				if err := stream.Send(&pb.PieceStore{Content: tt.content}); err != nil {
+					t.Errorf("Unexpected error: %v\n", err)
+					return
 				}
 
 				resp, err := stream.CloseAndRecv()
         if len(tt.err) > 0 {
           if err != nil {
             if err.Error() == tt.err {
-              continue
+              return
             }
           }
           t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-          continue
+          return
         }
         if err != nil && tt.err == "" {
           t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-          continue
+          return
         }
 
 				if resp.Message != tt.message || resp.TotalReceived != tt.totalReceived {
@@ -341,13 +334,11 @@ func TestStore(t *testing.T) {
 					t.Errorf("Error cleaning test DB entry")
 					return
 				}
-      }
-  })
+      })
+  	}
 }
 
 func TestDelete(t *testing.T) {
-  t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
-
     // set up test cases
     tests := []struct{
       hash string
@@ -372,58 +363,68 @@ func TestDelete(t *testing.T) {
       }
 
       for _, tt := range tests {
-				// simulate piece stored with farmer
-		    _, err := pstore.Store(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
-		    if err != nil {
-		      t.Errorf("Error: %v\nCould not create test piece", err)
-					return
-		    }
+				t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
-				// simulate piece TTL entry
-				_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, testHash, testCreatedDate, testCreatedDate))
-			  if err != nil {
-			    t.Errorf("Error: %v\nCould not make TTL entry", err)
-					return
-			  }
+					// simulate piece stored with farmer
+					file, err := pstore.StoreWriter(testHash, 5, 0, s.PieceStoreDir)
+					if err != nil {
+						return
+					}
 
-		    defer pstore.Delete(testHash, s.PieceStoreDir)
+					// Close when finished
+					defer file.Close()
 
-        req := &pb.PieceDelete{Hash: tt.hash}
-        resp, err := c.Delete(context.Background(), req)
-        if len(tt.err) > 0 {
-          if err != nil {
-            if err.Error() == tt.err {
-              continue
-            }
-          }
-          t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-          continue
-        }
-        if err != nil && tt.err == "" {
-          t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-          continue
-        }
+					_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
+			    if err != nil {
+			      t.Errorf("Error: %v\nCould not create test piece", err)
+						return
+			    }
 
-        if resp.Message != tt.message {
-          t.Errorf("Expected: %v\nGot: %v\n", tt.message, resp.Message)
-          continue
-        }
+					// simulate piece TTL entry
+					_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, testHash, testCreatedDate, testCreatedDate))
+				  if err != nil {
+				    t.Errorf("Error: %v\nCould not make TTL entry", err)
+						return
+				  }
 
-				// if test passes, check if file was indeed deleted
-				filePath, err := pstore.PathByHash(tt.hash, s.PieceStoreDir)
-				if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
-					t.Errorf("File not deleted")
-					continue
-				}
+			    defer pstore.Delete(testHash, s.PieceStoreDir)
 
-				// clean up DB entry
-				_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
-				if err != nil {
-					t.Errorf("Error cleaning test DB entry")
-					return
-				}
-      }
-  })
+	        req := &pb.PieceDelete{Hash: tt.hash}
+	        resp, err := c.Delete(context.Background(), req)
+	        if len(tt.err) > 0 {
+	          if err != nil {
+	            if err.Error() == tt.err {
+	              return
+	            }
+	          }
+	          t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+	          return
+	        }
+	        if err != nil && tt.err == "" {
+	          t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+	          return
+	        }
+
+	        if resp.Message != tt.message {
+	          t.Errorf("Expected: %v\nGot: %v\n", tt.message, resp.Message)
+	          return
+	        }
+
+					// if test passes, check if file was indeed deleted
+					filePath, err := pstore.PathByHash(tt.hash, s.PieceStoreDir)
+					if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
+						t.Errorf("File not deleted")
+						return
+					}
+
+					// clean up DB entry
+					_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, testHash))
+					if err != nil {
+						t.Errorf("Error cleaning test DB entry")
+						return
+					}
+      })
+  }
 }
 
 func StartServer() {
