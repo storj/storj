@@ -4,9 +4,11 @@
 package eestream
 
 import (
+	"context"
 	"io"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"storj.io/storj/pkg/ranger"
 )
@@ -38,102 +40,263 @@ type ErasureScheme interface {
 }
 
 type encodedReader struct {
-	r               io.Reader
-	es              ErasureScheme
-	cv              *sync.Cond
-	inbuf           []byte
-	outbufs         [][]byte
-	piecesRemaining int
-	err             error
+	ctx    context.Context
+	cancel context.CancelFunc
+	r      io.Reader
+	es     ErasureScheme
+	min    int // minimum threshold
+	opt    int // optimum threshold
+	inbuf  []byte
+	eps    map[int](*encodedPiece)
+	mux    sync.Mutex
+	start  time.Time
+	done   int // number of readers done
 }
 
-// EncodeReader will take a Reader and an ErasureScheme and return a slice of
-// Readers
-func EncodeReader(r io.Reader, es ErasureScheme) []io.Reader {
-	er := &encodedReader{
-		r:       r,
-		es:      es,
-		cv:      sync.NewCond(&sync.Mutex{}),
-		inbuf:   make([]byte, es.DecodedBlockSize()),
-		outbufs: make([][]byte, es.TotalCount()),
+// EncodeReader takes a Reader and an ErasureScheme and return a slice of
+// Readers.
+//
+// min is the minimum threshold - the minimum number of erasure pieces that
+// are completely stored. If set to 0, it will be reset to the TotalCount
+// of the ErasureScheme.
+// opt is the optimum threshold - the optimum number of erasure pieces that
+// are completely stored. If set to 0, it will be reset to the TotalCount
+// of the ErasureScheme.
+// mbm is the maximum memory (in bytes) to be allocated for read buffers. If
+// set to 0, the minimum possible memory will be used.
+//
+// When the minimum threshold is reached a timer will be started with another
+// 1.5x the amount of time that took so far. The Readers will be aborted as
+// soon as the timer expires or the optimum threshold is reached.
+func EncodeReader(ctx context.Context, r io.Reader, es ErasureScheme,
+	min, opt, mbm int) ([]io.Reader, error) {
+	if min == 0 {
+		min = es.TotalCount()
 	}
+	if opt == 0 {
+		opt = es.TotalCount()
+	}
+	if err := checkParams(es, min, opt, mbm); err != nil {
+		return nil, err
+	}
+	er := &encodedReader{
+		r:     r,
+		es:    es,
+		min:   min,
+		opt:   opt,
+		inbuf: make([]byte, es.DecodedBlockSize()),
+		eps:   make(map[int](*encodedPiece), es.TotalCount()),
+		start: time.Now(),
+	}
+	er.ctx, er.cancel = context.WithCancel(ctx)
 	readers := make([]io.Reader, 0, es.TotalCount())
 	for i := 0; i < es.TotalCount(); i++ {
-		er.outbufs[i] = make([]byte, 0, es.EncodedBlockSize())
-		readers = append(readers, &encodedPiece{
+		er.eps[i] = &encodedPiece{
 			er: er,
-			i:  i,
-		})
+		}
+		er.eps[i].ctx, er.eps[i].cancel = context.WithCancel(er.ctx)
+		readers = append(readers, er.eps[i])
 	}
-	return readers
+	chanSize := mbm / (es.TotalCount() * es.EncodedBlockSize())
+	if chanSize < 1 {
+		chanSize = 1
+	}
+	for i := 0; i < es.TotalCount(); i++ {
+		er.eps[i].ch = make(chan block, chanSize)
+	}
+	go er.fillBuffer()
+	return readers, nil
 }
 
-func (er *encodedReader) wait() (err error) {
-	// have we already failed? just return that
-	if er.err != nil {
-		return er.err
+func checkParams(es ErasureScheme, min, opt, mbm int) error {
+	if min < 0 {
+		return Error.New("negative minimum threshold")
 	}
-	// are other pieces still using buffer? wait on a condition variable for
-	// the last remaining piece to fill all the buffers.
-	if er.piecesRemaining > 0 {
-		er.cv.Wait()
-		// whoever broadcast a wakeup either set an error or filled the buffers.
-		// er.err might be nil, which means the buffers are filled.
-		return er.err
+	if min > 0 && min < es.RequiredCount() {
+		return Error.New("minimum threshold less than required count")
 	}
-
-	// we are going to set an error or fill the buffers
-	defer er.cv.Broadcast()
-	defer func() {
-		// at the end of this function, if we're returning an error, set er.err
-		if err != nil {
-			er.err = err
-		}
-	}()
-	_, err = io.ReadFull(er.r, er.inbuf)
-	if err != nil {
-		return err
+	if min > es.TotalCount() {
+		return Error.New("minimum threshold greater than total count")
 	}
-	err = er.es.Encode(er.inbuf, func(num int, data []byte) {
-		er.outbufs[num] = append(er.outbufs[num], data...)
-	})
-	if err != nil {
-		return err
+	if opt < 0 {
+		return Error.New("negative optimum threshold")
 	}
-	// reset piecesRemaining
-	er.piecesRemaining = er.es.TotalCount()
+	if opt > 0 && opt < es.RequiredCount() {
+		return Error.New("optimum threshold less than required count")
+	}
+	if opt > es.TotalCount() {
+		return Error.New("optimum threshold greater than total count")
+	}
+	if min > opt {
+		return Error.New("minimum threshold greater than optimum threshold")
+	}
+	if mbm < 0 {
+		return Error.New("negative max buffer memory")
+	}
 	return nil
 }
 
+func (er *encodedReader) fillBuffer() {
+	// these channels will synchronize the erasure encoder output with the
+	// goroutines for adding the output to the reader buffers
+	copiers := make(map[int]chan block, er.es.TotalCount())
+	for i := 0; i < er.es.TotalCount(); i++ {
+		copiers[i] = make(chan block)
+		// closing the channel will exit the next goroutine
+		defer close(copiers[i])
+		// kick off goroutine for parallel copy of encoded data to each
+		// reader buffer
+		go er.copyData(i, copiers[i])
+	}
+	// read from the input and encode until EOF or error
+	for blockNum := int64(0); ; blockNum++ {
+		_, err := io.ReadFull(er.r, er.inbuf)
+		if err != nil {
+			for i := range copiers {
+				copiers[i] <- block{i: i, num: blockNum, err: err}
+			}
+			return
+		}
+		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+			b := block{
+				i:    num,
+				num:  blockNum,
+				data: make([]byte, len(data)),
+			}
+			// data is reused by infecious, so add a copy to the channel
+			copy(b.data, data)
+			// send the block to the goroutine for adding it to the reader buffer
+			copiers[num] <- b
+		})
+		if err != nil {
+			for i := range copiers {
+				copiers[i] <- block{i: i, num: blockNum, err: err}
+			}
+			return
+		}
+	}
+}
+
+// copyData waits for data block from the erasure encoder and copies it to the
+// targeted reader buffer
+func (er *encodedReader) copyData(num int, copier <-chan block) {
+	// close the respective buffer channel when this goroutine exits
+	defer func() {
+		if er.eps[num].ch != nil {
+			close(er.eps[num].ch)
+		}
+	}()
+	// process the channel until closed
+	for b := range copier {
+		er.addToReader(b)
+	}
+}
+
+func (er *encodedReader) addToReader(b block) {
+	if er.eps[b.i].ch == nil {
+		// this channel is already closed for slowliness - skip it
+		return
+	}
+	for {
+		// initialize timer
+		timer := time.NewTimer(50 * time.Millisecond)
+		defer timer.Stop()
+		// add the encoded data to the respective reader buffer channel
+		select {
+		case er.eps[b.i].ch <- b:
+			return
+		// block for no more than 50 ms
+		case <-timer.C:
+			if er.checkSlowChannel(b.i) {
+				return
+			}
+		}
+	}
+}
+
+func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
+	// use mutex to avoid concurrent map iteration and map write on channels
+	er.mux.Lock()
+	defer er.mux.Unlock()
+	// check how many buffer channels are already empty
+	ec := 0
+	for i := range er.eps {
+		if er.eps[i].ch != nil && len(er.eps[i].ch) == 0 {
+			ec++
+		}
+	}
+	// check if more than the required buffer channels are empty, i.e. the
+	// current channel is slow and should be closed and its context should be
+	// canceled
+	closed = ec >= er.min
+	if closed {
+		close(er.eps[num].ch)
+		er.eps[num].ch = nil
+		er.eps[num].cancel()
+	}
+	return closed
+}
+
+// Called every time an encoded piece is done reading everything
+func (er *encodedReader) readerDone() {
+	er.mux.Lock()
+	defer er.mux.Unlock()
+	er.done++
+	if er.done == er.min {
+		// minimum threshold reached, wait for 1.5x the duration and cancel
+		// the context regardless if optimum threshold is reached
+		time.AfterFunc(time.Since(er.start)*3/2, er.cancel)
+	}
+	if er.done == er.opt {
+		// optimum threshold reached - cancel the context
+		er.cancel()
+	}
+}
+
 type encodedPiece struct {
-	er *encodedReader
-	i  int
+	ctx    context.Context
+	cancel context.CancelFunc
+	er     *encodedReader
+	ch     chan block
+	outbuf []byte
+	err    error
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
-	// lock! threadsafety matters here
-	ep.er.cv.L.Lock()
-	defer ep.er.cv.L.Unlock()
-
-	outbufs, i := ep.er.outbufs, ep.i
-	if len(outbufs[i]) <= 0 {
-		// if we don't have any buffered result yet, wait until we do
-		err := ep.er.wait()
-		if err != nil {
-			return 0, err
+	if ep.err != nil {
+		return 0, ep.err
+	}
+	if len(ep.outbuf) <= 0 {
+		// take the next block from the channel or block if channel is empty
+		select {
+		case b, ok := <-ep.ch:
+			if !ok {
+				// channel was closed due to slowliness
+				return 0, io.ErrUnexpectedEOF
+			}
+			if b.err != nil {
+				ep.err = b.err
+				if ep.err == io.EOF {
+					ep.er.readerDone()
+				}
+				return 0, ep.err
+			}
+			ep.outbuf = b.data
+		case <-ep.ctx.Done():
+			// context was canceled due to:
+			//  - slowliness
+			//  - optimum threshold reached
+			//  - timeout after reaching minimum threshold expired
+			return 0, io.ErrUnexpectedEOF
 		}
 	}
 
 	// we have some buffer remaining for this piece. write it to the output
-	n = copy(p, outbufs[i])
+	n = copy(p, ep.outbuf)
 	// slide the unused (if any) bytes to the beginning of the buffer
-	copy(outbufs[i], outbufs[i][n:])
+	copy(ep.outbuf, ep.outbuf[n:])
 	// and shrink the buffer
-	outbufs[i] = outbufs[i][:len(outbufs[i])-n]
-	// if there's nothing left, decrement the amount of pieces we have
-	if len(outbufs[i]) <= 0 {
-		ep.er.piecesRemaining--
-	}
+	ep.outbuf = ep.outbuf[:len(ep.outbuf)-n]
 	return n, nil
 }
 
@@ -141,20 +304,39 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	es ErasureScheme
-	rr ranger.Ranger
+	ctx context.Context
+	rr  ranger.Ranger
+	es  ErasureScheme
+	min int // minimum threshold
+	opt int // optimum threshold
+	mbm int // max buffer memory
 }
 
-// NewEncodedRanger creates an EncodedRanger
-func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme) (*EncodedRanger,
-	error) {
+// NewEncodedRanger creates an EncodedRanger. See the comments for EncodeReader
+// about min, opt and mbm.
+func NewEncodedRanger(ctx context.Context, rr ranger.Ranger, es ErasureScheme,
+	min, opt, mbm int) (*EncodedRanger, error) {
 	if rr.Size()%int64(es.DecodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
+	if min == 0 {
+		min = es.TotalCount()
+	}
+	if opt == 0 {
+		opt = es.TotalCount()
+	}
+	err := checkParams(es, min, opt, mbm)
+	if err != nil {
+		return nil, err
+	}
 	return &EncodedRanger{
-		es: es,
-		rr: rr,
+		ctx: ctx,
+		es:  es,
+		rr:  rr,
+		min: min,
+		opt: opt,
+		mbm: mbm,
 	}, nil
 }
 
@@ -172,10 +354,14 @@ func (er *EncodedRanger) Range(offset, length int64) ([]io.Reader, error) {
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, er.es.EncodedBlockSize())
 	// okay, now let's encode the reader for the range containing the blocks
-	readers := EncodeReader(er.rr.Range(
-		firstBlock*int64(er.es.DecodedBlockSize()),
-		blockCount*int64(er.es.DecodedBlockSize())), er.es)
-
+	readers, err := EncodeReader(er.ctx,
+		er.rr.Range(
+			firstBlock*int64(er.es.DecodedBlockSize()),
+			blockCount*int64(er.es.DecodedBlockSize())),
+		er.es, er.min, er.opt, er.mbm)
+	if err != nil {
+		return nil, err
+	}
 	for i, r := range readers {
 		// the offset might start a few bytes in, so we potentially have to
 		// discard the beginning bytes

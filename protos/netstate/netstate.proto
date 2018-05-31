@@ -4,10 +4,12 @@
 syntax = "proto3";
 package netstate;
 
+import "timestamp.proto";
+
 // NetState defines the interface for interacting with the network state persistence layer
 service NetState {
   // Put formats and hands off a file path to be saved to boltdb
-  rpc Put(FilePath) returns (PutResponse);
+  rpc Put(PutRequest) returns (PutResponse);
   // Get formats and hands off a file path to get a small value from boltdb
   rpc Get(GetRequest) returns (GetResponse);
   // List calls the bolt client's List function and returns all file paths
@@ -16,12 +18,66 @@ service NetState {
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 }
 
-// FilePath is a request message for the Put rpc call
-message FilePath {
+message RedundancyScheme {
+  enum SchemeType {
+    RS = 0;
+  }
+  SchemeType type = 1;
+
+  // these values apply to RS encoding
+  int64 min_req = 2; // minimum required for reconstruction
+  int64 total = 3;   // total amount of pieces we generated
+  int64 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair
+  int64 success_threshold = 5; // amount of pieces we need to store to call it a success
+}
+
+message EncryptionScheme {
+  enum EncryptionType {
+    AESGCM = 0;
+    SECRETBOX = 1;
+    // only allow authenticated encryption schemes
+  }
+  EncryptionType type = 1;
+  bytes encrypted_encryption_key = 2;
+  bytes encrypted_starting_nonce = 3;
+}
+
+message RemotePiece {
+  int64 piece_num = 1;
+  string node_id = 2;
+  int64 size = 3; // full size including merkle tree
+}
+
+message RemoteSegment {
+  RedundancyScheme redundancy = 1;
+  string piece_name = 2;
+  repeated RemotePiece remote_pieces = 3;
+
+  bytes merkle_root = 4; // root hash of the hashes of all of these pieces
+  int64 merkle_size = 5; // amount of space the merkle tree takes up at the end of each chunk
+}
+
+message Pointer {
+  enum DataType {
+    INLINE = 0;
+    REMOTE = 1;
+  }
+
+  DataType type = 1;
+  EncryptionScheme encryption = 2;
+
+  bytes inline_segment = 3;
+  RemoteSegment remote = 4;
+  bytes encrypted_unencrypted_size = 5; // size of the unencrypted object (!)
+
+  google.protobuf.Timestamp creation_date = 6;
+  google.protobuf.Timestamp expiration_date = 7;
+}
+
+// PutRequest is a request message for the Put rpc call
+message PutRequest {
   bytes path = 1;
-  // smallValue is a value too small to be broken up and stored
-  // in different places
-  bytes smallValue = 2;
+  Pointer pointer = 2;
 }
 
 // GetRequest is a request message for the Get rpc call
@@ -31,22 +87,22 @@ message GetRequest {
 
 // ListRequest is a request message for the List rpc call
 message ListRequest {
-  bytes bucket = 1;
+  bytes starting_path_key = 1; // the Path key in the bucket to start listing
+  int64 limit = 2; // how many keys to list
 }
 
 // PutResponse is a response message for the Put rpc call
 message PutResponse {
-  string confirmation = 1;
 }
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  bytes smallValue = 1;
+  bytes pointer = 1; // this is a Pointer type marshalled into bytes
 }
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
-  repeated bytes filepaths = 1;
+  repeated bytes paths = 1;
 }
 
 message DeleteRequest {
@@ -55,5 +111,4 @@ message DeleteRequest {
 
 // DeleteResponse is a response message for the Delete rpc call
 message DeleteResponse {
-  string confirmation = 1;
 }
