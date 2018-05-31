@@ -243,13 +243,17 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 	if err != nil {
 		return err
 	}
-	readers := eestream.EncodeReader(eestream.TransformReader(
-		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0), es)
+	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
+		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0),
+		es, 0, 0, 4*1024*1024)
+	if err != nil {
+		return err
+	}
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
 			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%s%d.piece", object, i)))
+				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
 			if err != nil {
 				errs <- err
 				return
