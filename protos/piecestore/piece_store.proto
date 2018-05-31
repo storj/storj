@@ -17,7 +17,7 @@ service PieceStoreRoutes {
 }
 
 message PieceStore {
-  string hash = 1;
+  string id = 1;
   int64 size = 2;
   int64 ttl = 3;
   int64 storeOffset = 4;
@@ -26,17 +26,17 @@ message PieceStore {
 }
 
 message PieceHash {
-  string hash = 1;
+  string id = 1;
 }
 
 message PieceSummary {
-  string hash = 1;
+  string id = 1;
   int64 size = 2;
   int64 expiration = 3;
 }
 
 message PieceRetrieval {
-  string hash = 1;
+  string id = 1;
   int64 size = 2;
   int64 storeOffset = 3;
 }
@@ -47,7 +47,7 @@ message PieceRetrievalStream {
 }
 
 message PieceDelete {
-  string hash = 1;
+  string id = 1;
 }
 
 message PieceDeleteSummary {
