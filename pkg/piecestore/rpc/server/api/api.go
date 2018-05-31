@@ -4,8 +4,8 @@
 package api
 
 import (
-	"database/sql"
 	"bytes"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
