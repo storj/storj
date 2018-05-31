@@ -19,9 +19,9 @@ type Chunk struct {
 
 // seek enum
 const (
-	SeekStart   = 0 // seek relative to the origin of the file
-	SeekCurrent = 1 // seek relative to the current offset
-	SeekEnd     = 2 // seek relative to the end
+	SeekStart   = iota // seek relative to the origin of the file
+	SeekCurrent = iota // seek relative to the current offset
+	SeekEnd     = iota // seek relative to the end
 )
 
 // NewChunk - Create Chunk
