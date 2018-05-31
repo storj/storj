@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package kademlia
 
 import (
@@ -167,46 +170,6 @@ func TestFindNode(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	dhts := bootstrapTestNetwork("127.0.0.1", "6001")
-	defer func(d []*bkad.DHT) {
-		for _, v := range d {
-			v.Disconnect()
-		}
-	}(dhts)
-
-	r := dhts[rand.Intn(testNetSize)]
-	cases := []struct {
-		k           Kademlia
-		input       overlay.Node
-		expectedErr error
-	}{
-		{
-			k: newTestKademlia("127.0.0.1", "6000", dhts[rand.Intn(testNetSize)]),
-			input: overlay.Node{
-				Id: string(r.HT.Self.ID),
-				Address: &overlay.NodeAddress{
-					Transport: defaultTransport,
-					Address:   fmt.Sprintf("%s:%d", r.HT.Self.IP.String(), r.HT.Self.Port),
-				},
-			},
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		ctx := context.Background()
-		err := v.k.Bootstrap(ctx)
-		assert.NoError(t, err)
-
-		node, err := v.k.Ping(ctx, v.input)
-		assert.Equal(t, v.expectedErr, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, v.input, node)
-	}
-
-}
-
-func TestGetRoutingTables(t *testing.T) {
 	dhts := bootstrapTestNetwork("127.0.0.1", "6001")
 	defer func(d []*bkad.DHT) {
 		for _, v := range d {
