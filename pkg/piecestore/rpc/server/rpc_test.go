@@ -39,7 +39,7 @@ func TestPiece(t *testing.T) {
   t.Run("should return expected PieceSummary values", func(t *testing.T) {
 
     // simulate piece stored with farmer
-    _, err := pstore.Store(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
+    _, err := pstore.StoreWriter(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
     if err != nil {
 			t.Errorf("Error: %v\nCould not create test piece", err)
 			return
@@ -121,7 +121,7 @@ func TestRetrieve(t *testing.T) {
   t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 
     // simulate piece stored with farmer
-    _, err := pstore.Store(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
+    _, err := pstore.RetrieveReader(testHash, bytes.NewReader([]byte("butts")), 5, 0, s.PieceStoreDir)
     if err != nil {
 			t.Errorf("Error: %v\nCould not create test piece", err)
 			return

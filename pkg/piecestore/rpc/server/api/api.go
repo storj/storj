@@ -4,7 +4,6 @@
 package api
 
 import (
-	"database/sql"
 	"bytes"
 	"errors"
 	"fmt"
@@ -15,14 +14,14 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/utils"
+	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	PieceStoreDir string
-	DB            *sql.DB
+	DB            *ttl.TTL
 }
 
 // StoreData -- Struct matching database
@@ -67,7 +66,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		}
 
 		// Write chunk received to disk
-		storeFile.Write(pieceData.Content))
+		storeFile.Write(pieceData.Content)
 
 		if err != nil {
 			return err
@@ -84,7 +83,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	log.Println("Successfully stored data.")
 
-	err := utils.AddTTLToDB(s.DB, storeMeta.Hash, storeMeta.TTL)
+	err := s.DB.AddTTLToDB(storeMeta.Hash, storeMeta.TTL)
 	if err != nil {
 		return err
 	}
@@ -164,7 +163,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceHash) (*pb.PieceSummary,
 	}
 
 	// Read database to calculate expiration
-	ttl, err := utils.GetTTLByHash(s.DB, in.Hash)
+	ttl, err := s.DB.GetTTLByHash(in.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +180,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	if err := utils.DeleteTTLByHash(s.DB, in.Hash); err != nil {
+	if err := s.DB.DeleteTTLByHash(in.Hash); err != nil {
 		return nil, err
 	}
 

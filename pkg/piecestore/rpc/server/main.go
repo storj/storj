@@ -4,7 +4,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net"
@@ -16,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/server/api"
-	"storj.io/storj/pkg/piecestore/rpc/server/utils"
+	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -31,15 +30,9 @@ func main() {
 
 	dataDir := path.Join("./piece-store-data/", port)
 
-	// open ttl database
-	db, err := sql.Open("sqlite3", "ttl-data.db")
+	ttlDB, err := ttl.NewTTL("ttl-data.db")
 	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = utils.CreateDB(db)
-	if err != nil {
-		log.Fatalf("failed to create database: %v", err)
+		log.Fatalf("failed to open DB")
 	}
 
 	// create a listener on TCP port
@@ -49,7 +42,7 @@ func main() {
 	}
 
 	// create a server instance
-	s := api.Server{PieceStoreDir: dataDir, DB: db}
+	s := api.Server{PieceStoreDir: dataDir, DB: ttlDB}
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()
@@ -59,7 +52,7 @@ func main() {
 
 	// routinely check DB for and delete expired entries
 	go func() {
-		err := utils.DBCleanup(db, dataDir)
+		err := s.DB.DBCleanup(dataDir)
 		log.Printf("Error in DBCleanup: %v", err)
 	}()
 

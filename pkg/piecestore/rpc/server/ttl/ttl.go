@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package utils
+package ttl
 
 import (
 	"database/sql"
@@ -14,8 +14,25 @@ import (
 	"storj.io/storj/pkg/piecestore"
 )
 
+type TTL struct {
+	db *sql.DB
+}
+
+func NewTTL(DBPath string) (*TTL, error) {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	if err != nil {
+		return nil, err
+	}
+
+	return &TTL{db}, nil
+}
+
 // CheckEntries -- checks for and deletes expired TTL entries
-func CheckEntries(db *sql.DB, dir string, rows *sql.Rows) error {
+func CheckEntries(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
 		var expHash string
@@ -44,25 +61,25 @@ func CheckEntries(db *sql.DB, dir string, rows *sql.Rows) error {
 
 // DBCleanup -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
-func DBCleanup(db *sql.DB, dir string) error {
+func (ttl *TTL) DBCleanup(dir string) error {
 
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
 		select {
 		case <-tickChan:
-			rows, err := db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
+			rows, err := ttl.db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
 			}
 
-			err = CheckEntries(db, dir, rows)
+			err = CheckEntries(dir, rows)
 			if err != nil {
 				rows.Close()
 				return err
 			}
 			rows.Close()
 
-			_, err = db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
+			_, err = ttl.db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
 			}
@@ -71,20 +88,9 @@ func DBCleanup(db *sql.DB, dir string) error {
 }
 
 // AddTTLToDB -- Insert TTL into database by hash
-func AddTTLToDB(db *sql.DB, hash string, ttl int64) error {
+func (ttl *TTL) AddTTLToDB(hash string, expiration int64) error {
 
-	_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), ttl))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// CreateDB -- Create TTL database and table
-func CreateDB(db *sql.DB) error {
-
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`hash` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err := ttl.db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), expiration))
 	if err != nil {
 		return err
 	}
@@ -93,26 +99,26 @@ func CreateDB(db *sql.DB) error {
 }
 
 // GetTTLByHash -- Find the TTL in the database by hash and return it
-func GetTTLByHash(db *sql.DB, hash string) (ttl int64, err error) {
+func (ttl *TTL) GetTTLByHash(hash string) (expiration int64, err error) {
 
-	rows, err := db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
+	rows, err := ttl.db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
 	if err != nil {
 		return 0, err
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&ttl)
+		err = rows.Scan(&expiration)
 		if err != nil {
 			return 0, err
 		}
 	}
 
-	return ttl, nil
+	return expiration, nil
 }
 
 // DeleteTTLByHash -- Find the TTL in the database by hash and delete it
-func DeleteTTLByHash(db *sql.DB, hash string) error {
+func (ttl *TTL) DeleteTTLByHash(hash string) error {
 
-	_, err := db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	_, err := ttl.db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
 	return err
 }
