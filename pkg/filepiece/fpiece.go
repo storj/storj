@@ -48,7 +48,7 @@ func (f *Chunk) Read(b []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 
-	var readLen int64 = 0
+	var readLen int64 // starts at 0
 	if f.final-f.currentPos > int64(len(b)) {
 		readLen = int64(len(b))
 	} else {
@@ -85,7 +85,7 @@ func (f *Chunk) Write(b []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 
-	var writeLen int64 = 0
+	var writeLen int64 // starts at 0
 	if f.final-f.currentPos > int64(len(b)) {
 		writeLen = int64(len(b))
 	} else {
