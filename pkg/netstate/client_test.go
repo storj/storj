@@ -6,8 +6,8 @@ package netstate
 import (
 	"bytes"
 	"context"
-	"net"
 	"fmt"
+	"net"
 	"testing"
 	"os"
 
