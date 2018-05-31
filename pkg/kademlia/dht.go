@@ -79,6 +79,7 @@ func (k Kademlia) Bootstrap(ctx context.Context) error {
 }
 
 // newID creates a new Node ID
+// TODO: Implement proof of work scheme for node ID creation
 func newID() []byte {
 	result := make([]byte, 20)
 	rand.Read(result)
@@ -86,7 +87,7 @@ func newID() []byte {
 }
 
 // BootstrapNetwork creates a new DHT and bootstraps it with the passed IP and Port
-func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) (*bkad.DHT, error) {
+func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) error {
 	id := newID()
 	fmt.Println("created new node id %s", id)
 	p, _ := strconv.Atoi(port)
@@ -109,7 +110,9 @@ func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) (*bkad.DHT, e
 		}
 	}(dht)
 
-	return dht, err
+	fmt.Printf("bootstrapped network dht: %+v\n", dht)
+
+	return err
 }
 
 // BootstrapTestNetwork spins up a kademlia network locally for testing purposes

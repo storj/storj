@@ -19,6 +19,7 @@ type DHT interface {
 
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
+	BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) error
 	Ping(ctx context.Context, node overlay.Node) (overlay.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (overlay.Node, error)
 }
