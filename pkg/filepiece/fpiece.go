@@ -17,6 +17,7 @@ type Chunk struct {
 	currentPos int64
 }
 
+// seek enum
 const (
 	SeekStart   = 0 // seek relative to the origin of the file
 	SeekCurrent = 1 // seek relative to the current offset
