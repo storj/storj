@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"testing"
 	"os"
+	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -88,7 +88,7 @@ func TestNetStateClient(t *testing.T) {
 
 	// Tests Server.Get
 	getReq := pb.GetRequest{
-		Path: []byte("here/is/a/path"),
+		Path:    []byte("here/is/a/path"),
 		XApiKey: []byte("abc123"),
 	}
 
@@ -128,7 +128,7 @@ func TestNetStateClient(t *testing.T) {
 
 	// Test Server.Delete
 	delReq := pb.DeleteRequest{
-		Path: []byte("here/is/a/path"),
+		Path:    []byte("here/is/a/path"),
 		XApiKey: []byte("abc123"),
 	}
 
@@ -147,7 +147,7 @@ func TestNetStateClient(t *testing.T) {
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
-		XApiKey: []byte("abc123"),
+		XApiKey:         []byte("abc123"),
 	}
 
 	listRes, err := c.List(ctx, &listReq)

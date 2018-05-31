@@ -8,13 +8,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/netstate/auth"
 	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/netstate/auth"
 )
 
 // Server implements the network state RPC service
@@ -81,7 +81,7 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	s.logger.Debug("entering netstate get")
-	
+
 	xAPIKeyBytes := []byte(req.XApiKey)
 	if err := validateAuth(xAPIKeyBytes); err != nil {
 		s.logger.Error("unauthorized request")
@@ -89,7 +89,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 			Pointer: []byte("Unauthorized Request"),
 		}, nil
 	}
-	
+
 	pointerBytes, err := s.DB.Get(req.Path)
 
 	if err != nil {
@@ -107,11 +107,12 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	s.logger.Debug("entering netstate list")
 
 	pathKeys, err := s.DB.List()
-	
+
 	xAPIKeyBytes := []byte(req.XApiKey)
 	if err := validateAuth(xAPIKeyBytes); err != nil {
 		c := []byte("Unauthorized Request")
 		s.logger.Error("unauthorized request")
+
 		return &pb.ListResponse{
 			Paths: [][]byte{c},
 		}, nil

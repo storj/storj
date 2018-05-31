@@ -4,14 +4,13 @@
 package main
 
 import (
-	"os"
 	"flag"
 	"fmt"
 	"net"
 
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"github.com/spf13/viper"
 
 	"storj.io/storj/pkg/netstate"
 	proto "storj.io/storj/protos/netstate"
@@ -33,7 +32,6 @@ func initializeFlags() {
 
 func setEnv() {
 	viper.SetEnvPrefix("API")
-	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 }
 
