@@ -66,7 +66,7 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				id, err := utils.DetermineId(file, fileOffset, length)
+				id, err := utils.DetermineID(file, fileOffset, length)
 				if err != nil {
 					return err
 				}

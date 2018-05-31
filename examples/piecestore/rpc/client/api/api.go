@@ -19,7 +19,7 @@ var serverError = errs.Class("serverError")
 
 // PieceMeta -- Struct containing Piece information from PieceMetaRequest
 type PieceMeta struct {
-	Id       string
+	ID         string
 	Size       int64
 	Expiration int64
 }
@@ -32,7 +32,7 @@ func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id strin
 		return nil, err
 	}
 
-	return &PieceMeta{Id: reply.Id, Size: reply.Size, Expiration: reply.Expiration}, nil
+	return &PieceMeta{ID: reply.Id, Size: reply.Size, Expiration: reply.Expiration}, nil
 }
 
 // StorePieceRequest -- Upload Piece to Server

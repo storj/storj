@@ -10,8 +10,8 @@ import (
 	"os"
 )
 
-// DetermineId -- Get the id for a section of data
-func DetermineId(f *os.File, offset int64, length int64) (string, error) {
+// DetermineID -- Get the id for a section of data
+func DetermineID(f *os.File, offset int64, length int64) (string, error) {
 	h := md5.New()
 
 	fSection := io.NewSectionReader(f, offset, length)

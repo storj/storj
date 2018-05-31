@@ -412,7 +412,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathById(tt.id, s.PieceStoreDir)
+			filePath, err := pstore.PathByID(tt.id, s.PieceStoreDir)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return
