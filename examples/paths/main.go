@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tyler-smith/go-bip39"
 	"storj.io/storj/pkg/paths"
 )
 
