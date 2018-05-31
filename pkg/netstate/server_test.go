@@ -21,7 +21,7 @@ func TestMain(m *testing.M) {
 	viper.SetEnvPrefix("API")
 	os.Setenv("API_KEY", API_KEY)
 	viper.AutomaticEnv()
-    os.Exit(m.Run())
+	os.Exit(m.Run())
 }
 
 type MockDB struct {

@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -22,7 +21,6 @@ import (
 
 func TestNetStateClient(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	fmt.Println("in clinet: ", os.Getenv("API_KEY"))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
