@@ -5,8 +5,11 @@ package kademlia
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
@@ -73,6 +76,68 @@ func (k Kademlia) Bootstrap(ctx context.Context) error {
 	})
 
 	return g.Wait()
+}
+
+// newID creates a new Node ID
+func newID() []byte {
+	result := make([]byte, 20)
+	rand.Read(result)
+	return result
+}
+
+// BootstrapNetwork creates a new DHT and bootstraps it with the passed IP and Port
+func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) (*bkad.DHT, error) {
+	id := newID()
+	p, _ := strconv.Atoi(port)
+	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+		ID:   id,
+		IP:   ip,
+		Port: strconv.Itoa(p),
+		BootstrapNodes: []*bkad.NetworkNode{
+			bkad.NewNetworkNode(bootstrapIP, bootstrapPort),
+		},
+	})
+	return dht, err
+}
+
+// BootstrapTestNetwork spins up a kademlia network locally for testing purposes
+func BootstrapTestNetwork(ip, port string) []*bkad.DHT {
+	dhts := []*bkad.DHT{}
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 0; i < 20; i++ {
+		id := newID()
+		dht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+			ID:   id,
+			IP:   ip,
+			Port: strconv.Itoa(p),
+			BootstrapNodes: []*bkad.NetworkNode{
+				bkad.NewNetworkNode("127.0.0.1", strconv.Itoa(p-1)),
+			},
+		})
+		p++
+		dhts = append(dhts, dht)
+		if err := dht.CreateSocket(); err != nil {
+			panic(err)
+		}
+	}
+
+	for _, dht := range dhts {
+		go dht.Listen()
+		go func(dht *bkad.DHT) {
+			if err := dht.Bootstrap(); err != nil {
+				panic(err)
+			}
+		}(dht)
+
+		time.Sleep(200 * time.Millisecond)
+		return dhts
+	}
+
+	return dhts
 }
 
 // Ping checks that the provided node is still accessible on the network
