@@ -13,7 +13,6 @@ import (
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
 
 	proto "storj.io/storj/protos/overlay"
 )
@@ -34,56 +33,59 @@ type Kademlia struct {
 	dht            *bkad.DHT
 }
 
+// NewKademlia returns a newly configured Kademlia instance
+func NewKademlia(bootstrapNodes []proto.Node, ip string, port string, stun bool) Kademlia {
+	bb := convertProtoNodes(bootstrapNodes)
+	bdht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+		ID:             []byte(newID()),
+		IP:             ip,
+		Port:           port,
+		BootstrapNodes: bb,
+	})
+
+	rt := RouteTable{
+		ht:  bdht.HT,
+		dht: bdht,
+	}
+
+	return Kademlia{
+		rt:             rt,
+		bootstrapNodes: bootstrapNodes,
+		ip:             ip,
+		port:           port,
+		stun:           stun,
+		dht:            bdht,
+	}
+}
+
 // GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
 	nn, err := k.dht.FindNodes(ctx, start, limit)
 	if err != nil {
-		return []proto.Node{}, nil
+		return []proto.Node{}, err
 	}
 	return convertNetworkNodes(nn), nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
-	return k.rt, nil
+	return RouteTable{
+		ht:  k.dht.HT,
+		dht: k.dht,
+	}, nil
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k Kademlia) Bootstrap(ctx context.Context) error {
-	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		BootstrapNodes: convertProtoNodes(k.bootstrapNodes),
-		IP:             k.ip,
-		Port:           k.port,
-		UseStun:        k.stun,
-	})
-	if err != nil {
+	if err := k.dht.CreateSocket(); err != nil {
 		return err
 	}
 
-	if err := dht.CreateSocket(); err != nil {
-		return err
-	}
+	go k.dht.Listen()
 
-	g := errgroup.Group{}
+	return k.dht.Bootstrap()
 
-	g.Go(func() error {
-		return dht.Listen()
-	})
-
-	g.Go(func() error {
-		return dht.Bootstrap()
-	})
-
-	return g.Wait()
-}
-
-// newID creates a new Node ID
-// TODO: Implement proof of work scheme for node ID creation
-func newID() []byte {
-	result := make([]byte, 20)
-	rand.Read(result)
-	return result
 }
 
 // BootstrapNetwork creates a new DHT and bootstraps it with the passed IP and Port
@@ -182,26 +184,20 @@ func (k Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 
 	}
 
-	if len(nodes) <= 0 || string(nodes[0].ID) != string(ID) {
-		// check if the IDs don't match since dht.FindNode will
-		// return the closest node if the node it's looking for
-		// is not found
-		return proto.Node{}, NodeErr.New("node not found")
+	for _, v := range nodes {
+		if string(v.ID) == string(ID) {
+			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
+				Transport: defaultTransport,
+				Address:   fmt.Sprintf("%s:%d", v.IP.String(), v.Port),
+			},
+			}, nil
+		}
 	}
-
-	node := nodes[0]
-
-	return proto.Node{
-		Id: string(node.ID),
-		Address: &proto.NodeAddress{
-			Transport: defaultTransport, // TODO: defaulting to this, probably needs to be determined during lookup
-			Address:   fmt.Sprintf("%s:%d", node.IP.String(), node.Port),
-		},
-	}, nil
+	return proto.Node{}, NodeErr.New("node not found")
 }
 
 func convertProtoNodes(n []proto.Node) []*bkad.NetworkNode {
-	nn := []*bkad.NetworkNode{}
+	nn := make([]*bkad.NetworkNode, len(n))
 	for i, v := range n {
 		if bnn, ok := convert(v).(*bkad.NetworkNode); !ok {
 			continue
@@ -214,7 +210,7 @@ func convertProtoNodes(n []proto.Node) []*bkad.NetworkNode {
 }
 
 func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
-	nn := []proto.Node{}
+	nn := make([]proto.Node, len(n))
 	for i, v := range n {
 		if bnn, ok := convert(*v).(proto.Node); !ok {
 			continue
@@ -249,4 +245,12 @@ func convert(i interface{}) interface{} {
 		return nil
 	}
 
+}
+
+// newID generates a new random ID
+// TODO: Add a proof of work scheme for node ID generation
+func newID() []byte {
+	result := make([]byte, 20)
+	rand.Read(result)
+	return result
 }

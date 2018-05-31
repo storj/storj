@@ -22,9 +22,14 @@ var ErrNodeNotFound = errors.New("Node not found")
 
 // OverlayClient is used to store overlay data in Redis
 type OverlayClient struct {
+<<<<<<< HEAD
 	DB             Client
 	DHT            kademlia.DHT
 	bootstrapNodes []overlay.Node
+=======
+	DB  Client
+	DHT kademlia.DHT
+>>>>>>> 03968731de5a5325135bf4c4176df016903cead9
 }
 
 // NewOverlayClient returns a pointer to a new OverlayClient instance with an initalized connection to Redis.
@@ -68,6 +73,7 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
+<<<<<<< HEAD
 	fmt.Println("Bootstrap function reached")
 	routetable, err := o.DHT.GetRoutingTable(ctx)
 
@@ -93,6 +99,9 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 
 	fmt.Println("Routing Table: ", rt)
 	return nil
+=======
+	return errors.New("TODO")
+>>>>>>> 03968731de5a5325135bf4c4176df016903cead9
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
