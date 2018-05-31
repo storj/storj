@@ -10,10 +10,13 @@ import (
 	"net"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	proto "storj.io/storj/protos/netstate"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	pb "storj.io/storj/protos/netstate"
 )
 
 func TestNetStateClient(t *testing.T) {
@@ -22,12 +25,12 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	mdb := &mockDB{
+	mdb := &MockDB{
 		timesCalled: 0,
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
+	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
 
 	defer grpcServer.GracefulStop()
 	go grpcServer.Serve(lis)
@@ -36,14 +39,21 @@ func TestNetStateClient(t *testing.T) {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	c := proto.NewNetStateClient(conn)
+	c := pb.NewNetStateClient(conn)
 
 	ctx := context.Background()
 
 	// example file path to put/get
-	fp := proto.FilePath{
-		Path:       []byte("here/is/a/path"),
-		SmallValue: []byte("oatmeal"),
+	pr1 := pb.PutRequest{
+		Path: []byte("here/is/a/path"),
+		Pointer: &pb.Pointer{
+			Type: pb.Pointer_INLINE,
+			Encryption: &pb.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("oatmeal"),
+		},
 	}
 
 	if mdb.timesCalled != 0 {
@@ -51,34 +61,37 @@ func TestNetStateClient(t *testing.T) {
 	}
 
 	// Tests Server.Put
-	putRes, err := c.Put(ctx, &fp)
-	assert.NoError(t, err)
-
-	if putRes.Confirmation != "success" {
-		t.Error("Failed to receive success Put response")
+	_, err = c.Put(ctx, &pr1)
+	if err != nil || status.Code(err) == codes.Internal {
+		t.Error("Failed to Put")
 	}
 
 	if mdb.timesCalled != 1 {
 		t.Error("Failed to call mockdb correctly")
 	}
 
-	if !bytes.Equal(mdb.puts[0].Path, fp.Path) {
+	if !bytes.Equal(mdb.puts[0].Path, pr1.Path) {
 		t.Error("Expected saved path to equal given path")
 	}
 
-	if !bytes.Equal(mdb.puts[0].Value, fp.SmallValue) {
+	pointerBytes, err := proto.Marshal(pr1.Pointer)
+	if err != nil {
+		t.Error("failed to marshal test pointer")
+	}
+
+	if !bytes.Equal(mdb.puts[0].Pointer, pointerBytes) {
 		t.Error("Expected saved value to equal given value")
 	}
 
 	// Tests Server.Get
-	getReq := proto.GetRequest{
+	getReq := pb.GetRequest{
 		Path: []byte("here/is/a/path"),
 	}
 
 	getRes, err := c.Get(ctx, &getReq)
 	assert.NoError(t, err)
 
-	if !bytes.Equal(getRes.SmallValue, fp.SmallValue) {
+	if !bytes.Equal(getRes.Pointer, pointerBytes) {
 		t.Error("Expected to get same content that was put")
 	}
 
@@ -86,17 +99,22 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 
-	// Puts another file path to test delete and list
-	fp2 := proto.FilePath{
-		Path:       []byte("here/is/another/path"),
-		SmallValue: []byte("raisins"),
+	// Puts another pointer entry to test delete and list
+	pr2 := pb.PutRequest{
+		Path: []byte("here/is/another/path"),
+		Pointer: &pb.Pointer{
+			Type: pb.Pointer_INLINE,
+			Encryption: &pb.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("raisins"),
+		},
 	}
 
-	putRes2, err := c.Put(ctx, &fp2)
-	assert.NoError(t, err)
-
-	if putRes2.Confirmation != "success" {
-		t.Error("Failed to receive success Put response")
+	_, err = c.Put(ctx, &pr2)
+	if err != nil || status.Code(err) == codes.Internal {
+		t.Error("Failed to Put")
 	}
 
 	if mdb.timesCalled != 3 {
@@ -104,17 +122,13 @@ func TestNetStateClient(t *testing.T) {
 	}
 
 	// Test Server.Delete
-	delReq := proto.DeleteRequest{
+	delReq := pb.DeleteRequest{
 		Path: []byte("here/is/a/path"),
 	}
 
-	delRes, err := c.Delete(ctx, &delReq)
-	if err != nil {
-		t.Error("Failed to delete file path")
-	}
-
-	if delRes.Confirmation != "success" {
-		t.Error("Failed to receive success delete response")
+	_, err = c.Delete(ctx, &delReq)
+	if err != nil || status.Code(err) == codes.Internal {
+		t.Error("Failed to delete")
 	}
 
 	if mdb.timesCalled != 4 {
@@ -122,8 +136,11 @@ func TestNetStateClient(t *testing.T) {
 	}
 
 	// Tests Server.List
-	listReq := proto.ListRequest{
-		Bucket: []byte("files"),
+	listReq := pb.ListRequest{
+		// This pagination functionality doesn't work yet.
+		// The given arguments are placeholders.
+		StartingPathKey: []byte("test/pointer/path"),
+		Limit:           5,
 	}
 
 	listRes, err := c.List(ctx, &listReq)
@@ -131,7 +148,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to list file paths")
 	}
 
-	if !bytes.Equal(listRes.Filepaths[0], []byte("here/is/another/path")) {
+	if !bytes.Equal(listRes.Paths[0], []byte("here/is/another/path")) {
 		t.Error("Failed to list correct file path")
 	}
 

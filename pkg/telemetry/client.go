@@ -5,7 +5,6 @@ package telemetry
 
 import (
 	"context"
-	"net"
 	"os"
 	"time"
 
@@ -37,7 +36,7 @@ type ClientOpts struct {
 	Application string
 
 	// Instance is a string that identifies this particular server. Could be a
-	// node id, but defaults to the first non-nil MAC address
+	// node id, but defaults to the result of DefaultInstanceId()
 	Instance string
 
 	// PacketSize controls how we fragment the data as it goes out in UDP
@@ -74,20 +73,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 		}
 	}
 	if opts.Instance == "" {
-		// instance by default is the first non-nil mac address
-		ifaces, err := net.Interfaces()
-		if err != nil {
-			return nil, err
-		}
-		for _, iface := range ifaces {
-			if iface.HardwareAddr != nil {
-				opts.Instance = iface.HardwareAddr.String()
-				break
-			}
-		}
-		if opts.Instance == "" {
-			opts.Instance = "unknown"
-		}
+		opts.Instance = DefaultInstanceID()
 	}
 	if opts.Registry == nil {
 		opts.Registry = monkit.Default

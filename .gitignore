@@ -16,3 +16,6 @@
 # VSCode
 /.vscode
 debug
+
+# Jetbrains
+.idea/*
