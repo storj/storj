@@ -40,7 +40,7 @@ func init() {
 	})
 }
 
-// getbucketscallback returns the buckets list
+// getBuckets returns the buckets list
 func (s *storjObjects) getBuckets() (buckets []minio.BucketInfo, err error) {
 	buckets = make([]minio.BucketInfo, len(s.storj.bucketlist))
 	for i, bi := range s.storj.bucketlist {
@@ -52,7 +52,7 @@ func (s *storjObjects) getBuckets() (buckets []minio.BucketInfo, err error) {
 	return buckets, nil
 }
 
-// putobjectcallback function handles to add the uploaded file to the bucket's file list structure
+// uploadFile function handles to add the uploaded file to the bucket's file list structure
 func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
@@ -93,7 +93,7 @@ func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadat
 	return result, nil
 }
 
-// listfilescallback returns the files list for a bucket
+// getFiles returns the files list for a bucket
 func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, err error) {
 	var fl []minio.ObjectInfo
 	for i, v := range s.storj.bucketlist {
@@ -227,7 +227,6 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
 	dir := os.TempDir()
 	dir = dir + "gateway/" + bucket + "/" + object
-	fmt.Println("temp dir = ", dir)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -286,8 +285,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 
 	err = encryptFile(writer, uint(wsize), bucket, object)
 	if err == nil {
-		// return values are for debugging purposes
-		_, _ = s.uploadFile(bucket, object, wsize, metadata)
+		s.uploadFile(bucket, object, wsize, metadata)
 	}
 	return minio.ObjectInfo{
 		Name:    object,
