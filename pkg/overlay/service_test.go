@@ -23,7 +23,7 @@ func TestNewServerGeneratesCerts(t *testing.T) {
 	testCertPath := "./generate-me.cert"
 	testKeyPath := "./generate-me.key"
 	
-	tlsCredFiles := &utils.TlsFileOpions{
+	tlsCredFiles := &utils.TlsFileOptions{
 		CertRelPath: testCertPath,
 		KeyRelPath: testKeyPath,
 	}

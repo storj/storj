@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-type TlsFileOpions struct {
+type TlsFileOptions struct {
 	CertRelPath string
 	CertAbsPath string
 	// NB: Populate absolute paths from relative paths,
@@ -22,7 +22,7 @@ type TlsFileOpions struct {
 	Overwrite bool
 }
 
-func (t *TlsFileOpions) EnsureAbsPaths() (_ error){
+func (t *TlsFileOptions) EnsureAbsPaths() (_ error){
 	if t.CertAbsPath == "" {
 		if t.CertRelPath == "" {
 			return errs.New("No relative certificate path provided")
@@ -50,7 +50,7 @@ func (t *TlsFileOpions) EnsureAbsPaths() (_ error){
 	return nil
 }
 
-func (t *TlsFileOpions) EnsureExists() (_ error) {
+func (t *TlsFileOptions) EnsureExists() (_ error) {
 	// Assume cert and key exist
 	certMissing, keyMissing := false, false
 	errMessage := ""
@@ -94,7 +94,7 @@ func (t *TlsFileOpions) EnsureExists() (_ error) {
 	return nil
 }
 
-func NewServerTLSFromFile(t *TlsFileOpions) (_ credentials.TransportCredentials,_ error) {
+func NewServerTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials,_ error) {
 	err := t.EnsureExists(); if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func NewServerTLSFromFile(t *TlsFileOpions) (_ credentials.TransportCredentials,
 	return creds, nil
 }
 
-func NewClientTLSFromFile(t *TlsFileOpions) (_ credentials.TransportCredentials, _ error) {
+func NewClientTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials, _ error) {
 	t.EnsureExists()
 	creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, "")
 

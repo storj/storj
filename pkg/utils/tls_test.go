@@ -27,7 +27,7 @@ fmt.Printf("%s:\n%v\n", msg, obj)
 
 
 type tlsFileOptionsTestCase struct {
-	tlsFileOptions *TlsFileOpions
+	tlsFileOptions *TlsFileOptions
 	before         func (*tlsFileOptionsTestCase) (error)
 	after          func (*tlsFileOptionsTestCase) (error)
 }
@@ -50,7 +50,7 @@ func ensureRemoved(c *tlsFileOptionsTestCase) (_ error) {
 
 func TestEnsureAbsPath(t *testing.T) {
 	f := func (val string) (_ bool) {
-		opts := &TlsFileOpions{
+		opts := &TlsFileOptions{
 			CertRelPath: fmt.Sprintf("%s.crt", val),
 			KeyRelPath: fmt.Sprintf("%s.key", val),
 		}
@@ -88,7 +88,7 @@ func TestEnsureExistsError(t *testing.T) {
 		certPath := fmt.Sprintf("%s.crt", basePath)
 		keyPath := fmt.Sprintf("%s.key", basePath)
 
-		opts := &TlsFileOpions{
+		opts := &TlsFileOptions{
 			CertAbsPath: certPath,
 			KeyAbsPath: keyPath,
 			Create: false,
@@ -96,7 +96,7 @@ func TestEnsureExistsError(t *testing.T) {
 		}
 
 		err := opts.EnsureExists(); if err != nil {
-			quickLog("ensureExists err", struct {*TlsFileOpions; error}{
+			quickLog("ensureExists err", struct {*TlsFileOptions; error}{
 				opts,
 				err,
 			})
@@ -123,7 +123,7 @@ func TestTlsFileOptions(t *testing.T) {
 	cases := []tlsFileOptionsTestCase{
 		{
 			// generate cert/key with given filename
-			tlsFileOptions: &TlsFileOpions{
+			tlsFileOptions: &TlsFileOptions{
 				CertRelPath: "./non-existent.cert",
 				KeyRelPath:  "./non-existent.key",
 			},
@@ -132,7 +132,7 @@ func TestTlsFileOptions(t *testing.T) {
 		},
 		{
 			// use defaults
-			tlsFileOptions: &TlsFileOpions{},
+			tlsFileOptions: &TlsFileOptions{},
 			after:          ensureRemoved,
 		},
 	}

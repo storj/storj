@@ -38,7 +38,7 @@ func init() {
 
 // NewServer creates a new Overlay Service Server
 func NewServer() (*grpc.Server, error) {
-	t := &utils.TlsFileOpions{
+	t := &utils.TlsFileOptions{
 		CertRelPath: certPath,
 		KeyRelPath: keyPath,
 		Create: true,
