@@ -127,8 +127,8 @@ func storjGatewayMain(ctx *cli.Context) {
 	minio.StartGateway(ctx, s)
 }
 
-//S3BucketList structure
-type S3BucketList struct {
+//S3Bucket structure
+type S3Bucket struct {
 	bucket   minio.BucketInfo
 	filelist S3FileList
 }
@@ -140,7 +140,7 @@ type S3FileList struct {
 
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	bucketlist []S3BucketList
+	bucketlist []S3Bucket
 }
 
 // Name implements cmd.Gateway
@@ -161,7 +161,7 @@ func (s *Storj) Production() bool {
 
 //createSampleBucketList function initializes sample buckets and files in each bucket
 func (s *Storj) createSampleBucketList() {
-	s.bucketlist = make([]S3BucketList, 10)
+	s.bucketlist = make([]S3Bucket, 10)
 	for i := range s.bucketlist {
 		s.bucketlist[i].bucket.Name = "TestBucket" + strconv.Itoa(i+1)
 		s.bucketlist[i].bucket.Created = time.Now()
