@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	// "github.com/stretchr/testify/assert"
 )
 
 var readTests = []struct {
@@ -77,7 +76,10 @@ func TestRead(t *testing.T) {
 				log.Fatal(err)
 			}
 
-			chunk, _ := NewChunk(tmpfilePtr, tt.offset, tt.len)
+			chunk, err := NewChunk(tmpfilePtr, tt.offset, tt.len)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			buffer := make([]byte, 100)
 			n, _ := chunk.Read(buffer)
@@ -111,7 +113,10 @@ func TestReadAt(t *testing.T) {
 				log.Fatal(err)
 			}
 
-			chunk, _ := NewChunk(tmpfilePtr, 0, int64(len(tt.in)))
+			chunk, err := NewChunk(tmpfilePtr, 0, int64(len(tt.in)))
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			buffer := make([]byte, 100)
 			n, _ := chunk.ReadAt(buffer, tt.offset)
@@ -141,7 +146,11 @@ func TestWrite(t *testing.T) {
 
 			defer os.Remove(tmpfilePtr.Name()) // clean up
 
-			chunk, _ := NewChunk(tmpfilePtr, tt.offset, tt.len)
+			chunk, err := NewChunk(tmpfilePtr, tt.offset, tt.len)
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			chunk.Write([]byte(tt.in))
 
 			buffer := make([]byte, 100)
@@ -172,7 +181,11 @@ func TestWriteAt(t *testing.T) {
 
 			defer os.Remove(tmpfilePtr.Name()) // clean up
 
-			chunk, _ := NewChunk(tmpfilePtr, 0, int64(len(tt.in)))
+			chunk, err := NewChunk(tmpfilePtr, 0, int64(len(tt.in)))
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			chunk.WriteAt([]byte(tt.in), tt.offset)
 
 			buffer := make([]byte, 100)

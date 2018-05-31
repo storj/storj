@@ -17,13 +17,6 @@ type Chunk struct {
 	currentPos int64
 }
 
-// seek enum
-const (
-	SeekStart   = iota // seek relative to the origin of the file
-	SeekCurrent = iota // seek relative to the current offset
-	SeekEnd     = iota // seek relative to the end
-)
-
 // NewChunk - Create Chunk
 func NewChunk(file *os.File, offset int64, length int64) (*Chunk, error) {
 	if length < 0 {
@@ -125,11 +118,11 @@ func (f *Chunk) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
 	default:
 		return 0, errWhence
-	case SeekStart:
+	case io.SeekStart:
 		offset += f.start
-	case SeekCurrent:
+	case io.SeekCurrent:
 		offset += f.currentPos
-	case SeekEnd:
+	case io.SeekEnd:
 		offset += f.final
 	}
 
