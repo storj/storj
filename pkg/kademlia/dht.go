@@ -88,6 +88,7 @@ func newID() []byte {
 // BootstrapNetwork creates a new DHT and bootstraps it with the passed IP and Port
 func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) (*bkad.DHT, error) {
 	id := newID()
+	fmt.Println("created new node id %s", id)
 	p, _ := strconv.Atoi(port)
 	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
 		ID:   id,
@@ -97,6 +98,17 @@ func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) (*bkad.DHT, e
 			bkad.NewNetworkNode(bootstrapIP, bootstrapPort),
 		},
 	})
+
+	// listen for connections
+	go dht.Listen()
+
+	// call bootstrap on initialized dht
+	go func(dht *bkad.DHT) {
+		if err := dht.Bootstrap(); err != nil {
+			NodeErr.New("error bootstrapping node", err)
+		}
+	}(dht)
+
 	return dht, err
 }
 
