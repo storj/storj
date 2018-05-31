@@ -19,6 +19,14 @@ type RouteTable struct {
 	dht *bkad.DHT
 }
 
+// NewRouteTable returns a newly configured instance of a RouteTable
+func NewRouteTable(dht Kademlia) RouteTable {
+	return RouteTable{
+		ht:  dht.dht.HT,
+		dht: dht.dht,
+	}
+}
+
 // LocalID returns the local nodes ID
 func (rt RouteTable) LocalID() NodeID {
 	return NodeID(rt.dht.GetSelfID())
