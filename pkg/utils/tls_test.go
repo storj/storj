@@ -3,12 +3,28 @@ package utils
 import (
 	"os"
 	"testing"
+	"testing/quick"
+	"fmt"
+	"io/ioutil"
+	"reflect"
+	"math/rand"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"github.com/stretchr/testify/assert"
-	"testing/quick"
-	"fmt"
 )
+
+var quickConfig = &quick.Config{
+	Values: func(values []reflect.Value, r *rand.Rand) {
+		randHex := fmt.Sprintf("%x", r.Uint32())
+		values[0] = reflect.ValueOf(randHex)
+	},
+}
+
+var quickLog = func(msg string, obj interface{}) {
+fmt.Printf("%s:\n%v\n", msg, obj)
+}
+
 
 type tlsFileOptionsTestCase struct {
 	tlsFileOptions *TlsFileOpions
@@ -41,10 +57,65 @@ func TestEnsureAbsPath(t *testing.T) {
 
 		opts.EnsureAbsPaths()
 
-		return opts.CertAbsPath != "" && opts.KeyAbsPath != ""
+		if opts.CertAbsPath == "" && opts.KeyAbsPath == "" {
+			quickLog("absolute path is empty string", opts)
+			return false
+		}
+
+		base := filepath.Base
+		wrongCert :=  base(opts.CertAbsPath) != base(opts.CertRelPath)
+		wrongKey :=  base(opts.CertAbsPath) != base(opts.CertRelPath)
+
+		if wrongCert || wrongKey {
+			quickLog("basenames don't match", opts)
+			return false
+		}
+
+		return true
 	}
 
-	err := quick.Check(f, nil)
+	err := quick.Check(f, quickConfig)
+	assert.NoError(t, err)
+}
+
+func TestEnsureExistsError(t *testing.T) {
+	tempPath , err := ioutil.TempDir("", "TestEnsureExistsError")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempPath)
+
+	f := func (val string) (_ bool) {
+		basePath := filepath.Join(tempPath, val)
+		certPath := fmt.Sprintf("%s.crt", basePath)
+		keyPath := fmt.Sprintf("%s.key", basePath)
+
+		opts := &TlsFileOpions{
+			CertAbsPath: certPath,
+			KeyAbsPath: keyPath,
+			Create: false,
+			Overwrite: false,
+		}
+
+		err := opts.EnsureExists(); if err != nil {
+			quickLog("ensureExists err", struct {*TlsFileOpions; error}{
+				opts,
+				err,
+			})
+			return false
+		}
+
+		fPaths := []string{certPath, keyPath}
+		for _, fPath := range fPaths {
+			_, err = os.Stat(fPath); if err != nil {
+				quickLog("path doesn't exist", opts)
+				return false
+			}
+		}
+
+		return true
+	}
+
+	err = quick.Check(f, quickConfig)
+
 	assert.NoError(t, err)
 }
 
