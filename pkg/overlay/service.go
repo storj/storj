@@ -26,6 +26,8 @@ var (
 	db            int
 	certPath      string
 	keyPath       string
+	createTls     bool
+	overwriteTls  bool
 )
 
 func init() {
@@ -34,6 +36,8 @@ func init() {
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.StringVar(&certPath, "certPath", "", "TLS Certificate file")
 	flag.StringVar(&keyPath, "keyPath", "", "TLS Key file")
+	flag.BoolVar(&createTls, "createTls", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&overwriteTls, "overwriteTls", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -41,10 +45,11 @@ func NewServer() (*grpc.Server, error) {
 	t := &utils.TlsFileOptions{
 		CertRelPath: certPath,
 		KeyRelPath: keyPath,
-		Create: true,
-		Overwrite: false,
+		Create: createTls,
+		Overwrite: overwriteTls,
 	}
-	creds, err := utils.NewServerTLSFromFile(certPath, keyPath, true); if err != nil {
+
+	creds, err := utils.NewServerTLSFromFile(t); if err != nil {
 		return nil, err
 	}
 

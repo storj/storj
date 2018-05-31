@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"github.com/stretchr/testify/assert"
+	"flag"
 )
 
 var quickConfig = &quick.Config{
@@ -78,12 +79,13 @@ func TestEnsureAbsPath(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestEnsureExistsError(t *testing.T) {
+func TestEnsureExists(t *testing.T) {
 	tempPath , err := ioutil.TempDir("", "TestEnsureExistsError")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	f := func (val string) (_ bool) {
+	f := func (val string) (_ bool) {	flag.Set("createTls", "true")
+	flag.Set("overwriteTls", "true")
 		basePath := filepath.Join(tempPath, val)
 		certPath := fmt.Sprintf("%s.crt", basePath)
 		keyPath := fmt.Sprintf("%s.key", basePath)
@@ -112,6 +114,44 @@ func TestEnsureExistsError(t *testing.T) {
 		}
 
 		return true
+	}
+
+	err = quick.Check(f, quickConfig)
+
+	assert.NoError(t, err)
+}
+
+func TestEnsureExistsError(t *testing.T) {
+	tempPath , err := ioutil.TempDir("", "TestEnsureExistsError")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempPath)
+
+	f := func (val string) (_ bool) {
+		basePath := filepath.Join(tempPath, val)
+		certPath := fmt.Sprintf("%s.crt", basePath)
+		keyPath := fmt.Sprintf("%s.key", basePath)
+
+		opts := &TlsFileOptions{
+			CertAbsPath: certPath,
+			KeyAbsPath: keyPath,
+			Create: false,
+			Overwrite: false,
+		}
+
+		err := opts.EnsureExists(); if err != nil {
+			if IsNotExist(err) {
+				return true
+			}
+
+			quickLog("unexpected err", struct {*TlsFileOptions; error}{
+				opts,
+				err,
+			})
+			return false
+		}
+
+		quickLog("didn't error but should've",  opts)
+		return false
 	}
 
 	err = quick.Check(f, quickConfig)

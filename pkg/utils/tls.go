@@ -2,12 +2,17 @@ package utils
 
 import (
 	"os"
+	"fmt"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/credentials"
-	"fmt"
-	"path/filepath"
 )
+
+var ErrNotExist = errs.Class("file does not exist")
+func IsNotExist(err error) bool {
+	return os.IsNotExist(err) || ErrNotExist.Has(err)
+}
 
 type TlsFileOptions struct {
 	CertRelPath string
@@ -60,7 +65,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 	}
 
 	_, err = os.Stat(t.CertAbsPath); if err != nil {
-		if !os.IsNotExist(err) {
+		if !IsNotExist(err) {
 			return errs.New(err.Error())
 		}
 
@@ -68,7 +73,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 	}
 
 	_, err = os.Stat(t.KeyAbsPath); if err != nil {
-		if !os.IsNotExist(err) {
+		if !IsNotExist(err) {
 		return errs.New(err.Error())
 		}
 
@@ -76,7 +81,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 	}
 
 	if certMissing || keyMissing {
-		if t.Create && (t.Overwrite || os.IsNotExist(err)) {
+		if t.Create && (t.Overwrite || IsNotExist(err)) {
 			//return t.generate()
 		}
 
@@ -94,7 +99,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 	return nil
 }
 
-func NewServerTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials,_ error) {
+func NewServerTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials,  _ error) {
 	err := t.EnsureExists(); if err != nil {
 		return nil, err
 	}
