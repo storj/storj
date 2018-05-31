@@ -66,7 +66,7 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				hash, err := utils.DetermineHash(file, fileOffset, length)
+				id, err := utils.DetermineId(file, fileOffset, length)
 				if err != nil {
 					return err
 				}
@@ -74,14 +74,14 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				err = api.StorePieceRequest(ctx, client, hash, dataSection, fileOffset, length, ttl, storeOffset)
+				err = api.StorePieceRequest(ctx, client, id, dataSection, fileOffset, length, ttl, storeOffset)
 
 				if err != nil {
-					fmt.Printf("Failed to store file of hash: %s\n", hash)
+					fmt.Printf("Failed to store file of id: %s\n", id)
 					return err
 				}
 
-				fmt.Printf("successfully Stored file of hash: %s\n", hash)
+				fmt.Printf("successfully Stored file of id: %s\n", id)
 				return nil
 			},
 		},
@@ -91,10 +91,10 @@ func main() {
 			Usage:   "download data",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("No hash specified")
+					return argError.New("No id specified")
 				}
 
-				hash := c.Args().Get(0)
+				id := c.Args().Get(0)
 
 				if c.Args().Get(1) == "" {
 					return argError.New("No output file specified")
@@ -117,14 +117,14 @@ func main() {
 					return err
 				}
 
-				pieceInfo, err := api.PieceMetaRequest(ctx, client, hash)
+				pieceInfo, err := api.PieceMetaRequest(ctx, client, id)
 				if err != nil {
 					return err
 				}
 
-				reader, err := api.RetrievePieceRequest(ctx, client, hash, 0, pieceInfo.Size)
+				reader, err := api.RetrievePieceRequest(ctx, client, id, 0, pieceInfo.Size)
 				if err != nil {
-					fmt.Printf("Failed to retrieve file of hash: %s\n", hash)
+					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
 					return err
 				}
@@ -150,12 +150,12 @@ func main() {
 				}
 
 				if err != nil {
-					fmt.Printf("Failed to retrieve file of hash: %s\n", hash)
+					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
 					return err
 				}
 
-				fmt.Printf("Successfully retrieved file of hash: %s\n", hash)
+				fmt.Printf("Successfully retrieved file of id: %s\n", id)
 				return nil
 
 			},
@@ -166,7 +166,7 @@ func main() {
 			Usage:   "delete data",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
+					return argError.New("Missing data Id")
 				}
 				err = api.DeletePieceRequest(ctx, client, c.Args().Get(0))
 
