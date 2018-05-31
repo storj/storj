@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"path/filepath"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -24,29 +23,32 @@ var (
 	redisAddress  string
 	redisPassword string
 	db            int
-	certPath      string
-	keyPath       string
-	createTls     bool
-	overwriteTls  bool
+	tlsCertPath   string
+	tlsKeyPath    string
+  tlsHosts      string
+	tlsCreate     bool
+	tlsOverwrite  bool
 )
 
 func init() {
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
-	flag.StringVar(&certPath, "certPath", "", "TLS Certificate file")
-	flag.StringVar(&keyPath, "keyPath", "", "TLS Key file")
-	flag.BoolVar(&createTls, "createTls", false, "If true, generate a new TLS cert/key files")
-	flag.BoolVar(&overwriteTls, "overwriteTls", false, "If true, overwrite existing TLS cert/key files")
+	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "TLS Certificate file")
+	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "TLS Key file")
+  flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS Key file")
+	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
 func NewServer() (*grpc.Server, error) {
 	t := &utils.TlsFileOptions{
-		CertRelPath: certPath,
-		KeyRelPath: keyPath,
-		Create: createTls,
-		Overwrite: overwriteTls,
+		CertRelPath: tlsCertPath,
+		KeyRelPath:  tlsKeyPath,
+		Create:      tlsCreate,
+		Overwrite:   tlsOverwrite,
+		Hosts:       tlsHosts,
 	}
 
 	creds, err := utils.NewServerTLSFromFile(t); if err != nil {
@@ -63,11 +65,15 @@ func NewServer() (*grpc.Server, error) {
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	certPath, err := filepath.Abs("./tls.cert"); if err != nil {
-		return nil, err
-	}
+  t := &utils.TlsFileOptions{
+    CertRelPath: tlsCertPath,
+    KeyRelPath:  tlsKeyPath,
+    Create:      tlsCreate,
+    Overwrite:   tlsOverwrite,
+    Hosts:       tlsHosts,
+  }
 
-	creds, err := credentials.NewClientTLSFromFile(certPath, "")
+	creds, err := credentials.NewClientTLSFromFile(t, "")
 	if err != nil {
 		return nil, err
 	}

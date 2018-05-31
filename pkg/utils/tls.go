@@ -9,7 +9,14 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var ErrNotExist = errs.Class("")
+var (
+  ErrNotExist = errs.Class("")
+  ErrNoCreate = errs.Class("creation disabled error")
+  ErrNoOverwrite = errs.Class("overwrite disabled error")
+  ErrBadHost = errs.Class("bad host error")
+  ErrGenerate = errs.Class("tls generation error")
+  ErrCredentials = errs.Class("grpc credentials error")
+)
 func IsNotExist(err error) bool {
 	return os.IsNotExist(err) || ErrNotExist.Has(err)
 }
@@ -25,6 +32,8 @@ type TlsFileOptions struct {
 	Create bool
 	// Overwrite if `create` is true and cert and/or key exist
 	Overwrite bool
+	// Comma-separated list of hostname(s) (IP or FQDN)
+	Hosts     string
 }
 
 func (t *TlsFileOptions) EnsureAbsPaths() (_ error){
@@ -82,7 +91,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 
 	if certMissing || keyMissing {
 		if t.Create && (t.Overwrite || IsNotExist(err)) {
-			//return t.generate()
+			return t.generate()
 		}
 
 		if certMissing {
@@ -100,7 +109,7 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 }
 
 func NewServerTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials,  _ error) {
-	err := t.EnsureExists(); if err != nil {
+	if err := t.EnsureExists(); err != nil {
 		return nil, err
 	}
 
@@ -112,8 +121,13 @@ func NewServerTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials
 }
 
 func NewClientTLSFromFile(t *TlsFileOptions) (_ credentials.TransportCredentials, _ error) {
-	t.EnsureExists()
-	creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, "")
+	if err := t.EnsureExists(); err != nil {
+	  return nil, err
+  }
 
-	return creds, errs.New(err.Error())
+	creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, ""); if err != nil {
+	  return nil, ErrCredentials.Wrap(err)
+  }
+
+	return creds, nil
 }

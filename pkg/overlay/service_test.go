@@ -21,9 +21,9 @@ func TestNewServerGeneratesCerts(t *testing.T) {
 	testCertPath := "./generate-me.cert"
 	testKeyPath := "./generate-me.key"
 
-	flag.Set("certPath", testCertPath)
-	flag.Set("keyPath", testKeyPath)
-	flag.Set("createTls", "true")
+	flag.Set("tlsCertPath", testCertPath)
+	flag.Set("tlsKeyPath", testKeyPath)
+	flag.Set("tlsCreate", "true")
 
 	srv, err := NewServer()
 	assert.NoError(t, err)
