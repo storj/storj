@@ -42,7 +42,6 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]prot
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
-	fmt.Println("pkg/kademlia/dht.go -- routing table", k.rt)
 	return k.rt, nil
 }
 

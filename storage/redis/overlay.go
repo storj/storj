@@ -17,6 +17,7 @@ import (
 
 const defaultNodeExpiration = 61 * time.Minute
 
+// ErrNodeNotFound standardizes errors here
 var ErrNodeNotFound = errors.New("Node not found")
 
 // OverlayClient is used to store overlay data in Redis
@@ -67,6 +68,11 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
+	fmt.Println("Bootstrap function reached")
+	routetable, err := o.DHT.GetRoutingTable(ctx)
+
+	fmt.Println(routetable)
+
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
 	// take bootstrap node
@@ -77,6 +83,10 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 	// Other Possibilities: Randomly generate node ID's to ask for?
 
 	rt, err := o.DHT.GetRoutingTable(ctx)
+
+	fmt.Printf("%+v\n", rt)
+	fmt.Printf("%+v\n", o.DHT)
+
 	if err != nil {
 		return err
 	}

@@ -19,6 +19,7 @@ require (
 	github.com/pelletier/go-toml v1.1.0
 	github.com/prettymuchbryce/kademlia v0.0.0-20160905191717-1c80005ed106
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
+	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8
 	github.com/spacemonkeygo/monotime v0.0.0-20180102220400-7067dc99a42a
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
@@ -28,7 +29,10 @@ require (
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
 	github.com/urfave/cli v1.20.0
 	github.com/vivint/infectious v0.0.0-20180418194855-57d6abddc3d4
+	github.com/zeebo/admission v0.0.0-20180507173235-4b559a00e461
 	github.com/zeebo/errs v0.1.0
+	github.com/zeebo/float16 v0.1.0
+	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54
 	go.uber.org/zap v1.8.0
 	golang.org/x/crypto v0.0.0-20180410182641-f70185d77e82
 	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
