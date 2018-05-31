@@ -226,7 +226,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 //encryptFile encrypts the uploaded files
 func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
 	dir := os.TempDir()
-	dir = dir + "gateway/" + bucket + "/" + object
+	dir = filepath.Join(dir, "gateway", bucket, object)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
