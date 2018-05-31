@@ -5,7 +5,7 @@ package api
 
 import (
 	"bytes"
-	"errors"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -24,61 +24,47 @@ type Server struct {
 	DB            *ttl.TTL
 }
 
-// StoreData -- Struct matching database
-type StoreData struct {
-	TTL  int64
-	Hash string
-	Size int64
-}
-
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
 
 	total := int64(0)
-	var storeMeta *StoreData
-	var storeFile io.WriteCloser
+
+	// Receive initial meta data about what's being stored
+	piece, err := stream.Recv()
+	if err == io.EOF {
+		fmt.Println("HERE")
+		return err
+	} else if err != nil {
+		return err
+	}
+
+	// Initialize file for storing data
+	storeFile, err := pstore.StoreWriter(piece.Hash, piece.Size, piece.StoreOffset, s.PieceStoreDir)
+	if err != nil {
+		return err
+	}
+	defer storeFile.Close()
 
 	for {
-		pieceData, err := stream.Recv()
+		storeMsg, err := stream.Recv()
 		if err == io.EOF {
 			break
-		}
-
-		if err != nil {
+		} else if err != nil {
 			return err
-		}
-
-		if storeMeta == nil {
-			storeMeta = &StoreData{TTL: pieceData.Ttl, Hash: pieceData.Hash, Size: pieceData.Size}
-		}
-
-		length := int64(len(pieceData.Content))
-
-		if storeFile == nil {
-
-			storeFile, err = pstore.StoreWriter(pieceData.Hash, length, pieceData.StoreOffset, s.PieceStoreDir)
-			if err != nil {
-				return err
-			}
-
-			defer storeFile.Close()
 		}
 
 		// Write chunk received to disk
-		storeFile.Write(pieceData.Content)
-
+		n, err := storeFile.Write(storeMsg.Content)
 		if err != nil {
 			return err
 		}
 
-		total += length
+		total += int64(n)
 	}
 
-	if total <= 0 {
-		return errors.New("No data received")
-	} else if total < storeMeta.Size {
-		return fmt.Errorf("Recieved %v bytes of total %v bytes", total, storeMeta.Size)
+	if total < piece.Size {
+		return fmt.Errorf("Recieved %v bytes of total %v bytes", total, piece.Size)
 	}
 
 	log.Println("Successfully stored data.")
