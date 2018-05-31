@@ -8,7 +8,6 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/aleitner/FilePiece"
 	"github.com/zeebo/errs"
 )
 

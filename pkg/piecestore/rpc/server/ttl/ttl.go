@@ -14,10 +14,12 @@ import (
 	"storj.io/storj/pkg/piecestore"
 )
 
+// TTL -- ttl database
 type TTL struct {
-	db *sql.DB
+	DB *sql.DB
 }
 
+// NewTTL -- creates ttl database and struct
 func NewTTL(DBPath string) (*TTL, error) {
 	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
@@ -67,7 +69,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 	for {
 		select {
 		case <-tickChan:
-			rows, err := ttl.db.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
+			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT hash, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
 			}
@@ -79,7 +81,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 			}
 			rows.Close()
 
-			_, err = ttl.db.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
+			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
 			if err != nil {
 				return err
 			}
@@ -90,7 +92,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 // AddTTLToDB -- Insert TTL into database by hash
 func (ttl *TTL) AddTTLToDB(hash string, expiration int64) error {
 
-	_, err := ttl.db.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), expiration))
+	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (hash, created, expires) VALUES ("%s", "%d", "%d")`, hash, time.Now().Unix(), expiration))
 	if err != nil {
 		return err
 	}
@@ -101,7 +103,7 @@ func (ttl *TTL) AddTTLToDB(hash string, expiration int64) error {
 // GetTTLByHash -- Find the TTL in the database by hash and return it
 func (ttl *TTL) GetTTLByHash(hash string) (expiration int64, err error) {
 
-	rows, err := ttl.db.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
+	rows, err := ttl.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE hash="%s"`, hash))
 	if err != nil {
 		return 0, err
 	}
@@ -119,6 +121,6 @@ func (ttl *TTL) GetTTLByHash(hash string) (expiration int64, err error) {
 // DeleteTTLByHash -- Find the TTL in the database by hash and delete it
 func (ttl *TTL) DeleteTTLByHash(hash string) error {
 
-	_, err := ttl.db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
+	_, err := ttl.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE hash="%s"`, hash))
 	return err
 }

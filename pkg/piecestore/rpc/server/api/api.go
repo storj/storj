@@ -5,7 +5,6 @@ package api
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -39,6 +38,11 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
+	err = s.DB.AddTTLToDB(piece.Hash, piece.Ttl)
+	if err != nil {
+		return err
+	}
+
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(piece.Hash, piece.Size, piece.StoreOffset, s.PieceStoreDir)
 	if err != nil {
@@ -68,11 +72,6 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	log.Println("Successfully stored data.")
-
-	err := s.DB.AddTTLToDB(storeMeta.Hash, storeMeta.TTL)
-	if err != nil {
-		return err
-	}
 
 	return stream.SendAndClose(&pb.PieceStoreSummary{Message: "OK", TotalReceived: total})
 }
