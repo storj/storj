@@ -4,7 +4,7 @@ Concurrently read and write from files
 
 ## Installation
 ```BASH
-go get github.com/aleitner/FilePiece
+go get storj.io/storj/pkg/filepiece
 ```
 
 ## Usage
