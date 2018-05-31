@@ -127,6 +127,7 @@ func TestEnsureExists_Create(t *testing.T) {
 			KeyAbsPath: keyPath,
 			Create: true,
 			Overwrite: false,
+			Hosts: "127.0.0.1",
 		}
 
 		err := opts.EnsureExists(); if err != nil {

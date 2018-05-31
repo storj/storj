@@ -18,7 +18,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"log"
 	"math/big"
 	"net"
 	"os"
@@ -127,7 +126,6 @@ func (t *TlsFileOptions) generate() (_ error) {
 		BasicConstraintsValid: true,
 	}
 
-	fmt.Printf("hosts: %s", t.Hosts)
 	hosts := strings.Split(t.Hosts, ",")
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
@@ -144,25 +142,25 @@ func (t *TlsFileOptions) generate() (_ error) {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		log.Fatalf("Failed to create certificate: %s", err)
+		return ErrGenerate.Wrap(err)
 	}
 
-	certOut, err := os.Create("cert.pem")
+	certOut, err := os.Create(t.CertAbsPath)
 	if err != nil {
-		log.Fatalf("failed to open cert.pem for writing: %s", err)
+		return ErrGenerate.Wrap(errs.New("failed to open cert.pem for writing: %s", err.Error()))
 	}
+
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	certOut.Close()
-	log.Print("written cert.pem\n")
 
-	keyOut, err := os.OpenFile("key.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(t.KeyAbsPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Print("failed to open key.pem for writing:", err)
+		return ErrGenerate.Wrap(errs.New("failed to open key.pem for writing:", err))
 		return
 	}
+
 	pem.Encode(keyOut, pemBlockForKey(priv))
 	keyOut.Close()
-	log.Print("written key.pem\n")
 
 	return nil
 }
