@@ -4,6 +4,7 @@
 package main
 
 import (
+	"os"
 	"flag"
 	"fmt"
 	"net"
@@ -32,13 +33,13 @@ func initializeFlags() {
 
 func setEnv() {
 	viper.SetEnvPrefix("API")
+	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 }
 
 func main() {
 	initializeFlags()
 	setEnv()
-
 
 	// No err here because no vars passed into NewDevelopment().
 	// The default won't return an error, but if args are passed in,

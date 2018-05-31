@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 
 	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
@@ -81,19 +81,17 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	s.logger.Debug("entering netstate get")
-
-	pointerBytes, err := s.DB.Get(req.Path)
 	
 	xAPIKeyBytes := []byte(req.XApiKey)
 	if err := validateAuth(xAPIKeyBytes); err != nil {
 		s.logger.Error("unauthorized request")
-
 		return &pb.GetResponse{
 			Pointer: []byte("Unauthorized Request"),
 		}, nil
 	}
+	
+	pointerBytes, err := s.DB.Get(req.Path)
 
-	fileValue, err := s.DB.Get(req.Path)
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -114,13 +112,11 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	if err := validateAuth(xAPIKeyBytes); err != nil {
 		c := []byte("Unauthorized Request")
 		s.logger.Error("unauthorized request")
-
 		return &pb.ListResponse{
-			Filepaths: [][]byte{c},
+			Paths: [][]byte{c},
 		}, nil
 	}
 
-	filePaths, err := s.DB.List()
 	if err != nil {
 		s.logger.Error("err listing path keys", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())

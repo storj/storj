@@ -122,9 +122,6 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to Put")
 	}
 
-	putRes2, err := c.Put(ctx, &fp2)
-	assert.NoError(t, err)
-
 	if mdb.timesCalled != 3 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
@@ -138,11 +135,6 @@ func TestNetStateClient(t *testing.T) {
 	_, err = c.Delete(ctx, &delReq)
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to delete")
-	}
-
-	delRes, err := c.Delete(ctx, &delReq)
-	if err != nil {
-		t.Error("Failed to delete file path")
 	}
 
 	if mdb.timesCalled != 4 {

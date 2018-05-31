@@ -54,7 +54,7 @@ func main() {
 			},
 			InlineSegment: []byte("granola"),
 		},
-		XApiKey: []byte("abc13"),
+		XApiKey: []byte("abc123"),
 	}
 	pr2 := proto.PutRequest{
 		Path: []byte("so/many/pointers"),
@@ -113,7 +113,7 @@ func main() {
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
-		XApiKey: []byte("abc123"),
+		XApiKey: []byte("abc13"),
 	}
 	listRes, err := client.List(ctx, &listReq)
 	if err != nil || status.Code(err) == codes.Internal {
@@ -128,7 +128,7 @@ func main() {
 	// Example Delete
 	delReq := proto.DeleteRequest{
 		Path: []byte("welcome/to/my/pointer/journey"),
-		XApiKey: []byte("abc123"),
+		XApiKey: []byte("abc13"),
 	}
 	_, err = client.Delete(ctx, &delReq)
 	if err != nil || status.Code(err) == codes.Internal {
