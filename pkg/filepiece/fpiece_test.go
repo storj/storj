@@ -203,7 +203,3 @@ func TestWriteAt(t *testing.T) {
 	}
 
 }
-
-func TestMain(m *testing.M) {
-	m.Run()
-}
