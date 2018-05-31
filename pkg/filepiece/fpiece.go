@@ -70,7 +70,7 @@ func (f *Chunk) ReadAt(p []byte, off int64) (n int, err error) {
 	off += f.start
 
 	if max := f.final - off; int64(len(p)) > max {
-		p = p[0:max]
+		p = p[:max]
 		n, err = f.file.ReadAt(p, off)
 		if err == nil {
 			err = io.EOF
@@ -107,7 +107,7 @@ func (f *Chunk) WriteAt(p []byte, off int64) (n int, err error) {
 	off += f.start
 
 	if max := f.final - off; int64(len(p)) > max {
-		p = p[0:max]
+		p = p[:max]
 		n, err = f.file.WriteAt(p, off)
 		if err == nil {
 			err = io.EOF
