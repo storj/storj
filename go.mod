@@ -1,14 +1,12 @@
 module storj.io/storj
 
 require (
-	github.com/aleitner/FilePiece v0.0.0-20180530165743-027e4429807a
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
 	github.com/gogo/protobuf v1.0.0
-	github.com/golang/protobuf v1.1.0
+	github.com/golang/protobuf v1.0.0
 	github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce
 	github.com/magiconair/properties v1.7.6
-	github.com/mattn/go-sqlite3 v1.6.0
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
 	github.com/pelletier/go-toml v1.1.0
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
@@ -17,6 +15,7 @@ require (
 	github.com/spf13/jWalterWeatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
+	github.com/stretchr/testify v1.2.1
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
 	github.com/urfave/cli v1.20.0
 	github.com/vivint/infectious v0.0.0-20180418194855-57d6abddc3d4
