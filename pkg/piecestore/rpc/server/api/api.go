@@ -117,7 +117,9 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 		n, err := io.CopyN(writeBuff, storeFile, sizeToRead)
 		if err != nil {
-			return err
+			if err != io.EOF {
+				return err
+			}
 		}
 
 		// Write the buffer to the stream we opened earlier
