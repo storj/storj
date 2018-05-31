@@ -5,16 +5,12 @@ package netstate
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-<<<<<<< HEAD
 	"google.golang.org/grpc/status"
-=======
 	"github.com/spf13/viper"
->>>>>>> work in progress for modifying test suite to accomodate credentials
 
 	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
@@ -45,26 +41,21 @@ type DB interface {
 	Delete([]byte) error
 }
 
-func isAuthValid(xApiKeyBytes []byte) bool {
-    return auth.ValidateAPIKey(string(xApiKeyBytes))
+func validateAuth(xAPIKeyBytes []byte) error {
+	if !auth.ValidateAPIKey(string(xAPIKeyBytes)) {
+		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+	return nil
 }
 
 // Put formats and hands off a file path to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
-	
-<<<<<<< HEAD
-	xApiKeyBytes := []byte(putReq.XApiKey)
-=======
-	var apiKeyByte = []byte(viper.GetString("key"))
-	fmt.Println("server creds: ", apiKeyByte)
->>>>>>> work in progress for modifying test suite to accomodate credentials
 
-	if ! auth.ValidateAPIKey(string(xApiKeyBytes)) {
-		fmt.Println("Unauthorized Request: ", codes.Unauthenticated)
-		return &pb.PutResponse{
-			Confirmation: "fail",
-		}, nil
+	xAPIKeyBytes := []byte(putReq.XApiKey)
+	if err := validateAuth(xAPIKeyBytes); err != nil {
+		s.logger.Error("unauthorized request")
+		return &pb.PutResponse{}, nil
 	}
 
 	pointerBytes, err := proto.Marshal(putReq.Pointer)
@@ -92,6 +83,17 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	s.logger.Debug("entering netstate get")
 
 	pointerBytes, err := s.DB.Get(req.Path)
+	
+	xAPIKeyBytes := []byte(req.XApiKey)
+	if err := validateAuth(xAPIKeyBytes); err != nil {
+		s.logger.Error("unauthorized request")
+
+		return &pb.GetResponse{
+			Pointer: []byte("Unauthorized Request"),
+		}, nil
+	}
+
+	fileValue, err := s.DB.Get(req.Path)
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -107,6 +109,18 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	s.logger.Debug("entering netstate list")
 
 	pathKeys, err := s.DB.List()
+	
+	xAPIKeyBytes := []byte(req.XApiKey)
+	if err := validateAuth(xAPIKeyBytes); err != nil {
+		c := []byte("Unauthorized Request")
+		s.logger.Error("unauthorized request")
+
+		return &pb.ListResponse{
+			Filepaths: [][]byte{c},
+		}, nil
+	}
+
+	filePaths, err := s.DB.List()
 	if err != nil {
 		s.logger.Error("err listing path keys", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -123,14 +137,11 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	s.logger.Debug("entering netstate delete")
 
-	xApiKeyBytes := []byte(req.XApiKey)
-	if response := isAuthValid(xApiKeyBytes); !response {
-        s.logger.Error("unauthorized request")
-        fmt.Println(grpc.Errorf(codes.Unauthenticated, "Invalid API credential"))
-				
-		return &proto.DeleteResponse{
-			Confirmation: "Failed: Unauthorized Request",
-        }, nil
+	xAPIKeyBytes := []byte(req.XApiKey)
+	if err := validateAuth(xAPIKeyBytes); err != nil {
+		s.logger.Error("unauthorized request")
+
+		return &pb.DeleteResponse{}, nil
 	}
 
 	err := s.DB.Delete(req.Path)
