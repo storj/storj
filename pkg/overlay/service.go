@@ -4,19 +4,19 @@
 package overlay
 
 import (
-	"context"
-	"flag"
-	"fmt"
-	"net"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+  "context"
+  "flag"
+  "fmt"
+  "net"
 
-	"storj.io/storj/pkg/kademlia"
-	proto "storj.io/storj/protos/overlay"
-	"storj.io/storj/storage/redis"
-	"google.golang.org/grpc/credentials"
-	"storj.io/storj/pkg/utils"
+  "go.uber.org/zap"
+  "google.golang.org/grpc"
+  "gopkg.in/spacemonkeygo/monkit.v2"
+
+  "storj.io/storj/pkg/kademlia"
+  "storj.io/storj/storage/redis"
+  "storj.io/storj/pkg/utils"
+  proto "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -43,7 +43,7 @@ func init() {
 
 // NewServer creates a new Overlay Service Server
 func NewServer() (*grpc.Server, error) {
-	t := &utils.TlsFileOptions{
+	t := &utils.TLSFileOptions{
 		CertRelPath: tlsCertPath,
 		KeyRelPath:  tlsKeyPath,
 		Create:      tlsCreate,
@@ -65,16 +65,15 @@ func NewServer() (*grpc.Server, error) {
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-  t := &utils.TlsFileOptions{
+  t := &utils.TLSFileOptions{
     CertRelPath: tlsCertPath,
-    KeyRelPath:  tlsKeyPath,
     Create:      tlsCreate,
     Overwrite:   tlsOverwrite,
     Hosts:       tlsHosts,
+    Client:      true,
   }
 
-	creds, err := credentials.NewClientTLSFromFile(t, "")
-	if err != nil {
+	creds, err := utils.NewClientTLSFromFile(t); if err != nil {
 		return nil, err
 	}
 

@@ -4,60 +4,80 @@
 package overlay
 
 import (
-	"context"
-	"fmt"
-	"net"
-	"flag"
-	"testing"
+  "context"
+  "fmt"
+  "net"
+  "flag"
+  "testing"
+  "io/ioutil"
+  "os"
+  "path/filepath"
 
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
+  "github.com/stretchr/testify/assert"
 
-	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+  proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
+var (
+  tempPath string
+  basePath string
+)
 
-func TestNewServerGeneratesCerts(t *testing.T) {
-	testCertPath := "./generate-me.cert"
-	testKeyPath := "./generate-me.key"
+func setFlags() {
+  basePath = filepath.Join(tempPath, "x509")
 
-	flag.Set("tlsCertPath", testCertPath)
-	flag.Set("tlsKeyPath", testKeyPath)
-	flag.Set("tlsCreate", "true")
-
-	srv, err := NewServer()
-	assert.NoError(t, err)
-	assert.NotNil(t, srv)
-
+  flag.Set("tlsCertPath", fmt.Sprintf("%s.crt", basePath))
+  flag.Set("tlsKeyPath", fmt.Sprintf("%s.key", basePath))
+  flag.Set("tlsCreate", "true")
+  flag.Set("tlsHosts", "localhost,127.0.0.1,::")
 }
 
 func TestNewServer(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
+  var err error
 
-	srv, err := NewServer()
-	assert.NoError(t, err)
-	assert.NotNil(t, srv)
+  tempPath, err = ioutil.TempDir("", "TestNewServer")
+  if err != nil {
+    panic(err)
+  }
+  defer os.RemoveAll(tempPath)
 
-	go srv.Serve(lis)
-	srv.Stop()
+  setFlags()
+
+  lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+  assert.NoError(t, err)
+
+  srv, err := NewServer()
+  assert.NoError(t, err)
+  assert.NotNil(t, srv)
+
+  go srv.Serve(lis)
+  srv.Stop()
 }
 
 func TestNewClient(t *testing.T) {
+  var err error
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-	srv, err := NewServer()
-	assert.NoError(t, err)
+  tempPath, err = ioutil.TempDir("", "TestNewClient")
+  if err != nil {
+    panic(err)
+  }
+  defer os.RemoveAll(tempPath)
 
-	go srv.Serve(lis)
-	defer srv.Stop()
+  setFlags()
 
-	address := lis.Addr().String()
-	c, err := NewClient(&address, grpc.WithInsecure())
-	assert.NoError(t, err)
+  lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+  assert.NoError(t, err)
+  srv, err := NewServer()
+  assert.NoError(t, err)
 
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
+  go srv.Serve(lis)
+  defer srv.Stop()
+
+  address := lis.Addr().String()
+  c, err := NewClient(&address)
+  assert.NoError(t, err)
+
+  r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
+  assert.NoError(t, err)
+  assert.NotNil(t, r)
 }
