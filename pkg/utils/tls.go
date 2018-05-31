@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-var ErrNotExist = errs.Class("file does not exist")
+var ErrNotExist = errs.Class("")
 func IsNotExist(err error) bool {
 	return os.IsNotExist(err) || ErrNotExist.Has(err)
 }
@@ -86,14 +86,14 @@ func (t *TlsFileOptions) EnsureExists() (_ error) {
 		}
 
 		if certMissing {
-			errMessage += fmt.Sprintf("Cert at %s missing and creation disabled\n")
+			errMessage += fmt.Sprintf("%s and creation disabled\n", err)
 		}
 
 		if keyMissing {
-			errMessage += fmt.Sprintf("Key at %s missing and creation disabled\n")
+			errMessage += fmt.Sprintf("%s and creation disabled\n", err)
 		}
 
-		return errs.New(errMessage)
+		return ErrNotExist.New(errMessage)
 	}
 
 	return nil
