@@ -6,9 +6,12 @@ package netstate
 import (
 	"context"
 
+	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	proto "storj.io/storj/protos/netstate"
+	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
 )
 
@@ -30,75 +33,77 @@ func NewServer(db DB, logger *zap.Logger) *Server {
 // and makes it easier in the future to substitute
 // db clients other than bolt
 type DB interface {
-	Put(boltdb.File) error
+	Put(boltdb.PointerEntry) error
 	Get([]byte) ([]byte, error)
 	List() ([][]byte, error)
 	Delete([]byte) error
 }
 
 // Put formats and hands off a file path to be saved to boltdb
-func (s *Server) Put(ctx context.Context, filepath *proto.FilePath) (*proto.PutResponse, error) {
+func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
-	file := boltdb.File{
-		Path:  []byte(filepath.Path),
-		Value: []byte(filepath.SmallValue),
+	pointerBytes, err := proto.Marshal(putReq.Pointer)
+	if err != nil {
+		s.logger.Error("err marshaling pointer", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if err := s.DB.Put(file); err != nil {
-		s.logger.Error("err putting file", zap.Error(err))
-		return nil, err
+	pe := boltdb.PointerEntry{
+		Path:    putReq.Path,
+		Pointer: pointerBytes,
 	}
-	s.logger.Debug("put to the db: " + string(file.Path))
 
-	return &proto.PutResponse{
-		Confirmation: "success",
-	}, nil
+	if err := s.DB.Put(pe); err != nil {
+		s.logger.Error("err putting pointer", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	s.logger.Debug("put to the db: " + string(pe.Path))
+
+	return &pb.PutResponse{}, nil
 }
 
 // Get formats and hands off a file path to get from boltdb
-func (s *Server) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	s.logger.Debug("entering netstate get")
 
-	fileValue, err := s.DB.Get(req.Path)
+	pointerBytes, err := s.DB.Get(req.Path)
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
-		return nil, err
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &proto.GetResponse{
-		SmallValue: fileValue,
+	return &pb.GetResponse{
+		Pointer: pointerBytes,
 	}, nil
 }
 
-// List calls the bolt client's List function and returns all file paths
-func (s *Server) List(ctx context.Context, req *proto.ListRequest) (*proto.ListResponse, error) {
+// List calls the bolt client's List function and returns all Path keys in the Pointers bucket
+func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering netstate list")
 
-	filePaths, err := s.DB.List()
+	pathKeys, err := s.DB.List()
 	if err != nil {
-		s.logger.Error("err listing file paths", zap.Error(err))
-		return nil, err
+		s.logger.Error("err listing path keys", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	s.logger.Debug("file paths retrieved")
-	return &proto.ListResponse{
-		// filePaths is an array of byte arrays
-		Filepaths: filePaths,
+	s.logger.Debug("path keys retrieved")
+	return &pb.ListResponse{
+		// pathKeys is an array of byte arrays
+		Paths: pathKeys,
 	}, nil
 }
 
 // Delete formats and hands off a file path to delete from boltdb
-func (s *Server) Delete(ctx context.Context, req *proto.DeleteRequest) (*proto.DeleteResponse, error) {
+func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	s.logger.Debug("entering netstate delete")
 
 	err := s.DB.Delete(req.Path)
 	if err != nil {
-		s.logger.Error("err deleting file", zap.Error(err))
-		return nil, err
+		s.logger.Error("err deleting pointer entry", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("deleted: " + string(req.Path))
-	return &proto.DeleteResponse{
-		Confirmation: "success",
-	}, nil
+	s.logger.Debug("deleted pointer at path: " + string(req.Path))
+	return &pb.DeleteResponse{}, nil
 }
