@@ -35,13 +35,14 @@ type block struct {
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
-// combined Reader. The map, 'rs', must be a mapping of erasure piece numbers
-// to erasure piece streams. expectedSize is the number of bytes expected to
-// be returned by the Reader. maxBufferMemory is the maximum memory (in bytes)
-// to be allocated for read buffers. If set to 0, the minimum possible memory
-// will be used.
+// combined Reader.
+//
+// rs is a map of erasure piece numbers to erasure piece streams.
+// expectedSize is the number of bytes expected to be returned by the Reader.
+// mbm is the maximum memory (in bytes) to be allocated for read buffers. If
+// set to 0, the minimum possible memory will be used.
 func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
-	es ErasureScheme, expectedSize int64, maxBufferMemory int) io.ReadCloser {
+	es ErasureScheme, expectedSize int64, mbm int) io.ReadCloser {
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
 	}
@@ -49,11 +50,11 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 		return readcloser.FatalReadCloser(
 			Error.New("expected size not a factor decoded block size"))
 	}
-	if maxBufferMemory < 0 {
+	if mbm < 0 {
 		return readcloser.FatalReadCloser(
 			Error.New("negative max buffer memory"))
 	}
-	chanSize := maxBufferMemory / (len(rs) * es.EncodedBlockSize())
+	chanSize := mbm / (len(rs) * es.EncodedBlockSize())
 	if chanSize < 1 {
 		chanSize = 1
 	}
@@ -221,21 +222,22 @@ func (dr *decodedReader) readBlock(inbufs map[int][]byte) error {
 }
 
 type decodedRanger struct {
-	ctx             context.Context
-	es              ErasureScheme
-	rrs             map[int]ranger.Ranger
-	inSize          int64
-	maxBufferMemory int
+	ctx    context.Context
+	es     ErasureScheme
+	rrs    map[int]ranger.Ranger
+	inSize int64
+	mbm    int // max buffer memory
 }
 
-// Decode takes a map of Rangers and an ErasureSchema and returns a combined
-// Ranger. The map, 'rrs', must be a mapping of erasure piece numbers
-// to erasure piece rangers. maxBufferMemory is the maximum memory (in bytes)
-// to be allocated for read buffers. If set to 0, the minimum possible memory
-// will be used.
+// Decode takes a map of Rangers and an ErasureScheme and returns a combined
+// Ranger.
+//
+// rrs is a map of erasure piece numbers to erasure piece rangers.
+// mbm is the maximum memory (in bytes) to be allocated for read buffers. If
+// set to 0, the minimum possible memory will be used.
 func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
-	es ErasureScheme, maxBufferMemory int) (ranger.Ranger, error) {
-	if maxBufferMemory < 0 {
+	es ErasureScheme, mbm int) (ranger.Ranger, error) {
+	if mbm < 0 {
 		return nil, Error.New("negative max buffer memory")
 	}
 	size := int64(-1)
@@ -260,11 +262,11 @@ func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
 		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
-		ctx:             ctx,
-		es:              es,
-		rrs:             rrs,
-		inSize:          size,
-		maxBufferMemory: maxBufferMemory,
+		ctx:    ctx,
+		es:     es,
+		rrs:    rrs,
+		inSize: size,
+		mbm:    mbm,
 	}, nil
 }
 
@@ -301,7 +303,7 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 		readers[res.i] = res.r
 	}
 	// decode from all those ranges
-	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.maxBufferMemory)
+	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.mbm)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))
