@@ -244,7 +244,7 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 		return err
 	}
 	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0),
+		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0),
 		es, 0, 0, 4*1024*1024)
 	if err != nil {
 		return err
