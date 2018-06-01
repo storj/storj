@@ -8,14 +8,10 @@ import (
 	"io"
 	"log"
 
-	"github.com/zeebo/errs"
-
 	"golang.org/x/net/context"
 
 	pb "storj.io/storj/protos/piecestore"
 )
-
-var serverError = errs.Class("serverError")
 
 // PieceMeta -- Struct containing Piece information from PieceMetaRequest
 type PieceMeta struct {
@@ -37,7 +33,7 @@ func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id strin
 
 // StorePieceRequest -- Upload Piece to Server
 func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, dataOffset int64, length int64, ttl int64, storeOffset int64) (io.WriteCloser, error) {
-stream, err := c.Store(ctx)
+	stream, err := c.Store(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -45,10 +41,10 @@ stream, err := c.Store(ctx)
 	// SSend preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
 		stream.CloseAndRecv()
-		return nil, fmt.Errorf("%v.Send() = %v", stream , err)
+		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-return &PieceStreamWriter{stream: stream}, err
+	return &PieceStreamWriter{stream: stream}, err
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server

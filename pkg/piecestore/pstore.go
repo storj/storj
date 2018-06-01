@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/filepiece"
 )
 
-// Minimum ID length
+// IDLength -- Minimum ID length
 const IDLength = 20
 
 // Errors

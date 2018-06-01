@@ -18,8 +18,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/examples/piecestore/rpc/client/utils"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 	pb "storj.io/storj/protos/piecestore"
 )
 
