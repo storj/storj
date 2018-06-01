@@ -33,25 +33,25 @@ func NewTTL(DBPath string) (*TTL, error) {
 	return &TTL{db}, nil
 }
 
-// CheckEntries -- checks for and deletes expired TTL entries
+// checkEntries -- checks for and deletes expired TTL entries
 func checkEntries(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
-		var expId string
+		var expID string
 		var expires int64
 
-		err := rows.Scan(&expId, &expires)
+		err := rows.Scan(&expID, &expires)
 		if err != nil {
 			return err
 		}
 
 		// delete file on local machine
-		err = pstore.Delete(expId, dir)
+		err = pstore.Delete(expID, dir)
 		if err != nil {
 			return err
 		}
 
-		log.Printf("Deleted file: %s\n", expId)
+		log.Printf("Deleted file: %s\n", expID)
 		if rows.Err() != nil {
 
 			return rows.Err()
@@ -69,20 +69,19 @@ func (ttl *TTL) DBCleanup(dir string) error {
 	for {
 		select {
 		case <-tickChan:
-			currentTime := time.Now().Unix()
-			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", currentTime))
+			now := time.Now().Unix()
+
+			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", now))
 			if err != nil {
 				return err
 			}
+			defer rows.Close()
 
-			err = CheckEntries(dir, rows)
-			if err != nil {
-				rows.Close()
+			if err := checkEntries(dir, rows); err != nil {
 				return err
 			}
-			rows.Close()
 
-			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", currentTime))
+			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", now))
 			if err != nil {
 				return err
 			}
@@ -101,8 +100,8 @@ func (ttl *TTL) AddTTLToDB(id string, expiration int64) error {
 	return nil
 }
 
-// GetTTLById -- Find the TTL in the database by id and return it
-func (ttl *TTL) GetTTLById(id string) (expiration int64, err error) {
+// GetTTLByID -- Find the TTL in the database by id and return it
+func (ttl *TTL) GetTTLByID(id string) (expiration int64, err error) {
 
 	rows, err := ttl.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id))
 	if err != nil {
@@ -121,8 +120,8 @@ func (ttl *TTL) GetTTLById(id string) (expiration int64, err error) {
 	return expiration, nil
 }
 
-// DeleteTTLById -- Find the TTL in the database by id and delete it
-func (ttl *TTL) DeleteTTLById(id string) error {
+// DeleteTTLByID -- Find the TTL in the database by id and delete it
+func (ttl *TTL) DeleteTTLByID(id string) error {
 
 	_, err := ttl.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, id))
 	return err

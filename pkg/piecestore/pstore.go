@@ -19,8 +19,8 @@ var (
 	FSError  = errs.Class("fsError")
 )
 
-// PathById -- creates datapath from id and dir
-func PathById(id, dir string) (string, error) {
+// PathByID -- creates datapath from id and dir
+func PathByID(id, dir string) (string, error) {
 	if len(id) < 20 {
 		return "", ArgError.New("Invalid id length")
 	}
@@ -44,7 +44,7 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
 
-	dataPath, err := PathById(id, dir)
+	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 //	dir 					(string)		   					pstore directory containing all other data stored
 // 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
 func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
-	dataPath, err := PathById(id, dir)
+	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*
 //	dir 		(string) 	pstore directory containing all other data stored
 //	returns (error) 	if failed and nil if successful
 func Delete(id string, dir string) error {
-	dataPath, err := PathById(id, dir)
+	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return err
 	}

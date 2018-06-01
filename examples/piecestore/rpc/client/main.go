@@ -18,8 +18,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore/rpc/client/api"
-	"storj.io/storj/pkg/piecestore/rpc/client/utils"
+	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/examples/piecestore/rpc/client/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -36,7 +36,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	client := pb.NewPieceStoreRoutesClient(conn)
+	routesClient := pb.NewPieceStoreRoutesClient(conn)
 	ctx := context.Background()
 
 	app.Commands = []cli.Command{
@@ -56,7 +56,10 @@ func main() {
 				// Close the file when we are done
 				defer file.Close()
 
-				fileInfo, err := os.Stat(c.Args().Get(0))
+				fileInfo, err := file.Stat()
+				if err != nil {
+					return err
+				}
 
 				if fileInfo.IsDir() {
 					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
@@ -66,7 +69,7 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				id, err := utils.DetermineId(file, fileOffset, length)
+				id, err := utils.DetermineID(file, fileOffset, length)
 				if err != nil {
 					return err
 				}
@@ -74,7 +77,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				err = api.StorePieceRequest(ctx, client, id, dataSection, fileOffset, length, ttl, storeOffset)
+				err = client.StorePieceRequest(ctx, routesClient, id, dataSection, fileOffset, length, ttl, storeOffset)
 
 				if err != nil {
 					fmt.Printf("Failed to store file of id: %s\n", id)
@@ -99,10 +102,10 @@ func main() {
 				if c.Args().Get(1) == "" {
 					return argError.New("No output file specified")
 				}
-				_, err := os.Stat(c.Args().Get(1))
 
-				if !os.IsNotExist(err) {
-					return argError.New("Path already exists: " + c.Args().Get(1))
+				_, err := os.Stat(c.Args().Get(1))
+				if err != nil && !os.IsNotExist(err) {
+					return err
 				}
 
 				dataPath := c.Args().Get(1)
@@ -117,12 +120,13 @@ func main() {
 					return err
 				}
 
-				pieceInfo, err := api.PieceMetaRequest(ctx, client, id)
+				pieceInfo, err := client.PieceMetaRequest(ctx, routesClient, id)
 				if err != nil {
+					os.Remove(dataPath)
 					return err
 				}
 
-				reader, err := api.RetrievePieceRequest(ctx, client, id, 0, pieceInfo.Size)
+				reader, err := client.RetrievePieceRequest(ctx, routesClient, id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -130,25 +134,7 @@ func main() {
 				}
 				defer reader.Close()
 
-				totalRead := int64(0)
-				for totalRead < pieceInfo.Size {
-					b := make([]byte, 4096)
-					n, err := reader.Read(b)
-					if err != nil {
-						if err == io.EOF {
-							break
-						}
-						return err
-					}
-
-					n, err = dataFile.Write(b[:n])
-					if err != nil {
-						return err
-					}
-
-					totalRead += int64(n)
-				}
-
+				_, err = io.Copy(dataFile, reader)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -168,7 +154,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = api.DeletePieceRequest(ctx, client, c.Args().Get(0))
+				err = client.DeletePieceRequest(ctx, routesClient, c.Args().Get(0))
 
 				return err
 			},

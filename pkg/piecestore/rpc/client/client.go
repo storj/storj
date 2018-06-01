@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package api
+package client
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ var serverError = errs.Class("serverError")
 
 // PieceMeta -- Struct containing Piece information from PieceMetaRequest
 type PieceMeta struct {
-	Id       string
+	ID         string
 	Size       int64
 	Expiration int64
 }
@@ -32,19 +32,24 @@ func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id strin
 		return nil, err
 	}
 
-	return &PieceMeta{Id: reply.Id, Size: reply.Size, Expiration: reply.Expiration}, nil
+	return &PieceMeta{ID: reply.Id, Size: reply.Size, Expiration: reply.Expiration}, nil
 }
 
 // StorePieceRequest -- Upload Piece to Server
 func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
-	stream, err := c.Store(ctx)
+	buffer := make([]byte, 4096)
 
-	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
+	stream, err := c.Store(ctx)
+	if err != nil {
 		return err
 	}
 
-	buffer := make([]byte, 4096)
+	// SSend preliminary data
+	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
+		log.Printf("%v.Send() = %v", stream , err)
+		goto endStorePiece
+	}
+
 	for {
 		// Read data from read stream into buffer
 		n, err := data.Read(buffer)
@@ -52,25 +57,24 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id stri
 			if err == io.EOF {
 				break
 			}
-			return err
+			log.Printf("%v.Read() = %v", data , err)
+			goto endStorePiece
 		}
 
 		// Write the buffer to the stream we opened earlier
 		if err := stream.Send(&pb.PieceStore{Content: buffer[:n]}); err != nil {
-			return err
+			log.Printf("%v.Send() = %v", stream , err)
+			goto endStorePiece
 		}
 	}
 
+endStorePiece:
 	reply, err := stream.CloseAndRecv()
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Route summary: %v", reply)
-
-	if reply.Message != "OK" {
-		return serverError.New(reply.Message)
-	}
 
 	return nil
 }

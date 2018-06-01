@@ -4,15 +4,15 @@
 package utils
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
 )
 
-// DetermineId -- Get the id for a section of data
-func DetermineId(f *os.File, offset int64, length int64) (string, error) {
-	h := md5.New()
+// DetermineID -- Get the id for a section of data
+func DetermineID(f *os.File, offset int64, length int64) (string, error) {
+	h := sha256.New()
 
 	fSection := io.NewSectionReader(f, offset, length)
 	if _, err := io.Copy(h, fSection); err != nil {

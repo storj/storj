@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package api
+package server
 
 import (
 	"bytes"
@@ -31,14 +31,11 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
-	if err == io.EOF {
-		return err
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 
-	err = s.DB.AddTTLToDB(piece.Id, piece.Ttl)
-	if err != nil {
+	if err := s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
 		return err
 	}
 
@@ -79,7 +76,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
 	log.Println("Retrieving data...")
 
-	path, err := pstore.PathById(pieceMeta.Id, s.PieceStoreDir)
+	path, err := pstore.PathByID(pieceMeta.Id, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
@@ -117,7 +114,9 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 		n, err := io.CopyN(writeBuff, storeFile, sizeToRead)
 		if err != nil {
-			return err
+			if err != io.EOF {
+				return err
+			}
 		}
 
 		// Write the buffer to the stream we opened earlier
@@ -136,7 +135,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Println("Getting Meta data...")
 
-	path, err := pstore.PathById(in.Id, s.PieceStoreDir)
+	path, err := pstore.PathByID(in.Id, s.PieceStoreDir)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLById(in.Id)
+	ttl, err := s.DB.GetTTLByID(in.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +163,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	if err := s.DB.DeleteTTLById(in.Id); err != nil {
+	if err := s.DB.DeleteTTLByID(in.Id); err != nil {
 		return nil, err
 	}
 
