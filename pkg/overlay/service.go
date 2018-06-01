@@ -51,7 +51,7 @@ func NewServer() (*grpc.Server, error) {
     Hosts:       tlsHosts,
   }
 
-  creds, err := utils.NewServerTLSFromFile(t);
+  creds, err := utils.NewServerTLSFromFile(t)
   if err != nil {
     return nil, err
   }
@@ -74,7 +74,7 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
     Client:      true,
   }
 
-  creds, err := utils.NewClientTLSFromFile(t);
+  creds, err := utils.NewClientTLSFromFile(t)
   if err != nil {
     return nil, err
   }
