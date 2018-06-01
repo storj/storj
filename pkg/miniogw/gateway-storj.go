@@ -246,17 +246,11 @@ func decryptFile(bucket, object string, writer io.Writer) error {
 	}
 
 	write := rr.Range(0, rr.Size())
-	x, err := io.Copy(writer, write)
+	_, err = io.Copy(writer, write)
 	if err != nil {
 		return err
 	}
-	fmt.Println("bytes copied = ", x)
-	/* @TODO fix return */
 	return nil
-	// return http.ListenAndServe(*addr, http.HandlerFunc(
-	// 	func(w http.ResponseWriter, r *http.Request) {
-	// 		ranger.ServeContent(w, r, flag.Arg(0), time.Time{}, rr)
-	// 	}))
 }
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
@@ -350,27 +344,15 @@ func encryptFile(data io.Reader, bucket, object string) (size int64, err error) 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	// srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	// writer, err := os.Create(srcFile)
-	// if err != nil {
-	// 	return objInfo, err
-	// }
-
-	// wsize, err := io.CopyN(writer, data, data.Size())
-	// if err != nil {
-	// 	os.Remove(srcFile)
-	// 	return objInfo, err
-	// }
-
-	w, err := encryptFile(data, bucket, object)
+	wsize, err := encryptFile(data, bucket, object)
 	if err == nil {
-		s.uploadFile(bucket, object, w, metadata)
+		s.uploadFile(bucket, object, wsize, metadata)
 	}
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
 		ModTime: time.Now(),
-		Size:    w,
+		Size:    wsize,
 		ETag:    minio.GenETag(),
 	}, err
 }
