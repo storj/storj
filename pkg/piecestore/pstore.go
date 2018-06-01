@@ -9,8 +9,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/aleitner/FilePiece"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/filepiece"
 )
 
 // Errors
@@ -66,7 +67,7 @@ func Store(hash string, r io.Reader, length int64, psFileOffset int64, dir strin
 		return 0, err
 	}
 
-	dataFileChunk := fpiece.NewChunk(dataFile, psFileOffset, length)
+	dataFileChunk, _ := fpiece.NewChunk(dataFile, psFileOffset, length)
 
 	// Close when finished
 	defer dataFile.Close()
@@ -119,7 +120,7 @@ func Retrieve(hash string, w io.Writer, length int64, readPosOffset int64, dir s
 	defer dataFile.Close()
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	dataFileChunk := fpiece.NewChunk(dataFile, readPosOffset, length)
+	dataFileChunk, _ := fpiece.NewChunk(dataFile, readPosOffset, length)
 
 	total, err := io.CopyN(w, dataFileChunk, length)
 
