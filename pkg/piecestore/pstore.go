@@ -13,6 +13,8 @@ import (
 	"storj.io/storj/pkg/filepiece"
 )
 
+const IDLength = 20
+
 // Errors
 var (
 	ArgError = errs.Class("argError")
@@ -21,7 +23,7 @@ var (
 
 // PathByID -- creates datapath from id and dir
 func PathByID(id, dir string) (string, error) {
-	if len(id) < 20 {
+	if len(id) < IDLength {
 		return "", ArgError.New("Invalid id length")
 	}
 	if dir == "" {
