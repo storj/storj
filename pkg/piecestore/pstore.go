@@ -13,15 +13,18 @@ import (
 	"storj.io/storj/pkg/filepiece"
 )
 
+// Minimum ID length
+const IDLength = 20
+
 // Errors
 var (
 	ArgError = errs.Class("argError")
 	FSError  = errs.Class("fsError")
 )
 
-// PathByID -- creates datapath from id and dir
+// PathByID creates datapath from id and dir
 func PathByID(id, dir string) (string, error) {
-	if len(id) < 20 {
+	if len(id) < IDLength {
 		return "", ArgError.New("Invalid id length")
 	}
 	if dir == "" {
@@ -35,10 +38,10 @@ func PathByID(id, dir string) (string, error) {
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
-// StoreWriter -- Store data into piece store in multiple writes
-// 	id 					(string)								Id of the data to be stored
-// 	dir 					(string)								pstore directory containing all other data stored
-// 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
+// StoreWriter stores data into piece store in multiple writes
+// 	id is the id of the data to be stored
+// 	dir is the pstore directory containing all other data stored
+// 	returns error if failed and nil if successful
 func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
@@ -63,12 +66,12 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 	return fpiece.NewChunk(dataFile, psFileOffset, length)
 }
 
-// RetrieveReader -- Retrieve data from pstore directory
-//	id 					(string)		   					Id of the stored data
-//	length 				(length)		   					Amount of data to read. Read all data if -1
-//	readPosOffset	(offset)	   	 					Offset of the data that you are reading. Useful for multiple connections to split the data transfer
-//	dir 					(string)		   					pstore directory containing all other data stored
-// 	returns 			(*fpiece.Chunk, error) 	error if failed and nil if successful
+// RetrieveReader retrieves data from pstore directory
+//	id is the id of the stored data
+//	length is the amount of data to read. Read all data if -1
+//	readPosOffset	is the offset of the data that you are reading. Useful for multiple connections to split the data transfer
+//	dir is the pstore directory containing all other data stored
+// 	returns error if failed and nil if successful
 func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
@@ -104,10 +107,10 @@ func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*
 	return fpiece.NewChunk(dataFile, readPosOffset, length)
 }
 
-// Delete -- Delete data from farmer
-//	id 		(string) 	Id of the data to be stored
-//	dir 		(string) 	pstore directory containing all other data stored
-//	returns (error) 	if failed and nil if successful
+// Delete deletes data from farmer
+//	id is the id of the data to be stored
+//	dir is the pstore directory containing all other data stored
+//	returns error if failed and nil if successful
 func Delete(id string, dir string) error {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
