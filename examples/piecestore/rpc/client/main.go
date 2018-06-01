@@ -77,8 +77,14 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				err = client.StorePieceRequest(ctx, routesClient, id, dataSection, fileOffset, length, ttl, storeOffset)
+				writer, err := client.StorePieceRequest(ctx, routesClient, id, fileOffset, length, ttl, storeOffset)
+				if err != nil {
+					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
+					return err
+				}
+				defer writer.Close()
 
+				_, err = io.Copy(writer, dataSection)
 				if err != nil {
 					fmt.Printf("Failed to store file of id: %s\n", id)
 					return err

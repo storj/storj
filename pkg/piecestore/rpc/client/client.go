@@ -4,6 +4,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"log"
 
@@ -35,80 +36,19 @@ func PieceMetaRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id strin
 }
 
 // StorePieceRequest -- Upload Piece to Server
-func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, data io.Reader, dataOffset int64, length int64, ttl int64, storeOffset int64) error {
-	buffer := make([]byte, 4096)
-
-	stream, err := c.Store(ctx)
+func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id string, dataOffset int64, length int64, ttl int64, storeOffset int64) (io.WriteCloser, error) {
+stream, err := c.Store(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// SSend preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
-		log.Printf("%v.Send() = %v", stream , err)
-		goto endStorePiece
+		stream.CloseAndRecv()
+		return nil, fmt.Errorf("%v.Send() = %v", stream , err)
 	}
 
-	for {
-		// Read data from read stream into buffer
-		n, err := data.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Printf("%v.Read() = %v", data , err)
-			goto endStorePiece
-		}
-
-		// Write the buffer to the stream we opened earlier
-		if err := stream.Send(&pb.PieceStore{Content: buffer[:n]}); err != nil {
-			log.Printf("%v.Send() = %v", stream , err)
-			goto endStorePiece
-		}
-	}
-
-endStorePiece:
-	reply, err := stream.CloseAndRecv()
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Route summary: %v", reply)
-
-	return nil
-}
-
-// PieceStreamReader -- Struct for reading piece download stream from server
-type PieceStreamReader struct {
-	stream pb.PieceStoreRoutes_RetrieveClient
-	overflowData []byte
-}
-
-// Read -- Read method for piece download stream
-func (s *PieceStreamReader) Read(b []byte) (int, error) {
-	if len(s.overflowData) > 0 {
-		n := copy(b, s.overflowData)
-		s.overflowData = s.overflowData[:len(s.overflowData) - n]
-		return n, nil
-	}
-
-	pieceData, err := s.stream.Recv()
-	if err != nil {
-		return 0, err
-	}
-
-	n := copy(b, pieceData.Content)
-
-	if cap(b) < len(pieceData.Content) {
-		s.overflowData = b[cap(b):]
-	}
-
-	return n, nil
-}
-
-// Close -- Close Read Stream
-func (s *PieceStreamReader) Close() error {
-	return s.stream.CloseSend()
+return &PieceStreamWriter{stream: stream}, err
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server
@@ -118,7 +58,7 @@ func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id s
 		return nil, err
 	}
 
-	return &PieceStreamReader{stream: stream}, err
+	return &PieceStreamReader{stream: stream}, nil
 }
 
 // DeletePieceRequest -- Delete Piece From Server
