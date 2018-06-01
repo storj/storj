@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -29,7 +28,7 @@ import (
 var tempDir string = path.Join(os.TempDir(), "test-data", "3000")
 var tempDBPath string = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
-var s server.Server
+var s Server
 var c pb.PieceStoreRoutesClient
 var testId string = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
@@ -451,7 +450,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	s = server.Server{tempDir, ttlDB}
+	s = Server{tempDir, ttlDB}
 
 	db = ttlDB.DB
 

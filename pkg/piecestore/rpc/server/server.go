@@ -31,9 +31,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
-	if err == io.EOF {
-		return err
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 
