@@ -53,7 +53,6 @@ func checkEntries(dir string, rows *sql.Rows) error {
 
 		log.Printf("Deleted file: %s\n", expID)
 		if rows.Err() != nil {
-
 			return rows.Err()
 		}
 	}
@@ -93,11 +92,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 func (ttl *TTL) AddTTLToDB(id string, expiration int64) error {
 
 	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // GetTTLByID -- Find the TTL in the database by id and return it

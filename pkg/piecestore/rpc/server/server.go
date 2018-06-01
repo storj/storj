@@ -17,6 +17,8 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+const OK = "OK"
+
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	PieceStoreDir string
@@ -27,7 +29,7 @@ type Server struct {
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
 
-	total := int64(0)
+	var total int
 
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
@@ -60,16 +62,16 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 			return err
 		}
 
-		total += int64(n)
+		total += n
 	}
 
 	if total < piece.Size {
-		return fmt.Errorf("Recieved %v bytes of total %v bytes", total, piece.Size)
+		return fmt.Errorf("Recieved %v bytes of total %v bytes", int64(total), piece.Size)
 	}
 
 	log.Println("Successfully stored data.")
 
-	return stream.SendAndClose(&pb.PieceStoreSummary{Message: "OK", TotalReceived: total})
+	return stream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
@@ -100,14 +102,14 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	defer storeFile.Close()
 
-	totalRead := int64(0)
+	totalRead := 0
 	for totalRead < totalToRead {
 
 		b := []byte{}
 		writeBuff := bytes.NewBuffer(b)
 
 		// Read the 4kb at a time until it has to read less
-		sizeToRead := int64(4096)
+		sizeToRead := 4096
 		if pieceMeta.Size-totalRead < sizeToRead {
 			sizeToRead = pieceMeta.Size - totalRead
 		}
@@ -168,5 +170,5 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 	}
 
 	log.Println("Successfully deleted data.")
-	return &pb.PieceDeleteSummary{Message: "OK"}, nil
+	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
