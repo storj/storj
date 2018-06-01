@@ -4,7 +4,6 @@
 package client
 
 import (
-	"errors"
 	"io"
 	"log"
 
@@ -82,10 +81,17 @@ endStorePiece:
 // PieceStreamReader -- Struct for reading piece download stream from server
 type PieceStreamReader struct {
 	stream pb.PieceStoreRoutes_RetrieveClient
+	overflowData []byte
 }
 
 // Read -- Read method for piece download stream
 func (s *PieceStreamReader) Read(b []byte) (int, error) {
+	if len(s.overflowData) > 0 {
+		n := copy(b, s.overflowData)
+		s.overflowData = s.overflowData[:len(s.overflowData) - n]
+		return n, nil
+	}
+
 	pieceData, err := s.stream.Recv()
 	if err != nil {
 		return 0, err
@@ -94,7 +100,7 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
 	n := copy(b, pieceData.Content)
 
 	if cap(b) < len(pieceData.Content) {
-		return n, errors.New("Buffer wasn't large enough to read all data")
+		s.overflowData = b[cap(b):]
 	}
 
 	return n, nil
