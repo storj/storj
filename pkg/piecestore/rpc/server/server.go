@@ -16,6 +16,7 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+// OK - Success!
 const OK = "OK"
 
 // Server -- GRPC server meta data used in route calls
