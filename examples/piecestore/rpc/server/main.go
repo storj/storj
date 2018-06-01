@@ -22,7 +22,7 @@ import (
 func main() {
 	port := "7777"
 
-	if os.Args[1] != "" {
+	if len(os.Args) > 1 && os.Args[1] != "" {
 		if matched, _ := regexp.MatchString(`^\d{2,6}$`, os.Args[1]); matched == true {
 			port = os.Args[1]
 		}
@@ -30,19 +30,19 @@ func main() {
 
 	dataFolder := "./"
 
-	if os.Args[2] != "" {
+	if len(os.Args) > 2 && os.Args[2] != "" {
 		dataFolder = os.Args[2]
 	}
 
 	fileInfo, err := os.Stat(dataFolder)
 	if err != nil {
-		return err
+		log.Fatalf(err.Error())
 	}
 
-	if os.IsDir(fileInfo) != true {
+	if fileInfo.IsDir() != true {
 		log.Fatalf("dataFolder %s is not a directory", dataFolder)
 	}
-	
+
 	dataDir := path.Join(dataFolder, "piece-store-data/", port)
 
 	ttlDB, err := ttl.NewTTL("ttl-data.db")
