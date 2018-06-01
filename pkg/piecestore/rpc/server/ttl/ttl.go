@@ -91,7 +91,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 // AddTTLToDB -- Insert TTL into database by id
 func (ttl *TTL) AddTTLToDB(id string, expiration int64) error {
 
-	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
+	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
 	return err
 }
 
