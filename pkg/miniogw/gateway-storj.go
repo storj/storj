@@ -9,10 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/minio/cli"
@@ -22,6 +23,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/ranger"
 )
 
 var (
@@ -197,10 +199,69 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	panic("TODO")
 }
 
+//decryptFile encrypts the uploaded files
+func decryptFile(bucket, object string, writer io.Writer) error {
+	dir := os.TempDir()
+	dir = filepath.Join(dir, "gateway", bucket, object)
+	encKey := sha256.Sum256([]byte(*key))
+	fc, err := infectious.NewFEC(*rsk, *rsn)
+	if err != nil {
+		return err
+	}
+	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAESGCMDecrypter(
+		&encKey, &firstNonce, es.DecodedBlockSize())
+	if err != nil {
+		return err
+	}
+	pieces, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	rrs := map[int]ranger.Ranger{}
+	for _, piece := range pieces {
+		piecenum, err := strconv.Atoi(strings.TrimSuffix(piece.Name(), ".piece"))
+		if err != nil {
+			return err
+		}
+		r, err := ranger.FileRanger(filepath.Join(dir, piece.Name()))
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		rrs[piecenum] = r
+	}
+	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.Transform(rr, decrypter)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.UnpadSlow(rr)
+	if err != nil {
+		return err
+	}
+
+	write := rr.Range(0, rr.Size())
+	x, err := io.Copy(writer, write)
+	if err != nil {
+		return err
+	}
+	fmt.Println("bytes copied = ", x)
+	/* @TODO fix return */
+	return nil
+	// return http.ListenAndServe(*addr, http.HandlerFunc(
+	// 	func(w http.ResponseWriter, r *http.Request) {
+	// 		ranger.ServeContent(w, r, flag.Arg(0), time.Time{}, rr)
+	// 	}))
+}
+
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-
-	panic("TODO")
+	return decryptFile(bucket, object, writer)
 }
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
@@ -223,17 +284,28 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
+type recordingReader struct {
+	data   io.Reader
+	amount int64
+}
+
+func (r *recordingReader) Read(p []byte) (n int, err error) {
+	n, err = r.data.Read(p)
+	r.amount += int64(n)
+	return n, err
+}
+
 //encryptFile encrypts the uploaded files
-func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
+func encryptFile(data io.Reader, bucket, object string) (size int64, err error) {
 	dir := os.TempDir()
 	dir = filepath.Join(dir, "gateway", bucket, object)
-	err := os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, 0755)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	encKey := sha256.Sum256([]byte(*key))
@@ -241,13 +313,16 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 	encrypter, err := eestream.NewAESGCMEncrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
-		return err
+		return 0, err
+	}
+	recorder := &recordingReader{
+		data: data,
 	}
 	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0),
+		eestream.PadReader(ioutil.NopCloser(recorder), encrypter.InBlockSize()), encrypter, 0),
 		es, 0, 0, 4*1024*1024)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	errs := make(chan error, len(readers))
 	for i := range readers {
@@ -266,36 +341,36 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 	for range readers {
 		err := <-errs
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return nil
+	return recorder.amount, nil
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	writer, err := os.Create(srcFile)
-	if err != nil {
-		return objInfo, err
-	}
+	// srcFile := path.Join(s.TempDir, minio.MustGetUUID())
+	// writer, err := os.Create(srcFile)
+	// if err != nil {
+	// 	return objInfo, err
+	// }
 
-	wsize, err := io.CopyN(writer, data, data.Size())
-	if err != nil {
-		os.Remove(srcFile)
-		return objInfo, err
-	}
+	// wsize, err := io.CopyN(writer, data, data.Size())
+	// if err != nil {
+	// 	os.Remove(srcFile)
+	// 	return objInfo, err
+	// }
 
-	err = encryptFile(writer, uint(wsize), bucket, object)
+	w, err := encryptFile(data, bucket, object)
 	if err == nil {
-		s.uploadFile(bucket, object, wsize, metadata)
+		s.uploadFile(bucket, object, w, metadata)
 	}
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
 		ModTime: time.Now(),
-		Size:    wsize,
+		Size:    w,
 		ETag:    minio.GenETag(),
 	}, err
 }
