@@ -96,6 +96,7 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, node)
 		assert.Equal(t, string(dhts[0].HT.Self.ID), node.Id)
+		v.k.dht.Disconnect()
 	}
 
 }
@@ -130,6 +131,7 @@ func TestGetNodes(t *testing.T) {
 		nodes, err := v.k.GetNodes(ctx, v.start, v.limit)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Len(t, nodes, v.limit)
+		v.k.dht.Disconnect()
 	}
 
 }
@@ -165,6 +167,7 @@ func TestFindNode(t *testing.T) {
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotZero(t, node)
 		assert.Equal(t, node.Id, string(v.input))
+		v.k.dht.Disconnect()
 	}
 
 }
@@ -205,6 +208,7 @@ func TestPing(t *testing.T) {
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotEmpty(t, node)
 		assert.Equal(t, v.input, node)
+		v.k.dht.Disconnect()
 	}
 
 }
