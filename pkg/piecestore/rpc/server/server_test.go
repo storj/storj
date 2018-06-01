@@ -248,7 +248,7 @@ func TestStore(t *testing.T) {
 			totalReceived: 5,
 			err:           "",
 		},
-		{ // should successfully store data
+		{ // should err with invalid id length
 			id:          "butts",
 			size:          5,
 			ttl:           testExpiration,
@@ -258,7 +258,7 @@ func TestStore(t *testing.T) {
 			totalReceived: 0,
 			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
-		{ // should successfully store data
+		{ // should err with excessive size
 			id:          "ABCDEFGHIJKLMNOPQRST",
 			size:          10,
 			ttl:           testExpiration,
@@ -266,9 +266,9 @@ func TestStore(t *testing.T) {
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 5,
-			err:           "rpc error: code = Unknown desc = Recieved 5 bytes of total 10 bytes",
+			err:           "rpc error: code = Unknown desc = Received 5 bytes of total 10 bytes",
 		},
-		{ // should successfully store data
+		{ // should successfully store data by offset
 			id:          testId,
 			size:          5,
 			ttl:           testExpiration,
@@ -278,7 +278,7 @@ func TestStore(t *testing.T) {
 			totalReceived: 5,
 			err:           "",
 		},
-		{ // should successfully store data
+		{ // should err with incorrect size
 			id:          testId,
 			size:          5,
 			ttl:           testExpiration,
@@ -286,7 +286,7 @@ func TestStore(t *testing.T) {
 			content:       []byte(""),
 			message:       "",
 			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = Recieved 0 bytes of total 5 bytes",
+			err:           "rpc error: code = Unknown desc = Received 0 bytes of total 5 bytes",
 		},
 	}
 

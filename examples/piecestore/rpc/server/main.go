@@ -22,13 +22,15 @@ import (
 func main() {
 	port := "7777"
 
-	if len(os.Args) > 1 {
+	if os.Args[1] != "" {
 		if matched, _ := regexp.MatchString(`^\d{2,6}$`, os.Args[1]); matched == true {
 			port = os.Args[1]
 		}
 	}
 
-	dataDir := path.Join("./piece-store-data/", port)
+	path := os.Args[2]
+
+	dataDir := path.Join(path, "piece-store-data/", port)
 
 	ttlDB, err := ttl.NewTTL("ttl-data.db")
 	if err != nil {
@@ -50,10 +52,10 @@ func main() {
 	// attach the api service to the server
 	pb.RegisterPieceStoreRoutesServer(grpcServer, &s)
 
-	// routinely check DB for and delete expired entries
+	// routinely check DB and delete expired entries
 	go func() {
 		err := s.DB.DBCleanup(dataDir)
-		log.Printf("Error in DBCleanup: %v", err)
+		log.Fatalf("Error in DBCleanup: %v", err)
 	}()
 
 	// start the server
