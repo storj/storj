@@ -28,9 +28,22 @@ func main() {
 		}
 	}
 
-	path := os.Args[2]
+	dataFolder := "./"
 
-	dataDir := path.Join(path, "piece-store-data/", port)
+	if os.Args[2] != "" {
+		dataFolder = os.Args[2]
+	}
+
+	fileInfo, err := os.Stat(dataFolder)
+	if err != nil {
+		return err
+	}
+
+	if os.IsDir(fileInfo) != true {
+		log.Fatalf("dataFolder %s is not a directory", dataFolder)
+	}
+	
+	dataDir := path.Join(dataFolder, "piece-store-data/", port)
 
 	ttlDB, err := ttl.NewTTL("ttl-data.db")
 	if err != nil {
