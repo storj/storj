@@ -28,8 +28,6 @@ type Server struct {
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
 
-	var total int
-
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
 	if err != nil {
@@ -47,8 +45,8 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 	defer storeFile.Close()
 
-	reader := &ServerStreamReader{stream}
-	total, err = io.Copy(storeFile, reader)
+	reader := &StreamReader{stream}
+	total, err := io.Copy(storeFile, reader)
 
 	if total < piece.Size {
 		return fmt.Errorf("Recieved %v bytes of total %v bytes", int64(total), piece.Size)
@@ -87,7 +85,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	defer storeFile.Close()
 
-	writer := &ServerStreamWriter{stream}
+	writer := &StreamWriter{stream}
 	_, err = io.Copy(writer, storeFile)
 	if err != nil {
 		return err
