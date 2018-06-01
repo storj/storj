@@ -6,7 +6,7 @@ require (
 	github.com/anacrolix/sync v0.0.0-20180525101250-3870fa5b90c5
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
-	github.com/coyle/kademlia v0.0.0-20180525194149-83615aa914bb
+	github.com/coyle/kademlia v0.0.0-20180531194258-9b02bb94db67
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
 	github.com/gogo/protobuf v1.0.0

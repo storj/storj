@@ -63,17 +63,26 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	bootstrapNode := proto.Node{}
-	nodes := []proto.Node{}
+	fmt.Println("starting up storj-node")
 
-	nodes = append(nodes, bootstrapNode)
+	// this needs to be passed in through CLI commands eventually
+	bnode := &proto.Node{
+		Address: &proto.NodeAddress{
+			Address: "127.0.0.1:4001",
+		},
+		Id: "123456677234234",
+	}
+
+	nodes := []proto.Node{}
+	nodes = append(nodes, *bnode)
+
+	fmt.Printf("%+v\n", nodes)
+
 	kad := kademlia.NewKademlia(nodes, "127.0.0.1", "4000", false)
 
 	if redisAddress != "" {
 		fmt.Println("starting up overlay cache")
-		rt, _ := kad.GetRoutingTable(ctx)
-		fmt.Printf("routing table ::: %v+\n", rt)
-		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, rt.dht)
+		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
 
 		if err != nil {
 			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
@@ -88,8 +97,6 @@ func (s *Service) Process(ctx context.Context) error {
 		// send off cache refreshes concurrently
 		go cache.Refresh(ctx)
 	}
-
-	fmt.Println("starting up storj-node")
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	if err != nil {
