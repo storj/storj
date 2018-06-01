@@ -4,20 +4,21 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"sort"
 
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/process"
 )
 
 var argError = errs.Class("argError")
 
-func main() {
+func run(ctx context.Context) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store CLI"
@@ -130,8 +131,7 @@ func main() {
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
+
+func main() { process.Must(process.Main(process.ServiceFunc(run))) }
