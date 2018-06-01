@@ -34,7 +34,7 @@ func NewTTL(DBPath string) (*TTL, error) {
 }
 
 // CheckEntries -- checks for and deletes expired TTL entries
-func CheckEntries(dir string, rows *sql.Rows) error {
+func checkEntries(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
 		var expId string
@@ -69,7 +69,8 @@ func (ttl *TTL) DBCleanup(dir string) error {
 	for {
 		select {
 		case <-tickChan:
-			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", time.Now().Unix()))
+			currentTime := time.Now().Unix()
+			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", currentTime))
 			if err != nil {
 				return err
 			}
@@ -81,7 +82,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 			}
 			rows.Close()
 
-			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", time.Now().Unix()))
+			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", currentTime))
 			if err != nil {
 				return err
 			}
@@ -107,6 +108,8 @@ func (ttl *TTL) GetTTLById(id string) (expiration int64, err error) {
 	if err != nil {
 		return 0, err
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&expiration)
