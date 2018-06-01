@@ -21,15 +21,13 @@ import (
 type Server struct {
 	DB     DB
 	logger *zap.Logger
-	checkAuth checkAuth
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, logger *zap.Logger, checkAuth checkAuth) *Server {
+func NewServer(db DB, logger *zap.Logger) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
-		checkAuth: checkAuth,
 	}
 }
 
@@ -41,10 +39,6 @@ type DB interface {
 	Get([]byte) ([]byte, error)
 	List() ([][]byte, error)
 	Delete([]byte) error
-}
-
-type checkAuth interface {
-	validateAuth([]byte)error
 }
 
 func (s *Server) validateAuth(xAPIKeyBytes []byte) error {

@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/netstate"
-	"storj.io/storj/netstate/auth"
 	proto "storj.io/storj/protos/netstate"
 	"storj.io/storj/storage/boltdb"
 )
