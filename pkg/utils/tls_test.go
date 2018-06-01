@@ -9,6 +9,11 @@ import (
   "reflect"
   "math/rand"
   "path/filepath"
+  "bytes"
+  "crypto/tls"
+  "crypto/x509"
+  "crypto/ecdsa"
+  "crypto"
 
   "github.com/stretchr/testify/assert"
   "github.com/zeebo/errs"
@@ -89,7 +94,8 @@ func TestGenerate(t *testing.T) {
       Hosts:       "127.0.0.1",
     }
 
-    if err := opts.generate(); err != nil {
+    generatedCert, err := opts.generate()
+    if err != nil {
       quickLog("", opts, err)
       return false
     }
@@ -103,9 +109,44 @@ func TestGenerate(t *testing.T) {
       }
     }
 
-    // TODO: read files back in and compare to in-memory copies...
+    loadedCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+    if err != nil {
+      quickLog("", opts, err)
+      return false
+    }
 
-    return true
+    privKeyBytes := func(key crypto.PrivateKey) []byte {
+      switch key.(type) {
+      case *ecdsa.PrivateKey:
+      default:
+        quickLog("non-ecdsa private key", key, nil)
+        panic("non-ecdsa private key")
+      }
+      ecKey := key.(*ecdsa.PrivateKey)
+      b, err := x509.MarshalECPrivateKey(ecKey)
+      assert.NoError(t, err)
+
+      return b
+    }
+
+    certsMatch := func(c1, c2 *tls.Certificate) bool {
+      for i, cert := range c1.Certificate {
+        if bytes.Compare(cert, c2.Certificate[i]) != 0 {
+          return false
+        }
+      }
+
+      k1 := privKeyBytes(c1.PrivateKey)
+      k2 := privKeyBytes(c2.PrivateKey)
+
+      if bytes.Compare(k1, k2) != 0 {
+        return false
+      }
+
+      return true
+    }
+
+    return certsMatch(&loadedCert, generatedCert)
   }
 
   err = quick.Check(f, quickConfig)

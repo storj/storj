@@ -103,7 +103,8 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
   //      a key if the cert is missing (vice versa, unless
   //      client is also true)
   if t.Create && (t.Overwrite || certMissing || (keyMissing && t.Client)) {
-    return t.generate()
+    _, err := t.generate()
+    return err
   }
 
   if certMissing || (keyMissing && !t.Client) {
@@ -118,7 +119,7 @@ func NewServerTLSFromFile(t *TLSFileOptions) (_ credentials.TransportCredentials
     return nil, err
   }
 
-  creds, err := credentials.NewServerTLSFromFile(t.CertAbsPath, t.KeyAbsPath);
+  creds, err := credentials.NewServerTLSFromFile(t.CertAbsPath, t.KeyAbsPath)
   if err != nil {
     return nil, errs.New(err.Error())
   }
@@ -131,7 +132,7 @@ func NewClientTLSFromFile(t *TLSFileOptions) (_ credentials.TransportCredentials
     return nil, err
   }
 
-  creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, "");
+  creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, "")
   if err != nil {
     return nil, ErrCredentials.Wrap(err)
   }
