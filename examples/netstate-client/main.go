@@ -54,7 +54,7 @@ func main() {
 			},
 			InlineSegment: []byte("granola"),
 		},
-		XApiKey: []byte("abc13"),
+		XApiKey: []byte("abc123"),
 	}
 	pr2 := proto.PutRequest{
 		Path: []byte("so/many/pointers"),
@@ -103,9 +103,10 @@ func main() {
 	getRes, err := client.Get(ctx, &getReq)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to get", zap.Error(err))
+	} else {
+		pointer := string(getRes.Pointer)
+		logger.Debug("get response: " + pointer)
 	}
-	pointer := string(getRes.Pointer)
-	logger.Debug("get response: " + pointer)
 
 	// Example List
 	listReq := proto.ListRequest{
@@ -115,15 +116,18 @@ func main() {
 		Limit:           5,
 		XApiKey:         []byte("abc13"),
 	}
+
 	listRes, err := client.List(ctx, &listReq)
+	fmt.Println("this is the listRes: ", listRes, "this is the err: ", err)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths")
+	} else {
+		var stringList []string
+		for _, pathByte := range listRes.Paths {
+			stringList = append(stringList, string(pathByte))
+		}
+		logger.Debug("listed paths: " + strings.Join(stringList, ", "))
 	}
-	var stringList []string
-	for _, pathByte := range listRes.Paths {
-		stringList = append(stringList, string(pathByte))
-	}
-	logger.Debug("listed paths: " + strings.Join(stringList, ", "))
 
 	// Example Delete
 	delReq := proto.DeleteRequest{

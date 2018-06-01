@@ -21,13 +21,15 @@ import (
 type Server struct {
 	DB     DB
 	logger *zap.Logger
+	checkAuth checkAuth
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, logger *zap.Logger) *Server {
+func NewServer(db DB, logger *zap.Logger, checkAuth checkAuth) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		checkAuth: checkAuth,
 	}
 }
 
@@ -41,8 +43,13 @@ type DB interface {
 	Delete([]byte) error
 }
 
-func validateAuth(xAPIKeyBytes []byte) error {
+type checkAuth interface {
+	validateAuth([]byte)error
+}
+
+func (s *Server) validateAuth(xAPIKeyBytes []byte) error {
 	if !auth.ValidateAPIKey(string(xAPIKeyBytes)) {
+		s.logger.Error("unauthorized request: ")
 		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
@@ -53,9 +60,8 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 	s.logger.Debug("entering netstate put")
 
 	xAPIKeyBytes := []byte(putReq.XApiKey)
-	if err := validateAuth(xAPIKeyBytes); err != nil {
-		s.logger.Error("unauthorized request")
-		return &pb.PutResponse{}, nil
+	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+		return nil, err
 	}
 
 	pointerBytes, err := proto.Marshal(putReq.Pointer)
@@ -70,7 +76,6 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 	}
 
 	if err := s.DB.Put(pe); err != nil {
-		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("put to the db: " + string(pe.Path))
@@ -83,11 +88,8 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	s.logger.Debug("entering netstate get")
 
 	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := validateAuth(xAPIKeyBytes); err != nil {
-		s.logger.Error("unauthorized request")
-		return &pb.GetResponse{
-			Pointer: []byte("Unauthorized Request"),
-		}, nil
+	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+		return nil, err
 	}
 
 	pointerBytes, err := s.DB.Get(req.Path)
@@ -109,13 +111,8 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	pathKeys, err := s.DB.List()
 
 	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := validateAuth(xAPIKeyBytes); err != nil {
-		c := []byte("Unauthorized Request")
-		s.logger.Error("unauthorized request")
-
-		return &pb.ListResponse{
-			Paths: [][]byte{c},
-		}, nil
+	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+		return nil, err 
 	}
 
 	if err != nil {
@@ -135,10 +132,8 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteR
 	s.logger.Debug("entering netstate delete")
 
 	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := validateAuth(xAPIKeyBytes); err != nil {
-		s.logger.Error("unauthorized request")
-
-		return &pb.DeleteResponse{}, nil
+	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+		return nil, err
 	}
 
 	err := s.DB.Delete(req.Path)
