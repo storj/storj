@@ -34,7 +34,9 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
+	// If we put in the database first then that checks if the data already exists
 	if err := s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -47,6 +49,9 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	reader := &StreamReader{stream}
 	total, err := io.Copy(storeFile, reader)
+	if err != nil {
+		return err
+	}
 
 	if total < piece.Size {
 		return fmt.Errorf("Received %v bytes of total %v bytes", int64(total), piece.Size)

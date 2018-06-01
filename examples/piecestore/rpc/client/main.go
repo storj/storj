@@ -82,16 +82,15 @@ func main() {
 					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
 					return err
 				}
-				defer writer.Close()
 
 				_, err = io.Copy(writer, dataSection)
 				if err != nil {
 					fmt.Printf("Failed to store file of id: %s\n", id)
-					return err
+				} else {
+					fmt.Printf("successfully stored file of id: %s\n", id)
 				}
 
-				fmt.Printf("successfully Stored file of id: %s\n", id)
-				return nil
+				return writer.Close()
 			},
 		},
 		{
@@ -139,18 +138,16 @@ func main() {
 					os.Remove(dataPath)
 					return err
 				}
-				defer reader.Close()
 
 				_, err = io.Copy(dataFile, reader)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
-					return err
+				} else {
+					fmt.Printf("Successfully retrieved file of id: %s\n", id)
 				}
 
-				fmt.Printf("Successfully retrieved file of id: %s\n", id)
-				return nil
-
+				return reader.Close()
 			},
 		},
 		{
