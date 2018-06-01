@@ -10,13 +10,13 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-// PieceStreamWriter -- Struct for writing piece to server upload stream
-type PieceStreamWriter struct {
+// StreamWriter -- Struct for writing piece to server upload stream
+type StreamWriter struct {
 	stream pb.PieceStoreRoutes_StoreClient
 }
 
 // Write -- Write method for piece upload to stream
-func (s *PieceStreamWriter) Write(b []byte) (int, error) {
+func (s *StreamWriter) Write(b []byte) (int, error) {
 	if err := s.stream.Send(&pb.PieceStore{Content: b}); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
@@ -25,7 +25,7 @@ func (s *PieceStreamWriter) Write(b []byte) (int, error) {
 }
 
 // Close -- Close Write Stream
-func (s *PieceStreamWriter) Close() error {
+func (s *StreamWriter) Close() error {
 	reply, err := s.stream.CloseAndRecv()
 	if err != nil {
 		return err
@@ -36,14 +36,14 @@ func (s *PieceStreamWriter) Close() error {
 	return nil
 }
 
-// PieceStreamReader -- Struct for reading piece download stream from server
-type PieceStreamReader struct {
+// StreamReader -- Struct for reading piece download stream from server
+type StreamReader struct {
 	stream       pb.PieceStoreRoutes_RetrieveClient
 	overflowData []byte
 }
 
 // Read -- Read method for piece download stream
-func (s *PieceStreamReader) Read(b []byte) (int, error) {
+func (s *StreamReader) Read(b []byte) (int, error) {
 	if len(s.overflowData) > 0 {
 		n := copy(b, s.overflowData)
 		s.overflowData = s.overflowData[:len(s.overflowData)-n]
@@ -57,14 +57,14 @@ func (s *PieceStreamReader) Read(b []byte) (int, error) {
 
 	n := copy(b, pieceData.Content)
 
-	if cap(b) < len(pieceData.Content) {
-		s.overflowData = b[cap(b):]
+	if n < len(pieceData.Content) {
+		s.overflowData = b[len(b):]
 	}
 
 	return n, nil
 }
 
 // Close -- Close Read Stream
-func (s *PieceStreamReader) Close() error {
+func (s *StreamReader) Close() error {
 	return s.stream.CloseSend()
 }

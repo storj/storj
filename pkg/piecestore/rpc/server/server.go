@@ -4,7 +4,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -46,22 +45,8 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 	defer storeFile.Close()
 
-	for {
-		storeMsg, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-
-		// Write chunk received to disk
-		n, err := storeFile.Write(storeMsg.Content)
-		if err != nil {
-			return err
-		}
-
-		total += int64(n)
-	}
+	reader := &ServerStreamReader{stream}
+	total, err = io.Copy(storeFile, reader)
 
 	if total < piece.Size {
 		return fmt.Errorf("Recieved %v bytes of total %v bytes", total, piece.Size)
@@ -100,31 +85,10 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	defer storeFile.Close()
 
-	totalRead := int64(0)
-	for totalRead < totalToRead {
-
-		b := []byte{}
-		writeBuff := bytes.NewBuffer(b)
-
-		// Read the 4kb at a time until it has to read less
-		sizeToRead := int64(4096)
-		if pieceMeta.Size-totalRead < sizeToRead {
-			sizeToRead = pieceMeta.Size - totalRead
-		}
-
-		n, err := io.CopyN(writeBuff, storeFile, sizeToRead)
-		if err != nil {
-			if err != io.EOF {
-				return err
-			}
-		}
-
-		// Write the buffer to the stream we opened earlier
-		if err := stream.Send(&pb.PieceRetrievalStream{Size: n, Content: writeBuff.Bytes()}); err != nil {
-			return err
-		}
-
-		totalRead += n
+	writer := &ServerStreamWriter{stream}
+	_, err = io.Copy(writer, storeFile)
+	if err != nil {
+		return err
 	}
 
 	log.Println("Successfully retrieved data.")

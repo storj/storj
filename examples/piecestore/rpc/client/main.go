@@ -125,6 +125,7 @@ func main() {
 				if err != nil {
 					return err
 				}
+				defer dataFile.Close()
 
 				pieceInfo, err := client.PieceMetaRequest(ctx, routesClient, id)
 				if err != nil {

@@ -44,7 +44,7 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id stri
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	return &PieceStreamWriter{stream: stream}, err
+	return &ClientStreamWriter{stream: stream}, err
 }
 
 // RetrievePieceRequest -- Begin Download Piece from Server
@@ -54,7 +54,7 @@ func RetrievePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id s
 		return nil, err
 	}
 
-	return &PieceStreamReader{stream: stream}, nil
+	return &ClientStreamReader{stream: stream}, nil
 }
 
 // DeletePieceRequest -- Delete Piece From Server
