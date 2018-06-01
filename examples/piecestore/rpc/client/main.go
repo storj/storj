@@ -36,8 +36,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	routesClient := pb.NewPieceStoreRoutesClient(conn)
-	ctx := context.Background()
+	routeClient := client.New(context.Background(), pb.NewPieceStoreRoutesClient(conn))
 
 	app.Commands = []cli.Command{
 		{
@@ -77,7 +76,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				writer, err := client.StorePieceRequest(ctx, routesClient, id, fileOffset, length, ttl, storeOffset)
+				writer, err := routeClient.StorePieceRequest(id, fileOffset, length, ttl, storeOffset)
 				if err != nil {
 					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
 					return err
@@ -126,13 +125,13 @@ func main() {
 				}
 				defer dataFile.Close()
 
-				pieceInfo, err := client.PieceMetaRequest(ctx, routesClient, id)
+				pieceInfo, err := routeClient.PieceMetaRequest(id)
 				if err != nil {
 					os.Remove(dataPath)
 					return err
 				}
 
-				reader, err := client.RetrievePieceRequest(ctx, routesClient, id, 0, pieceInfo.Size)
+				reader, err := routeClient.RetrievePieceRequest(id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -158,7 +157,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = client.DeletePieceRequest(ctx, routesClient, c.Args().Get(0))
+				err = routeClient.DeletePieceRequest(c.Args().Get(0))
 
 				return err
 			},
