@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/api"
+	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -29,7 +29,7 @@ import (
 var tempDir string = path.Join(os.TempDir(), "test-data", "3000")
 var tempDBPath string = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
-var s api.Server
+var s server.Server
 var c pb.PieceStoreRoutesClient
 var testId string = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
@@ -451,7 +451,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	s = api.Server{tempDir, ttlDB}
+	s = server.Server{tempDir, ttlDB}
 
 	db = ttlDB.DB
 

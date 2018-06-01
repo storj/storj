@@ -14,7 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore/rpc/server/api"
+	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// create a server instance
-	s := api.Server{PieceStoreDir: dataDir, DB: ttlDB}
+	s := server.Server{PieceStoreDir: dataDir, DB: ttlDB}
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()

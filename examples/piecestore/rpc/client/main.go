@@ -18,7 +18,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/examples/piecestore/rpc/client/api"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/examples/piecestore/rpc/client/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -74,7 +74,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
 
-				err = api.StorePieceRequest(ctx, client, id, dataSection, fileOffset, length, ttl, storeOffset)
+				err = client.StorePieceRequest(ctx, client, id, dataSection, fileOffset, length, ttl, storeOffset)
 
 				if err != nil {
 					fmt.Printf("Failed to store file of id: %s\n", id)
@@ -117,12 +117,12 @@ func main() {
 					return err
 				}
 
-				pieceInfo, err := api.PieceMetaRequest(ctx, client, id)
+				pieceInfo, err := client.PieceMetaRequest(ctx, client, id)
 				if err != nil {
 					return err
 				}
 
-				reader, err := api.RetrievePieceRequest(ctx, client, id, 0, pieceInfo.Size)
+				reader, err := client.RetrievePieceRequest(ctx, client, id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -168,7 +168,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = api.DeletePieceRequest(ctx, client, c.Args().Get(0))
+				err = client.DeletePieceRequest(ctx, client, c.Args().Get(0))
 
 				return err
 			},
