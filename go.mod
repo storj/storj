@@ -30,7 +30,7 @@ require (
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
 	github.com/urfave/cli v1.20.0
-	github.com/vivint/infectious v0.0.0-20180418194855-57d6abddc3d4
+	github.com/vivint/infectious v0.0.0-20180510042615-a7f6b88306f8
 	github.com/zeebo/admission v0.0.0-20180507173235-4b559a00e461
 	github.com/zeebo/errs v0.1.0
 	github.com/zeebo/float16 v0.1.0
