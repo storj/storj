@@ -71,7 +71,9 @@ func (s *Service) Process(ctx context.Context) error {
 
 	if redisAddress != "" {
 		fmt.Println("starting up overlay cache")
-		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+		rt, _ := kad.GetRoutingTable(ctx)
+		fmt.Printf("routing table ::: %v+\n", rt)
+		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, rt.dht)
 
 		if err != nil {
 			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
