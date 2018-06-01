@@ -49,7 +49,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	total, err := io.Copy(storeFile, reader)
 
 	if total < piece.Size {
-		return fmt.Errorf("Recieved %v bytes of total %v bytes", int64(total), piece.Size)
+		return fmt.Errorf("Received %v bytes of total %v bytes", int64(total), piece.Size)
 	}
 
 	log.Println("Successfully stored data.")
