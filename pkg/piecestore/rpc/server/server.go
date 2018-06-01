@@ -35,8 +35,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	err = s.DB.AddTTLToDB(piece.Id, piece.Ttl)
-	if err != nil {
+	if err := s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
 		return err
 	}
 

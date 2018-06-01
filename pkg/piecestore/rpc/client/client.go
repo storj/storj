@@ -46,7 +46,7 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id stri
 
 	// SSend preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
-		log.Fatalf("%v.Send() = %v", stream , err)
+		log.Printf("%v.Send() = %v", stream , err)
 		goto endStorePiece
 	}
 
@@ -57,13 +57,13 @@ func StorePieceRequest(ctx context.Context, c pb.PieceStoreRoutesClient, id stri
 			if err == io.EOF {
 				break
 			}
-			log.Fatalf("%v.Read() = %v", data , err)
+			log.Printf("%v.Read() = %v", data , err)
 			goto endStorePiece
 		}
 
 		// Write the buffer to the stream we opened earlier
 		if err := stream.Send(&pb.PieceStore{Content: buffer[:n]}); err != nil {
-			log.Fatalf("%v.Send() = %v", stream , err)
+			log.Printf("%v.Send() = %v", stream , err)
 			goto endStorePiece
 		}
 	}
