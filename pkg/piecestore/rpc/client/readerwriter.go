@@ -44,19 +44,24 @@ type StreamReader struct {
 
 // Read -- Read method for piece download stream
 func (s *StreamReader) Read(b []byte) (int, error) {
+
+	// Use overflow data if we have it
 	if len(s.overflowData) > 0 {
-		n := copy(b, s.overflowData)
-		s.overflowData = s.overflowData[:len(s.overflowData)-n]
+		n := copy(b, s.overflowData)        // Copy from overflow into buffer
+		s.overflowData = s.overflowData[n:] // Overflow is set to whatever remains
 		return n, nil
 	}
 
+	// Receive data from server stream
 	pieceData, err := s.stream.Recv()
 	if err != nil {
 		return 0, err
 	}
 
+	// Copy data into buffer
 	n := copy(b, pieceData.Content)
 
+	// If left over data save it into overflow variable for next read
 	if n < len(pieceData.Content) {
 		s.overflowData = b[len(b):]
 	}

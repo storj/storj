@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite is weird and needs underscore
@@ -21,6 +23,10 @@ type TTL struct {
 
 // NewTTL -- creates ttl database and struct
 func NewTTL(DBPath string) (*TTL, error) {
+	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
+		return nil, err
+	}
+
 	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		return nil, err

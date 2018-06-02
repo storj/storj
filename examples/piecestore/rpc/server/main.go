@@ -28,8 +28,13 @@ func main() {
 		}
 	}
 
-	dataFolder := "./"
+	// Get default folder for storing data and database
+	dataFolder, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	// Check if directory for storing data and database was passed in
 	if len(os.Args) > 2 && os.Args[2] != "" {
 		dataFolder = os.Args[2]
 	}
@@ -43,9 +48,11 @@ func main() {
 		log.Fatalf("dataFolder %s is not a directory", dataFolder)
 	}
 
+	// Suggestion for whoever implements this: Instead of using port use node id
 	dataDir := path.Join(dataFolder, port, "/piece-store-data/")
+	dbPath := path.Join(dataFolder, port, "/ttl-data.db")
 
-	ttlDB, err := ttl.NewTTL(path.Join(dataFolder, port, "/ttl-data.db"))
+	ttlDB, err := ttl.NewTTL(dbPath)
 	if err != nil {
 		log.Fatalf("failed to open DB")
 	}
