@@ -9,31 +9,29 @@ import (
 	"io/ioutil"
 
 	"storj.io/storj/internal/pkg/readcloser"
-	"storj.io/storj/pkg/rpcClientServer/client/api"
-
-	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
 type grpcRanger struct {
-	client pb.PieceStoreRoutesClient
-	hash   string
-	size   int64
+	c    *client.Client
+	id   string
+	size int64
 }
 
-// GRPCRanger turns a gRPC connection into a Ranger
-func GRPCRanger(client pb.PieceStoreRoutesClient, hash string) (Ranger, error) {
-	shard, err := api.PieceMetaRequest(client, hash)
+// GRPCRanger turns a gRPC connection to piece store into a Ranger
+func GRPCRanger(c *client.Client, id string) (Ranger, error) {
+	piece, err := c.PieceMetaRequest(id)
 	if err != nil {
 		return nil, err
 	}
-	return &grpcRanger{client: client, hash: hash, size: shard.Size}, nil
+	return &grpcRanger{c: c, id: id, size: piece.Size}, nil
 }
 
 // GRPCRangerSize creates a GRPCRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func GRPCRangerSize(client pb.PieceStoreRoutesClient, hash string, size int64) Ranger {
-	return &grpcRanger{client: client, hash: hash, size: size}
+func GRPCRangerSize(c *client.Client, id string, size int64) Ranger {
+	return &grpcRanger{c: c, id: id, size: size}
 }
 
 // Size implements Ranger.Size
@@ -55,7 +53,7 @@ func (r *grpcRanger) Range(offset, length int64) io.ReadCloser {
 	if length == 0 {
 		return ioutil.NopCloser(bytes.NewReader([]byte{}))
 	}
-	reader, err := api.RetrievePieceRequest(r.client, r.hash, length, offset)
+	reader, err := r.c.RetrievePieceRequest(r.id, length, offset)
 	if err != nil {
 		return readcloser.FatalReadCloser(Error.Wrap(err))
 	}

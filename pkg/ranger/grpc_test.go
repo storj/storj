@@ -4,6 +4,7 @@
 package ranger
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,7 +13,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	pb "storj.io/storj/pkg/rpcClientServer/protobuf"
+	"storj.io/storj/pkg/piecestore/rpc/client"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 func TestGRPCRanger(t *testing.T) {
@@ -40,16 +42,16 @@ func TestGRPCRanger(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		client := NewMockPieceStoreRoutesClient(ctrl)
+		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 		calls := []*gomock.Call{
-			client.EXPECT().Piece(
+			route.EXPECT().Piece(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(&pb.PieceSummary{Size: int64(len(tt.data))}, nil),
 		}
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			stream := NewMockPieceStoreRoutes_RetrieveClient(ctrl)
+			stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 			calls = append(calls,
-				client.EXPECT().Retrieve(
+				route.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
 				stream.EXPECT().Recv().Return(
@@ -62,7 +64,8 @@ func TestGRPCRanger(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		r, err := GRPCRanger(client, "")
+		c := client.NewMock(context.Background(), route)
+		r, err := GRPCRanger(c, "")
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, r.Size(), errTag)
 		}
@@ -102,11 +105,11 @@ func TestGRPCRangerSize(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		client := NewMockPieceStoreRoutesClient(ctrl)
+		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			stream := NewMockPieceStoreRoutes_RetrieveClient(ctrl)
+			stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 			gomock.InOrder(
-				client.EXPECT().Retrieve(
+				route.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
 				stream.EXPECT().Recv().Return(
@@ -118,7 +121,8 @@ func TestGRPCRangerSize(t *testing.T) {
 			)
 		}
 
-		r := GRPCRangerSize(client, "", tt.size)
+		c := client.NewMock(context.Background(), route)
+		r := GRPCRangerSize(c, "", tt.size)
 		assert.Equal(t, tt.size, r.Size(), errTag)
 		data, err := ioutil.ReadAll(r.Range(tt.offset, tt.length))
 		if tt.errString != "" {
