@@ -83,8 +83,8 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 
 	rt, err := o.DHT.GetRoutingTable(ctx)
 
-	fmt.Printf("%+v\n", rt)
-	fmt.Printf("%+v\n", o.DHT)
+	fmt.Printf("Boostrap routing table:  %+v\n", rt)
+	fmt.Printf("Bootstrap DHT: %+v\n", o.DHT)
 
 	if err != nil {
 		return err
@@ -101,11 +101,30 @@ func (o *OverlayClient) Refresh(ctx context.Context) error {
 	// listen for responses from existing nodes
 	// if no response from existing, then mark it as offline for time period
 	// if responds, it refreshes in DHT
+	rt, rtErr := o.DHT.GetRoutingTable(ctx)
 
-	return errors.New("REFRESH TODO")
+	if rtErr != nil {
+		return rtErr
+	}
+
+	fmt.Printf("RT:: %+v\n", rt)
+
+	nodes, err := o.DHT.GetNodes(ctx, "0", 128)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Nodes:: %+v\n", nodes)
+
+	for k, v := range nodes {
+		fmt.Printf("key: ", k, "value: ", v)
+	}
+
+	return nil
 }
 
-// Walk iterates over buckets to walk the network
+// Walk iterates over buckets to traverse the network
 func (o *OverlayClient) Walk(ctx context.Context) error {
 	return errors.New("Walk function needs to be implemented")
 }

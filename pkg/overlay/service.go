@@ -20,15 +20,21 @@ import (
 )
 
 var (
-	gui           bool
 	node          string
+	bootstrapIP   string
+	bootstrapPort string
+	stun          bool
 	redisAddress  string
 	redisPassword string
 	db            int
+	gui           bool
 )
 
 func init() {
 	flag.StringVar(&node, "node", "", "Boot up a storj node")
+	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Specify an IP address for a custom node to bootstrap your network with.")
+	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Specify a port for a custom node to bootstrap your network with.")
+	flag.BoolVar(&stun, "stun", false, "Set STUN to true")
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
@@ -65,12 +71,21 @@ type Service struct {
 func (s *Service) Process(ctx context.Context) error {
 	fmt.Println("starting up storj-node")
 
+	var bootstrapAddress string
+
+	if bootstrapIP != "" && bootstrapPort != "" {
+		fmt.Println("bootstrapping with %s:%s", bootstrapIP, bootstrapPort)
+		bootstrapAddress = fmt.Sprintf("%s:%s", bootstrapIP, bootstrapPort)
+	} else {
+		bootstrapAddress = fmt.Sprintf("127.0.0.1:4001")
+	}
+
 	// this needs to be passed in through CLI commands eventually
 	bnode := &proto.Node{
 		Address: &proto.NodeAddress{
-			Address: "127.0.0.1:4001",
+			Address: bootstrapAddress,
 		},
-		Id: "123456677234234",
+		// Id: "123456677234234",
 	}
 
 	nodes := []proto.Node{}
