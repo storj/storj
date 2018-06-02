@@ -76,7 +76,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 		case <-tickChan:
 			now := time.Now().Unix()
 
-			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d", now))
+			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id, expires FROM ttl WHERE expires < %d AND expires > 0", now))
 			if err != nil {
 				return err
 			}
@@ -86,7 +86,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 				return err
 			}
 
-			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d", now))
+			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
 			if err != nil {
 				return err
 			}
