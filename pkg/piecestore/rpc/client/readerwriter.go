@@ -53,16 +53,16 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 
 	// Receive data from server stream
-	pieceData, err := s.stream.Recv()
+	msg, err := s.stream.Recv()
 	if err != nil {
 		return 0, err
 	}
 
 	// Copy data into buffer
-	n := copy(b, pieceData.Content)
+	n := copy(b, msg.Content)
 
 	// If left over data save it into overflow variable for next read
-	if n < len(pieceData.Content) {
+	if n < len(msg.Content) {
 		s.overflowData = b[len(b):]
 	}
 

@@ -48,7 +48,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 	defer storeFile.Close()
 
-	reader := &StreamReader{stream}
+	reader := &StreamReader{stream: stream}
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	defer storeFile.Close()
 
-	writer := &StreamWriter{stream}
+	writer := &StreamWriter{stream: stream}
 	_, err = io.Copy(writer, storeFile)
 	if err != nil {
 		return err
