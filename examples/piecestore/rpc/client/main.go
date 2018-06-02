@@ -20,7 +20,6 @@ import (
 
 	"storj.io/storj/examples/piecestore/rpc/client/utils"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 var argError = errs.Class("argError")
@@ -36,7 +35,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	routeClient := client.New(context.Background(), pb.NewPieceStoreRoutesClient(conn))
+	routeClient := client.New(context.Background(), conn)
 
 	app.Commands = []cli.Command{
 		{

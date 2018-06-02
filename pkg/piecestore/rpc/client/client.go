@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -20,8 +21,8 @@ type Client struct {
 }
 
 // New -- Initilize Client
-func New(ctx context.Context, route pb.PieceStoreRoutesClient) *Client {
-	return &Client{ctx, route}
+func New(ctx context.Context, conn *grpc.ClientConn) *Client {
+	return &Client{ctx, pb.NewPieceStoreRoutesClient(conn)}
 }
 
 // PieceMetaRequest -- Request info about a piece by Id
