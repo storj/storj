@@ -112,6 +112,10 @@ func main() {
 					return err
 				}
 
+				if err == nil {
+					return argError.New("File already exists")
+				}
+
 				dataPath := c.Args().Get(1)
 
 				if err = os.MkdirAll(filepath.Dir(dataPath), 0700); err != nil {

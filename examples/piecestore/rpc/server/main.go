@@ -43,9 +43,9 @@ func main() {
 		log.Fatalf("dataFolder %s is not a directory", dataFolder)
 	}
 
-	dataDir := path.Join(dataFolder, "piece-store-data/", port)
+	dataDir := path.Join(dataFolder, port, "/piece-store-data/")
 
-	ttlDB, err := ttl.NewTTL("ttl-data.db")
+	ttlDB, err := ttl.NewTTL(path.Join(dataFolder, port, "/ttl-data.db"))
 	if err != nil {
 		log.Fatalf("failed to open DB")
 	}
@@ -55,6 +55,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	defer lis.Close()
 
 	// create a server instance
 	s := server.Server{PieceStoreDir: dataDir, DB: ttlDB}
