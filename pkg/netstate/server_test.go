@@ -9,44 +9,45 @@ import (
 	"storj.io/storj/storage/boltdb"
 )
 
-type mockDB struct {
+// MockDB mocks db functionality for testing
+type MockDB struct {
 	timesCalled int
-	puts        []boltdb.File
-	filePaths   [][]byte
+	puts        []boltdb.PointerEntry
+	pathKeys    [][]byte
 }
 
-func (m *mockDB) Put(f boltdb.File) error {
+func (m *MockDB) Put(f boltdb.PointerEntry) error {
 	m.timesCalled++
 	m.puts = append(m.puts, f)
 	return nil
 }
 
-func (m *mockDB) Get(path []byte) ([]byte, error) {
+func (m *MockDB) Get(path []byte) ([]byte, error) {
 	m.timesCalled++
 
-	for _, file := range m.puts {
-		if bytes.Equal(path, file.Path) {
-			return file.Value, nil
+	for _, pointerEntry := range m.puts {
+		if bytes.Equal(path, pointerEntry.Path) {
+			return pointerEntry.Pointer, nil
 		}
 	}
 	panic("failed to get the given file")
 }
 
-func (m *mockDB) List() ([][]byte, error) {
+func (m *MockDB) List() ([][]byte, error) {
 	m.timesCalled++
 
-	for _, file := range m.puts {
-		m.filePaths = append(m.filePaths, file.Path)
+	for _, putReq := range m.puts {
+		m.pathKeys = append(m.pathKeys, putReq.Path)
 	}
 
-	return m.filePaths, nil
+	return m.pathKeys, nil
 }
 
-func (m *mockDB) Delete(path []byte) error {
+func (m *MockDB) Delete(path []byte) error {
 	m.timesCalled++
 
-	for i, file := range m.puts {
-		if bytes.Equal(path, file.Path) {
+	for i, pointerEntry := range m.puts {
+		if bytes.Equal(path, pointerEntry.Path) {
 			m.puts = append(m.puts[:i], m.puts[i+1:]...)
 		}
 	}
