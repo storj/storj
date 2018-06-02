@@ -70,6 +70,7 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 	}
 
 	if err := s.DB.Put(pe); err != nil {
+		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("put to the db: " + string(pe.Path))
