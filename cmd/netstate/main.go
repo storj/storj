@@ -4,7 +4,6 @@
 package main
 
 import (
-	"os"
 	"flag"
 	"fmt"
 	"net"
@@ -33,7 +32,6 @@ func initializeFlags() {
 
 func setEnv() {
 	viper.SetEnvPrefix("API")
-	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 }
 

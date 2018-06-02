@@ -54,7 +54,7 @@ func main() {
 			},
 			InlineSegment: []byte("granola"),
 		},
-		XApiKey: []byte("abc123"),
+		APIKey: []byte("abc123"),
 	}
 	pr2 := proto.PutRequest{
 		Path: []byte("so/many/pointers"),
@@ -66,7 +66,7 @@ func main() {
 			},
 			InlineSegment: []byte("m&ms"),
 		},
-		XApiKey: []byte("abc123"),
+		APIKey: []byte("abc123"),
 	}
 	pr3 := proto.PutRequest{
 		Path: []byte("another/pointer/for/the/pile"),
@@ -78,7 +78,7 @@ func main() {
 			},
 			InlineSegment: []byte("popcorn"),
 		},
-		XApiKey: []byte("abc123"),
+		APIKey: []byte("abc13"),
 	}
 
 	// Example Puts
@@ -97,8 +97,8 @@ func main() {
 
 	// Example Get
 	getReq := proto.GetRequest{
-		Path:    []byte("so/many/pointers"),
-		XApiKey: []byte("abc13"),
+		Path:   []byte("so/many/pointers"),
+		APIKey: []byte("abc123"),
 	}
 	getRes, err := client.Get(ctx, &getReq)
 	if err != nil || status.Code(err) == codes.Internal {
@@ -114,11 +114,10 @@ func main() {
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
-		XApiKey:         []byte("abc13"),
+		APIKey:          []byte("abc13"),
 	}
 
 	listRes, err := client.List(ctx, &listReq)
-	fmt.Println("this is the listRes: ", listRes, "this is the err: ", err)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths")
 	} else {
@@ -131,8 +130,8 @@ func main() {
 
 	// Example Delete
 	delReq := proto.DeleteRequest{
-		Path:    []byte("welcome/to/my/pointer/journey"),
-		XApiKey: []byte("abc13"),
+		Path:   []byte("welcome/to/my/pointer/journey"),
+		APIKey: []byte("abc123"),
 	}
 	_, err = client.Delete(ctx, &delReq)
 	if err != nil || status.Code(err) == codes.Internal {

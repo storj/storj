@@ -41,9 +41,9 @@ type DB interface {
 	Delete([]byte) error
 }
 
-func (s *Server) validateAuth(xAPIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(xAPIKeyBytes)) {
-		s.logger.Error("unauthorized request: ")
+func (s *Server) validateAuth(APIKeyBytes []byte) error {
+	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
+		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
@@ -53,8 +53,8 @@ func (s *Server) validateAuth(xAPIKeyBytes []byte) error {
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
-	xAPIKeyBytes := []byte(putReq.XApiKey)
-	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+	APIKeyBytes := []byte(putReq.APIKey)
+	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
@@ -81,8 +81,8 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	s.logger.Debug("entering netstate get")
 
-	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+	APIKeyBytes := []byte(req.APIKey)
+	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
@@ -104,9 +104,9 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 
 	pathKeys, err := s.DB.List()
 
-	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := s.validateAuth(xAPIKeyBytes); err != nil {
-		return nil, err 
+	APIKeyBytes := []byte(req.APIKey)
+	if err := s.validateAuth(APIKeyBytes); err != nil {
+		return nil, err
 	}
 
 	if err != nil {
@@ -125,8 +125,8 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	s.logger.Debug("entering netstate delete")
 
-	xAPIKeyBytes := []byte(req.XApiKey)
-	if err := s.validateAuth(xAPIKeyBytes); err != nil {
+	APIKeyBytes := []byte(req.APIKey)
+	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 

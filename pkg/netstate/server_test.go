@@ -30,10 +30,6 @@ type MockDB struct {
 	pathKeys    [][]byte
 }
 
-func setEnv() {
-	os.Setenv("API_KEY", "abc123")
-}
-
 func (m *MockDB) Put(f boltdb.PointerEntry) error {
 	m.timesCalled++
 	m.puts = append(m.puts, f)
