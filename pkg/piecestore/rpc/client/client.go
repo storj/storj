@@ -22,7 +22,12 @@ type Client struct {
 
 // New -- Initilize Client
 func New(ctx context.Context, conn *grpc.ClientConn) *Client {
-	return &Client{ctx, pb.NewPieceStoreRoutesClient(conn)}
+	return &Client{ctx: ctx, route: pb.NewPieceStoreRoutesClient(conn)}
+}
+
+// NewCustomRoute creates new Client with custom route interface
+func NewCustomRoute(ctx context.Context, route pb.PieceStoreRoutesClient) *Client {
+	return &Client{ctx: ctx, route: route}
 }
 
 // PieceMetaRequest -- Request info about a piece by Id
