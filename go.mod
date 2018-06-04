@@ -4,9 +4,10 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
 	github.com/gogo/protobuf v1.0.0
-	github.com/golang/protobuf v1.0.0
+	github.com/golang/protobuf v1.1.0
 	github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce
 	github.com/magiconair/properties v1.7.6
+	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
 	github.com/pelletier/go-toml v1.1.0
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
