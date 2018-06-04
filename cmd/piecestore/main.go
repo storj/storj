@@ -4,19 +4,22 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"sort"
 
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/process"
 )
 
 var argError = errs.Class("argError")
 
-func main() {
+func run(ctx context.Context) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store CLI"
@@ -61,7 +64,15 @@ func main() {
 					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1)))
 				}
 
-				_, err = pstore.Store(c.Args().Get(0), file, int64(fileInfo.Size()), 0, c.Args().Get(2))
+				dataFileChunk, err := pstore.StoreWriter(c.Args().Get(0), int64(fileInfo.Size()), 0, c.Args().Get(2))
+				if err != nil {
+					return err
+				}
+
+				// Close when finished
+				defer dataFileChunk.Close()
+
+				_, err = io.Copy(dataFileChunk, file)
 
 				return err
 			},
@@ -87,13 +98,16 @@ func main() {
 					return argError.New(fmt.Sprintf("Path (%s) is a file, not a directory", c.Args().Get(1)))
 				}
 
-				_, err = pstore.Retrieve(c.Args().Get(0), os.Stdout, -1, 0, c.Args().Get(1))
+				dataFileChunk, err := pstore.RetrieveReader(c.Args().Get(0), -1, 0, c.Args().Get(1))
 				if err != nil {
-
 					return err
 				}
 
-				return nil
+				// Close when finished
+				defer dataFileChunk.Close()
+
+				_, err = io.Copy(os.Stdout, dataFileChunk)
+				return err
 			},
 		},
 		{
@@ -118,8 +132,7 @@ func main() {
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
+
+func main() { process.Must(process.Main(process.ServiceFunc(run))) }
