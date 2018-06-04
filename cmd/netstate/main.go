@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -26,18 +27,20 @@ var (
 
 func (s *serv) Process(ctx context.Context) error {
 	bdb, err := boltdb.New(s.logger, *dbPath)
+
 	if err != nil {
 		return err
 	}
 	defer bdb.Close()
 
 	// start grpc server
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		return err
 	}
 
 	grpcServer := grpc.NewServer()
+
 	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, s.logger))
 	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
@@ -55,6 +58,12 @@ func (s *serv) SetLogger(l *zap.Logger) error {
 	return nil
 }
 
+func setEnv() error {
+	viper.SetEnvPrefix("API")
+	viper.AutomaticEnv()
+	return nil
+}
+
 func (s *serv) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
@@ -63,5 +72,6 @@ func (s *serv) SetMetricHandler(m *monkit.Registry) error {
 func (s *serv) InstanceID() string { return "" }
 
 func main() {
+	setEnv()
 	process.Must(process.Main(&serv{}))
 }

@@ -36,18 +36,14 @@ func run(ctx context.Context) error {
 			ArgsUsage: "[hash] [dataPath] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
-				}
-
-				if c.Args().Get(1) == "" {
 					return argError.New("No input file specified")
 				}
 
-				if c.Args().Get(2) == "" {
+				if c.Args().Get(1) == "" {
 					return argError.New("No output directory specified")
 				}
 
-				file, err := os.Open(c.Args().Get(1))
+				file, err := os.Open(c.Args().Get(0))
 				if err != nil {
 					return err
 				}
@@ -55,16 +51,18 @@ func run(ctx context.Context) error {
 				// Close the file when we are done
 				defer file.Close()
 
-				fileInfo, err := os.Stat(c.Args().Get(1))
+				fileInfo, err := os.Stat(c.Args().Get(0))
 				if err != nil {
 					return err
 				}
 
 				if fileInfo.IsDir() {
-					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1)))
+					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
 				}
 
-				dataFileChunk, err := pstore.StoreWriter(c.Args().Get(0), int64(fileInfo.Size()), 0, c.Args().Get(2))
+				id := pstore.DetermineID()
+
+				dataFileChunk, err := pstore.StoreWriter(id, int64(fileInfo.Size()), 0, c.Args().Get(1))
 				if err != nil {
 					return err
 				}

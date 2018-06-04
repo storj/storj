@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jtolds/monkit-hw"
 	"github.com/zeebo/admission/admproto"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
@@ -42,6 +43,7 @@ func initMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (
 		return err
 	}
 	environment.Register(r)
+	hw.Register(r)
 	go c.Run(ctx)
 	return nil
 }
