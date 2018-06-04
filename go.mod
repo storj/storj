@@ -7,6 +7,13 @@ require (
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
 	github.com/coyle/kademlia v0.0.0-20180531194258-9b02bb94db67
+	github.com/anacrolix/missinggo v0.0.0-20180525074307-ca16e9f398a9
+	github.com/anacrolix/sync v0.0.0-20180525101250-3870fa5b90c5
+	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572
+	github.com/boltdb/bolt v1.3.1
+	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
+	github.com/coyle/kademlia v0.0.0-20180531194258-9b02bb94db67
+	github.com/fatih/structs v1.0.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
 	github.com/gogo/protobuf v1.0.0
@@ -16,6 +23,8 @@ require (
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/magiconair/properties v1.7.6
 	github.com/mattn/go-sqlite3 v1.7.0
+	github.com/minio/cli v1.3.0
+	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
 	github.com/pelletier/go-toml v1.1.0
 	github.com/prettymuchbryce/kademlia v0.0.0-20160905191717-1c80005ed106
@@ -25,6 +34,7 @@ require (
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
 	github.com/spf13/jWalterWeatherman v0.0.0-20180109140146-7c0cea34c8ec
+	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
@@ -39,6 +49,7 @@ require (
 	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/sys v0.0.0-20180430173509-4adea008a5e5
+	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
 	golang.org/x/text v0.3.0
 	google.golang.org/genproto v0.0.0-20180427144745-86e600f69ee4
 	google.golang.org/grpc v1.11.3
