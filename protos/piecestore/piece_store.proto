@@ -1,0 +1,60 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+package piecestoreroutes;
+
+service PieceStoreRoutes {
+  rpc Piece(PieceId) returns (PieceSummary) {}
+
+  rpc Retrieve(PieceRetrieval) returns (stream PieceRetrievalStream) {}
+
+  rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
+
+  rpc Delete(PieceDelete) returns (PieceDeleteSummary) {}
+
+}
+
+message PieceStore {
+  string id = 1;
+  int64 size = 2;
+  int64 ttl = 3;
+  int64 storeOffset = 4;
+
+  bytes content = 5;
+}
+
+message PieceId {
+  string id = 1;
+}
+
+message PieceSummary {
+  string id = 1;
+  int64 size = 2;
+  int64 expiration = 3;
+}
+
+message PieceRetrieval {
+  string id = 1;
+  int64 size = 2;
+  int64 storeOffset = 3;
+}
+
+message PieceRetrievalStream {
+  int64 size = 1;
+  bytes content = 2;
+}
+
+message PieceDelete {
+  string id = 1;
+}
+
+message PieceDeleteSummary {
+  string message = 1;
+}
+
+message PieceStoreSummary {
+  string message = 1;
+  int64 totalReceived = 2;
+}

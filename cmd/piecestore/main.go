@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 
@@ -63,7 +64,15 @@ func run(ctx context.Context) error {
 					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(1)))
 				}
 
-				_, err = pstore.Store(c.Args().Get(0), file, int64(fileInfo.Size()), 0, c.Args().Get(2))
+				dataFileChunk, err := pstore.StoreWriter(c.Args().Get(0), int64(fileInfo.Size()), 0, c.Args().Get(2))
+				if err != nil {
+					return err
+				}
+
+				// Close when finished
+				defer dataFileChunk.Close()
+
+				_, err = io.Copy(dataFileChunk, file)
 
 				return err
 			},
@@ -89,13 +98,16 @@ func run(ctx context.Context) error {
 					return argError.New(fmt.Sprintf("Path (%s) is a file, not a directory", c.Args().Get(1)))
 				}
 
-				_, err = pstore.Retrieve(c.Args().Get(0), os.Stdout, -1, 0, c.Args().Get(1))
+				dataFileChunk, err := pstore.RetrieveReader(c.Args().Get(0), -1, 0, c.Args().Get(1))
 				if err != nil {
-
 					return err
 				}
 
-				return nil
+				// Close when finished
+				defer dataFileChunk.Close()
+
+				_, err = io.Copy(os.Stdout, dataFileChunk)
+				return err
 			},
 		},
 		{
