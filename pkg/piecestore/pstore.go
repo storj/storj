@@ -20,9 +20,8 @@ const IDLength = 20
 
 // Errors
 var (
-	ArgError      = errs.Class("argError")
-	FSError       = errs.Class("fsError")
-	encodingError = errs.Class("encodingError")
+	ArgError = errs.Class("argError")
+	FSError  = errs.Class("fsError")
 )
 
 // PathByID creates datapath from id and dir
@@ -42,20 +41,16 @@ func PathByID(id, dir string) (string, error) {
 }
 
 // DetermineID creates random id
-func DetermineID() (string, error) {
-	b := make([]byte, 24)
-	_, err := rand.Read(b)
+func DetermineID() string {
+	b := make([]byte, 32)
 
+	_, err := rand.Read(b)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	encoding := base64.URLEncoding.EncodeToString(b)
-	if len(encoding) < 32 {
-		return "", encodingError.New("Invalid encoding length when generating ID")
-	}
-
-	return encoding[:32], nil
+	return encoding
 }
 
 // StoreWriter stores data into piece store in multiple writes

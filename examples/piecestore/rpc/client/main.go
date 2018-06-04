@@ -67,13 +67,10 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				id, err := pstore.DetermineID()
-				if err != nil {
-					return err
-				}
-
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
+
+				id := pstore.DetermineID()
 
 				writer, err := routeClient.StorePieceRequest(id, fileOffset, length, ttl, storeOffset)
 				if err != nil {
