@@ -22,6 +22,7 @@ const IDLength = 20
 var (
 	ArgError = errs.Class("argError")
 	FSError  = errs.Class("fsError")
+	encodingError  = errs.Class("encodingError")
 )
 
 // PathByID creates datapath from id and dir
@@ -42,14 +43,17 @@ func PathByID(id, dir string) (string, error) {
 
 // DetermineID creates random id
 func DetermineID() (string, error) {
-	b := make([]byte, 64)
+	b := make([]byte, 24)
 	_, err := rand.Read(b)
 
 	if err != nil {
 		return "", err
 	}
 
-	encoding := base64.RawURLEncoding.EncodeToString(b)
+	encoding := base64.URLEncoding.EncodeToString(b)
+	if len(encoding) < 32 {
+		return "", encodingError.New("Invalid encoding length when generating ID")
+	}
 
 	return encoding[:32], nil
 }
