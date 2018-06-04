@@ -44,6 +44,7 @@ func main() {
 	ctx := context.Background()
 
 	// Example pointer paths to put
+	//pr1 passes with api creds
 	pr1 := proto.PutRequest{
 		Path: []byte("welcome/to/my/pointer/journey"),
 		Pointer: &proto.Pointer{
@@ -56,6 +57,7 @@ func main() {
 		},
 		APIKey: []byte("abc123"),
 	}
+	// pr2 passes with api creds
 	pr2 := proto.PutRequest{
 		Path: []byte("so/many/pointers"),
 		Pointer: &proto.Pointer{
@@ -68,6 +70,7 @@ func main() {
 		},
 		APIKey: []byte("abc123"),
 	}
+	// pr3 fails api creds
 	pr3 := proto.PutRequest{
 		Path: []byte("another/pointer/for/the/pile"),
 		Pointer: &proto.Pointer{
@@ -82,6 +85,7 @@ func main() {
 	}
 
 	// Example Puts
+	// puts passes api creds
 	_, err = client.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
@@ -96,6 +100,7 @@ func main() {
 	}
 
 	// Example Get
+	// get passes api creds
 	getReq := proto.GetRequest{
 		Path:   []byte("so/many/pointers"),
 		APIKey: []byte("abc123"),
@@ -109,6 +114,7 @@ func main() {
 	}
 
 	// Example List
+	// list passes api creds
 	listReq := proto.ListRequest{
 		// This pagination functionality doesn't work yet.
 		// The given arguments are placeholders.
@@ -129,6 +135,7 @@ func main() {
 	}
 
 	// Example Delete
+	// delete passes api creds
 	delReq := proto.DeleteRequest{
 		Path:   []byte("welcome/to/my/pointer/journey"),
 		APIKey: []byte("abc123"),
