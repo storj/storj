@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
+	"strconv"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
@@ -159,7 +160,7 @@ func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
 func convertNetworkNode(v *bkad.NetworkNode) proto.Node {
 	return proto.Node{
 		Id:      string(v.ID),
-		Address: &proto.NodeAddress{Transport: defaultTransport, Address: fmt.Sprintf("%s:%d", v.IP.String(), v.Port)},
+		Address: &proto.NodeAddress{Transport: defaultTransport, Address: net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port))},
 	}
 }
 
