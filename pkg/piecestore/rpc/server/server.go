@@ -54,7 +54,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	if total < piece.Size {
+	if piece.Size != 0 && total < piece.Size {
 		return fmt.Errorf("Received %v bytes of total %v bytes", int64(total), piece.Size)
 	}
 

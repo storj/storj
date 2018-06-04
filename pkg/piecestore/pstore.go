@@ -4,6 +4,7 @@
 package pstore
 
 import (
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -42,7 +43,7 @@ func PathByID(id, dir string) (string, error) {
 // 	id is the id of the data to be stored
 // 	dir is the pstore directory containing all other data stored
 // 	returns error if failed and nil if successful
-func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
+func StoreWriter(id string, length int64, psFileOffset int64, dir string) (io.ReadWriteCloser, error) {
 	if psFileOffset < 0 {
 		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
 	}
@@ -63,7 +64,11 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 		return nil, err
 	}
 
-	return fpiece.NewChunk(dataFile, psFileOffset, length)
+	if length == 0 {
+		return dataFile, nil
+	} else {
+		return fpiece.NewChunk(dataFile, psFileOffset, length)
+	}
 }
 
 // RetrieveReader retrieves data from pstore directory
@@ -72,7 +77,7 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 //	readPosOffset	is the offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	dir is the pstore directory containing all other data stored
 // 	returns error if failed and nil if successful
-func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
+func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (io.ReadWriteCloser, error) {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
