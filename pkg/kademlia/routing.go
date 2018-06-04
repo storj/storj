@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"encoding/hex"
 	"strconv"
 	"time"
 
@@ -44,7 +45,7 @@ func (rt RouteTable) CacheSize() int {
 
 // GetBucket retrieves a bucket from the local node
 func (rt RouteTable) GetBucket(id string) (bucket Bucket, ok bool) {
-	i, err := strconv.Atoi(id)
+	i, err := hex.DecodeString(id)
 	if err != nil {
 		return KBucket{}, false
 	}
