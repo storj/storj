@@ -49,8 +49,7 @@ func DetermineID() string {
 		panic(err)
 	}
 
-	encoding := base64.URLEncoding.EncodeToString(b)
-	return encoding
+	return base64.URLEncoding.EncodeToString(b)
 }
 
 // StoreWriter stores data into piece store in multiple writes
