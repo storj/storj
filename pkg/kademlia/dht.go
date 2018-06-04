@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"strings"
+	"net"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
@@ -33,7 +33,10 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
-	bb := convertProtoNodes(bootstrapNodes)
+	bb, err := convertProtoNodes(bootstrapNodes)
+	if err != nil {
+		return nil, err
+	}
 	id, err := newID() // TODO() use the real ID type after we settle on an implementation
 	if err != nil {
 		return nil, err
@@ -86,7 +89,11 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	n := convertProtoNode(node)
+	n, err := convertProtoNode(node)
+	if err != nil {
+		return proto.Node{}, err
+	}
+
 	ok, err := k.dht.Ping(n)
 	if err != nil {
 		return proto.Node{}, err
@@ -127,13 +134,17 @@ func (k *Kademlia) ListenAndServe() error {
 	return k.dht.Listen()
 }
 
-func convertProtoNodes(n []proto.Node) []*bkad.NetworkNode {
+func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
 	nn := make([]*bkad.NetworkNode, len(n))
 	for i, v := range n {
-		nn[i] = convertProtoNode(v)
+		node, err := convertProtoNode(v)
+		if err != nil {
+			return nil, err
+		}
+		nn[i] = node
 	}
 
-	return nn
+	return nn, nil
 }
 
 func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
@@ -152,17 +163,16 @@ func convertNetworkNode(v *bkad.NetworkNode) proto.Node {
 	}
 }
 
-func convertProtoNode(v proto.Node) *bkad.NetworkNode {
-	ip := strings.Split(v.GetAddress().GetAddress(), ":")
-
-	if len(ip) == 1 {
-		ip = append(ip, "0")
+func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
+	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
+	if err != nil {
+		return nil, err
 	}
 
-	nn := bkad.NewNetworkNode(ip[0], ip[1])
+	nn := bkad.NewNetworkNode(host, port)
 	nn.ID = []byte(v.GetId())
 
-	return nn
+	return nn, nil
 }
 
 // newID generates a new random ID.
