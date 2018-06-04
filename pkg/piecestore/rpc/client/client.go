@@ -36,14 +36,14 @@ func (client *Client) PieceMetaRequest(id string) (*pb.PieceSummary, error) {
 }
 
 // StorePieceRequest -- Upload Piece to Server
-func (client *Client) StorePieceRequest(id string, dataOffset int64, length int64, ttl int64, storeOffset int64) (io.WriteCloser, error) {
+func (client *Client) StorePieceRequest(id string, ttl int64) (io.WriteCloser, error) {
 	stream, err := client.route.Store(client.ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Size: length, Ttl: ttl, StoreOffset: storeOffset}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: ttl}); err != nil {
 		stream.CloseAndRecv()
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
@@ -53,7 +53,7 @@ func (client *Client) StorePieceRequest(id string, dataOffset int64, length int6
 
 // RetrievePieceRequest -- Begin Download Piece from Server
 func (client *Client) RetrievePieceRequest(id string, offset int64, length int64) (io.ReadCloser, error) {
-	stream, err := client.route.Retrieve(client.ctx, &pb.PieceRetrieval{Id: id, Size: length, StoreOffset: offset})
+	stream, err := client.route.Retrieve(client.ctx, &pb.PieceRetrieval{Id: id, Size: length, Offset: offset})
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -42,7 +41,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(piece.Id, piece.Size, piece.StoreOffset, s.PieceStoreDir)
+	storeFile, err := pstore.StoreWriter(piece.Id, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
@@ -52,10 +51,6 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
 		return err
-	}
-
-	if total < piece.Size {
-		return fmt.Errorf("Received %v bytes of total %v bytes", int64(total), piece.Size)
 	}
 
 	log.Println("Successfully stored data.")
@@ -84,7 +79,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(pieceMeta.Id, totalToRead, pieceMeta.StoreOffset, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(pieceMeta.Id, pieceMeta.Offset, totalToRead, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
