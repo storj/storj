@@ -80,9 +80,9 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (io.Re
 
 	if length == 0 {
 		return dataFile, nil
-	} else {
-		return fpiece.NewChunk(dataFile, psFileOffset, length)
 	}
+
+	return fpiece.NewChunk(dataFile, psFileOffset, length)
 }
 
 // RetrieveReader retrieves data from pstore directory
