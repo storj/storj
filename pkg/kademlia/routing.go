@@ -73,7 +73,7 @@ func (rt RouteTable) GetBuckets() (k []Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt RouteTable) FindNear(id NodeID, limit int) ([]overlay.Node, error) {
+func (rt RouteTable) FindNear(id NodeID, limit int) ([]*overlay.Node, error) {
 	return convertNetworkNodes(rt.ht.GetClosestContacts([]byte(id), limit)), nil
 }
 

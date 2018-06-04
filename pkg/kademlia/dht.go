@@ -59,10 +59,10 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string, stun bool)
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
-func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
+func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
 	nn, err := k.dht.FindNodes(ctx, start, limit)
 	if err != nil {
-		return []proto.Node{}, err
+		return []*proto.Node{}, err
 	}
 	return convertNetworkNodes(nn), nil
 }
@@ -209,13 +209,13 @@ func convertProtoNodes(n []proto.Node) []*bkad.NetworkNode {
 	return nn
 }
 
-func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
-	nn := make([]proto.Node, len(n))
+func convertNetworkNodes(n []*bkad.NetworkNode) []*proto.Node {
+	nn := make([]*proto.Node, len(n))
 	for i, v := range n {
 		if bnn, ok := convert(*v).(proto.Node); !ok {
 			continue
 		} else {
-			nn[i] = bnn
+			nn[i] = &bnn
 		}
 	}
 
