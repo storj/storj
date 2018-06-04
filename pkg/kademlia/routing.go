@@ -5,7 +5,7 @@ package kademlia
 
 import (
 	"context"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"time"
@@ -47,7 +47,7 @@ func (rt RouteTable) CacheSize() int {
 
 // GetBucket retrieves a bucket from the local node
 func (rt RouteTable) GetBucket(id string) (bucket Bucket, ok bool) {
-	i, err := strconv.Atoi(id)
+	i, err := hex.DecodeString(id)
 	if err != nil {
 		return KBucket{}, false
 	}
@@ -95,7 +95,7 @@ func (rt RouteTable) ConnectionFailed(id string, address overlay.NodeAddress) {
 func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 	i, err := strconv.Atoi(id)
 	if err != nil {
-		return errors.New("unable to convert id to int")
+		return NodeErr.New("unable to convert id to int")
 	}
 
 	rt.ht.SetBucketTime(i, now)

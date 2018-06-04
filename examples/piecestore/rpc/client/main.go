@@ -18,7 +18,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/examples/piecestore/rpc/client/utils"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
@@ -67,13 +67,10 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				id, err := utils.DetermineID(file, fileOffset, length)
-				if err != nil {
-					return err
-				}
-
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, fileOffset, length)
+
+				id := pstore.DetermineID()
 
 				writer, err := routeClient.StorePieceRequest(id, fileOffset, length, ttl, storeOffset)
 				if err != nil {

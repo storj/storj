@@ -80,6 +80,14 @@ func (s *Service) Process(ctx context.Context) error {
 		bootstrapAddress = fmt.Sprintf("127.0.0.1:4001")
 	}
 
+	kad.Bootstrap(ctx)
+	// bootstrap cache
+	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, &kad)
+	if err != nil {
+		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+		return err
+	}
+
 	// this needs to be passed in through CLI commands eventually
 	bnode := &proto.Node{
 		Address: &proto.NodeAddress{
