@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"errors"
 	"strconv"
 	"time"
 
@@ -93,7 +92,7 @@ func (rt RouteTable) ConnectionFailed(id string, address overlay.NodeAddress) {
 func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 	i, err := strconv.Atoi(id)
 	if err != nil {
-		return errors.New("unable to convert id to int")
+		return NodeErr.New("unable to convert id to int")
 	}
 
 	rt.ht.SetBucketTime(i, now)
