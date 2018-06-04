@@ -44,6 +44,7 @@ func main() {
 	ctx := context.Background()
 
 	// Example pointer paths to put
+	//pr1 passes with api creds
 	pr1 := proto.PutRequest{
 		Path: []byte("welcome/to/my/pointer/journey"),
 		Pointer: &proto.Pointer{
@@ -54,7 +55,9 @@ func main() {
 			},
 			InlineSegment: []byte("granola"),
 		},
+		APIKey: []byte("abc123"),
 	}
+	// pr2 passes with api creds
 	pr2 := proto.PutRequest{
 		Path: []byte("so/many/pointers"),
 		Pointer: &proto.Pointer{
@@ -65,7 +68,9 @@ func main() {
 			},
 			InlineSegment: []byte("m&ms"),
 		},
+		APIKey: []byte("abc123"),
 	}
+	// pr3 fails api creds
 	pr3 := proto.PutRequest{
 		Path: []byte("another/pointer/for/the/pile"),
 		Pointer: &proto.Pointer{
@@ -76,9 +81,11 @@ func main() {
 			},
 			InlineSegment: []byte("popcorn"),
 		},
+		APIKey: []byte("abc13"),
 	}
 
 	// Example Puts
+	// puts passes api creds
 	_, err = client.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
@@ -93,36 +100,45 @@ func main() {
 	}
 
 	// Example Get
+	// get passes api creds
 	getReq := proto.GetRequest{
-		Path: []byte("so/many/pointers"),
+		Path:   []byte("so/many/pointers"),
+		APIKey: []byte("abc123"),
 	}
 	getRes, err := client.Get(ctx, &getReq)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to get", zap.Error(err))
+	} else {
+		pointer := string(getRes.Pointer)
+		logger.Debug("get response: " + pointer)
 	}
-	pointer := string(getRes.Pointer)
-	logger.Debug("get response: " + pointer)
 
 	// Example List
+	// list passes api creds
 	listReq := proto.ListRequest{
 		// This pagination functionality doesn't work yet.
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
+		APIKey:          []byte("abc123"),
 	}
+
 	listRes, err := client.List(ctx, &listReq)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths")
+	} else {
+		var stringList []string
+		for _, pathByte := range listRes.Paths {
+			stringList = append(stringList, string(pathByte))
+		}
+		logger.Debug("listed paths: " + strings.Join(stringList, ", "))
 	}
-	var stringList []string
-	for _, pathByte := range listRes.Paths {
-		stringList = append(stringList, string(pathByte))
-	}
-	logger.Debug("listed paths: " + strings.Join(stringList, ", "))
 
 	// Example Delete
+	// delete passes api creds
 	delReq := proto.DeleteRequest{
-		Path: []byte("welcome/to/my/pointer/journey"),
+		Path:   []byte("welcome/to/my/pointer/journey"),
+		APIKey: []byte("abc123"),
 	}
 	_, err = client.Delete(ctx, &delReq)
 	if err != nil || status.Code(err) == codes.Internal {
