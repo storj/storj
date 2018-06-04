@@ -4,6 +4,8 @@
 package pstore
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,6 +38,18 @@ func PathByID(id, dir string) (string, error) {
 	fileName := string(id[4:])
 
 	return path.Join(dir, folder1, folder2, fileName), nil
+}
+
+// DetermineID creates random id
+func DetermineID() string {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return base64.URLEncoding.EncodeToString(b)
 }
 
 // StoreWriter stores data into piece store in multiple writes

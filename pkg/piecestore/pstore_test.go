@@ -306,6 +306,19 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDetermineID(t *testing.T) {
+	t.Run("should return an id string", func(t *testing.T) {
+		assert := assert.New(t)
+		id := DetermineID()
+		assert.Equal(len(id) >= IDLength, true)
+	})
+
+	t.Run("should return a different string on each call", func(t *testing.T) {
+		assert := assert.New(t)
+		assert.NotEqual(DetermineID(), DetermineID())
+	})
+}
+
 func TestMain(m *testing.M) {
 	m.Run()
 }
