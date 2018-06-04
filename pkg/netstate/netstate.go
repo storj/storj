@@ -103,12 +103,12 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering netstate list")
 
-	pathKeys, err := s.DB.List()
-
 	APIKeyBytes := []byte(req.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
+
+	pathKeys, err := s.DB.List()
 
 	if err != nil {
 		s.logger.Error("err listing path keys", zap.Error(err))

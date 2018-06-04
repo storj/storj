@@ -114,7 +114,7 @@ func main() {
 		// The given arguments are placeholders.
 		StartingPathKey: []byte("test/pointer/path"),
 		Limit:           5,
-		APIKey:          []byte("abc13"),
+		APIKey:          []byte("abc123"),
 	}
 
 	listRes, err := client.List(ctx, &listReq)
