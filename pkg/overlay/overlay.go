@@ -68,8 +68,9 @@ func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Overlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	// NB:  call FilterNodeReputation from node_reputation package to find nodes for storage
+
 	startID := "1234" // get this from request instead
-	lim := 40         // get this from request
+	lim := 40         // get this from defaults
 	nodes, err := o.kad.GetNodes(ctx, startID, lim)
 
 	if err != nil {
