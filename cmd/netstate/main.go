@@ -40,7 +40,7 @@ func (s *serv) Process(ctx context.Context) error {
 	}
 
 	grpcServer := grpc.NewServer()
-	
+
 	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, s.logger))
 	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
