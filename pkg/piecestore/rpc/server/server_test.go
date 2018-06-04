@@ -248,6 +248,16 @@ func TestStore(t *testing.T) {
 			totalReceived: 5,
 			err:           "",
 		},
+		{ // should successfully store data with length of 0
+			id:          testId,
+			size:          0,
+			ttl:           testExpiration,
+			offset:        0,
+			content:       []byte("butts"),
+			message:       "OK",
+			totalReceived: 5,
+			err:           "",
+		},
 		{ // should err with invalid id length
 			id:          "butts",
 			size:          5,
