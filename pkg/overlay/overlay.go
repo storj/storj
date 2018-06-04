@@ -73,6 +73,11 @@ func (o *Overlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNo
 	lim := 40         // get this from defaults
 	nodes, err := o.kad.GetNodes(ctx, startID, lim)
 
+	// nnodes := []*proto.Node{}
+	// for _, v := range nodes {
+	// 	nnodes = append(nnodes, &v)
+	// }
+
 	if err != nil {
 		fmt.Println("Error getting nodes: ", err)
 		return nil, err
