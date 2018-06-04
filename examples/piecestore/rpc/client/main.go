@@ -18,7 +18,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/examples/piecestore/rpc/client/utils"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
@@ -67,7 +67,7 @@ func main() {
 				var length = fileInfo.Size()
 				var ttl = time.Now().Unix() + 86400
 
-				id, err := utils.DetermineID(file, fileOffset, length)
+				id, err := pstore.DetermineID()
 				if err != nil {
 					return err
 				}
