@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -80,15 +81,6 @@ func (s *Service) Process(ctx context.Context) error {
 		bootstrapAddress = fmt.Sprintf("127.0.0.1:4001")
 	}
 
-	kad.Bootstrap(ctx)
-	// bootstrap cache
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, &kad)
-	if err != nil {
-		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
-		return err
-	}
-
-	// this needs to be passed in through CLI commands eventually
 	bnode := &proto.Node{
 		Address: &proto.NodeAddress{
 			Address: bootstrapAddress,
@@ -99,9 +91,29 @@ func (s *Service) Process(ctx context.Context) error {
 	nodes := []proto.Node{}
 	nodes = append(nodes, *bnode)
 
-	fmt.Printf("%+v\n", nodes)
+	fmt.Println("bnode %+v\n", bnode)
+	fmt.Printf("nodes %+v\n", nodes)
 
-	kad := kademlia.NewKademlia(nodes, "127.0.0.1", "4000", false)
+	kad, err := kademlia.NewKademlia(nodes, "127.0.0.1", "4000")
+	fmt.Println("KAD:", kad)
+	if err != nil {
+		s.logger.Error("Failed to create NewKademlia", zap.Error(err))
+		return err
+	}
+
+	go kad.ListenAndServe()
+
+	time.Sleep(time.Second)
+
+	fmt.Println("bootstrap func", kad.Bootstrap(ctx))
+	kad.Bootstrap(ctx)
+	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+	fmt.Println(cache)
+
+	if err != nil {
+		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+		return err
+	}
 
 	if redisAddress != "" {
 		fmt.Println("starting up overlay cache")
