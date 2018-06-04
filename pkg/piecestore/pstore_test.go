@@ -32,6 +32,15 @@ func TestStore(t *testing.T) {
 	      err: "",
 	    },
 			{
+				it: "should successfully store data with length of 0",
+				id: "0123456789ABCDEFGHIJ",
+				size: 0,
+				offset: 0,
+				content: []byte("butts"),
+				expectedContent: []byte("butts"),
+	      err: "",
+	    },
+			{
 				it: "should successfully store data by offset",
 				id: "0123456789ABCDEFGHIJ",
 				size: 5,
@@ -110,7 +119,12 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			buffer := make([]byte, tt.size)
+			size := tt.size
+			if size == 0 {
+				size = int64(len(tt.content))
+			}
+
+			buffer := make([]byte, size)
 			createdFile.Seek(tt.offset, 0)
 			_, _ = createdFile.Read(buffer)
 
