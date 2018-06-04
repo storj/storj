@@ -20,9 +20,9 @@ const IDLength = 20
 
 // Errors
 var (
-	ArgError = errs.Class("argError")
-	FSError  = errs.Class("fsError")
-	encodingError  = errs.Class("encodingError")
+	ArgError      = errs.Class("argError")
+	FSError       = errs.Class("fsError")
+	encodingError = errs.Class("encodingError")
 )
 
 // PathByID creates datapath from id and dir
