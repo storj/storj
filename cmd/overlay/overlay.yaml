@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: overlay
+  labels:
+    app: overlay
+spec:
+  ports:
+  - name: grpc
+    port: 8080
+    targetPort: 8080
+  - name: http
+    port: 8081
+    targetPort: 8081
+  selector:
+    app: overlay
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: overlay
+  labels:
+    app: overlay
+spec:
+  minReadySeconds: 10
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: overlay
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: "docker.io/storjlabs/overlay"
+        imagePullPolicy: Always
+        name: overlay
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 10
+        env:
+          - name: REDIS_ADDRESS
+            value: "35.184.203.66:6379"
+          - name: REDIS_PASSWORD
+            value: ""
+          - name: REDIS_DB
+            value: "1"
+          - name: OVERLAY_PORT
+            value: "8080"
+          - name: HTTP_PORT
+            value: "8081"
+        ports:
+        - name: grpc
+          containerPort: 8080
+        - name: http
+          containerPort: 8081
+        resources:
+          requests:
+            cpu: 200m
+            memory: 64Mi
+          limits:
+            cpu: 300m
+            memory: 128Mi
+        

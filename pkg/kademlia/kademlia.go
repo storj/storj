@@ -15,7 +15,7 @@ type NodeID string
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start string, limit int) ([]overlay.Node, error)
+	GetNodes(ctx context.Context, start string, limit int) ([]*overlay.Node, error)
 
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
@@ -33,7 +33,7 @@ type RoutingTable interface {
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
 
-	FindNear(id NodeID, limit int) ([]overlay.Node, error)
+	FindNear(id NodeID, limit int) ([]*overlay.Node, error)
 
 	ConnectionSuccess(id string, address overlay.NodeAddress)
 	ConnectionFailed(id string, address overlay.NodeAddress)

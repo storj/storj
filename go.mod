@@ -6,7 +6,8 @@ require (
 	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572
 	github.com/boltdb/bolt v1.3.1
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
-	github.com/coyle/kademlia v0.0.0-20180531194258-9b02bb94db67
+	github.com/cloudfoundry/gosigar v1.1.0
+	github.com/coyle/kademlia v0.0.0-20180604160050-23c5c505df98
 	github.com/fatih/structs v1.0.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
@@ -15,19 +16,19 @@ require (
 	github.com/golang/protobuf v1.1.0
 	github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
+	github.com/jtolds/monkit-hw v0.0.0-20180222001630-9b6edb34372a
 	github.com/magiconair/properties v1.7.6
+	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/minio/cli v1.3.0
 	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
-	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
 	github.com/pelletier/go-toml v1.1.0
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
 	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8
 	github.com/spacemonkeygo/monotime v0.0.0-20180102220400-7067dc99a42a
+	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
-	github.com/spf13/jWalterWeatherman v0.0.0-20180109140146-7c0cea34c8ec
-	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
