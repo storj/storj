@@ -5,6 +5,15 @@ package utils
 // license that can be found in the LICENSE file.
 // (see https://github.com/golang/go/blob/master/LICENSE)
 
+
+// Many cryptography standards use ASN.1 to define their data structures,
+// and Distinguished Encoding Rules (DER) to serialize those structures.
+// Because DER produces binary output, it can be challenging to transmit
+// the resulting files through systems, like electronic mail, that only
+// support ASCII. The PEM format solves this problem by encoding the
+// binary data using base64.
+// (see https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail)
+
 import (
   "crypto/ecdsa"
   "crypto/rand"
@@ -30,7 +39,55 @@ var (
   isCA      = false             //flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
 )
 
-func pemBlockForKey(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
+func pemToFile(p *pem.Block, path string) (_ error) {
+  // keyOut, err := os.OpenFile(t.KeyAbsPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+  file, err := os.Create(path)
+  if err != nil {
+    return ErrGenerate.Wrap(errs.New("failed to open %s.pem for writing: %s", path, err.Error()))
+  }
+
+  if err := pem.Encode(file, p); err != nil {
+    return err
+  }
+
+  if err := file.Close(); err != nil {
+    return err
+  }
+
+  return nil
+}
+
+func certToFile(b []byte, path string) (_ error) {
+  p := certToPem(b)
+
+  if err := pemToFile(p, path); err != nil {
+    return err
+  }
+
+  return nil
+}
+
+func keyToFile(key *ecdsa.PrivateKey, path string) (_ error) {
+  keyOut, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+  if err != nil {
+    return errs.New("failed to open key.pem for writing:", err)
+  }
+
+  keyPemBlock, err := keyToPem(key)
+  if err != nil {
+    return err
+  }
+
+  pem.Encode(keyOut, keyPemBlock)
+  keyOut.Close()
+  return nil
+}
+
+func certToPem(b []byte) (_ *pem.Block) {
+  return &pem.Block{Type: "CERTIFICATE", Bytes: b}
+}
+
+func keyToPem(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
   b, err := x509.MarshalECPrivateKey(key)
   if err != nil {
     return nil, errs.New("Unable to marshal ECDSA private key: %v", err.Error())
@@ -77,7 +134,7 @@ func (t *TLSFileOptions) generate() (cert *tls.Certificate, _ error) {
   template := x509.Certificate{
     SerialNumber: serialNumber,
     Subject: pkix.Name{
-      Organization: []string{"Acme Co"},
+      Organization: []string{"Storj"},
     },
     NotBefore: notBefore,
     NotAfter:  notAfter,
@@ -108,38 +165,38 @@ func (t *TLSFileOptions) generate() (cert *tls.Certificate, _ error) {
     return nil, ErrGenerate.Wrap(err)
   }
 
-  certFile, err := os.Create(t.CertAbsPath)
-  if err != nil {
-    return nil, ErrGenerate.Wrap(errs.New("failed to open cert.pem for writing: %s", err.Error()))
+  if err := certToFile(certDerBytes, t.CertAbsPath); err != nil {
+    return nil, ErrGenerate.Wrap(err)
   }
 
-  certPemBlock := pem.Block{Type: "CERTIFICATE", Bytes: certDerBytes}
-
-  pem.Encode(certFile, &certPemBlock)
-  certFile.Close()
-
-  keyOut, err := os.OpenFile(t.KeyAbsPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-  if err != nil {
-    return nil, ErrGenerate.Wrap(errs.New("failed to open key.pem for writing:", err))
+  if err := keyToFile(privKey, t.KeyAbsPath); err != nil {
+    return nil, ErrGenerate.Wrap(err)
   }
 
-  keyPemBlock, err := pemBlockForKey(privKey)
+  keyPem, err := keyToPem(privKey)
   if err != nil {
     return nil, ErrGenerate.Wrap(err)
   }
 
-  pem.Encode(keyOut, keyPemBlock)
-  keyOut.Close()
+  certificate, err := certFromPems(certToPem(certDerBytes), keyPem)
+  if err != nil {
+    return nil, ErrGenerate.Wrap(err)
+  }
 
+  return certificate, nil
+}
+
+func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
   certBuffer := bytes.NewBuffer([]byte{})
-  pem.Encode(certBuffer, &certPemBlock)
+  pem.Encode(certBuffer, cert)
 
   keyBuffer := bytes.NewBuffer([]byte{})
-  pem.Encode(keyBuffer, keyPemBlock)
+  pem.Encode(keyBuffer, key)
 
   certificate, err := tls.X509KeyPair(certBuffer.Bytes(), keyBuffer.Bytes())
   if err != nil {
     return nil, ErrGenerate.Wrap(err)
   }
+
   return &certificate, nil
 }
