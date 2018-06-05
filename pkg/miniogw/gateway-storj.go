@@ -302,8 +302,8 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string)
 	return minio.ObjectInfo{
 		Bucket:      bucket,
 		Name:        object,
-		ModTime:     time.Now(),
-		Size:        111180613,
+		ModTime:     time.Date(2018, 6, 5, 17, 20, 32, 0, time.Local),
+		Size:        280296582,
 		IsDir:       false,
 		ContentType: "video/mp4",
 	}, nil
