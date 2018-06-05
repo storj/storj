@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"time"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
@@ -93,75 +92,6 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	return k.dht.Bootstrap()
 }
 
-// BootstrapNetwork creates a new DHT and bootstraps it with the passed IP and Port
-func BootstrapNetwork(ip, port, bootstrapIP, bootstrapPort string) error {
-	id, _ := newID()
-	fmt.Println("created new node id %s", id)
-	p, _ := strconv.Atoi(port)
-	dht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		ID:   id,
-		IP:   ip,
-		Port: strconv.Itoa(p),
-		BootstrapNodes: []*bkad.NetworkNode{
-			bkad.NewNetworkNode(bootstrapIP, bootstrapPort),
-		},
-	})
-
-	// listen for connections
-	go dht.Listen()
-
-	// call bootstrap on initialized dht
-	go func(dht *bkad.DHT) {
-		if err := dht.Bootstrap(); err != nil {
-			NodeErr.New("error bootstrapping node", err)
-		}
-	}(dht)
-
-	fmt.Printf("bootstrapped network dht: %+v\n", dht)
-
-	return err
-}
-
-// BootstrapTestNetwork spins up a kademlia network locally for testing purposes
-func BootstrapTestNetwork(ip, port string) []*bkad.DHT {
-	dhts := []*bkad.DHT{}
-	p, err := strconv.Atoi(port)
-	if err != nil {
-		panic(err)
-	}
-
-	for i := 0; i < 20; i++ {
-		id, _ := newID()
-		dht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-			ID:   id,
-			IP:   ip,
-			Port: strconv.Itoa(p),
-			BootstrapNodes: []*bkad.NetworkNode{
-				bkad.NewNetworkNode("127.0.0.1", strconv.Itoa(p-1)),
-			},
-		})
-		p++
-		dhts = append(dhts, dht)
-		if err := dht.CreateSocket(); err != nil {
-			panic(err)
-		}
-	}
-
-	for _, dht := range dhts {
-		go dht.Listen()
-		go func(dht *bkad.DHT) {
-			if err := dht.Bootstrap(); err != nil {
-				panic(err)
-			}
-		}(dht)
-
-		time.Sleep(200 * time.Millisecond)
-		return dhts
-	}
-
-	return dhts
-}
-
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
 	n, err := convertProtoNode(node)
@@ -183,8 +113,6 @@ func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID NodeID) (proto.Node, error) {
 	nodes, err := k.dht.FindNode([]byte(ID))
-	fmt.Println(nodes)
-
 	if err != nil {
 		return proto.Node{}, err
 

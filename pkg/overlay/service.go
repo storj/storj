@@ -107,9 +107,8 @@ func (s *Service) Process(ctx context.Context) error {
 
 	fmt.Println("bootstrap func", kad.Bootstrap(ctx))
 	kad.Bootstrap(ctx)
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-	fmt.Println(cache)
-
+	// bootstrap cache
+	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, &kad)
 	if err != nil {
 		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
 		return err
