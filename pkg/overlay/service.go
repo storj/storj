@@ -31,8 +31,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
-	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
+	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
+	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.Parse()

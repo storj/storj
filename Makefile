@@ -31,3 +31,34 @@ test: lint
 	go install -v ./...
 	go test ./...
 	@echo done
+
+build:
+	dep ensure
+	docker build -t overlay .
+
+run-overlay:
+	docker network create test-net
+
+	docker run -d \
+		--name redis \
+		--network test-net \
+		-p 6379:6379 \
+		redis
+
+	docker run -d \
+		--name=overlay \
+		-e REDIS_ADDRESS=redis \
+		-e REDIS_PASSWORD="" \
+		-e REDIS_DB=1 \
+		-e OVERLAY_PORT=8080 \
+		overlay
+
+clean-local:
+	# cleanup overlay
+	docker stop overlay || true
+	docker rm overlay || true
+	# cleanup redis
+	docker stop redis || true
+	docker rm redis || true
+	# cleanup docker network
+	docker network rm test-net || true
