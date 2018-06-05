@@ -16,7 +16,7 @@ import (
 
 const (
 	// DefaultInterval is the default amount of time between metric payload sends
-	DefaultInterval = time.Hour
+	DefaultInterval = time.Minute
 
 	// DefaultPacketSize sets the target packet size. MTUs are often 1500,
 	// though a good argument could be made for 512
