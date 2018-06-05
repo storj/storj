@@ -53,7 +53,7 @@ spec:
           initialDelaySeconds: 10
         env:
           - name: REDIS_ADDRESS
-            value: ""
+            value: "127.0.0.1:6379"
           - name: REDIS_PASSWORD
             value: ""
           - name: REDIS_DB

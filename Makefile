@@ -3,7 +3,7 @@
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
-	--deadline=70s \
+	--deadline=170s \
 	--disable-all \
 	--enable=golint \
 	--enable=goimports \

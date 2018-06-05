@@ -41,18 +41,19 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 
 // Get looks up the provided nodeID from the redis cache
 func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
-	d, err := o.DB.Get(key)
-
-	if d == nil {
-		return nil, ErrNodeNotFound
-	}
-
+	fmt.Printf("HELO\n\n\n%#v\n", o)
+	b, err := o.DB.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("HELO\n\n\n%#v :: %#v :: %#v\n", b, err, key)
 	na := &overlay.NodeAddress{}
-	return na, proto.Unmarshal(d, na)
+	if err := proto.Unmarshal(b, na); err != nil {
+		return nil, err
+	}
+
+	return na, nil
 }
 
 // Set adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
@@ -81,16 +82,11 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 
 	// Other Possibilities: Randomly generate node ID's to ask for?
 
-	rt, err := o.DHT.GetRoutingTable(ctx)
-
-	fmt.Printf("Boostrap routing table:  %+v\n", rt)
-	fmt.Printf("Bootstrap DHT: %+v\n", o.DHT)
-
+	_, err = o.DHT.GetRoutingTable(ctx)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Routing Table: ", rt)
 	return nil
 }
 
@@ -101,24 +97,16 @@ func (o *OverlayClient) Refresh(ctx context.Context) error {
 	// listen for responses from existing nodes
 	// if no response from existing, then mark it as offline for time period
 	// if responds, it refreshes in DHT
-	rt, rtErr := o.DHT.GetRoutingTable(ctx)
+	_, rtErr := o.DHT.GetRoutingTable(ctx)
 
 	if rtErr != nil {
 		return rtErr
 	}
 
-	fmt.Printf("RT:: %+v\n", rt)
-
-	nodes, err := o.DHT.GetNodes(ctx, "0", 128)
+	_, err := o.DHT.GetNodes(ctx, "0", 128)
 
 	if err != nil {
 		return err
-	}
-
-	fmt.Printf("Nodes:: %+v\n", nodes)
-
-	for k, v := range nodes {
-		fmt.Printf("key: ", k, "value: ", v)
 	}
 
 	return nil
