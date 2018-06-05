@@ -31,3 +31,7 @@ test: lint
 	go install -v ./...
 	go test ./...
 	@echo done
+
+build:
+	dep ensure
+	docker build .
