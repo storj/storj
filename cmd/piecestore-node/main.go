@@ -26,12 +26,12 @@ import (
 // Connect to the Kademlia network
 func connectToKad(id, ip, port string) *kademlia.Kademlia {
 	node := proto.Node{
-	        Id: string(id),
-	        Address: &proto.NodeAddress{
-	            Transport: proto.NodeTransport_TCP,
-	            Address:   "130.211.168.182:4242",
-	        },
-	    }
+		Id: string(id),
+		Address: &proto.NodeAddress{
+			Transport: proto.NodeTransport_TCP,
+			Address:   "130.211.168.182:4242",
+		},
+	}
 
 	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, port)
 	if err != nil {
@@ -62,7 +62,7 @@ func main() {
 	}
 	dir := flag.String("dir", dataFolder, "Folder where data is stored")
 
-	_ = connectToKad(id, 	*ip, *port)
+	_ = connectToKad(id, *ip, *port)
 
 	fileInfo, err := os.Stat(*dir)
 	if err != nil {
