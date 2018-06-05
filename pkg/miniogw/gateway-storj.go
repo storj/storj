@@ -92,7 +92,7 @@ func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadat
 					ModTime:     time.Now(),
 					Size:        filesize,
 					IsDir:       false,
-					ContentType: "application/octet-stream",
+					ContentType: "video/mp4",
 				},
 			)
 			/* populate the filelist */
@@ -270,7 +270,14 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 }
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
-	panic("TODO")
+	return minio.ObjectInfo{
+		Bucket:      bucket,
+		Name:        object,
+		ModTime:     time.Now(),
+		Size:        111180613,
+		IsDir:       false,
+		ContentType: "video/mp4",
+	}, nil
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
