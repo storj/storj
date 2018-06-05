@@ -24,3 +24,6 @@ debug
 
 # Jetbrains
 .idea/*
+
+# vendor
+vendor
