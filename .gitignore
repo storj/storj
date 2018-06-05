@@ -18,5 +18,12 @@
 /.vscode
 debug
 
+# Binaries
+./main
+./storj
+
 # Jetbrains
 .idea/*
+
+# vendor
+vendor

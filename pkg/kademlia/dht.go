@@ -43,12 +43,16 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 		return nil, err
 	}
 
-	bdht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
 		ID:             []byte(id),
 		IP:             ip,
 		Port:           port,
 		BootstrapNodes: bb,
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	rt := RouteTable{
 		ht:  bdht.HT,
@@ -66,10 +70,14 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
-func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]proto.Node, error) {
+func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
+	if start == "" {
+		start = k.dht.GetSelfID()
+	}
+
 	nn, err := k.dht.FindNodes(ctx, start, limit)
 	if err != nil {
-		return []proto.Node{}, err
+		return []*proto.Node{}, err
 	}
 	return convertNetworkNodes(nn), nil
 }
@@ -132,7 +140,9 @@ func (k *Kademlia) ListenAndServe() error {
 		return err
 	}
 
-	return k.dht.Listen()
+	go k.dht.Listen()
+
+	return nil
 }
 
 func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
@@ -148,8 +158,8 @@ func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
 	return nn, nil
 }
 
-func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
-	nn := make([]proto.Node, len(n))
+func convertNetworkNodes(n []*bkad.NetworkNode) []*proto.Node {
+	nn := make([]*proto.Node, len(n))
 	for i, v := range n {
 		nn[i] = convertNetworkNode(v)
 	}
@@ -157,8 +167,8 @@ func convertNetworkNodes(n []*bkad.NetworkNode) []proto.Node {
 	return nn
 }
 
-func convertNetworkNode(v *bkad.NetworkNode) proto.Node {
-	return proto.Node{
+func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
+	return &proto.Node{
 		Id:      string(v.ID),
 		Address: &proto.NodeAddress{Transport: defaultTransport, Address: net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port))},
 	}
@@ -182,4 +192,28 @@ func newID() ([]byte, error) {
 	result := make([]byte, 20)
 	_, err := rand.Read(result)
 	return result, err
+}
+
+// GetIntroNode determines the best node to bootstrap a new node onto the network
+func GetIntroNode(ip, port string) proto.Node {
+	id, _ := newID() // TODO(coyle): This is solely to bootstrap our very first node, after we get an ID, we will just hardcode that ID
+	//	if ip == "" {
+	//		return proto.Node{
+	//			Id: string(id),
+	//			Address: &proto.NodeAddress{
+	//				Transport: defaultTransport,
+	//				Address:   "35.232.202.229:8080",
+	//			},
+	//		}
+	//	}
+	//
+	//	address := fmt.Sprintf("%s:%s", ip, port)
+
+	return proto.Node{
+		Id: string(id),
+		Address: &proto.NodeAddress{
+			Transport: defaultTransport,
+			Address:   "35.232.202.229:8080",
+		},
+	}
 }

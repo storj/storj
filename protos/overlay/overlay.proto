@@ -51,6 +51,7 @@ message OverlayOptions {
     google.protobuf.Duration maxLatency = 1;
     NodeRep minReputation = 2; // Not sure what NodeRep is yet.
     int64 minSpeedKbps = 3;
+    int64 limit = 4;
 }
 
 // NodeRep is the reputation characteristics of a node

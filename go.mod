@@ -20,6 +20,7 @@ require (
 	github.com/magiconair/properties v1.7.6
 	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/minio/cli v1.3.0
+	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
 	github.com/pelletier/go-toml v1.1.0
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
@@ -28,7 +29,6 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
-	github.com/spf13/jWalterWeatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716

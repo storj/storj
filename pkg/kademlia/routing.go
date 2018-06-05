@@ -4,7 +4,9 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -39,7 +41,7 @@ func (rt RouteTable) K() int {
 
 // CacheSize returns the total current size of the cache
 func (rt RouteTable) CacheSize() int {
-	//TODO: How is this calculated ? size of the routing table ? is it total bytes, mb, kb etc .?
+	// TODO: How is this calculated ? size of the routing table ? is it total bytes, mb, kb etc .?
 	return 0
 }
 
@@ -71,7 +73,7 @@ func (rt RouteTable) GetBuckets() (k []Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt RouteTable) FindNear(id NodeID, limit int) ([]overlay.Node, error) {
+func (rt RouteTable) FindNear(id NodeID, limit int) ([]*overlay.Node, error) {
 	return convertNetworkNodes(rt.ht.GetClosestContacts([]byte(id), limit)), nil
 }
 
@@ -104,4 +106,11 @@ func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 // GetBucketTimestamp retrieves the last updated time for a bucket
 func (rt RouteTable) GetBucketTimestamp(id string, bucket Bucket) (time.Time, error) {
 	return rt.dht.GetExpirationTime([]byte(id)), nil
+}
+
+// GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
+func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
+	fmt.Println("GetNodeRoutingTable")
+	fmt.Println("id: ", ID)
+	return RouteTable{}, nil
 }
