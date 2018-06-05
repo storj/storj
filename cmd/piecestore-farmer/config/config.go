@@ -23,7 +23,7 @@ type Config struct {
 	Port   string
 }
 
-var configFile string = "config.yaml"
+var configFile = "config.yaml"
 
 // NewManager creates new Manager
 func NewManager(dir string) (*Manager, error) {
