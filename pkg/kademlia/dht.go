@@ -197,7 +197,7 @@ func GetIntroNode() proto.Node {
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
-			Address:   "hello.bootstrap.storj.io:80",
+			Address:   "130.211.168.182:4242",
 		},
 	}
 }

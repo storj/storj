@@ -74,7 +74,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in := kademlia.GetIntroNode()
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "hello.bootstrap.storj.io", "")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "127.0.0.1", "8080")
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -93,7 +93,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// bootstrap cache
 	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
 	if err != nil {
-		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+		s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 		return err
 	}
 

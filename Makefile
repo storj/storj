@@ -32,8 +32,7 @@ test: lint
 	go test ./...
 	@echo done
 
-build:
-	dep ensure
+build-binaries:
 	docker build -t overlay .
 
 run-overlay:
@@ -47,7 +46,7 @@ run-overlay:
 
 	docker run -d \
 		--name=overlay \
-		-e REDIS_ADDRESS=redis \
+		-e REDIS_ADDRESS=redis:6379 \
 		-e REDIS_PASSWORD="" \
 		-e REDIS_DB=1 \
 		-e OVERLAY_PORT=8080 \
