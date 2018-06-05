@@ -47,7 +47,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 	defer storeFile.Close()
 
-	reader := &StreamReader{stream: stream}
+	reader := NewStreamReader(stream)
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
 		return err
