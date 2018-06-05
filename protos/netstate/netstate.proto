@@ -50,7 +50,7 @@ message RemotePiece {
 
 message RemoteSegment {
   RedundancyScheme redundancy = 1;
-  string piece_name = 2;
+  string piece_id = 2;
   repeated RemotePiece remote_pieces = 3;
 
   bytes merkle_root = 4; // root hash of the hashes of all of these pieces

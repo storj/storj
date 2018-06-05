@@ -7,8 +7,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -17,11 +19,17 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
+	proto "storj.io/storj/protos/netstate"
 )
 
 var (
@@ -29,6 +37,10 @@ var (
 	key            = flag.String("key", "a key", "the secret key")
 	rsk            = flag.Int("required", 5, "rs required")
 	rsn            = flag.Int("total", 20, "rs total")
+	rsm            = flag.Int("minimum", 10, "rs minimum safe")
+	rso            = flag.Int("optimal", 15, "rs optimal safe")
+
+	mon = monkit.Package()
 )
 
 var nodes = []string{
@@ -54,9 +66,21 @@ var nodes = []string{
 	"35.192.7.33:4242",
 }
 
+// nodeIds maps address to piece id (shards v2 name)
+var nodeIds = map[string]string{}
+
+// nodeAddrs maps piece id(shards) to address
+var nodeAddrs = map[string]string{}
+
 const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
+const testPieceID = "aLMAItZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
 
 func init() {
+	for i, address := range nodes {
+		nodeAddrs[fmt.Sprint(i)] = address
+		nodeIds[address] = fmt.Sprint(i)
+	}
+
 	minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
 		Usage:           "Storj",
@@ -288,12 +312,72 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
+/* Integration stuff with Network state */
+var (
+	netstateAddress = flag.String("netstate_addr", "localhost:8080", "port")
+)
+
+func netstatePut(ctx context.Context, path string, k, m, o, n int, pieceID string, nodes []*proto.RemotePiece) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
+	if err != nil {
+		zap.L().Error("Failed to dial: ", zap.Error(err))
+		return err
+	}
+
+	client := proto.NewNetStateClient(conn)
+
+	zap.L().Debug(fmt.Sprintf("client dialed port %s", netstateAddress))
+
+	// Example pointer paths to put
+	//pr1 passes with api creds
+	pr1 := proto.PutRequest{
+		Path: []byte(path), //key
+		Pointer: &proto.Pointer{
+			Type: proto.Pointer_REMOTE,
+			Remote: &proto.RemoteSegment{
+				Redundancy: &proto.RedundancyScheme{
+					Type:             proto.RedundancyScheme_RS,
+					MinReq:           int64(k),
+					Total:            int64(n),
+					RepairThreshold:  int64(m),
+					SuccessThreshold: int64(o),
+				},
+				PieceId:      pieceID, //piece id (with frame #)
+				RemotePieces: nodes,   //list of node ids
+			},
+		},
+		APIKey: []byte("abc123"),
+	}
+
+	// Example Puts
+	// puts passes api creds
+	_, err = client.Put(ctx, &pr1)
+	if err != nil || status.Code(err) == codes.Internal {
+		zap.L().Error("failed to put", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
 //encryptFile encrypts the uploaded files
-func encryptFile(ctx context.Context, data io.ReadCloser) error {
+func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
 		return err
 	}
+
+	/* create a unique fileID */
+	path := filepath.Join(bucket, object)
+	var slicepath []string
+	slicepath = make([]string, 1)
+	slicepath[0] = path
+	netStateKey := []byte(*key)
+	encryptedPath, err := paths.Encrypt(slicepath, netStateKey)
+
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	encKey := sha256.Sum256([]byte(*key))
 	var firstNonce [12]byte
@@ -304,15 +388,22 @@ func encryptFile(ctx context.Context, data io.ReadCloser) error {
 	}
 	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
 		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0),
-		es, 0, 0, 4*1024*1024)
+		es, *rsm, *rso, 4*1024*1024)
 	if err != nil {
 		return err
 	}
+
+	var remotePieces []*proto.RemotePiece
 	errs := make(chan error, len(readers))
 	for i := range readers {
+		remotePieces = append(remotePieces, &proto.RemotePiece{
+			PieceNum: int64(i),
+			NodeId:   nodeIds[nodes[i]],
+		})
 		go func(i int) {
 			conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
 			if err != nil {
+				zap.S().Errorf("error dialing: %v\n", err)
 				errs <- err
 				return
 			}
@@ -320,8 +411,10 @@ func encryptFile(ctx context.Context, data io.ReadCloser) error {
 			cl := client.New(ctx, conn)
 			// TODO just for the demo - the id is hardcoded
 			// w, err := cl.StorePieceRequest(pstore.DetermineID(), 0)
-			w, err := cl.StorePieceRequest(hardcodedPieceID, 0)
+			//w, err := cl.StorePieceRequest(hardcodedPieceID, 0)
+			w, err := cl.StorePieceRequest(testPieceID, 0)
 			if err != nil {
+				zap.S().Errorf("error req: %v\n", err)
 				errs <- err
 				return
 			}
@@ -329,25 +422,45 @@ func encryptFile(ctx context.Context, data io.ReadCloser) error {
 			// Make sure writer is closed to avoid losing last bytes
 			if err != nil {
 				w.Close()
+				zap.S().Errorf("error copy: %v\n", err)
 				errs <- err
 				return
 			}
-			errs <- w.Close()
+			err = w.Close()
+			if err != io.EOF {
+				zap.S().Errorf("error close: %v\n", err)
+				errs <- err
+			} else {
+				errs <- nil
+			}
+			// mutex.Lock()
+			// initNetState(strconv.Itoa(i), string(encryptedPath[0]))
+			// fmt.Println("index=", i)
+			// fmt.Println("key,value", strconv.Itoa(i), string(encryptedPath[0]))
+			// mutex.Unlock()
 		}(i)
+		//initNetState(string(encryptedPath[0]), strconv.Itoa(i))
 	}
+	var errbucket []error
 	for range readers {
 		err := <-errs
 		if err != nil {
-			return err
+			errbucket = append(errbucket, err)
 		}
 	}
-	return nil
+	if len(readers)-len(errbucket) < *rsm {
+		return errbucket[0]
+	}
+	/* integrate with Network State */
+	// initialize the client
+	return netstatePut(ctx, fmt.Sprint(encryptedPath), es.RequiredCount(), *rsm, *rso, es.TotalCount(), testPieceID, remotePieces)
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	err = encryptFile(ctx, ioutil.NopCloser(data))
+	defer mon.Task()(&ctx)(&err)
+	err = encryptFile(ctx, ioutil.NopCloser(data), bucket, object)
 	if err == nil {
 		s.uploadFile(bucket, object, data.Size(), metadata)
 	}
