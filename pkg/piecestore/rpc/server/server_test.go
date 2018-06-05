@@ -36,7 +36,7 @@ var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -129,7 +129,7 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -197,7 +197,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			req := &pb.PieceRetrieval{Id: tt.id, Size: tt.reqSize, StoreOffset: tt.offset}
+			req := &pb.PieceRetrieval{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}
 			stream, err := c.Retrieve(context.Background(), req)
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
@@ -240,9 +240,7 @@ func TestStore(t *testing.T) {
 	}{
 		{ // should successfully store data
 			id:          testId,
-			size:          5,
 			ttl:           testExpiration,
-			offset:        0,
 			content:       []byte("butts"),
 			message:       "OK",
 			totalReceived: 5,
@@ -250,43 +248,11 @@ func TestStore(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:          "butts",
-			size:          5,
 			ttl:           testExpiration,
-			offset:        0,
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
 			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
-		},
-		{ // should err with excessive size
-			id:          "ABCDEFGHIJKLMNOPQRST",
-			size:          10,
-			ttl:           testExpiration,
-			offset:        0,
-			content:       []byte("butts"),
-			message:       "",
-			totalReceived: 5,
-			err:           "rpc error: code = Unknown desc = Received 5 bytes of total 10 bytes",
-		},
-		{ // should successfully store data by offset
-			id:          testId,
-			size:          5,
-			ttl:           testExpiration,
-			offset:        10,
-			content:       []byte("butts"),
-			message:       "OK",
-			totalReceived: 5,
-			err:           "",
-		},
-		{ // should err with incorrect size
-			id:          testId,
-			size:          5,
-			ttl:           testExpiration,
-			offset:        0,
-			content:       []byte(""),
-			message:       "",
-			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = Received 0 bytes of total 5 bytes",
 		},
 	}
 
@@ -300,7 +266,7 @@ func TestStore(t *testing.T) {
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Id: tt.id, Size: tt.size, Ttl: tt.ttl, StoreOffset: tt.offset}); err != nil {
+			if err := stream.Send(&pb.PieceStore{Id: tt.id, Ttl: tt.ttl}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
@@ -364,7 +330,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testId, 5, 0, s.PieceStoreDir)
+			file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
 			if err != nil {
 				return
 			}

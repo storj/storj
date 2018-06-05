@@ -16,8 +16,6 @@ func TestStore(t *testing.T) {
   tests := []struct{
 		it string
 		id string
-		size int64
-		offset int64
 		content []byte
 		expectedContent []byte
     err string
@@ -25,63 +23,23 @@ func TestStore(t *testing.T) {
 	    {
 				it: "should successfully store data",
 				id: "0123456789ABCDEFGHIJ",
-				size: 5,
-				offset: 0,
 				content: []byte("butts"),
 				expectedContent: []byte("butts"),
 	      err: "",
 	    },
 			{
-				it: "should successfully store data by offset",
-				id: "0123456789ABCDEFGHIJ",
-				size: 5,
-				offset: 5,
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-				err: "",
-			},
-			{
-				it: "should successfully store data by chunk",
-				id: "0123456789ABCDEFGHIJ",
-				size: 2,
-				offset: 3,
-				content: []byte("butts"),
-				expectedContent: []byte("bu"),
-				err: "",
-			},
-			{
 				it: "should return an error when given an invalid id",
 				id: "012",
-				size: 5,
-				offset: 0,
 				content: []byte("butts"),
 				expectedContent: []byte("butts"),
 				err: "argError: Invalid id length",
-			},
-			{
-				it: "should return an error when given negative offset",
-				id: "0123456789ABCDEFGHIJ",
-				size: 5,
-				offset: -1,
-				content: []byte("butts"),
-				expectedContent: []byte(""),
-				err: "argError: Offset is less than 0. Must be greater than or equal to 0",
-			},
-			{
-				it: "should return an error when given negative length",
-				id: "0123456789ABCDEFGHIJ",
-				size: -1,
-				offset: 0,
-				content: []byte("butts"),
-				expectedContent: []byte(""),
-				err: "Invalid Length",
 			},
 	 }
 
   for _, tt := range tests {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
-			storeFile, err := StoreWriter(tt.id, tt.size, tt.offset, os.TempDir())
+			storeFile, err := StoreWriter(tt.id, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())
@@ -109,9 +67,8 @@ func TestStore(t *testing.T) {
 				t.Errorf("Error: %s opening created file %s", err.Error(), createdFilePath)
 				return
 			}
-
-			buffer := make([]byte, tt.size)
-			createdFile.Seek(tt.offset, 0)
+			buffer := make([]byte, int64(len(tt.content)))
+			createdFile.Seek(0, 0)
 			_, _ = createdFile.Read(buffer)
 
 			createdFile.Close()
@@ -211,7 +168,7 @@ func TestRetrieve(t *testing.T) {
 			}
 			createdFile.Close()
 
-			storeFile, err := RetrieveReader(tt.id, tt.size, tt.offset, os.TempDir())
+			storeFile, err := RetrieveReader(tt.id, tt.offset, tt.size, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())

@@ -8,8 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"net/http"
-	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -29,17 +27,14 @@ var (
 	redisPassword string
 	db            int
 	gui           bool
+	srvPort       uint
 )
 
 func init() {
-	flag.StringVar(&node, "node", "", "Boot up a storj node")
-	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Specify an IP address for a custom node to bootstrap your network with.")
-	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Specify a port for a custom node to bootstrap your network with.")
-	flag.BoolVar(&stun, "stun", false, "Set STUN to true")
 	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
-	flag.BoolVar(&gui, "gui", false, "Serve a GUI for stats and metrics on localhost:4000")
+	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.Parse()
 }
 
@@ -70,83 +65,59 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	fmt.Println("starting up storj-node")
+	// TODO
+	// 1. Boostrap a node on the network
+	// 2. Start up the overlay gRPC service
+	// 3. Connect to Redis
+	// 4. Boostrap Redis Cache
 
-	var bootstrapAddress string
+	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
+	in := kademlia.GetIntroNode()
 
-	if bootstrapIP != "" && bootstrapPort != "" {
-		fmt.Println("bootstrapping with %s:%s", bootstrapIP, bootstrapPort)
-		bootstrapAddress = fmt.Sprintf("%s:%s", bootstrapIP, bootstrapPort)
-	} else {
-		bootstrapAddress = fmt.Sprintf("127.0.0.1:4001")
-	}
-
-	bnode := &proto.Node{
-		Address: &proto.NodeAddress{
-			Address: bootstrapAddress,
-		},
-		// Id: "123456677234234",
-	}
-
-	nodes := []proto.Node{}
-	nodes = append(nodes, *bnode)
-
-	fmt.Println("bnode %+v\n", bnode)
-	fmt.Printf("nodes %+v\n", nodes)
-
-	kad, err := kademlia.NewKademlia(nodes, "127.0.0.1", "4000")
-	fmt.Println("KAD:", kad)
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "hello.bootstrap.storj.io", "")
 	if err != nil {
-		s.logger.Error("Failed to create NewKademlia", zap.Error(err))
+		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
 	}
 
-	go kad.ListenAndServe()
+	if err := kad.ListenAndServe(); err != nil {
+		s.logger.Error("Failed to ListenAndServe on new Kademlia", zap.Error(err))
+		return err
+	}
 
-	time.Sleep(time.Second)
+	if err := kad.Bootstrap(ctx); err != nil {
+		s.logger.Error("Failed to Bootstrap on new Kademlia", zap.Error(err))
+		return err
+	}
 
-	fmt.Println("bootstrap func", kad.Bootstrap(ctx))
-	kad.Bootstrap(ctx)
+	// bootstrap cache
 	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-	fmt.Println(cache)
-
 	if err != nil {
 		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
 		return err
 	}
 
-	if redisAddress != "" {
-		fmt.Println("starting up overlay cache")
-		cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-
-		if err != nil {
-			s.logger.Error("Failed to create a new overlay client", zap.Error(err))
-			return err
-		}
-
-		if err := cache.Bootstrap(ctx); err != nil {
-			s.logger.Error("Failed to boostrap cache", zap.Error(err))
-			return err
-		}
-
-		// send off cache refreshes concurrently
-		go cache.Refresh(ctx)
+	if err := cache.Bootstrap(ctx); err != nil {
+		s.logger.Error("Failed to boostrap cache", zap.Error(err))
+		return err
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	// send off cache refreshes concurrently
+	go cache.Refresh(ctx)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
 	if err != nil {
 		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
 		return err
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{})
-
-	if gui {
-		fmt.Println("starting up gui on port 4000")
-		http.Handle("/", http.FileServer(http.Dir("./static")))
-		http.ListenAndServe(":4000", nil)
-	}
+	proto.RegisterOverlayServer(grpcServer, &Overlay{
+		kad:     kad,
+		DB:      cache,
+		logger:  s.logger,
+		metrics: s.metrics,
+	})
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
