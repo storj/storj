@@ -66,8 +66,17 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
-	_, err := o.DHT.GetRoutingTable(ctx)
+	fmt.Println("bootstrapping cache")
+	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
+	for _, v := range nodes {
+		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		if err != nil {
+			fmt.Println("could not find node in network", err, v.Id)
+		}
+		addr, err := proto.Marshal(found.Address)
+		o.DB.Set(found.Id, addr, defaultNodeExpiration)
+	}
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
 	// take bootstrap node
@@ -78,6 +87,7 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 	// Other Possibilities: Randomly generate node ID's to ask for?
 
 	_, err = o.DHT.GetRoutingTable(ctx)
+
 	if err != nil {
 		return err
 	}
@@ -115,12 +125,10 @@ func (o *OverlayClient) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		_, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
 		if err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
-		addr, err := proto.Marshal(found.Address)
-		o.DB.Set(found.Id, addr, defaultNodeExpiration)
 	}
 
 	return nil
