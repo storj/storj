@@ -4,53 +4,78 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"path"
-	"regexp"
 
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
-func main() {
-	port := "7777"
+// Connect to the Kademlia network
+func connectToKad(id, ip, port string) *kademlia.Kademlia {
+	node := proto.Node{
+	        Id: string(id),
+	        Address: &proto.NodeAddress{
+	            Transport: proto.NodeTransport_TCP,
+	            Address:   "130.211.168.182:4242",
+	        },
+	    }
 
-	if len(os.Args) > 1 && os.Args[1] != "" {
-		if matched, _ := regexp.MatchString(`^\d{2,6}$`, os.Args[1]); matched == true {
-			port = os.Args[1]
-		}
+	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, port)
+	if err != nil {
+		log.Fatalf("Failed to instantiate new Kademlia: %s", err.Error())
 	}
+
+	if err := kad.ListenAndServe(); err != nil {
+		log.Fatalf("Failed to ListenAndServe on new Kademlia: %s", err.Error())
+	}
+
+	if err := kad.Bootstrap(context.Background()); err != nil {
+		log.Fatalf("Failed to Bootstrap on new Kademlia: %s", err.Error())
+	}
+
+	return kad
+}
+
+func main() {
+	// READ FROM CONFIG
+	id := pstore.DetermineID()
+	ip := flag.String("ip", "", "Server's public IP")
+	port := flag.String("port", "7777", "Port to run the server at")
 
 	// Get default folder for storing data and database
 	dataFolder, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf(err.Error())
 	}
+	dir := flag.String("dir", dataFolder, "Folder where data is stored")
 
-	// Check if directory for storing data and database was passed in
-	if len(os.Args) > 2 && os.Args[2] != "" {
-		dataFolder = os.Args[2]
-	}
+	_ = connectToKad(id, 	*ip, *port)
 
-	fileInfo, err := os.Stat(dataFolder)
+	fileInfo, err := os.Stat(*dir)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
 	if fileInfo.IsDir() != true {
-		log.Fatalf("dataFolder %s is not a directory", dataFolder)
+		log.Fatalf("dataFolder %s is not a directory", *dir)
 	}
 
 	// Suggestion for whoever implements this: Instead of using port use node id
-	dataDir := path.Join(dataFolder, port, "/piece-store-data/")
-	dbPath := path.Join(dataFolder, port, "/ttl-data.db")
+	dataDir := path.Join(*dir, *port, "/piece-store-data/")
+	dbPath := path.Join(*dir, *port, "/ttl-data.db")
 
 	ttlDB, err := ttl.NewTTL(dbPath)
 	if err != nil {
@@ -58,7 +83,7 @@ func main() {
 	}
 
 	// create a listener on TCP port
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
