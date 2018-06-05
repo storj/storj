@@ -136,7 +136,9 @@ func (k *Kademlia) ListenAndServe() error {
 		return err
 	}
 
-	return k.dht.Listen()
+	go k.dht.Listen()
+
+	return nil
 }
 
 func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
@@ -186,4 +188,16 @@ func newID() ([]byte, error) {
 	result := make([]byte, 20)
 	_, err := rand.Read(result)
 	return result, err
+}
+
+// GetIntroNode determines the best node to bootstrap a new node onto the network
+func GetIntroNode() proto.Node {
+	id, _ := newID() // TODO(coyle): This is solely to bootstrap our very first node, after we get an ID, we will just hardcode that ID
+	return proto.Node{
+		Id: string(id),
+		Address: &proto.NodeAddress{
+			Transport: defaultTransport,
+			Address:   "hello.bootstrap.storj.io",
+		},
+	}
 }
