@@ -236,18 +236,47 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return err
 	}
+	errs := make(chan error, *rsn)
+	conns := make([]*grpc.ClientConn, *rsn)
+	for i := 0; i < *rsn; i++ {
+		go func(i int) {
+			conns[i], err = grpc.Dial(nodes[i], grpc.WithInsecure())
+			errs <- err
+		}(i)
+	}
+	for range conns {
+		err := <-errs
+		if err != nil {
+			// TODO don't fail just because of failure with only one node
+			return err
+		}
+	}
+	defer func() {
+		for i := 0; i < *rsn; i++ {
+			defer conns[i].Close()
+		}
+	}()
 	rrs := map[int]ranger.Ranger{}
-	for i := 0; i < *rsn-1; i++ {
-		conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
-		if err != nil {
-			return err
+	type rangerInfo struct {
+		i   int
+		rr  ranger.Ranger
+		err error
+	}
+	rrch := make(chan rangerInfo, *rsn)
+	for i := 0; i < *rsn; i++ {
+		go func(i int) {
+			cl := client.New(ctx, conns[i])
+			rr, err := ranger.GRPCRanger(cl, hardcodedPieceID)
+			rrch <- rangerInfo{i, rr, err}
+		}(i)
+	}
+	for range conns {
+		info := <-rrch
+		if info.err != nil {
+			// TODO don't fail just because of failure with only one node
+			return info.err
 		}
-		defer conn.Close()
-		cl := client.New(ctx, conn)
-		rrs[i], err = ranger.GRPCRanger(cl, hardcodedPieceID)
-		if err != nil {
-			return err
-		}
+		rrs[info.i] = info.rr
 	}
 	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
 	if err != nil {
