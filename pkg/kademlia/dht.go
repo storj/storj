@@ -195,13 +195,25 @@ func newID() ([]byte, error) {
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode() proto.Node {
+func GetIntroNode(ip, port string) proto.Node {
 	id, _ := newID() // TODO(coyle): This is solely to bootstrap our very first node, after we get an ID, we will just hardcode that ID
+	if ip == "" {
+		return proto.Node{
+			Id: string(id),
+			Address: &proto.NodeAddress{
+				Transport: defaultTransport,
+				Address:   "130.211.168.182:4242",
+			},
+		}
+	}
+
+	address := fmt.Sprintf("%s:%s", ip, port)
+
 	return proto.Node{
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
-			Address:   "130.211.168.182:4242",
+			Address:   address,
 		},
 	}
 }
