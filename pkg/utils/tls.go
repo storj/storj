@@ -100,14 +100,18 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
   }
 
   // NB: even when `overwrite` is false, this WILL overwrite
-  //      a key if the cert is missing (vice versa, unless
-  //      client is also true)
-  if t.Create && (t.Overwrite || certMissing || (keyMissing && t.Client)) {
-    _, err := t.generate()
-    return err
+  //      a key if the cert is missing (vice versa)
+  if t.Create && (t.Overwrite || certMissing || keyMissing) {
+    if t.Client {
+      _, err := t.generateClientTls()
+      return err
+    } else {
+      _, err := t.generateServerTls()
+      return err
+    }
   }
 
-  if certMissing || (keyMissing && !t.Client) {
+  if certMissing || keyMissing {
     return ErrNotExist.New(errMessage)
   }
 

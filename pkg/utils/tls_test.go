@@ -94,7 +94,7 @@ func TestGenerate(t *testing.T) {
       Hosts:       "127.0.0.1",
     }
 
-    generatedCert, err := opts.generate()
+    generatedCert, err := opts.generateServerTls()
     if err != nil {
       quickLog("", opts, err)
       return false
