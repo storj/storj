@@ -1,16 +1,19 @@
-package configManager
+package config
 
 import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"gopkg.in/yaml.v2"
+
+	"storj.io/storj/pkg/piecestore"
 )
 
 // Manager holds the config filepath
 type Manager struct {
-	path string
+	dir string
 }
 
 // Config holds the contents of the config file
@@ -20,13 +23,30 @@ type Config struct {
 	Port   string
 }
 
-// New creates new Manager
-func New(path string) *Manager {
-	return &Manager{path: path}
+var configFile string = "config.yaml"
+
+// NewManager creates new Manager
+func NewManager(dir string) (*Manager, error) {
+	manager := &Manager{dir: dir}
+
+	_, err := os.Stat(path.Join(dir, configFile))
+	if os.IsExist(err) {
+		if err != nil {
+			return nil, err
+		}
+		return manager, nil
+	}
+
+	config := New(Config{Port: "7777", NodeID: pstore.DetermineID()})
+	if err := manager.WriteConfig(config); err != nil {
+		return nil, err
+	}
+
+	return manager, nil
 }
 
-// NewConfig creates new Config
-func NewConfig(c Config) *Config {
+// New creates new Config
+func New(c Config) *Config {
 	return &Config{IP: c.IP, Port: c.Port, NodeID: c.NodeID}
 }
 
@@ -37,7 +57,7 @@ func (m *Manager) WriteConfig(config *Config) error {
 		return err
 	}
 
-	file, err := os.Create(m.path)
+	file, err := os.Create(path.Join(m.dir, configFile))
 	if err != nil {
 		return err
 	}
@@ -54,11 +74,11 @@ func (m *Manager) WriteConfig(config *Config) error {
 func (m *Manager) ReadConfig() (*Config, error) {
 	var config *Config
 
-	if _, err := os.Stat(m.path); os.IsNotExist(err) {
+	if _, err := os.Stat(path.Join(m.dir, configFile)); os.IsNotExist(err) {
 		return nil, errors.New("Config file does not exist")
 	}
 
-	data, err := ioutil.ReadFile(m.path)
+	data, err := ioutil.ReadFile(path.Join(m.dir, configFile))
 	if err != nil {
 		return nil, err
 	}

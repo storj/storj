@@ -15,8 +15,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/cmd/piecestore-farmer/config"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	proto "storj.io/storj/protos/overlay"
@@ -50,11 +50,6 @@ func connectToKad(id, ip, port string) *kademlia.Kademlia {
 }
 
 func main() {
-	// READ FROM CONFIG
-	id := pstore.DetermineID()
-	ip := flag.String("ip", "", "Server's public IP")
-	port := flag.String("port", "7777", "Port to run the server at")
-
 	// Get default folder for storing data and database
 	dataFolder, err := os.Getwd()
 	if err != nil {
@@ -62,7 +57,22 @@ func main() {
 	}
 	dir := flag.String("dir", dataFolder, "Folder where data is stored")
 
-	_ = connectToKad(id, *ip, *port)
+	manager, err := config.NewManager(*dir)
+	if err != nil {
+		log.Fatalf("Failed to create manager: %s\n", err.Error())
+	}
+
+	// READ FROM CONFIG
+	config, err := manager.ReadConfig()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	ip := flag.String("ip", config.IP, "Server's public IP")
+	port := flag.String("port", config.Port, "Port to run the server at")
+	flag.Parse()
+
+	_ = connectToKad(config.NodeID, *ip, *port)
 
 	fileInfo, err := os.Stat(*dir)
 	if err != nil {
