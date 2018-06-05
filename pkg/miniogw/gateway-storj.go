@@ -326,7 +326,13 @@ func encryptFile(ctx context.Context, data io.ReadCloser) error {
 				return
 			}
 			_, err = io.Copy(w, readers[i])
-			errs <- err
+			// Make sure writer is closed to avoid losing last bytes
+			if err != nil {
+				w.Close()
+				errs <- err
+				return
+			}
+			errs <- w.Close()
 		}(i)
 	}
 	for range readers {
