@@ -58,7 +58,7 @@ func (client *Client) RetrievePieceRequest(id string, offset int64, length int64
 		return nil, err
 	}
 
-	return &StreamReader{stream: stream}, nil
+	return NewStreamReader(stream), nil
 }
 
 // DeletePieceRequest -- Delete Piece From Server
