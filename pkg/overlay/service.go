@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -25,12 +26,14 @@ var (
 	stun          bool
 	redisAddress  string
 	redisPassword string
+	httpPort      string
 	db            int
 	gui           bool
 	srvPort       uint
 )
 
 func init() {
+	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
 	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
@@ -118,6 +121,9 @@ func (s *Service) Process(ctx context.Context) error {
 		logger:  s.logger,
 		metrics: s.metrics,
 	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
