@@ -114,17 +114,13 @@ func (o *OverlayClient) Walk(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println("nodes:: ", nodes)
-
-	for k, v := range nodes {
-		fmt.Println("found node", k, v)
+	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
 		if err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
-
-		fmt.Println("Found Node::: ", found)
-		// o.DB.Set(v.Id, v.address)
+		addr, err := proto.Marshal(found.Address)
+		o.DB.Set(found.Id, addr, defaultNodeExpiration)
 	}
 
 	return nil
