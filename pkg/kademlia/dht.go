@@ -43,12 +43,20 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 		return nil, err
 	}
 
-	bdht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
+	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
 		ID:             []byte(id),
 		IP:             ip,
 		Port:           port,
 		BootstrapNodes: bb,
 	})
+
+	if err != nil {
+		fmt.Printf("error creating new DHT", err)
+		return nil, err
+	}
+
+	fmt.Printf("boostrap nodes::: %+v\n", bb)
+	fmt.Printf("BDHT ::: %+v\n", bdht)
 
 	rt := RouteTable{
 		ht:  bdht.HT,
