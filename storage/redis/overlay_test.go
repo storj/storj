@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"context"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -69,7 +70,7 @@ func TestGet(t *testing.T) {
 
 			assert.Equal(t, 0, c.client.getCalled)
 
-			resp, err := oc.Get(c.key)
+			resp, err := oc.Get(context.Background(), c.key)
 			assert.Equal(t, c.expectedError, err)
 			assert.Equal(t, c.expectedResponse, resp)
 			assert.Equal(t, c.expectedTimesCalled, c.client.getCalled)
