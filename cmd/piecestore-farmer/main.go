@@ -104,7 +104,7 @@ func main() {
 
 				viper.AddConfigPath(configPath)
 
-				fullPath := path.Join(configPath, nodeID, fmt.Sprintf("%s.yaml", nodeID))
+				fullPath := path.Join(configPath, fmt.Sprintf("%s.yaml", nodeID))
 				_, err = os.Stat(fullPath)
 				if os.IsExist(err) {
 					if err != nil {
@@ -128,7 +128,7 @@ func main() {
 					viper.Set("port", port)
 				}
 				if dir != "" {
-					viper.Set("datadir", dir)
+					viper.Set("datadir", path.Join(dir, nodeID))
 				}
 
 				if err := viper.WriteConfig(); err != nil {
@@ -149,6 +149,10 @@ func main() {
 			Usage:     "start farmer node",
 			ArgsUsage: "[id]",
 			Action: func(c *cli.Context) error {
+				if c.Args().Get(0) == "" {
+					return errors.New("no id specified")
+				}
+
 				usr, err := user.Current()
 				if err != nil {
 					log.Fatalf(err.Error())
@@ -156,7 +160,7 @@ func main() {
 
 				configPath := path.Join(usr.HomeDir, ".storj/")
 				viper.AddConfigPath(configPath)
-				viper.SetConfigName(nodeID)
+				viper.SetConfigName(c.Args().Get(0))
 				viper.SetConfigType("yaml")
 				if err := viper.ReadInConfig(); err != nil {
 					log.Fatalf(err.Error())
