@@ -28,6 +28,8 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
+	//a := "35.232.202.229:8080"
+	//c, err := NewClient(&a, grpc.WithInsecure())
 	t.SkipNow()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
