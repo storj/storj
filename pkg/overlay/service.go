@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	redisAddress, redisPassword, httpPort string
-	db                                    int
-	srvPort                               uint
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
+	db                                                                           int
+	srvPort                                                                      uint
 )
 
 func init() {
@@ -31,6 +31,9 @@ func init() {
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
+	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
+	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
+	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
 	flag.Parse()
 }
 
@@ -68,9 +71,9 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode()
+	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "127.0.0.1", "8080")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "127.0.0.1", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
