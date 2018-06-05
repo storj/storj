@@ -4,6 +4,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -20,19 +22,31 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
+func newID() (string) {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	encoding := base64.URLEncoding.EncodeToString(b)
+
+	return encoding[:20]
+}
+
 func connectToKad(id, ip, port string) *kademlia.Kademlia {
 	node := proto.Node{
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: proto.NodeTransport_TCP,
-			Address:   "130.211.168.182:4242",
+			Address:   "bootstrap.storj.io:8080",
 		},
 	}
 
@@ -77,14 +91,14 @@ func main() {
 				cli.StringFlag{Name: "dir, d", Usage: "`dir` of drive being shared", Destination: &dir},
 			},
 			Action: func(c *cli.Context) error {
-				nodeID := pstore.DetermineID()
+				nodeID := newID()
 
 				usr, err := user.Current()
 				if err != nil {
 					return err
 				}
 
-				viper.SetDefault("ip", "")
+				viper.SetDefault("ip", "127.0.0.1")
 				viper.SetDefault("port", "7777")
 				viper.SetDefault("rootdir", path.Join(usr.HomeDir, nodeID))
 
