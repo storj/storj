@@ -4,19 +4,23 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	// "net"
 	"os"
-	// "path"
+	"os/user"
+	"path"
+	"path/filepath"
   "sort"
 
 	// _ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/context"
 	// "google.golang.org/grpc"
+	"github.com/spf13/viper"
   "github.com/urfave/cli"
 
-	// "storj.io/storj/cmd/piecestore-farmer/config"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/kademlia"
 	// "storj.io/storj/pkg/piecestore/rpc/server"
 	// "storj.io/storj/pkg/piecestore/rpc/server/ttl"
@@ -74,7 +78,67 @@ func main() {
         cli.StringFlag{Name: "dir, d", Usage: "`dir` of drive being shared", Destination: &dir},
       },
 			Action: func(c *cli.Context) error {
-        fmt.Println(port)
+				nodeID := pstore.DetermineID()
+				usr, err := user.Current()
+				if err != nil {
+					return err
+				}
+
+				defaultDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+  			if err != nil {
+          return err
+  			}
+
+				viper.SetDefault("ip", "")
+				viper.SetDefault("port", "7777")
+				viper.SetDefault("datadir", defaultDir)
+
+				viper.SetConfigName(nodeID)
+				viper.SetConfigType("yaml")
+
+				configPath := path.Join(usr.HomeDir, ".storj/")
+				if err = os.MkdirAll(configPath, 0700); err != nil {
+					return err
+				}
+
+				viper.AddConfigPath(configPath)
+
+				fullPath := path.Join(configPath, fmt.Sprintf("%s.yaml", nodeID))
+				_, err = os.Stat(fullPath)
+				if os.IsExist(err) {
+					if err != nil {
+						return errors.New("Config already exists!")
+					}
+					return err
+				}
+
+			  // Create emty file at configPath
+				_, err = os.Create(fullPath)
+				if err != nil {
+					return err
+				}
+
+				viper.Set("nodeid", nodeID)
+
+				if host != "" {
+					viper.Set("ip", host)
+				}
+				if port != "" {
+					viper.Set("port", port)
+				}
+				if dir != "" {
+					viper.Set("datadir", dir)
+				}
+
+				if err := viper.WriteConfig(); err != nil {
+					return err
+				}
+
+				path := viper.ConfigFileUsed()
+
+				fmt.Println(path)
+				fmt.Println(nodeID)
+
 				return nil
 			},
 		},
