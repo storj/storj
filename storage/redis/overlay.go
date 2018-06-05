@@ -68,10 +68,7 @@ func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *OverlayClient) Bootstrap(ctx context.Context) error {
-	fmt.Println("Bootstrap function reached")
-	routetable, err := o.DHT.GetRoutingTable(ctx)
-
-	fmt.Println(routetable)
+	_, err := o.DHT.GetRoutingTable(ctx)
 
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
@@ -114,5 +111,23 @@ func (o *OverlayClient) Refresh(ctx context.Context) error {
 
 // Walk iterates over buckets to traverse the network
 func (o *OverlayClient) Walk(ctx context.Context) error {
-	return errors.New("Walk function needs to be implemented")
+	nodes, err := o.DHT.GetNodes(ctx, "0", 128)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("nodes:: ", nodes)
+
+	for k, v := range nodes {
+		fmt.Println("found node", k, v)
+		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		if err != nil {
+			fmt.Println("could not find node in network", err, v.Id)
+		}
+
+		fmt.Println("Found Node::: ", found)
+		// o.DB.Set(v.Id, v.address)
+	}
+
+	return nil
 }

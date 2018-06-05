@@ -125,6 +125,7 @@ func (s *Service) Process(ctx context.Context) error {
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
 	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	go cache.Walk(ctx)
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
