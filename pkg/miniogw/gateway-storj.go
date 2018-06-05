@@ -21,6 +21,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/ranger"
 )
 
 var (
@@ -52,6 +53,8 @@ var nodes = []string{
 	"35.202.91.191:4242",
 	"35.192.7.33:4242",
 }
+
+const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
 
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
@@ -221,12 +224,52 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-
-	panic("TODO")
+	encKey := sha256.Sum256([]byte(*key))
+	fc, err := infectious.NewFEC(*rsk, *rsn)
+	if err != nil {
+		return err
+	}
+	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAESGCMDecrypter(
+		&encKey, &firstNonce, es.DecodedBlockSize())
+	if err != nil {
+		return err
+	}
+	rrs := map[int]ranger.Ranger{}
+	for i := 0; i < *rsn-1; i++ {
+		conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		cl := client.New(ctx, conn)
+		rrs[i], err = ranger.GRPCRanger(cl, hardcodedPieceID)
+		if err != nil {
+			return err
+		}
+	}
+	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.Transform(rr, decrypter)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.UnpadSlow(rr)
+	if err != nil {
+		return err
+	}
+	if length == -1 {
+		length = rr.Size()
+	}
+	r := rr.Range(startOffset, length)
+	_, err = io.Copy(writer, r)
+	return err
 }
 
-func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
-	object string) (objInfo minio.ObjectInfo, err error) {
+func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
 	panic("TODO")
 }
 
@@ -277,7 +320,7 @@ func encryptFile(ctx context.Context, data io.ReadCloser) error {
 			cl := client.New(ctx, conn)
 			// TODO just for the demo - the id is hardcoded
 			// w, err := cl.StorePieceRequest(pstore.DetermineID(), 0)
-			w, err := cl.StorePieceRequest("zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\=", 0)
+			w, err := cl.StorePieceRequest(hardcodedPieceID, 0)
 			if err != nil {
 				errs <- err
 				return
