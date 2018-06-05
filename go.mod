@@ -7,7 +7,7 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
 	github.com/cloudfoundry/gosigar v1.1.0
-	github.com/coyle/kademlia v0.0.0-20180531194258-9b02bb94db67
+	github.com/coyle/kademlia v0.0.0-20180604160050-23c5c505df98
 	github.com/fatih/structs v1.0.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
@@ -18,8 +18,6 @@ require (
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/monkit-hw v0.0.0-20180222001630-9b6edb34372a
 	github.com/magiconair/properties v1.7.6
-	github.com/minio/cli v1.3.0
-	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
 	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/minio/cli v1.3.0
 	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
@@ -31,10 +29,6 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
-	github.com/spf13/afero v1.1.0
-	github.com/spf13/cast v1.2.0
-	github.com/spf13/jWalterWeatherman v0.0.0-20180109140146-7c0cea34c8ec
-	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
