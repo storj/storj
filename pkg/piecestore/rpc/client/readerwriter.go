@@ -37,12 +37,13 @@ func (s *StreamWriter) Close() error {
 	return nil
 }
 
-// StreamReader -- Struct for reading piece download stream from server
+// StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
 	stream pb.PieceStoreRoutes_RetrieveClient
 	src    *utils.ReaderSource
 }
 
+// NewStreamReader creates a StreamReader
 func NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
 	return &StreamReader{
 		stream: stream,

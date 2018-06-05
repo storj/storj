@@ -23,11 +23,12 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// StreamReader -- Struct for Retrieving data from server
+// StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
 	src *utils.ReaderSource
 }
 
+// NewStreamReader returns a new StreamReader
 func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 	return &StreamReader{
 		src: utils.NewReaderSource(func() ([]byte, error) {
