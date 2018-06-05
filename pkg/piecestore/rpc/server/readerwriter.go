@@ -4,6 +4,7 @@
 package server
 
 import (
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -22,35 +23,25 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// StreamReader -- Struct for Retrieving data from server
+// StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
-	stream       pb.PieceStoreRoutes_StoreServer
-	overflowData []byte
+	src *utils.ReaderSource
+}
+
+// NewStreamReader returns a new StreamReader
+func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
+	return &StreamReader{
+		src: utils.NewReaderSource(func() ([]byte, error) {
+			msg, err := stream.Recv()
+			if err != nil {
+				return nil, err
+			}
+			return msg.Content, nil
+		}),
+	}
 }
 
 // Read -- Read method for piece download from stream
 func (s *StreamReader) Read(b []byte) (int, error) {
-
-	// Use overflow data if we have it
-	if len(s.overflowData) > 0 {
-		n := copy(b, s.overflowData)        // Copy from overflow into buffer
-		s.overflowData = s.overflowData[n:] // Overflow is set to whatever remains
-		return n, nil
-	}
-
-	// Receive data from server stream
-	msg, err := s.stream.Recv()
-	if err != nil {
-		return 0, err
-	}
-
-	// Copy data into buffer
-	n := copy(b, msg.Content)
-
-	// If left over data save it into overflow variable for next read
-	if n < len(msg.Content) {
-		s.overflowData = b[len(b):]
-	}
-
-	return n, nil
+	return s.src.Read(b)
 }
