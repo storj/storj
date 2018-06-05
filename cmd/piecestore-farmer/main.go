@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package butts
 
 import (
 	"flag"
@@ -84,8 +84,8 @@ func main() {
 	}
 
 	// Suggestion for whoever implements this: Instead of using port use node id
-	dataDir := path.Join(*dir, *port, "/piece-store-data/")
-	dbPath := path.Join(*dir, *port, "/ttl-data.db")
+	dataDir := path.Join(*dir, id, "/piece-store-data/")
+	dbPath := path.Join(*dir, id, "/ttl-data.db")
 
 	ttlDB, err := ttl.NewTTL(dbPath)
 	if err != nil {
