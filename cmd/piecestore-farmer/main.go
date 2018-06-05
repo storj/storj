@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"path/filepath"
 	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -80,22 +79,17 @@ func main() {
 			Action: func(c *cli.Context) error {
 				nodeID := pstore.DetermineID()
 
-				defaultDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+				usr, err := user.Current()
 				if err != nil {
 					return err
 				}
 
 				viper.SetDefault("ip", "")
 				viper.SetDefault("port", "7777")
-				viper.SetDefault("datadir", defaultDir)
+				viper.SetDefault("rootdir", path.Join(usr.HomeDir, nodeID))
 
 				viper.SetConfigName(nodeID)
 				viper.SetConfigType("yaml")
-
-				usr, err := user.Current()
-				if err != nil {
-					return err
-				}
 
 				configPath := path.Join(usr.HomeDir, ".storj/")
 				if err = os.MkdirAll(configPath, 0700); err != nil {
@@ -128,8 +122,11 @@ func main() {
 					viper.Set("port", port)
 				}
 				if dir != "" {
-					viper.Set("datadir", path.Join(dir, nodeID))
+					viper.Set("rootdir", path.Join(dir, nodeID))
 				}
+
+				viper.Set("datadir", path.Join(viper.GetString("rootdir"), "/piece-store-data/"))
+				viper.Set("ttl", path.Join(viper.GetString("rootdir"), "/ttl-data.db"))
 
 				if err := viper.WriteConfig(); err != nil {
 					return err
@@ -169,7 +166,14 @@ func main() {
 				nodeid := viper.GetString("nodeid")
 				ip := viper.GetString("ip")
 				port := viper.GetString("port")
-				piecestoreDir := viper.GetString("datadir")
+				piecestoreDir := viper.GetString("rootdir")
+				dataDir := viper.GetString("datadir")
+				dbPath := viper.GetString("ttl")
+
+				if err = os.MkdirAll(piecestoreDir, 0700); err != nil {
+					fmt.Println("I failed")
+					log.Fatalf(err.Error())
+				}
 
 				_ = connectToKad(nodeid, ip, port)
 
@@ -180,10 +184,6 @@ func main() {
 				if fileInfo.IsDir() != true {
 					log.Fatalf("Error: %s is not a directory", piecestoreDir)
 				}
-
-				// Suggestion for whoever implements this: Instead of using port use node id
-				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
-				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
 
 				ttlDB, err := ttl.NewTTL(dbPath)
 				if err != nil {
