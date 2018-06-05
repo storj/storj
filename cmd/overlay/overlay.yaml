@@ -19,6 +19,15 @@ spec:
     app: overlay
 ---
 apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: overlay-ingress
+spec:
+  backend:
+    serviceName: overlay
+    servicePort: 8080
+---
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: overlay
@@ -53,7 +62,7 @@ spec:
           initialDelaySeconds: 10
         env:
           - name: REDIS_ADDRESS
-            value: "127.0.0.1:6379"
+            value: "35.196.255.248:6379"
           - name: REDIS_PASSWORD
             value: ""
           - name: REDIS_DB

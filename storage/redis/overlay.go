@@ -41,13 +41,11 @@ func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*Over
 
 // Get looks up the provided nodeID from the redis cache
 func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
-	fmt.Printf("HELO\n\n\n%#v\n", o)
 	b, err := o.DB.Get(key)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("HELO\n\n\n%#v :: %#v :: %#v\n", b, err, key)
 	na := &overlay.NodeAddress{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
