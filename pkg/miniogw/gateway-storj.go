@@ -446,8 +446,6 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 			defer conn.Close()
 			cl := client.New(ctx, conn)
 			// TODO just for the demo - the id is hardcoded
-			// w, err := cl.StorePieceRequest(pstore.DetermineID(), 0)
-			//w, err := cl.StorePieceRequest(hardcodedPieceID, 0)
 			w, err := cl.StorePieceRequest(testPieceID, 0)
 			if err != nil {
 				zap.S().Errorf("error req: %v\n", err)
@@ -469,13 +467,7 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 			} else {
 				errs <- nil
 			}
-			// mutex.Lock()
-			// initNetState(strconv.Itoa(i), string(encryptedPath[0]))
-			// fmt.Println("index=", i)
-			// fmt.Println("key,value", strconv.Itoa(i), string(encryptedPath[0]))
-			// mutex.Unlock()
 		}(i)
-		//initNetState(string(encryptedPath[0]), strconv.Itoa(i))
 	}
 	var errbucket []error
 	for range readers {
