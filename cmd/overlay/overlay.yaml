@@ -57,11 +57,11 @@ spec:
           - name: REDIS_PASSWORD
             value: ""
           - name: REDIS_DB
-            value: 1
+            value: "1"
           - name: OVERLAY_PORT
-            value: 8080
+            value: "8080"
           - name: HTTP_PORT
-            value: 8081
+            value: "8081"
         ports:
         - name: grpc
           containerPort: 8080

@@ -20,16 +20,9 @@ import (
 )
 
 var (
-	node          string
-	bootstrapIP   string
-	bootstrapPort string
-	stun          bool
-	redisAddress  string
-	redisPassword string
-	httpPort      string
-	db            int
-	gui           bool
-	srvPort       uint
+	redisAddress, redisPassword, httpPort string
+	db                                    int
+	srvPort                               uint
 )
 
 func init() {
