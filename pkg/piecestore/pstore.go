@@ -6,13 +6,14 @@ package pstore
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/filepiece"
+	"storj.io/storj/pkg/ranger"
 )
 
 // IDLength -- Minimum ID length
@@ -56,11 +57,7 @@ func DetermineID() string {
 // 	id is the id of the data to be stored
 // 	dir is the pstore directory containing all other data stored
 // 	returns error if failed and nil if successful
-func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpiece.Chunk, error) {
-	if psFileOffset < 0 {
-		return nil, ArgError.New("Offset is less than 0. Must be greater than or equal to 0")
-	}
-
+func StoreWriter(id string, dir string) (io.WriteCloser, error) {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
@@ -72,21 +69,16 @@ func StoreWriter(id string, length int64, psFileOffset int64, dir string) (*fpie
 	}
 
 	// Create File on file system
-	dataFile, err := os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	return fpiece.NewChunk(dataFile, psFileOffset, length)
+	return os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, 0755)
 }
 
 // RetrieveReader retrieves data from pstore directory
 //	id is the id of the stored data
+//	offset	is the offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	length is the amount of data to read. Read all data if -1
-//	readPosOffset	is the offset of the data that you are reading. Useful for multiple connections to split the data transfer
 //	dir is the pstore directory containing all other data stored
 // 	returns error if failed and nil if successful
-func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*fpiece.Chunk, error) {
+func RetrieveReader(id string, offset int64, length int64, dir string) (io.ReadCloser, error) {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
@@ -98,8 +90,8 @@ func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*
 	}
 
 	// If offset is greater than file size return
-	if readPosOffset >= fileInfo.Size() || readPosOffset < 0 {
-		return nil, ArgError.New("Invalid offset: %v", readPosOffset)
+	if offset >= fileInfo.Size() || offset < 0 {
+		return nil, ArgError.New("Invalid offset: %v", offset)
 	}
 
 	// If length less than 0 read the entire file
@@ -108,8 +100,8 @@ func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*
 	}
 
 	// If trying to read past the end of the file, just read to the end
-	if fileInfo.Size() < readPosOffset+length {
-		length = fileInfo.Size() - readPosOffset
+	if fileInfo.Size() < offset+length {
+		length = fileInfo.Size() - offset
 	}
 
 	dataFile, err := os.OpenFile(dataPath, os.O_RDONLY, 0755)
@@ -118,7 +110,12 @@ func RetrieveReader(id string, length int64, readPosOffset int64, dir string) (*
 	}
 
 	// Created a section reader so that we can concurrently retrieve the same file.
-	return fpiece.NewChunk(dataFile, readPosOffset, length)
+	rr, err := ranger.FileHandleRanger(dataFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return rr.Range(offset, length), nil
 }
 
 // Delete deletes data from farmer

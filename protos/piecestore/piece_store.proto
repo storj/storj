@@ -18,11 +18,9 @@ service PieceStoreRoutes {
 
 message PieceStore {
   string id = 1;
-  int64 size = 2;
-  int64 ttl = 3;
-  int64 storeOffset = 4;
+  int64 ttl = 2;
 
-  bytes content = 5;
+  bytes content = 3;
 }
 
 message PieceId {
@@ -38,7 +36,7 @@ message PieceSummary {
 message PieceRetrieval {
   string id = 1;
   int64 size = 2;
-  int64 storeOffset = 3;
+  int64 offset = 3;
 }
 
 message PieceRetrievalStream {
