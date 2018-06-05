@@ -31,7 +31,7 @@ type RoutingTable interface {
 	CacheSize() int
 
 	GetBucket(id string) (bucket Bucket, ok bool)
-	GetBuckets() ([]*Bucket, error)
+	GetBuckets() ([]Bucket, error)
 
 	FindNear(id NodeID, limit int) ([]overlay.Node, error)
 

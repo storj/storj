@@ -3,9 +3,25 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/aleitner/FilePiece"
+  name = "github.com/anacrolix/missinggo"
+  packages = [
+    ".",
+    "inproc",
+    "pproffd"
+  ]
+  revision = "ca16e9f398a905bb3100a03a90959fba127c31a1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/anacrolix/sync"
   packages = ["."]
-  revision = "b020bc25bf963676c8d70d9ae3c882cf1cf33ef3"
+  revision = "3870fa5b90c5418faca1864cdc0cb1b6bb155aa8"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/anacrolix/utp"
+  packages = ["."]
+  revision = "9e0e1d1d0572f5a09a669d4ea0372d8e8078dcc9"
 
 [[projects]]
   branch = "master"
@@ -20,9 +36,21 @@
   version = "v1.3.1"
 
 [[projects]]
+  name = "github.com/ccding/go-stun"
+  packages = ["stun"]
+  revision = "04a4eed61c57ecc9903f8983d1d2c17b88d2e9e1"
+  version = "0.1.0"
+
+[[projects]]
   name = "github.com/cheggaaa/pb"
   packages = ["."]
   revision = "73ae1d68fe0bd482ab11913a9828634f795b987f"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/coyle/kademlia"
+  packages = ["."]
+  revision = "9b02bb94db6771a85fb279998bfd5a854efe7df4"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -166,12 +194,6 @@
   revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
-  name = "github.com/google/uuid"
-  packages = ["."]
-  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
-  version = "0.2"
-
-[[projects]]
   name = "github.com/gorilla/context"
   packages = ["."]
   revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
@@ -219,6 +241,12 @@
   revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
 
 [[projects]]
+  name = "github.com/huandu/xstrings"
+  packages = ["."]
+  revision = "2bf18b218c51864a87384c06996e40ff9dcff8e1"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/inconshreveable/go-update"
   packages = [
@@ -227,6 +255,12 @@
     "internal/osext"
   ]
   revision = "8152e7eb6ccf8679a64582a66b78519688d156ad"
+
+[[projects]]
+  name = "github.com/jbenet/go-base58"
+  packages = ["."]
+  revision = "6237cf65f3a6f7111cd8a42be3590df99a66bc7d"
+  version = "1.0.0"
 
 [[projects]]
   name = "github.com/julienschmidt/httprouter"
@@ -503,6 +537,16 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/spacemonkeygo/flagfile"
+  packages = [
+    ".",
+    "parser",
+    "utils"
+  ]
+  revision = "0d750334dbb886bfd9480d158715367bfef2441c"
+
+[[projects]]
+  branch = "master"
   name = "github.com/spacemonkeygo/monotime"
   packages = [
     ".",
@@ -759,7 +803,12 @@
 [[projects]]
   branch = "v2"
   name = "gopkg.in/spacemonkeygo/monkit.v2"
-  packages = ["."]
+  packages = [
+    ".",
+    "collect",
+    "environment",
+    "present"
+  ]
   revision = "694b83f5e32bc022759395dca3c5520d66eb9760"
 
 [[projects]]
@@ -771,6 +820,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1c5f0d00bcf4b0b0cb1d7eaa11abd379b630d64a50b7f3bc222e50f05603865b"
+  inputs-digest = "1977a85f03364feade0907b136af3681d6e047e4e20bb34394ba0fb046c56519"
   solver-name = "gps-cdcl"
   solver-version = 1

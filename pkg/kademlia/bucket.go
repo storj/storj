@@ -7,6 +7,7 @@ import "storj.io/storj/protos/overlay"
 
 // KBucket implements the Bucket interface
 type KBucket struct {
+	nodes []overlay.Node
 }
 
 // Routing __ (TODO) still not entirely sure what the bucket methods are supposed to do
