@@ -37,6 +37,14 @@ build:
 	docker build -t overlay .
 
 run-overlay:
+	docker network create test-net
+
+	docker run -d \
+		--name redis \
+		--network test-net \
+		-p 6379:6379 \
+		redis
+
 	docker run -d \
 		--name=overlay \
 		-e REDIS_ADDRESS=redis \
