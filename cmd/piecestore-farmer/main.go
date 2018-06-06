@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -66,7 +68,9 @@ func connectToKad(id, ip, port string) *kademlia.Kademlia {
 	return kad
 }
 
-func main() {
+func main() { process.Must(process.Main(process.ServiceFunc(run))) }
+
+func run(ctx context.Context) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store Farmer CLI"
@@ -264,8 +268,5 @@ func main() {
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
