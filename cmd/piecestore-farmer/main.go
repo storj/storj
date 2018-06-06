@@ -28,7 +28,7 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-func newID() (string) {
+func newID() string {
 	b := make([]byte, 32)
 
 	_, err := rand.Read(b)
