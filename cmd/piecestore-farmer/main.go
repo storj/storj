@@ -75,7 +75,8 @@ func main() {
 
 	// Flags
 	app.Flags = []cli.Flag{}
-	var port string
+	var kadport string
+	var serverport string
 	var host string
 	var dir string
 
@@ -86,7 +87,8 @@ func main() {
 			Usage:     "create farmer node",
 			ArgsUsage: "",
 			Flags: []cli.Flag{
-				cli.StringFlag{Name: "port, p", Usage: "Run farmer at `port`", Destination: &port},
+				cli.StringFlag{Name: "port, p", Usage: "Run farmer at `port`", Destination: &serverport},
+				cli.StringFlag{Name: "kademlia, k", Usage: "Run farmer at `kademlia port`", Destination: &kadport},
 				cli.StringFlag{Name: "host, n", Usage: "Farmers public `hostname`", Destination: &host},
 				cli.StringFlag{Name: "dir, d", Usage: "`dir` of drive being shared", Destination: &dir},
 			},
@@ -99,7 +101,8 @@ func main() {
 				}
 
 				viper.SetDefault("ip", "127.0.0.1")
-				viper.SetDefault("port", "7777")
+				viper.SetDefault("kademliaPort", "7776")
+				viper.SetDefault("pieceServerPort", "7777")
 				viper.SetDefault("rootdir", path.Join(usr.HomeDir, nodeID))
 
 				viper.SetConfigName(nodeID)
@@ -132,8 +135,11 @@ func main() {
 				if host != "" {
 					viper.Set("ip", host)
 				}
-				if port != "" {
-					viper.Set("port", port)
+				if serverport != "" {
+					viper.Set("pieceServerPort", serverport)
+				}
+				if kadport != "" {
+					viper.Set("kademliaPort", kadport)
 				}
 				if dir != "" {
 					viper.Set("rootdir", path.Join(dir, nodeID))
@@ -179,7 +185,8 @@ func main() {
 
 				nodeid := viper.GetString("nodeid")
 				ip := viper.GetString("ip")
-				port := viper.GetString("port")
+				kadport := viper.GetString("kademliaPort")
+				serverport := viper.GetString("pieceServerPort")
 				piecestoreDir := viper.GetString("rootdir")
 				dataDir := viper.GetString("datadir")
 				dbPath := viper.GetString("ttl")
@@ -189,7 +196,7 @@ func main() {
 					log.Fatalf(err.Error())
 				}
 
-				_ = connectToKad(nodeid, ip, port)
+				_ = connectToKad(nodeid, ip, kadport)
 
 				fileInfo, err := os.Stat(piecestoreDir)
 				if err != nil {
@@ -205,7 +212,7 @@ func main() {
 				}
 
 				// create a listener on TCP port
-				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", viper.GetString("port")))
+				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", serverport))
 				if err != nil {
 					log.Fatalf("failed to listen: %v", err)
 				}
