@@ -192,7 +192,6 @@ func main() {
 				dbPath := viper.GetString("ttl")
 
 				if err = os.MkdirAll(piecestoreDir, 0700); err != nil {
-					fmt.Println("I failed")
 					log.Fatalf(err.Error())
 				}
 
