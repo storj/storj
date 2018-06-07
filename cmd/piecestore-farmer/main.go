@@ -199,7 +199,7 @@ func run(ctx context.Context) error {
 				ip := viper.GetString("piecestore.host")
 				serverport := viper.GetString("piecestore.port")
 				kadport := viper.GetString("kademlia.listen.port")
-				kadaddress := viper.GetString("kademlia.address")
+				kadaddress := viper.GetString("kademlia.host")
 				piecestoreDir := viper.GetString("piecestore.dir")
 				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
 				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
