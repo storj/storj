@@ -5,7 +5,6 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/base58"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mr-tron/base58/base58"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -38,7 +38,7 @@ func newID() string {
 		panic(err)
 	}
 
-	encoding := base58.URLEncoding.EncodeToString(b)
+	encoding := base58.Encode(b)
 
 	return encoding[:20]
 }
@@ -135,13 +135,11 @@ func run(ctx context.Context) error {
 					return err
 				}
 
-				// Create emty file at configPath
+				// Create empty file at configPath
 				_, err = os.Create(fullPath)
 				if err != nil {
 					return err
 				}
-
-				viper.Set("nodeid", nodeID)
 
 				if pshost != "" {
 					viper.Set("piecestore.host", pshost)
@@ -168,8 +166,8 @@ func run(ctx context.Context) error {
 
 				path := viper.ConfigFileUsed()
 
-				fmt.Println(path)
-				fmt.Println(nodeID)
+				fmt.Printf("Config: %s\n", path)
+				fmt.Printf("ID: %s\n", nodeID)
 
 				return nil
 			},
