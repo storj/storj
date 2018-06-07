@@ -7,11 +7,14 @@ metadata:
 spec:
   ports:
   - name: grpc
-    port: 8080
-    targetPort: 8080
+    port: 7070
+    targetPort: 7070
   - name: http
     port: 8081
     targetPort: 8081
+  - name: kademlia
+    port: 8080
+    target: 8080
   selector:
     app: overlay
 ---
@@ -56,7 +59,7 @@ spec:
           - name: REDIS_DB
             value: "1"
           - name: OVERLAY_PORT
-            value: "8080"
+            value: "7070"
           - name: HTTP_PORT
             value: "8081"
         ports:
