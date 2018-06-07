@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"path/filepath"
+	"path"
 	"strconv"
 	"time"
 
@@ -407,12 +407,11 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 	}
 
 	/* create a unique fileID */
-	path := filepath.Join(bucket, object)
-	var slicepath []string
-	slicepath = make([]string, 1)
-	slicepath[0] = path
 	netStateKey := []byte(*key)
-	encryptedPath, err := paths.Encrypt(slicepath, netStateKey)
+	encryptedPath, err := paths.Encrypt([]string{bucket, object}, netStateKey)
+	fmt.Println("encrypted path ", encryptedPath)
+	decryptedPath, err := paths.Decrypt(encryptedPath, netStateKey)
+	fmt.Println("decrypted path ", decryptedPath)
 
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	encKey := sha256.Sum256([]byte(*key))
@@ -481,7 +480,7 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 	}
 	/* integrate with Network State */
 	// initialize the client
-	return netstatePut(ctx, fmt.Sprint(encryptedPath), es.RequiredCount(), *rsm, *rso, es.TotalCount(), testPieceID, remotePieces)
+	return netstatePut(ctx, path.Join(encryptedPath...), es.RequiredCount(), *rsm, *rso, es.TotalCount(), testPieceID, remotePieces)
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
