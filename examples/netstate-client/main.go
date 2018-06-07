@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -45,58 +46,61 @@ func main() {
 
 	// Example pointer paths to put
 	//pr1 passes with api creds
-	pr1 := proto.PutRequest{
-		Path: []byte("welcome/to/my/pointer/journey"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("granola"),
-		},
-		APIKey: []byte("abc123"),
-	}
-	// pr2 passes with api creds
-	pr2 := proto.PutRequest{
-		Path: []byte("so/many/pointers"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("m&ms"),
-		},
-		APIKey: []byte("abc123"),
-	}
-	// pr3 fails api creds
-	pr3 := proto.PutRequest{
-		Path: []byte("another/pointer/for/the/pile"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("popcorn"),
-		},
-		APIKey: []byte("abc13"),
-	}
+	for i := 0; i < 100; i++ {
 
-	// Example Puts
-	// puts passes api creds
-	_, err = client.Put(ctx, &pr1)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr2)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr3)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
+		pr1 := proto.PutRequest{
+			Path: []byte((strconv.Itoa(i) + "welcome/to/my/pointer/journey")),
+			Pointer: &proto.Pointer{
+				Type: proto.Pointer_INLINE,
+				Encryption: &proto.EncryptionScheme{
+					EncryptedEncryptionKey: []byte("key"),
+					EncryptedStartingNonce: []byte("nonce"),
+				},
+				InlineSegment: []byte("granola"),
+			},
+			APIKey: []byte("abc123"),
+		}
+		// pr2 passes with api creds
+		pr2 := proto.PutRequest{
+			Path: []byte(strconv.Itoa(i) + "so/many/pointers"),
+			Pointer: &proto.Pointer{
+				Type: proto.Pointer_INLINE,
+				Encryption: &proto.EncryptionScheme{
+					EncryptedEncryptionKey: []byte("key"),
+					EncryptedStartingNonce: []byte("nonce"),
+				},
+				InlineSegment: []byte("m&ms"),
+			},
+			APIKey: []byte("abc123"),
+		}
+		// pr3 fails api creds
+		pr3 := proto.PutRequest{
+			Path: []byte(strconv.Itoa(i) + "another/pointer/for/the/pile"),
+			Pointer: &proto.Pointer{
+				Type: proto.Pointer_INLINE,
+				Encryption: &proto.EncryptionScheme{
+					EncryptedEncryptionKey: []byte("key"),
+					EncryptedStartingNonce: []byte("nonce"),
+				},
+				InlineSegment: []byte("popcorn"),
+			},
+			APIKey: []byte("abc13"),
+		}
+
+		// Example Puts
+		// puts passes api creds
+		_, err = client.Put(ctx, &pr1)
+		if err != nil || status.Code(err) == codes.Internal {
+			logger.Error("failed to put", zap.Error(err))
+		}
+		_, err = client.Put(ctx, &pr2)
+		if err != nil || status.Code(err) == codes.Internal {
+			logger.Error("failed to put", zap.Error(err))
+		}
+		_, err = client.Put(ctx, &pr3)
+		if err != nil || status.Code(err) == codes.Internal {
+			logger.Error("failed to put", zap.Error(err))
+		}
 	}
 
 	// Example Get
