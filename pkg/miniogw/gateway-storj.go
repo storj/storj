@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
@@ -29,7 +30,7 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
-	proto "storj.io/storj/protos/netstate"
+	pb "storj.io/storj/protos/netstate"
 )
 
 var (
@@ -246,6 +247,44 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	panic("TODO")
 }
 
+//nodes []*proto.RemotePiece,
+func netstateGet(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
+	if err != nil {
+		zap.L().Error("Failed to dial: ", zap.Error(err))
+		return err
+	}
+
+	client := pb.NewNetStateClient(conn)
+
+	//zap.L().Debug(fmt.Sprintf("client dialed port %s", netstateAddress))
+
+	// Example pointer paths to put
+	//pr1 passes with api creds
+	gr := pb.GetRequest{
+		Path:   []byte(path), //key
+		APIKey: []byte("abc123"),
+	}
+
+	// Example Puts
+	// puts passes api creds
+	fmt.Println("this is the path: ", path)
+	getRes, err := client.Get(ctx, &gr)
+	if err != nil || status.Code(err) == codes.Internal {
+		zap.L().Error("failed to put", zap.Error(err))
+		return err
+	} else {
+		var p pb.Pointer
+		marshaledPointer := getRes.Pointer
+		fmt.Println("this is the mpointer ", marshaledPointer)
+		pointer := proto.Unmarshal(marshaledPointer, &p)
+		fmt.Println("this is the unmar pointer", (pointer))
+	}
+	return nil
+}
+
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	encKey := sha256.Sum256([]byte(*key))
@@ -260,6 +299,17 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return err
 	}
+
+	/* making request to network state to get the piece IDs */
+	/* create a unique fileID */
+	netStateKey := []byte(*key)
+	encryptedPath, err := paths.Encrypt([]string{bucket, object}, netStateKey)
+	fmt.Println("encrypted path ", encryptedPath)
+	decryptedPath, err := paths.Decrypt(encryptedPath, netStateKey)
+	fmt.Println("decrypted path ", decryptedPath)
+
+	err = netstateGet(ctx, path.Join(encryptedPath...))
+
 	errs := make(chan error, *rsn)
 	conns := make([]*grpc.ClientConn, *rsn)
 	for i := 0; i < *rsn; i++ {
@@ -353,7 +403,7 @@ var (
 	netstateAddress = flag.String("netstate_addr", "localhost:8080", "port")
 )
 
-func netstatePut(ctx context.Context, path string, k, m, o, n int, pieceID string, nodes []*proto.RemotePiece) (err error) {
+func netstatePut(ctx context.Context, path string, k, m, o, n int, pieceID string, nodes []*pb.RemotePiece) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
@@ -362,19 +412,19 @@ func netstatePut(ctx context.Context, path string, k, m, o, n int, pieceID strin
 		return err
 	}
 
-	client := proto.NewNetStateClient(conn)
+	client := pb.NewNetStateClient(conn)
 
 	//zap.L().Debug(fmt.Sprintf("client dialed port %s", netstateAddress))
 
 	// Example pointer paths to put
 	//pr1 passes with api creds
-	pr1 := proto.PutRequest{
+	pr1 := pb.PutRequest{
 		Path: []byte(path), //key
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_REMOTE,
-			Remote: &proto.RemoteSegment{
-				Redundancy: &proto.RedundancyScheme{
-					Type:             proto.RedundancyScheme_RS,
+		Pointer: &pb.Pointer{
+			Type: pb.Pointer_REMOTE,
+			Remote: &pb.RemoteSegment{
+				Redundancy: &pb.RedundancyScheme{
+					Type:             pb.RedundancyScheme_RS,
 					MinReq:           int64(k),
 					Total:            int64(n),
 					RepairThreshold:  int64(m),
@@ -428,10 +478,10 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 		return err
 	}
 
-	var remotePieces []*proto.RemotePiece
+	var remotePieces []*pb.RemotePiece
 	errs := make(chan error, len(readers))
 	for i := range readers {
-		remotePieces = append(remotePieces, &proto.RemotePiece{
+		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int64(i),
 			NodeId:   nodeIds[nodes[i]],
 		})
