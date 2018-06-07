@@ -364,7 +364,7 @@ func netstatePut(ctx context.Context, path string, k, m, o, n int, pieceID strin
 
 	client := proto.NewNetStateClient(conn)
 
-	zap.L().Debug(fmt.Sprintf("client dialed port %s", netstateAddress))
+	//zap.L().Debug(fmt.Sprintf("client dialed port %s", netstateAddress))
 
 	// Example pointer paths to put
 	//pr1 passes with api creds
