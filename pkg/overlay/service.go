@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -19,22 +20,32 @@ import (
 )
 
 var (
-	redisAddress  string
-	redisPassword string
-	db            int
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
+	db                                                                           int
+	srvPort                                                                      uint
 )
 
 func init() {
-	flag.StringVar(&redisAddress, "cache", "", "The <IP:PORT> string to use for connection to a redis cache")
-	flag.StringVar(&redisPassword, "password", "", "The password used for authentication to a secured redis instance")
+	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
+	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
+	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
 	flag.IntVar(&db, "db", 0, "The network cache database")
+	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
+	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
+	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
+	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
+	flag.Parse()
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer() *grpc.Server {
-
+func NewServer(k *kademlia.Kademlia, db *redis.OverlayClient, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{})
+	proto.RegisterOverlayServer(grpcServer, &Overlay{
+		kad:     k,
+		DB:      db,
+		logger:  l,
+		metrics: m,
+	})
 
 	return grpcServer
 }
@@ -58,16 +69,38 @@ type Service struct {
 
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context) error {
-	// bootstrap network
-	kad := kademlia.Kademlia{}
+	// TODO
+	// 1. Boostrap a node on the network
+	// 2. Start up the overlay gRPC service
+	// 3. Connect to Redis
+	// 4. Boostrap Redis Cache
 
-	kad.Bootstrap(ctx)
-	// bootstrap cache
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, &kad)
+	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
+	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "127.0.0.1", localPort)
 	if err != nil {
-		s.logger.Error("Failed to create a new overlay client", zap.Error(err))
+		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
 	}
+
+	if err := kad.ListenAndServe(); err != nil {
+		s.logger.Error("Failed to ListenAndServe on new Kademlia", zap.Error(err))
+		return err
+	}
+
+	if err := kad.Bootstrap(ctx); err != nil {
+		s.logger.Error("Failed to Bootstrap on new Kademlia", zap.Error(err))
+		return err
+	}
+
+	// bootstrap cache
+	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
+	if err != nil {
+		s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
+		return err
+	}
+
 	if err := cache.Bootstrap(ctx); err != nil {
 		s.logger.Error("Failed to boostrap cache", zap.Error(err))
 		return err
@@ -76,18 +109,26 @@ func (s *Service) Process(ctx context.Context) error {
 	// send off cache refreshes concurrently
 	go cache.Refresh(ctx)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
 	if err != nil {
 		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
 		return err
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{})
+	proto.RegisterOverlayServer(grpcServer, &Overlay{
+		kad:     kad,
+		DB:      cache,
+		logger:  s.logger,
+		metrics: s.metrics,
+	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	go cache.Walk(ctx)
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
-
 }
 
 // SetLogger adds the initialized logger to the Service

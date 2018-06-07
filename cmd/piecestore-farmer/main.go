@@ -4,40 +4,55 @@
 package main
 
 import (
+	"crypto/rand"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/user"
 	"path"
-	"path/filepath"
 	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mr-tron/base58/base58"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
-func connectToKad(id, ip, port string) *kademlia.Kademlia {
+func newID() string {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	encoding := base58.Encode(b)
+
+	return encoding[:20]
+}
+
+func connectToKad(id, ip, kadlistenport, kadaddress string) *kademlia.Kademlia {
 	node := proto.Node{
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: proto.NodeTransport_TCP,
-			Address:   "130.211.168.182:4242",
+			Address:   kadaddress,
 		},
 	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, port)
+	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, kadlistenport)
 	if err != nil {
 		log.Fatalf("Failed to instantiate new Kademlia: %s", err.Error())
 	}
@@ -53,7 +68,9 @@ func connectToKad(id, ip, port string) *kademlia.Kademlia {
 	return kad
 }
 
-func main() {
+func main() { process.Must(process.Main(process.ServiceFunc(run))) }
+
+func run(ctx context.Context) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store Farmer CLI"
@@ -62,8 +79,11 @@ func main() {
 
 	// Flags
 	app.Flags = []cli.Flag{}
-	var port string
-	var host string
+	var kadhost string
+	var kadport string
+	var kadlistenport string
+	var pshost string
+	var psport string
 	var dir string
 
 	app.Commands = []cli.Command{
@@ -73,29 +93,31 @@ func main() {
 			Usage:     "create farmer node",
 			ArgsUsage: "",
 			Flags: []cli.Flag{
-				cli.StringFlag{Name: "port, p", Usage: "Run farmer at `port`", Destination: &port},
-				cli.StringFlag{Name: "host, n", Usage: "Farmers public `hostname`", Destination: &host},
-				cli.StringFlag{Name: "dir, d", Usage: "`dir` of drive being shared", Destination: &dir},
+				cli.StringFlag{Name: "pieceStoreHost", Usage: "Farmer's public ip/host", Destination: &pshost},
+				cli.StringFlag{Name: "pieceStorePort", Usage: "`port` where piece store data is accessed", Destination: &psport},
+				cli.StringFlag{Name: "kademliaPort", Usage: "Kademlia server `host`", Destination: &kadport},
+				cli.StringFlag{Name: "kademliaHost", Usage: "Kademlia server `host`", Destination: &kadhost},
+				cli.StringFlag{Name: "kademliaListenPort", Usage: "Kademlia server `host`", Destination: &kadlistenport},
+				cli.StringFlag{Name: "dir", Usage: "`dir` of drive being shared", Destination: &dir},
 			},
 			Action: func(c *cli.Context) error {
-				nodeID := pstore.DetermineID()
-
-				defaultDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-				if err != nil {
-					return err
-				}
-
-				viper.SetDefault("ip", "")
-				viper.SetDefault("port", "7777")
-				viper.SetDefault("datadir", defaultDir)
-
-				viper.SetConfigName(nodeID)
-				viper.SetConfigType("yaml")
+				nodeID := newID()
 
 				usr, err := user.Current()
 				if err != nil {
 					return err
 				}
+
+				viper.SetDefault("piecestore.host", "127.0.0.1")
+				viper.SetDefault("piecestore.port", "7777")
+				viper.SetDefault("piecestore.dir", usr.HomeDir)
+				viper.SetDefault("piecestore.id", nodeID)
+				viper.SetDefault("kademlia.host", "bootstrap.storj.io")
+				viper.SetDefault("kademlia.port", "8080")
+				viper.SetDefault("kademlia.listen.port", "7776")
+
+				viper.SetConfigName(nodeID)
+				viper.SetConfigType("yaml")
 
 				configPath := path.Join(usr.HomeDir, ".storj/")
 				if err = os.MkdirAll(configPath, 0700); err != nil {
@@ -113,22 +135,29 @@ func main() {
 					return err
 				}
 
-				// Create emty file at configPath
+				// Create empty file at configPath
 				_, err = os.Create(fullPath)
 				if err != nil {
 					return err
 				}
 
-				viper.Set("nodeid", nodeID)
-
-				if host != "" {
-					viper.Set("ip", host)
+				if pshost != "" {
+					viper.Set("piecestore.host", pshost)
 				}
-				if port != "" {
-					viper.Set("port", port)
+				if psport != "" {
+					viper.Set("piecestore.port", psport)
 				}
 				if dir != "" {
-					viper.Set("datadir", path.Join(dir, nodeID))
+					viper.Set("piecestore.dir", dir)
+				}
+				if kadhost != "" {
+					viper.Set("kademlia.host", kadhost)
+				}
+				if kadport != "" {
+					viper.Set("kademlia.port", kadport)
+				}
+				if kadlistenport != "" {
+					viper.Set("kademlia.listen.port", kadlistenport)
 				}
 
 				if err := viper.WriteConfig(); err != nil {
@@ -137,8 +166,8 @@ func main() {
 
 				path := viper.ConfigFileUsed()
 
-				fmt.Println(path)
-				fmt.Println(nodeID)
+				fmt.Printf("Config: %s\n", path)
+				fmt.Printf("ID: %s\n", nodeID)
 
 				return nil
 			},
@@ -166,12 +195,20 @@ func main() {
 					log.Fatalf(err.Error())
 				}
 
-				nodeid := viper.GetString("nodeid")
-				ip := viper.GetString("ip")
-				port := viper.GetString("port")
-				piecestoreDir := viper.GetString("datadir")
+				nodeid := viper.GetString("piecestore.id")
+				ip := viper.GetString("piecestore.host")
+				serverport := viper.GetString("piecestore.port")
+				kadport := viper.GetString("kademlia.listen.port")
+				kadaddress := viper.GetString("kademlia.address")
+				piecestoreDir := viper.GetString("piecestore.dir")
+				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
+				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
 
-				_ = connectToKad(nodeid, ip, port)
+				if err = os.MkdirAll(piecestoreDir, 0700); err != nil {
+					log.Fatalf(err.Error())
+				}
+
+				_ = connectToKad(nodeid, ip, kadlistenport, fmt.Sprintf("%s:%s", kadaddress, kadport))
 
 				fileInfo, err := os.Stat(piecestoreDir)
 				if err != nil {
@@ -181,17 +218,13 @@ func main() {
 					log.Fatalf("Error: %s is not a directory", piecestoreDir)
 				}
 
-				// Suggestion for whoever implements this: Instead of using port use node id
-				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
-				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
-
 				ttlDB, err := ttl.NewTTL(dbPath)
 				if err != nil {
 					log.Fatalf("failed to open DB")
 				}
 
 				// create a listener on TCP port
-				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", viper.GetString("port")))
+				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", serverport))
 				if err != nil {
 					log.Fatalf("failed to listen: %v", err)
 				}
@@ -244,8 +277,5 @@ func main() {
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
