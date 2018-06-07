@@ -43,16 +43,16 @@ func newID() string {
 	return encoding[:20]
 }
 
-func connectToKad(id, ip, port string) *kademlia.Kademlia {
+func connectToKad(id, ip, kadlistenport, kadaddress string) *kademlia.Kademlia {
 	node := proto.Node{
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: proto.NodeTransport_TCP,
-			Address:   "bootstrap.storj.io:8080",
+			Address:   kadaddress,
 		},
 	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, port)
+	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, kadlistenport)
 	if err != nil {
 		log.Fatalf("Failed to instantiate new Kademlia: %s", err.Error())
 	}
@@ -79,9 +79,11 @@ func run(ctx context.Context) error {
 
 	// Flags
 	app.Flags = []cli.Flag{}
+	var kadhost string
 	var kadport string
-	var serverport string
-	var host string
+	var kadlistenport string
+	var pshost string
+	var psport string
 	var dir string
 
 	app.Commands = []cli.Command{
@@ -91,10 +93,12 @@ func run(ctx context.Context) error {
 			Usage:     "create farmer node",
 			ArgsUsage: "",
 			Flags: []cli.Flag{
-				cli.StringFlag{Name: "port, p", Usage: "Run farmer at `port`", Destination: &serverport},
-				cli.StringFlag{Name: "kademlia, k", Usage: "Run farmer at `kademlia port`", Destination: &kadport},
-				cli.StringFlag{Name: "host, n", Usage: "Farmers public `hostname`", Destination: &host},
-				cli.StringFlag{Name: "dir, d", Usage: "`dir` of drive being shared", Destination: &dir},
+				cli.StringFlag{Name: "pieceStoreHost", Usage: "Farmer's public ip/host", Destination: &pshost},
+				cli.StringFlag{Name: "pieceStorePort", Usage: "`port` where piece store data is accessed", Destination: &psport},
+				cli.StringFlag{Name: "kademliaPort", Usage: "Kademlia server `host`", Destination: &kadport},
+				cli.StringFlag{Name: "kademliaHost", Usage: "Kademlia server `host`", Destination: &kadhost},
+				cli.StringFlag{Name: "kademliaListenPort", Usage: "Kademlia server `host`", Destination: &kadlistenport},
+				cli.StringFlag{Name: "dir", Usage: "`dir` of drive being shared", Destination: &dir},
 			},
 			Action: func(c *cli.Context) error {
 				nodeID := newID()
@@ -104,10 +108,13 @@ func run(ctx context.Context) error {
 					return err
 				}
 
-				viper.SetDefault("ip", "127.0.0.1")
-				viper.SetDefault("kademliaPort", "7776")
-				viper.SetDefault("pieceServerPort", "7777")
-				viper.SetDefault("rootdir", path.Join(usr.HomeDir, nodeID))
+				viper.SetDefault("piecestore.host", "127.0.0.1")
+				viper.SetDefault("piecestore.port", "7777")
+				viper.SetDefault("piecestore.dir", usr.HomeDir)
+				viper.SetDefault("piecestore.id", nodeID)
+				viper.SetDefault("kademlia.host", "bootstrap.storj.io")
+				viper.SetDefault("kademlia.port", "8080")
+				viper.SetDefault("kademlia.listen.port", "7776")
 
 				viper.SetConfigName(nodeID)
 				viper.SetConfigType("yaml")
@@ -136,21 +143,24 @@ func run(ctx context.Context) error {
 
 				viper.Set("nodeid", nodeID)
 
-				if host != "" {
-					viper.Set("ip", host)
+				if pshost != "" {
+					viper.Set("piecestore.host", pshost)
 				}
-				if serverport != "" {
-					viper.Set("pieceServerPort", serverport)
-				}
-				if kadport != "" {
-					viper.Set("kademliaPort", kadport)
+				if psport != "" {
+					viper.Set("piecestore.port", psport)
 				}
 				if dir != "" {
-					viper.Set("rootdir", path.Join(dir, nodeID))
+					viper.Set("piecestore.dir", dir)
 				}
-
-				viper.Set("datadir", path.Join(viper.GetString("rootdir"), "/piece-store-data/"))
-				viper.Set("ttl", path.Join(viper.GetString("rootdir"), "/ttl-data.db"))
+				if kadhost != "" {
+					viper.Set("kademlia.host", kadhost)
+				}
+				if kadport != "" {
+					viper.Set("kademlia.port", kadport)
+				}
+				if kadlistenport != "" {
+					viper.Set("kademlia.listen.port", kadlistenport)
+				}
 
 				if err := viper.WriteConfig(); err != nil {
 					return err
@@ -187,19 +197,20 @@ func run(ctx context.Context) error {
 					log.Fatalf(err.Error())
 				}
 
-				nodeid := viper.GetString("nodeid")
-				ip := viper.GetString("ip")
-				kadport := viper.GetString("kademliaPort")
-				serverport := viper.GetString("pieceServerPort")
-				piecestoreDir := viper.GetString("rootdir")
-				dataDir := viper.GetString("datadir")
-				dbPath := viper.GetString("ttl")
+				nodeid := viper.GetString("piecestore.id")
+				ip := viper.GetString("piecestore.host")
+				serverport := viper.GetString("piecestore.port")
+				kadport := viper.GetString("kademlia.listen.port")
+				kadaddress := viper.GetString("kademlia.address")
+				piecestoreDir := viper.GetString("piecestore.dir")
+				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
+				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
 
 				if err = os.MkdirAll(piecestoreDir, 0700); err != nil {
 					log.Fatalf(err.Error())
 				}
 
-				_ = connectToKad(nodeid, ip, kadport)
+				_ = connectToKad(nodeid, ip, kadlistenport, fmt.Sprintf("%s:%s", kadaddress, kadport))
 
 				fileInfo, err := os.Stat(piecestoreDir)
 				if err != nil {
