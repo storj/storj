@@ -175,6 +175,56 @@ func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, er
 	return result, nil
 }
 
+// deleteFile returns the files list for a bucket
+func (s *storjObjects) deleteFile(bucket, object string) (err error) {
+	for i, v := range s.storj.bucketlist {
+		k := 0
+		if v.bucket.Name == bucket {
+			for j := 0; j < len(s.storj.bucketlist[i].filelist.file.Objects); j++ {
+				fi := s.storj.bucketlist[i].filelist.file.Objects[j].Name
+				fmt.Println("fi=", fi)
+				if fi != object {
+					s.storj.bucketlist[i].filelist.file.Objects[k].Name = fi
+					k++
+				}
+			}
+			s.storj.bucketlist[i].filelist.file.Objects = s.storj.bucketlist[i].filelist.file.Objects[:k]
+		}
+	}
+	return nil
+}
+
+// removeBucket returns the files list for a bucket
+func (s *storjObjects) removeBucket(bucket string) (err error) {
+	k := 0
+	for i, v := range s.storj.bucketlist {
+		bi := s.storj.bucketlist[i].bucket.Name
+		fmt.Println("bi=", bi)
+		if v.bucket.Name != bucket {
+			s.storj.bucketlist[k] = v
+			k++
+		}
+	}
+	s.storj.bucketlist = s.storj.bucketlist[:k]
+	return nil
+}
+
+// addBucket returns the files list for a bucket
+func (s *storjObjects) addBucket(bucket string) (err error) {
+	s.storj.bucketlist = append(s.storj.bucketlist,
+		S3Bucket{
+			minio.BucketInfo{
+				Name:    bucket,
+				Created: time.Now(),
+			},
+			S3FileList{
+				minio.ListObjectsInfo{},
+			},
+		},
+	)
+	return nil
+}
+
 func storjGatewayMain(ctx *cli.Context) {
 	s := &Storj{}
 	s.createSampleBucketList()
@@ -238,12 +288,12 @@ type storjObjects struct {
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
-	panic("TODO")
+	return s.removeBucket(bucket)
 }
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
 	object string) error {
-	panic("TODO")
+	return s.deleteFile(bucket, object)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -448,7 +498,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) error {
-	panic("TODO")
+	return s.addBucket(bucket)
 }
 
 /* Integration stuff with Network state */
