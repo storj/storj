@@ -308,7 +308,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	decryptedPath, err := paths.Decrypt(encryptedPath, netStateKey)
 	fmt.Println("decrypted path ", decryptedPath)
 
-	//err = netstateGet(ctx, path.Join(encryptedPath...))
+	err = netstateGet(ctx, path.Join(encryptedPath...))
 
 	errs := make(chan error, *rsn)
 	conns := make([]*grpc.ClientConn, *rsn)
