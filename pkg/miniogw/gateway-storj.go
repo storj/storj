@@ -330,12 +330,23 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 
+	addr := "bootstrap.storj.io:7070"
+	c, err := overlay.NewClient(&addr, grpc.WithInsecure())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	errs := make(chan error, redundancy.GetTotal())
 	conns := make([]*grpc.ClientConn, redundancy.GetTotal())
 	for i := 0; i < len(remote.GetRemotePieces()); i++ {
 		go func(i int) {
-			// TODO: integrate DHT
-			conns[i], err = grpc.Dial(nodeAddrs[remote.RemotePieces[i].GetNodeId()], grpc.WithInsecure())
+			resp, err := c.Lookup(ctx, &opb.LookupRequest{NodeID: remote.RemotePieces[i].NodeId})
+			if err != nil {
+				errs <- err
+				return
+			}
+
+			conns[i], err = grpc.Dial(resp.NodeAddress.Address, grpc.WithInsecure())
 			errs <- err
 		}(i)
 	}
@@ -548,10 +559,10 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	for i := range readers {
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int64(i),
-			NodeId:   nodeIds[nodes[i]],
+			NodeId:   r.Node[i].Id,
 		})
 		go func(i int) {
-			conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
+			conn, err := grpc.Dial(r.Node[i].Address.Address, grpc.WithInsecure())
 			if err != nil {
 				zap.S().Errorf("error dialing: %v\n", err)
 				errs <- Error.Wrap(err)
