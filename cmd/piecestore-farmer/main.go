@@ -196,10 +196,11 @@ func run(ctx context.Context) error {
 				}
 
 				nodeid := viper.GetString("piecestore.id")
-				ip := viper.GetString("piecestore.host")
-				serverport := viper.GetString("piecestore.port")
-				kadport := viper.GetString("kademlia.listen.port")
-				kadaddress := viper.GetString("kademlia.host")
+				pshost = viper.GetString("piecestore.host")
+				psport = viper.GetString("piecestore.port")
+				kadlistenport = viper.GetString("kademlia.listen.port")
+				kadport = viper.GetString("kademlia.port")
+				kadhost = viper.GetString("kademlia.host")
 				piecestoreDir := viper.GetString("piecestore.dir")
 				dbPath := path.Join(piecestoreDir, "/ttl-data.db")
 				dataDir := path.Join(piecestoreDir, "/piece-store-data/")
@@ -208,7 +209,7 @@ func run(ctx context.Context) error {
 					log.Fatalf(err.Error())
 				}
 
-				_ = connectToKad(nodeid, ip, kadlistenport, fmt.Sprintf("%s:%s", kadaddress, kadport))
+				_ = connectToKad(nodeid, pshost, kadlistenport, fmt.Sprintf("%s:%s", kadhost, kadport))
 
 				fileInfo, err := os.Stat(piecestoreDir)
 				if err != nil {
@@ -224,7 +225,7 @@ func run(ctx context.Context) error {
 				}
 
 				// create a listener on TCP port
-				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", serverport))
+				lis, err := net.Listen("tcp", fmt.Sprintf(":%s", psport))
 				if err != nil {
 					log.Fatalf("failed to listen: %v", err)
 				}
