@@ -41,8 +41,8 @@ var (
 	key            = flag.String("key", "a key", "the secret key")
 	rsk            = flag.Int("required", 5, "rs required")
 	rsn            = flag.Int("total", 20, "rs total")
-	rsm            = flag.Int("minimum", 10, "rs minimum safe")
-	rso            = flag.Int("optimal", 15, "rs optimal safe")
+	rsm            = flag.Int("minimum", 0, "rs minimum safe")
+	rso            = flag.Int("optimal", 0, "rs optimal safe")
 
 	mon = monkit.Package()
 )
@@ -76,8 +76,9 @@ var nodeIds = map[string]string{}
 // nodeAddrs maps piece id(shards) to address
 var nodeAddrs = map[string]string{}
 
-const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
-const testPieceID = "aLMAItZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
+//const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
+const testPieceID = "aLMAJtZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
+const hardcodedPieceID = "aLMAJtZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
 
 func init() {
 	for i, address := range nodes {
@@ -357,6 +358,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	for i := 0; i < *rsn; i++ {
 		go func(i int) {
 			cl := client.New(ctx, conns[i])
+			fmt.Println("piece id", hardcodedPieceID)
 			rr, err := ranger.GRPCRanger(cl, hardcodedPieceID)
 			rrch <- rangerInfo{i, rr, err}
 		}(i)
@@ -394,7 +396,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string)
 		Bucket:      bucket,
 		Name:        object,
 		ModTime:     time.Date(2018, 6, 5, 17, 20, 32, 0, time.Local),
-		Size:        280296582,
+		Size:        7350012,
 		IsDir:       false,
 		ContentType: "video/mp4",
 	}, nil
