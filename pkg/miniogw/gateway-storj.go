@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"storj.io/storj/pkg/piecestore"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
@@ -77,10 +79,6 @@ var nodeIds = map[string]string{}
 
 // nodeAddrs maps piece id(shards) to address
 var nodeAddrs = map[string]string{}
-
-//const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
-const testPieceID = "aLMAJtZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
-const hardcodedPieceID = "aLMAJtZbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
 
 func init() {
 	for i, address := range nodes {
@@ -363,8 +361,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	for i := 0; i < len(remote.GetRemotePieces()); i++ {
 		go func(i int) {
 			cl := client.New(ctx, conns[i])
-			fmt.Println("piece id", hardcodedPieceID)
-			rr, err := ranger.GRPCRanger(cl, hardcodedPieceID)
+			rr, err := ranger.GRPCRanger(cl, remote.GetPieceId())
 			rrch <- rangerInfo{remote.GetRemotePieces()[i].GetPieceNum(), rr, err}
 		}(i)
 	}
@@ -445,7 +442,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 
 /* Integration stuff with Network state */
 var (
-	netstateAddress = flag.String("netstate_addr", "localhost:8080", "port")
+	netstateAddress = flag.String("netstate_addr", "35.202.58.176:4242", "address")
 )
 
 func netstatePut(ctx context.Context, path string, k, m, o, n int, size int64, pieceID string, nodes []*pb.RemotePiece) (err error) {
@@ -454,7 +451,7 @@ func netstatePut(ctx context.Context, path string, k, m, o, n int, size int64, p
 	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
 	if err != nil {
 		zap.L().Error("Failed to dial: ", zap.Error(err))
-		return err
+		return Error.Wrap(err)
 	}
 
 	client := pb.NewNetStateClient(conn)
@@ -488,7 +485,7 @@ func netstatePut(ctx context.Context, path string, k, m, o, n int, size int64, p
 	_, err = client.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
-		return err
+		return Error.Wrap(err)
 	}
 	return nil
 }
@@ -529,22 +526,22 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 		eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize()), encrypter, 0),
 		es, *rsm, *rso, 4*1024*1024)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	/* integrating with DHT for uploading to get the farmer's IP address */
 	addr := "bootstrap.storj.io:7070"
 	c, err := overlay.NewClient(&addr, grpc.WithInsecure())
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
+
 	r, err := c.FindStorageNodes(context.Background(), &opb.FindStorageNodesRequest{})
 	if err != nil {
-		fmt.Printf("r %#v\n", err)
-		return err
+		return Error.Wrap(err)
 	}
 	fmt.Printf("r %#v\n", r)
-
+	pieceId := pstore.DetermineID()
 	// r is your nodes
 	var remotePieces []*pb.RemotePiece
 	errs := make(chan error, len(readers))
@@ -557,16 +554,16 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 			conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
 			if err != nil {
 				zap.S().Errorf("error dialing: %v\n", err)
-				errs <- err
+				errs <- Error.Wrap(err)
 				return
 			}
 			defer conn.Close()
 			cl := client.New(ctx, conn)
-			// TODO just for the demo - the id is hardcoded
-			w, err := cl.StorePieceRequest(testPieceID, 0)
+
+			w, err := cl.StorePieceRequest(pieceId, 0)
 			if err != nil {
 				zap.S().Errorf("error req: %v\n", err)
-				errs <- err
+				errs <- Error.Wrap(err)
 				return
 			}
 			_, err = io.Copy(w, readers[i])
@@ -574,16 +571,16 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 			if err != nil {
 				w.Close()
 				zap.S().Errorf("error copy: %v\n", err)
-				errs <- err
+				errs <- Error.Wrap(err)
 				return
 			}
 			err = w.Close()
 			if err != io.EOF {
 				zap.S().Errorf("error close: %v\n", err)
-				errs <- err
-			} else {
-				errs <- nil
+				errs <- Error.Wrap(err)
+				return
 			}
+			errs <- nil
 		}(i)
 	}
 	var errbucket []error
@@ -594,11 +591,14 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 		}
 	}
 	if len(readers)-len(errbucket) < *rsm {
+		for _, err := range errbucket {
+			fmt.Printf("%+v\n", err)
+		}
 		return errbucket[0]
 	}
 	/* integrate with Network State */
 	// initialize the client
-	return netstatePut(ctx, path.Join(encryptedPath...), es.RequiredCount(), *rsm, *rso, es.TotalCount(), data.Size(), testPieceID, remotePieces)
+	return Error.Wrap(netstatePut(ctx, path.Join(encryptedPath...), es.RequiredCount(), *rsm, *rso, es.TotalCount(), data.Size(), pieceId, remotePieces))
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
