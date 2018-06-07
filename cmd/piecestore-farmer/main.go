@@ -5,7 +5,7 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/base58"
 	"errors"
 	"flag"
 	"fmt"
@@ -38,7 +38,7 @@ func newID() string {
 		panic(err)
 	}
 
-	encoding := base64.URLEncoding.EncodeToString(b)
+	encoding := base58.URLEncoding.EncodeToString(b)
 
 	return encoding[:20]
 }
