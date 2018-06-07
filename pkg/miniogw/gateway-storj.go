@@ -6,6 +6,7 @@ package storj
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -27,10 +28,12 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/netstate"
+	opb "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -248,13 +251,13 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 }
 
 //nodes []*proto.RemotePiece,
-func netstateGet(ctx context.Context, path string) (err error) {
+func netstateGet(ctx context.Context, path string) (ids []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
 	if err != nil {
 		zap.L().Error("Failed to dial: ", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	client := pb.NewNetStateClient(conn)
@@ -270,19 +273,33 @@ func netstateGet(ctx context.Context, path string) (err error) {
 
 	// Example Puts
 	// puts passes api creds
-	fmt.Println("this is the path: ", path)
 	getRes, err := client.Get(ctx, &gr)
 	if err != nil || status.Code(err) == codes.Internal {
-		zap.L().Error("failed to put", zap.Error(err))
-		return err
+		zap.L().Error("failed to get", zap.Error(err))
 	} else {
 		var p pb.Pointer
-		marshaledPointer := getRes.Pointer
-		fmt.Println("this is the mpointer ", marshaledPointer)
-		pointer := proto.Unmarshal(marshaledPointer, &p)
-		fmt.Println("this is the unmar pointer", (pointer))
+		err := proto.Unmarshal(getRes.Pointer, &p)
+		if err != nil {
+			zap.L().Error("failed to marshal", zap.Error(err))
+			return nil, err
+		}
+		bytes, err := json.MarshalIndent(p, "", " ")
+		if err != nil {
+			zap.L().Error("failed to marshal to json", zap.Error(err))
+			return nil, err
+		}
+		fmt.Printf("unmarshaled pointer: %s\n", string(bytes))
+		fmt.Printf("remote pieces: %#v\n", p.Remote.RemotePieces[0])
+		var ids []string
+		for _, r := range p.Remote.RemotePieces {
+			ids = append(ids, r.NodeId)
+		}
+		//return map[p.Remote.RemotePieces, func(r *RemotePiece) string {
+		//	return r.NodeID
+		//}]
+		return ids, nil
 	}
-	return nil
+	return nil, err
 }
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
@@ -308,13 +325,13 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	decryptedPath, err := paths.Decrypt(encryptedPath, netStateKey)
 	fmt.Println("decrypted path ", decryptedPath)
 
-	err = netstateGet(ctx, path.Join(encryptedPath...))
+	nodeids, err := netstateGet(ctx, path.Join(encryptedPath...))
 
 	errs := make(chan error, *rsn)
 	conns := make([]*grpc.ClientConn, *rsn)
 	for i := 0; i < *rsn; i++ {
 		go func(i int) {
-			conns[i], err = grpc.Dial(nodes[i], grpc.WithInsecure())
+			conns[i], err = grpc.Dial(nodeAddrs[nodeids[i]], grpc.WithInsecure())
 			errs <- err
 		}(i)
 	}
@@ -478,6 +495,20 @@ func encryptFile(ctx context.Context, data io.ReadCloser, bucket, object string)
 		return err
 	}
 
+	/* integrating with DHT for uploading to get the farmer's IP address */
+	addr := "bootstrap.storj.io:7070"
+	c, err := overlay.NewClient(&addr, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	r, err := c.FindStorageNodes(context.Background(), &opb.FindStorageNodesRequest{})
+	if err != nil {
+		fmt.Printf("r %#v\n", err)
+		return err
+	}
+	fmt.Printf("r %#v\n", r)
+
+	// r is your nodes
 	var remotePieces []*pb.RemotePiece
 	errs := make(chan error, len(readers))
 	for i := range readers {
