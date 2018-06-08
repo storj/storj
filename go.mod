@@ -22,6 +22,7 @@ require (
 	github.com/minio/cli v1.3.0
 	github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3
 	github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238
+	github.com/mr-tron/base58 v0.0.0-20171218005042-c1bdf7c52f59
 	github.com/pelletier/go-toml v1.1.0
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
 	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8
