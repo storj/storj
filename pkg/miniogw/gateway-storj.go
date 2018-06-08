@@ -7,11 +7,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"flag"
-	"fmt"
 	"io"
-	"os"
-	"path"
-	"path/filepath"
+	"io/ioutil"
 	"strconv"
 	"time"
 
@@ -20,16 +17,44 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/vivint/infectious"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/ranger"
 )
 
 var (
 	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
 	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
+	rsk            = flag.Int("required", 5, "rs required")
+	rsn            = flag.Int("total", 20, "rs total")
 )
+
+var nodes = []string{
+	"35.232.47.152:4242",
+	"35.226.188.0:4242",
+	"35.202.182.77:4242",
+	"35.232.88.171:4242",
+	"35.225.50.137:4242",
+	"130.211.168.182:4242",
+	"104.197.5.134:4242",
+	"35.192.126.41:4242",
+	"35.193.196.52:4242",
+	"130.211.203.52:4242",
+	"35.224.122.76:4242",
+	"104.198.233.25:4242",
+	"35.226.21.152:4242",
+	"130.211.221.239:4242",
+	"35.202.144.175:4242",
+	"130.211.190.250:4242",
+	"35.194.56.141:4242",
+	"35.192.108.107:4242",
+	"35.202.91.191:4242",
+	"35.192.7.33:4242",
+}
+
+const hardcodedPieceID = "zKNZHsYbbnnp082trbWQ67r7R6CyNtRuzvnwcWE\\="
 
 func init() {
 	minio.RegisterGatewayCommand(cli.Command{
@@ -67,7 +92,7 @@ func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadat
 					ModTime:     time.Now(),
 					Size:        filesize,
 					IsDir:       false,
-					ContentType: "application/octet-stream",
+					ContentType: "video/mp4",
 				},
 			)
 			/* populate the filelist */
@@ -199,13 +224,89 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-
-	panic("TODO")
+	encKey := sha256.Sum256([]byte(*key))
+	fc, err := infectious.NewFEC(*rsk, *rsn)
+	if err != nil {
+		return err
+	}
+	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAESGCMDecrypter(
+		&encKey, &firstNonce, es.DecodedBlockSize())
+	if err != nil {
+		return err
+	}
+	errs := make(chan error, *rsn)
+	conns := make([]*grpc.ClientConn, *rsn)
+	for i := 0; i < *rsn; i++ {
+		go func(i int) {
+			conns[i], err = grpc.Dial(nodes[i], grpc.WithInsecure())
+			errs <- err
+		}(i)
+	}
+	for range conns {
+		err := <-errs
+		if err != nil {
+			// TODO don't fail just because of failure with only one node
+			return err
+		}
+	}
+	defer func() {
+		for i := 0; i < *rsn; i++ {
+			defer conns[i].Close()
+		}
+	}()
+	rrs := map[int]ranger.Ranger{}
+	type rangerInfo struct {
+		i   int
+		rr  ranger.Ranger
+		err error
+	}
+	rrch := make(chan rangerInfo, *rsn)
+	for i := 0; i < *rsn; i++ {
+		go func(i int) {
+			cl := client.New(ctx, conns[i])
+			rr, err := ranger.GRPCRanger(cl, hardcodedPieceID)
+			rrch <- rangerInfo{i, rr, err}
+		}(i)
+	}
+	for range conns {
+		info := <-rrch
+		if info.err != nil {
+			// TODO don't fail just because of failure with only one node
+			return info.err
+		}
+		rrs[info.i] = info.rr
+	}
+	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.Transform(rr, decrypter)
+	if err != nil {
+		return err
+	}
+	rr, err = eestream.UnpadSlow(rr)
+	if err != nil {
+		return err
+	}
+	if length == -1 {
+		length = rr.Size()
+	}
+	r := rr.Range(startOffset, length)
+	_, err = io.Copy(writer, r)
+	return err
 }
 
-func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
-	object string) (objInfo minio.ObjectInfo, err error) {
-	panic("TODO")
+func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket, object string) (objInfo minio.ObjectInfo, err error) {
+	return minio.ObjectInfo{
+		Bucket:      bucket,
+		Name:        object,
+		ModTime:     time.Date(2018, 6, 5, 17, 20, 32, 0, time.Local),
+		Size:        280296582,
+		IsDir:       false,
+		ContentType: "video/mp4",
+	}, nil
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
@@ -224,13 +325,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 }
 
 //encryptFile encrypts the uploaded files
-func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
-	dir := os.TempDir()
-	dir = filepath.Join(dir, "gateway", bucket, object)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
+func encryptFile(ctx context.Context, data io.ReadCloser) error {
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
 		return err
@@ -252,15 +347,28 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
-			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
+			conn, err := grpc.Dial(nodes[i], grpc.WithInsecure())
 			if err != nil {
 				errs <- err
 				return
 			}
-			defer fh.Close()
-			_, err = io.Copy(fh, readers[i])
-			errs <- err
+			defer conn.Close()
+			cl := client.New(ctx, conn)
+			// TODO just for the demo - the id is hardcoded
+			// w, err := cl.StorePieceRequest(pstore.DetermineID(), 0)
+			w, err := cl.StorePieceRequest(hardcodedPieceID, 0)
+			if err != nil {
+				errs <- err
+				return
+			}
+			_, err = io.Copy(w, readers[i])
+			// Make sure writer is closed to avoid losing last bytes
+			if err != nil {
+				w.Close()
+				errs <- err
+				return
+			}
+			errs <- w.Close()
 		}(i)
 	}
 	for range readers {
@@ -275,27 +383,15 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	writer, err := os.Create(srcFile)
-	if err != nil {
-		return objInfo, err
-	}
-
-	wsize, err := io.CopyN(writer, data, data.Size())
-	if err != nil {
-		os.Remove(srcFile)
-		return objInfo, err
-	}
-
-	err = encryptFile(writer, uint(wsize), bucket, object)
+	err = encryptFile(ctx, ioutil.NopCloser(data))
 	if err == nil {
-		s.uploadFile(bucket, object, wsize, metadata)
+		s.uploadFile(bucket, object, data.Size(), metadata)
 	}
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
 		ModTime: time.Now(),
-		Size:    wsize,
+		Size:    data.Size(),
 		ETag:    minio.GenETag(),
 	}, err
 }
