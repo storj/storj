@@ -202,8 +202,8 @@ func run(ctx context.Context) error {
 				kadport = viper.GetString("kademlia.port")
 				kadhost = viper.GetString("kademlia.host")
 				piecestoreDir := viper.GetString("piecestore.dir")
-				dbPath := path.Join(piecestoreDir, fmt.Printf("store-%s", nodeid), "/ttl-data.db")
-				dataDir := path.Join(piecestoreDir, fmt.Printf("store-%s", nodeid), "/piece-store-data/")
+				dbPath := path.Join(piecestoreDir, fmt.Sprintf("store-%s", nodeid), "/ttl-data.db")
+				dataDir := path.Join(piecestoreDir, fmt.Sprintf("store-%s", nodeid), "/piece-store-data/")
 
 				if err = os.MkdirAll(piecestoreDir, 0700); err != nil {
 					log.Fatalf(err.Error())
