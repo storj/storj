@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli"
-	"storj.io/storj/pkg/client"
+	client "storj.io/storj/pkg/clientv2"
 )
 
 // New creates a new storj cli application with the respective commands and metainfo.
