@@ -22,6 +22,7 @@ const (
 // Put saves the Path and Pointer as a kv entry in the "pointers" bucket
 func (client *Client) Put(pe PointerEntry) error {
 	client.logger.Debug("entering bolt put")
+	boltClient :=
 	return client.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(pointerBucket))
 		if err != nil {

@@ -94,10 +94,13 @@ func (s *Service) Process(ctx context.Context) error {
 	}
 
 	// bootstrap cache
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-	if err != nil {
-		s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
-		return err
+	var cache *redis.OverlayClient
+	if redisAddress != "" {
+		cache, err = redis.NewRedisOverlayClient(redisAddress, redisPassword, db, kad)
+		if err != nil {
+			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
+			return err
+		}
 	}
 
 	if err := cache.Bootstrap(ctx); err != nil {

@@ -7,22 +7,16 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"storj.io/storj/pkg/overlay"
 )
-
-// Client defines the interface for communicating with a Storj redis instance
-type Client interface {
-	Get(key string) ([]byte, error)
-	Set(key string, value []byte, ttl time.Duration) error
-	Ping() error
-}
 
 // Client is the entrypoint into Redis
 type redisClient struct {
 	DB *redis.Client
 }
 
-// NewRedisClient returns a configured Client instance, verifying a sucessful connection to redis
-func NewRedisClient(address, password string, db int) (Client, error) {
+// NewClient returns a configured Client instance, verifying a sucessful connection to redis
+func NewClient(address, password string, db int) (overlay.Client, error) {
 	c := &redisClient{
 		DB: redis.NewClient(&redis.Options{
 			Addr:     address,
