@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
@@ -33,8 +33,7 @@ func init() {
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
-	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
-	flag.Parse()
+	// flag.Parse()
 }
 
 // NewServer creates a new Overlay Service Server
@@ -78,7 +77,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "bootstrap.storj.io", "8080")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", "8081")
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -115,17 +114,17 @@ func (s *Service) Process(ctx context.Context) error {
 		return err
 	}
 
-	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
-		kad:     kad,
-		DB:      cache,
-		logger:  s.logger,
-		metrics: s.metrics,
-	})
+	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
 	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
 	go cache.Walk(ctx)
+
+	go func() {
+		if _, ok := <-ctx.Done(); !ok {
+			grpcServer.GracefulStop()
+		}
+	}()
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
