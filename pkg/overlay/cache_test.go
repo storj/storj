@@ -14,14 +14,14 @@ import (
 	"storj.io/storj/storage/common"
 )
 
-func TestGet(t *testing.T) {
-	cases := []struct {
+var (
+	getCases = []struct {
 		testID              string
 		expectedTimesCalled int
 		key                 string
 		expectedResponse    *overlay.NodeAddress
 		expectedError       error
-		client              *storage.MockStorageClient
+		data                map[string][]byte
 	}{
 		{
 			testID:              "valid Get",
@@ -29,12 +29,14 @@ func TestGet(t *testing.T) {
 			key:                 "foo",
 			expectedResponse:    &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"},
 			expectedError:       nil,
-			client: storage.NewMockStorageClient(map[string][]byte{"foo": func() []byte {
+			data: map[string][]byte{"foo": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
-				assert.NoError(t, err)
+				if err != nil {
+					panic(err)
+				}
 				return d
-			}()}),
+			}()},
 		},
 		{
 			testID:              "error Get from redis",
@@ -42,12 +44,14 @@ func TestGet(t *testing.T) {
 			key:                 "error",
 			expectedResponse:    nil,
 			expectedError:       storage.ErrForced,
-			client: storage.NewMockStorageClient(map[string][]byte{"error": func() []byte {
+			data: map[string][]byte{"error": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
-				assert.NoError(t, err)
+				if err != nil {
+					panic(err)
+				}
 				return d
-			}()}),
+			}()},
 		},
 		{
 			testID:              "get missing key",
@@ -55,38 +59,24 @@ func TestGet(t *testing.T) {
 			key:                 "bar",
 			expectedResponse:    nil,
 			expectedError:       storage.ErrMissingKey,
-			client: storage.NewMockStorageClient(map[string][]byte{"foo": func() []byte {
+			data: map[string][]byte{"foo": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
-				assert.NoError(t, err)
+				if err != nil {
+					panic(err)
+				}
 				return d
-			}()}),
+			}()},
 		},
 	}
 
-	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-
-			oc := Cache{DB: c.client}
-
-			assert.Equal(t, 0, c.client.GetCalled)
-
-			resp, err := oc.Get(context.Background(), c.key)
-			assert.Equal(t, c.expectedError, err)
-			assert.Equal(t, c.expectedResponse, resp)
-			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
-		})
-	}
-}
-
-func TestPut(t *testing.T) {
-	cases := []struct {
+	putCases = []struct {
 		testID              string
 		expectedTimesCalled int
 		key                 string
 		value               overlay.NodeAddress
 		expectedError       error
-		client              *storage.MockStorageClient
+		data                map[string][]byte
 	}{
 		{
 			testID:              "valid Put",
@@ -94,22 +84,118 @@ func TestPut(t *testing.T) {
 			key:                 "foo",
 			value:               overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"},
 			expectedError:       nil,
-			client:              storage.NewMockStorageClient(map[string][]byte{}),
+			data:                map[string][]byte{},
 		},
 	}
+)
 
-	for _, c := range cases {
+// func TestRedisGet(t *testing.T) {
+// 	for _, c := range getCases {
+// 		t.Run(c.testID, func(t *testing.T) {
+//
+// 			oc := Cache{DB: c.client}
+//
+// 			assert.Equal(t, 0, c.client.GetCalled)
+//
+// 			resp, err := oc.Get(context.Background(), c.key)
+// 			assert.Equal(t, c.expectedError, err)
+// 			assert.Equal(t, c.expectedResponse, resp)
+// 			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
+// 		})
+// 	}
+// }
+//
+// func TestRedisPut(t *testing.T) {
+//
+// 	for _, c := range putCases {
+// 		t.Run(c.testID, func(t *testing.T) {
+//
+// 			oc := Cache{DB: c.client}
+//
+// 			assert.Equal(t, 0, c.client.PutCalled)
+//
+// 			err := oc.Put(c.key, c.value)
+// 			assert.Equal(t, c.expectedError, err)
+// 			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
+//
+// 			v := c.client.Data[c.key]
+// 			na := &overlay.NodeAddress{}
+//
+// 			assert.NoError(t, proto.Unmarshal(v, na))
+// 			assert.Equal(t, na, &c.value)
+// 		})
+// 	}
+// }
+//
+// func TestBoltGet(t *testing.T) {
+// 	for _, c := range getCases {
+// 		t.Run(c.testID, func(t *testing.T) {
+//
+// 			oc := Cache{DB: c.client}
+//
+// 			assert.Equal(t, 0, c.client.GetCalled)
+//
+// 			resp, err := oc.Get(context.Background(), c.key)
+// 			assert.Equal(t, c.expectedError, err)
+// 			assert.Equal(t, c.expectedResponse, resp)
+// 			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
+// 		})
+// 	}
+// }
+//
+// func TestBoltPut(t *testing.T) {
+// 	for _, c := range putCases {
+// 		t.Run(c.testID, func(t *testing.T) {
+//
+// 			db := storage.NewMockStorageClient(c.data)
+// 			oc := Cache{DB: db}
+//
+// 			assert.Equal(t, 0, db.PutCalled)
+//
+// 			err := oc.Put(c.key, c.value)
+// 			assert.Equal(t, c.expectedError, err)
+// 			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
+//
+// 			v := c.client.Data[c.key]
+// 			na := &overlay.NodeAddress{}
+//
+// 			assert.NoError(t, proto.Unmarshal(v, na))
+// 			assert.Equal(t, na, &c.value)
+// 		})
+// 	}
+// }
+
+func TestMockGet(t *testing.T) {
+	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			oc := Cache{DB: c.client}
+			db := storage.NewMockStorageClient(c.data)
+			oc := Cache{DB: db}
 
-			assert.Equal(t, 0, c.client.PutCalled)
+			assert.Equal(t, 0, db.GetCalled)
+
+			resp, err := oc.Get(context.Background(), c.key)
+			assert.Equal(t, c.expectedError, err)
+			assert.Equal(t, c.expectedResponse, resp)
+			assert.Equal(t, c.expectedTimesCalled, db.GetCalled)
+		})
+	}
+}
+
+func TestMockPut(t *testing.T) {
+	for _, c := range putCases {
+		t.Run(c.testID, func(t *testing.T) {
+
+			db := storage.NewMockStorageClient(c.data)
+			oc := Cache{DB: db}
+
+			assert.Equal(t, 0, db.PutCalled)
 
 			err := oc.Put(c.key, c.value)
 			assert.Equal(t, c.expectedError, err)
-			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
+			assert.Equal(t, c.expectedTimesCalled, db.PutCalled)
 
-			v := c.client.Data[c.key]
+			v := db.Data[c.key]
 			na := &overlay.NodeAddress{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
