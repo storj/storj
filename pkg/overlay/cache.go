@@ -63,8 +63,8 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, erro
   return na, nil
 }
 
-// Set adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
-func (o *Cache) Set(nodeID string, value overlay.NodeAddress) error {
+// Put adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
+func (o *Cache) Put(nodeID string, value overlay.NodeAddress) error {
   data, err := proto.Marshal(&value)
   if err != nil {
     return err

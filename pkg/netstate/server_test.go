@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/viper"
 
-	"storj.io/storj/storage/boltdb"
 )
 
 const (
@@ -26,11 +25,11 @@ func TestMain(m *testing.M) {
 
 type MockDB struct {
 	timesCalled int
-	puts        []boltdb.PointerEntry
+	puts        []PointerEntry
 	pathKeys    [][]byte
 }
 
-func (m *MockDB) Put(f boltdb.PointerEntry) error {
+func (m *MockDB) Put(f PointerEntry) error {
 	m.timesCalled++
 	m.puts = append(m.puts, f)
 	return nil

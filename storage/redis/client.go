@@ -43,7 +43,7 @@ func (c *redisClient) Get(key []byte) ([]byte, error) {
 	return c.DB.Get(string(key)).Bytes()
 }
 
-// Set adds a value to the provided key in the Redis cache, returning an error on failure.
+// Put adds a value to the provided key in the Redis cache, returning an error on failure.
 
 func (c *redisClient) Put(key []byte, value []byte) error {
 	return c.DB.Set(string(key), value, c.TTL).Err()
