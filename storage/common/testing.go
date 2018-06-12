@@ -177,7 +177,7 @@ func (r *TestRedisServer) start() {
 func (r *TestRedisServer) stop() {
 	r.started = false
 	if err := r.cmd.Process.Kill(); err != nil {
-		panic(err)
+		// panic(err)
 	}
 }
 

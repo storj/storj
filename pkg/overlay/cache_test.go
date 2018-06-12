@@ -14,6 +14,10 @@ import (
 	"storj.io/storj/storage/common"
 	"storj.io/storj/storage/redis"
 	"github.com/zeebo/errs"
+	"storj.io/storj/storage/boltdb"
+	"os"
+	"path/filepath"
+	"storj.io/storj/pkg/utils"
 )
 
 type dbClient int
@@ -96,9 +100,10 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
+			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: _errors{
 				mock:   storage.ErrMissingKey,
-				bolt:   nil,
+				bolt:   errs.New("boltdb error"),
 				_redis: errs.New("redis error"),
 			},
 			data: map[string][]byte{"foo": func() []byte {
@@ -146,6 +151,33 @@ func redisTestClient(data map[string][]byte) storage.DB {
 	return client
 }
 
+func boltTestClient(data map[string][]byte) (_ storage.DB, _ func()) {
+	boltPath, err := filepath.Abs("test_bolt.db")
+	if err != nil {
+		panic(err)
+	}
+
+	logger, err := utils.NewLogger("dev")
+	if err != nil {
+		panic(err)
+	}
+
+	client, err := boltdb.NewClient(logger, boltPath, "testBoltdb")
+	if err != nil {
+		panic(err)
+	}
+
+	cleanup := func() {
+		if err := os.Remove(boltPath); err != nil {
+			panic(err)
+		}
+	}
+
+	populateStorage(client, data)
+
+	return client, cleanup
+}
+
 func populateStorage(client storage.DB, data map[string][]byte) {
 	for k, v := range data {
 		if err := client.Put([]byte(k), v); err != nil {
@@ -160,7 +192,6 @@ func TestRedisGet(t *testing.T) {
 
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
-
 			db := redisTestClient(c.data)
 			oc := Cache{DB: db}
 
@@ -181,8 +212,9 @@ func TestRedisPut(t *testing.T) {
 
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
+			db, cleanup := boltTestClient(c.data)
+			defer cleanup()
 
-			db := redisTestClient(c.data)
 			oc := Cache{DB: db}
 
 			err := oc.Put(c.key, c.value)
@@ -198,44 +230,53 @@ func TestRedisPut(t *testing.T) {
 	}
 }
 
-//
-// func TestBoltGet(t *testing.T) {
-// 	for _, c := range getCases {
-// 		t.Run(c.testID, func(t *testing.T) {
-//
-// 			oc := Cache{DB: c.client}
-//
-// 			assert.Equal(t, 0, c.client.GetCalled)
-//
-// 			resp, err := oc.Get(context.Background(), c.key)
-// 			assert.Equal(t, c.expectedErrors, err)
-// 			assert.Equal(t, c.expectedResponses, resp)
-// 			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
-// 		})
-// 	}
-// }
-//
-// func TestBoltPut(t *testing.T) {
-// 	for _, c := range putCases {
-// 		t.Run(c.testID, func(t *testing.T) {
-//
-// 			db := storage.NewMockStorageClient(c.data)
-// 			oc := Cache{DB: db}
-//
-// 			assert.Equal(t, 0, db.PutCalled)
-//
-// 			err := oc.Put(c.key, c.value)
-// 			assert.Equal(t, c.expectedErrors, err)
-// 			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
-//
-// 			v := c.client.Data[c.key]
-// 			na := &overlay.NodeAddress{}
-//
-// 			assert.NoError(t, proto.Unmarshal(v, na))
-// 			assert.Equal(t, na, &c.value)
-// 		})
-// 	}
-// }
+
+func TestBoltGet(t *testing.T) {
+	done := storage.EnsureRedis()
+	defer done()
+
+	for _, c := range getCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db, cleanup := boltTestClient(c.data)
+			defer cleanup()
+
+			oc := Cache{DB: db}
+
+			resp, err := oc.Get(context.Background(), c.key)
+			if expectedErr := c.expectedErrors[bolt]; expectedErr != nil {
+				assert.Error(t, err)
+			} else {
+				assert.Equal(t, expectedErr, err)
+			}
+			assert.Equal(t, c.expectedResponses[bolt], resp)
+
+		})
+	}
+}
+
+func TestBoltPut(t *testing.T) {
+	done := storage.EnsureRedis()
+	defer done()
+
+	for _, c := range putCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db, cleanup := boltTestClient(c.data)
+			defer cleanup()
+
+			oc := Cache{DB: db}
+
+			err := oc.Put(c.key, c.value)
+			assert.Equal(t, c.expectedErrors[_redis], err)
+
+			v, err := db.Get([]byte(c.key))
+			assert.NoError(t, err)
+			na := &overlay.NodeAddress{}
+
+			assert.NoError(t, proto.Unmarshal(v, na))
+			assert.Equal(t, na, &c.value)
+		})
+	}
+}
 
 func TestMockGet(t *testing.T) {
 	for _, c := range getCases {
