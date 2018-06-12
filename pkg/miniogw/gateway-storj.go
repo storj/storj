@@ -9,8 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -20,6 +20,8 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 )
@@ -27,8 +29,13 @@ import (
 var (
 	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
 	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
+	rsk            = flag.Int("required", 5, "rs required")
+	rsn            = flag.Int("total", 20, "rs total")
+	rsm            = flag.Int("minimum", 0, "rs minimum safe")
+	rso            = flag.Int("optimal", 0, "rs optimal safe")
+
+	mon   = monkit.Package()
+	Error = errs.Class("error")
 )
 
 func init() {
@@ -67,7 +74,7 @@ func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadat
 					ModTime:     time.Now(),
 					Size:        filesize,
 					IsDir:       false,
-					ContentType: "application/octet-stream",
+					ContentType: "video/mp4",
 				},
 			)
 			/* populate the filelist */
@@ -119,6 +126,56 @@ func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, er
 		Objects:     fl,
 	}
 	return result, nil
+}
+
+// deleteFile returns the files list for a bucket
+func (s *storjObjects) deleteFile(bucket, object string) (err error) {
+	for i, v := range s.storj.bucketlist {
+		k := 0
+		if v.bucket.Name == bucket {
+			for j := 0; j < len(s.storj.bucketlist[i].filelist.file.Objects); j++ {
+				fi := s.storj.bucketlist[i].filelist.file.Objects[j].Name
+				fmt.Println("fi=", fi)
+				if fi != object {
+					s.storj.bucketlist[i].filelist.file.Objects[k].Name = fi
+					k++
+				}
+			}
+			s.storj.bucketlist[i].filelist.file.Objects = s.storj.bucketlist[i].filelist.file.Objects[:k]
+		}
+	}
+	return nil
+}
+
+// removeBucket returns the files list for a bucket
+func (s *storjObjects) removeBucket(bucket string) (err error) {
+	k := 0
+	for i, v := range s.storj.bucketlist {
+		bi := s.storj.bucketlist[i].bucket.Name
+		fmt.Println("bi=", bi)
+		if v.bucket.Name != bucket {
+			s.storj.bucketlist[k] = v
+			k++
+		}
+	}
+	s.storj.bucketlist = s.storj.bucketlist[:k]
+	return nil
+}
+
+// addBucket returns the files list for a bucket
+func (s *storjObjects) addBucket(bucket string) (err error) {
+	s.storj.bucketlist = append(s.storj.bucketlist,
+		S3Bucket{
+			minio.BucketInfo{
+				Name:    bucket,
+				Created: time.Now(),
+			},
+			S3FileList{
+				minio.ListObjectsInfo{},
+			},
+		},
+	)
+	return nil
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -184,12 +241,12 @@ type storjObjects struct {
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
-	panic("TODO")
+	return s.removeBucket(bucket)
 }
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
 	object string) error {
-	panic("TODO")
+	return s.deleteFile(bucket, object)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -220,14 +277,15 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) error {
-	panic("TODO")
+	return s.addBucket(bucket)
 }
 
 //encryptFile encrypts the uploaded files
-func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
+func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	dir := os.TempDir()
 	dir = filepath.Join(dir, "gateway", bucket, object)
-	err := os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
 	}
@@ -244,10 +302,10 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 		return err
 	}
 	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0),
-		es, 0, 0, 4*1024*1024)
+		eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize()), encrypter, 0),
+		es, *rsm, *rso, 4*1024*1024)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	errs := make(chan error, len(readers))
 	for i := range readers {
@@ -275,27 +333,16 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	writer, err := os.Create(srcFile)
-	if err != nil {
-		return objInfo, err
-	}
-
-	wsize, err := io.CopyN(writer, data, data.Size())
-	if err != nil {
-		os.Remove(srcFile)
-		return objInfo, err
-	}
-
-	err = encryptFile(writer, uint(wsize), bucket, object)
+	defer mon.Task()(&ctx)(&err)
+	err = encryptFile(ctx, data, bucket, object)
 	if err == nil {
-		s.uploadFile(bucket, object, wsize, metadata)
+		s.uploadFile(bucket, object, data.Size(), metadata)
 	}
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
 		ModTime: time.Now(),
-		Size:    wsize,
+		Size:    data.Size(),
 		ETag:    minio.GenETag(),
 	}, err
 }
