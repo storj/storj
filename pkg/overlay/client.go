@@ -3,6 +3,7 @@ package overlay
 import (
 	"context"
 
+	"google.golang.org/grpc"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -17,6 +18,17 @@ type Client interface {
 // Overlay is the overlay concrete implementation of the client interface
 type Overlay struct {
 	client proto.OverlayClient
+}
+
+// NewOverlayClient returns a new intialized Overlay Client
+func NewOverlayClient(address string) (*Overlay, error) {
+	c, err := NewClient(&address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return &Overlay{
+		client: c,
+	}, nil
 }
 
 // Choose returns a list of storage NodeID's that fit the provided criteria
