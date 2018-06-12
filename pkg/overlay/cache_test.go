@@ -22,7 +22,7 @@ import (
 
 type dbClient int
 type responses map[dbClient]*overlay.NodeAddress
-type _errors map[dbClient]error
+type errors map[dbClient]error
 
 const (
 	mock   dbClient = iota
@@ -36,7 +36,7 @@ var (
 		expectedTimesCalled int
 		key                 string
 		expectedResponses   responses
-		expectedErrors      _errors
+		expectedErrors      errors
 		data                map[string][]byte
 	}{
 		{
@@ -51,7 +51,7 @@ var (
 					_redis: na,
 				}
 			}(),
-			expectedErrors: _errors{
+			expectedErrors: errors{
 				mock:   nil,
 				bolt:   nil,
 				_redis: nil,
@@ -77,7 +77,7 @@ var (
 					_redis: na,
 				}
 			}(),
-			expectedErrors: _errors{
+			expectedErrors: errors{
 				mock:   storage.ErrForced,
 				bolt:   nil,
 				_redis: nil,
@@ -101,7 +101,7 @@ var (
 				_redis: nil,
 			},
 			// TODO(bryanchriswhite): compare actual errors
-			expectedErrors: _errors{
+			expectedErrors: errors{
 				mock:   storage.ErrMissingKey,
 				bolt:   errs.New("boltdb error"),
 				_redis: errs.New("redis error"),
@@ -122,7 +122,7 @@ var (
 		expectedTimesCalled int
 		key                 string
 		value               overlay.NodeAddress
-		expectedErrors      _errors
+		expectedErrors      errors
 		data                map[string][]byte
 	}{
 		{
@@ -130,7 +130,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "foo",
 			value:               overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"},
-			expectedErrors: _errors{
+			expectedErrors: errors{
 				mock:   nil,
 				bolt:   nil,
 				_redis: nil,
