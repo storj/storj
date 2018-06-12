@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// Overlay implements our overlay RPC service
-type Overlay struct {
+// Server implements our overlay RPC service
+type Server struct {
 	kad     *kademlia.Kademlia
 	DB      *redis.OverlayClient
 	logger  *zap.Logger
@@ -22,7 +22,7 @@ type Overlay struct {
 }
 
 // Lookup finds the address of a node in our overlay network
-func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
+func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
 	na, err := o.DB.Get(ctx, req.NodeID)
 	if err != nil {
 		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeID))
@@ -30,12 +30,15 @@ func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.
 	}
 
 	return &proto.LookupResponse{
-		NodeAddress: na,
+		Node: &proto.Node{
+			Id:      req.GetNodeID(),
+			Address: na,
+		},
 	}, nil
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (o *Overlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
+func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	// NB:  call FilterNodeReputation from node_reputation package to find nodes for storage
 
 	// TODO(coyle): need to determine if we will pull the startID and Limit from the request or just use hardcoded data
@@ -47,6 +50,6 @@ func (o *Overlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNo
 	}
 
 	return &proto.FindStorageNodesResponse{
-		Node: nodes,
+		Nodes: nodes,
 	}, nil
 }

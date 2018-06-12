@@ -40,7 +40,7 @@ func init() {
 // NewServer creates a new Overlay Service Server
 func NewServer(k *kademlia.Kademlia, db *redis.OverlayClient, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
+	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     k,
 		DB:      db,
 		logger:  l,
@@ -116,7 +116,7 @@ func (s *Service) Process(ctx context.Context) error {
 	}
 
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
+	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     kad,
 		DB:      cache,
 		logger:  s.logger,
