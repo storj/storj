@@ -12,6 +12,18 @@ import (
 
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/common"
+	"storj.io/storj/storage/redis"
+	"github.com/zeebo/errs"
+)
+
+type dbClient int
+type responses map[dbClient]*overlay.NodeAddress
+type _errors map[dbClient]error
+
+const (
+	mock   dbClient = iota
+	bolt
+	_redis
 )
 
 var (
@@ -19,16 +31,27 @@ var (
 		testID              string
 		expectedTimesCalled int
 		key                 string
-		expectedResponse    *overlay.NodeAddress
-		expectedError       error
+		expectedResponses   responses
+		expectedErrors      _errors
 		data                map[string][]byte
 	}{
 		{
 			testID:              "valid Get",
 			expectedTimesCalled: 1,
 			key:                 "foo",
-			expectedResponse:    &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"},
-			expectedError:       nil,
+			expectedResponses: func() responses {
+				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
+				return responses{
+					mock:   na,
+					bolt:   na,
+					_redis: na,
+				}
+			}(),
+			expectedErrors: _errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
 			data: map[string][]byte{"foo": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
@@ -39,11 +62,22 @@ var (
 			}()},
 		},
 		{
-			testID:              "error Get from redis",
+			testID:              "forced get error",
 			expectedTimesCalled: 1,
 			key:                 "error",
-			expectedResponse:    nil,
-			expectedError:       storage.ErrForced,
+			expectedResponses: func() responses {
+				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
+				return responses{
+					mock:   nil,
+					bolt:   na,
+					_redis: na,
+				}
+			}(),
+			expectedErrors: _errors{
+				mock:   storage.ErrForced,
+				bolt:   nil,
+				_redis: nil,
+			},
 			data: map[string][]byte{"error": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
@@ -57,8 +91,16 @@ var (
 			testID:              "get missing key",
 			expectedTimesCalled: 1,
 			key:                 "bar",
-			expectedResponse:    nil,
-			expectedError:       storage.ErrMissingKey,
+			expectedResponses: responses{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			expectedErrors: _errors{
+				mock:   storage.ErrMissingKey,
+				bolt:   nil,
+				_redis: errs.New("redis error"),
+			},
 			data: map[string][]byte{"foo": func() []byte {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
@@ -75,7 +117,7 @@ var (
 		expectedTimesCalled int
 		key                 string
 		value               overlay.NodeAddress
-		expectedError       error
+		expectedErrors      _errors
 		data                map[string][]byte
 	}{
 		{
@@ -83,49 +125,79 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "foo",
 			value:               overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"},
-			expectedError:       nil,
-			data:                map[string][]byte{},
+			expectedErrors: _errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: map[string][]byte{},
 		},
 	}
 )
 
-// func TestRedisGet(t *testing.T) {
-// 	for _, c := range getCases {
-// 		t.Run(c.testID, func(t *testing.T) {
-//
-// 			oc := Cache{DB: c.client}
-//
-// 			assert.Equal(t, 0, c.client.GetCalled)
-//
-// 			resp, err := oc.Get(context.Background(), c.key)
-// 			assert.Equal(t, c.expectedError, err)
-// 			assert.Equal(t, c.expectedResponse, resp)
-// 			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
-// 		})
-// 	}
-// }
-//
-// func TestRedisPut(t *testing.T) {
-//
-// 	for _, c := range putCases {
-// 		t.Run(c.testID, func(t *testing.T) {
-//
-// 			oc := Cache{DB: c.client}
-//
-// 			assert.Equal(t, 0, c.client.PutCalled)
-//
-// 			err := oc.Put(c.key, c.value)
-// 			assert.Equal(t, c.expectedError, err)
-// 			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
-//
-// 			v := c.client.Data[c.key]
-// 			na := &overlay.NodeAddress{}
-//
-// 			assert.NoError(t, proto.Unmarshal(v, na))
-// 			assert.Equal(t, na, &c.value)
-// 		})
-// 	}
-// }
+func redisTestClient(data map[string][]byte) storage.DB {
+	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
+	if err != nil {
+		panic(err)
+	}
+
+	populateStorage(client, data)
+
+	return client
+}
+
+func populateStorage(client storage.DB, data map[string][]byte) {
+	for k, v := range data {
+		if err := client.Put([]byte(k), v); err != nil {
+			panic(errs.New("Error while trying to store test data"))
+		}
+	}
+}
+
+func TestRedisGet(t *testing.T) {
+	done := storage.EnsureRedis()
+	defer done()
+
+	for _, c := range getCases {
+		t.Run(c.testID, func(t *testing.T) {
+
+			db := redisTestClient(c.data)
+			oc := Cache{DB: db}
+
+			resp, err := oc.Get(context.Background(), c.key)
+			if expectedErr := c.expectedErrors[_redis]; expectedErr != nil {
+				assert.Error(t, err)
+			} else {
+				assert.Equal(t, expectedErr, err)
+			}
+			assert.Equal(t, c.expectedResponses[_redis], resp)
+		})
+	}
+}
+
+func TestRedisPut(t *testing.T) {
+	done := storage.EnsureRedis()
+	defer done()
+
+	for _, c := range putCases {
+		t.Run(c.testID, func(t *testing.T) {
+
+			db := redisTestClient(c.data)
+			oc := Cache{DB: db}
+
+			err := oc.Put(c.key, c.value)
+			assert.Equal(t, c.expectedErrors[_redis], err)
+
+			v, err := db.Get([]byte(c.key))
+			assert.NoError(t, err)
+			na := &overlay.NodeAddress{}
+
+			assert.NoError(t, proto.Unmarshal(v, na))
+			assert.Equal(t, na, &c.value)
+		})
+	}
+}
+
 //
 // func TestBoltGet(t *testing.T) {
 // 	for _, c := range getCases {
@@ -136,8 +208,8 @@ var (
 // 			assert.Equal(t, 0, c.client.GetCalled)
 //
 // 			resp, err := oc.Get(context.Background(), c.key)
-// 			assert.Equal(t, c.expectedError, err)
-// 			assert.Equal(t, c.expectedResponse, resp)
+// 			assert.Equal(t, c.expectedErrors, err)
+// 			assert.Equal(t, c.expectedResponses, resp)
 // 			assert.Equal(t, c.expectedTimesCalled, c.client.GetCalled)
 // 		})
 // 	}
@@ -153,7 +225,7 @@ var (
 // 			assert.Equal(t, 0, db.PutCalled)
 //
 // 			err := oc.Put(c.key, c.value)
-// 			assert.Equal(t, c.expectedError, err)
+// 			assert.Equal(t, c.expectedErrors, err)
 // 			assert.Equal(t, c.expectedTimesCalled, c.client.PutCalled)
 //
 // 			v := c.client.Data[c.key]
@@ -175,8 +247,8 @@ func TestMockGet(t *testing.T) {
 			assert.Equal(t, 0, db.GetCalled)
 
 			resp, err := oc.Get(context.Background(), c.key)
-			assert.Equal(t, c.expectedError, err)
-			assert.Equal(t, c.expectedResponse, resp)
+			assert.Equal(t, c.expectedErrors[mock], err)
+			assert.Equal(t, c.expectedResponses[mock], resp)
 			assert.Equal(t, c.expectedTimesCalled, db.GetCalled)
 		})
 	}
@@ -192,7 +264,7 @@ func TestMockPut(t *testing.T) {
 			assert.Equal(t, 0, db.PutCalled)
 
 			err := oc.Put(c.key, c.value)
-			assert.Equal(t, c.expectedError, err)
+			assert.Equal(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedTimesCalled, db.PutCalled)
 
 			v := db.Data[c.key]

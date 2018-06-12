@@ -2,9 +2,9 @@ package overlay
 
 import (
   "context"
-  "errors"
   "fmt"
   "github.com/gogo/protobuf/proto"
+  "github.com/zeebo/errs"
 
   "storj.io/storj/pkg/kademlia"
   "storj.io/storj/protos/overlay"
@@ -14,7 +14,7 @@ import (
 )
 
 // ErrNodeNotFound standardizes errors here
-var ErrNodeNotFound = errors.New("Node not found")
+var ErrNodeNotFound = errs.New("Node not found")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
