@@ -115,7 +115,7 @@ func RetrieveReader(id string, offset int64, length int64, dir string) (io.ReadC
 		return nil, err
 	}
 
-	return rr.Range(offset, length), nil
+	return rr.Range(offset, length)
 }
 
 // Delete deletes data from farmer

@@ -10,8 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-
-	"storj.io/storj/internal/pkg/readcloser"
 )
 
 type httpRanger struct {
@@ -57,34 +55,33 @@ func (r *httpRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range
-func (r *httpRanger) Range(offset, length int64) io.ReadCloser {
+func (r *httpRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative offset"))
+		return nil, Error.New("negative offset")
 	}
 	if length < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative length"))
+		return nil, Error.New("negative length")
 	}
 	if offset+length > r.size {
-		return readcloser.FatalReadCloser(Error.New("range beyond end"))
+		return nil, Error.New("range beyond end")
 	}
 	if length == 0 {
-		return ioutil.NopCloser(bytes.NewReader([]byte{}))
+		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", r.URL, nil)
 	if err != nil {
-		return readcloser.FatalReadCloser(err)
+		return nil, err
 	}
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", offset, offset+length-1))
 	resp, err := client.Do(req)
 	if err != nil {
-		return readcloser.FatalReadCloser(err)
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusPartialContent {
 		resp.Body.Close()
-		return readcloser.FatalReadCloser(
-			Error.New("unexpected status code: %d (expected %d)",
-				resp.StatusCode, http.StatusPartialContent))
+		return nil, Error.New("unexpected status code: %d (expected %d)",
+			resp.StatusCode, http.StatusPartialContent)
 	}
-	return resp.Body
+	return resp.Body, nil
 }

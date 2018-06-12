@@ -125,29 +125,28 @@ func calcEncompassingBlocks(offset, length int64, blockSize int) (
 	return firstBlock, 1 + lastBlock - firstBlock
 }
 
-func (t *transformedRanger) Range(offset, length int64) io.ReadCloser {
+func (t *transformedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	// Range may not have been called for block-aligned offsets and lengths, so
 	// let's figure out which blocks encompass the request
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, t.t.OutBlockSize())
 	// okay, now let's get the range on the underlying ranger for those blocks
 	// and then Transform it.
-	r := TransformReaderSize(
-		t.rr.Range(
-			firstBlock*int64(t.t.InBlockSize()),
-			blockCount*int64(t.t.InBlockSize())),
-		t.t, firstBlock, blockCount*int64(t.t.InBlockSize()))
+	r, err := t.rr.Range(
+		firstBlock*int64(t.t.InBlockSize()),
+		blockCount*int64(t.t.InBlockSize()))
+	tr := TransformReaderSize(r, t.t, firstBlock, blockCount*int64(t.t.InBlockSize()))
 	// the range we got potentially includes more than we wanted. if the
 	// offset started past the beginning of the first block, we need to
 	// swallow the first few bytes
-	_, err := io.CopyN(ioutil.Discard, r,
+	_, err = io.CopyN(ioutil.Discard, tr,
 		offset-firstBlock*int64(t.t.OutBlockSize()))
 	if err != nil {
 		if err == io.EOF {
-			return ioutil.NopCloser(bytes.NewReader(nil))
+			return ioutil.NopCloser(bytes.NewReader(nil)), nil
 		}
-		return readcloser.FatalReadCloser(Error.Wrap(err))
+		return nil, Error.Wrap(err)
 	}
 	// the range might have been too long. only return what was requested
-	return readcloser.LimitReadCloser(r, length)
+	return readcloser.LimitReadCloser(tr, length), nil
 }

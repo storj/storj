@@ -354,11 +354,13 @@ func (er *EncodedRanger) Range(offset, length int64) ([]io.Reader, error) {
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, er.es.EncodedBlockSize())
 	// okay, now let's encode the reader for the range containing the blocks
-	readers, err := EncodeReader(er.ctx,
-		er.rr.Range(
-			firstBlock*int64(er.es.DecodedBlockSize()),
-			blockCount*int64(er.es.DecodedBlockSize())),
-		er.es, er.min, er.opt, er.mbm)
+	r, err := er.rr.Range(
+		firstBlock*int64(er.es.DecodedBlockSize()),
+		blockCount*int64(er.es.DecodedBlockSize()))
+	if err != nil {
+		return nil, err
+	}
+	readers, err := EncodeReader(er.ctx, r, er.es, er.min, er.opt, er.mbm)
 	if err != nil {
 		return nil, err
 	}

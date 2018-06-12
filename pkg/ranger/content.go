@@ -43,7 +43,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 
 	// handle Content-Range header.
 	sendSize := size
-	sendContent := func() io.ReadCloser {
+	sendContent := func() (io.ReadCloser, error) {
 		return content.Range(0, size)
 	}
 
@@ -76,7 +76,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		// A response to a request for a single range MUST NOT
 		// be sent using the multipart/byteranges media type."
 		ra := ranges[0]
-		sendContent = func() io.ReadCloser { return content.Range(ra.start, ra.length) }
+		sendContent = func() (io.ReadCloser, error) { return content.Range(ra.start, ra.length) }
 		sendSize = ra.length
 		code = http.StatusPartialContent
 		w.Header().Set("Content-Range", ra.contentRange(size))
@@ -95,7 +95,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					amount = sniffLen
 				}
 				// TODO: cache this somewhere so we don't have to pull it out again
-				r := content.Range(0, amount)
+				r, _ := content.Range(0, amount)
 				defer r.Close()
 				n, _ := io.ReadFull(r, buf[:])
 				ctype = http.DetectContentType(buf[:n])
@@ -112,7 +112,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		mw := multipart.NewWriter(pw)
 		w.Header().Set("Content-Type",
 			"multipart/byteranges; boundary="+mw.Boundary())
-		sendContent = func() io.ReadCloser { return ioutil.NopCloser(pr) }
+		sendContent = func() (io.ReadCloser, error) { return ioutil.NopCloser(pr), nil }
 		// cause writing goroutine to fail and exit if CopyN doesn't finish.
 		defer pr.Close()
 		go func() {
@@ -122,7 +122,11 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					pw.CloseWithError(err)
 					return
 				}
-				partReader := content.Range(ra.start, ra.length)
+				partReader, err := content.Range(ra.start, ra.length)
+				if err != nil {
+					pw.CloseWithError(err)
+					return
+				}
 				defer partReader.Close()
 				if _, err := io.Copy(part, partReader); err != nil {
 					pw.CloseWithError(err)
@@ -142,7 +146,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 	w.WriteHeader(code)
 
 	if r.Method != http.MethodHead {
-		r := sendContent()
+		r, _ := sendContent()
 		defer r.Close()
 		io.CopyN(w, r, sendSize)
 	}
