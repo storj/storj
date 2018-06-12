@@ -24,6 +24,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/paths"
+	"storj.io/storj/protos/overlay"
 )
 
 var (
@@ -283,6 +285,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 //encryptFile encrypts the uploaded files
 func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	dir := os.TempDir()
 	dir = filepath.Join(dir, "gateway", bucket, object)
 	err = os.MkdirAll(dir, 0755)
@@ -293,6 +296,14 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	if err != nil {
 		return err
 	}
+
+	/* create a unique fileID */
+	netStateKey := []byte(*key)
+	encryptedPath, err := paths.Encrypt([]string{bucket, object}, netStateKey)
+	fmt.Println("encrypted path ", encryptedPath)
+	decryptedPath, err := paths.Decrypt(encryptedPath, netStateKey)
+	fmt.Println("decrypted path ", decryptedPath)
+
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
 	encKey := sha256.Sum256([]byte(*key))
 	var firstNonce [12]byte
@@ -307,6 +318,23 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	/* integrating with DHT for uploading to get the farmer's IP address */
+	addr := "bootstrap.storj.io:7070"
+	c, err := overlay.NewOverlayClient(addr)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	/* TODO: get the space by sizeof(reader)*#of readers */
+	r, err := c.Choose(context.Background(), int(20), int(100), int(100))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	fmt.Printf("r %#v\n", r)
+	//pieceId := pstore.DetermineID()
+	// r is your nodes
+	var remotePieces []*pb.RemotePiece
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
