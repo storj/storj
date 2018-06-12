@@ -78,7 +78,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "bootstrap.storj.io", "8080")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err

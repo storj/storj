@@ -34,6 +34,15 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
+	ips, err := net.LookupIP(ip)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) <= 0 {
+		return nil, errs.New("Invalid IP")
+	}
+
+	ip = ips[0].String()
 	bb, err := convertProtoNodes(bootstrapNodes)
 	if err != nil {
 		return nil, err
