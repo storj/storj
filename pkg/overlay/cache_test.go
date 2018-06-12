@@ -6,6 +6,8 @@ package overlay
 import (
 	"context"
 	"testing"
+	"path/filepath"
+	"os"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -15,8 +17,6 @@ import (
 	"storj.io/storj/storage/redis"
 	"github.com/zeebo/errs"
 	"storj.io/storj/storage/boltdb"
-	"os"
-	"path/filepath"
 	"storj.io/storj/pkg/utils"
 )
 
