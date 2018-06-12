@@ -66,7 +66,7 @@ func TestGet(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			oc := OverlayClient{DB: c.client}
+			oc := Cache{DB: c.client}
 
 			assert.Equal(t, 0, c.client.getCalled)
 
@@ -100,7 +100,7 @@ func TestSet(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			oc := OverlayClient{DB: c.client}
+			oc := Cache{DB: c.client}
 
 			assert.Equal(t, 0, c.client.setCalled)
 

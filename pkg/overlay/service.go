@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -37,11 +36,11 @@ func init() {
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer(k *kademlia.Kademlia, db *redis.OverlayClient, l *zap.Logger, m *monkit.Registry) *grpc.Server {
+func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{
 		kad:     k,
-		DB:      db,
+		cache: cache,
 		logger:  l,
 		metrics: m,
 	})
@@ -94,9 +93,9 @@ func (s *Service) Process(ctx context.Context) error {
 	}
 
 	// bootstrap cache
-	var cache *redis.OverlayClient
+	var cache *Cache
 	if redisAddress != "" {
-		cache, err = redis.NewRedisOverlayClient(redisAddress, redisPassword, db, kad)
+		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
