@@ -40,7 +40,6 @@ var (
 
 	redisRefs = map[string]bool{}
 	testRedis = &TestRedisServer{
-		cmd:     &exec.Cmd{},
 		started: false,
 	}
 )
@@ -138,6 +137,7 @@ func redisRefCount() (_ int) {
 }
 
 func (r *TestRedisServer) start() {
+	r.cmd = &exec.Cmd{}
 	cmd := r.cmd
 
 	logPath, err := filepath.Abs("test_redis-server.log")
@@ -159,12 +159,10 @@ func (r *TestRedisServer) start() {
 	cmd.Stdout = log
 
 	go func() {
-		if !r.started {
-			r.started = true
+		r.started = true
 
-			if err := cmd.Run(); err != nil {
-				panic(errs.New("Couldn't start redis-server: %s", err.Error()))
-			}
+		if err := cmd.Run(); err != nil {
+			// TODO(bryanchriswhite) error checking
 		}
 	}()
 
@@ -177,6 +175,7 @@ func (r *TestRedisServer) start() {
 }
 
 func (r *TestRedisServer) stop() {
+	r.started = false
 	if err := r.cmd.Process.Kill(); err != nil {
 		panic(err)
 	}
