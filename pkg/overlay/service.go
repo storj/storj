@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort string
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
 	db                                                                int
 	srvPort                                                           uint
 )
@@ -32,6 +32,7 @@ func init() {
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
+	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -75,7 +76,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", "8081")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
