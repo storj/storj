@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
-	"storj.io/storj/storage/common"
+	"storj.io/storj/internal/test"
 )
 
 
@@ -49,7 +49,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
-	done := storage.EnsureRedis()
+	done := test.EnsureRedis()
 	defer done()
 
 	o := Service{}

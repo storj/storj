@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/netstate/auth"
 	pb "storj.io/storj/protos/netstate"
-	"storj.io/storj/storage/common"
+	"storj.io/storj/storage"
 )
 
 // PointerEntry - Path and Pointer are saved as a kv pair to boltdb.

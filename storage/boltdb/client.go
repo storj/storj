@@ -6,7 +6,7 @@ package boltdb
 import (
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
-	"storj.io/storj/storage/common"
+	"storj.io/storj/storage"
 	"time"
 )
 

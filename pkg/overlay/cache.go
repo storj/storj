@@ -8,7 +8,7 @@ import (
 
   "storj.io/storj/pkg/kademlia"
   "storj.io/storj/protos/overlay"
-  "storj.io/storj/storage/common"
+  "storj.io/storj/storage"
   "storj.io/storj/storage/redis"
   "storj.io/storj/storage/boltdb"
 )

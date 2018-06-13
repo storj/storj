@@ -13,11 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/protos/overlay"
-	"storj.io/storj/storage/common"
 	"storj.io/storj/storage/redis"
 	"github.com/zeebo/errs"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/internal/test"
+	"storj.io/storj/storage"
 )
 
 type dbClient int
@@ -78,7 +79,7 @@ var (
 				}
 			}(),
 			expectedErrors: errors{
-				mock:   storage.ErrForced,
+				mock:   test.ErrForced,
 				bolt:   nil,
 				_redis: nil,
 			},
@@ -102,7 +103,7 @@ var (
 			},
 			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
-				mock:   storage.ErrMissingKey,
+				mock:   test.ErrMissingKey,
 				bolt:   errs.New("boltdb error"),
 				_redis: errs.New("redis error"),
 			},
@@ -187,7 +188,7 @@ func populateStorage(client storage.DB, data map[string][]byte) {
 }
 
 func TestRedisGet(t *testing.T) {
-	done := storage.EnsureRedis()
+	done := test.EnsureRedis()
 	defer done()
 
 	for _, c := range getCases {
@@ -207,7 +208,7 @@ func TestRedisGet(t *testing.T) {
 }
 
 func TestRedisPut(t *testing.T) {
-	done := storage.EnsureRedis()
+	done := test.EnsureRedis()
 	defer done()
 
 	for _, c := range putCases {
@@ -232,7 +233,7 @@ func TestRedisPut(t *testing.T) {
 
 
 func TestBoltGet(t *testing.T) {
-	done := storage.EnsureRedis()
+	done := test.EnsureRedis()
 	defer done()
 
 	for _, c := range getCases {
@@ -255,7 +256,7 @@ func TestBoltGet(t *testing.T) {
 }
 
 func TestBoltPut(t *testing.T) {
-	done := storage.EnsureRedis()
+	done := test.EnsureRedis()
 	defer done()
 
 	for _, c := range putCases {
@@ -282,7 +283,7 @@ func TestMockGet(t *testing.T) {
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := storage.NewMockStorageClient(c.data)
+			db := test.NewMockStorageClient(c.data)
 			oc := Cache{DB: db}
 
 			assert.Equal(t, 0, db.GetCalled)
@@ -299,7 +300,7 @@ func TestMockPut(t *testing.T) {
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := storage.NewMockStorageClient(c.data)
+			db := test.NewMockStorageClient(c.data)
 			oc := Cache{DB: db}
 
 			assert.Equal(t, 0, db.PutCalled)

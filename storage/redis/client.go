@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
-	"storj.io/storj/storage/common"
+	"storj.io/storj/storage"
 	"github.com/zeebo/errs"
 )
 

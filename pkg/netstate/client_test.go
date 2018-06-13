@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	pb "storj.io/storj/protos/netstate"
-	"storj.io/storj/storage/common"
+	"storj.io/storj/internal/test"
 )
 
 func TestNetStateClient(t *testing.T) {
@@ -26,7 +26,7 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	mdb := storage.NewMockStorageClient(map[string][]byte{})
+	mdb := test.NewMockStorageClient(map[string][]byte{})
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))

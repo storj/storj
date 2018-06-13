@@ -1,6 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
-package storage
+package test
 
 import (
 	"flag"
@@ -188,3 +188,4 @@ func randomHex(n int) (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
+
