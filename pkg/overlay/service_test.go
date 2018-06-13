@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
