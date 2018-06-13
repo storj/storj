@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package overlay
 
 import (
@@ -8,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -32,9 +36,9 @@ func TestNewOverlayClient(t *testing.T) {
 
 func TestChoose(t *testing.T) {
 	cases := []struct {
-		amount        int
-		space         int
-		bw            int
+		amount        int64
+		space         int64
+		bw            int64
 		expectedCalls int
 	}{
 		{
