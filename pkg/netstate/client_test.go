@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"storj.io/storj/internal/test"
 	pb "storj.io/storj/protos/netstate"
 )
