@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	pb "storj.io/storj/protos/netstate"
 	"storj.io/storj/internal/test"
+	pb "storj.io/storj/protos/netstate"
 )
 
 func TestNetStateClient(t *testing.T) {

@@ -3,14 +3,14 @@
 package test
 
 import (
-	"flag"
-	"path/filepath"
-	"os/exec"
-	"os"
-	"fmt"
-	"time"
-	"encoding/hex"
 	"crypto/rand"
+	"encoding/hex"
+	"flag"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -188,4 +188,3 @@ func randomHex(n int) (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
-

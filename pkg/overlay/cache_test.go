@@ -5,20 +5,20 @@ package overlay
 
 import (
 	"context"
-	"testing"
-	"path/filepath"
 	"os"
+	"path/filepath"
+	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
-	"storj.io/storj/protos/overlay"
-	"storj.io/storj/storage/redis"
 	"github.com/zeebo/errs"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/pkg/utils"
+
 	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/redis"
 )
 
 type dbClient int
@@ -26,7 +26,7 @@ type responses map[dbClient]*overlay.NodeAddress
 type errors map[dbClient]error
 
 const (
-	mock   dbClient = iota
+	mock dbClient = iota
 	bolt
 	_redis
 )
@@ -230,7 +230,6 @@ func TestRedisPut(t *testing.T) {
 		})
 	}
 }
-
 
 func TestBoltGet(t *testing.T) {
 	done := test.EnsureRedis()

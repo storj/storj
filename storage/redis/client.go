@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
-	"storj.io/storj/storage"
 	"github.com/zeebo/errs"
+	"storj.io/storj/storage"
 )
 
 const defaultNodeExpiration = 61 * time.Minute
 
 // Client is the entrypoint into Redis
 type redisClient struct {
-	DB *redis.Client
+	DB  *redis.Client
 	TTL time.Duration
 }
 
@@ -70,9 +70,3 @@ func (c *redisClient) Delete(key []byte) error {
 func (c *redisClient) Close() error {
 	return c.DB.Close()
 }
-
-// Ping returns an error if pinging the underlying redis server failed
-// TODO: needed?
-// func (c *redisClient) Ping() error {
-// 	return c.DB.Ping().Err()
-// }

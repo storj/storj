@@ -4,12 +4,12 @@
 package boltdb
 
 import (
+	"time"
+
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
 	"storj.io/storj/storage"
-	"time"
 )
-
 
 type boltClient struct {
 	logger *zap.Logger
@@ -20,10 +20,11 @@ type boltClient struct {
 
 const (
 	// fileMode sets permissions so owner can read and write
-	fileMode = 0600
+	fileMode      = 0600
 	PointerBucket = "pointers"
 	OverlayBucket = "overlay"
 )
+
 var (
 	defaultTimeout = 1 * time.Second
 )

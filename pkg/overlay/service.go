@@ -39,7 +39,7 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{
 		kad:     k,
-		cache: cache,
+		cache:   cache,
 		logger:  l,
 		metrics: m,
 	})

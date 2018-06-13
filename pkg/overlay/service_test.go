@@ -6,16 +6,15 @@ package overlay
 import (
 	"context"
 	"fmt"
-	"time"
-	"testing"
 	"net"
+	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/internal/test"
+	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
-
 
 func TestNewServer(t *testing.T) {
 	t.SkipNow()
@@ -53,8 +52,7 @@ func TestProcess(t *testing.T) {
 	defer done()
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 1 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	err := o.Process(ctx)
 	assert.NoError(t, err)
 }
-
