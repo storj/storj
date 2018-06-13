@@ -20,8 +20,8 @@ import (
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
-	db                                                                int
-	srvPort                                                           uint
+	db                                                                           int
+	srvPort                                                                      uint
 )
 
 func init() {
@@ -122,12 +122,14 @@ func (s *Service) Process(ctx context.Context) error {
 	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
 	go cache.Walk(ctx)
 
+	// If the passed context times out or is cancelled, shutdown the gRPC server
 	go func() {
 		if _, ok := <-ctx.Done(); !ok {
 			grpcServer.GracefulStop()
 		}
 	}()
 
+	// If `grpcServer.Serve(...)` returns an error, shutdown/cleanup the gRPC server
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
 }

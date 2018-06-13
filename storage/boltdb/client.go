@@ -14,7 +14,7 @@ import (
 
 type boltClient struct {
 	logger *zap.Logger
-	DB     *bolt.DB
+	db     *bolt.DB
 	Path   string
 	Bucket []byte
 }
@@ -41,7 +41,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (storage.KeyValueStore, 
 
 	return &boltClient{
 		logger: logger,
-		DB:     db,
+		db:     db,
 		Path:   path,
 		Bucket: []byte(bucket),
 	}, nil
@@ -50,7 +50,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (storage.KeyValueStore, 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (c *boltClient) Put(key storage.Key, value storage.Value) error {
 	c.logger.Debug("entering bolt put")
-	return c.DB.Update(func(tx *bolt.Tx) error {
+	return c.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(c.Bucket)
 		if err != nil {
 			return err
@@ -64,7 +64,7 @@ func (c *boltClient) Put(key storage.Key, value storage.Value) error {
 func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 	c.logger.Debug("entering bolt get: " + string(pathKey))
 	var pointerBytes []byte
-	err := c.DB.Update(func(tx *bolt.Tx) error {
+	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
 		if v == nil {
@@ -81,7 +81,7 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 func (c *boltClient) List() (storage.Keys, error) {
 	c.logger.Debug("entering bolt list")
 	var paths storage.Keys
-	err := c.DB.Update(func(tx *bolt.Tx) error {
+	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 
 		err := b.ForEach(func(key, value []byte) error {
@@ -97,12 +97,12 @@ func (c *boltClient) List() (storage.Keys, error) {
 // Delete deletes a key/value pair from boltdb, for a given the key
 func (c *boltClient) Delete(pathKey storage.Key) error {
 	c.logger.Debug("entering bolt delete: " + string(pathKey))
-	return c.DB.Update(func(tx *bolt.Tx) error {
+	return c.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket(c.Bucket).Delete(pathKey)
 	})
 }
 
 // Close closes a BoltDB client
 func (c *boltClient) Close() error {
-	return c.DB.Close()
+	return c.db.Close()
 }
