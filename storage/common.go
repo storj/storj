@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package storage
 
 type Key []byte
@@ -14,12 +17,12 @@ type KeyValueStore interface {
 	Close() error
 }
 
-// MatrshalBinary implements the encoding.BinaryMarshaler interface for the Value type
+// MarshalBinary implements the encoding.BinaryMarshaler interface for the Value type
 func (v *Value) MarshalBinary() (_ []byte, _ error) {
 	return *v, nil
 }
 
-// MatrshalBinary implements the encoding.BinaryMarshaler interface for the Key type
+// MarshalBinary implements the encoding.BinaryMarshaler interface for the Key type
 func (k *Key) MarshalBinary() (_ []byte, _ error) {
 	return *k, nil
 }

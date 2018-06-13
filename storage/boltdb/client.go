@@ -20,7 +20,7 @@ type boltClient struct {
 
 const (
 	// fileMode sets permissions so owner can read and write
-	fileMode      = 0600
+	fileMode = 0600
 	// PointerBucket is the string representing the bucket used for `PointerEntries`
 	PointerBucket = "pointers"
 	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache

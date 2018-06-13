@@ -1,5 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package test
 
 import (
@@ -10,11 +11,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
-
-	"github.com/zeebo/errs"
-	"storj.io/storj/storage"
 	"testing"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/storage"
 )
 
 // KvStore is an in-memory, crappy key/value store type for testing
