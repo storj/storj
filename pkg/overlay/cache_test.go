@@ -141,59 +141,49 @@ var (
 	}
 )
 
-func redisTestClient(data test.KvStore) storage.KeyValueStore {
+func redisTestClient(t *testing.T, data test.KvStore) storage.KeyValueStore {
 	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
-	populateStorage(client, data)
+	populateStorage(t, client, data)
 
 	return client
 }
 
-func boltTestClient(data test.KvStore) (_ storage.KeyValueStore, _ func()) {
+func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _ func()) {
 	boltPath, err := filepath.Abs("test_bolt.db")
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	logger, err := utils.NewLogger("dev")
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	client, err := boltdb.NewClient(logger, boltPath, "testBoltdb")
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	cleanup := func() {
-		if err := os.Remove(boltPath); err != nil {
-			panic(err)
-		}
+		err := os.Remove(boltPath)
+		assert.NoError(t, err)
 	}
 
-	populateStorage(client, data)
+	populateStorage(t, client, data)
 
 	return client, cleanup
 }
 
-func populateStorage(client storage.KeyValueStore, data test.KvStore) {
+func populateStorage(t *testing.T, client storage.KeyValueStore, data test.KvStore) {
 	for k, v := range data {
-		if err := client.Put(storage.Key(k), v); err != nil {
-			panic(errs.New("Error while trying to store test data"))
-		}
+		err := client.Put(storage.Key(k), v)
+		assert.NoError(t, err)
 	}
 }
 
 func TestRedisGet(t *testing.T) {
-	done := test.EnsureRedis()
+	done := test.EnsureRedis(t)
 	defer done()
 
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db := redisTestClient(c.data)
+			db := redisTestClient(t, c.data)
 			oc := Cache{DB: db}
 
 			resp, err := oc.Get(context.Background(), c.key)
@@ -208,12 +198,12 @@ func TestRedisGet(t *testing.T) {
 }
 
 func TestRedisPut(t *testing.T) {
-	done := test.EnsureRedis()
+	done := test.EnsureRedis(t)
 	defer done()
 
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db, cleanup := boltTestClient(c.data)
+			db, cleanup := boltTestClient(t, c.data)
 			defer cleanup()
 
 			oc := Cache{DB: db}
@@ -232,12 +222,9 @@ func TestRedisPut(t *testing.T) {
 }
 
 func TestBoltGet(t *testing.T) {
-	done := test.EnsureRedis()
-	defer done()
-
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db, cleanup := boltTestClient(c.data)
+			db, cleanup := boltTestClient(t, c.data)
 			defer cleanup()
 
 			oc := Cache{DB: db}
@@ -255,12 +242,9 @@ func TestBoltGet(t *testing.T) {
 }
 
 func TestBoltPut(t *testing.T) {
-	done := test.EnsureRedis()
-	defer done()
-
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db, cleanup := boltTestClient(c.data)
+			db, cleanup := boltTestClient(t, c.data)
 			defer cleanup()
 
 			oc := Cache{DB: db}
@@ -282,7 +266,7 @@ func TestMockGet(t *testing.T) {
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := test.NewMockStorageClient(c.data)
+			db := test.NewMockKeyValueStore(c.data)
 			oc := Cache{DB: db}
 
 			assert.Equal(t, 0, db.GetCalled)
@@ -299,7 +283,7 @@ func TestMockPut(t *testing.T) {
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := test.NewMockStorageClient(c.data)
+			db := test.NewMockKeyValueStore(c.data)
 			oc := Cache{DB: db}
 
 			assert.Equal(t, 0, db.PutCalled)

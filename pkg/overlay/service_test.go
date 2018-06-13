@@ -49,7 +49,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
-	done := test.EnsureRedis()
+	done := test.EnsureRedis(t)
 	defer done()
 
 	o := Service{}

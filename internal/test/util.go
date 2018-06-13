@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,13 +13,15 @@ import (
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/storage"
+	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 // KvStore is an in-memory, crappy key/value store type for testing
 type KvStore map[string]storage.Value
 
-// MockStorageClient is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
-type MockStorageClient struct {
+// MockKeyValueStore is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
+type MockKeyValueStore struct {
 	Data         KvStore
 	GetCalled    int
 	PutCalled    int
@@ -52,8 +53,8 @@ var (
 	}
 )
 
-// Get looks up the provided key from the MockStorageClient returning either an error or the result.
-func (m *MockStorageClient) Get(key storage.Key) (storage.Value, error) {
+// Get looks up the provided key from the MockKeyValueStore returning either an error or the result.
+func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
 		return storage.Value{}, ErrForced
@@ -66,20 +67,22 @@ func (m *MockStorageClient) Get(key storage.Key) (storage.Value, error) {
 	return v, nil
 }
 
-// Put adds a value to the provided key in the MockStorageClient, returning an error on failure.
-func (m *MockStorageClient) Put(key storage.Key, value storage.Value) error {
+// Put adds a value to the provided key in the MockKeyValueStore, returning an error on failure.
+func (m *MockKeyValueStore) Put(key storage.Key, value storage.Value) error {
 	m.PutCalled++
 	m.Data[key.String()] = value
 	return nil
 }
 
-func (m *MockStorageClient) Delete(key storage.Key) error {
+// Delete deletes a key/value pair from the MockKeyValueStore, for a given the key
+func (m *MockKeyValueStore) Delete(key storage.Key) error {
 	m.DeleteCalled++
 	delete(m.Data, key.String())
 	return nil
 }
 
-func (m *MockStorageClient) List() (_ storage.Keys, _ error) {
+// List returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (m *MockKeyValueStore) List() (_ storage.Keys, _ error) {
 	m.ListCalled++
 	keys := storage.Keys{}
 	for k := range m.Data {
@@ -89,18 +92,21 @@ func (m *MockStorageClient) List() (_ storage.Keys, _ error) {
 	return keys, nil
 }
 
-func (m *MockStorageClient) Close() error {
+// Close closes the client
+func (m *MockKeyValueStore) Close() error {
 	m.CloseCalled++
 	return nil
 }
 
-func (m *MockStorageClient) Ping() error {
+// Ping is called by some redis client code
+func (m *MockKeyValueStore) Ping() error {
 	m.PingCalled++
 	return nil
 }
 
-func NewMockStorageClient(d KvStore) *MockStorageClient {
-	return &MockStorageClient{
+// NewMockKeyValueStore returns a mocked `KeyValueStore` implementation for testing
+func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
+	return &MockKeyValueStore{
 		Data:         d,
 		GetCalled:    0,
 		PutCalled:    0,
@@ -111,14 +117,15 @@ func NewMockStorageClient(d KvStore) *MockStorageClient {
 	}
 }
 
-func EnsureRedis() (_ RedisDone) {
+// EnsureRedis attempts to start the `redis-server` binary
+func EnsureRedis(t *testing.T) (_ RedisDone) {
 	flag.Set("redisAddress", "127.0.0.1:6379")
 
 	index, _ := randomHex(5)
 	redisRefs[index] = true
 
 	if testRedis.started != true {
-		testRedis.start()
+		testRedis.start(t)
 	}
 
 	return func() {
@@ -146,24 +153,18 @@ func redisRefCount() (_ int) {
 	return count
 }
 
-func (r *RedisServer) start() {
+func (r *RedisServer) start(t *testing.T) {
 	r.cmd = &exec.Cmd{}
 	cmd := r.cmd
 
 	logPath, err := filepath.Abs("test_redis-server.log")
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	binPath, err := exec.LookPath("redis-server")
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	log, err := os.Create(logPath)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	cmd.Path = binPath
 	cmd.Stdout = log
@@ -176,19 +177,12 @@ func (r *RedisServer) start() {
 		}
 	}()
 
-	fmt.Printf("starting redis; sleeping")
-	for range []int{0, 1} {
-		fmt.Printf(".")
-		time.Sleep(1 * time.Second)
-	}
-	fmt.Printf("done\n")
+	time.Sleep(2 * time.Second)
 }
 
 func (r *RedisServer) stop() {
 	r.started = false
-	if err := r.cmd.Process.Kill(); err != nil {
-		// panic(err)
-	}
+	r.cmd.Process.Kill()
 }
 
 func randomHex(n int) (string, error) {

@@ -13,7 +13,7 @@ import (
 
 const defaultNodeExpiration = 61 * time.Minute
 
-// Client is the entrypoint into Redis
+// redisClient is the entrypoint into Redis
 type redisClient struct {
 	DB  *redis.Client
 	TTL time.Duration
@@ -74,7 +74,7 @@ func (c *redisClient) Delete(key storage.Key) error {
 	return c.DB.Del(key.String()).Err()
 }
 
-// Close closes a BoltDB client
+// Close closes a redis client
 func (c *redisClient) Close() error {
 	return c.DB.Close()
 }
