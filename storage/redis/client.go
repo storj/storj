@@ -20,7 +20,7 @@ type redisClient struct {
 }
 
 // NewClient returns a configured Client instance, verifying a sucessful connection to redis
-func NewClient(address, password string, db int) (storage.DB, error) {
+func NewClient(address, password string, db int) (storage.KeyValueStore, error) {
 	c := &redisClient{
 		DB: redis.NewClient(&redis.Options{
 			Addr:     address,
@@ -39,32 +39,38 @@ func NewClient(address, password string, db int) (storage.DB, error) {
 }
 
 // Get looks up the provided key from the redis cache returning either an error or the result.
-func (c *redisClient) Get(key []byte) ([]byte, error) {
+func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 	return c.DB.Get(string(key)).Bytes()
 }
 
 // Put adds a value to the provided key in the Redis cache, returning an error on failure.
 
-func (c *redisClient) Put(key []byte, value []byte) error {
-	return c.DB.Set(string(key), value, c.TTL).Err()
+func (c *redisClient) Put(key storage.Key, value storage.Value) error {
+	v, err := value.MarshalBinary()
+
+	if err != nil {
+		return err
+	}
+
+	return c.DB.Set(key.String(), v, c.TTL).Err()
 }
 
-func (c *redisClient) List() (_ [][]byte, _ error) {
+func (c *redisClient) List() (_ storage.Keys, _ error) {
 	results, err := c.DB.Keys("*").Result()
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	keys := make([][]byte, len(results))
+	keys := make(storage.Keys, len(results))
 	for i, k := range results {
-		keys[i] = []byte(k)
+		keys[i] = storage.Key(k)
 	}
 
 	return keys, nil
 }
 
-func (c *redisClient) Delete(key []byte) error {
-	return c.DB.Del(string(key)).Err()
+func (c *redisClient) Delete(key storage.Key) error {
+	return c.DB.Del(key.String()).Err()
 }
 
 func (c *redisClient) Close() error {

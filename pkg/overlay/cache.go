@@ -19,7 +19,7 @@ var ErrNodeNotFound = errs.New("Node not found")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	DB  storage.DB
+	DB  storage.KeyValueStore
 	DHT kademlia.DHT
 }
 

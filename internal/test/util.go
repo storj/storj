@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/storage"
 )
 
-type Value []byte
-type KvStore map[string]Value
+type KvStore map[string]storage.Value
 type MockStorageClient struct {
 	Data         KvStore
 	GetCalled    int
@@ -46,36 +46,36 @@ var (
 	}
 )
 
-func (m *MockStorageClient) Get(key []byte) ([]byte, error) {
+func (m *MockStorageClient) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
-	if string(key) == "error" {
-		return []byte{}, ErrForced
+	if key.String() == "error" {
+		return storage.Value{}, ErrForced
 	}
-	v, ok := m.Data[string(key)]
+	v, ok := m.Data[key.String()]
 	if !ok {
-		return []byte{}, ErrMissingKey
+		return storage.Value{}, ErrMissingKey
 	}
 
 	return v, nil
 }
 
-func (m *MockStorageClient) Put(key, value []byte) error {
+func (m *MockStorageClient) Put(key storage.Key, value storage.Value) error {
 	m.PutCalled++
-	m.Data[string(key)] = value
+	m.Data[key.String()] = value
 	return nil
 }
 
-func (m *MockStorageClient) Delete(key []byte) error {
+func (m *MockStorageClient) Delete(key storage.Key) error {
 	m.DeleteCalled++
-	delete(m.Data, string(key))
+	delete(m.Data, key.String())
 	return nil
 }
 
-func (m *MockStorageClient) List() (_ [][]byte, _ error) {
+func (m *MockStorageClient) List() (_ storage.Keys, _ error) {
 	m.ListCalled++
-	keys := [][]byte{}
+	keys := storage.Keys{}
 	for k := range m.Data {
-		keys = append(keys, []byte(k))
+		keys = append(keys, storage.Key(k))
 	}
 
 	return keys, nil

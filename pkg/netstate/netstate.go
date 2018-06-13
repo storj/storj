@@ -27,12 +27,12 @@ type PointerEntry struct {
 
 // Server implements the network state RPC service
 type Server struct {
-	DB     storage.DB
+	DB     storage.KeyValueStore
 	logger *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.DB, logger *zap.Logger) *Server {
+func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
@@ -116,7 +116,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
 		// pathKeys is an array of byte arrays
-		Paths: pathKeys,
+		Paths: pathKeys.ByteSlices(),
 	}, nil
 }
 

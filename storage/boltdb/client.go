@@ -30,7 +30,7 @@ var (
 )
 
 // NewClient instantiates a new BoltDB client
-func NewClient(logger *zap.Logger, path, bucket string) (storage.DB, error) {
+func NewClient(logger *zap.Logger, path, bucket string) (storage.KeyValueStore, error) {
 	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (storage.DB, error) {
 }
 
 // Put saves the Path and Pointer as a kv entry in the "pointers" bucket
-func (c *boltClient) Put(key, value []byte) error {
+func (c *boltClient) Put(key storage.Key, value storage.Value) error {
 	c.logger.Debug("entering bolt put")
 	return c.DB.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(c.Bucket)
@@ -58,7 +58,7 @@ func (c *boltClient) Put(key, value []byte) error {
 }
 
 // Get retrieves the Pointer value stored at the Path key
-func (c *boltClient) Get(pathKey []byte) ([]byte, error) {
+func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 	c.logger.Debug("entering bolt get: " + string(pathKey))
 	var pointerBytes []byte
 	err := c.DB.Update(func(tx *bolt.Tx) error {
@@ -75,9 +75,9 @@ func (c *boltClient) Get(pathKey []byte) ([]byte, error) {
 }
 
 // List creates a byte array of all path keys in in the "pointers" bucket
-func (c *boltClient) List() ([][]byte, error) {
+func (c *boltClient) List() (storage.Keys, error) {
 	c.logger.Debug("entering bolt list")
-	var paths [][]byte
+	var paths storage.Keys
 	err := c.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 
@@ -92,7 +92,7 @@ func (c *boltClient) List() ([][]byte, error) {
 }
 
 // Delete deletes a kv pair from the "pointers" bucket, given the Path key
-func (c *boltClient) Delete(pathKey []byte) error {
+func (c *boltClient) Delete(pathKey storage.Key) error {
 	c.logger.Debug("entering bolt delete: " + string(pathKey))
 	return c.DB.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket(c.Bucket).Delete(pathKey)

@@ -57,7 +57,7 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{"foo": func() test.Value {
+			data: test.KvStore{"foo": func() storage.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -83,7 +83,7 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{"error": func() test.Value {
+			data: test.KvStore{"error": func() storage.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -107,7 +107,7 @@ var (
 				bolt:   errs.New("boltdb error"),
 				_redis: errs.New("redis error"),
 			},
-			data: test.KvStore{"foo": func() test.Value {
+			data: test.KvStore{"foo": func() storage.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -141,7 +141,7 @@ var (
 	}
 )
 
-func redisTestClient(data test.KvStore) storage.DB {
+func redisTestClient(data test.KvStore) storage.KeyValueStore {
 	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
 	if err != nil {
 		panic(err)
@@ -152,7 +152,7 @@ func redisTestClient(data test.KvStore) storage.DB {
 	return client
 }
 
-func boltTestClient(data test.KvStore) (_ storage.DB, _ func()) {
+func boltTestClient(data test.KvStore) (_ storage.KeyValueStore, _ func()) {
 	boltPath, err := filepath.Abs("test_bolt.db")
 	if err != nil {
 		panic(err)
@@ -179,9 +179,9 @@ func boltTestClient(data test.KvStore) (_ storage.DB, _ func()) {
 	return client, cleanup
 }
 
-func populateStorage(client storage.DB, data test.KvStore) {
+func populateStorage(client storage.KeyValueStore, data test.KvStore) {
 	for k, v := range data {
-		if err := client.Put([]byte(k), v); err != nil {
+		if err := client.Put(storage.Key(k), v); err != nil {
 			panic(errs.New("Error while trying to store test data"))
 		}
 	}
