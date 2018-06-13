@@ -10,8 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
