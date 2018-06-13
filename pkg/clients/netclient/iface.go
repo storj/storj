@@ -27,7 +27,7 @@ type storjClient struct {
 // Dial using the authenticated mode
 func (o *storjClient) DialNode(ctx context.Context, nodeID dtypes.Node) (*grpc.ClientConn, error) {
 	/* TODO@ASK: call the DHT functions to open up a connection to the DHT (cache) servers */
-	conn, err := grpc.Dial((nodeID.Address.Network + strconv.Itoa(nodeID.Address.Port)), grpc.WithInsecure())
+	conn, err := grpc.Dial((nodeID.Address.Network + ":" + strconv.Itoa(nodeID.Address.Port)), grpc.WithInsecure())
 	if err != nil {
 		zap.S().Errorf("error dialing: %v\n", err)
 		return nil, err
