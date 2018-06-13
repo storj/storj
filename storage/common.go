@@ -3,8 +3,13 @@
 
 package storage
 
+// Key is the type for the keys in a `KeyValueStore`
 type Key []byte
+
+// Value is the type for the values in a `ValueValueStore`
 type Value []byte
+
+// Key is the type for a slice of keys in a `KeyValueStore`
 type Keys []Key
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
