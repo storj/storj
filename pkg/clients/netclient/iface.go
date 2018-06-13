@@ -5,10 +5,11 @@ package netclient
 
 import (
 	"context"
+	"strconv"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dtypes"
-	proto "storj.io/storj/protos/overlay"
 )
 
 // NetClient defines the interface to an overlay client.
@@ -19,13 +20,19 @@ type NetClient interface {
 
 // Overlay is the overlay concrete implementation of the client interface
 type storjClient struct {
-	dhtclient proto.Overlay
+	nodeID dtypes.Node
+	conn   *grpc.ClientConn
 }
 
 // Dial using the authenticated mode
 func (o *storjClient) DialNode(ctx context.Context, nodeID dtypes.Node) (*grpc.ClientConn, error) {
 	/* TODO@ASK: call the DHT functions to open up a connection to the DHT (cache) servers */
-	return nil, nil
+	conn, err := grpc.Dial((nodeID.Address.Network + strconv.Itoa(nodeID.Address.Port)), grpc.WithInsecure())
+	if err != nil {
+		zap.S().Errorf("error dialing: %v\n", err)
+		return nil, err
+	}
+	return conn, err
 }
 
 // Dial using unauthenticated mode
