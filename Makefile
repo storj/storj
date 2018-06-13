@@ -18,6 +18,10 @@ check-copyrights:
 	@echo "Running ${@}"
 	@./scripts/check-for-header.sh
 
+# Applies goimports to every go file (excluding vendored files)
+goimports-fix:
+	goimports -w $$(find . -type f -name '*.go' -not -path "*/vendor/*")
+
 proto:
 	@echo "Running ${@}"
 	./scripts/build-protos.sh
