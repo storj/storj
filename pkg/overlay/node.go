@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package overlay
 
 // NodeID is the unique identifer of a Node in the overlay network
