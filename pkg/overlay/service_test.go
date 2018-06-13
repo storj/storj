@@ -52,7 +52,7 @@ func TestProcess(t *testing.T) {
 	defer done()
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	err := o.Process(ctx)
 	assert.NoError(t, err)
 }

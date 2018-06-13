@@ -15,8 +15,10 @@ import (
 	"github.com/zeebo/errs"
 )
 
+type Value []byte
+type KvStore map[string]Value
 type MockStorageClient struct {
-	Data         map[string][]byte
+	Data         KvStore
 	GetCalled    int
 	PutCalled    int
 	ListCalled   int
@@ -25,8 +27,8 @@ type MockStorageClient struct {
 	PingCalled   int
 }
 
-type TestRedisDone func()
-type TestRedisServer struct {
+type RedisDone func()
+type RedisServer struct {
 	cmd     *exec.Cmd
 	started bool
 }
@@ -39,7 +41,7 @@ var (
 	ErrForced = errs.New("error forced by using 'error' key in mock")
 
 	redisRefs = map[string]bool{}
-	testRedis = &TestRedisServer{
+	testRedis = &RedisServer{
 		started: false,
 	}
 )
@@ -89,7 +91,7 @@ func (m *MockStorageClient) Ping() error {
 	return nil
 }
 
-func NewMockStorageClient(d map[string][]byte) *MockStorageClient {
+func NewMockStorageClient(d KvStore) *MockStorageClient {
 	return &MockStorageClient{
 		Data:         d,
 		GetCalled:    0,
@@ -101,7 +103,7 @@ func NewMockStorageClient(d map[string][]byte) *MockStorageClient {
 	}
 }
 
-func EnsureRedis() (_ TestRedisDone) {
+func EnsureRedis() (_ RedisDone) {
 	flag.Set("redisAddress", "127.0.0.1:6379")
 
 	index, _ := randomHex(5)
@@ -129,14 +131,14 @@ func redisRefCount() (_ int) {
 	count := 0
 	for _, ref := range redisRefs {
 		if ref {
-			count += 1
+			count++
 		}
 	}
 
 	return count
 }
 
-func (r *TestRedisServer) start() {
+func (r *RedisServer) start() {
 	r.cmd = &exec.Cmd{}
 	cmd := r.cmd
 
@@ -174,7 +176,7 @@ func (r *TestRedisServer) start() {
 	fmt.Printf("done\n")
 }
 
-func (r *TestRedisServer) stop() {
+func (r *RedisServer) stop() {
 	r.started = false
 	if err := r.cmd.Process.Kill(); err != nil {
 		// panic(err)

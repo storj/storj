@@ -38,7 +38,7 @@ var (
 		key                 string
 		expectedResponses   responses
 		expectedErrors      errors
-		data                map[string][]byte
+		data                test.KvStore
 	}{
 		{
 			testID:              "valid Get",
@@ -57,7 +57,7 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: map[string][]byte{"foo": func() []byte {
+			data: test.KvStore{"foo": func() test.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -83,7 +83,7 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: map[string][]byte{"error": func() []byte {
+			data: test.KvStore{"error": func() test.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -107,7 +107,7 @@ var (
 				bolt:   errs.New("boltdb error"),
 				_redis: errs.New("redis error"),
 			},
-			data: map[string][]byte{"foo": func() []byte {
+			data: test.KvStore{"foo": func() test.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
 				d, err := proto.Marshal(na)
 				if err != nil {
@@ -124,7 +124,7 @@ var (
 		key                 string
 		value               overlay.NodeAddress
 		expectedErrors      errors
-		data                map[string][]byte
+		data                test.KvStore
 	}{
 		{
 			testID:              "valid Put",
@@ -136,12 +136,12 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: map[string][]byte{},
+			data: test.KvStore{},
 		},
 	}
 )
 
-func redisTestClient(data map[string][]byte) storage.DB {
+func redisTestClient(data test.KvStore) storage.DB {
 	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
 	if err != nil {
 		panic(err)
@@ -152,7 +152,7 @@ func redisTestClient(data map[string][]byte) storage.DB {
 	return client
 }
 
-func boltTestClient(data map[string][]byte) (_ storage.DB, _ func()) {
+func boltTestClient(data test.KvStore) (_ storage.DB, _ func()) {
 	boltPath, err := filepath.Abs("test_bolt.db")
 	if err != nil {
 		panic(err)
@@ -179,7 +179,7 @@ func boltTestClient(data map[string][]byte) (_ storage.DB, _ func()) {
 	return client, cleanup
 }
 
-func populateStorage(client storage.DB, data map[string][]byte) {
+func populateStorage(client storage.DB, data test.KvStore) {
 	for k, v := range data {
 		if err := client.Put([]byte(k), v); err != nil {
 			panic(errs.New("Error while trying to store test data"))

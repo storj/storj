@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
-	db                                                                           int
-	srvPort                                                                      uint
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort string
+	db                                                                int
+	srvPort                                                           uint
 )
 
 func init() {

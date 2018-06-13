@@ -26,7 +26,7 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	mdb := test.NewMockStorageClient(map[string][]byte{})
+	mdb := test.NewMockStorageClient(test.KvStore{})
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
