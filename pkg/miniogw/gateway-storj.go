@@ -25,7 +25,6 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/protos/overlay"
 )
 
 var (
@@ -320,21 +319,26 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	}
 
 	/* integrating with DHT for uploading to get the farmer's IP address */
-	addr := "bootstrap.storj.io:7070"
-	c, err := overlay.NewOverlayClient(addr)
-	if err != nil {
-		return Error.Wrap(err)
+	//addr := "bootstrap.storj.io:7070"
+	// c, err := overlay.NewOverlayClient(addr)
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
+
+	sc := storjClient{
+		dhtcAddr: "bootstrap.storj.io:7070",
 	}
+	c, err := sc.DialUnauthenticated(ctx, sc.dhtcAddr)
 
 	/* TODO: get the space by sizeof(reader)*#of readers */
-	r, err := c.Choose(context.Background(), int(20), int(100), int(100))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	fmt.Printf("r %#v\n", r)
+	// r, err := c.Choose(context.Background(), int64(20), int64(100), int64(100))
+	// if err != nil {
+	// 	return Error.Wrap(err)
+	// }
+	// fmt.Printf("r %#v\n", r)
 	//pieceId := pstore.DetermineID()
 	// r is your nodes
-	var remotePieces []*pb.RemotePiece
+	//var remotePieces []*pb.RemotePiece
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
