@@ -16,7 +16,10 @@ import (
 	"storj.io/storj/storage"
 )
 
+// KvStore is an in-memory, crappy key/value store type for testing
 type KvStore map[string]storage.Value
+
+// MockStorageClient is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
 type MockStorageClient struct {
 	Data         KvStore
 	GetCalled    int
@@ -27,7 +30,10 @@ type MockStorageClient struct {
 	PingCalled   int
 }
 
+// RedisDone is a function type that describes the callback returned by `EnsureRedis`
 type RedisDone func()
+
+// RedisServer is a struct which holds and manages the state of a `redis-server` process
 type RedisServer struct {
 	cmd     *exec.Cmd
 	started bool
@@ -46,6 +52,7 @@ var (
 	}
 )
 
+// Get looks up the provided key from the MockStorageClient returning either an error or the result.
 func (m *MockStorageClient) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
@@ -59,6 +66,7 @@ func (m *MockStorageClient) Get(key storage.Key) (storage.Value, error) {
 	return v, nil
 }
 
+// Put adds a value to the provided key in the MockStorageClient, returning an error on failure.
 func (m *MockStorageClient) Put(key storage.Key, value storage.Value) error {
 	m.PutCalled++
 	m.Data[key.String()] = value

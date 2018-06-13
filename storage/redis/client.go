@@ -30,7 +30,7 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 		TTL: defaultNodeExpiration,
 	}
 
-	// ping here to verify we are able to connect to the redis instacne with the initialized client.
+	// ping here to verify we are able to connect to redis with the initialized client.
 	if err := c.DB.Ping().Err(); err != nil {
 		return nil, err
 	}
@@ -38,13 +38,12 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 	return c, nil
 }
 
-// Get looks up the provided key from the redis cache returning either an error or the result.
+// Get looks up the provided key from redis returning either an error or the result.
 func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 	return c.DB.Get(string(key)).Bytes()
 }
 
-// Put adds a value to the provided key in the Redis cache, returning an error on failure.
-
+// Put adds a value to the provided key in redis, returning an error on failure.
 func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 	v, err := value.MarshalBinary()
 
@@ -55,6 +54,7 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 	return c.DB.Set(key.String(), v, c.TTL).Err()
 }
 
+// List returns either a list of keys for which boltdb has values or an error.
 func (c *redisClient) List() (_ storage.Keys, _ error) {
 	results, err := c.DB.Keys("*").Result()
 	if err != nil {
@@ -69,10 +69,12 @@ func (c *redisClient) List() (_ storage.Keys, _ error) {
 	return keys, nil
 }
 
+// Delete deletes a key/value pair from redis, for a given the key
 func (c *redisClient) Delete(key storage.Key) error {
 	return c.DB.Del(key.String()).Err()
 }
 
+// Close closes a BoltDB client
 func (c *redisClient) Close() error {
 	return c.DB.Close()
 }

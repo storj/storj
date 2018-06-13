@@ -17,9 +17,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// PointerEntry - Path and Pointer are saved as a kv pair to boltdb.
-// The following boltdb methods handle the pointer type (defined in
-// the protobuf file) after it has been marshalled into bytes.
+// PointerEntry - Path and Pointer are saved as a key/value pair to a `storage.KeyValueStore`.
 type PointerEntry struct {
 	Path    []byte
 	Pointer []byte
