@@ -12,11 +12,10 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -34,15 +33,14 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
-	flag.Parse()
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer(k *kademlia.Kademlia, db *redis.OverlayClient, l *zap.Logger, m *monkit.Registry) *grpc.Server {
+func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Overlay{
 		kad:     k,
-		DB:      db,
+		cache:   cache,
 		logger:  l,
 		metrics: m,
 	})
@@ -78,7 +76,7 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "bootstrap.storj.io", "8080")
+	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -95,10 +93,13 @@ func (s *Service) Process(ctx context.Context) error {
 	}
 
 	// bootstrap cache
-	cache, err := redis.NewOverlayClient(redisAddress, redisPassword, db, kad)
-	if err != nil {
-		s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
-		return err
+	var cache *Cache
+	if redisAddress != "" {
+		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
+		if err != nil {
+			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
+			return err
+		}
 	}
 
 	if err := cache.Bootstrap(ctx); err != nil {
@@ -115,18 +116,20 @@ func (s *Service) Process(ctx context.Context) error {
 		return err
 	}
 
-	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
-		kad:     kad,
-		DB:      cache,
-		logger:  s.logger,
-		metrics: s.metrics,
-	})
+	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
 	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
 	go cache.Walk(ctx)
 
+	// If the passed context times out or is cancelled, shutdown the gRPC server
+	go func() {
+		if _, ok := <-ctx.Done(); !ok {
+			grpcServer.GracefulStop()
+		}
+	}()
+
+	// If `grpcServer.Serve(...)` returns an error, shutdown/cleanup the gRPC server
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
 }

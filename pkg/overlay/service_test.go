@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
@@ -44,4 +46,14 @@ func TestNewClient(t *testing.T) {
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
+}
+
+func TestProcess(t *testing.T) {
+	done := test.EnsureRedis(t)
+	defer done()
+
+	o := Service{}
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	err := o.Process(ctx)
+	assert.NoError(t, err)
 }
