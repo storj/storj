@@ -26,7 +26,7 @@ var (
 )
 
 func (s *serv) Process(ctx context.Context) error {
-	bdb, err := boltdb.New(s.logger, *dbPath)
+	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
 
 	if err != nil {
 		return err
