@@ -14,31 +14,27 @@ import (
 
 	"storj.io/storj/netstate/auth"
 	pb "storj.io/storj/protos/netstate"
-	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage"
 )
+
+// PointerEntry - Path and Pointer are saved as a key/value pair to a `storage.KeyValueStore`.
+type PointerEntry struct {
+	Path    []byte
+	Pointer []byte
+}
 
 // Server implements the network state RPC service
 type Server struct {
-	DB     DB
+	DB     storage.KeyValueStore
 	logger *zap.Logger
 }
 
 // NewServer creates instance of Server
-func NewServer(db DB, logger *zap.Logger) *Server {
+func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
 	}
-}
-
-// DB interface allows more modular unit testing
-// and makes it easier in the future to substitute
-// db clients other than bolt
-type DB interface {
-	Put(boltdb.PointerEntry) error
-	Get([]byte) ([]byte, error)
-	List() ([][]byte, error)
-	Delete([]byte) error
 }
 
 func (s *Server) validateAuth(APIKeyBytes []byte) error {
@@ -64,12 +60,12 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	pe := boltdb.PointerEntry{
+	pe := PointerEntry{
 		Path:    putReq.Path,
 		Pointer: pointerBytes,
 	}
 
-	if err := s.DB.Put(pe); err != nil {
+	if err := s.DB.Put(pe.Path, pe.Pointer); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -118,7 +114,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
 		// pathKeys is an array of byte arrays
-		Paths: pathKeys,
+		Paths: pathKeys.ByteSlices(),
 	}, nil
 }
 
