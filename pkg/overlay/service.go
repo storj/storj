@@ -32,7 +32,6 @@ func init() {
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
-	// flag.Parse()
 }
 
 // NewServer creates a new Overlay Service Server
