@@ -8,6 +8,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
+
 	"storj.io/storj/storage"
 )
 
