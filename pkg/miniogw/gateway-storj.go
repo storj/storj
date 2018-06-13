@@ -380,7 +380,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 	addr := "bootstrap.storj.io:7070"
-	c, err := overlay.NewOverlayClient("bootstrap.storj.io:7070")
+	c, err := overlay.NewOverlayClient(addr)
 	if err != nil {
 		return Error.Wrap(err)
 	}
