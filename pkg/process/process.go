@@ -23,6 +23,7 @@ var (
 
 	// Error is a process error class
 	Error = errs.Class("ProcessError")
+	ErrUsage = errs.Class("UsageError")
 )
 
 // ID is the type used to specify a ID key in the process context
