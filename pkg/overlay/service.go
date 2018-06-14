@@ -15,8 +15,8 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/process"
+	proto "storj.io/storj/protos/overlay"
 )
 
 var (

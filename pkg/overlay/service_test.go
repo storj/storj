@@ -5,8 +5,10 @@ package overlay
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -48,12 +50,24 @@ func TestNewClient(t *testing.T) {
 	assert.NotNil(t, r)
 }
 
-func TestProcess(t *testing.T) {
+func TestProcess_redis(t *testing.T) {
 	done := test.EnsureRedis(t)
 	defer done()
 
 	o := Service{}
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	err := o.Process(ctx)
+	assert.NoError(t, err)
+}
+
+func TestProcess_bolt(t *testing.T) {
+	boltdbPath, err := filepath.Abs("test_boltdb")
+	assert.NoError(t, err)
+
+	flag.Set("boltdbPath", boltdbPath)
+
+	o := Service{}
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	err = o.Process(ctx)
 	assert.NoError(t, err)
 }

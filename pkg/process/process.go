@@ -22,7 +22,7 @@ var (
 		"switch to 'dev' to get more output")
 
 	// Error is a process error class
-	Error = errs.Class("ProcessError")
+	Error    = errs.Class("ProcessError")
 	ErrUsage = errs.Class("UsageError")
 )
 
