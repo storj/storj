@@ -4,6 +4,7 @@
 package ranger
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -48,7 +49,7 @@ func TestHTTPRanger(t *testing.T) {
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(context.Background(), tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
@@ -91,7 +92,7 @@ func TestHTTPRangerSize(t *testing.T) {
 		content = tt.data
 		rr := HTTPRangerSize(ts.URL, tt.size)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(context.Background(), tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
