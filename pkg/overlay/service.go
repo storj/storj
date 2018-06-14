@@ -34,7 +34,7 @@ func init() {
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
-	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
+	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -132,7 +132,8 @@ func (s *Service) Process(ctx context.Context) error {
 
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
 	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
 	go cache.Walk(ctx)
 
