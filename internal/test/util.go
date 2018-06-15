@@ -84,13 +84,23 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 }
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (m *MockKeyValueStore) List() (_ storage.Keys, _ error) {
+func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	m.ListCalled++
 	keys := storage.Keys{}
-	for k := range m.Data {
-		keys = append(keys, storage.Key(k))
+	started := false
+	for key := range m.Data {
+		if !started && key == string(startingKey) {
+			keys = append(keys, storage.Key(key))
+			started = true
+			continue
+		}
+		if started {
+			if len(keys) == int(limit) {
+				break
+			}
+			keys = append(keys, storage.Key(key))
+		}
 	}
-
 	return keys, nil
 }
 

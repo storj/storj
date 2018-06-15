@@ -84,7 +84,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	}
 
 	pointerBytes, err := s.DB.Get(req.Path)
-
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -99,22 +98,36 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering netstate list")
 
+	if req.StartingPathKey == nil {
+		s.logger.Error("err StartingPathKey not provided for list")
+		return nil, Error.New("err StartingPathKey not provided for list")
+	}
+	if req.Limit == 0 {
+		s.logger.Error("err Limit is 0")
+		return nil, Error.New("err Limit is 0")
+	}
+
 	APIKeyBytes := []byte(req.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
-	pathKeys, err := s.DB.List()
-
+	var truncated bool
+	pathKeys, err := s.DB.List(storage.Key(req.StartingPathKey), storage.Limit(req.Limit))
 	if err != nil {
 		s.logger.Error("err listing path keys", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
+	if len(pathKeys) < int(req.Limit) {
+		truncated = true
+	} else {
+		truncated = false
+	}
 
 	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
-		// pathKeys is an array of byte arrays
-		Paths: pathKeys.ByteSlices(),
+		Paths:     pathKeys.ByteSlices(),
+		Truncated: truncated,
 	}, nil
 }
 
