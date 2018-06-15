@@ -11,7 +11,13 @@ import (
 	"storj.io/storj/storage"
 )
 
-const defaultNodeExpiration = 61 * time.Minute
+var (
+	Error = errs.Class("redis error")
+)
+
+const (
+	defaultNodeExpiration = 61 * time.Minute
+)
 
 // redisClient is the entrypoint into Redis
 type redisClient struct {
@@ -58,7 +64,7 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 func (c *redisClient) List() (_ storage.Keys, _ error) {
 	results, err := c.db.Keys("*").Result()
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	keys := make(storage.Keys, len(results))
