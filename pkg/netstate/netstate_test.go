@@ -56,7 +56,7 @@ func TestNetStateClient(t *testing.T) {
 
 	ctx := context.Background()
 
-	// example file path to put/get
+	// Tests Put
 	pr1 := pb.PutRequest{
 		Path: []byte("file/path/1"),
 		Pointer: &pb.Pointer{
@@ -69,27 +69,22 @@ func TestNetStateClient(t *testing.T) {
 		},
 		APIKey: []byte(APIKey),
 	}
-
-	// Tests Server.Put
 	_, err = c.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to Put")
 	}
-
 	if mdb.PutCalled != 1 {
 		t.Error("Failed to call mockdb correctly")
 	}
-
 	pointerBytes, err := proto.Marshal(pr1.Pointer)
 	if err != nil {
 		t.Error("Failed to marshal test pointer")
 	}
-
 	if !bytes.Equal(mdb.Data[string(pr1.Path)], pointerBytes) {
 		t.Error("Expected saved pointer to equal given pointer")
 	}
 
-	// Tests Server.Get
+	// Tests Get
 	getReq := pb.GetRequest{
 		Path:   []byte("file/path/1"),
 		APIKey: []byte(APIKey),
@@ -114,7 +109,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to error for wrong auth key")
 	}
 
-	// Puts more pointer entries to test delete and list
+	// Puts more pointer entries to test Delete and List
 	pr2 := pb.PutRequest{
 		Path: []byte("file/path/2"),
 		Pointer: &pb.Pointer{
@@ -127,6 +122,8 @@ func TestNetStateClient(t *testing.T) {
 		},
 		APIKey: []byte(APIKey),
 	}
+	// rps is an example slice of RemotePieces to add to this
+	// REMOTE pointer type.
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: int64(1),
@@ -178,7 +175,6 @@ func TestNetStateClient(t *testing.T) {
 	if mdb.PutCalled != 2 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
-
 	_, err = c.Put(ctx, &pr3)
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to Put")
@@ -194,7 +190,25 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 
-	// Test Server.Delete
+	// Tests Put with bad auth
+	pr5 := pb.PutRequest{
+		Path: []byte("file/path/5"),
+		Pointer: &pb.Pointer{
+			Type: pb.Pointer_INLINE,
+			Encryption: &pb.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
+			},
+			InlineSegment: []byte("oatmeal"),
+		},
+		APIKey: []byte("wrong key"),
+	}
+	_, err = c.Put(ctx, &pr5)
+	if err == nil {
+		t.Error("Failed to error for wrong auth key")
+	}
+
+	// Test Delete
 	delReq1 := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
 		APIKey: []byte(APIKey),
@@ -217,7 +231,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to error with bad auth key")
 	}
 
-	// Tests Server.List
+	// Tests List
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/2"),
 		Limit:           4,
@@ -274,7 +288,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to error when not given limit")
 	}
 
-	// Tests List without auth
+	// Tests List with bad auth
 	listReq5 := pb.ListRequest{
 		StartingPathKey: []byte("file/path/3"),
 		Limit:           1,
@@ -283,23 +297,5 @@ func TestNetStateClient(t *testing.T) {
 	_, err = c.List(ctx, &listReq5)
 	if err == nil {
 		t.Error("Failed to error when given wrong auth key")
-	}
-
-	// Tests put auth err
-	pr5 := pb.PutRequest{
-		Path: []byte("file/path/5"),
-		Pointer: &pb.Pointer{
-			Type: pb.Pointer_INLINE,
-			Encryption: &pb.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("oatmeal"),
-		},
-		APIKey: []byte("wrong key"),
-	}
-	_, err = c.Put(ctx, &pr5)
-	if err == nil {
-		t.Error("Failed to error for wrong auth key")
 	}
 }
