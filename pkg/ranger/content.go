@@ -95,10 +95,12 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					amount = sniffLen
 				}
 				// TODO: cache this somewhere so we don't have to pull it out again
-				r, _ := content.Range(0, amount)
-				defer r.Close()
-				n, _ := io.ReadFull(r, buf[:])
-				ctype = http.DetectContentType(buf[:n])
+				r, err := content.Range(0, amount)
+				if err == nil {
+					defer r.Close()
+					n, _ := io.ReadFull(r, buf[:])
+					ctype = http.DetectContentType(buf[:n])
+				}
 			}
 			w.Header().Set("Content-Type", ctype)
 		} else if len(ctypes) > 0 {
@@ -146,7 +148,10 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 	w.WriteHeader(code)
 
 	if r.Method != http.MethodHead {
-		r, _ := sendContent()
+		r, err := sendContent()
+		if err != nil {
+			return
+		}
 		defer r.Close()
 		io.CopyN(w, r, sendSize)
 	}

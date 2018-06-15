@@ -295,7 +295,7 @@ func (dr *decodedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 			r, err := rr.Range(
 				firstBlock*int64(dr.es.EncodedBlockSize()),
 				blockCount*int64(dr.es.EncodedBlockSize()))
-			result <- indexReadCloser{i, r, err}
+			result <- indexReadCloser{i: i, r: r, err: err}
 		}(i, rr)
 	}
 	// wait for all goroutines to finish and save result in readers map

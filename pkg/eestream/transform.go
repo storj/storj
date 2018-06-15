@@ -130,11 +130,19 @@ func (t *transformedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	// let's figure out which blocks encompass the request
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, t.t.OutBlockSize())
+	// If block count is 0, there is nothing to transform, so return a dumb
+	// reader that will just return io.EOF on read
+	if blockCount == 0 {
+		return ioutil.NopCloser(bytes.NewReader(nil)), nil
+	}
 	// okay, now let's get the range on the underlying ranger for those blocks
 	// and then Transform it.
 	r, err := t.rr.Range(
 		firstBlock*int64(t.t.InBlockSize()),
 		blockCount*int64(t.t.InBlockSize()))
+	if err != nil {
+		return nil, err
+	}
 	tr := TransformReaderSize(r, t.t, firstBlock, blockCount*int64(t.t.InBlockSize()))
 	// the range we got potentially includes more than we wanted. if the
 	// offset started past the beginning of the first block, we need to
@@ -143,7 +151,7 @@ func (t *transformedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 		offset-firstBlock*int64(t.t.OutBlockSize()))
 	if err != nil {
 		if err == io.EOF {
-			return ioutil.NopCloser(bytes.NewReader(nil)), nil
+			return nil, io.ErrUnexpectedEOF
 		}
 		return nil, Error.Wrap(err)
 	}
