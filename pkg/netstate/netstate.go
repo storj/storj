@@ -99,12 +99,10 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	s.logger.Debug("entering netstate list")
 
 	if req.StartingPathKey == nil {
-		s.logger.Error("err StartingPathKey not provided for list")
 		return nil, Error.New("err StartingPathKey not provided for list")
 	}
-	if req.Limit == 0 {
-		s.logger.Error("err Limit is 0")
-		return nil, Error.New("err Limit is 0")
+	if req.Limit <= 0 {
+		return nil, Error.New("err Limit is less than or equal to 0")
 	}
 
 	APIKeyBytes := []byte(req.APIKey)
@@ -118,7 +116,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 		s.logger.Error("err listing path keys", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	if len(pathKeys) < int(req.Limit) {
+	if len(pathKeys) == int(req.Limit) {
 		truncated = true
 	} else {
 		truncated = false
