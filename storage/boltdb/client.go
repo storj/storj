@@ -78,19 +78,19 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *boltClient) List() (storage.Keys, error) {
+func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	c.logger.Debug("entering bolt list")
 	var paths storage.Keys
 	err := c.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(c.Bucket)
-
-		err := b.ForEach(func(key, value []byte) error {
-			paths = append(paths, key)
-			return nil
-		})
-		return err
+		cur := tx.Bucket(c.Bucket).Cursor()
+		for k, _ := cur.Seek(startingKey); k != nil; k, _ = cur.Next() {
+			paths = append(paths, k)
+			if limit > 0 && int64(limit) == int64(len(paths)) {
+				break
+			}
+		}
+		return nil
 	})
-
 	return paths, err
 }
 

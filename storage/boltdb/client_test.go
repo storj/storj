@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 	"storj.io/storj/pkg/netstate"
+	"storj.io/storj/storage"
 )
 
 func tempfile() string {
@@ -41,13 +42,13 @@ func TestNetState(t *testing.T) {
 	}()
 
 	testEntry1 := netstate.PointerEntry{
-		Path:    []byte(`test/path`),
-		Pointer: []byte(`pointer1`),
+		Path:    []byte("test/path"),
+		Pointer: []byte("pointer1"),
 	}
 
 	testEntry2 := netstate.PointerEntry{
-		Path:    []byte(`test/path2`),
-		Pointer: []byte(`pointer2`),
+		Path:    []byte("test/path2"),
+		Pointer: []byte("pointer2"),
 	}
 
 	// tests Put function
@@ -64,6 +65,12 @@ func TestNetState(t *testing.T) {
 		t.Error("Retrieved pointer was not same as put pointer")
 	}
 
+	// tests Get non-existent path
+	_, err = c.Get([]byte("fake test"))
+	if err == nil {
+		t.Error("Failed to error when getting fake value")
+	}
+
 	// tests Delete function
 	if err := c.Delete([]byte("test/path")); err != nil {
 		t.Error("Failed to delete test entry")
@@ -73,7 +80,7 @@ func TestNetState(t *testing.T) {
 	if err := c.Put(testEntry2.Path, testEntry2.Pointer); err != nil {
 		t.Error("Failed to put testEntry2 to pointers bucket")
 	}
-	testPaths, err := c.List()
+	testPaths, err := c.List([]byte("test/path2"), storage.Limit(1))
 	if err != nil {
 		t.Error("Failed to list Path keys in pointers bucket")
 	}
