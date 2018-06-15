@@ -10,13 +10,15 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// Client defines the interface to an overlay client.
+// Client is the interface that defines an overlay client.
+//
 // Choose returns a list of storage NodeID's that fit the provided criteria.
-// amount is the number of nodes you would like returned,
-// space is the storage amount in bytes and
-// bandwidth is the amount of bandwidth in bytes requested over X amount of time
+// 	limit is the maximum number of nodes to be returned.
+// 	space is the storage and bandwidth requested consumption in bytes.
+//
+// Lookup finds a Node with the provided identifier.
 type Client interface {
-	Choose(ctx context.Context, amount, space, bw int64) ([]*NodeID, error)
+	Choose(ctx context.Context, limit, space int64) ([]*NodeID, error)
 	Lookup(ctx context.Context, nodeID NodeID) (*proto.Node, error)
 }
 
@@ -37,7 +39,7 @@ func NewOverlayClient(address string) (*Overlay, error) {
 }
 
 // Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, amount, space, bw int64) ([]*proto.Node, error) {
+func (o *Overlay) Choose(ctx context.Context, limit, space int64) ([]*proto.Node, error) {
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &proto.FindStorageNodesRequest{})
 	if err != nil {

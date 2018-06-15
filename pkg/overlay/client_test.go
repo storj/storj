@@ -36,15 +36,13 @@ func TestNewOverlayClient(t *testing.T) {
 
 func TestChoose(t *testing.T) {
 	cases := []struct {
-		amount        int64
+		limit         int64
 		space         int64
-		bw            int64
 		expectedCalls int
 	}{
 		{
-			amount:        50,
+			limit:         50,
 			space:         100,
-			bw:            1000,
 			expectedCalls: 1,
 		},
 	}
@@ -63,7 +61,7 @@ func TestChoose(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(context.Background(), v.amount, v.space, v.bw)
+		_, err = oc.Choose(context.Background(), v.limit, v.space)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
 	}
