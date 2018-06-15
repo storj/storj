@@ -102,7 +102,9 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					ctype = http.DetectContentType(buf[:n])
 				}
 			}
-			w.Header().Set("Content-Type", ctype)
+			if ctype != "" {
+				w.Header().Set("Content-Type", ctype)
+			}
 		} else if len(ctypes) > 0 {
 			ctype = ctypes[0]
 		}
