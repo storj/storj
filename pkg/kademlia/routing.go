@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -81,20 +80,20 @@ func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt RouteTable) FindNear(id dht.NodeID, limit int) ([]*overlay.Node, error) {
+func (rt RouteTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
 	return convertNetworkNodes(rt.ht.GetClosestContacts(id.Bytes(), limit)), nil
 }
 
 // ConnectionSuccess handles the details of what kademlia should do when
 // a successful connection is made to node on the network
-func (rt RouteTable) ConnectionSuccess(id string, address overlay.NodeAddress) {
+func (rt RouteTable) ConnectionSuccess(id string, address proto.NodeAddress) {
 	// TODO: What should we do ?
 	return
 }
 
 // ConnectionFailed handles the details of what kademlia should do when
 // a connection fails for a node on the network
-func (rt RouteTable) ConnectionFailed(id string, address overlay.NodeAddress) {
+func (rt RouteTable) ConnectionFailed(id string, address proto.NodeAddress) {
 	// TODO: What should we do ?
 	return
 }
@@ -118,7 +117,5 @@ func (rt RouteTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time
 
 // GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
 func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
-	fmt.Println("GetNodeRoutingTable")
-	fmt.Println("id: ", ID)
 	return RouteTable{}, nil
 }

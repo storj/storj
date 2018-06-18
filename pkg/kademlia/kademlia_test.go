@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -13,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/dht"
 
-	bkad "github.com/coyle/kademlia"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/protos/overlay"
 )
@@ -29,7 +27,6 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) []dht.DHT {
 	assert.NoError(t, err)
 
 	for i := 0; i < testNetSize; i++ {
-		id, err := newID()
 		assert.NoError(t, err)
 		dht, err := NewKademlia([]overlay.Node{GetIntroNode("127.0.0.1", strconv.Itoa(p-1))}, ip, strconv.Itoa(p))
 		assert.NoError(t, err)
@@ -49,8 +46,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT) *Kademlia {
 	rt, err := d.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
 
-	n := []overlay.Node{rt.Local()},
-	
+	n := []overlay.Node{rt.Local()}
 
 	kad, err := NewKademlia(n, ip, port)
 	assert.NoError(t, err)
@@ -80,11 +76,15 @@ func TestBootstrap(t *testing.T) {
 		err := v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
-		n := NodeID(dhts[0].HT.Self.ID)
+		rt, err := dhts[0].GetRoutingTable(context.Background())
+		assert.NoError(t, err)
+
+		localID := rt.Local().Id
+		n := NodeID(localID)
 		node, err := v.k.FindNode(ctx, &n)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, node)
-		assert.Equal(t, string(dhts[0].HT.Self.ID), node.Id)
+		assert.Equal(t, localID, node.Id)
 		v.k.dht.Disconnect()
 	}
 
@@ -92,7 +92,7 @@ func TestBootstrap(t *testing.T) {
 
 func TestGetNodes(t *testing.T) {
 	dhts := bootstrapTestNetwork(t, "127.0.0.1", "6001")
-	defer func(d []*bkad.DHT) {
+	defer func(d []dht.DHT) {
 		for _, v := range d {
 			v.Disconnect()
 		}
@@ -106,7 +106,6 @@ func TestGetNodes(t *testing.T) {
 	}{
 		{
 			k:           newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)]),
-			start:       string(dhts[0].HT.Self.ID),
 			limit:       10,
 			expectedErr: nil,
 		},
@@ -120,7 +119,12 @@ func TestGetNodes(t *testing.T) {
 		err = v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
-		nodes, err := v.k.GetNodes(ctx, v.start, v.limit)
+		rt, err := v.k.GetRoutingTable(context.Background())
+
+		assert.NoError(t, err)
+		start := rt.Local().Id
+
+		nodes, err := v.k.GetNodes(ctx, start, v.limit)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Len(t, nodes, v.limit)
 		v.k.dht.Disconnect()
@@ -130,7 +134,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestFindNode(t *testing.T) {
 	dhts := bootstrapTestNetwork(t, "127.0.0.1", "6001")
-	defer func(d []*bkad.DHT) {
+	defer func(d []dht.DHT) {
 		for _, v := range d {
 			v.Disconnect()
 		}
@@ -144,8 +148,6 @@ func TestFindNode(t *testing.T) {
 	}{
 		{
 			k:           newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)]),
-			start:       string(dhts[0].HT.Self.ID),
-			input:       NodeID(dhts[rand.Intn(testNetSize)].HT.Self.ID),
 			expectedErr: nil,
 		},
 	}
@@ -157,10 +159,14 @@ func TestFindNode(t *testing.T) {
 		err := v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
-		node, err := v.k.FindNode(ctx, &v.input)
+		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
+		assert.NoError(t, err)
+
+		id := NodeID(rt.Local().Id)
+		node, err := v.k.FindNode(ctx, &id)
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotZero(t, node)
-		assert.Equal(t, node.Id, string(v.input))
+		assert.Equal(t, node.Id, id.String())
 		v.k.dht.Disconnect()
 	}
 
@@ -168,13 +174,17 @@ func TestFindNode(t *testing.T) {
 
 func TestPing(t *testing.T) {
 	dhts := bootstrapTestNetwork(t, "127.0.0.1", "6001")
-	defer func(d []*bkad.DHT) {
+	defer func(d []dht.DHT) {
 		for _, v := range d {
 			v.Disconnect()
 		}
 	}(dhts)
 
 	r := dhts[rand.Intn(testNetSize)]
+	rt, err := r.GetRoutingTable(context.Background())
+	addr := rt.Local().Address
+	assert.NoError(t, err)
+
 	cases := []struct {
 		k           *Kademlia
 		input       overlay.Node
@@ -183,10 +193,10 @@ func TestPing(t *testing.T) {
 		{
 			k: newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)]),
 			input: overlay.Node{
-				Id: string(r.HT.Self.ID),
+				Id: rt.Local().Id,
 				Address: &overlay.NodeAddress{
 					Transport: defaultTransport,
-					Address:   fmt.Sprintf("%s:%d", r.HT.Self.IP.String(), r.HT.Self.Port),
+					Address:   addr.Address,
 				},
 			},
 			expectedErr: nil,
