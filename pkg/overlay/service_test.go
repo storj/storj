@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -21,7 +22,6 @@ import (
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
-	"strconv"
 )
 
 func setPortFlags(t *testing.T) {
