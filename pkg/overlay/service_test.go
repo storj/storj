@@ -17,7 +17,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/process"
@@ -29,6 +31,13 @@ func setPortFlags(t *testing.T) {
 	assert.NoError(t, err)
 
 	flag.Set("localPort", strconv.Itoa(availablePort))
+}
+
+func newTestService(t *testing.T) Service {
+	return Service{
+		logger:  zap.NewNop(),
+		metrics: monkit.Default,
+	}
 }
 
 func TestNewServer(t *testing.T) {
@@ -44,8 +53,8 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	//a := "35.232.202.229:8080"
-	//c, err := NewClient(&a, grpc.WithInsecure())
+	// a := "35.232.202.229:8080"
+	// c, err := NewClient(&a, grpc.WithInsecure())
 	t.SkipNow()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
@@ -67,7 +76,7 @@ func TestProcess_redis(t *testing.T) {
 	done := test.EnsureRedis(t)
 	defer done()
 
-	o := Service{}
+	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err := o.Process(ctx)
 	assert.NoError(t, err)
@@ -88,7 +97,7 @@ func TestProcess_bolt(t *testing.T) {
 
 	flag.Set("boltdbPath", boltdbPath)
 
-	o := Service{}
+	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx)
 	assert.NoError(t, err)
@@ -99,7 +108,7 @@ func TestProcess_error(t *testing.T) {
 	flag.Set("boltdbPath", "")
 	flag.Set("redisAddress", "")
 
-	o := Service{}
+	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err := o.Process(ctx)
 	assert.True(t, process.ErrUsage.Has(err))
