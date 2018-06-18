@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -27,10 +26,7 @@ import (
 )
 
 func setPortFlags(t *testing.T) {
-	availablePort, err := test.NewPort()
-	assert.NoError(t, err)
-
-	flag.Set("localPort", strconv.Itoa(availablePort))
+	flag.Set("localPort", "0")
 }
 
 func newTestService(t *testing.T) Service {
