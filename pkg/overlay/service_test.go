@@ -68,7 +68,7 @@ func TestProcess_redis(t *testing.T) {
 	defer done()
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err := o.Process(ctx)
 	assert.NoError(t, err)
 }
@@ -89,7 +89,7 @@ func TestProcess_bolt(t *testing.T) {
 	flag.Set("boltdbPath", boltdbPath)
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx)
 	assert.NoError(t, err)
 }
@@ -100,7 +100,7 @@ func TestProcess_error(t *testing.T) {
 	flag.Set("redisAddress", "")
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err := o.Process(ctx)
 	assert.True(t, process.ErrUsage.Has(err))
 }

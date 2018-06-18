@@ -134,7 +134,7 @@ func (s *Service) Process(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
 	go cache.Walk(ctx)
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server
