@@ -35,11 +35,11 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
-	fmt.Printf("\nnodes:%#v, ip:%s, port:%s\n", bootstrapNodes, ip, port)
+	// fmt.Printf("\nnodes:%#v, ip:%s, port:%s\n", bootstrapNodes, ip, port)
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
 	}
-
+	// fmt.Printf("NEW KADEMLIA: %#v\n", bootstrapNodes[0].Address)
 	bb, err := convertProtoNodes(bootstrapNodes)
 	if err != nil {
 		return nil, err
@@ -192,6 +192,8 @@ func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
 func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
 	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
 	if err != nil {
+		fmt.Printf("ITS HAPPENING\n")
+		fmt.Printf("THIS:: %#v\n", v.GetAddress())
 		return nil, err
 	}
 

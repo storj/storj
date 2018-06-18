@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -25,11 +26,14 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 
 	p, err := strconv.Atoi(port)
 	assert.NoError(t, err)
-	boot, err := NewKademlia([]overlay.Node{GetIntroNode("", ip, port)}, ip, strconv.Itoa(p-1))
+	intro := GetIntroNode("", ip, port)
+	fmt.Printf("KADEMLIA FMT:: %#v\n", intro.Address)
+	boot, err := NewKademlia([]overlay.Node{intro}, ip, strconv.Itoa(p-1))
+
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
 	bootNode := rt.Local()
-
+	fmt.Printf("KADEMLIA BOOTNODE:: %#v\n", bootNode.Address)
 	err = boot.ListenAndServe()
 	assert.NoError(t, err)
 
@@ -84,14 +88,22 @@ func TestBootstrap(t *testing.T) {
 
 	for _, v := range cases {
 		ctx := context.Background()
-		time.Sleep(time.Second)
+		// time.Sleep(time.Second)
 
-		rt, err := dhts[0].GetRoutingTable(context.Background())
+		rt, err := dhts[4].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
-		// b, err := rt.GetBuckets()
-		// assert.NoError(t, err)
-		// fmt.Printf("RoutingTable: %#v\n", b)
-
+		b, err := rt.GetBuckets()
+		assert.NoError(t, err)
+		fmt.Printf("RoutingTable: %#v\n", b)
+		for i, vv := range b {
+			if len(vv.Nodes()) != 0 {
+				fmt.Printf("[%d] %#v\n", i, vv.Nodes())
+				for i, vvv := range vv.Nodes() {
+					fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
+					fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
+				}
+			}
+		}
 		localID := rt.Local().Id
 		n := NodeID(localID)
 		node, err := v.k.FindNode(ctx, &n)

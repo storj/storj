@@ -24,3 +24,7 @@ func (b *KBucket) Cache() []proto.Node {
 func (b *KBucket) Midpoint() string {
 	return ""
 }
+
+func (b *KBucket) Nodes() []*proto.Node {
+	return b.nodes
+}

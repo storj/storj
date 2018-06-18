@@ -52,4 +52,5 @@ type Bucket interface {
 	Routing() []proto.Node
 	Cache() []proto.Node
 	Midpoint() string
+	Nodes() []*proto.Node
 }

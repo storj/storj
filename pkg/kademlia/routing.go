@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -35,7 +36,7 @@ func (rt RouteTable) Local() proto.Node {
 		Id: rt.dht.GetSelfID(),
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport, // TODO(coyle): this should be stored on the route table
-			Address:   rt.dht.GetNetworkAddr(),
+			Address:   fmt.Sprintf("%s:%d", rt.dht.HT.Self.IP.String(), rt.dht.HT.Self.Port),
 		},
 	}
 
@@ -74,9 +75,9 @@ func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
 	bs := []dht.Bucket{}
 	b := rt.ht.GetBuckets()
 
-	// fmt.Printf("BUCKETS: %#v\n", b)
-	for i, v := range b {
-		bs[i] = &KBucket{nodes: convertNetworkNodes(v)}
+	fmt.Printf("BUCKETS: %#v\n", b)
+	for _, v := range b {
+		bs = append(bs, &KBucket{nodes: convertNetworkNodes(v)})
 	}
 
 	return bs, nil
