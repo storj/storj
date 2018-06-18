@@ -34,7 +34,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
 	// fmt.Printf("\nnodes:%#v, ip:%s, port:%s\n", bootstrapNodes, ip, port)
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
@@ -44,17 +44,18 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 	if err != nil {
 		return nil, err
 	}
-	id, err := newID() // TODO() use the real ID type after we settle on an implementation
-	if err != nil {
-		return nil, err
-	}
+
+	// id, err := newID() // TODO() use the real ID type after we settle on an implementation
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	for _, v := range bb {
 		fmt.Printf("PORTPORT::%#v\n", v.Port)
 	}
 
 	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		ID:             []byte(id),
+		ID:             id.Bytes(),
 		IP:             ip,
 		Port:           port,
 		BootstrapNodes: bb,
