@@ -21,7 +21,15 @@ import (
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"strconv"
 )
+
+func setPortFlags(t *testing.T) {
+	availablePort, err := test.NewPort()
+	assert.NoError(t, err)
+
+	flag.Set("localPort", strconv.Itoa(availablePort))
+}
 
 func TestNewServer(t *testing.T) {
 	t.SkipNow()
@@ -55,7 +63,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestProcess_redis(t *testing.T) {
-	flag.Set("localPort", "8889")
+	setPortFlags(t)
 	done := test.EnsureRedis(t)
 	defer done()
 
@@ -66,7 +74,7 @@ func TestProcess_redis(t *testing.T) {
 }
 
 func TestProcess_bolt(t *testing.T) {
-	flag.Set("localPort", "8890")
+	setPortFlags(t)
 	boltdbPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
 
@@ -87,7 +95,7 @@ func TestProcess_bolt(t *testing.T) {
 }
 
 func TestProcess_error(t *testing.T) {
-	flag.Set("localPort", "8891")
+	setPortFlags(t)
 	flag.Set("boltdbPath", "")
 	flag.Set("redisAddress", "")
 
