@@ -35,6 +35,7 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
+	fmt.Printf("\nnodes:%#v, ip:%s, port:%s\n", bootstrapNodes, ip, port)
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
 	}
@@ -46,6 +47,10 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 	id, err := newID() // TODO() use the real ID type after we settle on an implementation
 	if err != nil {
 		return nil, err
+	}
+
+	for _, v := range bb {
+		fmt.Printf("PORTPORT::%#v\n", v.Port)
 	}
 
 	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
@@ -205,15 +210,19 @@ func newID() ([]byte, error) {
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(ip, port string) proto.Node {
+func GetIntroNode(id, ip, port string) proto.Node {
 	addr := "bootstrap.storj.io:8080"
 	if ip != "" && port != "" {
 		addr = ip + ":" + port
 	}
 
-	id, _ := newID() // TODO(coyle): This is solely to bootstrap our very first node, after we get an ID, we will just hardcode that ID
+	if id == "" {
+		i, _ := newID()
+		id = string(i)
+	}
+
 	return proto.Node{
-		Id: string(id),
+		Id: id,
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
 			Address:   addr,
