@@ -84,6 +84,7 @@ func TestProcess_redis(t *testing.T) {
 
 func TestProcess_bolt(t *testing.T) {
 	setPortFlags(t)
+	flag.Set("redisAddress", "")
 	boltdbPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
 
