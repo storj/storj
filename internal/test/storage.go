@@ -22,6 +22,7 @@ import (
 // KvStore is an in-memory, crappy key/value store type for testing
 type KvStore map[string]storage.Value
 
+// Empty checks if there are any keys in the store
 func (k *KvStore) Empty() bool {
 	return len(*k) == 0
 }
