@@ -12,7 +12,8 @@ import (
 
 	bkad "github.com/coyle/kademlia"
 
-	"storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/dht"
+	proto "storj.io/storj/protos/overlay"
 )
 
 // RouteTable implements the RoutingTable interface
@@ -29,9 +30,16 @@ func NewRouteTable(dht Kademlia) RouteTable {
 	}
 }
 
-// LocalID returns the local nodes ID
-func (rt RouteTable) LocalID() NodeID {
-	return NodeID(rt.dht.GetSelfID())
+// Local returns the local nodes ID
+func (rt RouteTable) Local() proto.Node {
+	return proto.Node{
+		Id: rt.dht.GetSelfID(),
+		Address: &proto.NodeAddress{
+			Transport: defaultTransport, // TODO(coyle): this should be stored on the route table
+			Address:   rt.dht.GetNetworkAddr(),
+		},
+	}
+
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
@@ -46,35 +54,35 @@ func (rt RouteTable) CacheSize() int {
 }
 
 // GetBucket retrieves a bucket from the local node
-func (rt RouteTable) GetBucket(id string) (bucket Bucket, ok bool) {
+func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 	i, err := hex.DecodeString(id)
 	if err != nil {
-		return KBucket{}, false
+		return &KBucket{}, false
 	}
 	b := rt.ht.GetBucket(i)
 	if b == nil {
-		return KBucket{}, false
+		return &KBucket{}, false
 	}
 
-	return KBucket{
+	return &KBucket{
 		nodes: convertNetworkNodes(b),
 	}, true
 }
 
 // GetBuckets retrieves all buckets from the local node
-func (rt RouteTable) GetBuckets() (k []Bucket, err error) {
-	bs := []Bucket{}
+func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
+	bs := []dht.Bucket{}
 	b := rt.ht.GetBuckets()
 	for i, v := range b {
-		bs[i] = KBucket{nodes: convertNetworkNodes(v)}
+		bs[i] = &KBucket{nodes: convertNetworkNodes(v)}
 	}
 
 	return bs, nil
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt RouteTable) FindNear(id NodeID, limit int) ([]*overlay.Node, error) {
-	return convertNetworkNodes(rt.ht.GetClosestContacts([]byte(id), limit)), nil
+func (rt RouteTable) FindNear(id dht.NodeID, limit int) ([]*overlay.Node, error) {
+	return convertNetworkNodes(rt.ht.GetClosestContacts(id.Bytes(), limit)), nil
 }
 
 // ConnectionSuccess handles the details of what kademlia should do when
@@ -104,7 +112,7 @@ func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 }
 
 // GetBucketTimestamp retrieves the last updated time for a bucket
-func (rt RouteTable) GetBucketTimestamp(id string, bucket Bucket) (time.Time, error) {
+func (rt RouteTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time, error) {
 	return rt.dht.GetExpirationTime([]byte(id)), nil
 }
 

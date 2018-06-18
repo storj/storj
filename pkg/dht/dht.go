@@ -24,12 +24,13 @@ type DHT interface {
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node proto.Node) (proto.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (proto.Node, error)
+	Disconnect() error
 }
 
 // RoutingTable contains information on nodes we have locally
 type RoutingTable interface {
 	// local params
-	LocalID() NodeID
+	Local() proto.Node
 	K() int
 	CacheSize() int
 

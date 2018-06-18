@@ -35,6 +35,10 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
+	if port == "" {
+		return nil, NodeErr.New("must specify port in request to NewKademlia")
+	}
+
 	bb, err := convertProtoNodes(bootstrapNodes)
 	if err != nil {
 		return nil, err
@@ -70,6 +74,10 @@ func NewKademlia(bootstrapNodes []proto.Node, ip string, port string) (*Kademlia
 	}, nil
 }
 
+func (k Kademlia) Disconnect() error {
+	return k.dht.Disconnect()
+}
+
 // GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
 	if start == "" {
@@ -84,11 +92,12 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*pro
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
-func (k *Kademlia) GetRoutingTable(ctx context.Context) (RoutingTable, error) {
+func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
 	return RouteTable{
 		ht:  k.dht.HT,
 		dht: k.dht,
 	}, nil
+
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
@@ -117,14 +126,14 @@ func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
-	nodes, err := k.dht.FindNode([]byte(ID))
+	nodes, err := k.dht.FindNode(ID.Bytes())
 	if err != nil {
 		return proto.Node{}, err
 
 	}
 
 	for _, v := range nodes {
-		if string(v.ID) == string(ID) {
+		if string(v.ID) == ID.String() {
 			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
 				Transport: defaultTransport,
 				Address:   fmt.Sprintf("%s:%d", v.IP.String(), v.Port),
@@ -197,12 +206,17 @@ func newID() ([]byte, error) {
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
 func GetIntroNode(ip, port string) proto.Node {
+	addr := "bootstrap.storj.io:8080"
+	if ip != "" && port != "" {
+		addr = ip + ":" + port
+	}
+
 	id, _ := newID() // TODO(coyle): This is solely to bootstrap our very first node, after we get an ID, we will just hardcode that ID
 	return proto.Node{
 		Id: string(id),
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
-			Address:   "bootstrap.storj.io:8080",
+			Address:   addr,
 		},
 	}
 }

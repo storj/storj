@@ -3,24 +3,24 @@
 
 package kademlia
 
-import "storj.io/storj/protos/overlay"
+import proto "storj.io/storj/protos/overlay"
 
 // KBucket implements the Bucket interface
 type KBucket struct {
-	nodes []*overlay.Node
+	nodes []*proto.Node
 }
 
 // Routing __ (TODO) still not entirely sure what the bucket methods are supposed to do
-func (b KBucket) Routing() []overlay.Node {
-	return []overlay.Node{}
+func (b *KBucket) Routing() []proto.Node {
+	return []proto.Node{}
 }
 
 // Cache __ (TODO) still not entirely sure what the bucket methods are supposed to do
-func (b KBucket) Cache() []overlay.Node {
-	return []overlay.Node{}
+func (b *KBucket) Cache() []proto.Node {
+	return []proto.Node{}
 }
 
 // Midpoint __ (TODO) still not entirely sure what the bucket methods are supposed to do
-func (b KBucket) Midpoint() string {
+func (b *KBucket) Midpoint() string {
 	return ""
 }

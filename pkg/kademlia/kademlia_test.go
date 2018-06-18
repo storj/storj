@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/pkg/dht"
+
 	bkad "github.com/coyle/kademlia"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/protos/overlay"
@@ -20,51 +22,35 @@ const (
 	testNetSize = 20
 )
 
-func bootstrapTestNetwork(t *testing.T, ip, port string) []*bkad.DHT {
-	dhts := []*bkad.DHT{}
+func bootstrapTestNetwork(t *testing.T, ip, port string) []dht.DHT {
+	dhts := []dht.DHT{}
+
 	p, err := strconv.Atoi(port)
 	assert.NoError(t, err)
 
 	for i := 0; i < testNetSize; i++ {
 		id, err := newID()
 		assert.NoError(t, err)
-		dht, _ := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-			ID:   id,
-			IP:   ip,
-			Port: strconv.Itoa(p),
-			BootstrapNodes: []*bkad.NetworkNode{
-				bkad.NewNetworkNode("127.0.0.1", strconv.Itoa(p-1)),
-			},
-		})
+		dht, err := NewKademlia([]overlay.Node{GetIntroNode("127.0.0.1", strconv.Itoa(p-1))}, ip, strconv.Itoa(p))
+		assert.NoError(t, err)
+
 		p++
 		dhts = append(dhts, dht)
-		err = dht.CreateSocket()
+		err = dht.ListenAndServe()
 		assert.NoError(t, err)
-	}
-
-	for _, dht := range dhts {
-		go dht.Listen()
-		go func(dht *bkad.DHT) {
-			if err := dht.Bootstrap(); err != nil {
-				panic(err)
-			}
-		}(dht)
-
-		time.Sleep(200 * time.Millisecond)
+		err = dht.Bootstrap(context.Background())
+		assert.NoError(t, err)
 	}
 
 	return dhts
 }
 
-func newTestKademlia(t *testing.T, ip, port string, d *bkad.DHT) *Kademlia {
-	n := []overlay.Node{
-		overlay.Node{
-			Id: string(d.HT.Self.ID),
-			Address: &overlay.NodeAddress{
-				Address: fmt.Sprintf("127.0.0.1:%d", d.HT.Self.Port),
-			},
-		},
-	}
+func newTestKademlia(t *testing.T, ip, port string, d dht.DHT) *Kademlia {
+	rt, err := d.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
+
+	n := []overlay.Node{rt.Local()},
+	
 
 	kad, err := NewKademlia(n, ip, port)
 	assert.NoError(t, err)
@@ -73,7 +59,7 @@ func newTestKademlia(t *testing.T, ip, port string, d *bkad.DHT) *Kademlia {
 
 func TestBootstrap(t *testing.T) {
 	dhts := bootstrapTestNetwork(t, "127.0.0.1", "3001")
-	defer func(d []*bkad.DHT) {
+	defer func(d []dht.DHT) {
 		for _, v := range d {
 			v.Disconnect()
 		}
@@ -94,7 +80,8 @@ func TestBootstrap(t *testing.T) {
 		err := v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
-		node, err := v.k.FindNode(ctx, NodeID(dhts[0].HT.Self.ID))
+		n := NodeID(dhts[0].HT.Self.ID)
+		node, err := v.k.FindNode(ctx, &n)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, node)
 		assert.Equal(t, string(dhts[0].HT.Self.ID), node.Id)
@@ -127,9 +114,10 @@ func TestGetNodes(t *testing.T) {
 
 	for _, v := range cases {
 		ctx := context.Background()
-		go v.k.ListenAndServe()
+		err := v.k.ListenAndServe()
+		assert.Equal(t, v.expectedErr, err)
 		time.Sleep(time.Second)
-		err := v.k.Bootstrap(ctx)
+		err = v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
 		nodes, err := v.k.GetNodes(ctx, v.start, v.limit)
@@ -169,7 +157,7 @@ func TestFindNode(t *testing.T) {
 		err := v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
 
-		node, err := v.k.FindNode(ctx, v.input)
+		node, err := v.k.FindNode(ctx, &v.input)
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotZero(t, node)
 		assert.Equal(t, node.Id, string(v.input))
