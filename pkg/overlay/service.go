@@ -15,14 +15,17 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/process"
 )
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
+	tlsCertPath, tlsKeyPath, tlsHosts                                                        string
+	tlsCreate, tlsOverwrite                                                                  bool
 )
 
 func init() {
@@ -35,11 +38,30 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
+	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "TLS Certificate file")
+	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "TLS Key file")
+	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS Key file")
+	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
-	grpcServer := grpc.NewServer()
+func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
+	t := &utils.TLSFileOptions{
+		CertRelPath: tlsCertPath,
+		KeyRelPath:  tlsKeyPath,
+		Create:      tlsCreate,
+		Overwrite:   tlsOverwrite,
+		Hosts:       tlsHosts,
+	}
+
+	creds, err := utils.NewServerTLSFromFile(t)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.Creds(creds)
+	grpcServer := grpc.NewServer(credsOption)
 	proto.RegisterOverlayServer(grpcServer, &Overlay{
 		kad:     k,
 		cache:   cache,
@@ -47,12 +69,27 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 		metrics: m,
 	})
 
-	return grpcServer
+	return grpcServer, nil
 }
 
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t := &utils.TLSFileOptions{
+		CertRelPath: tlsCertPath,
+		Create:      tlsCreate,
+		Overwrite:   tlsOverwrite,
+		Hosts:       tlsHosts,
+		Client:      true,
+	}
+
+	creds, err := utils.NewClientTLSFromFile(t)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.WithTransportCredentials(creds)
+	opts = append(opts, credsOption)
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err
@@ -130,7 +167,11 @@ func (s *Service) Process(ctx context.Context) error {
 		return err
 	}
 
-	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
+	grpcServer, err := NewServer(kad, cache, s.logger, s.metrics)
+	if err != nil {
+		s.logger.Error("Failed to initialize grpc server", zap.Error(err))
+		return err
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
