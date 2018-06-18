@@ -7,16 +7,15 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
-	"storj.io/storj/storage/redis"
 )
 
 // Overlay implements our overlay RPC service
 type Overlay struct {
 	kad     *kademlia.Kademlia
-	DB      *redis.OverlayClient
+	cache   *Cache
 	logger  *zap.Logger
 	metrics *monkit.Registry
 }
@@ -46,11 +45,11 @@ var dummy = map[string]string{
 
 // Lookup finds the address of a node in our overlay network
 func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
-	// na, err := o.DB.Get(ctx, req.NodeID)
-	// if err != nil {
-	// 	o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeID))
-	// 	return nil, err
-	// }
+	_, err := o.cache.Get(ctx, req.NodeID) // TODO(coyle): we should fix this asap
+	if err != nil {
+		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeID))
+		return nil, err
+	}
 
 	return &proto.LookupResponse{
 		NodeAddress: &proto.NodeAddress{

@@ -24,6 +24,18 @@ type Server struct {
 	DB            *ttl.TTL
 }
 
+func cleanup(s *Server, id string) error {
+	if err := pstore.Delete(id, s.PieceStoreDir); err != nil {
+		return err
+	}
+
+	if err := s.DB.DeleteTTLByID(id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
@@ -43,6 +55,10 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(piece.Id, s.PieceStoreDir)
 	if err != nil {
+		if err := cleanup(s, piece.Id); err != nil {
+			log.Printf("Failed on cleanup in Store: %s", err.Error())
+		}
+
 		return err
 	}
 	defer storeFile.Close()
@@ -50,6 +66,10 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	reader := NewStreamReader(stream)
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
+		if err := cleanup(s, piece.Id); err != nil {
+			log.Printf("Failed on cleanup in Store: %s", err.Error())
+		}
+
 		return err
 	}
 
@@ -124,11 +144,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Println("Deleting data...")
 
-	if err := pstore.Delete(in.Id, s.PieceStoreDir); err != nil {
-		return nil, err
-	}
-
-	if err := s.DB.DeleteTTLByID(in.Id); err != nil {
+	if err := cleanup(s, in.Id); err != nil {
 		return nil, err
 	}
 

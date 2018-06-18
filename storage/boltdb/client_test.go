@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/netstate"
 )
 
 func tempfile() string {
@@ -27,27 +28,30 @@ func tempfile() string {
 
 func TestNetState(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	c, err := New(logger, tempfile())
+	c, err := NewClient(logger, tempfile(), "test_bucket")
 	if err != nil {
 		t.Error("Failed to create test db")
 	}
 	defer func() {
 		c.Close()
-		os.Remove(c.Path)
+		switch client := c.(type) {
+		case *boltClient:
+			os.Remove(client.Path)
+		}
 	}()
 
-	testEntry1 := PointerEntry{
+	testEntry1 := netstate.PointerEntry{
 		Path:    []byte(`test/path`),
 		Pointer: []byte(`pointer1`),
 	}
 
-	testEntry2 := PointerEntry{
+	testEntry2 := netstate.PointerEntry{
 		Path:    []byte(`test/path2`),
 		Pointer: []byte(`pointer2`),
 	}
 
 	// tests Put function
-	if err := c.Put(testEntry1); err != nil {
+	if err := c.Put(testEntry1.Path, testEntry1.Pointer); err != nil {
 		t.Error("Failed to save testFile to pointers bucket")
 	}
 
@@ -66,7 +70,7 @@ func TestNetState(t *testing.T) {
 	}
 
 	// tests List function
-	if err := c.Put(testEntry2); err != nil {
+	if err := c.Put(testEntry2.Path, testEntry2.Pointer); err != nil {
 		t.Error("Failed to put testEntry2 to pointers bucket")
 	}
 	testPaths, err := c.List()

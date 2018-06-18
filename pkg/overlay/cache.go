@@ -1,47 +1,60 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package redis
+package overlay
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/protos/overlay"
+	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/redis"
 )
 
-const defaultNodeExpiration = 61 * time.Minute
-
 // ErrNodeNotFound standardizes errors here
-var ErrNodeNotFound = errors.New("Node not found")
+var ErrNodeNotFound = errs.New("Node not found")
 
-// OverlayClient is used to store overlay data in Redis
-type OverlayClient struct {
-	DB  Client
+// Cache is used to store overlay data in Redis
+type Cache struct {
+	DB  storage.KeyValueStore
 	DHT kademlia.DHT
 }
 
-// NewOverlayClient returns a pointer to a new OverlayClient instance with an initalized connection to Redis.
-func NewOverlayClient(address, password string, db int, DHT kademlia.DHT) (*OverlayClient, error) {
-	rc, err := NewRedisClient(address, password, db)
+// NewRedisOverlayCache returns a pointer to a new Cache instance with an initalized connection to Redis.
+func NewRedisOverlayCache(address, password string, db int, DHT kademlia.DHT) (*Cache, error) {
+	rc, err := redis.NewClient(address, password, db)
 	if err != nil {
 		return nil, err
 	}
 
-	return &OverlayClient{
+	return &Cache{
 		DB:  rc,
 		DHT: DHT,
 	}, nil
 }
 
+// NewBoltOverlayCache returns a pointer to a new Cache instance with an initalized connection to a Bolt db.
+func NewBoltOverlayCache(dbPath string, DHT kademlia.DHT) (*Cache, error) {
+	bc, err := boltdb.NewClient(nil, dbPath, boltdb.OverlayBucket)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Cache{
+		DB:  bc,
+		DHT: DHT,
+	}, nil
+}
+
 // Get looks up the provided nodeID from the redis cache
-func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
-	b, err := o.DB.Get(key)
+func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
+	b, err := o.DB.Get([]byte(key))
 	if err != nil {
 		return nil, err
 	}
@@ -54,18 +67,18 @@ func (o *OverlayClient) Get(ctx context.Context, key string) (*overlay.NodeAddre
 	return na, nil
 }
 
-// Set adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
-func (o *OverlayClient) Set(nodeID string, value overlay.NodeAddress) error {
+// Put adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
+func (o *Cache) Put(nodeID string, value overlay.NodeAddress) error {
 	data, err := proto.Marshal(&value)
 	if err != nil {
 		return err
 	}
 
-	return o.DB.Set(nodeID, data, defaultNodeExpiration)
+	return o.DB.Put([]byte(nodeID), []byte(data))
 }
 
 // Bootstrap walks the initialized network and populates the cache
-func (o *OverlayClient) Bootstrap(ctx context.Context) error {
+func (o *Cache) Bootstrap(ctx context.Context) error {
 	fmt.Println("bootstrapping cache")
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
@@ -75,7 +88,7 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
 		addr, err := proto.Marshal(found.Address)
-		o.DB.Set(found.Id, addr, defaultNodeExpiration)
+		o.DB.Put([]byte(found.Id), addr)
 	}
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
@@ -96,7 +109,7 @@ func (o *OverlayClient) Bootstrap(ctx context.Context) error {
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
-func (o *OverlayClient) Refresh(ctx context.Context) error {
+func (o *Cache) Refresh(ctx context.Context) error {
 	// iterate over all nodes
 	// compare responses to find new nodes
 	// listen for responses from existing nodes
@@ -118,7 +131,7 @@ func (o *OverlayClient) Refresh(ctx context.Context) error {
 }
 
 // Walk iterates over buckets to traverse the network
-func (o *OverlayClient) Walk(ctx context.Context) error {
+func (o *Cache) Walk(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "0", 128)
 	if err != nil {
 		return err

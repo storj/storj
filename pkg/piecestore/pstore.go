@@ -5,12 +5,12 @@ package pstore
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 
+	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/ranger"
@@ -50,7 +50,7 @@ func DetermineID() string {
 		panic(err)
 	}
 
-	return base64.URLEncoding.EncodeToString(b)
+	return base58.Encode(b)
 }
 
 // StoreWriter stores data into piece store in multiple writes
