@@ -29,7 +29,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
-	pm := strconv.Itoa(p - 1)
+	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
 	intro := GetIntroNode(bnid.String(), ip, pm)
 	fmt.Printf("KADEMLIA FMT:: %#v\n", intro.Address)
@@ -41,7 +41,11 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	fmt.Printf("KADEMLIA BOOTNODE:: %#v\n", bootNode.Address)
 	err = boot.ListenAndServe()
 	assert.NoError(t, err)
+	p++
 
+	err = boot.Bootstrap(context.Background())
+	time.Sleep(500 * time.Millisecond)
+	assert.NoError(t, err)
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
 		// fmt.Printf("strconv.Itoa(p)::%v\n", gg)
@@ -60,6 +64,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 		assert.NoError(t, err)
 		time.Sleep(500 * time.Millisecond)
 		err = dht.Bootstrap(context.Background())
+		time.Sleep(500 * time.Millisecond)
 		assert.NoError(t, err)
 
 	}
@@ -81,7 +86,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *
 }
 
 func TestBootstrap(t *testing.T) {
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3001")
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3000")
 
 	defer func(d []dht.DHT) {
 		for _, v := range d {
@@ -93,16 +98,21 @@ func TestBootstrap(t *testing.T) {
 		k *Kademlia
 	}{
 		{
-			k: newTestKademlia(t, "127.0.0.1", "3001", dhts[rand.Intn(testNetSize)], bootNode),
+			k: newTestKademlia(t, "127.0.0.1", "2999", dhts[rand.Intn(testNetSize)], bootNode),
 		},
 	}
 
 	for _, v := range cases {
+		err := v.k.ListenAndServe()
+		assert.NoError(t, err)
+		err = v.k.Bootstrap(context.Background())
+		assert.NoError(t, err)
 		ctx := context.Background()
 		// time.Sleep(time.Second)
 
 		rt, err := dhts[4].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
+
 		b, err := rt.GetBuckets()
 		assert.NoError(t, err)
 		fmt.Printf("RoutingTable: %#v\n", b)
@@ -148,7 +158,6 @@ func TestGetNodes(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		// fmt.Printf("\n\n\nHERE\n\n\n")
 		ctx := context.Background()
 		err := v.k.ListenAndServe()
 		assert.Equal(t, v.expectedErr, err)
