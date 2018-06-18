@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -35,23 +36,14 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
-	// fmt.Printf("\nnodes:%#v, ip:%s, port:%s\n", bootstrapNodes, ip, port)
+
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
 	}
-	// fmt.Printf("NEW KADEMLIA: %#v\n", bootstrapNodes[0].Address)
+
 	bb, err := convertProtoNodes(bootstrapNodes)
 	if err != nil {
 		return nil, err
-	}
-
-	// id, err := newID() // TODO() use the real ID type after we settle on an implementation
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	for _, v := range bb {
-		fmt.Printf("PORTPORT::%#v\n", v.Port)
 	}
 
 	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
@@ -139,6 +131,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 	}
 
 	for _, v := range nodes {
+		fmt.Printf("\n%v==%v %t\n", v.ID, ID.Bytes(), bytes.Equal(v.ID, ID.Bytes()))
 		if string(v.ID) == ID.String() {
 			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
 				Transport: defaultTransport,
@@ -193,8 +186,6 @@ func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
 func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
 	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
 	if err != nil {
-		fmt.Printf("ITS HAPPENING\n")
-		fmt.Printf("THIS:: %#v\n", v.GetAddress())
 		return nil, err
 	}
 

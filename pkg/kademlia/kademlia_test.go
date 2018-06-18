@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -32,13 +31,13 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
 	intro := GetIntroNode(bnid.String(), ip, pm)
-	fmt.Printf("KADEMLIA FMT:: %#v\n", intro.Address)
+
 	boot, err := NewKademlia(&bnid, []overlay.Node{intro}, ip, pm)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
 	bootNode := rt.Local()
-	fmt.Printf("KADEMLIA BOOTNODE:: %#v\n", bootNode.Address)
+
 	err = boot.ListenAndServe()
 	assert.NoError(t, err)
 	p++
@@ -48,8 +47,6 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	assert.NoError(t, err)
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
-		// fmt.Printf("strconv.Itoa(p)::%v\n", gg)
-		// fmt.Printf("BOOTNODE :%#v\n", bootNode)
 
 		nid, err := newID()
 		assert.NoError(t, err)
@@ -107,21 +104,21 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 		err = v.k.Bootstrap(context.Background())
 		assert.NoError(t, err)
+		time.Sleep(1 * time.Second)
 		ctx := context.Background()
-		// time.Sleep(time.Second)
 
-		rt, err := dhts[4].GetRoutingTable(context.Background())
+		rt, err := dhts[0].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
 
 		b, err := rt.GetBuckets()
 		assert.NoError(t, err)
-		fmt.Printf("RoutingTable: %#v\n", b)
-		for i, vv := range b {
+		for _, vv := range b {
 			if len(vv.Nodes()) != 0 {
-				fmt.Printf("[%d] %#v\n", i, vv.Nodes())
-				for i, vvv := range vv.Nodes() {
-					fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
-					fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
+				// fmt.Printf("[%d] %#v\n", i, vv.Nodes())
+				for _, _ = range vv.Nodes() {
+					// fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
+					// fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
+					// fmt.Printf("[%d] %#v : %v\n", i, vvv, fmt.Sprintf("%s", vvv.Id))
 				}
 			}
 		}
