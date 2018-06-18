@@ -3,9 +3,25 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/aleitner/FilePiece"
+  name = "github.com/anacrolix/missinggo"
+  packages = [
+    ".",
+    "inproc",
+    "pproffd"
+  ]
+  revision = "f9a329340c5303f1977dcb9efb0918b34437a003"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/anacrolix/sync"
   packages = ["."]
-  revision = "b020bc25bf963676c8d70d9ae3c882cf1cf33ef3"
+  revision = "3c4cb11f5a01b7769739b3a408c493e947fb839f"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/anacrolix/utp"
+  packages = ["."]
+  revision = "9e0e1d1d0572f5a09a669d4ea0372d8e8078dcc9"
 
 [[projects]]
   branch = "master"
@@ -20,9 +36,30 @@
   version = "v1.3.1"
 
 [[projects]]
+  name = "github.com/ccding/go-stun"
+  packages = ["stun"]
+  revision = "04a4eed61c57ecc9903f8983d1d2c17b88d2e9e1"
+  version = "0.1.0"
+
+[[projects]]
   name = "github.com/cheggaaa/pb"
   packages = ["."]
   revision = "73ae1d68fe0bd482ab11913a9828634f795b987f"
+
+[[projects]]
+  name = "github.com/cloudfoundry/gosigar"
+  packages = [
+    ".",
+    "sys/windows"
+  ]
+  revision = "dcb1afc219e4c99f21c37fb1ec22ed9ffe443317"
+  version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/coyle/kademlia"
+  packages = ["."]
+  revision = "b87cccc53b8b5099f1de6ab04e8dbdb50b5da3ba"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -148,6 +185,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
+  version = "v1.1.1"
+
+[[projects]]
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -213,6 +256,12 @@
   revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
 
 [[projects]]
+  name = "github.com/huandu/xstrings"
+  packages = ["."]
+  revision = "2bf18b218c51864a87384c06996e40ff9dcff8e1"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/inconshreveable/go-update"
   packages = [
@@ -223,10 +272,16 @@
   revision = "8152e7eb6ccf8679a64582a66b78519688d156ad"
 
 [[projects]]
-  name = "github.com/julienschmidt/httprouter"
+  name = "github.com/jbenet/go-base58"
   packages = ["."]
-  revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
-  version = "v1.1"
+  revision = "6237cf65f3a6f7111cd8a42be3590df99a66bc7d"
+  version = "1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jtolds/monkit-hw"
+  packages = ["."]
+  revision = "9b6edb34372a110992ea2e174886cb03ff971230"
 
 [[projects]]
   name = "github.com/klauspost/cpuid"
@@ -270,6 +325,12 @@
   packages = ["."]
   revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
   version = "v0.0.3"
+
+[[projects]]
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
+  version = "v1.9.0"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -377,6 +438,12 @@
   revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mr-tron/base58"
+  packages = ["base58"]
+  revision = "c1bdf7c52f59d6685ca597b9955a443ff95eeee6"
+
+[[projects]]
   name = "github.com/nats-io/go-nats"
   packages = [
     ".",
@@ -413,6 +480,12 @@
   packages = ["."]
   revision = "acdc4509485b587f5e675510c4f2c63e90ff68a8"
   version = "v1.1.0"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pkg/profile"
@@ -513,6 +586,12 @@
     "_cgo"
   ]
   revision = "7067dc99a42a3d5214038549d4b677779c21d5c2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/spacemonkeygo/spacelog"
+  packages = ["."]
+  revision = "2296661a0572a51438413369004fa931c2641923"
 
 [[projects]]
   name = "github.com/spf13/afero"
@@ -780,6 +859,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dc937073bf1e32c2beb49319f90977dc5b28b085a665cc9ba46f4d1df782a1b8"
+  inputs-digest = "6a6b7db5eea9b29b763e6e65c2eb418fb69fa23159c97a75e515892286acb8c0"
   solver-name = "gps-cdcl"
   solver-version = 1
