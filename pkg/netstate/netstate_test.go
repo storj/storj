@@ -6,7 +6,6 @@ package netstate
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -16,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/test"
 	pb "storj.io/storj/protos/netstate"
@@ -25,42 +22,55 @@ import (
 
 var (
 	APIKey = "abc123"
+	ctx    = context.Background()
 )
+
+type NetStateClientTest struct {
+	*testing.T
+
+	server *grpc.Server
+	lis    net.Listener
+	mdb    *test.MockKeyValueStore
+	c      pb.NetStateClient
+}
+
+func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
+	mdb := test.NewMockKeyValueStore(test.KvStore{})
+
+	// tests should always listen on "localhost:0"
+	lis, err := net.Listen("tcp", "localhost:0")
+	assert.NoError(t, err)
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, zap.L()))
+	go grpcServer.Serve(lis)
+
+	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure())
+	if err != nil {
+		grpcServer.GracefulStop()
+		lis.Close()
+		t.Fatal(err)
+	}
+
+	return &NetStateClientTest{
+		T:      t,
+		server: grpcServer,
+		lis:    lis,
+		mdb:    mdb,
+		c:      pb.NewNetStateClient(conn),
+	}
+}
+
+func (nt *NetStateClientTest) Close() {
+	nt.server.GracefulStop()
+	nt.lis.Close()
+}
 
 func TestMain(m *testing.M) {
 	viper.SetEnvPrefix("API")
 	os.Setenv("APIKey", APIKey)
 	viper.AutomaticEnv()
 	os.Exit(m.Run())
-}
-
-func SetupTests() (pb.NetStateClient, context.Context, *test.MockKeyValueStore, error) {
-	logger, _ := zap.NewDevelopment()
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
-	if err != nil {
-		logger.Fatal("SetupTests failed to listen")
-		return nil, nil, nil, err
-	}
-
-	mdb := test.NewMockKeyValueStore(test.KvStore{})
-
-	grpcServer := grpc.NewServer()
-	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
-
-	defer grpcServer.GracefulStop()
-	go grpcServer.Serve(lis)
-
-	address := lis.Addr().String()
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		logger.Fatal("SetupTests conn failed to dial")
-		return nil, nil, nil, err
-	}
-	c := pb.NewNetStateClient(conn)
-	ctx := context.Background()
-
-	return c, ctx, mdb, nil
 }
 
 func MakePointer(path []byte, auth bool) pb.PutRequest {
@@ -96,164 +106,162 @@ func MakePointer(path []byte, auth bool) pb.PutRequest {
 	return pr
 }
 
-func MakeAndPutPointers(howMany int) error {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		panic(err)
-	}
+func MakePointers(howMany int) []pb.PutRequest {
 	var pointers []pb.PutRequest
-	for i := 1; i <= howMany; i++ {
+	for i := 1; i == howMany; i++ {
 		pointers = append(pointers, MakePointer([]byte("file/path/"+string(i)), true))
 	}
-	for _, p := range pointers {
-		_, err = c.Put(ctx, &p)
-		if err != nil || status.Code(err) == codes.Internal {
-			return err
-		}
-	}
-	return nil
+	return pointers
 }
 
-func TestPut(t *testing.T) {
-	c, ctx, mdb, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
-
-	pr1 := MakePointer([]byte("file/path/1"), true)
-
-	_, err = c.Put(ctx, &pr1)
-	if err != nil || status.Code(err) == codes.Internal {
-		t.Error("Failed to Put")
-	}
-	if mdb.PutCalled != 1 {
-		t.Error("Failed to call mockdb correctly")
-	}
-	pointerBytes, err := proto.Marshal(pr1.Pointer)
-	if err != nil {
-		t.Error("Failed to marshal test pointer")
-	}
-	if !bytes.Equal(mdb.Data[string(pr1.Path)], pointerBytes) {
-		t.Error("Expected saved pointer to equal given pointer")
-	}
+func (nt *NetStateClientTest) Put(pr pb.PutRequest) {
+	pre := nt.mdb.PutCalled
+	_, err := nt.c.Put(ctx, &pr)
+	assert.NoError(nt, err)
+	assert.Equal(nt, pre+1, nt.mdb.PutCalled)
 }
 
-func TestGet(t *testing.T) {
-	c, ctx, mdb, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
+	pre := nt.mdb.GetCalled
+	getRes, err := nt.c.Get(ctx, &pb.GetRequest{
+		Path:   []byte(path),
+		APIKey: []byte(APIKey),
+	})
+	assert.NoError(nt, err)
+	assert.Equal(nt, pre+1, nt.mdb.GetCalled)
 
-	pr1 := MakePointer([]byte("file/path/1"), true)
-	_, err = c.Put(ctx, &pr1)
-	if err != nil || status.Code(err) == codes.Internal {
-		t.Error("Failed to Put")
-	}
+	return getRes
+}
+
+func (nt *NetStateClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse) {
+	pre := nt.mdb.ListCalled
+	listRes, err := nt.c.List(ctx, &lr)
+	assert.NoError(nt, err)
+	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
+
+	return listRes
+}
+
+func (nt *NetStateClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResponse) {
+	pre := nt.mdb.DeleteCalled
+	delRes, err := nt.c.Delete(ctx, &dr)
+	assert.NoError(nt, err)
+	assert.Equal(nt, pre+1, nt.mdb.DeleteCalled)
+
+	return delRes
+}
+
+func TestNetStateGet(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	pre := nt.mdb.GetCalled
+
+	pointer := nt.Get("file/path/1")
+	assert.Nil(t, pointer)
+
+	reqs := MakePointers(1)
+	_, err := nt.c.Put(ctx, &reqs[0])
+	assert.NoError(nt, err)
 
 	getReq := pb.GetRequest{
 		Path:   []byte("file/path/1"),
 		APIKey: []byte(APIKey),
 	}
-	getRes, err := c.Get(ctx, &getReq)
+	getRes, err := nt.c.Get(ctx, &getReq)
 	assert.NoError(t, err)
 
-	pr := MakePointer([]byte("file/path/1"), true)
-	pointerBytes, err := proto.Marshal(pr.Pointer)
+	pointerBytes, err := proto.Marshal(reqs[0].Pointer)
 	if err != nil {
 		t.Error("Failed to marshal test pointer")
 	}
 	if !bytes.Equal(getRes.Pointer, pointerBytes) {
 		t.Error("Expected to get same content that was put")
 	}
-	if mdb.GetCalled != 1 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	assert.Equal(nt, pre+1, nt.mdb.GetCalled)
 }
 
 func TestGetAuth(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
 
 	getReq := pb.GetRequest{
 		Path:   []byte("file/path/1"),
 		APIKey: []byte("wrong key"),
 	}
-	_, err = c.Get(ctx, &getReq)
+	_, err := nt.c.Get(ctx, &getReq)
 	if err == nil {
 		t.Error("Failed to error for wrong auth key")
 	}
 }
 
 func TestPutAuth(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
 	pr := MakePointer([]byte("file/path"), false)
-	_, err = c.Put(ctx, &pr)
+	_, err := nt.c.Put(ctx, &pr)
 	if err == nil {
 		t.Error("Failed to error for wrong auth key")
 	}
 }
 
 func TestDelete(t *testing.T) {
-	c, ctx, mdb, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
-	pr := MakePointer([]byte("delete/me"), true)
-	_, err = c.Put(ctx, &pr)
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	pre := nt.mdb.DeleteCalled
+
+	reqs := MakePointers(1)
+	_, err := nt.c.Put(ctx, &reqs[0])
+	assert.NoError(nt, err)
 
 	delReq := pb.DeleteRequest{
-		Path:   []byte("delete/me"),
+		Path:   []byte("file/path/1"),
 		APIKey: []byte(APIKey),
 	}
-	_, err = c.Delete(ctx, &delReq)
-	if err != nil || status.Code(err) == codes.Internal {
-		t.Error("Failed to delete")
-	}
-	if mdb.DeleteCalled != 1 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	_, err = nt.c.Delete(ctx, &delReq)
+	assert.NoError(nt, err)
+
+	assert.Equal(nt, pre+1, nt.mdb.DeleteCalled)
 }
 
 func TestDeleteAuth(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
-	pr := MakePointer([]byte("file/path/2"), true)
-	_, err = c.Put(ctx, &pr)
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	reqs := MakePointers(1)
+	_, err := nt.c.Put(ctx, &reqs[0])
+	assert.NoError(nt, err)
 
 	delReq := pb.DeleteRequest{
-		Path:   []byte("file/path/2"),
+		Path:   []byte("file/path/1"),
 		APIKey: []byte("wrong key"),
 	}
-	_, err = c.Delete(ctx, &delReq)
+	_, err = nt.c.Delete(ctx, &delReq)
 	if err == nil {
 		t.Error("Failed to error with wrong auth key")
 	}
 }
 
 func TestList(t *testing.T) {
-	c, ctx, mdb, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	reqs := MakePointers(4)
+	for _, req := range reqs {
+		_, err := nt.c.Put(ctx, &req)
+		assert.NoError(nt, err)
 	}
 
-	err = MakeAndPutPointers(4)
-	if err != nil {
-		t.Error("Failed to MakeAndPutPointers")
-	}
+	pre := nt.mdb.ListCalled
 
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/2"),
 		Limit:           5,
 		APIKey:          []byte(APIKey),
 	}
-	listRes, err := c.List(ctx, &listReq)
+	listRes, err := nt.c.List(ctx, &listReq)
 	if err != nil {
 		t.Error("Failed to list file paths")
 	}
@@ -263,26 +271,25 @@ func TestList(t *testing.T) {
 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
 		t.Error("Failed to list correct file path")
 	}
-	if mdb.ListCalled != 1 {
-		t.Error("Failed to call mockdb correct number of times")
-	}
+	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
 }
 
 func TestListTruncated(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	reqs := MakePointers(3)
+	for _, req := range reqs {
+		_, err := nt.c.Put(ctx, &req)
+		assert.NoError(nt, err)
 	}
-	err = MakeAndPutPointers(5)
-	if err != nil {
-		t.Error("Failed to MakeAndPutPointers")
-	}
+
 	listReq := pb.ListRequest{
-		StartingPathKey: []byte("file/path/3"),
+		StartingPathKey: []byte("file/path/1"),
 		Limit:           1,
 		APIKey:          []byte(APIKey),
 	}
-	listRes, err := c.List(ctx, &listReq)
+	listRes, err := nt.c.List(ctx, &listReq)
 	if err != nil {
 		t.Error("Failed to list file paths")
 	}
@@ -292,46 +299,43 @@ func TestListTruncated(t *testing.T) {
 }
 
 func TestListWithoutStartingKey(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
 	listReq := pb.ListRequest{
 		Limit:  4,
 		APIKey: []byte(APIKey),
 	}
-	_, err = c.List(ctx, &listReq)
+	_, err := nt.c.List(ctx, &listReq)
 	if err == nil {
 		t.Error("Failed to error when not given starting key")
 	}
 }
 
 func TestListWithoutLimit(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/3"),
 		APIKey:          []byte(APIKey),
 	}
-	_, err = c.List(ctx, &listReq)
+	_, err := nt.c.List(ctx, &listReq)
 	if err == nil {
 		t.Error("Failed to error when not given limit")
 	}
 }
 
 func TestListAuth(t *testing.T) {
-	c, ctx, _, err := SetupTests()
-	if err != nil {
-		t.Error("Failed to SetupTests")
-	}
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/3"),
 		Limit:           1,
 		APIKey:          []byte("wrong key"),
 	}
-	_, err = c.List(ctx, &listReq)
+	_, err := nt.c.List(ctx, &listReq)
 	if err == nil {
 		t.Error("Failed to error when given wrong auth key")
 	}
