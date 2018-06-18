@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// New gets an available port
+// NewPort gets an available port
 func NewPort() (port int, err error) {
 
 	// Create a new server without specifying a port
@@ -35,7 +35,7 @@ func NewPort() (port int, err error) {
 	return strconv.Atoi(portString)
 }
 
-// Check if a port is available
+// CheckPort checks if a port is available
 func CheckPort(port int) (status bool, err error) {
 
 	// Concatenate a colon and the port
