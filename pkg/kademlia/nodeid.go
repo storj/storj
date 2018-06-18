@@ -1,4 +1,4 @@
-package overlay
+package kademlia
 
 import (
 	"encoding/base64"
@@ -15,14 +15,14 @@ var (
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
 )
 
-type NodeID struct {
+type KadID struct {
 	hash    []byte
 	pubKey  []byte
 	keyLen  uint16
 	hashLen uint16
 }
 
-func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *NodeID, _ error) {
+func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *KadID, _ error) {
 	keyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {
 		// TODO(bryanchriswhite) better error handling
@@ -39,7 +39,7 @@ func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *NodeID, _ error) 
 		return nil, errs.Wrap(err)
 	}
 
-	nodeID := &NodeID{
+	nodeID := &KadID{
 		hash:    hashBytes,
 		pubKey:  keyBytes,
 		keyLen:  uint16(len(keyBytes)),
@@ -49,15 +49,21 @@ func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *NodeID, _ error) 
 	return nodeID, nil
 }
 
-func (n *NodeID) String() (_ string) {
-	hashString := base64.URLEncoding.EncodeToString(n.hash)
-	keyString := base64.URLEncoding.EncodeToString(n.pubKey)
+func (k *KadID) String() (_ string) {
+	b := bytes.NewBuffer([]byte{})
+	enc := base64.NewEncoder(base64.URLEncoding, b)
+	enc.Write(k.hash)
+	enc.Write(k.pubKey)
+	enc.Write(k.keyLen)
+	enc.Write(k.hashLen)
 
-	nodeIDString := fmt.Sprintf("%s%s%s%s", hashString, keyString, n.keyLen, n.hashLen)
-	return nodeIDString
+	strID := base64.URLEncoding.EncodeToString(b.Bytes())
+
+
+	return
 }
 
-func NodeIDFromBase64(id string) (_ *NodeID, _ error) {
+func KadIDFromString(id string) (_ *KadID, _ error) {
 	idBytes, err := base64.URLEncoding.DecodeString(id)
 	if err != nil {
 		// TODO(bryanchriswhite) better error handling
