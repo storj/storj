@@ -145,7 +145,9 @@ func redisTestClient(t *testing.T, data test.KvStore) storage.KeyValueStore {
 	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
 	assert.NoError(t, err)
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client
 }
@@ -165,7 +167,9 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		assert.NoError(t, err)
 	}
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client, cleanup
 }
