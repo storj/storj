@@ -25,10 +25,6 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
-func setPortFlags(t *testing.T) {
-	flag.Set("localPort", "0")
-}
-
 func newTestService(t *testing.T) Service {
 	return Service{
 		logger:  zap.NewNop(),
@@ -68,7 +64,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestProcess_redis(t *testing.T) {
-	setPortFlags(t)
+	flag.Set("localPort", "0")
 	done := test.EnsureRedis(t)
 	defer done()
 
@@ -79,7 +75,7 @@ func TestProcess_redis(t *testing.T) {
 }
 
 func TestProcess_bolt(t *testing.T) {
-	setPortFlags(t)
+	flag.Set("localPort", "0")
 	flag.Set("redisAddress", "")
 	boltdbPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
@@ -87,7 +83,7 @@ func TestProcess_bolt(t *testing.T) {
 	if err != nil {
 		defer func() {
 			if err := os.Remove(boltdbPath); err != nil {
-				log.Printf("%s\n", errs.New("error while removing test bolt db: %s", err))
+				log.Println(errs.New("error while removing test bolt db: %s", err))
 			}
 		}()
 	}
@@ -101,7 +97,7 @@ func TestProcess_bolt(t *testing.T) {
 }
 
 func TestProcess_error(t *testing.T) {
-	setPortFlags(t)
+	flag.Set("localPort", "0")
 	flag.Set("boltdbPath", "")
 	flag.Set("redisAddress", "")
 
