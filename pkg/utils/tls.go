@@ -7,6 +7,9 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/credentials"
+	"crypto/x509"
+	"crypto/ecdsa"
+	"crypto/tls"
 )
 
 var (
@@ -26,10 +29,12 @@ func IsNotExist(err error) bool {
 type TLSFileOptions struct {
 	CertRelPath string
 	CertAbsPath string
+	Certificate *tls.Certificate
 	// NB: Populate absolute paths from relative paths,
 	// 			with respect to pwd via `.EnsureAbsPaths`
 	KeyRelPath string
 	KeyAbsPath string
+	Key        *ecdsa.PrivateKey
 	// Create if cert or key nonexistent
 	Create bool
 	// Overwrite if `create` is true and cert and/or key exist
@@ -38,6 +43,21 @@ type TLSFileOptions struct {
 	Hosts string
 	// If true, key is not required or checked
 	Client bool
+}
+
+func NewTLSFileOptions(certPath, keyPath string, client, overwrite bool, hosts string) (_ *TLSFileOptions, _ error) {
+	t := TLSFileOptions{
+		CertRelPath: certPath,
+		KeyRelPath:  keyPath,
+		Client:      client,
+		Overwrite:   overwrite,
+		Hosts:       hosts,
+	}
+
+	if err := t.EnsureAbsPaths(); err != nil {
+		return nil, err
+	}
+
 }
 
 func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
@@ -100,13 +120,23 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 	// NB: even when `overwrite` is false, this WILL overwrite
 	//      a key if the cert is missing (vice versa)
 	if t.Create && (t.Overwrite || certMissing || keyMissing) {
+		var (
+			cert *tls.Certificate
+			err error
+		)
+
 		if t.Client {
-			_, err := t.generateClientTls()
-			return err
+			cert, err = t.generateClientTls()
 		} else {
-			_, err := t.generateServerTls()
+			cert, err = t.generateServerTls()
+		}
+
+		if err != nil {
 			return err
 		}
+
+		t.Certificate = cert
+		return nil
 	}
 
 	if certMissing || keyMissing {
@@ -121,7 +151,7 @@ func NewServerTLSFromFile(t *TLSFileOptions) (_ credentials.TransportCredentials
 		return nil, err
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(t.CertAbsPath, t.KeyAbsPath)
+	creds, err := credentials.NewTLS()
 	if err != nil {
 		return nil, errs.New(err.Error())
 	}
