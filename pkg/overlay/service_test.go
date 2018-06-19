@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/test"
@@ -56,7 +57,6 @@ func newTestService(t *testing.T) Service {
 }
 
 func TestNewServer(t *testing.T) {
-	t.SkipNow()
 	var err error
 
 	tempPath, err := ioutil.TempDir("", "TestNewServer")
@@ -70,8 +70,7 @@ func TestNewServer(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	srv, err := NewServer(nil, nil, nil, nil)
-	assert.NoError(t, err)
+	srv := newMockServer()
 	assert.NotNil(t, srv)
 
 	go srv.Serve(lis)
@@ -79,7 +78,6 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestNewClient_CreateTLS(t *testing.T) {
-	t.SkipNow()
 	var err error
 
 	tmpPath, err := ioutil.TempDir("", "TestNewClient")
@@ -90,8 +88,7 @@ func TestNewClient_CreateTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-
-	srv, err := NewServer(nil, nil, nil, nil)
+	srv := newMockServer()
 	go srv.Serve(lis)
 	defer srv.Stop()
 
@@ -201,4 +198,21 @@ func TestProcess_error(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx)
 	assert.True(t, process.ErrUsage.Has(err))
+}
+
+func newMockServer() *grpc.Server {
+	grpcServer := grpc.NewServer()
+	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
+
+	return grpcServer
+}
+
+type MockOverlay struct{}
+
+func (o *MockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
+	return &proto.FindStorageNodesResponse{}, nil
+}
+
+func (o *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
+	return &proto.LookupResponse{}, nil
 }

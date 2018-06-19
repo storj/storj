@@ -113,9 +113,9 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+	in := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
+	kad, err := kademlia.NewKademlia(kademlia.NewID(), []proto.Node{in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err

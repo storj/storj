@@ -52,7 +52,7 @@ func connectToKad(id, ip, kadlistenport, kadaddress string) *kademlia.Kademlia {
 		},
 	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, kadlistenport)
+	kad, err := kademlia.NewKademlia(kademlia.NewID(), []proto.Node{node}, ip, kadlistenport)
 	if err != nil {
 		log.Fatalf("Failed to instantiate new Kademlia: %s", err.Error())
 	}
