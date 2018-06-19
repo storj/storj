@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	testNetSize = 5
+	testNetSize = 20
 )
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
@@ -95,6 +95,7 @@ func TestBootstrap(t *testing.T) {
 	}
 
 	for _, v := range cases {
+		defer v.k.Disconnect()
 		err := v.k.ListenAndServe()
 		assert.NoError(t, err)
 		err = v.k.Bootstrap(context.Background())
@@ -119,7 +120,8 @@ func TestGetNodes(t *testing.T) {
 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			v.Disconnect()
+			err := v.Disconnect()
+			assert.NoError(t, err)
 		}
 	}(dhts)
 
@@ -137,6 +139,7 @@ func TestGetNodes(t *testing.T) {
 	}
 
 	for _, v := range cases {
+		defer v.k.Disconnect()
 		ctx := context.Background()
 		err := v.k.ListenAndServe()
 		assert.Equal(t, v.expectedErr, err)
@@ -158,10 +161,11 @@ func TestGetNodes(t *testing.T) {
 }
 
 func TestFindNode(t *testing.T) {
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "5001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			v.Disconnect()
+			err := v.Disconnect()
+			assert.NoError(t, err)
 		}
 	}(dhts)
 
@@ -178,6 +182,7 @@ func TestFindNode(t *testing.T) {
 	}
 
 	for _, v := range cases {
+		defer v.k.Disconnect()
 		ctx := context.Background()
 		go v.k.ListenAndServe()
 		time.Sleep(time.Second)
@@ -192,13 +197,12 @@ func TestFindNode(t *testing.T) {
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotZero(t, node)
 		assert.Equal(t, node.Id, id.String())
-		v.k.dht.Disconnect()
 	}
 
 }
 
 func TestPing(t *testing.T) {
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "4001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
 			v.Disconnect()
@@ -229,6 +233,7 @@ func TestPing(t *testing.T) {
 	}
 
 	for _, v := range cases {
+		defer v.k.Disconnect()
 		ctx := context.Background()
 		go v.k.ListenAndServe()
 		time.Sleep(time.Second)
