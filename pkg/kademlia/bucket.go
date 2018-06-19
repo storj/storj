@@ -25,6 +25,7 @@ func (b *KBucket) Midpoint() string {
 	return ""
 }
 
+// Nodes returns the set of all nodes in a bucket
 func (b *KBucket) Nodes() []*proto.Node {
 	return b.nodes
 }

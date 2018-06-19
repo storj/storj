@@ -71,6 +71,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 	}, nil
 }
 
+// Disconnect safely closes connections to the Kademlia network
 func (k Kademlia) Disconnect() error {
 	return k.dht.Disconnect()
 }
