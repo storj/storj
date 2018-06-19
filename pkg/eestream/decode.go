@@ -275,7 +275,7 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.DecodedBlockSize())
 }
 
-func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
+func (dr *decodedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := calcEncompassingBlocks(
@@ -285,22 +285,27 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
 	type indexReadCloser struct {
-		i int
-		r io.ReadCloser
+		i   int
+		r   io.ReadCloser
+		err error
 	}
 	result := make(chan indexReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
 		go func(i int, rr ranger.Ranger) {
-			r := rr.Range(
+			r, err := rr.Range(
 				firstBlock*int64(dr.es.EncodedBlockSize()),
 				blockCount*int64(dr.es.EncodedBlockSize()))
-			result <- indexReadCloser{i, r}
+			result <- indexReadCloser{i: i, r: r, err: err}
 		}(i, rr)
 	}
 	// wait for all goroutines to finish and save result in readers map
 	for range dr.rrs {
 		res := <-result
-		readers[res.i] = res.r
+		if res.err != nil {
+			readers[res.i] = readcloser.FatalReadCloser(res.err)
+		} else {
+			readers[res.i] = res.r
+		}
 	}
 	// decode from all those ranges
 	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.mbm)
@@ -308,8 +313,8 @@ func (dr *decodedRanger) Range(offset, length int64) io.ReadCloser {
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))
 	if err != nil {
-		return readcloser.FatalReadCloser(Error.Wrap(err))
+		return nil, Error.Wrap(err)
 	}
 	// length might not have included all of the blocks, limit what we return
-	return readcloser.LimitReadCloser(r, length)
+	return readcloser.LimitReadCloser(r, length), nil
 }

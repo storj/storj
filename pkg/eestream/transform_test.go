@@ -76,8 +76,11 @@ func TestCRC(t *testing.T) {
 	if rr.Size() != blocks*(64+4+8) {
 		t.Fatalf("invalid crc padded size")
 	}
-
-	data, err := ioutil.ReadAll(rr.Range(0, rr.Size()))
+	r, err := rr.Range(0, rr.Size())
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	data, err := ioutil.ReadAll(r)
 	if err != nil || int64(len(data)) != rr.Size() {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -91,7 +94,11 @@ func TestCRC(t *testing.T) {
 		t.Fatalf("invalid crc padded size")
 	}
 
-	data, err = ioutil.ReadAll(rr.Range(0, rr.Size()))
+	r, err = rr.Range(0, rr.Size())
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	data, err = ioutil.ReadAll(r)
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -118,7 +125,11 @@ func TestCRCSubranges(t *testing.T) {
 
 	for i := 0; i < len(data); i++ {
 		for j := i; j < len(data); j++ {
-			read, err := ioutil.ReadAll(external.Range(int64(i), int64(j-i)))
+			r, err := external.Range(int64(i), int64(j-i))
+			if err != nil {
+				t.Fatalf("unexpected: %v", err)
+			}
+			read, err := ioutil.ReadAll(r)
 			if err != nil {
 				t.Fatalf("unexpected: %v", err)
 			}

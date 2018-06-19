@@ -48,8 +48,12 @@ func Unpad(data ranger.Ranger, padding int) (ranger.Ranger, error) {
 // UnpadSlow is like Unpad, but does not require the amount of padding.
 // UnpadSlow will have to do extra work to make up for this missing information.
 func UnpadSlow(data ranger.Ranger) (ranger.Ranger, error) {
+	r, err := data.Range(data.Size()-uint32Size, uint32Size)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	var p [uint32Size]byte
-	_, err := io.ReadFull(data.Range(data.Size()-uint32Size, uint32Size), p[:])
+	_, err = io.ReadFull(r, p[:])
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -60,8 +64,8 @@ func UnpadSlow(data ranger.Ranger) (ranger.Ranger, error) {
 func PadReader(data io.ReadCloser, blockSize int) io.ReadCloser {
 	cr := newCountingReader(data)
 	return readcloser.MultiReadCloser(cr,
-		readcloser.LazyReadCloser(func() io.ReadCloser {
-			return ioutil.NopCloser(bytes.NewReader(makePadding(cr.N, blockSize)))
+		readcloser.LazyReadCloser(func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(bytes.NewReader(makePadding(cr.N, blockSize))), nil
 		}))
 }
 
