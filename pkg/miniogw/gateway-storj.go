@@ -602,7 +602,7 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	}
 
 	var needsdata int64 = 0
-	r, err := mc.Cc.Choose(context.Background(), needsdata, needsdata, needsdata)
+	r, err := mc.Cc.Choose(context.Background(), needsdata, needsdata)
 	pieceId := pstore.DetermineID()
 	// r is your nodes
 	var remotePieces []*pb.RemotePiece
