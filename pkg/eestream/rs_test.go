@@ -118,7 +118,11 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data2, err := ioutil.ReadAll(rr.Range(0, rr.Size()))
+	r, err := rr.Range(0, rr.Size())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data2, err := ioutil.ReadAll(r)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 
-	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
@@ -40,22 +39,22 @@ func (r *grpcRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range
-func (r *grpcRanger) Range(offset, length int64) io.ReadCloser {
+func (r *grpcRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative offset"))
+		return nil, Error.New("negative offset")
 	}
 	if length < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative length"))
+		return nil, Error.New("negative length")
 	}
 	if offset+length > r.size {
-		return readcloser.FatalReadCloser(Error.New("range beyond end"))
+		return nil, Error.New("range beyond end")
 	}
 	if length == 0 {
-		return ioutil.NopCloser(bytes.NewReader([]byte{}))
+		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
 	reader, err := r.c.RetrievePieceRequest(r.id, offset, length)
 	if err != nil {
-		return readcloser.FatalReadCloser(Error.Wrap(err))
+		return nil, Error.Wrap(err)
 	}
-	return reader
+	return reader, nil
 }

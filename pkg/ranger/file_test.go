@@ -42,26 +42,27 @@ func TestFileRanger(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed closing data")
 		}
-		r, err := FileRanger(name)
+		rr, err := FileRanger(name)
 		if err != nil {
 			t.Fatalf("failed opening tempfile")
 		}
-		defer r.Close()
-		if r.Size() != example.size {
-			t.Fatalf("invalid size: %v != %v", r.Size(), example.size)
+		defer rr.Close()
+		if rr.Size() != example.size {
+			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		data, err := ioutil.ReadAll(r.Range(example.offset, example.length))
+		r, err := rr.Range(example.offset, example.length)
 		if example.fail {
 			if err == nil {
 				t.Fatalf("expected error")
 			}
-		} else {
-			if err != nil {
-				t.Fatalf("unexpected err: %v", err)
-			}
-			if !bytes.Equal(data, []byte(example.substr)) {
-				t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
-			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		data, err := ioutil.ReadAll(r)
+		if !bytes.Equal(data, []byte(example.substr)) {
+			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}
 	}
 }

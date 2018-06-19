@@ -16,7 +16,7 @@ import (
 // any subranges.
 type Ranger interface {
 	Size() int64
-	Range(offset, length int64) io.ReadCloser
+	Range(offset, length int64) (io.ReadCloser, error)
 }
 
 // A RangeCloser is a Ranger that must be closed when finished
@@ -44,18 +44,18 @@ type ByteRanger []byte
 func (b ByteRanger) Size() int64 { return int64(len(b)) }
 
 // Range implements Ranger.Range
-func (b ByteRanger) Range(offset, length int64) io.ReadCloser {
+func (b ByteRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative offset"))
+		return nil, Error.New("negative offset")
 	}
 	if length < 0 {
-		return readcloser.FatalReadCloser(Error.New("negative length"))
+		return nil, Error.New("negative length")
 	}
 	if offset+length > int64(len(b)) {
-		return readcloser.FatalReadCloser(Error.New("buffer runoff"))
+		return nil, Error.New("buffer runoff")
 	}
 
-	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length]))
+	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length])), nil
 }
 
 type concatReader struct {
@@ -67,7 +67,7 @@ func (c *concatReader) Size() int64 {
 	return c.r1.Size() + c.r2.Size()
 }
 
-func (c *concatReader) Range(offset, length int64) io.ReadCloser {
+func (c *concatReader) Range(offset, length int64) (io.ReadCloser, error) {
 	r1Size := c.r1.Size()
 	if offset+length <= r1Size {
 		return c.r1.Range(offset, length)
@@ -75,11 +75,15 @@ func (c *concatReader) Range(offset, length int64) io.ReadCloser {
 	if offset >= r1Size {
 		return c.r2.Range(offset-r1Size, length)
 	}
+	r1Range, err := c.r1.Range(offset, r1Size-offset)
+	if err != nil {
+		return nil, err
+	}
 	return readcloser.MultiReadCloser(
-		c.r1.Range(offset, r1Size-offset),
-		readcloser.LazyReadCloser(func() io.ReadCloser {
+		r1Range,
+		readcloser.LazyReadCloser(func() (io.ReadCloser, error) {
 			return c.r2.Range(0, length-(r1Size-offset))
-		}))
+		})), nil
 }
 
 func concat2(r1, r2 Ranger) Ranger {
@@ -122,6 +126,6 @@ func (s *subrange) Size() int64 {
 	return s.length
 }
 
-func (s *subrange) Range(offset, length int64) io.ReadCloser {
+func (s *subrange) Range(offset, length int64) (io.ReadCloser, error) {
 	return s.r.Range(offset+s.offset, length)
 }
