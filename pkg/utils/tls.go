@@ -7,7 +7,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/credentials"
-	"crypto/x509"
 	"crypto/ecdsa"
 	"crypto/tls"
 )
@@ -45,20 +44,20 @@ type TLSFileOptions struct {
 	Client bool
 }
 
-func NewTLSFileOptions(certPath, keyPath string, client, overwrite bool, hosts string) (_ *TLSFileOptions, _ error) {
-	t := TLSFileOptions{
-		CertRelPath: certPath,
-		KeyRelPath:  keyPath,
-		Client:      client,
-		Overwrite:   overwrite,
-		Hosts:       hosts,
-	}
-
-	if err := t.EnsureAbsPaths(); err != nil {
-		return nil, err
-	}
-
-}
+// func NewTLSFileOptions(certPath, keyPath string, client, overwrite bool, hosts string) (_ *TLSFileOptions, _ error) {
+// 	t := TLSFileOptions{
+// 		CertRelPath: certPath,
+// 		KeyRelPath:  keyPath,
+// 		Client:      client,
+// 		Overwrite:   overwrite,
+// 		Hosts:       hosts,
+// 	}
+//
+// 	if err := t.EnsureAbsPaths(); err != nil {
+// 		return nil, err
+// 	}
+//
+// }
 
 func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 	if t.CertAbsPath == "" {
@@ -151,7 +150,7 @@ func NewServerTLSFromFile(t *TLSFileOptions) (_ credentials.TransportCredentials
 		return nil, err
 	}
 
-	creds, err := credentials.NewTLS()
+	creds, err := credentials.NewServerTLSFromFile(t.CertAbsPath, t.KeyAbsPath)
 	if err != nil {
 		return nil, errs.New(err.Error())
 	}
