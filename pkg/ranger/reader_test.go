@@ -29,22 +29,26 @@ func TestByteRanger(t *testing.T) {
 		{"abcdef", 6, -1, 7, "abcde", true},
 		{"abcdef", 6, 0, -1, "abcde", true},
 	} {
-		r := ByteRanger([]byte(example.data))
-		if r.Size() != example.size {
-			t.Fatalf("invalid size: %v != %v", r.Size(), example.size)
+		rr := ByteRanger([]byte(example.data))
+		if rr.Size() != example.size {
+			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		data, err := ioutil.ReadAll(r.Range(example.offset, example.length))
+		r, err := rr.Range(example.offset, example.length)
 		if example.fail {
 			if err == nil {
 				t.Fatalf("expected error")
 			}
-		} else {
-			if err != nil {
-				t.Fatalf("unexpected err: %v", err)
-			}
-			if !bytes.Equal(data, []byte(example.substr)) {
-				t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
-			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if !bytes.Equal(data, []byte(example.substr)) {
+			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}
 	}
 }
@@ -73,11 +77,15 @@ func TestConcatReader(t *testing.T) {
 		for _, data := range example.data {
 			readers = append(readers, ByteRanger([]byte(data)))
 		}
-		r := Concat(readers...)
-		if r.Size() != example.size {
-			t.Fatalf("invalid size: %v != %v", r.Size(), example.size)
+		rr := Concat(readers...)
+		if rr.Size() != example.size {
+			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		data, err := ioutil.ReadAll(r.Range(example.offset, example.length))
+		r, err := rr.Range(example.offset, example.length)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
@@ -104,15 +112,19 @@ func TestSubranger(t *testing.T) {
 		{"abcdefghijkl", 8, 4, 0, 3, "ijk"},
 		{"abcdefghijkl", 8, 4, 1, 3, "jkl"},
 	} {
-		r, err := Subrange(ByteRanger([]byte(example.data)),
+		rr, err := Subrange(ByteRanger([]byte(example.data)),
 			example.offset1, example.length1)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
-		if r.Size() != example.length1 {
-			t.Fatalf("invalid size: %v != %v", r.Size(), example.length1)
+		if rr.Size() != example.length1 {
+			t.Fatalf("invalid size: %v != %v", rr.Size(), example.length1)
 		}
-		data, err := ioutil.ReadAll(r.Range(example.offset2, example.length2))
+		r, err := rr.Range(example.offset2, example.length2)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
