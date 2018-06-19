@@ -5,6 +5,7 @@ package ranger
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 
@@ -16,7 +17,7 @@ import (
 // any subranges.
 type Ranger interface {
 	Size() int64
-	Range(offset, length int64) (io.ReadCloser, error)
+	Range(ctx context.Context, offset, length int64) (io.ReadCloser, error)
 }
 
 // A RangeCloser is a Ranger that must be closed when finished
@@ -44,7 +45,7 @@ type ByteRanger []byte
 func (b ByteRanger) Size() int64 { return int64(len(b)) }
 
 // Range implements Ranger.Range
-func (b ByteRanger) Range(offset, length int64) (io.ReadCloser, error) {
+func (b ByteRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}
@@ -67,22 +68,22 @@ func (c *concatReader) Size() int64 {
 	return c.r1.Size() + c.r2.Size()
 }
 
-func (c *concatReader) Range(offset, length int64) (io.ReadCloser, error) {
+func (c *concatReader) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	r1Size := c.r1.Size()
 	if offset+length <= r1Size {
-		return c.r1.Range(offset, length)
+		return c.r1.Range(ctx, offset, length)
 	}
 	if offset >= r1Size {
-		return c.r2.Range(offset-r1Size, length)
+		return c.r2.Range(ctx, offset-r1Size, length)
 	}
-	r1Range, err := c.r1.Range(offset, r1Size-offset)
+	r1Range, err := c.r1.Range(ctx, offset, r1Size-offset)
 	if err != nil {
 		return nil, err
 	}
 	return readcloser.MultiReadCloser(
 		r1Range,
 		readcloser.LazyReadCloser(func() (io.ReadCloser, error) {
-			return c.r2.Range(0, length-(r1Size-offset))
+			return c.r2.Range(ctx, 0, length-(r1Size-offset))
 		})), nil
 }
 
@@ -126,6 +127,6 @@ func (s *subrange) Size() int64 {
 	return s.length
 }
 
-func (s *subrange) Range(offset, length int64) (io.ReadCloser, error) {
-	return s.r.Range(offset+s.offset, length)
+func (s *subrange) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	return s.r.Range(ctx, offset+s.offset, length)
 }

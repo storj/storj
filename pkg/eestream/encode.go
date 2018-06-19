@@ -304,7 +304,6 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	ctx context.Context
 	rr  ranger.Ranger
 	es  ErasureScheme
 	min int // minimum threshold
@@ -314,8 +313,7 @@ type EncodedRanger struct {
 
 // NewEncodedRanger creates an EncodedRanger. See the comments for EncodeReader
 // about min, opt and mbm.
-func NewEncodedRanger(ctx context.Context, rr ranger.Ranger, es ErasureScheme,
-	min, opt, mbm int) (*EncodedRanger, error) {
+func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme, min, opt, mbm int) (*EncodedRanger, error) {
 	if rr.Size()%int64(es.DecodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
@@ -331,7 +329,6 @@ func NewEncodedRanger(ctx context.Context, rr ranger.Ranger, es ErasureScheme,
 		return nil, err
 	}
 	return &EncodedRanger{
-		ctx: ctx,
 		es:  es,
 		rr:  rr,
 		min: min,
@@ -348,19 +345,19 @@ func (er *EncodedRanger) OutputSize() int64 {
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
-func (er *EncodedRanger) Range(offset, length int64) ([]io.Reader, error) {
+func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.Reader, error) {
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := calcEncompassingBlocks(
 		offset, length, er.es.EncodedBlockSize())
 	// okay, now let's encode the reader for the range containing the blocks
-	r, err := er.rr.Range(
+	r, err := er.rr.Range(ctx,
 		firstBlock*int64(er.es.DecodedBlockSize()),
 		blockCount*int64(er.es.DecodedBlockSize()))
 	if err != nil {
 		return nil, err
 	}
-	readers, err := EncodeReader(er.ctx, r, er.es, er.min, er.opt, er.mbm)
+	readers, err := EncodeReader(ctx, r, er.es, er.min, er.opt, er.mbm)
 	if err != nil {
 		return nil, err
 	}

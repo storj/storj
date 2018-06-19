@@ -25,12 +25,12 @@ message LookupRequest {
 
 // LookupResponse is is response message for the lookup rpc call
 message LookupResponse {
-    NodeAddress nodeAddress = 1;
+    Node node = 1;
 }
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 message FindStorageNodesResponse {
-    repeated Node node = 1;
+    repeated Node nodes = 1;
 }
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call

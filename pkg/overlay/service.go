@@ -62,7 +62,7 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 
 	credsOption := grpc.Creds(creds)
 	grpcServer := grpc.NewServer(credsOption)
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
+	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     k,
 		cache:   cache,
 		logger:  l,

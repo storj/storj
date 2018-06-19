@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -33,6 +34,7 @@ func TestPad(t *testing.T) {
 		{strings.Repeat("\x00", 16*1024), 32 * 1024, 16 * 1024},
 		{strings.Repeat("\x00", 32*1024+1), 32 * 1024, 32*1024 - 1},
 	} {
+		ctx := context.Background()
 		padded, padding := Pad(ranger.ByteRanger([]byte(example.data)),
 			example.blockSize)
 		if padding != example.padding {
@@ -46,7 +48,7 @@ func TestPad(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
-		r, err := unpadded.Range(0, unpadded.Size())
+		r, err := unpadded.Range(ctx, 0, unpadded.Size())
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
@@ -57,11 +59,11 @@ func TestPad(t *testing.T) {
 		if !bytes.Equal(data, []byte(example.data)) {
 			t.Fatalf("mismatch")
 		}
-		unpadded, err = UnpadSlow(padded)
+		unpadded, err = UnpadSlow(ctx, padded)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
-		r, err = unpadded.Range(0, unpadded.Size())
+		r, err = unpadded.Range(ctx, 0, unpadded.Size())
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}

@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 
@@ -125,7 +126,7 @@ func calcEncompassingBlocks(offset, length int64, blockSize int) (
 	return firstBlock, 1 + lastBlock - firstBlock
 }
 
-func (t *transformedRanger) Range(offset, length int64) (io.ReadCloser, error) {
+func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	// Range may not have been called for block-aligned offsets and lengths, so
 	// let's figure out which blocks encompass the request
 	firstBlock, blockCount := calcEncompassingBlocks(
@@ -137,7 +138,7 @@ func (t *transformedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	}
 	// okay, now let's get the range on the underlying ranger for those blocks
 	// and then Transform it.
-	r, err := t.rr.Range(
+	r, err := t.rr.Range(ctx,
 		firstBlock*int64(t.t.InBlockSize()),
 		blockCount*int64(t.t.InBlockSize()))
 	if err != nil {
