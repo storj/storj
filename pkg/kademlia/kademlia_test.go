@@ -43,7 +43,6 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	p++
 
 	err = boot.Bootstrap(context.Background())
-	time.Sleep(500 * time.Millisecond)
 	assert.NoError(t, err)
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
@@ -59,9 +58,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 		dhts = append(dhts, dht)
 		err = dht.ListenAndServe()
 		assert.NoError(t, err)
-		time.Sleep(500 * time.Millisecond)
 		err = dht.Bootstrap(context.Background())
-		time.Sleep(500 * time.Millisecond)
 		assert.NoError(t, err)
 
 	}
@@ -70,8 +67,6 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 }
 
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *Kademlia {
-	// rt, err := d.GetRoutingTable(context.Background())
-	// assert.NoError(t, err)
 	i, err := newID()
 	assert.NoError(t, err)
 	id := NodeID(i)
@@ -104,13 +99,9 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 		err = v.k.Bootstrap(context.Background())
 		assert.NoError(t, err)
-		time.Sleep(1 * time.Second)
 		ctx := context.Background()
 
 		rt, err := dhts[0].GetRoutingTable(context.Background())
-		assert.NoError(t, err)
-
-		// b, err := rt.GetBuckets()
 		assert.NoError(t, err)
 
 		localID := rt.Local().Id

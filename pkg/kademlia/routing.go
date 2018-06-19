@@ -71,11 +71,9 @@ func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 
 // GetBuckets retrieves all buckets from the local node
 func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
-	// fmt.Printf("HERE\n")
 	bs := []dht.Bucket{}
 	b := rt.ht.GetBuckets()
 
-	fmt.Printf("BUCKETS: %#v\n", b)
 	for _, v := range b {
 		bs = append(bs, &KBucket{nodes: convertNetworkNodes(v)})
 	}
