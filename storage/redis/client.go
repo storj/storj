@@ -7,50 +7,74 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/zeebo/errs"
+	"storj.io/storj/storage"
 )
 
-// Client defines the interface for communicating with a Storj redis instance
-type Client interface {
-	Get(key string) ([]byte, error)
-	Set(key string, value []byte, ttl time.Duration) error
-	Ping() error
-}
+const defaultNodeExpiration = 61 * time.Minute
 
-// Client is the entrypoint into Redis
+// redisClient is the entrypoint into Redis
 type redisClient struct {
-	DB *redis.Client
+	db  *redis.Client
+	TTL time.Duration
 }
 
-// NewRedisClient returns a configured Client instance, verifying a sucessful connection to redis
-func NewRedisClient(address, password string, db int) (Client, error) {
+// NewClient returns a configured Client instance, verifying a sucessful connection to redis
+func NewClient(address, password string, db int) (storage.KeyValueStore, error) {
 	c := &redisClient{
-		DB: redis.NewClient(&redis.Options{
+		db: redis.NewClient(&redis.Options{
 			Addr:     address,
 			Password: password,
 			DB:       db,
 		}),
+		TTL: defaultNodeExpiration,
 	}
 
-	// ping here to verify we are able to connect to the redis instacne with the initialized client.
-	if err := c.DB.Ping().Err(); err != nil {
+	// ping here to verify we are able to connect to redis with the initialized client.
+	if err := c.db.Ping().Err(); err != nil {
 		return nil, err
 	}
 
 	return c, nil
 }
 
-// Get looks up the provided key from the redis cache returning either an error or the result.
-func (c *redisClient) Get(key string) ([]byte, error) {
-	return c.DB.Get(key).Bytes()
+// Get looks up the provided key from redis returning either an error or the result.
+func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
+	return c.db.Get(string(key)).Bytes()
 }
 
-// Set adds a value to the provided key in the Redis cache, returning an error on failure.
+// Put adds a value to the provided key in redis, returning an error on failure.
+func (c *redisClient) Put(key storage.Key, value storage.Value) error {
+	v, err := value.MarshalBinary()
 
-func (c *redisClient) Set(key string, value []byte, ttl time.Duration) error {
-	return c.DB.Set(key, value, ttl).Err()
+	if err != nil {
+		return err
+	}
+
+	return c.db.Set(key.String(), v, c.TTL).Err()
 }
 
-// Ping returns an error if pinging the underlying redis server failed
-func (c *redisClient) Ping() error {
-	return c.DB.Ping().Err()
+// List returns either a list of keys for which boltdb has values or an error.
+func (c *redisClient) List() (_ storage.Keys, _ error) {
+	results, err := c.db.Keys("*").Result()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	keys := make(storage.Keys, len(results))
+	for i, k := range results {
+		keys[i] = storage.Key(k)
+	}
+
+	return keys, nil
+}
+
+// Delete deletes a key/value pair from redis, for a given the key
+func (c *redisClient) Delete(key storage.Key) error {
+	return c.db.Del(key.String()).Err()
+}
+
+// Close closes a redis client
+func (c *redisClient) Close() error {
+	return c.db.Close()
 }

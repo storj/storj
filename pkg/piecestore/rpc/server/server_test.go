@@ -55,25 +55,25 @@ func TestPiece(t *testing.T) {
 
 	// set up test cases
 	tests := []struct {
-		id       string
+		id         string
 		size       int64
 		expiration int64
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:       testId,
+			id:         testId,
 			size:       5,
 			expiration: testExpiration,
 			err:        "",
 		},
 		{ // server should err with invalid id
-			id:       "123",
+			id:         "123",
 			size:       5,
 			expiration: testExpiration,
 			err:        "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			id:       "22222222222222222222",
+			id:         "22222222222222222222",
 			size:       5,
 			expiration: testExpiration,
 			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
@@ -83,14 +83,14 @@ func TestPiece(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceSummary values", func(t *testing.T) {
 
-				// simulate piece TTL entry
-				_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testExpiration))
-				if err != nil {
-					t.Errorf("Error: %v\nCould not make TTL entry", err)
-					return
-				}
+			// simulate piece TTL entry
+			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testExpiration))
+			if err != nil {
+				t.Errorf("Error: %v\nCould not make TTL entry", err)
+				return
+			}
 
-				defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
 			resp, err := c.Piece(context.Background(), req)
@@ -146,7 +146,7 @@ func TestRetrieve(t *testing.T) {
 
 	// set up test cases
 	tests := []struct {
-		id     string
+		id       string
 		reqSize  int64
 		respSize int64
 		offset   int64
@@ -154,7 +154,7 @@ func TestRetrieve(t *testing.T) {
 		err      string
 	}{
 		{ // should successfully retrieve data
-			id:     testId,
+			id:       testId,
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -162,7 +162,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "",
 		},
 		{ // server should err with invalid id
-			id:     "123",
+			id:       "123",
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -170,7 +170,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			id:     "22222222222222222222",
+			id:       "22222222222222222222",
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -178,7 +178,7 @@ func TestRetrieve(t *testing.T) {
 			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:     testId,
+			id:       testId,
 			reqSize:  5,
 			respSize: 4,
 			offset:   1,
@@ -186,7 +186,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:     testId,
+			id:       testId,
 			reqSize:  4,
 			respSize: 4,
 			offset:   0,
@@ -229,7 +229,7 @@ func TestRetrieve(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	tests := []struct {
-		id          string
+		id            string
 		size          int64
 		ttl           int64
 		offset        int64
@@ -239,7 +239,7 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			id:          testId,
+			id:            testId,
 			ttl:           testExpiration,
 			content:       []byte("butts"),
 			message:       "OK",
@@ -247,7 +247,7 @@ func TestStore(t *testing.T) {
 			err:           "",
 		},
 		{ // should err with invalid id length
-			id:          "butts",
+			id:            "butts",
 			ttl:           testExpiration,
 			content:       []byte("butts"),
 			message:       "",
@@ -279,7 +279,7 @@ func TestStore(t *testing.T) {
 
 			resp, err := stream.CloseAndRecv()
 
-			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			if len(tt.err) > 0 {
 				if err != nil {
@@ -305,22 +305,22 @@ func TestStore(t *testing.T) {
 func TestDelete(t *testing.T) {
 	// set up test cases
 	tests := []struct {
-		id    string
+		id      string
 		message string
 		err     string
 	}{
 		{ // should successfully delete data
-			id:    testId,
+			id:      testId,
 			message: "OK",
 			err:     "",
 		},
 		{ // should err with invalid id length
-			id:    "123",
+			id:      "123",
 			message: "rpc error: code = Unknown desc = argError: Invalid id length",
 			err:     "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // should return OK with nonexistent file
-			id:    "22222222222222222223",
+			id:      "22222222222222222223",
 			message: "OK",
 			err:     "",
 		},
@@ -351,7 +351,7 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			defer	db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			defer pstore.Delete(testId, s.PieceStoreDir)
 
