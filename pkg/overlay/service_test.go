@@ -129,6 +129,36 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	assert.NotNil(t, r)
 }
 
+func TestNewClient_IndependentTLS(t *testing.T) {
+	var err error
+
+	tmpPath, err := ioutil.TempDir("", "TestNewClient_IndependentTLS")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpPath)
+
+	clientBasePath := filepath.Join(tmpPath, "client")
+	serverBasePath := filepath.Join(tmpPath, "server")
+
+	setTLSFlags(serverBasePath, true)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	assert.NoError(t, err)
+	srv := newMockTLSServer(t)
+
+	go srv.Serve(lis)
+	defer srv.Stop()
+
+	setTLSFlags(clientBasePath, true)
+
+	address := lis.Addr().String()
+	c, err := NewClient(&address)
+	assert.NoError(t, err)
+
+	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+}
+
 func TestProcess_redis(t *testing.T) {
 	tempPath, err := ioutil.TempDir("", "TestProcess_redis")
 	assert.NoError(t, err)
