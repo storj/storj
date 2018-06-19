@@ -60,7 +60,7 @@
   branch = "master"
   name = "github.com/coyle/kademlia"
   packages = ["."]
-  revision = "23c5c505df986913b68fd7fa16af645c64de8557"
+  revision = "b87cccc53b8b5099f1de6ab04e8dbdb50b5da3ba"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -336,7 +336,7 @@
     "jlexer",
     "jwriter"
   ]
-  revision = "9825584555aa620c53c265d4a09ace0df1346fd9"
+  revision = "3fdea8d05856a0c8df22ed4bc71b3219245e4485"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -390,7 +390,7 @@
   branch = "master"
   name = "github.com/minio/mc"
   packages = ["pkg/console"]
-  revision = "c0b89a7aecb89174f3fda68f726eea2e3342b0aa"
+  revision = "afcfe758f3d68f7acabdffb5ba1eb287dbd6660b"
 
 [[projects]]
   branch = "master"
@@ -400,6 +400,7 @@
     "cmd",
     "cmd/http",
     "cmd/logger",
+    "cmd/rpc",
     "pkg/auth",
     "pkg/bpool",
     "pkg/certs",
@@ -426,7 +427,7 @@
     "pkg/wildcard",
     "pkg/words"
   ]
-  revision = "6fb06045028b7a57c37c60a612c8e50735279ab4"
+  revision = "617a6d8e475d302899440a31e57b34ab7feb1ffc"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -503,8 +504,8 @@
 [[projects]]
   name = "github.com/pelletier/go-toml"
   packages = ["."]
-  revision = "acdc4509485b587f5e675510c4f2c63e90ff68a8"
-  version = "v1.1.0"
+  revision = "c01d1270ff3e442a8a57cddc1c92dc1138598194"
+  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/pierrec/lz4"
@@ -782,7 +783,7 @@
     "salsa20/salsa",
     "ssh/terminal"
   ]
-  revision = "df8d4716b3472e4a531c33cedbe537dae921a1a9"
+  revision = "b47b1587369238182299fe4dad77d05b8b461e06"
 
 [[projects]]
   branch = "master"
@@ -809,7 +810,7 @@
     "unix",
     "windows"
   ]
-  revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
+  revision = "9527bec2660bd847c050fda93a0f0c6dee0800bb"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -878,8 +879,8 @@
     "tap",
     "transport"
   ]
-  revision = "41344da2231b913fa3d983840a57a6b1b7b631a1"
-  version = "v1.12.0"
+  revision = "7a6a684ca69eb4cae85ad0a484f2e531598c047b"
+  version = "v1.12.2"
 
 [[projects]]
   name = "gopkg.in/Shopify/sarama.v1"

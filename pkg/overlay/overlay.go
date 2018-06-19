@@ -29,7 +29,9 @@ func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.
 	}
 
 	return &proto.LookupResponse{
-		NodeAddress: na,
+		NodeAddress: &proto.NodeAddress{
+			Transport: proto.NodeTransport_TCP, Address: na.Address,
+		},
 	}, nil
 }
 
