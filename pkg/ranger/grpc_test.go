@@ -64,12 +64,13 @@ func TestGRPCRanger(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		c := client.NewCustomRoute(context.Background(), route)
-		rr, err := GRPCRanger(c, "")
+		ctx := context.Background()
+		c := client.NewCustomRoute(route)
+		rr, err := GRPCRanger(ctx, c, "")
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			return
@@ -123,10 +124,11 @@ func TestGRPCRangerSize(t *testing.T) {
 			)
 		}
 
-		c := client.NewCustomRoute(context.Background(), route)
+		ctx := context.Background()
+		c := client.NewCustomRoute(route)
 		rr := GRPCRangerSize(c, "", tt.size)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			return

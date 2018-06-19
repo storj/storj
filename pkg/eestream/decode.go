@@ -222,7 +222,6 @@ func (dr *decodedReader) readBlock(inbufs map[int][]byte) error {
 }
 
 type decodedRanger struct {
-	ctx    context.Context
 	es     ErasureScheme
 	rrs    map[int]ranger.Ranger
 	inSize int64
@@ -235,8 +234,7 @@ type decodedRanger struct {
 // rrs is a map of erasure piece numbers to erasure piece rangers.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
-	es ErasureScheme, mbm int) (ranger.Ranger, error) {
+func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger, error) {
 	if mbm < 0 {
 		return nil, Error.New("negative max buffer memory")
 	}
@@ -262,7 +260,6 @@ func Decode(ctx context.Context, rrs map[int]ranger.Ranger,
 		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
-		ctx:    ctx,
 		es:     es,
 		rrs:    rrs,
 		inSize: size,
@@ -275,7 +272,7 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.DecodedBlockSize())
 }
 
-func (dr *decodedRanger) Range(offset, length int64) (io.ReadCloser, error) {
+func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := calcEncompassingBlocks(
@@ -292,7 +289,7 @@ func (dr *decodedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	result := make(chan indexReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
 		go func(i int, rr ranger.Ranger) {
-			r, err := rr.Range(
+			r, err := rr.Range(ctx,
 				firstBlock*int64(dr.es.EncodedBlockSize()),
 				blockCount*int64(dr.es.EncodedBlockSize()))
 			result <- indexReadCloser{i: i, r: r, err: err}
@@ -308,7 +305,7 @@ func (dr *decodedRanger) Range(offset, length int64) (io.ReadCloser, error) {
 		}
 	}
 	// decode from all those ranges
-	r := DecodeReaders(dr.ctx, readers, dr.es, length, dr.mbm)
+	r := DecodeReaders(ctx, readers, dr.es, length, dr.mbm)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.DecodedBlockSize()))

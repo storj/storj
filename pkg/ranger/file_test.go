@@ -5,6 +5,7 @@ package ranger
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"testing"
 )
@@ -50,7 +51,7 @@ func TestFileRanger(t *testing.T) {
 		if rr.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		r, err := rr.Range(example.offset, example.length)
+		r, err := rr.Range(context.Background(), example.offset, example.length)
 		if example.fail {
 			if err == nil {
 				t.Fatalf("expected error")

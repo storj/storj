@@ -106,7 +106,7 @@ func TestRSRanger(t *testing.T) {
 	}
 	decrypter, err := NewAESGCMDecrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())
-	rr, err := Decode(ctx, rrs, rs, 0)
+	rr, err := Decode(rrs, rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +114,11 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err = UnpadSlow(rr)
+	rr, err = UnpadSlow(ctx, rr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := rr.Range(0, rr.Size())
+	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,6 +5,7 @@ package ranger
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 
@@ -18,8 +19,8 @@ type grpcRanger struct {
 }
 
 // GRPCRanger turns a gRPC connection to piece store into a Ranger
-func GRPCRanger(c *client.Client, id string) (Ranger, error) {
-	piece, err := c.PieceMetaRequest(id)
+func GRPCRanger(ctx context.Context, c *client.Client, id string) (Ranger, error) {
+	piece, err := c.PieceMetaRequest(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (r *grpcRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range
-func (r *grpcRanger) Range(offset, length int64) (io.ReadCloser, error) {
+func (r *grpcRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}
@@ -52,7 +53,7 @@ func (r *grpcRanger) Range(offset, length int64) (io.ReadCloser, error) {
 	if length == 0 {
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
-	reader, err := r.c.RetrievePieceRequest(r.id, offset, length)
+	reader, err := r.c.RetrievePieceRequest(ctx, r.id, offset, length)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
