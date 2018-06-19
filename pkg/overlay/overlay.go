@@ -67,9 +67,10 @@ func (o *Overlay) getNodes(ctx context.Context, keys storage.Keys) []*proto.Node
 
 	wg.Add(len(keys))
 	for _, v := range keys {
-		func(ch chan *proto.Node, id string) {
+		go func(ch chan *proto.Node, id string) {
+
 			defer wg.Done()
-			na, err := o.cache.Get(ctx, v.String())
+			na, err := o.cache.Get(ctx, id)
 			if err != nil {
 				o.logger.Error("failed to get key from cache", zap.Error(err))
 				return
