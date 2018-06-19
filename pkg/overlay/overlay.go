@@ -22,7 +22,7 @@ type Overlay struct {
 
 // Lookup finds the address of a node in our overlay network
 func (o *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
-	na, err := o.cache.Get(ctx, req.NodeID) // TODO(coyle): we should fix this asap
+	na, err := o.cache.Get(ctx, req.NodeID)
 	if err != nil {
 		o.logger.Error("Error looking up node", zap.Error(err), zap.String("nodeID", req.NodeID))
 		return nil, err
