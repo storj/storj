@@ -54,6 +54,6 @@ func TestProcess(t *testing.T) {
 
 	o := Service{}
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := o.Process(ctx)
+	err := o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }

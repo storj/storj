@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 
+	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/process"
 )
 
@@ -15,7 +16,7 @@ func main() {
 	process.Must(process.Main(process.ServiceFunc(run)))
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	// just go to sleep and let the background telemetry start sending
 	select {}
 }

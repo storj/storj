@@ -11,6 +11,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/spf13/cobra"
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
@@ -19,7 +20,7 @@ import (
 
 var argError = errs.Class("argError")
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store CLI"
