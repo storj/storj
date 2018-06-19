@@ -15,3 +15,16 @@ func (n *NodeID) String() string {
 func (n *NodeID) Bytes() []byte {
 	return []byte(*n)
 }
+
+// StringToNodeID trsansforms a string to a NodeID
+func StringToNodeID(s string) *NodeID {
+	n := NodeID(s)
+	return &n
+}
+
+// NewID returns a pointer to a newly intialized NodeID
+func NewID() *NodeID {
+	b, _ := newID()
+	bb := NodeID(b)
+	return &bb
+}

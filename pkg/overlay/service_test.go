@@ -18,11 +18,10 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
-	t.SkipNow()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	srv := NewServer(nil, nil, nil, nil)
+	srv := newMockServer()
 	assert.NotNil(t, srv)
 
 	go srv.Serve(lis)
@@ -30,12 +29,9 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	//a := "35.232.202.229:8080"
-	//c, err := NewClient(&a, grpc.WithInsecure())
-	t.SkipNow()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := NewServer(nil, nil, nil, nil)
+	srv := newMockServer()
 	go srv.Serve(lis)
 	defer srv.Stop()
 
@@ -53,7 +49,25 @@ func TestProcess(t *testing.T) {
 	defer done()
 
 	o := Service{}
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cf := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cf()
 	err := o.Process(ctx)
 	assert.NoError(t, err)
+}
+
+func newMockServer() *grpc.Server {
+	grpcServer := grpc.NewServer()
+	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
+
+	return grpcServer
+}
+
+type MockOverlay struct{}
+
+func (o *MockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
+	return &proto.FindStorageNodesResponse{}, nil
+}
+
+func (o *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
+	return &proto.LookupResponse{}, nil
 }
