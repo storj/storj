@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -131,7 +130,6 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 	}
 
 	for _, v := range nodes {
-		fmt.Printf("\n%v==%v %t\n", v.ID, ID.Bytes(), bytes.Equal(v.ID, ID.Bytes()))
 		if string(v.ID) == ID.String() {
 			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
 				Transport: defaultTransport,

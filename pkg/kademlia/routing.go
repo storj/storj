@@ -33,7 +33,7 @@ func NewRouteTable(dht Kademlia) RouteTable {
 // Local returns the local nodes ID
 func (rt RouteTable) Local() proto.Node {
 	return proto.Node{
-		Id: rt.dht.GetSelfID(),
+		Id: string(rt.dht.HT.Self.ID),
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport, // TODO(coyle): this should be stored on the route table
 			Address:   fmt.Sprintf("%s:%d", rt.dht.HT.Self.IP.String(), rt.dht.HT.Self.Port),

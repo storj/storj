@@ -110,18 +110,9 @@ func TestBootstrap(t *testing.T) {
 		rt, err := dhts[0].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
 
-		b, err := rt.GetBuckets()
+		// b, err := rt.GetBuckets()
 		assert.NoError(t, err)
-		for _, vv := range b {
-			if len(vv.Nodes()) != 0 {
-				// fmt.Printf("[%d] %#v\n", i, vv.Nodes())
-				for _, _ = range vv.Nodes() {
-					// fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
-					// fmt.Printf("[%d] %#v : %v\n", i, vvv, vvv.Address.String())
-					// fmt.Printf("[%d] %#v : %v\n", i, vvv, fmt.Sprintf("%s", vvv.Id))
-				}
-			}
-		}
+
 		localID := rt.Local().Id
 		n := NodeID(localID)
 		node, err := v.k.FindNode(ctx, &n)
