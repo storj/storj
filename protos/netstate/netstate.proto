@@ -69,6 +69,8 @@ message Pointer {
 
   google.protobuf.Timestamp creation_date = 6;
   google.protobuf.Timestamp expiration_date = 7;
+
+  bytes metadata = 8;
 }
 
 // PutRequest is a request message for the Put rpc call
