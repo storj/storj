@@ -6,6 +6,7 @@ package process
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/spacemonkeygo/flagfile"
@@ -47,7 +48,15 @@ const (
 )
 
 // Main initializes a new Service
-func Main(s Service) (err error) {
+func Main(s ...Service) (err error) {
+	for _, service := range s {
+		fmt.Printf("starting service %+v\n", service)
+		StartService(service)
+	}
+	return nil
+}
+
+func StartService(s Service) (err error) {
 	flagfile.Load()
 
 	ctx := context.Background()

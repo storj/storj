@@ -82,6 +82,13 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	fmt.Println("bootstrapping cache")
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
+	fmt.Printf("%+v\n", nodes)
+
+	if err != nil {
+		fmt.Printf("error getting nodes %s", err)
+		return err
+	}
+
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
 		if err != nil {
