@@ -5,11 +5,12 @@ package netclient
 
 import (
 	"context"
-	"strconv"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dtypes"
+	"storj.io/storj/pkg/overlay"
+	proto "storj.io/storj/protos/overlay"
 )
 
 // NetClient defines the interface to an overlay client.
@@ -20,18 +21,39 @@ type NetClient interface {
 
 // Overlay is the overlay concrete implementation of the client interface
 type storjClient struct {
-	nodeID dtypes.Node
+	nodeID overlay.NodeID // of type string
 	conn   *grpc.ClientConn
+	cc     *overlay.Overlay
+}
+
+func init() {
 }
 
 // Dial using the authenticated mode
-func (o *storjClient) DialNode(ctx context.Context, nodeID dtypes.Node) (*grpc.ClientConn, error) {
-	/* TODO@ASK: call the DHT functions to open up a connection to the DHT (cache) servers */
-	conn, err := grpc.Dial((nodeID.Address.Network + ":" + strconv.Itoa(nodeID.Address.Port)), grpc.WithInsecure())
-	if err != nil {
-		zap.S().Errorf("error dialing: %v\n", err)
-		return nil, err
+func (o *storjClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
+	if node.Address == nil {
+		addr := "bootstrap.storj.io:7070"
+		cc, err := overlay.NewOverlayClient(addr)
+
+		if err != nil {
+			return nil, err //Error.Wrap(err)
+		}
+		nodeAddr, err := cc.Lookup(ctx, overlay.NodeID(node.Id))
+		conn, err = grpc.Dial(nodeAddr.Address.Address, grpc.WithInsecure())
+
+		if err != nil {
+			zap.S().Errorf("error dialing: %v\n", err)
+			return nil, err
+		}
+	} else {
+		conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
+
+		if err != nil {
+			zap.S().Errorf("error dialing: %v\n", err)
+			return nil, err
+		}
 	}
+
 	return conn, err
 }
 
