@@ -57,16 +57,6 @@ func newTestService(t *testing.T) Service {
 }
 
 func TestNewServer(t *testing.T) {
-	var err error
-
-	tempPath, err := ioutil.TempDir("", "TestNewServer")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(tempPath)
-
-	setTLSFlags(filepath.Join(tempPath, "TestNewServer"), true)
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
@@ -88,7 +78,7 @@ func TestNewClient_CreateTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := newMockServer()
+	srv := newMockTLSServer(t)
 	go srv.Serve(lis)
 	defer srv.Stop()
 
@@ -102,7 +92,6 @@ func TestNewClient_CreateTLS(t *testing.T) {
 }
 
 func TestNewClient_LoadTLS(t *testing.T) {
-	t.SkipNow()
 	var err error
 
 	tmpPath, err := ioutil.TempDir("", "TestNewClient")
@@ -126,8 +115,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, err := NewServer(nil, nil, nil, nil)
-	assert.NoError(t, err)
+	srv := newMockTLSServer(t)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
@@ -202,6 +190,25 @@ func TestProcess_error(t *testing.T) {
 
 func newMockServer() *grpc.Server {
 	grpcServer := grpc.NewServer()
+	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
+
+	return grpcServer
+}
+
+func newMockTLSServer(t *testing.T) *grpc.Server {
+	tlsOpts := &utils.TLSFileOptions{
+		CertRelPath: tlsCertPath,
+		KeyRelPath:  tlsKeyPath,
+		Create:      tlsCreate,
+		Overwrite:   tlsOverwrite,
+		Hosts:       tlsHosts,
+	}
+
+	creds, err := utils.NewServerTLSFromFile(tlsOpts)
+	assert.NoError(t, err)
+
+	credsOption := grpc.Creds(creds)
+	grpcServer := grpc.NewServer(credsOption)
 	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
 
 	return grpcServer
