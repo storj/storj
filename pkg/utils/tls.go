@@ -54,7 +54,7 @@ func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 		t.CertAbsPath = certAbsPath
 	}
 
-	if !t.Client && t.KeyAbsPath == "" {
+	if t.KeyAbsPath == "" {
 		if t.KeyRelPath == "" {
 			return errs.New("No relative key path provided")
 		}
@@ -88,15 +88,13 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 		certMissing = true
 	}
 
-	if !t.Client {
-		if _, err := os.Stat(t.KeyAbsPath); err != nil {
-			if !IsNotExist(err) {
-				return errs.New(err.Error())
-			}
-
-			errMessage += fmt.Sprintf("%s and creation disabled\n", err)
-			keyMissing = true
+	if _, err := os.Stat(t.KeyAbsPath); err != nil {
+		if !IsNotExist(err) {
+			return errs.New(err.Error())
 		}
+
+		errMessage += fmt.Sprintf("%s and creation disabled\n", err)
+		keyMissing = true
 	}
 
 	// NB: even when `overwrite` is false, this WILL overwrite

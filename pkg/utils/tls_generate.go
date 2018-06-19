@@ -256,7 +256,7 @@ func certToFile(b []byte, path string) (_ error) {
 func keyToFile(key *ecdsa.PrivateKey, path string) (_ error) {
 	keyOut, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return errs.New("failed to open key.pem for writing:", err)
+		return errs.New("failed to open \"%s\" for writing: ", path, err)
 	}
 
 	keyPemBlock, err := keyToPem(key)

@@ -77,6 +77,7 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	t := &utils.TLSFileOptions{
 		CertRelPath: tlsCertPath,
+		KeyRelPath:  tlsKeyPath,
 		Create:      tlsCreate,
 		Overwrite:   tlsOverwrite,
 		Hosts:       tlsHosts,
