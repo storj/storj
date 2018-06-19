@@ -30,9 +30,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	p, err := strconv.Atoi(port)
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
-	intro := GetIntroNode(bnid.String(), ip, pm)
+	intro, err := GetIntroNode(bnid.String(), ip, pm)
+	assert.NoError(t, err)
 
-	boot, err := NewKademlia(&bnid, []overlay.Node{intro}, ip, pm)
+	boot, err := NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())

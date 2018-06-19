@@ -1,0 +1,65 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package overlay
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+
+	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/kademlia"
+	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+)
+
+func TestFindStorageNodes(t *testing.T) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	assert.NoError(t, err)
+
+	id, err := kademlia.NewID()
+	assert.NoError(t, err)
+	id2, err := kademlia.NewID()
+	assert.NoError(t, err)
+
+	srv := newMockServer(test.KvStore{id.String(): newNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): newNodeAddressValue(t, "127.0.0.1:9090")})
+	assert.NotNil(t, srv)
+
+	go srv.Serve(lis)
+	defer srv.Stop()
+
+	address := lis.Addr().String()
+	c, err := NewClient(&address, grpc.WithInsecure())
+	assert.NoError(t, err)
+
+	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	assert.Len(t, r.Node, 2)
+}
+
+func TestLookup(t *testing.T) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	assert.NoError(t, err)
+
+	id, err := kademlia.NewID()
+
+	assert.NoError(t, err)
+
+	srv := newMockServer(test.KvStore{id.String(): newNodeAddressValue(t, "127.0.0.1:9090")})
+	go srv.Serve(lis)
+	defer srv.Stop()
+
+	address := lis.Addr().String()
+	c, err := NewClient(&address, grpc.WithInsecure())
+	assert.NoError(t, err)
+
+	r, err := c.Lookup(context.Background(), &proto.LookupRequest{NodeID: id.String()})
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+}

@@ -3,6 +3,8 @@
 
 package kademlia
 
+import base58 "github.com/jbenet/go-base58"
+
 // NodeID is the unique identifer of a Node in the overlay network
 type NodeID string
 
@@ -23,8 +25,12 @@ func StringToNodeID(s string) *NodeID {
 }
 
 // NewID returns a pointer to a newly intialized NodeID
-func NewID() *NodeID {
-	b, _ := newID()
-	bb := NodeID(b)
-	return &bb
+func NewID() (*NodeID, error) {
+	b, err := newID()
+	if err != nil {
+		return nil, err
+	}
+
+	bb := NodeID(base58.Encode(b))
+	return &bb, nil
 }
