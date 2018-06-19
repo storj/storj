@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/clients/transportclient"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -589,18 +590,19 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 		return Error.Wrap(err)
 	}
 
-	/* integrating with DHT for uploading to get the farmer's IP address */
-	addr := "bootstrap.storj.io:7070"
-	c, err := overlay.NewClient(&addr, grpc.WithInsecure())
+	/* integrating with transportclient for uploading to get the farmer's IP address */
+	var mc transportclient.StorjClient
+	var node opb.Node
+	node.Id = ""
+	node.Address = nil
+	mc.Conn, err = mc.DialNode(context.Background(), &node)
+	fmt.Println(mc.Conn)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	r, err := c.FindStorageNodes(context.Background(), &opb.FindStorageNodesRequest{})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	fmt.Printf("r %#v\n", r)
+	var needsdata int64 = 0
+	r, err := mc.Cc.Choose(context.Background(), needsdata, needsdata, needsdata)
 	pieceId := pstore.DetermineID()
 	// r is your nodes
 	var remotePieces []*pb.RemotePiece
@@ -608,10 +610,10 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	for i := range readers {
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int64(i),
-			NodeId:   r.Nodes[i].Id,
+			NodeId:   r[i].Id,
 		})
 		go func(i int) {
-			conn, err := grpc.Dial(r.Nodes[i].Address.Address, grpc.WithInsecure())
+			conn, err := mc.DialNode(context.Background(), r[i])
 			if err != nil {
 				zap.S().Errorf("error dialing: %v\n", err)
 				errs <- Error.Wrap(err)
