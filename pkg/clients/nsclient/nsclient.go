@@ -8,6 +8,10 @@ import (
 
 	"google.golang.org/grpc"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+
 
 	"storj.io/storj/pkg/netstate"
 	pb "storj.io/storj/protos/netstate"
@@ -26,7 +30,8 @@ func NewNSClient(address string conn *grpc.ClientConn) (NSClient, error) {
 }
 
 func NetStateClient struct {
-	Path netstate.Path
+//	Path netstate.Path
+//	APIKey string
 	netstateClient pb.NetStateClient
 }
 
@@ -39,9 +44,13 @@ type NSClient interface
 }
 
 
-func (ns *NetStateClient ) Put(ctx context.Context, path netstate.Path, pointer *pb.Pointer) error {
-	ns.netStateClient.Put(ctx, )
-
+func (ns *NetStateClient ) Put(ctx context.Context, path netstate.Path, pointer *pb.Pointer, APIKey []byte) error {
+	resp, err := ns.netStateClient.Put(ctx, path, pointer, APIKey)
+	if err != nil {
+		logger.Error("Failed to make a PUT request ", zap.Error(err))
+		return err
+	}
+	return status.Errorf(codes.Internal, err.Error())
 }
 
 
