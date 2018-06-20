@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/tyler-smith/go-bip39"
 
@@ -18,7 +17,7 @@ const mnemonic = "style inspire blade just ignore expose midnight maze " +
 	"boring code burst host giraffe face parent basic ritual distance " +
 	"trophy join relief hidden fine yard"
 
-var path = []string{"fold1", "fold2", "fold3", "file.txt"}
+var path = paths.New("fold1/fold2/fold3/file.txt")
 
 func main() {
 	err := Main()
@@ -30,33 +29,36 @@ func main() {
 
 // Main is the exported CLI executable function
 func Main() error {
-	fmt.Printf("mnemonic: %s\n", mnemonic)
+	fmt.Println("mnemonic:", mnemonic)
 	seed, err := bip39.NewSeedWithErrorChecking(mnemonic, "")
 	if err != nil {
 		return err
 	}
 	fmt.Printf("root key (%d bytes): %s\n", len(seed),
 		hex.EncodeToString(seed))
-	encryptedPath, err := paths.Encrypt(path, seed)
+	encryptedPath, err := path.Encrypt(seed)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("path to encrypt: /%s\n", strings.Join(path, "/"))
-	fmt.Printf("encrypted path:  /%s\n", strings.Join(encryptedPath, "/"))
-	decryptedPath, err := paths.Decrypt(encryptedPath, seed)
+	fmt.Println("path to encrypt:", path)
+	fmt.Println("encrypted path: ", encryptedPath)
+	decryptedPath, err := encryptedPath.Decrypt(seed)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("decrypted path:  /%s\n", strings.Join(decryptedPath, "/"))
+	fmt.Println("decrypted path: ", decryptedPath)
 	sharedPath := encryptedPath[2:]
-	fmt.Printf("shared path:     /%s\n", strings.Join(encryptedPath[2:], "/"))
-	derivedKey := paths.DeriveKey(seed, path[:2])
+	fmt.Println("shared path:    ", encryptedPath[2:])
+	derivedKey, err := decryptedPath.DeriveKey(seed, 2)
+	if err != nil {
+		return err
+	}
 	fmt.Printf("derived key (%d bytes): %s\n", len(derivedKey),
 		hex.EncodeToString(derivedKey))
-	decryptedPath, err = paths.Decrypt(sharedPath, derivedKey)
+	decryptedPath, err = sharedPath.Decrypt(derivedKey)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("decrypted path:  /%s\n", strings.Join(decryptedPath, "/"))
+	fmt.Println("decrypted path: ", decryptedPath)
 	return nil
 }
