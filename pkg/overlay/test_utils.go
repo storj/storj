@@ -27,13 +27,13 @@ func newMockServer(kv test.KvStore) *grpc.Server {
 		DHT: k,
 	}
 
-	o := Overlay{
+	s := Server{
 		dht:     k,
 		cache:   c,
 		logger:  zap.NewNop(),
 		metrics: registry,
 	}
-	proto.RegisterOverlayServer(grpcServer, &o)
+	proto.RegisterOverlayServer(grpcServer, &s)
 
 	return grpcServer
 }
