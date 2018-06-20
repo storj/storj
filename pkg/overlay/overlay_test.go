@@ -26,7 +26,7 @@ func TestFindStorageNodes(t *testing.T) {
 	id2, err := kademlia.NewID()
 	assert.NoError(t, err)
 
-	srv := newMockServer(test.KvStore{id.String(): newNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): newNodeAddressValue(t, "127.0.0.1:9090")})
+	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
 	assert.NotNil(t, srv)
 
 	go srv.Serve(lis)
@@ -51,7 +51,7 @@ func TestOverlayLookup(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	srv := newMockServer(test.KvStore{id.String(): newNodeAddressValue(t, "127.0.0.1:9090")})
+	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
 	go srv.Serve(lis)
 	defer srv.Stop()
 

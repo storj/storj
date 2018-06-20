@@ -18,7 +18,8 @@ import (
 	"storj.io/storj/storage"
 )
 
-func newMockServer(kv test.KvStore) *grpc.Server {
+// NewMockServer provides a mock grpc server for testing
+func NewMockServer(kv test.KvStore) *grpc.Server {
 	grpcServer := grpc.NewServer()
 
 	registry := monkit.Default
@@ -41,7 +42,8 @@ func newMockServer(kv test.KvStore) *grpc.Server {
 	return grpcServer
 }
 
-func newNodeAddressValue(t *testing.T, address string) storage.Value {
+// NewNodeAddressValue provides a convient way to create a storage.Value for testing purposes
+func NewNodeAddressValue(t *testing.T, address string) storage.Value {
 	na := &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: address}
 	d, err := protob.Marshal(na)
 	assert.NoError(t, err)
