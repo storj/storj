@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"storj.io/storj/pkg/netstate"
@@ -10,12 +9,9 @@ import (
 )
 
 func main() {
-	fmt.Println("starting up overlay cache and dht network")
 	err := process.Main(&overlay.Service{}, &netstate.Service{})
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return
 }

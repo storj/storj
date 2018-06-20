@@ -12,11 +12,14 @@ import (
 	"github.com/spacemonkeygo/flagfile"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
 	"storj.io/storj/pkg/utils"
 )
+
+var g errgroup.Group
 
 var (
 	logDisposition = flag.String("log.disp", "prod",
@@ -49,13 +52,23 @@ const (
 
 // Main initializes a new Service
 func Main(s ...Service) (err error) {
+	fmt.Printf("services: %+v\n", s)
 	for _, service := range s {
 		fmt.Printf("starting service %+v\n", service)
-		StartService(service)
+		g.Go(func() error {
+			err := StartService(service)
+			if err != nil {
+				fmt.Printf("error starting service %s", err)
+			}
+			return err
+		})
 	}
-	return nil
+
+	return g.Wait()
 }
 
+// StartService will start the specified service up, load its flags,
+// and set environment configs for that service
 func StartService(s Service) (err error) {
 	flagfile.Load()
 
