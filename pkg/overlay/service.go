@@ -15,24 +15,26 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 )
 
 var (
-	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
-	db                                                                           int
-	srvPort                                                                      uint
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
+	db                                                                                       int
+	srvPort                                                                                  uint
 )
 
 func init() {
 	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
 	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
+	flag.StringVar(&boltdbPath, "boltdbPath", "", "The path to the boltdb file that should be loaded or created")
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
-	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
+	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -100,6 +102,18 @@ func (s *Service) Process(ctx context.Context) error {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
 		}
+	} else if boltdbPath != "" {
+		cache, err = NewBoltOverlayCache(boltdbPath, kad)
+		if err != nil {
+			s.logger.Error("Failed to create a new boltdb overlay client", zap.Error(err))
+			return err
+		}
+	} else {
+		return process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
+	}
+
+	if boltdbPath != "" {
+
 	}
 
 	if err := cache.Bootstrap(ctx); err != nil {
@@ -118,8 +132,9 @@ func (s *Service) Process(ctx context.Context) error {
 
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
 	go cache.Walk(ctx)
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server

@@ -27,3 +27,8 @@ debug
 
 # vendor
 vendor
+
+# Test redis log and snapshot files
+*test_redis-server.log
+*dump.rdb
+*test_bolt.db
