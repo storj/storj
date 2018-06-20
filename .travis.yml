@@ -16,7 +16,6 @@ before_install:
   - source scripts/travis-deps.sh
 
 install:
-  - dep ensure
   - make build-dev-deps
 
 script:
