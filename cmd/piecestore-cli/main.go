@@ -60,7 +60,7 @@ func run(ctx context.Context) error {
 					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
 				}
 
-				id := pstore.DetermineID()
+				id := pstore.GenerateID()
 
 				dataFileChunk, err := pstore.StoreWriter(id, c.Args().Get(1))
 				if err != nil {

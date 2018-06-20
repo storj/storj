@@ -69,7 +69,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, 0, length)
 
-				id := pstore.DetermineID()
+				id := pstore.GenerateID()
 
 				writer, err := routeClient.StorePieceRequest(id, ttl)
 				if err != nil {

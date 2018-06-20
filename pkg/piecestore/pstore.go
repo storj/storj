@@ -41,8 +41,8 @@ func PathByID(id, dir string) (string, error) {
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
-// DetermineID creates random id
-func DetermineID() string {
+// GenerateID creates random id
+func GenerateID() string {
 	b := make([]byte, 32)
 
 	_, err := rand.Read(b)

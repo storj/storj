@@ -1,21 +1,9 @@
-// Copyright © 2018 Storj Labs
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
 
 package cmd
 
 import (
-	"log"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -25,11 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/cmd/piecestore-farmer/utils"
+	"storj.io/storj/pkg/piecestore"
 )
-
-var nodeID string
-var home string
-var sugar *zap.SugaredLogger
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
@@ -40,22 +25,14 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
-	var err error
 	rootCmd.AddCommand(createCmd)
 
-	sugar, err = utils.NewLogger()
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
+	nodeID := pstore.GenerateID()
+	nodeID = nodeID[:20]
 
-	nodeID, err = utils.NewID()
+	home, err := homedir.Dir()
 	if err != nil {
-		sugar.Fatalf("%v", err)
-	}
-
-	home, err = homedir.Dir()
-	if err != nil {
-		sugar.Fatalf("%v", err)
+		zap.S().Fatalf("%v", err)
 	}
 
 	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
@@ -77,33 +54,38 @@ func init() {
 
 // createNode creates a config file for a new farmer node
 func createNode(cmd *cobra.Command, args []string) error {
-	configDir, configFile := utils.SetConfigPath(home, nodeID)
-
-	err := os.MkdirAll(configDir, 0700)
+	home, err := homedir.Dir()
 	if err != nil {
 		return err
 	}
 
-	_, err = os.Stat(configFile)
-	if os.IsExist(err) {
+	configDir, configFile := utils.SetConfigPath(home, viper.GetString("piecestore.id"))
+
+	pieceStoreDir := viper.GetString("piecestore.dir")
+
+	err = os.MkdirAll(pieceStoreDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(configDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(configFile); os.IsExist(err) {
 		return errs.New("Config already exists")
 	}
 
-	// Create empty file at configPath
-	_, err = os.Create(configFile)
-	if err != nil {
-		return err
-	}
-
-	err = viper.WriteConfig()
+	err = viper.WriteConfigAs(configFile)
 	if err != nil {
 		return err
 	}
 
 	path := viper.ConfigFileUsed()
 
-	sugar.Infof("Config: %s\n", path)
-	sugar.Infof("ID: %s\n", nodeID)
+	zap.S().Infof("Config: %s\n", path)
+	zap.S().Infof("ID: %s\n", viper.GetString("piecestore.id"))
 
 	return nil
 }

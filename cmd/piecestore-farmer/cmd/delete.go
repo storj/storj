@@ -1,22 +1,10 @@
-// Copyright © 2018 Storj Labs
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
 
 package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -25,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/cmd/piecestore-farmer/utils"
 )
@@ -33,23 +22,12 @@ import (
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a farmer node by ID",
-	Long: "Delete config and all data stored on node by node ID",
-	RunE: deleteNode,
+	Long:  "Delete config and all data stored on node by node ID",
+	RunE:  deleteNode,
 }
 
 func init() {
-	var err error
 	rootCmd.AddCommand(deleteCmd)
-
-	sugar, err = utils.NewLogger()
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
-
-	home, err = homedir.Dir()
-	if err != nil {
-		sugar.Fatalf("%v", err)
-	}
 }
 
 // deleteNode deletes a farmer node by ID
@@ -58,16 +36,19 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 		return errs.New("no id specified")
 	}
 
+	home, err := homedir.Dir()
+	if err != nil {
+		return err
+	}
+
 	nodeID := args[0]
 
-	configDir, configFile := utils.SetConfigPath(home, nodeID)
+	_, configFile := utils.SetConfigPath(home, nodeID)
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return errs.New("Invalid node id. Config file does not exist")
 	}
 
-	viper.SetConfigName(nodeID)
-	viper.AddConfigPath(configDir)
 	if err := viper.ReadInConfig(); err != nil {
 		return err
 	}
@@ -82,11 +63,12 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 	}
 
 	// delete node config
-	err := os.Remove(configFile)
+	err = os.Remove(configFile)
 	if err != nil {
 		return err
 	}
 
-	sugar.Infof("Deleted node: %s", nodeID)
+	zap.S().Infof("Deleted node: %s", nodeID)
 
+	return nil
 }
