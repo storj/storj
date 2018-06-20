@@ -96,7 +96,8 @@ func run(ctx context.Context) error {
 					return argError.New(fmt.Sprintf("Path (%s) is a file, not a directory", c.Args().Get(1)))
 				}
 
-				dataFileChunk, err := pstore.RetrieveReader(c.Args().Get(0), 0, -1, c.Args().Get(1))
+				dataFileChunk, err := pstore.RetrieveReader(context.Background(),
+					c.Args().Get(0), 0, -1, c.Args().Get(1))
 				if err != nil {
 					return err
 				}

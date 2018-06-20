@@ -5,6 +5,7 @@ package ranger
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"testing"
 )
@@ -33,7 +34,7 @@ func TestByteRanger(t *testing.T) {
 		if rr.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		r, err := rr.Range(example.offset, example.length)
+		r, err := rr.Range(context.Background(), example.offset, example.length)
 		if example.fail {
 			if err == nil {
 				t.Fatalf("expected error")
@@ -81,7 +82,7 @@ func TestConcatReader(t *testing.T) {
 		if rr.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
-		r, err := rr.Range(example.offset, example.length)
+		r, err := rr.Range(context.Background(), example.offset, example.length)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
@@ -120,7 +121,7 @@ func TestSubranger(t *testing.T) {
 		if rr.Size() != example.length1 {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.length1)
 		}
-		r, err := rr.Range(example.offset2, example.length2)
+		r, err := rr.Range(context.Background(), example.offset2, example.length2)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}

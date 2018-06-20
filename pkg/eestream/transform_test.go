@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -76,7 +77,8 @@ func TestCRC(t *testing.T) {
 	if rr.Size() != blocks*(64+4+8) {
 		t.Fatalf("invalid crc padded size")
 	}
-	r, err := rr.Range(0, rr.Size())
+	ctx := context.Background()
+	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -94,7 +96,7 @@ func TestCRC(t *testing.T) {
 		t.Fatalf("invalid crc padded size")
 	}
 
-	r, err = rr.Range(0, rr.Size())
+	r, err = rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -123,9 +125,10 @@ func TestCRCSubranges(t *testing.T) {
 		t.Fatalf("wrong size")
 	}
 
+	ctx := context.Background()
 	for i := 0; i < len(data); i++ {
 		for j := i; j < len(data); j++ {
-			r, err := external.Range(int64(i), int64(j-i))
+			r, err := external.Range(ctx, int64(i), int64(j-i))
 			if err != nil {
 				t.Fatalf("unexpected: %v", err)
 			}
