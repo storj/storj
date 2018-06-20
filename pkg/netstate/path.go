@@ -3,6 +3,10 @@
 
 package netstate
 
+import (
+	"strings"
+)
+
 // Path is the unique identifer of file paths
 type Path []string
 
@@ -11,7 +15,7 @@ type Path []string
 func (path *Path) Bytes() []byte {
 	stringPath := strings.Join(*path, " ")
 	bytesPath := []byte(stringPath)
-	return &bytesPath
+	return bytesPath
 }
 
 
