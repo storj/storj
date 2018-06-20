@@ -23,6 +23,7 @@ func defaultConfigPath(name string) string {
 	path := filepath.Join(".storj", fmt.Sprintf("%s.json", name))
 	home, err := homedir.Dir()
 	if err != nil {
+		log.Println(err)
 		return path
 	}
 	return filepath.Join(home, path)

@@ -8,6 +8,7 @@ import (
 	"flag"
 
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/process"
 )
 

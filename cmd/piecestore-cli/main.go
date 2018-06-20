@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/process"
 )
