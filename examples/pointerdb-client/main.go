@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	proto "storj.io/storj/protos/pointerdb"
+	nsclient "storj.io/storj/pkg/netstate"
 )
 
 var (
