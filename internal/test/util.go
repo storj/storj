@@ -43,11 +43,12 @@ type RedisServer struct {
 }
 
 var (
-	// ErrMissingKey is the error returned if a key is not in the mock store
-	ErrMissingKey = errs.New("missing")
+	// ErrMissingKey is the error class returned if a key is not in the mock store
+	ErrMissingKey = errs.Class("missing")
 
-	// ErrForced is the error returned when the forced error flag is passed to mock an error
-	ErrForced = errs.New("error forced by using 'error' key in mock")
+	// ErrForced is the error class returned when the forced error flag is passed
+	// to mock an error
+	ErrForced = errs.Class("error forced by using 'error' key in mock")
 
 	redisRefs = map[string]bool{}
 	testRedis = &RedisServer{
@@ -59,11 +60,11 @@ var (
 func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
-		return storage.Value{}, ErrForced
+		return storage.Value{}, ErrForced.New("forced error")
 	}
 	v, ok := m.Data[key.String()]
 	if !ok {
-		return storage.Value{}, ErrMissingKey
+		return storage.Value{}, ErrMissingKey.New("key %v missing", key)
 	}
 
 	return v, nil
