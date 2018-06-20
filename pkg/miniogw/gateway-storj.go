@@ -594,7 +594,7 @@ func encryptFile(ctx context.Context, data *hash.Reader, bucket, object string) 
 	var mc transportclient.StorjClient
 	var node opb.Node
 	node.Id = ""
-	node.Address = nil
+	node.Address.Address = "bootstrap.storj.io:7070"
 	mc.Conn, err = mc.DialNode(context.Background(), &node)
 	fmt.Println(mc.Conn)
 	if err != nil {
