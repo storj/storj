@@ -22,6 +22,11 @@ import (
 // KvStore is an in-memory, crappy key/value store type for testing
 type KvStore map[string]storage.Value
 
+// Empty checks if there are any keys in the store
+func (k *KvStore) Empty() bool {
+	return len(*k) == 0
+}
+
 // MockKeyValueStore is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
 type MockKeyValueStore struct {
 	Data         KvStore
