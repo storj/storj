@@ -1,5 +1,5 @@
 # build
-FROM golang:alpine AS build-env
+FROM golang:1.10 AS build-env
 ADD . /go/src/storj.io/storj
 RUN go version && go get -u -v golang.org/x/vgo
 RUN vgo install ./...
