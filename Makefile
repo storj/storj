@@ -1,13 +1,6 @@
 .PHONY: test lint proto check-copyrights build-dev-deps
 
-TAG    := $$(git log -1 --pretty=%!H(MISSING))
- 
-build:
-  @docker build -t ${IMG} .
-  @docker tag ${IMG} ${LATEST}
- 
-push:
-  @docker push ${NAME}
+TAG    := $$(git rev-parse --short HEAD)
 
 lint: check-copyrights
 	@echo "Running ${@}"
