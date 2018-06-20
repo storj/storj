@@ -1,5 +1,14 @@
 .PHONY: test lint proto check-copyrights build-dev-deps
 
+TAG    := $$(git log -1 --pretty=%!H(MISSING))
+ 
+build:
+  @docker build -t ${IMG} .
+  @docker tag ${IMG} ${LATEST}
+ 
+push:
+  @docker push ${NAME}
+
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
@@ -66,3 +75,10 @@ clean-local:
 	docker rm redis || true
 	# cleanup docker network
 	docker network rm test-net || true
+
+images:
+	docker build -t overlay:${TAG} .
+	docker tag overlay:${TAG} overlay:latest
+
+push-images:
+	docker push storjlabs/overlay
