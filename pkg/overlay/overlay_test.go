@@ -40,10 +40,10 @@ func TestFindStorageNodes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 
-	assert.Len(t, r.Node, 2)
+	assert.Len(t, r.Nodes, 2)
 }
 
-func TestLookup(t *testing.T) {
+func TestOverlayLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
