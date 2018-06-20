@@ -4,6 +4,7 @@
 package pstore
 
 import (
+	"context"
 	"os"
 	"path"
 	"path/filepath"
@@ -168,7 +169,7 @@ func TestRetrieve(t *testing.T) {
 			}
 			createdFile.Close()
 
-			storeFile, err := RetrieveReader(tt.id, tt.offset, tt.size, os.TempDir())
+			storeFile, err := RetrieveReader(context.Background(), tt.id, tt.offset, tt.size, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())

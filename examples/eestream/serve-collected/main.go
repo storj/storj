@@ -72,7 +72,7 @@ func Main() error {
 		}
 		rrs[res.i] = res.rr
 	}
-	rr, err := eestream.Decode(context.Background(), rrs, es, 4*1024*1024)
+	rr, err := eestream.Decode(rrs, es, 4*1024*1024)
 	if err != nil {
 		return err
 	}
@@ -80,13 +80,14 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	rr, err = eestream.UnpadSlow(rr)
+	ctx := context.Background()
+	rr, err = eestream.UnpadSlow(ctx, rr)
 	if err != nil {
 		return err
 	}
 
 	return http.ListenAndServe(*addr, http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			ranger.ServeContent(w, r, flag.Arg(0), time.Time{}, rr)
+			ranger.ServeContent(ctx, w, r, flag.Arg(0), time.Time{}, rr)
 		}))
 }

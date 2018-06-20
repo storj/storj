@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -13,9 +14,6 @@ import (
 
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
-
-	"golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
@@ -35,7 +33,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	routeClient := client.New(context.Background(), conn)
+	routeClient := client.New(conn)
 
 	app.Commands = []cli.Command{
 		{
@@ -71,7 +69,7 @@ func main() {
 
 				id := pstore.DetermineID()
 
-				writer, err := routeClient.StorePieceRequest(id, ttl)
+				writer, err := routeClient.StorePieceRequest(context.Background(), id, ttl)
 				if err != nil {
 					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
 					return err
@@ -124,13 +122,13 @@ func main() {
 				}
 				defer dataFile.Close()
 
-				pieceInfo, err := routeClient.PieceMetaRequest(id)
+				pieceInfo, err := routeClient.PieceMetaRequest(context.Background(), id)
 				if err != nil {
 					os.Remove(dataPath)
 					return err
 				}
 
-				reader, err := routeClient.RetrievePieceRequest(id, 0, pieceInfo.Size)
+				reader, err := routeClient.RetrievePieceRequest(context.Background(), id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -156,7 +154,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = routeClient.DeletePieceRequest(c.Args().Get(0))
+				err = routeClient.DeletePieceRequest(context.Background(), c.Args().Get(0))
 
 				return err
 			},
