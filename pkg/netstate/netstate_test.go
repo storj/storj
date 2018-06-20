@@ -39,7 +39,9 @@ func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 
 	// tests should always listen on "localhost:0"
 	lis, err := net.Listen("tcp", "localhost:0")
-	assert.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, zap.L()))
@@ -117,7 +119,9 @@ func MakePointers(howMany int) []pb.PutRequest {
 func (nt *NetStateClientTest) Put(pr pb.PutRequest) {
 	pre := nt.mdb.PutCalled
 	_, err := nt.c.Put(ctx, &pr)
-	assert.NoError(nt, err)
+	if err != nil {
+		panic(err)
+	}
 	assert.Equal(nt, pre+1, nt.mdb.PutCalled)
 }
 
@@ -127,7 +131,9 @@ func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
 		Path:   []byte(path),
 		APIKey: []byte(APIKey),
 	})
-	assert.NoError(nt, err)
+	if err != nil {
+		panic(err)
+	}
 	assert.Equal(nt, pre+1, nt.mdb.GetCalled)
 
 	return getRes
@@ -136,7 +142,9 @@ func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
 func (nt *NetStateClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse) {
 	pre := nt.mdb.ListCalled
 	listRes, err := nt.c.List(ctx, &lr)
-	assert.NoError(nt, err)
+	if err != nil {
+		panic(err)
+	}
 	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
 
 	return listRes
@@ -169,6 +177,9 @@ func TestNetStateGet(t *testing.T) {
 		APIKey: []byte(APIKey),
 	}
 	getRes, err := nt.c.Get(ctx, &getReq)
+	if err != nil {
+		panic(err)
+	}
 	assert.NoError(t, err)
 
 	pointerBytes, err := proto.Marshal(reqs[0].Pointer)
