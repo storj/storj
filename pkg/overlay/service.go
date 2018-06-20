@@ -75,21 +75,17 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	t := &utils.TLSFileOptions{
-		CertRelPath: tlsCertPath,
-		KeyRelPath:  tlsKeyPath,
-		Create:      tlsCreate,
-		Overwrite:   tlsOverwrite,
-		Hosts:       tlsHosts,
-		Client:      true,
-	}
-
-	creds, err := utils.NewClientTLSFromFile(t)
+	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	credsOption := grpc.WithTransportCredentials(creds)
+	return proto.NewOverlayClient(conn), nil
+}
+
+// NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
+// returns a new instance of an overlay Client
+func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	opts = append(opts, credsOption)
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {

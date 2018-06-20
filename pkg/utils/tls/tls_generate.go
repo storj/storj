@@ -1,4 +1,4 @@
-package utils
+package tls
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -30,6 +30,9 @@ import (
 	"net"
 	"strings"
 
+	"io"
+	"io/ioutil"
+
 	"github.com/zeebo/errs"
 )
 
@@ -53,7 +56,7 @@ func (t *TLSFileOptions) generateServerTls() (cert *tls.Certificate, _ error) {
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(errs.New("failed to generateServerTls private key: %s", err.Error()))
+		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
 	}
 
 	template, err := serverTemplate()
@@ -77,11 +80,11 @@ func (t *TLSFileOptions) generateServerTls() (cert *tls.Certificate, _ error) {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	if err := certToFile(certDerBytes, t.CertAbsPath); err != nil {
+	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	if err := keyToFile(privKey, t.KeyAbsPath); err != nil {
+	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
@@ -90,7 +93,7 @@ func (t *TLSFileOptions) generateServerTls() (cert *tls.Certificate, _ error) {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	certificate, err := certFromPems(certToPem(certDerBytes), keyPem)
+	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
 	if err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
@@ -109,7 +112,7 @@ func (t *TLSFileOptions) generateClientTls() (cert *tls.Certificate, _ error) {
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(errs.New("failed to generateServerTls private key: %s", err.Error()))
+		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
 	}
 
 	template, err := clientTemplate()
@@ -133,11 +136,11 @@ func (t *TLSFileOptions) generateClientTls() (cert *tls.Certificate, _ error) {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	if err := certToFile(certDerBytes, t.CertAbsPath); err != nil {
+	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	if err := keyToFile(privKey, t.KeyAbsPath); err != nil {
+	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
@@ -146,7 +149,7 @@ func (t *TLSFileOptions) generateClientTls() (cert *tls.Certificate, _ error) {
 		return nil, ErrGenerate.Wrap(err)
 	}
 
-	certificate, err := certFromPems(certToPem(certDerBytes), keyPem)
+	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
 	if err != nil {
 		return nil, ErrGenerate.Wrap(err)
 	}
@@ -164,7 +167,7 @@ func clientTemplate() (_ *x509.Certificate, _ error) {
 		var err error
 		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
 		if err != nil {
-			return nil, errs.New("Failed to parse creation date: %s\n", err.Error())
+			return nil, ErrTLSTemplate.New("Failed to parse creation date", err)
 		}
 	}
 
@@ -193,7 +196,7 @@ func serverTemplate() (_ *x509.Certificate, _ error) {
 		var err error
 		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
 		if err != nil {
-			return nil, errs.New("Failed to parse creation date: %s\n", err.Error())
+			return nil, ErrTLSTemplate.New("Failed to parse creation date", err)
 		}
 	}
 
@@ -203,7 +206,7 @@ func serverTemplate() (_ *x509.Certificate, _ error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, errs.New("failed to generateServerTls serial number: %s", err.Error())
+		return nil, ErrTLSTemplate.New("failed to generateServerTls serial number: %s", err.Error())
 	}
 
 	template := &x509.Certificate{
@@ -225,61 +228,66 @@ func serverTemplate() (_ *x509.Certificate, _ error) {
 	return template, nil
 }
 
-func pemToFile(p *pem.Block, path string) (_ error) {
-	// keyOut, err := os.OpenFile(t.KeyAbsPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	file, err := os.Create(path)
-	if err != nil {
-		return ErrGenerate.Wrap(errs.New("failed to open %s.pem for writing: %s", path, err.Error()))
-	}
-
-	if err := pem.Encode(file, p); err != nil {
-		return err
-	}
-
-	if err := file.Close(); err != nil {
-		return err
-	}
-
-	return nil
+func newKeyBlock(b []byte) (_ *pem.Block) {
+	return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
 }
 
-func certToFile(b []byte, path string) (_ error) {
-	p := certToPem(b)
-
-	if err := pemToFile(p, path); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func keyToFile(key *ecdsa.PrivateKey, path string) (_ error) {
-	keyOut, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return errs.New("failed to open \"%s\" for writing: ", path, err)
-	}
-
-	keyPemBlock, err := keyToPem(key)
-	if err != nil {
-		return err
-	}
-
-	pem.Encode(keyOut, keyPemBlock)
-	keyOut.Close()
-	return nil
-}
-
-func certToPem(b []byte) (_ *pem.Block) {
+func newCertBlock(b []byte) (_ *pem.Block) {
 	return &pem.Block{Type: "CERTIFICATE", Bytes: b}
 }
 
 func keyToPem(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
 	b, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
-		return nil, errs.New("Unable to marshal ECDSA private key: %v", err.Error())
+		return nil, errs.New("unable to marshal ECDSA private key", err)
 	}
 
-	return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+	return newKeyBlock(b), nil
+}
+
+func writePem(block *pem.Block, file io.WriteCloser) (_ error) {
+	if err := pem.Encode(file, block); err != nil {
+		return errs.New("unable to PEM-encode/write bytes to file", err)
+	}
+
+	if err := file.Close(); err != nil {
+		return errs.New("unable to close file", err)
+	}
+
+	return nil
+}
+
+func writeCert(b []byte, path string) (_ error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return errs.New("unable to open file \"%s\" for writing", path, err)
+	}
+
+	block := newCertBlock(b)
+
+	if err := writePem(block, file); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeKey(key *ecdsa.PrivateKey, path string) (_ error) {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return errs.New("unable to open \"%s\" for writing", path, err)
+	}
+
+	block, err := keyToPem(key)
+	if err != nil {
+		return err
+	}
+
+	if err := writePem(block, file); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
@@ -291,8 +299,34 @@ func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
 
 	certificate, err := tls.X509KeyPair(certBuffer.Bytes(), keyBuffer.Bytes())
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return nil, errs.New("unable to get certificate from PEM-encoded cert/key bytes", err)
 	}
 
 	return &certificate, nil
+}
+
+func readPem(path string) (_ *pem.Block, _ error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, errs.New("unable to open key file \"%s\" for reading", path, err)
+	}
+
+	// NB: only decodes *first* PEM encoded block?
+	block, _ := pem.Decode(b)
+
+	return block, nil
+}
+
+func readCertificate(certPath, keyPath string) (_ *tls.Certificate, _ error) {
+	certBlock, err := readPem(certPath)
+	if err != nil {
+		return nil, err
+	}
+
+	keyBlock, err := readPem(keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return certFromPems(certBlock, keyBlock)
 }
