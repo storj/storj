@@ -151,7 +151,9 @@ func redisTestClient(t *testing.T, data test.KvStore) storage.KeyValueStore {
 		t.Fatal(err)
 	}
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client
 }
@@ -171,7 +173,9 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		assert.NoError(t, err)
 	}
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client, cleanup
 }
