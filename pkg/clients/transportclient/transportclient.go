@@ -45,6 +45,7 @@ func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn 
 			if err != nil {
 				return nil, err
 			}
+			node.Address.Address = lookupNode.Address.Address
 		} else {
 			return nil, err
 		}
