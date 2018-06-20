@@ -159,37 +159,39 @@ func (nt *NetStateClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResp
 	return delRes
 }
 
-func TestNetStateGet(t *testing.T) {
+func TestNetStatePutGet(t *testing.T) {
 	nt := NewNetStateClientTest(t)
 	defer nt.Close()
 
-	pre := nt.mdb.GetCalled
+	preGet := nt.mdb.GetCalled
+	prePut := nt.mdb.PutCalled
 
-	pointer := nt.Get("file/path/1")
-	assert.Nil(t, pointer)
-
-	reqs := MakePointers(1)
-	_, err := nt.c.Put(ctx, &reqs[0])
-	assert.NoError(nt, err)
-
-	getReq := pb.GetRequest{
-		Path:   []byte("file/path/1"),
-		APIKey: []byte(APIKey),
+	gr := nt.Get("file/path/1")
+	if gr.GetPointer() != nil {
+		t.Error("expected no pointer")
 	}
-	getRes, err := nt.c.Get(ctx, &getReq)
-	if err != nil {
-		panic(err)
-	}
-	assert.NoError(t, err)
 
-	pointerBytes, err := proto.Marshal(reqs[0].Pointer)
+	pr := MakePointer([]byte("file/path/1"), true)
+	nt.Put(pr)
+
+	gr = nt.Get("file/path/1")
+	if gr == nil {
+		t.Error("failed to get the put pointer")
+	}
+
+	pointerBytes, err := proto.Marshal(pr.Pointer)
 	if err != nil {
 		t.Error("Failed to marshal test pointer")
 	}
-	if !bytes.Equal(getRes.Pointer, pointerBytes) {
+	if !bytes.Equal(gr.Pointer, pointerBytes) {
 		t.Error("Expected to get same content that was put")
 	}
-	assert.Equal(nt, pre+1, nt.mdb.GetCalled)
+	if nt.mdb.GetCalled != preGet+2 {
+		t.Error("Failed to call get correct number of times")
+	}
+	if nt.mdb.PutCalled != prePut+1 {
+		t.Error("Failed to call put correct number of times")
+	}
 }
 
 func TestGetAuth(t *testing.T) {
@@ -203,6 +205,7 @@ func TestGetAuth(t *testing.T) {
 	_, err := nt.c.Get(ctx, &getReq)
 	if err == nil {
 		t.Error("Failed to error for wrong auth key")
+		panic(err)
 	}
 }
 
@@ -214,6 +217,7 @@ func TestPutAuth(t *testing.T) {
 	_, err := nt.c.Put(ctx, &pr)
 	if err == nil {
 		t.Error("Failed to error for wrong auth key")
+		panic(err)
 	}
 }
 
@@ -225,14 +229,20 @@ func TestDelete(t *testing.T) {
 
 	reqs := MakePointers(1)
 	_, err := nt.c.Put(ctx, &reqs[0])
-	assert.NoError(nt, err)
+	if err != nil {
+		t.Error("Failed to put")
+		panic(err)
+	}
 
 	delReq := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
 		APIKey: []byte(APIKey),
 	}
 	_, err = nt.c.Delete(ctx, &delReq)
-	assert.NoError(nt, err)
+	if err != nil {
+		t.Error("Failed to delete")
+		panic(err)
+	}
 
 	assert.Equal(nt, pre+1, nt.mdb.DeleteCalled)
 }
@@ -243,7 +253,10 @@ func TestDeleteAuth(t *testing.T) {
 
 	reqs := MakePointers(1)
 	_, err := nt.c.Put(ctx, &reqs[0])
-	assert.NoError(nt, err)
+	if err != nil {
+		t.Error("Failed to put")
+		panic(err)
+	}
 
 	delReq := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
@@ -252,102 +265,103 @@ func TestDeleteAuth(t *testing.T) {
 	_, err = nt.c.Delete(ctx, &delReq)
 	if err == nil {
 		t.Error("Failed to error with wrong auth key")
+		panic(err)
 	}
 }
 
-func TestList(t *testing.T) {
-	nt := NewNetStateClientTest(t)
-	defer nt.Close()
+// func TestList(t *testing.T) {
+// 	nt := NewNetStateClientTest(t)
+// 	defer nt.Close()
 
-	reqs := MakePointers(4)
-	for _, req := range reqs {
-		_, err := nt.c.Put(ctx, &req)
-		assert.NoError(nt, err)
-	}
+// 	reqs := MakePointers(4)
+// 	for _, req := range reqs {
+// 		_, err := nt.c.Put(ctx, &req)
+// 		assert.NoError(nt, err)
+// 	}
 
-	pre := nt.mdb.ListCalled
+// 	pre := nt.mdb.ListCalled
 
-	listReq := pb.ListRequest{
-		StartingPathKey: []byte("file/path/2"),
-		Limit:           5,
-		APIKey:          []byte(APIKey),
-	}
-	listRes, err := nt.c.List(ctx, &listReq)
-	if err != nil {
-		t.Error("Failed to list file paths")
-	}
-	if listRes.Truncated {
-		t.Error("Expected list slice to not be truncated")
-	}
-	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
-		t.Error("Failed to list correct file path")
-	}
-	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
-}
+// 	listReq := pb.ListRequest{
+// 		StartingPathKey: []byte("file/path/2"),
+// 		Limit:           5,
+// 		APIKey:          []byte(APIKey),
+// 	}
+// 	listRes, err := nt.c.List(ctx, &listReq)
+// 	if err != nil {
+// 		t.Error("Failed to list file paths")
+// 	}
+// 	if listRes.Truncated {
+// 		t.Error("Expected list slice to not be truncated")
+// 	}
+// 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
+// 		t.Error("Failed to list correct file path")
+// 	}
+// 	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
+// }
 
-func TestListTruncated(t *testing.T) {
-	nt := NewNetStateClientTest(t)
-	defer nt.Close()
+// func TestListTruncated(t *testing.T) {
+// 	nt := NewNetStateClientTest(t)
+// 	defer nt.Close()
 
-	reqs := MakePointers(3)
-	for _, req := range reqs {
-		_, err := nt.c.Put(ctx, &req)
-		assert.NoError(nt, err)
-	}
+// 	reqs := MakePointers(3)
+// 	for _, req := range reqs {
+// 		_, err := nt.c.Put(ctx, &req)
+// 		assert.NoError(nt, err)
+// 	}
 
-	listReq := pb.ListRequest{
-		StartingPathKey: []byte("file/path/1"),
-		Limit:           1,
-		APIKey:          []byte(APIKey),
-	}
-	listRes, err := nt.c.List(ctx, &listReq)
-	if err != nil {
-		t.Error("Failed to list file paths")
-	}
-	if !listRes.Truncated {
-		t.Error("Expected list slice to be truncated")
-	}
-}
+// 	listReq := pb.ListRequest{
+// 		StartingPathKey: []byte("file/path/1"),
+// 		Limit:           1,
+// 		APIKey:          []byte(APIKey),
+// 	}
+// 	listRes, err := nt.c.List(ctx, &listReq)
+// 	if err != nil {
+// 		t.Error("Failed to list file paths")
+// 	}
+// 	if !listRes.Truncated {
+// 		t.Error("Expected list slice to be truncated")
+// 	}
+// }
 
-func TestListWithoutStartingKey(t *testing.T) {
-	nt := NewNetStateClientTest(t)
-	defer nt.Close()
+// func TestListWithoutStartingKey(t *testing.T) {
+// 	nt := NewNetStateClientTest(t)
+// 	defer nt.Close()
 
-	listReq := pb.ListRequest{
-		Limit:  4,
-		APIKey: []byte(APIKey),
-	}
-	_, err := nt.c.List(ctx, &listReq)
-	if err == nil {
-		t.Error("Failed to error when not given starting key")
-	}
-}
+// 	listReq := pb.ListRequest{
+// 		Limit:  4,
+// 		APIKey: []byte(APIKey),
+// 	}
+// 	_, err := nt.c.List(ctx, &listReq)
+// 	if err == nil {
+// 		t.Error("Failed to error when not given starting key")
+// 	}
+// }
 
-func TestListWithoutLimit(t *testing.T) {
-	nt := NewNetStateClientTest(t)
-	defer nt.Close()
+// func TestListWithoutLimit(t *testing.T) {
+// 	nt := NewNetStateClientTest(t)
+// 	defer nt.Close()
 
-	listReq := pb.ListRequest{
-		StartingPathKey: []byte("file/path/3"),
-		APIKey:          []byte(APIKey),
-	}
-	_, err := nt.c.List(ctx, &listReq)
-	if err == nil {
-		t.Error("Failed to error when not given limit")
-	}
-}
+// 	listReq := pb.ListRequest{
+// 		StartingPathKey: []byte("file/path/3"),
+// 		APIKey:          []byte(APIKey),
+// 	}
+// 	_, err := nt.c.List(ctx, &listReq)
+// 	if err == nil {
+// 		t.Error("Failed to error when not given limit")
+// 	}
+// }
 
-func TestListAuth(t *testing.T) {
-	nt := NewNetStateClientTest(t)
-	defer nt.Close()
+// func TestListAuth(t *testing.T) {
+// 	nt := NewNetStateClientTest(t)
+// 	defer nt.Close()
 
-	listReq := pb.ListRequest{
-		StartingPathKey: []byte("file/path/3"),
-		Limit:           1,
-		APIKey:          []byte("wrong key"),
-	}
-	_, err := nt.c.List(ctx, &listReq)
-	if err == nil {
-		t.Error("Failed to error when given wrong auth key")
-	}
-}
+// 	listReq := pb.ListRequest{
+// 		StartingPathKey: []byte("file/path/3"),
+// 		Limit:           1,
+// 		APIKey:          []byte("wrong key"),
+// 	}
+// 	_, err := nt.c.List(ctx, &listReq)
+// 	if err == nil {
+// 		t.Error("Failed to error when given wrong auth key")
+// 	}
+// }

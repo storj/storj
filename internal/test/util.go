@@ -63,7 +63,7 @@ func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	}
 	v, ok := m.Data[key.String()]
 	if !ok {
-		return storage.Value{}, ErrMissingKey
+		return storage.Value{}, nil
 	}
 
 	return v, nil
