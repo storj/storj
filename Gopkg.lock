@@ -295,12 +295,6 @@
   revision = "9b6edb34372a110992ea2e174886cb03ff971230"
 
 [[projects]]
-  name = "github.com/julienschmidt/httprouter"
-  packages = ["."]
-  revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
-  version = "v1.1"
-
-[[projects]]
   name = "github.com/klauspost/cpuid"
   packages = ["."]
   revision = "ae7887de9fa5d2db4eaa8174a7eff2c1ac00f2da"
@@ -468,6 +462,12 @@
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
   revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mr-tron/base58"
+  packages = ["base58"]
+  revision = "c1bdf7c52f59d6685ca597b9955a443ff95eeee6"
 
 [[projects]]
   name = "github.com/nats-io/go-nats"
@@ -953,6 +953,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "101bde363c549e6e970d993982cd39dc7751cb980569d98187078b0dd8dbcdff"
+  inputs-digest = "04d30c7df217efd3f219ce531076d0aad52d5fd12423f7e9c86766b5e613389b"
   solver-name = "gps-cdcl"
   solver-version = 1
