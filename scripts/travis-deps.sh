@@ -10,6 +10,5 @@ rm -rf $HOME/gopath
 mv $HOME/gopath{-staging,}
 export TRAVIS_BUILD_DIR=$HOME/gopath/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
-export $GOPATH=$HOME/gopath
 
 set +x
