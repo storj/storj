@@ -12,20 +12,20 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// TransportClient defines the interface to an network client.
-type TransportClient interface {
+// NetworkClient defines the interface to an network client.
+type NetworkClient interface {
 	DialUnauthenticated(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
 	DialNode(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
 }
 
-// StorjClient is the concrete implementation of the networkclient interface
-type StorjClient struct {
+// TransportClient is the concrete implementation of the networkclient interface
+type TransportClient struct {
 	Conn *grpc.ClientConn
 	Cc   *overlay.Overlay
 }
 
 // Dial using the authenticated mode
-func (o *StorjClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
+func (o *TransportClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	o.Conn = nil
 	/* check to see if address is empty? */
 	if node.Address.Address == "" {
@@ -51,7 +51,7 @@ func (o *StorjClient) DialNode(ctx context.Context, node *proto.Node) (conn *grp
 }
 
 // Dial using unauthenticated mode
-func (o *StorjClient) DialUnauthenticated(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
+func (o *TransportClient) DialUnauthenticated(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	o.Conn = nil
 	/* check to see if address is empty? */
 	if node.Address.Address == "" {
