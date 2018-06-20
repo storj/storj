@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -33,6 +34,7 @@ func TestPad(t *testing.T) {
 		{strings.Repeat("\x00", 16*1024), 32 * 1024, 16 * 1024},
 		{strings.Repeat("\x00", 32*1024+1), 32 * 1024, 32*1024 - 1},
 	} {
+		ctx := context.Background()
 		padded, padding := Pad(ranger.ByteRanger([]byte(example.data)),
 			example.blockSize)
 		if padding != example.padding {
@@ -43,15 +45,29 @@ func TestPad(t *testing.T) {
 			t.Fatalf("invalid padding")
 		}
 		unpadded, err := Unpad(padded, padding)
-		data, err := ioutil.ReadAll(unpadded.Range(0, unpadded.Size()))
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		r, err := unpadded.Range(ctx, 0, unpadded.Size())
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
 		if !bytes.Equal(data, []byte(example.data)) {
 			t.Fatalf("mismatch")
 		}
-		unpadded, err = UnpadSlow(padded)
-		data, err = ioutil.ReadAll(unpadded.Range(0, unpadded.Size()))
+		unpadded, err = UnpadSlow(ctx, padded)
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		r, err = unpadded.Range(ctx, 0, unpadded.Size())
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		data, err = ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
