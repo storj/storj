@@ -57,30 +57,30 @@ func main() {
 	APIKey:= []byte("abc123")
 
 
-	// Example Puts
-	// puts passes api creds
-	_, err = nsclient.Put(ctx, &pr1)
+	// Example Put
+	err = nsclient.Put(ctx, path, pointer, APIKey)
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
+		logger.Error("couldn't PUT pointer in db", zap.Error(err))
+	} else {
+		logger.Debug("Successfully PUT pointer in db")
 	}
 	
-
 	// Example Get
-	// get passes api creds
-	// getReq := proto.GetRequest{
-	// 	Path:   []byte("so/many/pointers"),
-	// 	APIKey: []byte("abc123"),
-	// }
-	// getRes, err := client.Get(ctx, &getReq)
-	// if err != nil || status.Code(err) == codes.Internal {
-	// 	logger.Error("failed to get", zap.Error(err))
-	// } else {
-	// 	pointer := string(getRes.Pointer)
-	// 	logger.Debug("get response: " + pointer)
-	// }
+	res, err := nsclient.Get(ctx, path, APIKey)
+	p := "success"
+	if err != nil {
+		logger.Error("couldn't GET pointer from db", zap.Error(err))
+	} else {	
+		// WIP; i need to convert a custom type to string, 
+		// will work on this later
+		fmt.Println(res)	
+		logger.Info("Got Pointer from db",
+			zap.String("pointer", p),
+		)
+	}
 
-	// // Example List
-	// // list passes api creds
+	// Example List
+
 	// listReq := proto.ListRequest{
 	// 	// This pagination functionality doesn't work yet.
 	// 	// The given arguments are placeholders.
@@ -88,6 +88,11 @@ func main() {
 	// 	Limit:           5,
 	// 	APIKey:          []byte("abc123"),
 	// }
+
+
+
+
+
 
 	// listRes, err := client.List(ctx, &listReq)
 	// if err != nil || status.Code(err) == codes.Internal {
