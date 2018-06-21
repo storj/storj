@@ -5,9 +5,10 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc"
-	"go.uber.org/zap"
+	//"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,7 +21,7 @@ type NetState struct {
 }
 
 type NSClient interface {
-	Put(ctx context.Context, path netstate.Path, pointer *pb.Pointer, APIKey []byte) error
+	Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path netstate.Path, APIKey []byte) (*pb.Pointer, error)
 	Delete(ctx context.Context, path netstate.Path, APIKey []byte) error
 	List(ctx context.Context, startingPath, endingPath netstate.Path, APIKey []byte) (
@@ -28,6 +29,7 @@ type NSClient interface {
 }
 
 func NewNetstateClient(address string) (*NetState, error) {
+	fmt.Println("in client")
     c, err := NewClient(&address, grpc.WithInsecure())
     if err != nil {
         return nil, err
@@ -45,12 +47,13 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (pb.NetStateClient, 
     return pb.NewNetStateClient(conn), nil
 }
 
-func (ns *NetState) Put(ctx context.Context, path netstate.Path, pointer *pb.Pointer, APIKey []byte) error {
-	resp, err := ns.grpcClient.Put(ctx, path, pointer, APIKey)
+func (ns *NetState) Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error {
+	resp, err := ns.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer, APIKey: APIKey})
 	if err != nil {
-		logger.Error("Failed to make a PUT request ", zap.Error(err))
+		//logger.Error("Failed to make a PUT request ", zap.Error(err))
 		return err
 	}
+	fmt.Println(resp)
 	return status.Errorf(codes.Internal, err.Error())
 }
 
