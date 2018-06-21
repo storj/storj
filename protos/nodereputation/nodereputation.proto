@@ -1,0 +1,128 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+package nodereputation;
+
+
+service NodeReputation {
+    // Get the Reputation score for a given node id(s)
+    rpc Get(GetRequest) returns (GetResponse);
+    // Match nodes to the given constraints
+    rpc Match(MatchRequest) returns (MatchResponse);
+    // Update the given node(s) with the provied values
+    rpc Update(UpdateRequest) returns (UpdateResponse);
+}
+
+// GetRequest is a list of node ids
+message GetRequest {
+    repeated string nodes = 1;
+}
+
+// GetResponse is a list of (node id, status, scores)
+message GetResponse {
+    repeated NodeReputationQueryStatus records = 1;
+}
+
+// MatchRequest is a request with a limit of node ids to return, order of features, and node ids not to select
+message MatchRequest {
+    int64 limit = 1;
+    repeated Feature featureOrdering = 2;
+    repeated string excuding = 3;
+}
+
+// MatchRepsonse tells if the limit was meet and node ids that have the "best" features
+message MatchResponse {
+    ConstraintStatus status = 1;
+    repeated string excuding = 2;
+}
+
+// UpdateRequest is a list of node and features 
+message UpdateRequest {
+    repeated NodeReputationUpdate update = 1;
+}
+
+// UpdateResponse list of successful/failed updates for node feature pairs
+message UpdateResponse {
+    repeated NodeReputationUpdateStatus update = 1;
+}
+
+// NodeReputationQueryStatus tells if a node id was found (status), if so the scores for all the features
+message NodeReputationQueryStatus {
+    string node_id = 1;
+    QueryStatus status = 2;
+    repeated FeatureReputation scores = 3;
+}
+// NodeReputationUpdate request a feature update with a value for a given node
+message NodeReputationUpdate {
+    string node_id = 1;
+    Feature feature = 2;
+    UpdateValue value = 3;
+}
+
+// NodeReputationUpdataStatus tells if a value was set for a node's feature
+message NodeReputationUpdateStatus {
+    string node_id = 1;
+    Feature feature = 2;
+    UpdateStatus status = 3;
+}
+
+
+// FeatureReputation shows the many (features) to one (node) ratio scores
+message FeatureReputation {
+    float mean_reputation = 1;
+    float current_reputation = 2;
+    Feature feature = 3;
+}
+
+enum QueryStatus {
+    NODE_FOUND = 0;
+    NODE_NOT_FOUND = 1;
+}
+
+enum ConstraintStatus {
+    LIMIT_MEET = 0;
+    LIMIT_NOT_MEET = 1;
+}
+
+enum UpdateStatus {
+    UPDATE_SUCCESS = 0;
+    UPDATE_FAILED = 1;
+}
+
+enum Feature {
+    UPTIME = 0;
+    AUDIT = 1;
+    LATENCY = 2;
+    AMOUNT_OF_DATA_STORED = 3;
+    FALSE_CLAIMS = 4;
+    SHARDS_MODIFIED =5;
+}
+
+enum UpdateValue {
+    NEGITIVE_ONE = 0;
+    NEGITIVE_POINT_FIVE = 1;
+    NEGITIVE_POINT_TWENTY_FIVE = 2;
+    ZERO = 3;
+    POINT_TWENTY_FIVE = 4;
+    POINT_FIVE = 5;
+    ONE = 6;
+}
+
+
+enum Parameter {
+    GOOD_RECALL = 0;
+	BAD_RECALL = 1;
+    WEIGHT_COUNTER = 2;
+	WEIGHT = 3;
+	CUMULATIVE_MEAN_REPUTATION = 4;
+	CURRENT_REPUTATION = 5;
+}
+enum Operand {
+    EQUAL_TO = 0;
+    GREATER_THAN = 1;
+    GREATER_THAN_EQUAL_TO = 2;
+    LESS_THAN = 3;
+    LESS_THAN_EQUAL_TO = 4;
+    NOT_EQUAL_TO = 5;
+}
