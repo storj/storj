@@ -73,7 +73,7 @@ func TestGRPCRanger(t *testing.T) {
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-			return
+			continue
 		}
 		assert.NoError(t, err, errTag)
 		data, err := ioutil.ReadAll(r)
@@ -131,7 +131,7 @@ func TestGRPCRangerSize(t *testing.T) {
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-			return
+			continue
 		}
 		assert.NoError(t, err, errTag)
 		data, err := ioutil.ReadAll(r)
