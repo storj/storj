@@ -5,7 +5,7 @@ FROM golang:${VERSION} AS build-env
 COPY . /go/src/storj.io/storj
 RUN go get -u -v golang.org/x/vgo
 RUN cd /go/src/storj.io/storj && vgo install ./...
-RUN cd /go/src/storj.io/storj/cmd/overlay && go build -o overlay
+RUN cd /go/src/storj.io/storj/cmd/overlay && vgo build -o overlay
 
 
 # final stage
