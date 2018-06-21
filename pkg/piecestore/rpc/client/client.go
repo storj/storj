@@ -51,7 +51,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, ttl time.Time) (io.Wr
 	}
 
 	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: ttl.Unix()}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
 		stream.CloseAndRecv()
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
