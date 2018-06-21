@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"github.com/golang/protobuf/proto"
 	//"go.uber.org/zap"
 	//"google.golang.org/grpc/codes"
 	//"google.golang.org/grpc/status"
@@ -22,14 +23,13 @@ type NetState struct {
 
 type NSClient interface {
 	Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error
-	Get(ctx context.Context, path netstate.Path, APIKey []byte) (*pb.Pointer, error)
-	Delete(ctx context.Context, path netstate.Path, APIKey []byte) error
+	Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error)
+	Delete(ctx context.Context, path []byte, APIKey []byte) error
 	List(ctx context.Context, startingPath, endingPath netstate.Path, APIKey []byte) (
 		path netstate.Path, truncated bool, err error)
 }
 
 func NewNetstateClient(address string) (*NetState, error) {
-	fmt.Println("in client")
     c, err := NewClient(&address, grpc.WithInsecure())
     if err != nil {
         return nil, err
@@ -56,7 +56,19 @@ func (ns *NetState) Put(ctx context.Context, path []byte, pointer *pb.Pointer, A
 }
 
 
+func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error) {
+	res, err := ns.grpcClient.Get(ctx, &pb.GetRequest{Path: path, APIKey: APIKey})
+	if err != nil {
+		return nil, err
+	}
 
-// func (ns *NetStateClient ) Get()
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(res.GetPointer(),pointer)
+	if err != nil {
+		return nil, err
+	}
+	return pointer, nil
+}
+
 // func (ns *NetStateClient ) List()
 // func (ns *NetStateClient ) Delete()
