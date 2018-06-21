@@ -72,7 +72,8 @@ clean-local:
 
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t overlay:${TAG}-${GO_VERSION} .
-	docker tag overlay:${TAG} overlay:latest
+	docker tag overlay:${TAG}-${GO_VERSION} overlay:latest
 
 push-images:
-	docker push storjlabs/overlay
+	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
+	docker push storjlabs/overlay:latest
