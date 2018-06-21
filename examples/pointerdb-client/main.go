@@ -34,9 +34,8 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	nsclient, err := client.NewNetStateClient(port)
+	nsclient, err := client.NewNetstateClient(port)
 	if err != nil {
-		fmt.Println("error page !!!!!")
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
@@ -62,68 +61,54 @@ func main() {
 
 
 	// Example pointer paths to put
-	pr1 := proto.PutRequest{
-		Path: []byte("test/path/1"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline1"),
-		},
-		APIKey: apiKey,
-	}
-	pr2 := proto.PutRequest{
-		Path: []byte("test/path/2"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline2"),
-		},
-		APIKey: apiKey,
-	}
-	pr3 := proto.PutRequest{
-		Path: []byte("test/path/3"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline3"),
-		},
-		APIKey: apiKey,
-	}
-	// rps is an example slice of RemotePieces, which is passed into
-	// this example Pointer of type REMOTE.
-	var rps []*proto.RemotePiece
-	rps = append(rps, &proto.RemotePiece{
-		PieceNum: int64(1),
-		NodeId:   "testId",
-	})
-	pr4 := proto.PutRequest{
-		Path: []byte("test/path/4"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_REMOTE,
-			Remote: &proto.RemoteSegment{
-				Redundancy: &proto.RedundancyScheme{
-					Type:             proto.RedundancyScheme_RS,
-					MinReq:           int64(1),
-					Total:            int64(3),
-					RepairThreshold:  int64(2),
-					SuccessThreshold: int64(3),
-				},
-				PieceId:      "testId",
-				RemotePieces: rps,
+	//pr1 passes with api creds
+	// pr1 := proto.PutRequest{
+	// 	Path: []byte("welcome/to/my/pointer/journey"),
+	// 	Pointer: &proto.Pointer{
+	// 		Type: proto.Pointer_INLINE,
+	// 		Encryption: &proto.EncryptionScheme{
+	// 			EncryptedEncryptionKey: []byte("key"),
+	// 			EncryptedStartingNonce: []byte("nonce"),
+	// 		},
+	// 		InlineSegment: []byte("granola"),
+	// 	},
+	// 	APIKey: []byte("abc123"),
+	// }
+	// pr2 passes with api creds
+	// pr2 := proto.PutRequest{
+	// 	Path: []byte("so/many/pointers"),
+	// 	Pointer: &proto.Pointer{
+	// 		Type: proto.Pointer_INLINE,
+	// 		Encryption: &proto.EncryptionScheme{
+	// 			EncryptedEncryptionKey: []byte("key"),
+	// 			EncryptedStartingNonce: []byte("nonce"),
+	// 		},
+	// 		InlineSegment: []byte("m&ms"),
+	// 	},
+	// 	APIKey: []byte("abc123"),
+	// }
+	// pr3 fails api creds
+	//pr3 := proto.PutRequest{
+		path:= []byte("another/pointer/for/the/pile")
+		pointer:= &proto.Pointer{
+			Type: proto.Pointer_INLINE,
+			Encryption: &proto.EncryptionScheme{
+				EncryptedEncryptionKey: []byte("key"),
+				EncryptedStartingNonce: []byte("nonce"),
 			},
-		},
-		APIKey: apiKey,
-	}
+			InlineSegment: []byte("popcorn"),
+		}
+		APIKey:= []byte("abc13")
+	//}
 
 	// Example Puts
 	// puts passes api creds
-	_, err = nsclient.Put(ctx, &pr1)
+	err = nsclient.Put(ctx, path, pointer, APIKey)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	
-
-
-
-
-
+	
 	
 	// _, err = client.Put(ctx, &pr2)
 	// if err != nil || status.Code(err) == codes.Internal {
