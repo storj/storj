@@ -122,7 +122,7 @@ func main() {
 				}
 				defer dataFile.Close()
 
-				pieceInfo, err := routeClient.PieceMetaRequest(context.Background(), id)
+				pieceInfo, err := routeClient.Meta(context.Background(), id)
 				if err != nil {
 					os.Remove(dataPath)
 					return err

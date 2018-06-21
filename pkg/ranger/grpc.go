@@ -20,7 +20,7 @@ type grpcRanger struct {
 
 // GRPCRanger turns a gRPC connection to piece store into a Ranger
 func GRPCRanger(ctx context.Context, c *client.Client, id string) (Ranger, error) {
-	piece, err := c.PieceMetaRequest(ctx, id)
+	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
 	}

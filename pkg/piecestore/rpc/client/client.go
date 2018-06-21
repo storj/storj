@@ -18,12 +18,17 @@ import (
 // PieceID - Id for piece
 type PieceID string
 
+// String -- Get String from PieceID
+func (id PieceID) String() string {
+	return string(id)
+}
+
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
 	route pb.PieceStoreRoutesClient
 }
 
-// New -- Initilize Client
+// NewPSClient -- Initilize Client
 func NewPSClient(conn *grpc.ClientConn) *Client {
 	return &Client{route: pb.NewPieceStoreRoutesClient(conn)}
 }
@@ -33,8 +38,8 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
 	return &Client{route: route}
 }
 
-// PieceMetaRequest -- Request info about a piece by Id
-func (client *Client) PieceMetaRequest(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
+// Meta -- Request info about a piece by Id
+func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
 	return client.route.Piece(ctx, &pb.PieceId{Id: id})
 }
 
@@ -46,7 +51,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, ttl time.Time) (io.Wr
 	}
 
 	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: ttl}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: int64(ttl)}); err != nil {
 		stream.CloseAndRecv()
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
