@@ -13,6 +13,7 @@ go:
 
 before_install:
   - './.travis/main.sh'
+  - echo -e "machine api.github.com login coyle password $GITHUB_TOKEN" >> ~/.netrc
   - source scripts/travis-deps.sh
 
 install:
