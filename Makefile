@@ -1,6 +1,7 @@
 .PHONY: test lint proto check-copyrights build-dev-deps
 
-TAG    := $$(git rev-parse --short HEAD)
+TAG    	:= $$(git rev-parse --short HEAD)
+GO_VERSION := 1.10
 
 lint: check-copyrights
 	@echo "Running ${@}"
@@ -70,7 +71,7 @@ clean-local:
 	docker network rm test-net || true
 
 images:
-	docker build -t overlay:${TAG} .
+	docker build --build-arg VERSION=${GO_VERSION} -t overlay:${TAG}-${GO_VERSION} .
 	docker tag overlay:${TAG} overlay:latest
 
 push-images:
