@@ -42,64 +42,22 @@ func main() {
 	client := proto.NewPointerDBClient(conn)
 
 	logger.Debug(fmt.Sprintf("client dialed port %s", port))
-
-
-	// conn, err := grpc.Dial(port, grpc.WithInsecure())
-	// if err != nil {
-	// 	logger.Error("Failed to dial: ", zap.Error(err))
-	// }
-
-	// client := proto.NewNetStateClient(conn)
-
-	// logger.Debug(fmt.Sprintf("client dialed port %s", port))
-
 	ctx := context.Background()
 
-
-
-
-
-
 	// Example pointer paths to put
-	//pr1 passes with api creds
-	// pr1 := proto.PutRequest{
-	// 	Path: []byte("welcome/to/my/pointer/journey"),
-	// 	Pointer: &proto.Pointer{
-	// 		Type: proto.Pointer_INLINE,
-	// 		Encryption: &proto.EncryptionScheme{
-	// 			EncryptedEncryptionKey: []byte("key"),
-	// 			EncryptedStartingNonce: []byte("nonce"),
-	// 		},
-	// 		InlineSegment: []byte("granola"),
-	// 	},
-	// 	APIKey: []byte("abc123"),
-	// }
-	// pr2 passes with api creds
-	// pr2 := proto.PutRequest{
-	// 	Path: []byte("so/many/pointers"),
-	// 	Pointer: &proto.Pointer{
-	// 		Type: proto.Pointer_INLINE,
-	// 		Encryption: &proto.EncryptionScheme{
-	// 			EncryptedEncryptionKey: []byte("key"),
-	// 			EncryptedStartingNonce: []byte("nonce"),
-	// 		},
-	// 		InlineSegment: []byte("m&ms"),
-	// 	},
-	// 	APIKey: []byte("abc123"),
-	// }
-	// pr3 fails api creds
-	//pr3 := proto.PutRequest{
-		path:= []byte("another/pointer/for/the/pile")
-		pointer:= &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("popcorn"),
-		}
-		APIKey:= []byte("abc13")
-	//}
+	// the client library creates a put req. object of these items
+	// and sends to server
+	path:= []byte("another/pointer/for/the/pile")
+	pointer:= &proto.Pointer{
+		Type: proto.Pointer_INLINE,
+		Encryption: &proto.EncryptionScheme{
+			EncryptedEncryptionKey: []byte("key"),
+			EncryptedStartingNonce: []byte("nonce"),
+		},
+		InlineSegment: []byte("popcorn"),
+	}
+	APIKey:= []byte("abc123")
+
 
 	// Example Puts
 	// puts passes api creds
@@ -108,19 +66,6 @@ func main() {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	
-	
-	
-	// _, err = client.Put(ctx, &pr2)
-	// if err != nil || status.Code(err) == codes.Internal {
-	// 	logger.Error("failed to put", zap.Error(err))
-	// }
-	// _, err = client.Put(ctx, &pr3)
-	// if err != nil || status.Code(err) == codes.Internal {
-	// 	logger.Error("failed to put", zap.Error(err))
-	// }
-
-
-
 
 	// Example Get
 	// get passes api creds
