@@ -1,10 +1,14 @@
 .PHONY: test lint proto check-copyrights build-dev-deps
 
+TAG    	:= $$(git rev-parse --short HEAD)
+GO_VERSION := 1.10
+
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
 	--deadline=170s \
 	--disable-all \
+	--vendor .\
 	--enable=golint \
 	--enable=goimports \
 	--enable=vet \
@@ -12,6 +16,7 @@ lint: check-copyrights
 	--enable=goconst \
 	--exclude=.*\.pb\.go \
 	--exclude=.*_test.go \
+	--exclude=./vendor/* \
 	./...
 
 check-copyrights:
@@ -66,3 +71,11 @@ clean-local:
 	docker rm redis || true
 	# cleanup docker network
 	docker network rm test-net || true
+
+images:
+	docker build --build-arg VERSION=${GO_VERSION} -t overlay:${TAG}-${GO_VERSION} .
+	docker tag overlay:${TAG}-${GO_VERSION} overlay:latest
+
+push-images:
+	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
+	docker push storjlabs/overlay:latest

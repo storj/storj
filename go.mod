@@ -30,6 +30,7 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0
+	github.com/spf13/jwalterweatherman v0.0.0-20180109140146-7c0cea34c8ec
 	github.com/spf13/pflag v1.0.1
 	github.com/spf13/viper v1.0.2
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
