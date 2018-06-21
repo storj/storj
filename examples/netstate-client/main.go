@@ -33,9 +33,8 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	nsclient, err := client.NewNetStateClient(port)
+	nsclient, err := client.NewNetstateClient(port)
 	if err != nil {
-		fmt.Println("error page !!!!!")
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
@@ -60,57 +59,53 @@ func main() {
 
 	// Example pointer paths to put
 	//pr1 passes with api creds
-	pr1 := proto.PutRequest{
-		Path: []byte("welcome/to/my/pointer/journey"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("granola"),
-		},
-		APIKey: []byte("abc123"),
-	}
+	// pr1 := proto.PutRequest{
+	// 	Path: []byte("welcome/to/my/pointer/journey"),
+	// 	Pointer: &proto.Pointer{
+	// 		Type: proto.Pointer_INLINE,
+	// 		Encryption: &proto.EncryptionScheme{
+	// 			EncryptedEncryptionKey: []byte("key"),
+	// 			EncryptedStartingNonce: []byte("nonce"),
+	// 		},
+	// 		InlineSegment: []byte("granola"),
+	// 	},
+	// 	APIKey: []byte("abc123"),
+	// }
 	// pr2 passes with api creds
-	pr2 := proto.PutRequest{
-		Path: []byte("so/many/pointers"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
-			InlineSegment: []byte("m&ms"),
-		},
-		APIKey: []byte("abc123"),
-	}
+	// pr2 := proto.PutRequest{
+	// 	Path: []byte("so/many/pointers"),
+	// 	Pointer: &proto.Pointer{
+	// 		Type: proto.Pointer_INLINE,
+	// 		Encryption: &proto.EncryptionScheme{
+	// 			EncryptedEncryptionKey: []byte("key"),
+	// 			EncryptedStartingNonce: []byte("nonce"),
+	// 		},
+	// 		InlineSegment: []byte("m&ms"),
+	// 	},
+	// 	APIKey: []byte("abc123"),
+	// }
 	// pr3 fails api creds
-	pr3 := proto.PutRequest{
-		Path: []byte("another/pointer/for/the/pile"),
-		Pointer: &proto.Pointer{
+	//pr3 := proto.PutRequest{
+		path:= []byte("another/pointer/for/the/pile")
+		pointer:= &proto.Pointer{
 			Type: proto.Pointer_INLINE,
 			Encryption: &proto.EncryptionScheme{
 				EncryptedEncryptionKey: []byte("key"),
 				EncryptedStartingNonce: []byte("nonce"),
 			},
 			InlineSegment: []byte("popcorn"),
-		},
-		APIKey: []byte("abc13"),
-	}
+		}
+		APIKey:= []byte("abc13")
+	//}
 
 	// Example Puts
 	// puts passes api creds
-	_, err = nsclient.Put(ctx, &pr1)
+	err = nsclient.Put(ctx, path, pointer, APIKey)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	
-
-
-
-
-
+	
 	
 	// _, err = client.Put(ctx, &pr2)
 	// if err != nil || status.Code(err) == codes.Internal {
