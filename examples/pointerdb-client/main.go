@@ -36,6 +36,7 @@ func main() {
 
 	nsclient, err := client.NewNetStateClient(port)
 	if err != nil {
+		fmt.Println("error page !!!!!")
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
@@ -118,6 +119,11 @@ func main() {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	
+
+
+
+
+
 	
 	// _, err = client.Put(ctx, &pr2)
 	// if err != nil || status.Code(err) == codes.Internal {
