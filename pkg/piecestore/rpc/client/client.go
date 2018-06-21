@@ -40,7 +40,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
 
 // Meta -- Request info about a piece by Id
 func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
-	return client.route.Piece(ctx, &pb.PieceId{Id: id})
+	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
 // Put -- Upload Piece to Server
@@ -51,7 +51,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, ttl time.Time) (io.Wr
 	}
 
 	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: int64(ttl)}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: ttl.Unix()}); err != nil {
 		stream.CloseAndRecv()
 		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
 	}
@@ -61,7 +61,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, ttl time.Time) (io.Wr
 
 // Get -- Begin Download Piece from Server
 func (client *Client) Get(ctx context.Context, id PieceID, offset, length int64) (io.ReadCloser, error) {
-	stream, err := client.route.Retrieve(ctx, &pb.PieceRetrieval{Id: id, Size: length, Offset: offset})
+	stream, err := client.route.Retrieve(ctx, &pb.PieceRetrieval{Id: id.String(), Size: length, Offset: offset})
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (client *Client) Get(ctx context.Context, id PieceID, offset, length int64)
 
 // Delete -- Delete Piece From Server
 func (client *Client) Delete(ctx context.Context, id PieceID) error {
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id})
+	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
 	if err != nil {
 		return err
 	}

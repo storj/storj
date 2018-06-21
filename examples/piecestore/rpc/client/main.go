@@ -62,7 +62,7 @@ func main() {
 				}
 
 				var length = fileInfo.Size()
-				var ttl = time.Now().Unix() + 86400
+				var ttl = time.Now().Add(time.Second * 86400)
 
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, 0, length)
