@@ -15,8 +15,8 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	tls "storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -47,21 +47,7 @@ func init() {
 
 // NewServer creates a new Overlay Service Server
 func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
-	t := &utils.TLSFileOptions{
-		CertRelPath: tlsCertPath,
-		KeyRelPath:  tlsKeyPath,
-		Create:      tlsCreate,
-		Overwrite:   tlsOverwrite,
-		Hosts:       tlsHosts,
-	}
-
-	creds, err := utils.NewServerTLSFromFile(t)
-	if err != nil {
-		return nil, err
-	}
-
-	credsOption := grpc.Creds(creds)
-	grpcServer := grpc.NewServer(credsOption)
+	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     k,
 		cache:   cache,
@@ -83,9 +69,50 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 	return proto.NewOverlayClient(conn), nil
 }
 
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
+	t, err := tls.NewTLSFileOptions(
+		tlsCertPath,
+		tlsKeyPath,
+		tlsHosts,
+		false,
+		tlsCreate,
+		tlsOverwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	grpcServer := grpc.NewServer(t.TransportCredentialsOption)
+	proto.RegisterOverlayServer(grpcServer, &Server{
+		kad:     k,
+		cache:   cache,
+		logger:  l,
+		metrics: m,
+	})
+
+	return grpcServer, nil
+}
+
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
 func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t, err := tls.NewTLSFileOptions(
+		tlsCertPath,
+		tlsKeyPath,
+		tlsHosts,
+		true,
+		tlsCreate,
+		tlsOverwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption, err := t.WithTransportCredentials()
+	if err != nil {
+		return nil, err
+	}
+
 	opts = append(opts, credsOption)
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {

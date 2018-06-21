@@ -1,4 +1,4 @@
-package tls
+package peertls
 
 import (
 	"crypto/ecdsa"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"crypto/x509"
 )
 
 var (
@@ -43,17 +43,24 @@ type TLSFileOptions struct {
 	// Comma-separated list of hostname(s) (IP or FQDN)
 	Hosts string
 	// If true, key is not required or checked
-	Client bool
+	Client                     bool
+}
+
+func VerifyPeerCertificate (rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	// + lookup identity
+	// + validate identity (hash/min-difficulty/etc.)
+	// + save identity
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(certPath, keyPath, hosts string, client, overwrite bool) (_ *TLSFileOptions, _ error) {
+func NewTLSFileOptions(certPath, keyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
-		CertRelPath: certPath,
-		KeyRelPath:  keyPath,
-		Client:      client,
-		Overwrite:   overwrite,
-		Hosts:       hosts,
+		CertRelPath:                certPath,
+		KeyRelPath:                 keyPath,
+		Client:                     client,
+		Overwrite:                  overwrite,
+		Create:                     create,
+		Hosts:                      hosts,
 	}
 
 	if err := t.EnsureAbsPaths(); err != nil {
@@ -65,6 +72,18 @@ func NewTLSFileOptions(certPath, keyPath, hosts string, client, overwrite bool) 
 	}
 
 	return t, nil
+}
+
+func NewClientTLS(c *tls.Config) (_ credentials.TransportCredentials) { //, _ error) {
+	config := cloneTLSConfig(c)
+	config.InsecureSkipVerify = true
+	config.VerifyPeerCertificate = VerifyPeerCertificate
+}
+
+func NewServerTLS(c *tls.Config) (_ credentials.TransportCredentials) { //, _ error) {
+	t := &tlsCredsWrapper{
+		config: cloneTLSConfig(c),
+	}
 }
 
 // EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
@@ -130,21 +149,18 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 	//      a key if the cert is missing (vice versa)
 	if t.Create && (t.Overwrite || certMissing || keyMissing) {
 		var (
-			cert *tls.Certificate
 			err  error
 		)
 
 		if t.Client {
-			cert, err = t.generateClientTls()
+			err = t.generateClientTls()
 		} else {
-			cert, err = t.generateServerTls()
+			err = t.generateServerTls()
 		}
 
 		if err != nil {
 			return err
 		}
-
-		t.Certificate = cert
 		return nil
 	}
 
@@ -154,40 +170,43 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 
 	// NB: ensure `t.Certificate` is not nil when create is false
 	if !t.Create {
-		cert, err := readCertificate(t.CertAbsPath, t.KeyAbsPath)
+		cert, err := tls.LoadX509KeyPair(t.CertAbsPath, t.KeyAbsPath)
 		if err != nil {
 			return err
 		}
 
-		t.Certificate = cert
+		t.Certificate = &cert
 	}
 
 	return nil
 }
 
-func (t *TLSFileOptions) NewServerTLSFromFile() (_ credentials.TransportCredentials, _ error) {
-	creds, err := credentials.NewServerTLSFromFile(t.CertAbsPath, t.KeyAbsPath)
-	if err != nil {
-		return nil, errs.New(err.Error())
+
+func (t *TLSFileOptions) NewPeerTLS() (_ credentials.TransportCredentials) {
+	var (
+		creds credentials.TransportCredentials
+		// err   error
+	)
+
+	if t.Client {
+		creds = NewClientTLS(&tls.Config{}) //credentials.NewTLS(&tls.Config{})
+	} else {
+		creds = NewServerTLS(&tls.Config{Certificates: []tls.Certificate{*t.Certificate}}) //credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{*t.Certificate}})
 	}
 
-	return creds, nil
+	// if err != nil {
+	// 	return nil, ErrCredentials.Wrap(err)
+	// }
+
+	return creds
 }
 
-func (t *TLSFileOptions) NewClientTLSFromFile() (_ credentials.TransportCredentials, _ error) {
-	creds, err := credentials.NewClientTLSFromFile(t.CertAbsPath, "")
-	if err != nil {
-		return nil, ErrCredentials.Wrap(err)
-	}
-
-	return creds, nil
-}
-
-func WithTransportCredentials(t *TLSFileOptions) (_ grpc.DialOption, _ error) {
-	creds, err := NewClientTLSFromFile(t)
-	if err != nil {
-		return nil, err
-	}
-
-	return grpc.WithTransportCredentials(creds), nil
-}
+// func (t *TLSFileOptions) WithTransportCredentials() (_ grpc.DialOption, _ error) {
+// 	creds, err := t.NewTLSFromFile()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	grpc.Creds(creds)
+// 	return grpc.WithTransportCredentials(creds), nil
+// }

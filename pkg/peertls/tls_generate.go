@@ -1,4 +1,4 @@
-package tls
+package peertls
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -31,8 +31,6 @@ import (
 	"strings"
 
 	"io"
-	"io/ioutil"
-
 	"github.com/zeebo/errs"
 )
 
@@ -45,24 +43,24 @@ var (
 	}
 )
 
-func (t *TLSFileOptions) generateServerTls() (cert *tls.Certificate, _ error) {
+func (t *TLSFileOptions) generateServerTls() (_ error) {
 	if t.Hosts == "" {
-		return nil, ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
+		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
 
 	if err := t.EnsureAbsPaths(); err != nil {
-		return nil, err
+		return err
 	}
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
+		return ErrGenerate.New("failed to generateServerTls private key", err)
 	}
 
 	template, err := serverTemplate()
 
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	hosts := strings.Split(t.Hosts, ",")
@@ -77,48 +75,50 @@ func (t *TLSFileOptions) generateServerTls() (cert *tls.Certificate, _ error) {
 	// DER encoded
 	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	keyPem, err := keyToPem(privKey)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
-	return certificate, nil
+	t.Certificate = certificate
+
+	return nil
 }
 
-func (t *TLSFileOptions) generateClientTls() (cert *tls.Certificate, _ error) {
+func (t *TLSFileOptions) generateClientTls() (_ error) {
 	if t.Hosts == "" {
-		return nil, ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
+		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
 
 	if err := t.EnsureAbsPaths(); err != nil {
-		return nil, err
+		return err
 	}
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
+		return ErrGenerate.New("failed to generateServerTls private key", err)
 	}
 
 	template, err := clientTemplate()
 
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	hosts := strings.Split(t.Hosts, ",")
@@ -133,28 +133,30 @@ func (t *TLSFileOptions) generateClientTls() (cert *tls.Certificate, _ error) {
 	// DER encoded
 	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	keyPem, err := keyToPem(privKey)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
 	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
-	return certificate, nil
+	t.Certificate = certificate
+
+	return nil
 }
 
 func clientTemplate() (_ *x509.Certificate, _ error) {
@@ -305,28 +307,28 @@ func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
 	return &certificate, nil
 }
 
-func readPem(path string) (_ *pem.Block, _ error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, errs.New("unable to open key file \"%s\" for reading", path, err)
-	}
+// func readPem(path string) (_ *pem.Block, _ error) {
+// 	b, err := ioutil.ReadFile(path)
+// 	if err != nil {
+// 		return nil, errs.New("unable to open key file \"%s\" for reading", path, err)
+// 	}
+//
+// 	// NB: only decodes *first* PEM encoded block?
+// 	block, _ := pem.Decode(b)
+//
+// 	return block, nil
+// }
 
-	// NB: only decodes *first* PEM encoded block?
-	block, _ := pem.Decode(b)
-
-	return block, nil
-}
-
-func readCertificate(certPath, keyPath string) (_ *tls.Certificate, _ error) {
-	certBlock, err := readPem(certPath)
-	if err != nil {
-		return nil, err
-	}
-
-	keyBlock, err := readPem(keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return certFromPems(certBlock, keyBlock)
-}
+// func readCertificate(certPath, keyPath string) (_ *tls.Certificate, _ error) {
+// 	certBlock, err := readPem(certPath)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	keyBlock, err := readPem(keyPath)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	return certFromPems(certBlock, keyBlock)
+// }
