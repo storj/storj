@@ -24,8 +24,6 @@ var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	tlsCertPath, tlsKeyPath, tlsHosts                                                        string
-	tlsCreate, tlsOverwrite                                                                  bool
 )
 
 func init() {
@@ -38,15 +36,10 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
-	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "TLS Certificate file")
-	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "TLS Key file")
-	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS Key file")
-	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
-	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
-func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
+func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     k,
@@ -55,7 +48,7 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 		metrics: m,
 	})
 
-	return grpcServer, nil
+	return grpcServer
 }
 
 // NewClient connects to grpc server at the provided address with the provided options
@@ -191,11 +184,7 @@ func (s *Service) Process(ctx context.Context) error {
 		return err
 	}
 
-	grpcServer, err := NewServer(kad, cache, s.logger, s.metrics)
-	if err != nil {
-		s.logger.Error("Failed to initialize grpc server", zap.Error(err))
-		return err
-	}
+	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })

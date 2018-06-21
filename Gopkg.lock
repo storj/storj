@@ -60,7 +60,7 @@
   branch = "master"
   name = "github.com/coyle/kademlia"
   packages = ["."]
-  revision = "de4313d761cdd87b7f363586530e2b6c79460a72"
+  revision = "23c5c505df986913b68fd7fa16af645c64de8557"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -953,6 +953,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6a6b7db5eea9b29b763e6e65c2eb418fb69fa23159c97a75e515892286acb8c0"
+  inputs-digest = "04d30c7df217efd3f219ce531076d0aad52d5fd12423f7e9c86766b5e613389b"
   solver-name = "gps-cdcl"
   solver-version = 1
