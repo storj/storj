@@ -20,7 +20,7 @@ type grpcRanger struct {
 
 // GRPCRanger turns a gRPC connection to piece store into a Ranger
 func GRPCRanger(ctx context.Context, c *client.Client, id string) (Ranger, error) {
-	piece, err := c.Meta(ctx, c.PieceId(id))
+	piece, err := c.Meta(ctx, client.PieceId(id))
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (r *grpcRanger) Range(ctx context.Context, offset, length int64) (io.ReadCl
 	if length == 0 {
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
-	reader, err := r.c.Get(ctx, c.PieceId(r.id), offset, length)
+	reader, err := r.c.Get(ctx, client.PieceId(r.id), offset, length)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
