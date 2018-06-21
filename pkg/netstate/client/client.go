@@ -5,9 +5,10 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc"
-	"go.uber.org/zap"
+	//"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -22,22 +23,21 @@ type NetState struct {
 // NSClient services offerred for the interface
 type NSClient interface {
 	Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error
-	Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error)
-	List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
-		paths []byte, truncated bool, err error)
-	Delete(ctx context.Context, path []byte, APIKey []byte) error
+	Get(ctx context.Context, path netstate.Path, APIKey []byte) (*pb.Pointer, error)
+	Delete(ctx context.Context, path netstate.Path, APIKey []byte) error
+	List(ctx context.Context, startingPath, endingPath netstate.Path, APIKey []byte) (
+		path netstate.Path, truncated bool, err error)
 }
 
 // NewNetstateClient initializes a new netstate client
 func NewNetstateClient(address string) (*NetState, error) {
-	c, err := NewClient(&address, grpc.WithInsecure())
-
-	if err != nil {
-		return nil, err
-	}
-	return &NetState{
-		grpcClient: c,
-	}, nil
+    c, err := NewClient(&address, grpc.WithInsecure())
+    if err != nil {
+        return nil, err
+    }
+    return &NetState{
+        grpcClient: c,
+    }, nil
 }
 
 // NewClient makes a server connection
