@@ -53,7 +53,7 @@ func (r *grpcRanger) Range(ctx context.Context, offset, length int64) (io.ReadCl
 	if length == 0 {
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
-	reader, err := r.c.RetrievePieceRequest(ctx, r.id, offset, length)
+	reader, err := r.c.Get(ctx, r.id, offset, length)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

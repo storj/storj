@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	routeClient := client.New(conn)
+	routeClient := client.NewPSClient(conn)
 
 	app.Commands = []cli.Command{
 		{
@@ -69,7 +69,7 @@ func main() {
 
 				id := pstore.DetermineID()
 
-				writer, err := routeClient.StorePieceRequest(context.Background(), id, ttl)
+				writer, err := routeClient.Put(context.Background(), id, ttl)
 				if err != nil {
 					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
 					return err
@@ -128,7 +128,7 @@ func main() {
 					return err
 				}
 
-				reader, err := routeClient.RetrievePieceRequest(context.Background(), id, 0, pieceInfo.Size)
+				reader, err := routeClient.Get(context.Background(), id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -154,7 +154,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = routeClient.DeletePieceRequest(context.Background(), c.Args().Get(0))
+				err = routeClient.Delete(context.Background(), c.Args().Get(0))
 
 				return err
 			},
