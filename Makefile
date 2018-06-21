@@ -8,6 +8,7 @@ lint: check-copyrights
 	@gometalinter \
 	--deadline=170s \
 	--disable-all \
+	--vendor .\
 	--enable=golint \
 	--enable=goimports \
 	--enable=vet \
@@ -15,6 +16,7 @@ lint: check-copyrights
 	--enable=goconst \
 	--exclude=.*\.pb\.go \
 	--exclude=.*_test.go \
+	--exclude=./vendor/* \
 	./...
 
 check-copyrights:
