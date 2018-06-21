@@ -28,9 +28,9 @@ func (p Path) String() string {
 	return path.Join([]string(p)...)
 }
 
-// Prepend creates new Path from the current path with the given segment prepended
-func (p Path) Prepend(prefix string) Path {
-	return New(append([]string{prefix}, []string(p)...)...)
+// Prepend creates new Path from the current path with the given segments prepended
+func (p Path) Prepend(segs ...string) Path {
+	return New(append(segs, []string(p)...)...)
 }
 
 // Encrypt creates new Path by encrypting the current path with the given key

@@ -20,6 +20,7 @@ func TestNew(t *testing.T) {
 		{"a", []string{"a"}},
 		{"/a/", []string{"a"}},
 		{"a/b/c/d", []string{"a", "b", "c", "d"}},
+		{"///a//b////c/d///", []string{"a", "b", "c", "d"}},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		p := New(tt.path)
@@ -32,13 +33,16 @@ func TestNewWithSegments(t *testing.T) {
 		expected Path
 	}{
 		{[]string{""}, []string{""}},
+		{[]string{"", ""}, []string{""}},
 		{[]string{"/"}, []string{""}},
 		{[]string{"a"}, []string{"a"}},
 		{[]string{"/a/"}, []string{"a"}},
+		{[]string{"", "a", "", "b", "c", "d", ""}, []string{"a", "b", "c", "d"}},
 		{[]string{"a", "b", "c", "d"}, []string{"a", "b", "c", "d"}},
 		{[]string{"/a", "b/", "/c/", "d"}, []string{"a", "b", "c", "d"}},
 		{[]string{"a/b", "c", "d"}, []string{"a", "b", "c", "d"}},
 		{[]string{"a/b", "c/d"}, []string{"a", "b", "c", "d"}},
+		{[]string{"//a/b", "c///d//"}, []string{"a", "b", "c", "d"}},
 		{[]string{"a/b/c/d"}, []string{"a", "b", "c", "d"}},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -78,6 +82,27 @@ func TestPrepend(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		p := New(tt.path).Prepend(tt.prefix)
+		assert.Equal(t, tt.expected, p, errTag)
+	}
+}
+
+func TestPrependWithSegments(t *testing.T) {
+	for i, tt := range []struct {
+		segs     []string
+		path     string
+		expected Path
+	}{
+		{[]string{""}, "", []string{""}},
+		{[]string{"prefix"}, "", []string{"prefix"}},
+		{[]string{""}, "my/path", []string{"my", "path"}},
+		{[]string{"prefix"}, "my/path", []string{"prefix", "my", "path"}},
+		{[]string{"p1/p2/p3"}, "my/path", []string{"p1", "p2", "p3", "my", "path"}},
+		{[]string{"p1", "p2/p3"}, "my/path", []string{"p1", "p2", "p3", "my", "path"}},
+		{[]string{"p1", "p2", "p3"}, "my/path", []string{"p1", "p2", "p3", "my", "path"}},
+		{[]string{"", "p1", "", "", "p2", "p3", ""}, "my/path", []string{"p1", "p2", "p3", "my", "path"}},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		p := New(tt.path).Prepend(tt.segs...)
 		assert.Equal(t, tt.expected, p, errTag)
 	}
 }
