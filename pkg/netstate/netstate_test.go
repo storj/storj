@@ -7,12 +7,10 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -36,6 +34,9 @@ type NetStateClientTest struct {
 
 func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 	mdb := test.NewMockKeyValueStore(test.KvStore{})
+
+	viper.Reset()
+	viper.Set("key", APIKey)
 
 	// tests should always listen on "localhost:0"
 	lis, err := net.Listen("tcp", "localhost:0")
@@ -66,13 +67,6 @@ func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 func (nt *NetStateClientTest) Close() {
 	nt.server.GracefulStop()
 	nt.lis.Close()
-}
-
-func TestMain(m *testing.M) {
-	viper.SetEnvPrefix("API")
-	os.Setenv("APIKey", APIKey)
-	viper.AutomaticEnv()
-	os.Exit(m.Run())
 }
 
 func MakePointer(path []byte, auth bool) pb.PutRequest {
@@ -120,9 +114,11 @@ func (nt *NetStateClientTest) Put(pr pb.PutRequest) {
 	pre := nt.mdb.PutCalled
 	_, err := nt.c.Put(ctx, &pr)
 	if err != nil {
-		panic(err)
+		nt.AssertNoErr(err, "Failed to put")
 	}
-	assert.Equal(nt, pre+1, nt.mdb.PutCalled)
+	if pre+1 != nt.mdb.PutCalled {
+		nt.AssertNoErr(nil, "Failed to call Put correct number of times")
+	}
 }
 
 func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
@@ -132,10 +128,11 @@ func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
 		APIKey: []byte(APIKey),
 	})
 	if err != nil {
-		panic(err)
+		nt.AssertNoErr(err, "Failed to get")
 	}
-	assert.Equal(nt, pre+1, nt.mdb.GetCalled)
-
+	if pre+1 != nt.mdb.GetCalled {
+		nt.AssertNoErr(nil, "Failed to call Get correct number of times")
+	}
 	return getRes
 }
 
@@ -143,20 +140,33 @@ func (nt *NetStateClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse)
 	pre := nt.mdb.ListCalled
 	listRes, err := nt.c.List(ctx, &lr)
 	if err != nil {
-		panic(err)
+		nt.AssertNoErr(err, "Failed to list")
 	}
-	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
-
+	if pre+1 != nt.mdb.ListCalled {
+		nt.AssertNoErr(nil, "Failed to call List correct number of times")
+	}
 	return listRes
 }
 
 func (nt *NetStateClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResponse) {
 	pre := nt.mdb.DeleteCalled
 	delRes, err := nt.c.Delete(ctx, &dr)
-	assert.NoError(nt, err)
-	assert.Equal(nt, pre+1, nt.mdb.DeleteCalled)
+	if err != nil {
+		nt.AssertNoErr(err, "Failed to delete")
+	}
+	if pre+1 != nt.mdb.DeleteCalled {
+		nt.AssertNoErr(nil, "Failed to call Delete correct number of times")
+	}
 
 	return delRes
+}
+
+func (nt *NetStateClientTest) AssertNoErr(err error, msg string) {
+	nt.Error(msg)
+	if err != nil {
+		panic(err)
+	}
+	panic(msg)
 }
 
 func TestNetStatePutGet(t *testing.T) {
@@ -168,7 +178,7 @@ func TestNetStatePutGet(t *testing.T) {
 
 	gr := nt.Get("file/path/1")
 	if gr.GetPointer() != nil {
-		t.Error("expected no pointer")
+		nt.AssertNoErr(nil, "Expected no pointer")
 	}
 
 	pr := MakePointer([]byte("file/path/1"), true)
@@ -176,21 +186,21 @@ func TestNetStatePutGet(t *testing.T) {
 
 	gr = nt.Get("file/path/1")
 	if gr == nil {
-		t.Error("failed to get the put pointer")
+		nt.AssertNoErr(nil, "Failed to get the put pointer")
 	}
 
 	pointerBytes, err := proto.Marshal(pr.Pointer)
 	if err != nil {
-		t.Error("Failed to marshal test pointer")
+		nt.AssertNoErr(err, "Failed to marshal test pointer")
 	}
 	if !bytes.Equal(gr.Pointer, pointerBytes) {
-		t.Error("Expected to get same content that was put")
+		nt.AssertNoErr(nil, "Expected to get same content that was put")
 	}
 	if nt.mdb.GetCalled != preGet+2 {
-		t.Error("Failed to call get correct number of times")
+		nt.AssertNoErr(nil, "Failed to call get correct number of times")
 	}
 	if nt.mdb.PutCalled != prePut+1 {
-		t.Error("Failed to call put correct number of times")
+		nt.AssertNoErr(nil, "Failed to call put correct number of times")
 	}
 }
 
@@ -204,8 +214,7 @@ func TestGetAuth(t *testing.T) {
 	}
 	_, err := nt.c.Get(ctx, &getReq)
 	if err == nil {
-		t.Error("Failed to error for wrong auth key")
-		panic(err)
+		nt.AssertNoErr(nil, "Failed to error for wrong auth key")
 	}
 }
 
@@ -216,8 +225,7 @@ func TestPutAuth(t *testing.T) {
 	pr := MakePointer([]byte("file/path"), false)
 	_, err := nt.c.Put(ctx, &pr)
 	if err == nil {
-		t.Error("Failed to error for wrong auth key")
-		panic(err)
+		nt.AssertNoErr(nil, "Failed to error for wrong auth key")
 	}
 }
 
@@ -230,8 +238,7 @@ func TestDelete(t *testing.T) {
 	reqs := MakePointers(1)
 	_, err := nt.c.Put(ctx, &reqs[0])
 	if err != nil {
-		t.Error("Failed to put")
-		panic(err)
+		nt.AssertNoErr(err, "Failed to put")
 	}
 
 	delReq := pb.DeleteRequest{
@@ -240,11 +247,11 @@ func TestDelete(t *testing.T) {
 	}
 	_, err = nt.c.Delete(ctx, &delReq)
 	if err != nil {
-		t.Error("Failed to delete")
-		panic(err)
+		nt.AssertNoErr(err, "Failed to delete")
 	}
-
-	assert.Equal(nt, pre+1, nt.mdb.DeleteCalled)
+	if pre+1 != nt.mdb.DeleteCalled {
+		nt.AssertNoErr(nil, "Failed to call Delete correct number of times")
+	}
 }
 
 func TestDeleteAuth(t *testing.T) {
@@ -254,18 +261,16 @@ func TestDeleteAuth(t *testing.T) {
 	reqs := MakePointers(1)
 	_, err := nt.c.Put(ctx, &reqs[0])
 	if err != nil {
-		t.Error("Failed to put")
-		panic(err)
+		nt.AssertNoErr(err, "Failed to put")
 	}
 
 	delReq := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
-		APIKey: []byte("wrong key"),
+		APIKey: []byte("abc123"),
 	}
 	_, err = nt.c.Delete(ctx, &delReq)
 	if err == nil {
-		t.Error("Failed to error with wrong auth key")
-		panic(err)
+		nt.AssertNoErr(nil, "Failed to error with wrong auth key")
 	}
 }
 
@@ -276,7 +281,9 @@ func TestDeleteAuth(t *testing.T) {
 // 	reqs := MakePointers(4)
 // 	for _, req := range reqs {
 // 		_, err := nt.c.Put(ctx, &req)
-// 		assert.NoError(nt, err)
+// 		if err != nil {
+// 			nt.AssertNoErr(err, "Failed to put")
+// 		}
 // 	}
 
 // 	pre := nt.mdb.ListCalled
@@ -288,15 +295,17 @@ func TestDeleteAuth(t *testing.T) {
 // 	}
 // 	listRes, err := nt.c.List(ctx, &listReq)
 // 	if err != nil {
-// 		t.Error("Failed to list file paths")
+// 		nt.AssertNoErr(err, "Failed to list file paths")
 // 	}
 // 	if listRes.Truncated {
-// 		t.Error("Expected list slice to not be truncated")
+// 		nt.AssertNoErr(nil, "Expected list slice to not be truncated")
 // 	}
 // 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
-// 		t.Error("Failed to list correct file path")
+// 		nt.AssertNoErr(nil, "Failed to list correct file paths")
 // 	}
-// 	assert.Equal(nt, pre+1, nt.mdb.ListCalled)
+// 	if pre+1 != nt.mdb.ListCalled {
+// 		nt.AssertNoErr(nil, "Failed to call List correct number of times")
+// 	}
 // }
 
 // func TestListTruncated(t *testing.T) {
