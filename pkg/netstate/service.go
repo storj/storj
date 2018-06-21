@@ -23,9 +23,8 @@ var (
 	dbPath = flag.String("netstateDB", "netstate.db", "netstate db path")
 )
 
+// Process fits the `Process` interface for services
 func (s *Service) Process(ctx context.Context) error {
-	fmt.Printf("starting netstate process %+v\n", s)
-
 	if err := setEnv(); err != nil {
 		s.logger.Error("error configuring environment for netstate server")
 		return err
@@ -53,11 +52,13 @@ func (s *Service) Process(ctx context.Context) error {
 	return grpcServer.Serve(lis)
 }
 
+// Service struct for process
 type Service struct {
 	logger  *zap.Logger
 	metrics *monkit.Registry
 }
 
+// SetLogger for process
 func (s *Service) SetLogger(l *zap.Logger) error {
 	s.logger = l
 	return nil
@@ -69,14 +70,11 @@ func setEnv() error {
 	return nil
 }
 
+// SetMetricHandler for  process
 func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
 }
 
+// InstanceID assigns a new instance ID to the process
 func (s *Service) InstanceID() string { return "" }
-
-// func main() {
-// 	setEnv()
-// 	process.Must(process.Main(&serv{}))
-// }

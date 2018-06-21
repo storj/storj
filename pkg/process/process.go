@@ -6,20 +6,20 @@ package process
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
+	"sync"
 
 	"github.com/spacemonkeygo/flagfile"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
 	"storj.io/storj/pkg/utils"
 )
 
-var g errgroup.Group
+// var g errgroup.Group
+var wg sync.WaitGroup
 
 var (
 	logDisposition = flag.String("log.disp", "prod",
@@ -52,35 +52,27 @@ const (
 
 // Main initializes a new Service
 func Main(s ...Service) (err error) {
-	fmt.Printf("services: %+v\n", s)
+	flagfile.Load()
 	for _, service := range s {
-		fmt.Printf("starting service %+v\n", service)
-		g.Go(func() error {
-			err := StartService(service)
-			if err != nil {
-				fmt.Printf("error starting service %s", err)
-			}
-			return err
-		})
+		wg.Add(1)
+		go func(srv Service) {
+			StartService(srv)
+		}(service)
 	}
 
-	return g.Wait()
+	wg.Wait()
+	return nil
 }
 
 // StartService will start the specified service up, load its flags,
 // and set environment configs for that service
 func StartService(s Service) (err error) {
-	flagfile.Load()
-
 	ctx := context.Background()
 
 	instanceID := s.InstanceID()
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
 	}
-
-	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceID))
-	defer cf()
 
 	registry := monkit.Default
 	scope := registry.ScopeNamed("process")
