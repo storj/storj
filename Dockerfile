@@ -1,7 +1,11 @@
+# env
+ARG VERSION
 # build
-FROM golang:alpine AS build-env
-ADD . /go/src/storj.io/storj
-RUN cd /go/src/storj.io/storj/cmd/overlay && go build -o overlay
+FROM golang:${VERSION} AS build-env
+COPY . /go/src/storj.io/storj
+RUN go get -u -v golang.org/x/vgo
+RUN cd /go/src/storj.io/storj && vgo install ./...
+RUN cd /go/src/storj.io/storj/cmd/overlay && vgo build -o overlay
 
 
 # final stage
