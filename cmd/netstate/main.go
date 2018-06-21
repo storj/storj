@@ -64,7 +64,7 @@ func setEnv() error {
 	viper.SetEnvPrefix("api")
 	viper.BindEnv("key")
 	os.Setenv("API_KEY", "abc123")
-    fmt.Println("oserver key is: ", viper.GetString("api"))
+    fmt.Println("oserver key is: ", viper.GetString("key"))
 	viper.AutomaticEnv()
 	return nil
 }
