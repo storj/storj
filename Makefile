@@ -73,8 +73,8 @@ clean-local:
 	docker network rm test-net || true
 
 images:
-	docker build --build-arg VERSION=${GO_VERSION} -t overlay:${TAG}-${GO_VERSION} .
-	docker tag overlay:${TAG}-${GO_VERSION} overlay:latest
+	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} .
+	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} overlay:latest
 
 push-images:
 	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
