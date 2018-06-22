@@ -1,7 +1,4 @@
-# env
-ARG VERSION
-# build
-FROM golang:${VERSION} AS build-env
+FROM golang:1.10 AS build-env
 COPY . /go/src/storj.io/storj
 RUN go get -u golang.org/x/vgo
 RUN cd /go/src/storj.io/storj && vgo install ./...
