@@ -1,19 +1,9 @@
-# make use of vm's 
-sudo: 'required'
-
-# have the docker service set up (we'll
-# update it later)
-services:
-  - 'docker'
-
 language: go
 
 go:
   - 1.10.x
 
 before_install:
-  - './.travis/main.sh'
-  - echo -e "machine api.github.com login coyle password $GITHUB_TOKEN" >> ~/.netrc
   - source scripts/travis-deps.sh
 
 install:
@@ -21,10 +11,3 @@ install:
 
 script:
   - make test
-  - make images
-
-after_success:
-  - if [[ "$TRAVIS_BRANCH" == "master" ]]; then
-      echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ;
-      make push-images ;
-    fi
