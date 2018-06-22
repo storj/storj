@@ -24,7 +24,5 @@ script:
   - make images
 
 after_success:
-  - echo "$DOCKER_USERNAME"
-  - echo $DOCKER_USERNAME
-  - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+  - docker login -u dennismcoyle -p "$DOCKER_PASSWORD"
   - make push-images
