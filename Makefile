@@ -56,10 +56,11 @@ run-overlay:
 	docker run -d \
 		--name=overlay \
 		--network test-net \
+		-p 127.0.0.1:8080:8080 \
 		-e REDIS_ADDRESS=redis:6379 \
 		-e REDIS_PASSWORD="" \
 		-e REDIS_DB=1 \
-		-e OVERLAY_PORT=8080 \
+		-e OVERLAY_PORT=7070 \
 		overlay
 
 clean-local:

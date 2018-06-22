@@ -60,7 +60,7 @@
   branch = "master"
   name = "github.com/coyle/kademlia"
   packages = ["."]
-  revision = "23c5c505df986913b68fd7fa16af645c64de8557"
+  revision = "de4313d761cdd87b7f363586530e2b6c79460a72"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"

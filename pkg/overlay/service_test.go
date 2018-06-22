@@ -6,9 +6,7 @@ package overlay
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,12 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/process"
-	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	// naming proto to avoid confusion with this package
 )
 
 func newTestService(t *testing.T) Service {
@@ -30,37 +27,6 @@ func newTestService(t *testing.T) Service {
 		logger:  zap.NewNop(),
 		metrics: monkit.Default,
 	}
-}
-
-func TestNewServer(t *testing.T) {
-	t.SkipNow()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-
-	srv := NewServer(nil, nil, nil, nil)
-	assert.NotNil(t, srv)
-
-	go srv.Serve(lis)
-	srv.Stop()
-}
-
-func TestNewClient(t *testing.T) {
-	// a := "35.232.202.229:8080"
-	// c, err := NewClient(&a, grpc.WithInsecure())
-	t.SkipNow()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-	srv := NewServer(nil, nil, nil, nil)
-	go srv.Serve(lis)
-	defer srv.Stop()
-
-	address := lis.Addr().String()
-	c, err := NewClient(&address, grpc.WithInsecure())
-	assert.NoError(t, err)
-
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
 }
 
 func TestProcess_redis(t *testing.T) {

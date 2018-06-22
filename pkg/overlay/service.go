@@ -41,7 +41,7 @@ func init() {
 func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Server{
-		kad:     k,
+		dht:     k,
 		cache:   cache,
 		logger:  l,
 		metrics: m,
@@ -76,9 +76,17 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+	in, err := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
+	if err != nil {
+		return err
+	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
+	id, err := kademlia.NewID()
+	if err != nil {
+		return err
+	}
+
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
