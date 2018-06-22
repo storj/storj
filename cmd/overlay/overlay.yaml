@@ -13,6 +13,7 @@ spec:
     port: 8081
     targetPort: 8081
   - name: kademlia
+    protocol: UDP
     port: 8080
     target: 8080
   selector:
