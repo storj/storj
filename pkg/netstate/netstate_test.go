@@ -19,8 +19,7 @@ import (
 )
 
 var (
-	APIKey = "abc123"
-	ctx    = context.Background()
+	ctx = context.Background()
 )
 
 type NetStateClientTest struct {
@@ -36,7 +35,7 @@ func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 	mdb := test.NewMockKeyValueStore(test.KvStore{})
 
 	viper.Reset()
-	viper.Set("key", APIKey)
+	viper.Set("key", "abc123")
 
 	// tests should always listen on "localhost:0"
 	lis, err := net.Listen("tcp", "localhost:0")
@@ -70,6 +69,7 @@ func (nt *NetStateClientTest) Close() {
 }
 
 func MakePointer(path []byte, auth bool) pb.PutRequest {
+	var APIKey = "abc123"
 	if !auth {
 		APIKey = "wrong key"
 	}
@@ -104,8 +104,9 @@ func MakePointer(path []byte, auth bool) pb.PutRequest {
 
 func MakePointers(howMany int) []pb.PutRequest {
 	var pointers []pb.PutRequest
-	for i := 1; i == howMany; i++ {
-		pointers = append(pointers, MakePointer([]byte("file/path/"+string(i)), true))
+	for i := 1; i <= howMany; i++ {
+		newPointer := MakePointer([]byte("file/path/"+string(i)), true)
+		pointers = append(pointers, newPointer)
 	}
 	return pointers
 }
@@ -125,7 +126,7 @@ func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
 	pre := nt.mdb.GetCalled
 	getRes, err := nt.c.Get(ctx, &pb.GetRequest{
 		Path:   []byte(path),
-		APIKey: []byte(APIKey),
+		APIKey: []byte("abc123"),
 	})
 	if err != nil {
 		nt.AssertNoErr(err, "Failed to get")
@@ -243,7 +244,7 @@ func TestDelete(t *testing.T) {
 
 	delReq := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
-		APIKey: []byte(APIKey),
+		APIKey: []byte("abc123"),
 	}
 	_, err = nt.c.Delete(ctx, &delReq)
 	if err != nil {
@@ -266,7 +267,7 @@ func TestDeleteAuth(t *testing.T) {
 
 	delReq := pb.DeleteRequest{
 		Path:   []byte("file/path/1"),
-		APIKey: []byte("abc123"),
+		APIKey: []byte("wrong key"),
 	}
 	_, err = nt.c.Delete(ctx, &delReq)
 	if err == nil {
@@ -274,39 +275,33 @@ func TestDeleteAuth(t *testing.T) {
 	}
 }
 
-// func TestList(t *testing.T) {
-// 	nt := NewNetStateClientTest(t)
-// 	defer nt.Close()
+func TestList(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
 
-// 	reqs := MakePointers(4)
-// 	for _, req := range reqs {
-// 		_, err := nt.c.Put(ctx, &req)
-// 		if err != nil {
-// 			nt.AssertNoErr(err, "Failed to put")
-// 		}
-// 	}
+	reqs := MakePointers(4)
+	for _, req := range reqs {
+		nt.Put(req)
+	}
 
-// 	pre := nt.mdb.ListCalled
+	pre := nt.mdb.ListCalled
 
-// 	listReq := pb.ListRequest{
-// 		StartingPathKey: []byte("file/path/2"),
-// 		Limit:           5,
-// 		APIKey:          []byte(APIKey),
-// 	}
-// 	listRes, err := nt.c.List(ctx, &listReq)
-// 	if err != nil {
-// 		nt.AssertNoErr(err, "Failed to list file paths")
-// 	}
-// 	if listRes.Truncated {
-// 		nt.AssertNoErr(nil, "Expected list slice to not be truncated")
-// 	}
-// 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
-// 		nt.AssertNoErr(nil, "Failed to list correct file paths")
-// 	}
-// 	if pre+1 != nt.mdb.ListCalled {
-// 		nt.AssertNoErr(nil, "Failed to call List correct number of times")
-// 	}
-// }
+	listReq := pb.ListRequest{
+		StartingPathKey: []byte("file/path/2"),
+		Limit:           5,
+		APIKey:          []byte("abc123"),
+	}
+	listRes := nt.List(listReq)
+	if listRes.Truncated {
+		nt.AssertNoErr(nil, "Expected list slice to not be truncated")
+	}
+	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
+		nt.AssertNoErr(nil, "Failed to list correct file paths")
+	}
+	if pre+1 != nt.mdb.ListCalled {
+		nt.AssertNoErr(nil, "Failed to call List correct number of times")
+	}
+}
 
 // func TestListTruncated(t *testing.T) {
 // 	nt := NewNetStateClientTest(t)
@@ -315,20 +310,22 @@ func TestDeleteAuth(t *testing.T) {
 // 	reqs := MakePointers(3)
 // 	for _, req := range reqs {
 // 		_, err := nt.c.Put(ctx, &req)
-// 		assert.NoError(nt, err)
+// 		if err != nil {
+// 			nt.AssertNoErr(err, "Failed to put")
+// 		}
 // 	}
 
 // 	listReq := pb.ListRequest{
 // 		StartingPathKey: []byte("file/path/1"),
 // 		Limit:           1,
-// 		APIKey:          []byte(APIKey),
+// 		APIKey:          []byte("abc123"),
 // 	}
 // 	listRes, err := nt.c.List(ctx, &listReq)
 // 	if err != nil {
-// 		t.Error("Failed to list file paths")
+// 		nt.AssertNoErr(err, "Failed to list file paths")
 // 	}
 // 	if !listRes.Truncated {
-// 		t.Error("Expected list slice to be truncated")
+// 		nt.AssertNoErr(nil, "Expected list slice to be truncated")
 // 	}
 // }
 
