@@ -74,9 +74,13 @@ clean-local:
 	docker network rm test-net || true
 
 images:
-	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} .
+	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} -f cmd/overlay/Dockerfile .
 	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} overlay:latest
 
 push-images:
 	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
 	docker push storjlabs/overlay:latest
+
+install-deps:
+	go get -u -v golang.org/x/vgo
+	cd vgo install ./...
