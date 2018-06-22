@@ -39,7 +39,7 @@ func TestByteRanger(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error")
 			}
-			return
+			continue
 		}
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
