@@ -24,5 +24,7 @@ script:
   - make images
 
 after_success:
-  - docker login -u dennismcoyle -p "$DOCKER_PASSWORD"
-  - make push-images
+  - if [[ "$TRAVIS_BRANCH" == "staging" ]]; then
+      echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ;
+      make push-images ;
+    fi
