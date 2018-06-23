@@ -5,7 +5,7 @@ package client
 
 import (
 	"context"
-	//"fmt"
+//	"fmt"
 
 	"google.golang.org/grpc"
 	"github.com/golang/protobuf/proto"
@@ -13,7 +13,7 @@ import (
 	//"google.golang.org/grpc/codes"
 	//"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/netstate"
+	//"storj.io/storj/pkg/netstate"
 	pb "storj.io/storj/protos/netstate"
 )
 
@@ -25,8 +25,8 @@ type NSClient interface {
 	Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error)
 	Delete(ctx context.Context, path []byte, APIKey []byte) error
-	List(ctx context.Context, startingPath, endingPath netstate.Path, APIKey []byte) (
-		path netstate.Path, truncated bool, err error)
+	List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
+		paths []byte, truncated bool, err error)
 }
 
 func NewNetstateClient(address string) (*NetState, error) {
@@ -55,7 +55,6 @@ func (ns *NetState) Put(ctx context.Context, path []byte, pointer *pb.Pointer, A
 	return nil
 }
 
-
 func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error) {
 	res, err := ns.grpcClient.Get(ctx, &pb.GetRequest{Path: path, APIKey: APIKey})
 	if err != nil {
@@ -70,5 +69,14 @@ func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Po
 	return pointer, nil
 }
 
-// func (ns *NetStateClient ) List()
-// func (ns *NetStateClient ) Delete()
+func (ns *NetState) List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
+	paths [][]byte, truncated bool, err error) {
+	res, err := ns.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey, Limit: limit, APIKey: APIKey})
+
+	if err != nil {
+		return nil, false, err
+	 } 
+	return res.Paths, true, nil
+}
+
+//func (ns *NetStateClient ) Delete()
