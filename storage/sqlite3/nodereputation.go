@@ -29,54 +29,31 @@ var UpdateError = errs.Class("reputation update error")
 // createTable creates a table in sqlite3 based on the create table string parameter
 func createTable(db *sql.DB) error {
 
-	createTableStmt := `CREATE table node_reputation (
+	pre := func(s string) string {
+		return fmt.Sprintf(`SELECT
+			%s_good_recall REAL,
+			%s_bad_recall REAL,
+			%s_weight_counter REAL,
+			%s_weight_denominator REAL,
+			%s_cumulative_mean_reputation REAL,
+			%s_current_reputation REAL`, s, s, s, s, s, s)
+	}
+
+	timefmt := "%Y-%m-%d %H:%M:%f"
+
+	createTableStmt := fmt.Sprintf(`CREATE table node_reputation (
 		node_name TEXT NOT NULL,
-		last_seen timestamp DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
-
-		uptime_good_recall REAL,
-		uptime_bad_recall REAL,
-		uptime_weight_counter REAL,
-		uptime_weight_denominator REAL,
-		uptime_cumulative_mean_reputation REAL,
-	    uptime_current_reputation REAL,
-
-		audit_good_recall REAL,
-		audit_bad_recall REAL,
-		audit_weight_counter REAL,
-		audit_weight_denominator REAL,
-		audit_cumulative_mean_reputation REAL,
-	    audit_current_reputation REAL,
-
-		latency_good_recall REAL,
-		latency_bad_recall REAL,
-		latency_weight_counter REAL,
-		latency_weight_denominator REAL,
-		latency_cumulative_mean_reputation REAL,
-	    latency_current_reputation REAL,
-
-		amount_of_data_stored_good_recall REAL,
-		amount_of_data_stored_bad_recall REAL,
-		amount_of_data_stored_weight_counter REAL,
-		amount_of_data_stored_weight_denominator REAL,
-		amount_of_data_stored_cumulative_mean_reputation REAL,
-	    amount_of_data_stored_current_reputation REAL,
-
-		false_claims_good_recall REAL,
-		false_claims_bad_recall REAL,
-		false_claims_weight_counter REAL,
-		false_claims_weight_denominator REAL,
-		false_claims_cumulative_mean_reputation REAL,
-	    false_claims_current_reputation REAL,
-
-		shards_modified_good_recall REAL,
-		shards_modified_bad_recall REAL,
-		shards_modified_weight_counter REAL,
-		shards_modified_weight_denominator REAL,
-		shards_modified_cumulative_mean_reputation REAL,
-	    shards_modified_current_reputation REAL,
-
-	PRIMARY KEY(node_name, last_seen)
-	);`
+		last_seen timestamp DEFAULT(STRFTIME('%s', 'NOW')) NOT NULL,
+		%s, %s, %s, %s, %s, %s,
+		PRIMARY KEY(node_name, last_seen));`,
+		timefmt,
+		pre("uptime"),
+		pre("audit"),
+		pre("latency"),
+		pre("amount_of_data_stored"),
+		pre("false_claims"),
+		pre("shards_modified"),
+	)
 
 	_, err := db.Exec(createTableStmt)
 	if err != nil {
@@ -201,12 +178,12 @@ func selectFeaturesToNodeRecord(rows *sql.Rows) (nodeRecord, error) {
 
 func updateFeatureRepStmt(feature proto.Feature) string {
 	res := `UPDATE node_reputation
-	SET last_seen = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')`
+	SET last_seen = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'),`
 
 	pre := func(f string) string {
-		return fmt.Sprintf(`, %s_weight_counter = ?
-			, %s_cumulative_mean_reputation = ?
-			, %s_current_reputation = ?
+		return fmt.Sprintf(`%s_weight_counter = ?,
+			%s_cumulative_mean_reputation = ?,
+			%s_current_reputation = ?
 			WHERE node_name = '?';`, f, f, f)
 	}
 
