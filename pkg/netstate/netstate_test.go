@@ -111,23 +111,21 @@ func MakePointers(howMany int) []pb.PutRequest {
 	return pointers
 }
 
-func (nt *NetStateClientTest) Put(pr pb.PutRequest) {
+func (nt *NetStateClientTest) Put(pr pb.PutRequest) *pb.PutResponse {
 	pre := nt.mdb.PutCalled
-	_, err := nt.c.Put(ctx, &pr)
+	putRes, err := nt.c.Put(ctx, &pr)
 	if err != nil {
 		nt.AssertNoErr(err, "Failed to put")
 	}
 	if pre+1 != nt.mdb.PutCalled {
 		nt.AssertNoErr(nil, "Failed to call Put correct number of times")
 	}
+	return putRes
 }
 
-func (nt *NetStateClientTest) Get(path string) (getRes *pb.GetResponse) {
+func (nt *NetStateClientTest) Get(gr pb.GetRequest) *pb.GetResponse {
 	pre := nt.mdb.GetCalled
-	getRes, err := nt.c.Get(ctx, &pb.GetRequest{
-		Path:   []byte(path),
-		APIKey: []byte("abc123"),
-	})
+	getRes, err := nt.c.Get(ctx, &gr)
 	if err != nil {
 		nt.AssertNoErr(err, "Failed to get")
 	}
@@ -177,15 +175,21 @@ func TestNetStatePutGet(t *testing.T) {
 	preGet := nt.mdb.GetCalled
 	prePut := nt.mdb.PutCalled
 
-	gr := nt.Get("file/path/1")
-	if gr.GetPointer() != nil {
+	gr := nt.Get(pb.GetRequest{
+		Path:   []byte("file/path/1"),
+		APIKey: []byte("abc123"),
+	})
+	if gr.Pointer != nil {
 		nt.AssertNoErr(nil, "Expected no pointer")
 	}
 
 	pr := MakePointer([]byte("file/path/1"), true)
 	nt.Put(pr)
 
-	gr = nt.Get("file/path/1")
+	gr = nt.Get(pb.GetRequest{
+		Path:   []byte("file/path/1"),
+		APIKey: []byte("abc123"),
+	})
 	if gr == nil {
 		nt.AssertNoErr(nil, "Failed to get the put pointer")
 	}
