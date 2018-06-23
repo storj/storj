@@ -100,17 +100,10 @@ func main() {
 	}
 
 
+	// Example Delete
+	err = nsclient.Delete(ctx, path, APIKey)
 
-
-
-	// // Example Delete
-	// // delete passes api creds
-	// delReq := proto.DeleteRequest{
-	// 	Path:   []byte("welcome/to/my/pointer/journey"),
-	// 	APIKey: []byte("abc123"),
-	// }
-	// _, err = client.Delete(ctx, &delReq)
-	// if err != nil || status.Code(err) == codes.Internal {
-	// 	logger.Error("failed to delete: " + string(delReq.Path))
-	// }
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("File is deleted from db")
+	}
 }
