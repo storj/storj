@@ -34,6 +34,7 @@ func main() {
 	defer logger.Sync()
 
 	nsclient, err := client.NewNetstateClient(port)
+	
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
@@ -58,10 +59,11 @@ func main() {
 
 	// Example Put
 	err = nsclient.Put(ctx, path, pointer, APIKey)
+	
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("couldn't PUT pointer in db", zap.Error(err))
+		logger.Error("couldn't put pointer in db", zap.Error(err))
 	} else {
-		logger.Debug("Successfully PUT pointer in db")
+		logger.Debug("Success: put pointer in db")
 	}
 	
 	// Example Get
@@ -74,7 +76,7 @@ func main() {
 		// WIP; i need to convert a custom type to string, 
 		// will work on this later
 		fmt.Println(getRes)	
-		logger.Info("Got Pointer from db",
+		logger.Info("Success: got Pointer from db",
 			zap.String("pointer", p),
 		)
 	}
@@ -95,15 +97,17 @@ func main() {
 		for _, pathByte := range paths {
 			stringList = append(stringList, string(pathByte))
 		}
-		logger.Debug("listed paths: " + strings.Join(stringList, ", "))
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", "))
 		fmt.Println(trunc)
 	}
 
 
 	// Example Delete
-	err = nsclient.Delete(ctx, path, APIKey)
-
+	_, err = nsclient.Delete(ctx, path, APIKey)
+	
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("File is deleted from db")
+		logger.Error("Error in deleteing file from db")
+	} else {
+		logger.Debug("Success: file is deleted from db")
 	}
 }
