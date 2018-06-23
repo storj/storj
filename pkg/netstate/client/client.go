@@ -84,15 +84,6 @@ func (ns *NetState) List(ctx context.Context, startingPathKey []byte, limit int6
 	return res.Paths, true, nil
 }
 
-// func (ns *NetState) Delete(ctx context.Context, path []byte, APIKey []byte) error {
-// 	_, err := ns.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path, APIKey: APIKey})
-
-// 	if err != nil {
-// 		return err
-// 	 } 
-// 	 return nil
-// }
-
 func (ns *NetState) Delete(ctx context.Context, path []byte, APIKey []byte) error {
 	err := ns.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path, APIKey: APIKey})
 	
