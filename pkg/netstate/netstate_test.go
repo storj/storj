@@ -6,6 +6,7 @@ package netstate
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -105,7 +106,7 @@ func MakePointer(path []byte, auth bool) pb.PutRequest {
 func MakePointers(howMany int) []pb.PutRequest {
 	var pointers []pb.PutRequest
 	for i := 1; i <= howMany; i++ {
-		newPointer := MakePointer([]byte("file/path/"+string(i)), true)
+		newPointer := MakePointer([]byte("file/path/"+fmt.Sprintf("%d", i)), true)
 		pointers = append(pointers, newPointer)
 	}
 	return pointers
@@ -288,7 +289,13 @@ func TestList(t *testing.T) {
 		nt.Put(req)
 	}
 
-	pre := nt.mdb.ListCalled
+	getReq := pb.GetRequest{
+		Path:   []byte("file/path/2"),
+		APIKey: []byte("abc123"),
+	}
+
+	getRes := nt.Get(getReq)
+	fmt.Printf("get response: %#v", getRes)
 
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/2"),
@@ -302,76 +309,73 @@ func TestList(t *testing.T) {
 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
 		nt.AssertNoErr(nil, "Failed to list correct file paths")
 	}
-	if pre+1 != nt.mdb.ListCalled {
-		nt.AssertNoErr(nil, "Failed to call List correct number of times")
+}
+
+func TestListTruncated(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	reqs := MakePointers(3)
+	for _, req := range reqs {
+		_, err := nt.c.Put(ctx, &req)
+		if err != nil {
+			nt.AssertNoErr(err, "Failed to put")
+		}
+	}
+
+	listReq := pb.ListRequest{
+		StartingPathKey: []byte("file/path/1"),
+		Limit:           1,
+		APIKey:          []byte("abc123"),
+	}
+	listRes, err := nt.c.List(ctx, &listReq)
+	if err != nil {
+		nt.AssertNoErr(err, "Failed to list file paths")
+	}
+	if !listRes.Truncated {
+		nt.AssertNoErr(nil, "Expected list slice to be truncated")
 	}
 }
 
-// func TestListTruncated(t *testing.T) {
-// 	nt := NewNetStateClientTest(t)
-// 	defer nt.Close()
+func TestListWithoutStartingKey(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
 
-// 	reqs := MakePointers(3)
-// 	for _, req := range reqs {
-// 		_, err := nt.c.Put(ctx, &req)
-// 		if err != nil {
-// 			nt.AssertNoErr(err, "Failed to put")
-// 		}
-// 	}
+	listReq := pb.ListRequest{
+		Limit:  4,
+		APIKey: []byte("abc123"),
+	}
+	_, err := nt.c.List(ctx, &listReq)
+	if err == nil {
+		t.Error("Failed to error when not given starting key")
+	}
+}
 
-// 	listReq := pb.ListRequest{
-// 		StartingPathKey: []byte("file/path/1"),
-// 		Limit:           1,
-// 		APIKey:          []byte("abc123"),
-// 	}
-// 	listRes, err := nt.c.List(ctx, &listReq)
-// 	if err != nil {
-// 		nt.AssertNoErr(err, "Failed to list file paths")
-// 	}
-// 	if !listRes.Truncated {
-// 		nt.AssertNoErr(nil, "Expected list slice to be truncated")
-// 	}
-// }
+func TestListWithoutLimit(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
 
-// func TestListWithoutStartingKey(t *testing.T) {
-// 	nt := NewNetStateClientTest(t)
-// 	defer nt.Close()
+	listReq := pb.ListRequest{
+		StartingPathKey: []byte("file/path/3"),
+		APIKey:          []byte("abc123"),
+	}
+	_, err := nt.c.List(ctx, &listReq)
+	if err == nil {
+		t.Error("Failed to error when not given limit")
+	}
+}
 
-// 	listReq := pb.ListRequest{
-// 		Limit:  4,
-// 		APIKey: []byte(APIKey),
-// 	}
-// 	_, err := nt.c.List(ctx, &listReq)
-// 	if err == nil {
-// 		t.Error("Failed to error when not given starting key")
-// 	}
-// }
+func TestListAuth(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
 
-// func TestListWithoutLimit(t *testing.T) {
-// 	nt := NewNetStateClientTest(t)
-// 	defer nt.Close()
-
-// 	listReq := pb.ListRequest{
-// 		StartingPathKey: []byte("file/path/3"),
-// 		APIKey:          []byte(APIKey),
-// 	}
-// 	_, err := nt.c.List(ctx, &listReq)
-// 	if err == nil {
-// 		t.Error("Failed to error when not given limit")
-// 	}
-// }
-
-// func TestListAuth(t *testing.T) {
-// 	nt := NewNetStateClientTest(t)
-// 	defer nt.Close()
-
-// 	listReq := pb.ListRequest{
-// 		StartingPathKey: []byte("file/path/3"),
-// 		Limit:           1,
-// 		APIKey:          []byte("wrong key"),
-// 	}
-// 	_, err := nt.c.List(ctx, &listReq)
-// 	if err == nil {
-// 		t.Error("Failed to error when given wrong auth key")
-// 	}
-// }
+	listReq := pb.ListRequest{
+		StartingPathKey: []byte("file/path/3"),
+		Limit:           1,
+		APIKey:          []byte("wrong key"),
+	}
+	_, err := nt.c.List(ctx, &listReq)
+	if err == nil {
+		t.Error("Failed to error when given wrong auth key")
+	}
+}
