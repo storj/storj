@@ -7,7 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	//"strings"
+	"strings"
 
 	"go.uber.org/zap"
 	//"google.golang.org/grpc"
@@ -44,7 +44,7 @@ func main() {
 	// Example pointer paths to put
 	// the client library creates a put req. object of these items
 	// and sends to server
-	path:= []byte("another/pointer/for/the/pile")
+	path:= []byte("another/pointer/for/the/pile, another/two")
 	pointer:= &proto.Pointer{
 		Type: proto.Pointer_INLINE,
 		Encryption: &proto.EncryptionScheme{
@@ -65,14 +65,15 @@ func main() {
 	}
 	
 	// Example Get
-	res, err := nsclient.Get(ctx, path, APIKey)
+	getRes, err := nsclient.Get(ctx, path, APIKey)
 	p := "success"
+
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
 	} else {	
 		// WIP; i need to convert a custom type to string, 
 		// will work on this later
-		fmt.Println(res)	
+		fmt.Println(getRes)	
 		logger.Info("Got Pointer from db",
 			zap.String("pointer", p),
 		)
@@ -80,29 +81,27 @@ func main() {
 
 	// Example List
 
-	// listReq := proto.ListRequest{
-	// 	// This pagination functionality doesn't work yet.
-	// 	// The given arguments are placeholders.
-	// 	StartingPathKey: []byte("test/pointer/path"),
-	// 	Limit:           5,
-	// 	APIKey:          []byte("abc123"),
-	// }
+	// This pagination functionality doesn't work yet.
+	// The given arguments are placeholders.
+	startingPathKey:= []byte("test/pointer/path")
+	var limit int64 = 5
+	
+	paths, trunc, err := nsclient.List(ctx, startingPathKey, limit, APIKey)
+
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("failed to list file paths")
+	} else {
+		var stringList []string
+		for _, pathByte := range paths {
+			stringList = append(stringList, string(pathByte))
+		}
+		logger.Debug("listed paths: " + strings.Join(stringList, ", "))
+		fmt.Println(trunc)
+	}
 
 
 
 
-
-
-	// listRes, err := client.List(ctx, &listReq)
-	// if err != nil || status.Code(err) == codes.Internal {
-	// 	logger.Error("failed to list file paths")
-	// } else {
-	// 	var stringList []string
-	// 	for _, pathByte := range listRes.Paths {
-	// 		stringList = append(stringList, string(pathByte))
-	// 	}
-	// 	logger.Debug("listed paths: " + strings.Join(stringList, ", "))
-	// }
 
 	// // Example Delete
 	// // delete passes api creds
