@@ -13,30 +13,30 @@ import (
 )
 
 func TestStore(t *testing.T) {
-  tests := []struct{
-		it string
-		id string
-		content []byte
+	tests := []struct {
+		it              string
+		id              string
+		content         []byte
 		expectedContent []byte
-    err string
-  } {
-	    {
-				it: "should successfully store data",
-				id: "0123456789ABCDEFGHIJ",
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-	      err: "",
-	    },
-			{
-				it: "should return an error when given an invalid id",
-				id: "012",
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-				err: "argError: Invalid id length",
-			},
-	 }
+		err             string
+	}{
+		{
+			it:              "should successfully store data",
+			id:              "0123456789ABCDEFGHIJ",
+			content:         []byte("butts"),
+			expectedContent: []byte("butts"),
+			err:             "",
+		},
+		{
+			it:              "should return an error when given an invalid id",
+			id:              "012",
+			content:         []byte("butts"),
+			expectedContent: []byte("butts"),
+			err:             "argError: Invalid id length",
+		},
+	}
 
-  for _, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 			storeFile, err := StoreWriter(tt.id, os.TempDir())
@@ -79,67 +79,67 @@ func TestStore(t *testing.T) {
 				return
 			}
 		})
-  }
+	}
 }
 
 func TestRetrieve(t *testing.T) {
-  tests := []struct{
-		it string
-		id string
-		size int64
-		offset int64
-		content []byte
+	tests := []struct {
+		it              string
+		id              string
+		size            int64
+		offset          int64
+		content         []byte
 		expectedContent []byte
-    err string
-  } {
-	    {
-				it: "should successfully retrieve data",
-				id: "0123456789ABCDEFGHIJ",
-				size: 5,
-				offset: 0,
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-	      err: "",
-	    },
-			{
-				it: "should successfully retrieve data by offset",
-				id: "0123456789ABCDEFGHIJ",
-				size: 5,
-				offset: 5,
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-	      err: "",
-	    },
-			{
-				it: "should successfully retrieve data by chunk",
-				id: "0123456789ABCDEFGHIJ",
-				size: 2,
-				offset: 5,
-				content: []byte("bu"),
-				expectedContent: []byte("bu"),
-	      err: "",
-	    },
-			{
-				it: "should return an error when given negative offset",
-				id: "0123456789ABCDEFGHIJ",
-				size: 0,
-				offset: -1337,
-				content: []byte("butts"),
-				expectedContent: []byte(""),
-	      err: "argError: Invalid offset: -1337",
-	    },
-			{
-				it: "should successfully retrieve data with negative length",
-				id: "0123456789ABCDEFGHIJ",
-				size: -1,
-				offset: 0,
-				content: []byte("butts"),
-				expectedContent: []byte("butts"),
-	      err: "",
-	    },
-	 }
+		err             string
+	}{
+		{
+			it:              "should successfully retrieve data",
+			id:              "0123456789ABCDEFGHIJ",
+			size:            5,
+			offset:          0,
+			content:         []byte("butts"),
+			expectedContent: []byte("butts"),
+			err:             "",
+		},
+		{
+			it:              "should successfully retrieve data by offset",
+			id:              "0123456789ABCDEFGHIJ",
+			size:            5,
+			offset:          5,
+			content:         []byte("butts"),
+			expectedContent: []byte("butts"),
+			err:             "",
+		},
+		{
+			it:              "should successfully retrieve data by chunk",
+			id:              "0123456789ABCDEFGHIJ",
+			size:            2,
+			offset:          5,
+			content:         []byte("bu"),
+			expectedContent: []byte("bu"),
+			err:             "",
+		},
+		{
+			it:              "should return an error when given negative offset",
+			id:              "0123456789ABCDEFGHIJ",
+			size:            0,
+			offset:          -1337,
+			content:         []byte("butts"),
+			expectedContent: []byte(""),
+			err:             "argError: Invalid offset: -1337",
+		},
+		{
+			it:              "should successfully retrieve data with negative length",
+			id:              "0123456789ABCDEFGHIJ",
+			size:            -1,
+			offset:          0,
+			content:         []byte("butts"),
+			expectedContent: []byte("butts"),
+			err:             "",
+		},
+	}
 
-  for _, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
@@ -194,31 +194,31 @@ func TestRetrieve(t *testing.T) {
 				return
 			}
 		})
-  }
+	}
 }
 
 func TestDelete(t *testing.T) {
-	tests := []struct{
-		it string
-		id string
-    err string
-  } {
-			{
-				it: "should successfully delete data",
-				id: "11111111111111111111",
-				err: "",
-			},
-			{
-				it: "should return nil-err with non-existent id",
-				id: "11111111111111111111",
-				err: "",
-			},
-			{
-				it: "should err with invalid id length",
-				id: "111111",
-				err: "argError: Invalid id length",
-			},
-		}
+	tests := []struct {
+		it  string
+		id  string
+		err string
+	}{
+		{
+			it:  "should successfully delete data",
+			id:  "11111111111111111111",
+			err: "",
+		},
+		{
+			it:  "should return nil-err with non-existent id",
+			id:  "11111111111111111111",
+			err: "",
+		},
+		{
+			it:  "should err with invalid id length",
+			id:  "111111",
+			err: "argError: Invalid id length",
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.it, func(t *testing.T) {

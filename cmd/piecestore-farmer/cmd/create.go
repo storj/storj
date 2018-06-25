@@ -21,13 +21,11 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new farmer node",
 	Long:  "Create a config file and set values for a new farmer node",
-	RunE:  func(cmd *cobra.Command, args []string) error {
-		return createNode()
-	},
+	RunE:  createNode,
 }
 
 func init() {
-	rootCmd.AddCommand(createCmd)
+	RootCmd.AddCommand(createCmd)
 
 	nodeID := pstore.GenerateID()[:20]
 
@@ -55,7 +53,7 @@ func init() {
 }
 
 // createNode creates a config file for a new farmer node
-func createNode() error {
+func createNode(cmd *cobra.Command, args []string) error {
 	home, err := homedir.Dir()
 	if err != nil {
 		return err

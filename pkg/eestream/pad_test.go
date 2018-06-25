@@ -43,7 +43,14 @@ func TestPad(t *testing.T) {
 			t.Fatalf("invalid padding")
 		}
 		unpadded, err := Unpad(padded, padding)
-		data, err := ioutil.ReadAll(unpadded.Range(0, unpadded.Size()))
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		r, err := unpadded.Range(0, unpadded.Size())
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
@@ -51,7 +58,14 @@ func TestPad(t *testing.T) {
 			t.Fatalf("mismatch")
 		}
 		unpadded, err = UnpadSlow(padded)
-		data, err = ioutil.ReadAll(unpadded.Range(0, unpadded.Size()))
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		r, err = unpadded.Range(0, unpadded.Size())
+		if err != nil {
+			t.Fatalf("unexpected error")
+		}
+		data, err = ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}

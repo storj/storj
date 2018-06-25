@@ -21,11 +21,11 @@ var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a farmer node by ID",
 	Long:  "Delete config and all data stored on node by node ID",
-	RunE:  deleteNode,
+	RunE: deleteNode,
 }
 
 func init() {
-	rootCmd.AddCommand(deleteCmd)
+	RootCmd.AddCommand(deleteCmd)
 }
 
 // deleteNode deletes a farmer node by ID

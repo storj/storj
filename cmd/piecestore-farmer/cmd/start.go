@@ -31,7 +31,7 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(startCmd)
+	RootCmd.AddCommand(startCmd)
 }
 
 // startNode starts a farmer node by ID

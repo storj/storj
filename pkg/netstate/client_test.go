@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"storj.io/storj/internal/test"
 	pb "storj.io/storj/protos/netstate"
 )
 
@@ -25,9 +27,7 @@ func TestNetStateClient(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 9000))
 	assert.NoError(t, err)
 
-	mdb := &MockDB{
-		timesCalled: 0,
-	}
+	mdb := test.NewMockKeyValueStore(test.KvStore{})
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, logger))
@@ -57,22 +57,14 @@ func TestNetStateClient(t *testing.T) {
 		APIKey: []byte("abc123"),
 	}
 
-	if mdb.timesCalled != 0 {
-		t.Error("Expected mockdb to be called 0 times")
-	}
-
 	// Tests Server.Put
 	_, err = c.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		t.Error("Failed to Put")
 	}
 
-	if mdb.timesCalled != 1 {
+	if mdb.PutCalled != 1 {
 		t.Error("Failed to call mockdb correctly")
-	}
-
-	if !bytes.Equal(mdb.puts[0].Path, pr1.Path) {
-		t.Error("Expected saved path to equal given path")
 	}
 
 	pointerBytes, err := proto.Marshal(pr1.Pointer)
@@ -80,8 +72,8 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("failed to marshal test pointer")
 	}
 
-	if !bytes.Equal(mdb.puts[0].Pointer, pointerBytes) {
-		t.Error("Expected saved value to equal given value")
+	if !bytes.Equal(mdb.Data[string(pr1.Path)], pointerBytes) {
+		t.Error("Expected saved pointer to equal given pointer")
 	}
 
 	// Tests Server.Get
@@ -97,7 +89,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Expected to get same content that was put")
 	}
 
-	if mdb.timesCalled != 2 {
+	if mdb.GetCalled != 1 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 
@@ -120,7 +112,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to Put")
 	}
 
-	if mdb.timesCalled != 3 {
+	if mdb.PutCalled != 2 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 
@@ -135,7 +127,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to delete")
 	}
 
-	if mdb.timesCalled != 4 {
+	if mdb.DeleteCalled != 1 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 
@@ -157,7 +149,7 @@ func TestNetStateClient(t *testing.T) {
 		t.Error("Failed to list correct file path")
 	}
 
-	if mdb.timesCalled != 5 {
+	if mdb.ListCalled != 1 {
 		t.Error("Failed to call mockdb correct number of times")
 	}
 }

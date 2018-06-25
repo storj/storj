@@ -44,15 +44,17 @@ func TestHTTPRanger(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		content = tt.data
-		r, err := HTTPRanger(ts.URL)
+		rr, err := HTTPRanger(ts.URL)
 		if assert.NoError(t, err, errTag) {
-			assert.Equal(t, tt.size, r.Size(), errTag)
+			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
-		data, err := ioutil.ReadAll(r.Range(tt.offset, tt.length))
+		r, err := rr.Range(tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
 		}
+		assert.NoError(t, err, errTag)
+		data, err := ioutil.ReadAll(r)
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}
@@ -87,13 +89,15 @@ func TestHTTPRangerSize(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		content = tt.data
-		r := HTTPRangerSize(ts.URL, tt.size)
-		assert.Equal(t, tt.size, r.Size(), errTag)
-		data, err := ioutil.ReadAll(r.Range(tt.offset, tt.length))
+		rr := HTTPRangerSize(ts.URL, tt.size)
+		assert.Equal(t, tt.size, rr.Size(), errTag)
+		r, err := rr.Range(tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
 		}
+		assert.NoError(t, err, errTag)
+		data, err := ioutil.ReadAll(r)
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}

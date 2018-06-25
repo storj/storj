@@ -3,8 +3,11 @@
 
 package main
 
-import "storj.io/storj/cmd/piecestore-farmer/cmd"
+import (
+	"storj.io/storj/cmd/piecestore-farmer/cmd"
+	"storj.io/storj/pkg/process"
+)
 
 func main() {
-	cmd.Execute()
+	process.Execute(cmd.RootCmd)
 }
