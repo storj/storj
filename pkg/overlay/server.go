@@ -5,16 +5,23 @@ package overlay
 
 import (
 	"context"
+	"sync"
 
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/dht"
+
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"storj.io/storj/storage"
+)
+
+const (
+	maxNodes = 40
 )
 
 // Server implements our overlay RPC service
 type Server struct {
-	kad     *kademlia.Kademlia
+	dht     dht.DHT
 	cache   *Cache
 	logger  *zap.Logger
 	metrics *monkit.Registry
@@ -40,16 +47,49 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	// NB:  call FilterNodeReputation from node_reputation package to find nodes for storage
-
-	// TODO(coyle): need to determine if we will pull the startID and Limit from the request or just use hardcoded data
-	// for now just using 40 for demos and empty string which will default the Id to the kademlia node doing the lookup
-	nodes, err := o.kad.GetNodes(ctx, "", 40)
+	keys, err := o.cache.DB.List()
 	if err != nil {
-		o.logger.Error("Error getting nodes", zap.Error(err))
+		o.logger.Error("Error listing nodes", zap.Error(err))
 		return nil, err
 	}
+
+	if len(keys) > maxNodes {
+		// TODO(coyle): determine if this is a set value or they user of the api will specify
+		keys = keys[:maxNodes]
+	}
+
+	nodes := o.getNodes(ctx, keys)
 
 	return &proto.FindStorageNodesResponse{
 		Nodes: nodes,
 	}, nil
+}
+
+func (o *Server) getNodes(ctx context.Context, keys storage.Keys) []*proto.Node {
+	wg := &sync.WaitGroup{}
+	ch := make(chan *proto.Node, len(keys))
+
+	wg.Add(len(keys))
+	for _, v := range keys {
+		go func(ch chan *proto.Node, id string) {
+
+			defer wg.Done()
+			na, err := o.cache.Get(ctx, id)
+			if err != nil {
+				o.logger.Error("failed to get key from cache", zap.Error(err))
+				return
+			}
+
+			ch <- &proto.Node{Id: id, Address: na}
+		}(ch, v.String())
+	}
+
+	wg.Wait()
+	close(ch)
+	nodes := []*proto.Node{}
+	for node := range ch {
+		nodes = append(nodes, node)
+	}
+
+	return nodes
 }

@@ -156,7 +156,7 @@ func TestRSEncoderInputParams(t *testing.T) {
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		rs := NewRSScheme(fc, 8*1024)
 		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
@@ -193,7 +193,7 @@ func TestRSRangerInputParams(t *testing.T) {
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		rs := NewRSScheme(fc, 8*1024)
 		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)

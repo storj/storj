@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
@@ -23,11 +24,11 @@ var OverlayError = errs.Class("Overlay Error")
 // Cache is used to store overlay data in Redis
 type Cache struct {
 	DB  storage.KeyValueStore
-	DHT kademlia.DHT
+	DHT dht.DHT
 }
 
 // NewRedisOverlayCache returns a pointer to a new Cache instance with an initalized connection to Redis.
-func NewRedisOverlayCache(address, password string, db int, DHT kademlia.DHT) (*Cache, error) {
+func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache, error) {
 	rc, err := redis.NewClient(address, password, db)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func NewRedisOverlayCache(address, password string, db int, DHT kademlia.DHT) (*
 }
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initalized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, DHT kademlia.DHT) (*Cache, error) {
+func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 	bc, err := boltdb.NewClient(nil, dbPath, boltdb.OverlayBucket)
 	if err != nil {
 		return nil, err
@@ -86,7 +87,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
