@@ -19,21 +19,18 @@ package peertls
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"math/big"
-	"os"
-	"time"
-	// "flag"
-
-	"crypto/elliptic"
-	"net"
-	"strings"
-
 	"io"
+	"math/big"
+	"net"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 )

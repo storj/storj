@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/kademlia"
+	proto "storj.io/storj/protos/overlay"
 )
 
 func TestNewOverlayClient(t *testing.T) {
