@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	proto "storj.io/storj/protos/netstate"
 	client "storj.io/storj/pkg/netstate/client"
+	proto "storj.io/storj/protos/netstate"
 )
 
 var (
@@ -35,7 +35,7 @@ func main() {
 	defer logger.Sync()
 
 	nsclient, err := client.NewNetstateClient(port)
-	
+
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
@@ -46,8 +46,8 @@ func main() {
 	// Example pointer paths to put
 	// the client library creates a put req. object of these items
 	// and sends to server
-	path:= []byte("another/pointer/for/the/pile, another/two")
-	pointer:= &proto.Pointer{
+	path := []byte("another/pointer/for/the/pile, another/two")
+	pointer := &proto.Pointer{
 		Type: proto.Pointer_INLINE,
 		Encryption: &proto.EncryptionScheme{
 			EncryptedEncryptionKey: []byte("key"),
@@ -55,28 +55,27 @@ func main() {
 		},
 		InlineSegment: []byte("popcorn"),
 	}
-	APIKey:= []byte("abc123")
-
+	APIKey := []byte("abc123")
 
 	// Example Put
 	err = nsclient.Put(ctx, path, pointer, APIKey)
-	
+
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
 	} else {
 		logger.Debug("Success: put pointer in db")
 	}
-	
+
 	// Example Get
 	getRes, err := nsclient.Get(ctx, path, APIKey)
 	p := "success"
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
-	} else {	
-		// WIP; i need to convert a custom type to string, 
+	} else {
+		// WIP; i need to convert a custom type to string,
 		// will work on this later
-		fmt.Println(getRes)	
+		fmt.Println(getRes)
 		logger.Info("Success: got Pointer from db",
 			zap.String("pointer", p),
 		)
@@ -86,9 +85,9 @@ func main() {
 
 	// This pagination functionality doesn't work yet.
 	// The given arguments are placeholders.
-	startingPathKey:= []byte("test/pointer/path")
+	startingPathKey := []byte("test/pointer/path")
 	var limit int64 = 5
-	
+
 	paths, trunc, err := nsclient.List(ctx, startingPathKey, limit, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
@@ -102,10 +101,9 @@ func main() {
 		fmt.Println(trunc)
 	}
 
-
 	// Example Delete
-	_, err = nsclient.Delete(ctx, path, APIKey)
-	
+	err = nsclient.Delete(ctx, path, APIKey)
+
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("Error in deleteing file from db")
 	} else {
