@@ -7,19 +7,16 @@ import (
 	"context"
 	"flag"
 	"log"
-	"sync"
 
 	"github.com/spacemonkeygo/flagfile"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
 	"storj.io/storj/pkg/utils"
 )
-
-// var g errgroup.Group
-var wg sync.WaitGroup
 
 var (
 	logDisposition = flag.String("log.disp", "prod",
@@ -50,17 +47,23 @@ const (
 	id ID = "SrvID"
 )
 
-// Main initializes a new Service
+// Main loops over a variable number of Service args and runs StartService
+// concurrently on each one.
 func Main(s ...Service) (err error) {
+	var g errgroup.Group
 	flagfile.Load()
 	for _, service := range s {
-		wg.Add(1)
-		go func(srv Service) {
-			StartService(srv)
-		}(service)
+		service := service
+		g.Go(func() error {
+			err := StartService(service)
+			return err
+		})
 	}
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -27,3 +27,5 @@ debug
 
 # vendor
 vendor
+
+**/test_redis-server.log
