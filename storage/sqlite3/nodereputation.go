@@ -63,11 +63,16 @@ func createTable(db *sql.DB) error {
 	return nil
 }
 
-func createNewNodeRecord(db *sql.DB, nodeName string) {
+type ParamValue struct {
+	param proto.Parameter
+	val   proto.UpdateValue
+}
+
+func createNewNodeRecord(db *sql.DB, nodeName string, params []ParamValue) {
 	insertNewNodeName(db, nodeName)
-	updateNodeParameters(db, nodeName, proto.Parameter_GOOD_RECALL)
-	updateNodeParameters(db, nodeName, proto.Parameter_BAD_RECALL)
-	updateNodeParameters(db, nodeName, proto.Parameter_WEIGHT)
+	for _, pair := range params {
+		updateNodeParameters(db, nodeName, pair.param, updateToFloat(pair.val))
+	}
 }
 
 func insertNewNodeName(db *sql.DB, nodeName string) error {
@@ -98,7 +103,9 @@ func beta(x float64) float64 {
 	return float64(42)
 }
 
-type nodeRecord struct {
+type nodeFeature struct {
+	nodeName          string
+	feature           string
 	goodRecall        float64
 	badRecall         float64
 	weightCounter     float64
@@ -107,8 +114,8 @@ type nodeRecord struct {
 	reputation        float64
 }
 
-func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeRecord, error) {
-	var res nodeRecord
+func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeature, error) {
+	var res nodeFeature
 
 	rows, err := db.Query(selectFeatureStmt(col, nodeName))
 	if err != nil {
@@ -120,6 +127,9 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeReco
 	if err != nil {
 		return res, SelectError.Wrap(err)
 	}
+
+	res.nodeName = nodeName
+	res.feature = col.String()
 
 	err = rows.Err()
 	if err != nil {
@@ -185,13 +195,34 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	return tx.Commit()
 }
 
-func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter) {
+func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter, parameterValue float64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+	defer tx.Rollback()
 
+	updateParamString := fmt.Sprintf(`UPDATE node_reputation
+	 SET %s = ?
+	 WHERE node_name = '?';`, parameter.String)
+
+	updateStmt, err := tx.Prepare(updateParamString)
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+	defer updateStmt.Close()
+
+	_, err = updateStmt.Exec(parameterValue, nodeName)
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+
+	return tx.Commit()
 }
 
 // assumtion one row per node id
-func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeRecord, error) {
-	var res nodeRecord
+func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
+	var res nodeFeature
 
 	for rows.Next() {
 		err := rows.Scan(
