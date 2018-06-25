@@ -95,7 +95,7 @@ type nodeRecord struct {
 	badRecall         float64
 	weightCounter     float64
 	weightDenominator float64
-	meanReputation    float64
+	cumulativeSum     float64
 	reputation        float64
 }
 
@@ -108,7 +108,7 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeReco
 	}
 	defer rows.Close()
 
-	res, err = selectFeaturesToNodeRecord(rows)
+	res, err = selectedFeaturesToNodeRecord(rows)
 	if err != nil {
 		return res, SelectError.Wrap(err)
 	}
@@ -124,9 +124,10 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeReco
 func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateValue) error {
 	node, err := selectNodeFeature(db, nodeName, col)
 	if err != nil {
+		return UpdateError.Wrap(err)
 	}
 	newRep := beta(updateToFloat(value))
-	newMean := (node.meanReputation + newRep) / 2
+	newSum := node.cumulativeSum + newRep
 	newCount := node.weightCounter + 1
 
 	tx, err := db.Begin()
@@ -143,7 +144,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	}
 	defer updateStmt.Close()
 
-	_, err = updateStmt.Exec(newCount, newMean, newRep, nodeName)
+	_, err = updateStmt.Exec(newCount, newSum, newRep, nodeName)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -156,7 +157,7 @@ func updateNodeParameters(db *sql.DB, goodRecall float64, badRecall float64, wei
 }
 
 // assumtion one row per node id
-func selectFeaturesToNodeRecord(rows *sql.Rows) (nodeRecord, error) {
+func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeRecord, error) {
 	var res nodeRecord
 
 	for rows.Next() {
@@ -165,7 +166,7 @@ func selectFeaturesToNodeRecord(rows *sql.Rows) (nodeRecord, error) {
 			&res.badRecall,
 			&res.weightCounter,
 			&res.weightDenominator,
-			&res.meanReputation,
+			&res.cumulativeSum,
 			&res.reputation,
 		)
 		if err != nil {
