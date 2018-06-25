@@ -66,11 +66,6 @@ func (s *Service) SetLogger(l *zap.Logger) error {
 func setEnv() error {
 	viper.SetEnvPrefix("api")
 	viper.BindEnv("key")
-<<<<<<< HEAD:pkg/pointerdb/service.go
-=======
-	os.Setenv("API_KEY", "abc123")
-    fmt.Println("oserver key is: ", viper.GetString("key"))
->>>>>>> get request working:cmd/netstate/main.go
 	viper.AutomaticEnv()
 	return nil
 }

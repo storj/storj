@@ -5,18 +5,14 @@ package client
 
 import (
 	"context"
-//	"fmt"
 
-	"google.golang.org/grpc"
 	"github.com/golang/protobuf/proto"
-	//"go.uber.org/zap"
-	//"google.golang.org/grpc/codes"
-	//"google.golang.org/grpc/status"
+	"google.golang.org/grpc"
 
-	//"storj.io/storj/pkg/netstate"
 	pb "storj.io/storj/protos/netstate"
 )
 
+// NetState creates a grpcClient
 type NetState struct {
 	grpcClient pb.NetStateClient
 }
@@ -32,36 +28,37 @@ type NSClient interface {
 
 // NewNetstateClient initializes a new netstate client
 func NewNetstateClient(address string) (*NetState, error) {
-    c, err := NewClient(&address, grpc.WithInsecure())
-   
+	c, err := NewClient(&address, grpc.WithInsecure())
+
 	if err != nil {
-        return nil, err
-    }
-    return &NetState{
-        grpcClient: c,
-    }, nil
+		return nil, err
+	}
+	return &NetState{
+		grpcClient: c,
+	}, nil
 }
 
 // NewClient makes a server connection
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (pb.NetStateClient, error) {
-    conn, err := grpc.Dial(*serverAddr, opts...)
-   
+	conn, err := grpc.Dial(*serverAddr, opts...)
+
 	if err != nil {
-        return nil, err
-    }
-    return pb.NewNetStateClient(conn), nil
+		return nil, err
+	}
+	return pb.NewNetStateClient(conn), nil
 }
 
 // Put is the interface to make a PUT request, needs Pointer and APIKey
 func (ns *NetState) Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error {
 	_, err := ns.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer, APIKey: APIKey})
-	
+
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// Get is the interface to make a GET request, needs PATH and APIKey
 func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Pointer, error) {
 	res, err := ns.grpcClient.Get(ctx, &pb.GetRequest{Path: path, APIKey: APIKey})
 
@@ -70,7 +67,7 @@ func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Po
 	}
 
 	pointer := &pb.Pointer{}
-	err = proto.Unmarshal(res.GetPointer(),pointer)
+	err = proto.Unmarshal(res.GetPointer(), pointer)
 
 	if err != nil {
 		return nil, err
@@ -78,6 +75,7 @@ func (ns *NetState) Get(ctx context.Context, path []byte, APIKey []byte) (*pb.Po
 	return pointer, nil
 }
 
+// List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
 func (ns *NetState) List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
 	paths [][]byte, truncated bool, err error) {
 	res, err := ns.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey, Limit: limit, APIKey: APIKey})
@@ -88,9 +86,10 @@ func (ns *NetState) List(ctx context.Context, startingPathKey []byte, limit int6
 	return res.Paths, true, nil
 }
 
+// Delete is the interface to make a Delete request, needs Path and APIKey
 func (ns *NetState) Delete(ctx context.Context, path []byte, APIKey []byte) error {
-	err := ns.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path, APIKey: APIKey})
-	
+	_, err := ns.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path, APIKey: APIKey})
+
 	if err != nil {
 		return err
 	}
