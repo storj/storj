@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -62,8 +61,6 @@ func (s *serv) SetLogger(l *zap.Logger) error {
 func setEnv() error {
 	viper.SetEnvPrefix("api")
 	viper.BindEnv("key")
-	os.Setenv("API_KEY", "abc123")
-    fmt.Println("oserver key is: ", viper.GetString("key"))
 	viper.AutomaticEnv()
 	return nil
 }
