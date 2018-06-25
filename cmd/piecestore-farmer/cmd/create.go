@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -12,7 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/cmd/piecestore-farmer/utils"
 	"storj.io/storj/pkg/piecestore"
 )
 
@@ -21,18 +21,19 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new farmer node",
 	Long:  "Create a config file and set values for a new farmer node",
-	RunE:  createNode,
+	RunE:  func(cmd *cobra.Command, args []string) error {
+		return createNode()
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(createCmd)
 
-	nodeID := pstore.GenerateID()
-	nodeID = nodeID[:20]
+	nodeID := pstore.GenerateID()[:20]
 
 	home, err := homedir.Dir()
 	if err != nil {
-		zap.S().Fatalf("%v", err)
+		zap.S().Fatal(err)
 	}
 
 	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
@@ -50,16 +51,17 @@ func init() {
 	viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir"))
 
 	viper.SetDefault("piecestore.id", nodeID)
+
 }
 
 // createNode creates a config file for a new farmer node
-func createNode(cmd *cobra.Command, args []string) error {
+func createNode() error {
 	home, err := homedir.Dir()
 	if err != nil {
 		return err
 	}
 
-	configDir, configFile := utils.SetConfigPath(home, viper.GetString("piecestore.id"))
+	configDir, configFile := SetConfigPath(home, viper.GetString("piecestore.id"))
 
 	pieceStoreDir := viper.GetString("piecestore.dir")
 
@@ -84,8 +86,10 @@ func createNode(cmd *cobra.Command, args []string) error {
 
 	path := viper.ConfigFileUsed()
 
-	zap.S().Infof("Config: %s\n", path)
-	zap.S().Infof("ID: %s\n", viper.GetString("piecestore.id"))
+	zap.S().Info("Config: ", path)
+	zap.S().Info("ID: ", viper.GetString("piecestore.id"))
+
+	fmt.Printf("Node %s created\n", viper.GetString("piecestore.id"))
 
 	return nil
 }

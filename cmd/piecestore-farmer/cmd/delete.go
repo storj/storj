@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
-	"storj.io/storj/cmd/piecestore-farmer/utils"
 )
 
 // deleteCmd represents the delete command
@@ -43,7 +41,7 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 
 	nodeID := args[0]
 
-	_, configFile := utils.SetConfigPath(home, nodeID)
+	_, configFile := SetConfigPath(home, nodeID)
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return errs.New("Invalid node id. Config file does not exist")
@@ -69,6 +67,7 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 	}
 
 	zap.S().Infof("Deleted node: %s", nodeID)
+	fmt.Printf("Deleted node: %s", nodeID)
 
 	return nil
 }

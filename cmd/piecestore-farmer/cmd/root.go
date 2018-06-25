@@ -19,6 +19,6 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		zap.S().Fatalf("%v", err)
+		zap.S().Fatal(err)
 	}
 }

@@ -17,7 +17,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/cmd/piecestore-farmer/utils"
 	"storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
@@ -47,19 +46,19 @@ func startNode(cmd *cobra.Command, args []string) error {
 		return errs.New("no id specified")
 	}
 
-	utils.SetConfigPath(home, args[0])
+	SetConfigPath(home, args[0])
 
 	err = viper.ReadInConfig()
 	if err != nil {
 		return err
 	}
 
-	config := utils.GetConfigValues()
+	config := GetConfigValues()
 
 	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
-	_, err = utils.ConnectToKad(ctx, config.NodeID, config.PsHost, config.KadListenPort, fmt.Sprintf("%s:%s", config.KadHost, config.KadPort))
+	_, err = ConnectToKad(ctx, config.NodeID, config.PsHost, config.KadListenPort, fmt.Sprintf("%s:%s", config.KadHost, config.KadPort))
 	if err != nil {
 		return err
 	}
@@ -91,6 +90,8 @@ func startNode(cmd *cobra.Command, args []string) error {
 		err := s.DB.DBCleanup(dataDir)
 		zap.S().Fatalf("Error in DBCleanup: %v", err)
 	}()
+
+	fmt.Printf("Starting node: %s...\n", config.NodeID)
 
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {
