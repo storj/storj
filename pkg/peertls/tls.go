@@ -75,21 +75,6 @@ func NewTLSFileOptions(certPath, keyPath, hosts string, client, create, overwrit
 	return t, nil
 }
 
-// func NewTLS(c *tls.Config) (_ credentials.TransportCredentials) { // , _ error) {
-// 	// t := &tlsCredsWrapper{
-// 	// 	config: cloneTLSConfig(c),
-// 	// }
-//
-// 	config := cloneTLSConfig(c)
-// 	config.InsecureSkipVerify = true
-// 	// config.VerifyPeerCertificate = VerifyPeerCertificate
-// 	t := credentials.NewTLS(config)
-//
-// 	// t.config.InsecureSkipVerify = true
-// 	// t.config.VerifyPeerCertificate = VerifyPeerCertificate
-// 	return t
-// }
-
 // EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
 func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 	if t.CertAbsPath == "" {
