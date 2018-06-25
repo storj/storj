@@ -16,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
@@ -33,7 +32,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	routeClient := client.NewPSClient(conn)
+	psClient := client.NewPSClient(conn)
 
 	app.Commands = []cli.Command{
 		{
@@ -62,14 +61,14 @@ func main() {
 				}
 
 				var length = fileInfo.Size()
-				var ttl = time.Now().Add(time.Second * 86400)
+				var ttl = time.Now().Add(24 * time.Hour)
 
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, 0, length)
 
-				id := pstore.DetermineID()
+				id := client.DetermineID()
 
-				writer, err := routeClient.Put(context.Background(), id, ttl)
+				writer, err := psClient.Put(context.Background(), id, ttl)
 				if err != nil {
 					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
 					return err
@@ -94,7 +93,7 @@ func main() {
 					return argError.New("No id specified")
 				}
 
-				id := c.Args().Get(0)
+				var id client.PieceID = client.PieceID(c.Args().Get(0))
 
 				if c.Args().Get(1) == "" {
 					return argError.New("No output file specified")
@@ -122,13 +121,13 @@ func main() {
 				}
 				defer dataFile.Close()
 
-				pieceInfo, err := routeClient.Meta(context.Background(), id)
+				pieceInfo, err := psClient.Meta(context.Background(), id)
 				if err != nil {
 					os.Remove(dataPath)
 					return err
 				}
 
-				reader, err := routeClient.Get(context.Background(), id, 0, pieceInfo.Size)
+				reader, err := psClient.Get(context.Background(), id, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
@@ -154,7 +153,7 @@ func main() {
 				if c.Args().Get(0) == "" {
 					return argError.New("Missing data Id")
 				}
-				err = routeClient.Delete(context.Background(), c.Args().Get(0))
+				err = psClient.Delete(context.Background(), client.PieceID(c.Args().Get(0)))
 
 				return err
 			},

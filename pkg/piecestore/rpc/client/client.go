@@ -4,6 +4,7 @@
 package client
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -12,11 +13,24 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"github.com/mr-tron/base58/base58"
+
+  "storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
 )
 
+type PSClient interface {
+	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
+	Put(ctx context.Context, id PieceID, ttl time.Time) (io.WriteCloser, error)
+	Get(ctx context.Context, id PieceID, offset, length int64) (io.ReadCloser, error)
+	Delete(ctx context.Context, pieceID PieceID) error
+}
+
 // PieceID - Id for piece
 type PieceID string
+
+// IDLength -- Minimum ID length
+const IDLength = 20
 
 // String -- Get String from PieceID
 func (id PieceID) String() string {
@@ -29,7 +43,7 @@ type Client struct {
 }
 
 // NewPSClient -- Initilize Client
-func NewPSClient(conn *grpc.ClientConn) *Client {
+func NewPSClient(conn *grpc.ClientConn) PSClient {
 	return &Client{route: pb.NewPieceStoreRoutesClient(conn)}
 }
 
@@ -77,4 +91,16 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	}
 	log.Printf("Route summary : %v", reply)
 	return nil
+}
+
+// DetermineID creates random id
+func DetermineID() PieceID {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return PieceID(base58.Encode(b))
 }
