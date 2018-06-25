@@ -5,7 +5,11 @@ package transportclient
 
 import (
 	"context"
+	"time"
 
+	"google.golang.org/grpc/connectivity"
+
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/overlay"
@@ -36,49 +40,86 @@ func NewTransportClient(ctx context.Context, addr string) (TransportClient, erro
 
 // Dial using the authenticated mode
 func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
-	/* check to see if address is empty? */
-	if node.Address.Address == "" {
-		/* check to see nodeID is present to look up for the corresponding address */
-		if node.Id != "" {
-			lookupNode, err := o.overlayClient.Lookup(ctx, overlay.NodeID(node.Id))
-			conn, err = grpc.Dial(lookupNode.Address.Address, grpc.WithInsecure())
+	if node == nil {
+		zap.S().Errorf("node param uninitialized : %v\n", err)
+		return nil, err
+	} else {
+		maxAttempts := 12
+		if node.Address == nil {
+			/* check to see nodeID is present to look up for the corresponding address */
+			if node.GetId() != "" {
+				lookupNode, err := o.overlayClient.Lookup(ctx, overlay.NodeID(node.GetId()))
+				if err != nil {
+					return nil, err
+				}
+				/* err is nil, that means lookup passed complete info */
+				conn, err = grpc.Dial(lookupNode.Address.Address, grpc.WithInsecure())
+				if err != nil {
+					return nil, err
+				}
+				node.Address.Address = lookupNode.Address.Address
+			} else {
+				zap.S().Errorf("node Address uninitialized : %v\n", err)
+				return nil, err
+			}
+		} else {
+			conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
 			if err != nil {
 				return nil, err
 			}
-			node.Address.Address = lookupNode.Address.Address
-		} else {
-			return nil, err
-		}
-	} else {
-		conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-	}
 
-	return conn, err
+			for conn.GetState() != connectivity.State(connectivity.Ready) && maxAttempts < 12 {
+				time.Sleep(15 * time.Millisecond)
+				maxAttempts--
+			}
+		}
+		if maxAttempts <= 0 {
+			zap.S().Errorf("Connection failed with grpc : %v\n", err)
+			return nil, err
+		}
+		return conn, err
+	}
 }
 
 // Dial using unauthenticated mode
 func (o *transportClient) DialUnauthenticated(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
-	/* check to see if address is empty? */
-	if node.Address.Address == "" {
-		/* check to see nodeID is present to look up for the corresponding address */
-		if node.Id != "" {
-			lookupNode, err := o.overlayClient.Lookup(ctx, overlay.NodeID(node.Id))
-			conn, err = grpc.Dial(lookupNode.Address.Address, grpc.WithInsecure())
-			if err != nil {
+	if node == nil {
+		zap.S().Errorf("node param uninitialized : %v\n", err)
+		return nil, err
+	} else {
+		maxAttempts := 12
+		if node.Address == nil {
+			/* check to see nodeID is present to look up for the corresponding address */
+			if node.GetId() != "" {
+				lookupNode, err := o.overlayClient.Lookup(ctx, overlay.NodeID(node.GetId()))
+				if err != nil {
+					return nil, err
+				}
+				/* err is nil, that means lookup passed complete info */
+				conn, err = grpc.Dial(lookupNode.Address.Address, grpc.WithInsecure())
+				if err != nil {
+					return nil, err
+				}
+				node.Address.Address = lookupNode.Address.Address
+			} else {
+				zap.S().Errorf("node Address uninitialized : %v\n", err)
 				return nil, err
 			}
 		} else {
-			return nil, err
-		}
-	} else {
-		conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-	}
+			conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
+			if err != nil {
+				return nil, err
+			}
 
-	return conn, err
+			for conn.GetState() != connectivity.State(connectivity.Ready) && maxAttempts < 12 {
+				time.Sleep(15 * time.Millisecond)
+				maxAttempts--
+			}
+		}
+		if maxAttempts <= 0 {
+			zap.S().Errorf("Connection failed with grpc : %v\n", err)
+			return nil, err
+		}
+		return conn, err
+	}
 }
