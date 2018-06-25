@@ -23,8 +23,8 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
@@ -78,12 +78,12 @@ func TestNewClient_CreateTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := newMockTLSServer(t)
+	srv, tlsOpts := newMockTLSServer(t)
 	go srv.Serve(lis)
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address)
+	c, err := NewClient(&address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -99,29 +99,27 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	defer os.RemoveAll(tmpPath)
 
 	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
-	tlsOpts := &utils.TLSFileOptions{
-		CertRelPath: fmt.Sprintf("%s.crt", basePath),
-		KeyRelPath:  fmt.Sprintf("%s.key", basePath),
-		Hosts:       "localhost,127.0.0.1,::",
-		Create:      true,
-	}
-
-	// Ensure cert/key have been generated
-	err = tlsOpts.EnsureExists()
-	assert.NoError(t, err)
+	tlsOpts, err := peertls.NewTLSFileOptions(
+		fmt.Sprintf("%s.crt", basePath),
+		fmt.Sprintf("%s.key", basePath),
+		"localhost,127.0.0.1,::",
+		false,
+		true,
+		false,
+	)
 
 	// NB: do NOT create a cert, it should be loaded from disk
 	setTLSFlags(basePath, false)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := newMockTLSServer(t)
+	srv, tlsOpts := newMockTLSServer(t)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address)
+	c, err := NewClient(&address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -143,7 +141,7 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv := newMockTLSServer(t)
+	srv, tlsOpts := newMockTLSServer(t)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
@@ -151,7 +149,7 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	setTLSFlags(clientBasePath, true)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address)
+	c, err := NewClient(&address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -218,30 +216,26 @@ func TestProcess_error(t *testing.T) {
 	assert.True(t, process.ErrUsage.Has(err))
 }
 
-func newMockServer() *grpc.Server {
-	grpcServer := grpc.NewServer()
+func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
+	grpcServer := grpc.NewServer(opts...)
 	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
 
 	return grpcServer
 }
 
-func newMockTLSServer(t *testing.T) *grpc.Server {
-	tlsOpts := &utils.TLSFileOptions{
-		CertRelPath: tlsCertPath,
-		KeyRelPath:  tlsKeyPath,
-		Create:      tlsCreate,
-		Overwrite:   tlsOverwrite,
-		Hosts:       tlsHosts,
-	}
-
-	creds, err := utils.NewServerTLSFromFile(tlsOpts)
+func newMockTLSServer(t *testing.T) (*grpc.Server, *peertls.TLSFileOptions) {
+	tlsOpts, err := peertls.NewTLSFileOptions(
+		tlsCertPath,
+		tlsKeyPath,
+		tlsHosts,
+		false,
+		tlsCreate,
+		tlsOverwrite,
+	)
 	assert.NoError(t, err)
 
-	credsOption := grpc.Creds(creds)
-	grpcServer := grpc.NewServer(credsOption)
-	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
-
-	return grpcServer
+	grpcServer := newMockServer(tlsOpts.ServerOption())
+	return grpcServer, tlsOpts
 }
 
 type MockOverlay struct{}

@@ -24,6 +24,8 @@ var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
+	tlsCertPath, tlsKeyPath, tlsHosts                                                        string
+	tlsCreate, tlsOverwrite                                                                  bool
 )
 
 func init() {
@@ -36,6 +38,11 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
+	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "TLS Certificate file")
+	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "TLS Key file")
+	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS Key file")
+	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -75,7 +82,7 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 		return nil, err
 	}
 
-	grpcServer := grpc.NewServer(t.TransportCredentialsOption)
+	grpcServer := grpc.NewServer(t.ServerOption())
 	proto.RegisterOverlayServer(grpcServer, &Server{
 		kad:     k,
 		cache:   cache,
@@ -101,12 +108,7 @@ func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayCli
 		return nil, err
 	}
 
-	credsOption, err := t.WithTransportCredentials()
-	if err != nil {
-		return nil, err
-	}
-
-	opts = append(opts, credsOption)
+	opts = append(opts, t.DialOption())
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err

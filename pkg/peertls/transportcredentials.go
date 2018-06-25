@@ -1,11 +1,12 @@
 package peertls
 
 import (
-	"google.golang.org/grpc/credentials"
 	"context"
-	"net"
 	"crypto/tls"
-	"strings"
+	"net"
+	"sync"
+
+	"google.golang.org/grpc/credentials"
 )
 
 // type TransportCredentials interface {
@@ -17,32 +18,25 @@ import (
 // }
 
 type tlsCredsWrapper struct {
-	tlsCreds *credentials.TransportCredentials
-	config   *tls.Config
-}
-
-func NewPeerTLS(config *tls.Config) (credentials.TransportCredentials) {
-	tlsCreds := credentials.NewTLS(config)
-
-	t := &tlsCredsWrapper{
-		tlsCreds: &tlsCreds,
-		config:   config,
-	}
-
-	return t
+	tlsCreds    *credentials.TransportCredentials
+	config      *tls.Config
+	configMutex *sync.Mutex
 }
 
 func (t *tlsCredsWrapper) ClientHandshake(ctx context.Context, authority string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	t.configMutex.Lock()
+	defer t.configMutex.Unlock()
+
 	// use local cfg to avoid clobbering ServerName if using multiple endpoints
-	cfg := cloneTLSConfig(t.config)
-	if cfg.ServerName == "" {
-		colonPos := strings.LastIndex(authority, ":")
-		if colonPos == -1 {
-			colonPos = len(authority)
-		}
-		cfg.ServerName = authority[:colonPos]
-	}
-	conn := tls.Client(rawConn, cfg)
+	// cfg := cloneTLSConfig(t.config)
+	// if cfg.ServerName == "" {
+	// 	colonPos := strings.LastIndex(authority, ":")
+	// 	if colonPos == -1 {
+	// 		colonPos = len(authority)
+	// 	}
+	// 	cfg.ServerName = authority[:colonPos]
+	// }
+	conn := tls.Client(rawConn, t.config)
 	errChannel := make(chan error, 1)
 	go func() {
 		errChannel <- conn.Handshake()
@@ -59,14 +53,17 @@ func (t *tlsCredsWrapper) ClientHandshake(ctx context.Context, authority string,
 }
 
 func (t *tlsCredsWrapper) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	conn := tls.Server(rawConn, NewPeerTLSConfig())
+	t.configMutex.Lock()
+	defer t.configMutex.Unlock()
+
+	conn := tls.Server(rawConn, t.config)
 	if err := conn.Handshake(); err != nil {
 		return nil, nil, err
 	}
 	return conn, credentials.TLSInfo{conn.ConnectionState()}, nil
 }
 
-func (t *tlsCredsWrapper) Info() (credentials.ProtocolInfo) {
+func (t *tlsCredsWrapper) Info() credentials.ProtocolInfo {
 	return t.Info()
 }
 
@@ -74,7 +71,7 @@ func (t *tlsCredsWrapper) Clone() credentials.TransportCredentials {
 	return t.Clone()
 }
 
-func (t *tlsCredsWrapper) OverrideServerName(serverNameOverride string) (error) {
+func (t *tlsCredsWrapper) OverrideServerName(serverNameOverride string) error {
 	return t.OverrideServerName(serverNameOverride)
 }
 

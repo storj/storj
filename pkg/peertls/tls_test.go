@@ -26,6 +26,45 @@ var quickConfig = &quick.Config{
 	},
 }
 
+var quickTLSOptionsConfig = &quick.Config{
+	Values: func(values []reflect.Value, r *rand.Rand) {
+		for i := range [3]bool{} {
+			randHex := fmt.Sprintf("%x", r.Uint32())
+			values[i] = reflect.ValueOf(randHex)
+		}
+
+		for i := range [3]bool{} {
+			randBool := r.Uint32()&0x01 != 0
+			values[i+3] = reflect.ValueOf(randBool)
+		}
+	},
+}
+
+// func TestBinaryOperations(t *testing.T) {
+// 	results := map[bool]int{
+// 		true: 0,
+// 		false: 0,
+// 	}
+//
+// 	f := func(val uint32) bool {
+// 		results[(val&0x01 != 0)] ++
+// 		return true
+// 	}
+//
+// 	qc := &quick.Config{
+// 		MaxCount: 10000,
+// 		Values: func(v []reflect.Value, r *rand.Rand) {
+// 			u := r.Uint32()
+// 			v[0] = reflect.ValueOf(u)
+// 		},
+// 	}
+//
+// 	err := quick.Check(f, qc)
+// 	assert.NoError(t, err)
+//
+// 	fmt.Println("results: %v", results)
+// }
+
 var quickLog = func(msg string, obj interface{}, err error) {
 	if msg != "" {
 		fmt.Printf("%s:\n", msg)
@@ -44,6 +83,60 @@ type tlsFileOptionsTestCase struct {
 	tlsFileOptions *TLSFileOptions
 	before         func(*tlsFileOptionsTestCase) error
 	after          func(*tlsFileOptionsTestCase) error
+}
+
+func TestNewTLSFileOptions(t *testing.T) {
+	f := func(cert, key, hosts string, client, create, overwrite bool) (_ bool) {
+		tempPath, err := ioutil.TempDir("", "TestNewTLSFileOptions")
+		assert.NoError(t, err)
+		defer os.RemoveAll(tempPath)
+
+		certPath := fmt.Sprintf("%s.crt", filepath.Join(tempPath, cert))
+		keyPath := fmt.Sprintf("%s.key", filepath.Join(tempPath, key))
+		opts, err := NewTLSFileOptions(certPath, keyPath, hosts, client, true, overwrite)
+		if !assert.NoError(t, err) {
+			quickLog("", nil, err)
+			return false
+		}
+
+		if !assert.NotEmpty(t, opts.CertAbsPath) {
+			return false
+		}
+
+		if !assert.NotEmpty(t, opts.KeyAbsPath) {
+			return false
+		}
+
+		if !assert.NotEmpty(t, opts.Certificate.PrivateKey) {
+			return false
+		}
+
+		if !assert.NotEmpty(t, opts.Certificate) {
+			return false
+		}
+
+		if !assert.Equal(t, opts.CertRelPath, certPath) {
+			return false
+		}
+		if !assert.Equal(t, opts.KeyRelPath, keyPath) {
+			return false
+		}
+		if !assert.Equal(t, opts.Hosts, hosts) {
+			return false
+		}
+		if !assert.Equal(t, opts.Client, client) {
+			return false
+		}
+		// if !assert.Equal(t, opts.Create, create) {return false}
+		if !assert.Equal(t, opts.Overwrite, overwrite) {
+			return false
+		}
+
+		return true
+	}
+
+	err := quick.Check(f, quickTLSOptionsConfig)
+	assert.NoError(t, err)
 }
 
 func TestEnsureAbsPath(t *testing.T) {
@@ -94,8 +187,7 @@ func TestGenerate(t *testing.T) {
 			Hosts:       "127.0.0.1",
 		}
 
-		generatedCert, err := opts.generateServerTls()
-		if err != nil {
+		if err := opts.generateServerTls(); err != nil {
 			quickLog("", opts, err)
 			return false
 		}
@@ -146,7 +238,7 @@ func TestGenerate(t *testing.T) {
 			return true
 		}
 
-		return certsMatch(&loadedCert, generatedCert)
+		return certsMatch(&loadedCert, opts.Certificate)
 	}
 
 	err = quick.Check(f, quickConfig)
@@ -296,8 +388,25 @@ func TestEnsureExists_NotExistError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestNewServerTLSFromFile(t *testing.T) {
-	tempPath, err := ioutil.TempDir("", "TestNewServerTLSFromFile")
+func TestNewTLSConfig(t *testing.T) {
+	tempPath, err := ioutil.TempDir("", "TestNewPeerTLS")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
+
+	basePath := filepath.Join(tempPath, "TestNewPeerTLS")
+	certPath := fmt.Sprintf("%s.crt", basePath)
+	keyPath := fmt.Sprintf("%s.key", basePath)
+
+	opts, err := NewTLSFileOptions(
+		certPath,
+		keyPath,
+		"127.0.0.1",
+		false,
+		true,
+		false,
+	)
+	assert.NoError(t, err)
+
+	config := opts.NewTLSConfig(nil)
+	assert.Equal(t, *opts.Certificate, config.Certificates[0])
 }
