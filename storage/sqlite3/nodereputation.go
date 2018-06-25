@@ -6,6 +6,7 @@ package nodereputation
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	proto "storj.io/storj/protos/nodereputation"
 
@@ -62,7 +63,14 @@ func createTable(db *sql.DB) error {
 	return nil
 }
 
-func createNewNodeRecord(db *sql.DB, nodeName string) error {
+func createNewNodeRecord(db *sql.DB, nodeName string) {
+	insertNewNodeName(db, nodeName)
+	updateNodeParameters(db, nodeName, proto.Parameter_GOOD_RECALL)
+	updateNodeParameters(db, nodeName, proto.Parameter_BAD_RECALL)
+	updateNodeParameters(db, nodeName, proto.Parameter_WEIGHT)
+}
+
+func insertNewNodeName(db *sql.DB, nodeName string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return CreateNodeError.Wrap(err)
@@ -121,6 +129,31 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeReco
 	return res, nil
 }
 
+func selectAllBetaStateStmt() string {
+	res := "SELECT"
+	fromWhere := `FROM node_reputation
+	WHERE node_name = ?`
+
+	pre := func(f string) string {
+		return fmt.Sprintf(`
+			%s_weight_counter,
+			%s_cumulative_sum_reputation,
+			%s_current_reputation`, f, f, f)
+	}
+
+	var repState []string
+
+	for _, v := range proto.Feature_name {
+		repState = append(repState, pre(v))
+	}
+
+	joined := strings.Join(repState, ",")
+
+	res = res + joined + fromWhere
+
+	return res
+}
+
 func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateValue) error {
 	node, err := selectNodeFeature(db, nodeName, col)
 	if err != nil {
@@ -152,7 +185,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	return tx.Commit()
 }
 
-func updateNodeParameters(db *sql.DB, parameter proto.Parameter) {
+func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter) {
 
 }
 
