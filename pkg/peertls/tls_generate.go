@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package peertls
 
 // Copyright 2009 The Go Authors. All rights reserved.
