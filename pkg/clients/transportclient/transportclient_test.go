@@ -41,7 +41,7 @@ func TestDialNode(t *testing.T) {
 		},
 	}
 	conn, err := oc.DialNode(context.Background(), &node)
-	assert.NoError(t, err)
-	assert.NotNil(t, conn)
-	assert.NotEmpty(t, conn)
+	assert.Error(t, err)
+	assert.Nil(t, conn)
+	assert.Empty(t, conn)
 }

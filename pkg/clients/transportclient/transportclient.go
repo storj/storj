@@ -5,11 +5,11 @@ package transportclient
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"google.golang.org/grpc/connectivity"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/overlay"
@@ -41,9 +41,9 @@ func NewTransportClient(ctx context.Context, addr string) (TransportClient, erro
 // Dial using the authenticated mode
 func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	if node == nil {
-		zap.S().Errorf("node param uninitialized : %v\n", err)
-		return nil, err
+		return nil, errors.New("node param uninitialized")
 	} else {
+		/* A dozen attempts... Recommendation: this value should be configurable */
 		maxAttempts := 12
 		if node.Address == nil {
 			/* check to see nodeID is present to look up for the corresponding address */
@@ -59,23 +59,22 @@ func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn 
 				}
 				node.Address.Address = lookupNode.Address.Address
 			} else {
-				zap.S().Errorf("node Address uninitialized : %v\n", err)
-				return nil, err
+				return nil, errors.New("node Address uninitialized")
 			}
 		} else {
 			conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
 			if err != nil {
 				return nil, err
 			}
+		}
 
-			for conn.GetState() != connectivity.State(connectivity.Ready) && maxAttempts < 12 {
-				time.Sleep(15 * time.Millisecond)
-				maxAttempts--
-			}
+		/* connection retry attempt */
+		for (conn.GetState() != connectivity.State(connectivity.Ready)) && ((maxAttempts <= 12) && (maxAttempts > 0)) {
+			time.Sleep(15 * time.Millisecond)
+			maxAttempts--
 		}
 		if maxAttempts <= 0 {
-			zap.S().Errorf("Connection failed with grpc : %v\n", err)
-			return nil, err
+			return nil, errors.New("Connection failed to open using grpc")
 		}
 		return conn, err
 	}
@@ -84,9 +83,9 @@ func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn 
 // Dial using unauthenticated mode
 func (o *transportClient) DialUnauthenticated(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	if node == nil {
-		zap.S().Errorf("node param uninitialized : %v\n", err)
-		return nil, err
+		return nil, errors.New("node param uninitialized")
 	} else {
+		/* A dozen attempts... Recommendation: this value should be configurable */
 		maxAttempts := 12
 		if node.Address == nil {
 			/* check to see nodeID is present to look up for the corresponding address */
@@ -102,23 +101,22 @@ func (o *transportClient) DialUnauthenticated(ctx context.Context, node *proto.N
 				}
 				node.Address.Address = lookupNode.Address.Address
 			} else {
-				zap.S().Errorf("node Address uninitialized : %v\n", err)
-				return nil, err
+				return nil, errors.New("node Address uninitialized")
 			}
 		} else {
 			conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
 			if err != nil {
 				return nil, err
 			}
+		}
 
-			for conn.GetState() != connectivity.State(connectivity.Ready) && maxAttempts < 12 {
-				time.Sleep(15 * time.Millisecond)
-				maxAttempts--
-			}
+		/* connection retry attempt */
+		for (conn.GetState() != connectivity.State(connectivity.Ready)) && ((maxAttempts <= 12) && (maxAttempts > 0)) {
+			time.Sleep(15 * time.Millisecond)
+			maxAttempts--
 		}
 		if maxAttempts <= 0 {
-			zap.S().Errorf("Connection failed with grpc : %v\n", err)
-			return nil, err
+			return nil, errors.New("Connection failed to open using grpc")
 		}
 		return conn, err
 	}
