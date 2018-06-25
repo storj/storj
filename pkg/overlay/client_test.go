@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/kademlia"
 )
 
 func TestNewOverlayClient(t *testing.T) {
@@ -69,7 +70,7 @@ func TestChoose(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
-		nodeID        NodeID
+		nodeID        kademlia.NodeID
 		expectedCalls int
 	}{
 		{

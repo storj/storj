@@ -84,7 +84,7 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 
 	grpcServer := grpc.NewServer(t.ServerOption())
 	proto.RegisterOverlayServer(grpcServer, &Server{
-		kad:     k,
+		dht:     k,
 		cache:   cache,
 		logger:  l,
 		metrics: m,
