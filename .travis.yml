@@ -10,5 +10,5 @@ install:
   - make build-dev-deps
 
 script:
-  - $GOPATH/bin/goveralls -service=travis-ci
+  - $GOPATH/bin/goveralls -v -service=travis-ci
   - make test
