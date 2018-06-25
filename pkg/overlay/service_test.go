@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -40,13 +39,6 @@ func setTLSFlags(basePath string, create bool) {
 	flag.Set("tlsKeyPath", fmt.Sprintf("%s.key", basePath))
 	flag.Set("tlsCreate", createString)
 	flag.Set("tlsHosts", "localhost,127.0.0.1,::")
-}
-
-func setPortFlags(t *testing.T) {
-	availablePort, err := test.NewPort()
-	assert.NoError(t, err)
-
-	flag.Set("localPort", strconv.Itoa(availablePort))
 }
 
 func newTestService(t *testing.T) Service {
@@ -162,8 +154,8 @@ func TestProcess_redis(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
+	flag.Set("localPort", "0")
 	setTLSFlags(filepath.Join(tempPath, "TestProcess_redis"), true)
-	setPortFlags(t)
 	done := test.EnsureRedis(t)
 	defer done()
 
@@ -178,8 +170,8 @@ func TestProcess_bolt(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
+	flag.Set("localPort", "0")
 	setTLSFlags(filepath.Join(tempPath, "TestProcess_bolt"), true)
-	setPortFlags(t)
 	flag.Set("redisAddress", "")
 	boltdbPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
@@ -205,8 +197,8 @@ func TestProcess_error(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
+	flag.Set("localPort", "0")
 	setTLSFlags(filepath.Join(tempPath, "TestProcess_error"), true)
-	setPortFlags(t)
 	flag.Set("boltdbPath", "")
 	flag.Set("redisAddress", "")
 

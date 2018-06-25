@@ -25,7 +25,7 @@ var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	rt             dht.RoutingTable
+	routingTable   dht.RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
@@ -35,12 +35,22 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
-
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
 	}
 
-	bb, err := convertProtoNodes(bootstrapNodes)
+	ips, err := net.LookupIP(ip)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ips) <= 0 {
+		return nil, errs.New("Invalid IP")
+	}
+
+	ip = ips[0].String()
+
+	bnodes, err := convertProtoNodes(bootstrapNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +59,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 		ID:             id.Bytes(),
 		IP:             ip,
 		Port:           port,
-		BootstrapNodes: bb,
+		BootstrapNodes: bnodes,
 	})
 
 	if err != nil {
@@ -62,7 +72,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 	}
 
 	return &Kademlia{
-		rt:             rt,
+		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		ip:             ip,
 		port:           port,
@@ -203,22 +213,26 @@ func newID() ([]byte, error) {
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(id, ip, port string) proto.Node {
+func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	addr := "bootstrap.storj.io:8080"
 	if ip != "" && port != "" {
 		addr = ip + ":" + port
 	}
 
 	if id == "" {
-		i, _ := newID()
+		i, err := newID()
+		if err != nil {
+			return nil, err
+		}
+
 		id = string(i)
 	}
 
-	return proto.Node{
+	return &proto.Node{
 		Id: id,
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
 			Address:   addr,
 		},
-	}
+	}, nil
 }
