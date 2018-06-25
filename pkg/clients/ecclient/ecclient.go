@@ -21,7 +21,7 @@ type ECClient interface {
 	Put(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
 		pieceID PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
-		pieceID PieceID, size int64) (ranger.Ranger, error)
+		pieceID PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) error
 }
 
@@ -71,11 +71,11 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, es eestream.Era
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
-	pieceID PieceID, size int64) (ranger.Ranger, error) {
-	rrs := map[int]ranger.Ranger{}
+	pieceID PieceID, size int64) (ranger.RangeCloser, error) {
+	rrs := map[int]ranger.RangeCloser{}
 	type rangerInfo struct {
 		i   int
-		rr  ranger.Ranger
+		rr  ranger.RangeCloser
 		err error
 	}
 	rrch := make(chan rangerInfo, len(nodes))
@@ -86,9 +86,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 				rrch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			// TODO who should close the connection?
-			// Should we return RangeCloser instead of Ranger, so the caller
-			// can close the connection after reading from the ranger?
+			// no defer c.Close() here, the connection will be closed by the
+			// caller using RangeCloser.Close
 			ps := NewPSClient(c)
 			rr, err := ps.Get(ctx, pieceID, size)
 			rrch <- rangerInfo{i: i, rr: rr, err: err}

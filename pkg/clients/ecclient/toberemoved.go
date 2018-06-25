@@ -24,7 +24,7 @@ type PSClient interface {
 	Put(ctx context.Context, pieceID PieceID, data io.Reader,
 		expiration time.Time) error
 	Get(ctx context.Context, pieceID PieceID, size int64) (
-		ranger.Ranger, error)
+		ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 }
 
