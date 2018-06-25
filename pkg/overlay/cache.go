@@ -18,7 +18,10 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
+// ErrNodeNotFound error standardization
 var ErrNodeNotFound = errs.New("Node not found")
+
+// OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
@@ -142,7 +145,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		_, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 			return err

@@ -26,7 +26,6 @@ var (
 // Process fits the `Process` interface for services
 func (s *Service) Process(ctx context.Context) error {
 	if err := setEnv(); err != nil {
-		s.logger.Error("error configuring environment for netstate server")
 		return err
 	}
 
