@@ -34,11 +34,13 @@ proto:
 build-dev-deps:
 	go get github.com/golang/protobuf/protoc-gen-go
 	go get github.com/mattn/goveralls
+	go get github.com/philwinder/gocoverage
 	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
 test: lint
 	go install -v ./...
+	gocoverage
 	go test -v -covermode=count -coverprofile=coverage.out ./...
 	@echo done
 
