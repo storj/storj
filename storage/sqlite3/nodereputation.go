@@ -35,7 +35,7 @@ func createTable(db *sql.DB) error {
 			%s_bad_recall REAL,
 			%s_weight_counter REAL,
 			%s_weight_denominator REAL,
-			%s_cumulative_mean_reputation REAL,
+			%s_cumulative_sum_reputation REAL,
 			%s_current_reputation REAL`, s, s, s, s, s, s)
 	}
 
@@ -183,7 +183,7 @@ func updateFeatureRepStmt(feature proto.Feature) string {
 
 	pre := func(f string) string {
 		return fmt.Sprintf(`%s_weight_counter = ?,
-			%s_cumulative_mean_reputation = ?,
+			%s_cumulative_sum_reputation = ?,
 			%s_current_reputation = ?
 			WHERE node_name = '?';`, f, f, f)
 	}
@@ -214,7 +214,7 @@ func selectFeatureStmt(f proto.Feature, nodeName string) string {
 			%s_bad_recall,
 			%s_weight_counter,
 			%s_weight_denominator,
-			%s_cumulative_mean_reputation,
+			%s_cumulative_sum_reputation,
 			%s_current_reputation`, s, s, s, s, s, s)
 	}
 
