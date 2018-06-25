@@ -204,7 +204,7 @@ func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter
 
 	updateParamString := fmt.Sprintf(`UPDATE node_reputation
 	 SET %s = ?
-	 WHERE node_name = '?';`, parameter.String)
+	 WHERE node_name = '?';`, parameter.String())
 
 	updateStmt, err := tx.Prepare(updateParamString)
 	if err != nil {
