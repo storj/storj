@@ -195,11 +195,6 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 }
 
 func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) (_ credentials.TransportCredentials) {
-	// var (
-	// 	creds credentials.TransportCredentials
-	// 	// err   error
-	// )
-
 	creds := credentials.NewTLS(t.NewTLSConfig(config))
 
 	return creds

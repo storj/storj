@@ -33,37 +33,12 @@ var quickTLSOptionsConfig = &quick.Config{
 			values[i] = reflect.ValueOf(randHex)
 		}
 
-		for i := range [3]bool{} {
+		for i := range [2]bool{} {
 			randBool := r.Uint32()&0x01 != 0
 			values[i+3] = reflect.ValueOf(randBool)
 		}
 	},
 }
-
-// func TestBinaryOperations(t *testing.T) {
-// 	results := map[bool]int{
-// 		true: 0,
-// 		false: 0,
-// 	}
-//
-// 	f := func(val uint32) bool {
-// 		results[(val&0x01 != 0)] ++
-// 		return true
-// 	}
-//
-// 	qc := &quick.Config{
-// 		MaxCount: 10000,
-// 		Values: func(v []reflect.Value, r *rand.Rand) {
-// 			u := r.Uint32()
-// 			v[0] = reflect.ValueOf(u)
-// 		},
-// 	}
-//
-// 	err := quick.Check(f, qc)
-// 	assert.NoError(t, err)
-//
-// 	fmt.Println("results: %v", results)
-// }
 
 var quickLog = func(msg string, obj interface{}, err error) {
 	if msg != "" {
@@ -86,7 +61,7 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSFileOptions(t *testing.T) {
-	f := func(cert, key, hosts string, client, create, overwrite bool) (_ bool) {
+	f := func(cert, key, hosts string, client, overwrite bool) (_ bool) {
 		tempPath, err := ioutil.TempDir("", "TestNewTLSFileOptions")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempPath)
@@ -102,19 +77,15 @@ func TestNewTLSFileOptions(t *testing.T) {
 		if !assert.NotEmpty(t, opts.CertAbsPath) {
 			return false
 		}
-
 		if !assert.NotEmpty(t, opts.KeyAbsPath) {
 			return false
 		}
-
 		if !assert.NotEmpty(t, opts.Certificate.PrivateKey) {
 			return false
 		}
-
 		if !assert.NotEmpty(t, opts.Certificate) {
 			return false
 		}
-
 		if !assert.Equal(t, opts.CertRelPath, certPath) {
 			return false
 		}
@@ -127,7 +98,6 @@ func TestNewTLSFileOptions(t *testing.T) {
 		if !assert.Equal(t, opts.Client, client) {
 			return false
 		}
-		// if !assert.Equal(t, opts.Create, create) {return false}
 		if !assert.Equal(t, opts.Overwrite, overwrite) {
 			return false
 		}
