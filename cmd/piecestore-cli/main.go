@@ -32,9 +32,15 @@ func run(ctx context.Context) error {
 		{
 			Name:      "store",
 			Aliases:   []string{"s"},
-			Usage:     "Store data by hash",
-			ArgsUsage: "[hash] [dataPath] [storeDir]",
+			Usage:     "Store data by id",
+			ArgsUsage: "[id] [dataPath] [storeDir]",
 			Action: func(c *cli.Context) error {
+				if c.Args().Get(0) == "" {
+					return argError.New("No id specified")
+				}
+
+				id := c.Args().Get(0)
+
 				if c.Args().Get(0) == "" {
 					return argError.New("No input file specified")
 				}
@@ -60,8 +66,6 @@ func run(ctx context.Context) error {
 					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
 				}
 
-				id := pstore.DetermineID()
-
 				dataFileChunk, err := pstore.StoreWriter(id, c.Args().Get(1))
 				if err != nil {
 					return err
@@ -78,11 +82,11 @@ func run(ctx context.Context) error {
 		{
 			Name:      "retrieve",
 			Aliases:   []string{"r"},
-			Usage:     "Retrieve data by hash and print to Stdout",
-			ArgsUsage: "[hash] [storeDir]",
+			Usage:     "Retrieve data by id and print to Stdout",
+			ArgsUsage: "[id] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
+					return argError.New("Missing data id")
 				}
 				if c.Args().Get(1) == "" {
 					return argError.New("Missing file path")
@@ -112,11 +116,11 @@ func run(ctx context.Context) error {
 		{
 			Name:      "delete",
 			Aliases:   []string{"d"},
-			Usage:     "Delete data by hash",
-			ArgsUsage: "[hash] [storeDir]",
+			Usage:     "Delete data by id",
+			ArgsUsage: "[id] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
+					return argError.New("Missing data id")
 				}
 				if c.Args().Get(1) == "" {
 					return argError.New("No directory specified")
