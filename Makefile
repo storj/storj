@@ -33,6 +33,7 @@ proto:
 
 build-dev-deps:
 	go get github.com/golang/protobuf/protoc-gen-go
+	go get github.com/mattn/goveralls
 	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
