@@ -113,10 +113,12 @@ enum UpdateValue {
 enum Parameter {
     GOOD_RECALL = 0;
 	BAD_RECALL = 1;
-    WEIGHT_COUNTER = 2;
-	WEIGHT = 3;
-	CUMULATIVE_SUM_REPUTATION = 4;
-	CURRENT_REPUTATION = 5;
+	WEIGHT = 2;
+}
+enum BetaState {
+    WEIGHT_COUNTER = 0;
+	CUMULATIVE_SUM_REPUTATION = 1;
+	CURRENT_REPUTATION = 2;
 }
 enum Operand {
     EQUAL_TO = 0;

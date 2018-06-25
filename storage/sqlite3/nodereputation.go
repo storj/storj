@@ -152,7 +152,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	return tx.Commit()
 }
 
-func updateNodeParameters(db *sql.DB, goodRecall float64, badRecall float64, weightDenominator float64) {
+func updateNodeParameters(db *sql.DB, parameter proto.Parameter) {
 
 }
 
