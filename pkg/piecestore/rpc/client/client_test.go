@@ -9,16 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDetermineID(t *testing.T) {
+func TestNewPieceID(t *testing.T) {
 	t.Run("should return an id string", func(t *testing.T) {
 		assert := assert.New(t)
-		id := DetermineID()
-		assert.Equal(len(id) >= IDLength, true)
+		id := NewPieceID()
+		assert.Equal(id.IsValid(), true)
 	})
 
 	t.Run("should return a different string on each call", func(t *testing.T) {
 		assert := assert.New(t)
-		assert.NotEqual(DetermineID(), DetermineID())
+		assert.NotEqual(NewPieceID(), NewPieceID())
 	})
 }
 

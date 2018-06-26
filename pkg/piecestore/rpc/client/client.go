@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
+
 	"google.golang.org/grpc"
 
 	"github.com/mr-tron/base58/base58"
@@ -27,9 +28,6 @@ type PSClient interface {
 
 // PieceID - Id for piece
 type PieceID string
-
-// IDLength -- Minimum ID length
-const IDLength = 20
 
 // String -- Get String from PieceID
 func (id PieceID) String() string {
@@ -92,8 +90,12 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	return nil
 }
 
-// DetermineID creates random id
-func DetermineID() PieceID {
+func (id PieceID) IsValid() bool {
+	return len(id) >= 20
+}
+
+// NewPieceID creates random id
+func NewPieceID() PieceID {
 	b := make([]byte, 32)
 
 	_, err := rand.Read(b)

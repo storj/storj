@@ -66,7 +66,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, 0, length)
 
-				id := client.DetermineID()
+				id := client.NewPieceID()
 
 				writer, err := psClient.Put(context.Background(), id, ttl)
 				if err != nil {
