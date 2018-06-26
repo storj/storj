@@ -67,9 +67,6 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
-		if v == nil {
-			return Error.New("pointer at %#v not found", string(pathKey))
-		}
 		pointerBytes = v
 		return nil
 	})
