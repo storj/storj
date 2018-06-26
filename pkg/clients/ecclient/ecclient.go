@@ -9,10 +9,15 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/ranger"
 	proto "storj.io/storj/protos/overlay"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // ECClient defines an interface for storing erasure coded data to piece store nodes
@@ -35,7 +40,8 @@ func NewECClient(t TransportClient, mbm int) ECClient {
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
-	pieceID PieceID, data io.Reader, expiration time.Time) error {
+	pieceID PieceID, data io.Reader, expiration time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	readers, err := eestream.EncodeReader(ctx, data, rs, ec.mbm)
 	if err != nil {
 		return err
@@ -68,7 +74,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
-	pieceID PieceID, size int64) (ranger.RangeCloser, error) {
+	pieceID PieceID, size int64) (rr ranger.RangeCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	rrs := map[int]ranger.RangeCloser{}
 	type rangerInfo struct {
 		i   int
@@ -102,7 +109,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	return eestream.Decode(rrs, es, ec.mbm)
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) error {
+func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(n proto.Node) {
