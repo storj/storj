@@ -64,31 +64,28 @@ func Main(s ...Service) (err error) {
 		fmt.Printf("starting service %+v\n", service)
 		srv := service
 		wg.Add(1)
-		go func(service Service) {
+		go func(service Service) error {
 			defer wg.Done()
-			err := StartService(service)
+			err := StartService(ctx, service)
 			select {
 			case <-ctx.Done():
-				return
-			default:
+				return nil
 			}
 			if err != nil {
 				cancel()
-				return
+				return err
 			}
+			return nil
 		}(srv)
-
 	}
 
 	wg.Wait()
-	return ctx.Err()
+	return
 }
 
 // StartService will start the specified service up, load its flags,
 // and set environment configs for that service
-func StartService(s Service) (err error) {
-	ctx := context.Background()
-
+func StartService(ctx context.Context, s Service) (err error) {
 	instanceID := s.InstanceID()
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
