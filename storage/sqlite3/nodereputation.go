@@ -63,12 +63,12 @@ func createTable(db *sql.DB) error {
 	return nil
 }
 
-type ParamValue struct {
+type paramValue struct {
 	param proto.Parameter
 	val   proto.UpdateValue
 }
 
-func createNewNodeRecord(db *sql.DB, nodeName string, params []ParamValue) {
+func createNewNodeRecord(db *sql.DB, nodeName string, params []paramValue) {
 	insertNewNodeName(db, nodeName)
 	for _, pair := range params {
 		updateNodeParameters(db, nodeName, pair.param, updateToFloat(pair.val))
@@ -136,6 +136,36 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeat
 		return res, SelectError.Wrap(err)
 	}
 
+	return res, nil
+}
+
+func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
+	var res []nodeFeature
+	updateRes := func(res []nodeFeature, feature proto.Feature) ([]nodeFeature, error) {
+		newRes, err := selectNodeFeature(db, nodeName, proto.Feature_UPTIME)
+		if err != nil {
+			return nil, SelectError.Wrap(err)
+		}
+		res = append(res, newRes)
+		return res, nil
+	}
+
+	for i := range proto.Feature_name {
+		switch i {
+		case 0:
+			updateRes(res, proto.Feature_UPTIME)
+		case 1:
+			updateRes(res, proto.Feature_AUDIT)
+		case 2:
+			updateRes(res, proto.Feature_LATENCY)
+		case 3:
+			updateRes(res, proto.Feature_AMOUNT_OF_DATA_STORED)
+		case 4:
+			updateRes(res, proto.Feature_FALSE_CLAIMS)
+		case 5:
+			updateRes(res, proto.Feature_SHARDS_MODIFIED)
+		}
+	}
 	return res, nil
 }
 
