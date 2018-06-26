@@ -6,12 +6,13 @@ package process
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"sync"
 
 	"github.com/spacemonkeygo/flagfile"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
@@ -21,6 +22,8 @@ import (
 var (
 	logDisposition = flag.String("log.disp", "prod",
 		"switch to 'dev' to get more output")
+
+	wg sync.WaitGroup
 
 	// Error is a process error class
 	Error = errs.Class("ProcessError")
@@ -50,23 +53,35 @@ const (
 )
 
 // Main loops over a variable number of Service args and runs StartService
-// concurrently on each one.
+// concurrently on each one. If there is an error, it will cancel the entire
+// group and return the error.
 func Main(s ...Service) (err error) {
-	var g errgroup.Group
 	flagfile.Load()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	for _, service := range s {
-		service := service
-		g.Go(func() error {
+		fmt.Printf("starting service %+v\n", service)
+		srv := service
+		wg.Add(1)
+		go func(service Service) {
+			defer wg.Done()
 			err := StartService(service)
-			return err
-		})
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			if err != nil {
+				cancel()
+				return
+			}
+		}(srv)
+
 	}
 
-	if err := g.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	wg.Wait()
+	return ctx.Err()
 }
 
 // StartService will start the specified service up, load its flags,
