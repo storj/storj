@@ -26,19 +26,18 @@ type ECClient interface {
 }
 
 type ecClient struct {
-	t TransportClient
+	t   TransportClient
+	mbm int
 }
 
-// New creates an ECClient
-func New(t TransportClient) ECClient {
-	return &ecClient{t: t}
+// NewECClient from the given TransportClient and max buffer memory
+func NewECClient(t TransportClient, mbm int) ECClient {
+	return &ecClient{t: t, mbm: mbm}
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
 	pieceID PieceID, data io.Reader, expiration time.Time) error {
-	// TODO config/param for minimum and optimum thresholds and max buffer memory?
-	// Should minimum and optimum thresholds become part of the ErasureScheme interface?
-	readers, err := eestream.EncodeReader(ctx, ioutil.NopCloser(data), rs, 4*1024*1024)
+	readers, err := eestream.EncodeReader(ctx, ioutil.NopCloser(data), rs, ec.mbm)
 	if err != nil {
 		return err
 	}
@@ -63,7 +62,6 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 			// TODO log error?
 		}
 	}
-	// TODO compare against minimum threshold?
 	if len(readers)-len(errbucket) < rs.MinimumThreshold() {
 		// TODO return error
 	}
@@ -102,8 +100,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 		}
 		rrs[rri.i] = rri.rr
 	}
-	// TODO config/param for max buffer memory?
-	return eestream.Decode(rrs, es, 4*1024*1024)
+	return eestream.Decode(rrs, es, ec.mbm)
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) error {
