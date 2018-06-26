@@ -96,7 +96,7 @@ func MakePointer(path []byte, auth bool) pb.PutRequest {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			EncryptedUnencryptedSize: []byte("this big"),
+			Size: int64(1),
 		},
 		APIKey: []byte(APIKey),
 	}
