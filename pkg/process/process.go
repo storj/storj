@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"sync"
 
 	"github.com/spacemonkeygo/flagfile"
 	"github.com/zeebo/errs"
@@ -21,6 +22,8 @@ var (
 	logDisposition = flag.String("log.disp", "prod",
 		"switch to 'dev' to get more output")
 
+	wg sync.WaitGroup
+
 	// Error is a process error class
 	Error = errs.Class("ProcessError")
 	// ErrUsage is used when a user didn't use compatible or required options
@@ -33,8 +36,9 @@ type ID string
 // Service defines the interface contract for all Storj services
 type Service interface {
 	// Process should run the program
-	Process(context.Context) error
+	Process(context.Context)
 
+	Errors() chan error
 	SetLogger(*zap.Logger) error
 	SetMetricHandler(*monkit.Registry) error
 
@@ -48,19 +52,48 @@ const (
 	id ID = "SrvID"
 )
 
-// Main initializes a new Service
-func Main(s Service) (err error) {
+// Main loops over a variable number of Service args and runs StartService
+// concurrently on each one. If there is an error, it will cancel the entire
+// group and return the error.
+func Main(s ...Service) (err error) {
 	flagfile.Load()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	ctx := context.Background()
+	for _, service := range s {
+		srv := service
+		wg.Add(1)
 
+		go func(service Service) error {
+			defer wg.Done()
+			StartService(ctx, service)
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case err := <-service.Errors():
+				return err
+			}
+
+			if err != nil {
+				cancel()
+				return err
+			}
+			return nil
+		}(srv)
+	}
+
+	wg.Wait()
+	return
+}
+
+// StartService will start the specified service up, load its flags,
+// and set environment configs for that service
+func StartService(ctx context.Context, s Service) (err error) {
 	instanceID := s.InstanceID()
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
 	}
-
-	ctx, cf := context.WithCancel(context.WithValue(ctx, id, instanceID))
-	defer cf()
 
 	registry := monkit.Default
 	scope := registry.ScopeNamed("process")
@@ -88,7 +121,8 @@ func Main(s Service) (err error) {
 		logger.Error("failed to start debug endpoints", zap.Error(err))
 	}
 
-	return s.Process(ctx)
+	s.Process(ctx)
+	return
 }
 
 // Must can be used for default Main error handling
