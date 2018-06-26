@@ -91,7 +91,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 		zap.S().Fatalf("Error in DBCleanup: %v", err)
 	}()
 
-	fmt.Printf("Starting node: %s...\n", config.NodeID)
+	fmt.Printf("Node %s started\n", config.NodeID)
 
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {

@@ -66,8 +66,8 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	zap.S().Infof("Deleted node: %s", nodeID)
-	fmt.Printf("Deleted node: %s", nodeID)
+	zap.S().Infof("Node %s deleted", nodeID)
+	fmt.Printf("Node %s deleted\n", nodeID))
 
 	return nil
 }
