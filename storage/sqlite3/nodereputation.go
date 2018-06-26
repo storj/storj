@@ -169,6 +169,27 @@ func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	return res, nil
 }
 
+func matchRepOrderStmt(db *sql.DB, features []proto.Feature, notIn []string) string {
+	var exclude []string
+
+	for _, not := range notIn {
+		exclude = append(exclude, fmt.Sprintf(`'%s'`, not))
+	}
+
+	var ordered []string
+
+	for _, feature := range proto.Feature_name {
+		ordered = append(ordered, fmt.Sprintf("%s DESC", feature))
+	}
+
+	selectFeaturesStmt := fmt.Sprintf(`SELECT node_name
+	FROM node_reputation
+	WHERE node_name NOT IN (%s)
+	ORDER BY %s`, strings.Join(exclude, ","), strings.Join(ordered, ","))
+
+	return selectFeaturesStmt
+}
+
 func selectAllBetaStateStmt() string {
 	res := "SELECT"
 	fromWhere := `FROM node_reputation
