@@ -13,7 +13,7 @@ type Value []byte
 type Keys []Key
 
 // Limit indicates how many keys to return when calling List
-type Limit int64
+type Limit int
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -87,8 +88,20 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	m.ListCalled++
 	keys := storage.Keys{}
+
+	keyArr := make([]string, len(m.Data))
+	i := 0
+	for k := range m.Data {
+		keyArr[i] = k
+		i++
+	}
+	sort.Strings(keyArr)
+
+	if startingKey == nil {
+		startingKey = []byte(keyArr[0])
+	}
 	started := false
-	for key := range m.Data {
+	for _, key := range keyArr {
 		if !started && key == string(startingKey) {
 			keys = append(keys, storage.Key(key))
 			started = true

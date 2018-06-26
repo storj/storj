@@ -169,6 +169,38 @@ func (nt *NetStateClientTest) AssertNoErr(err error, msg string) {
 	panic(msg)
 }
 
+func TestMockList(t *testing.T) {
+	nt := NewNetStateClientTest(t)
+	defer nt.Close()
+
+	err := nt.mdb.Put([]byte("k1"), []byte("v1"))
+	if err != nil {
+		panic(err)
+	}
+	err = nt.mdb.Put([]byte("k2"), []byte("v2"))
+	if err != nil {
+		panic(err)
+	}
+	err = nt.mdb.Put([]byte("k3"), []byte("v3"))
+	if err != nil {
+		panic(err)
+	}
+	err = nt.mdb.Put([]byte("k4"), []byte("v4"))
+	if err != nil {
+		panic(err)
+	}
+
+	keys, err := nt.mdb.List([]byte("k2"), 2)
+	if fmt.Sprintf("%s", keys) != "[k2 k3]" {
+		t.Error("Failed to receive accepted list. Received " + fmt.Sprintf("%s", keys))
+	}
+
+	keys, err = nt.mdb.List(nil, 3)
+	if fmt.Sprintf("%s", keys) != "[k1 k2 k3]" {
+		t.Error("Failed to receive accepted list. Received " + fmt.Sprintf("%s", keys))
+	}
+}
+
 func TestNetStatePutGet(t *testing.T) {
 	nt := NewNetStateClientTest(t)
 	defer nt.Close()
@@ -288,14 +320,6 @@ func TestList(t *testing.T) {
 	for _, req := range reqs {
 		nt.Put(req)
 	}
-
-	getReq := pb.GetRequest{
-		Path:   []byte("file/path/2"),
-		APIKey: []byte("abc123"),
-	}
-
-	getRes := nt.Get(getReq)
-	fmt.Printf("get response: %#v", getRes)
 
 	listReq := pb.ListRequest{
 		StartingPathKey: []byte("file/path/2"),
