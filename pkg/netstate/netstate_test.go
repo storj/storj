@@ -371,13 +371,25 @@ func TestListWithoutStartingKey(t *testing.T) {
 	nt := NewNetStateClientTest(t)
 	defer nt.Close()
 
+	reqs := MakePointers(3)
+	for _, req := range reqs {
+		_, err := nt.c.Put(ctx, &req)
+		if err != nil {
+			nt.HandleErr(err, "Failed to put")
+		}
+	}
+
 	listReq := pb.ListRequest{
-		Limit:  4,
+		Limit:  3,
 		APIKey: []byte("abc123"),
 	}
-	_, err := nt.c.List(ctx, &listReq)
-	if err == nil {
-		t.Error("Failed to error when not given starting key")
+	listRes, err := nt.c.List(ctx, &listReq)
+	if err != nil {
+		nt.HandleErr(err, "Failed to list without starting key")
+	}
+
+	if !bytes.Equal(listRes.Paths[2], []byte("file/path/3")) {
+		nt.HandleErr(nil, "Failed to list correct paths")
 	}
 }
 

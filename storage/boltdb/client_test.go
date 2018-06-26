@@ -124,3 +124,27 @@ func TestList(t *testing.T) {
 		bt.HandleErr(nil, "Expected only test/path/2 in list")
 	}
 }
+
+func TestListNoStartingKey(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
+	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
+	}
+	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer2 to pointers bucket")
+	}
+	if err := bt.c.Put([]byte("test/path/3"), []byte("pointer3")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer3 to pointers bucket")
+	}
+
+	testPaths, err := bt.c.List(nil, storage.Limit(3))
+	if err != nil {
+		bt.HandleErr(err, "Failed to list Paths")
+	}
+
+	if !bytes.Equal(testPaths[2], []byte("test/path/3")) {
+		bt.HandleErr(nil, "Expected test/path/3 to be last in list")
+	}
+}
