@@ -68,20 +68,13 @@ func main() {
 
 				id := client.NewPieceID()
 
-				writer, err := psClient.Put(context.Background(), id, ttl)
+				err := psClient.Put(context.Background(), id, dataSection, ttl)
 				if err != nil {
-					fmt.Printf("Failed to send meta data to server to store file of id: %s\n", id)
+					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
 
-				_, err = io.Copy(writer, dataSection)
-				if err != nil {
-					fmt.Printf("Failed to store file of id: %s\n", id)
-				} else {
-					fmt.Printf("successfully stored file of id: %s\n", id)
-				}
-
-				return writer.Close()
+				return nil
 			},
 		},
 		{

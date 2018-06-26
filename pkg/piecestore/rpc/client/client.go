@@ -16,13 +16,14 @@ import (
 
 	"github.com/mr-tron/base58/base58"
 
+	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, ttl time.Time) (io.WriteCloser, error)
-	Get(ctx context.Context, id PieceID, offset, length int64) (io.ReadCloser, error)
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
+	Get(ctx context.Context, id PieceID, offset, length int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 }
 
@@ -55,23 +56,29 @@ func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put -- Upload Piece to Server
-func (client *Client) Put(ctx context.Context, id PieceID, ttl time.Time) (io.WriteCloser, error) {
+func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// SSend preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
 		stream.CloseAndRecv()
-		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
+		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	return &StreamWriter{stream: stream}, err
+	writer := &StreamWriter{stream: stream}
+
+	defer writer.Close()
+
+	_, err = io.Copy(writer, data)
+
+	return err
 }
 
 // Get -- Begin Download Piece from Server
-func (client *Client) Get(ctx context.Context, id PieceID, offset, length int64) (io.ReadCloser, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, offset, length int64) (ranger.RangeCloser, error) {
 	stream, err := client.route.Retrieve(ctx, &pb.PieceRetrieval{Id: id.String(), Size: length, Offset: offset})
 	if err != nil {
 		return nil, err

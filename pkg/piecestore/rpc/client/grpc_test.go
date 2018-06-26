@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package ranger
+package client
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/piecestore/rpc/client"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -65,7 +64,7 @@ func TestGRPCRanger(t *testing.T) {
 		gomock.InOrder(calls...)
 
 		ctx := context.Background()
-		c := client.NewCustomRoute(route)
+		c := NewCustomRoute(route)
 		rr, err := GRPCRanger(ctx, c, "")
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
@@ -125,7 +124,7 @@ func TestGRPCRangerSize(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		c := client.NewCustomRoute(route)
+		c := NewCustomRoute(route)
 		rr := GRPCRangerSize(c, "", tt.size)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
