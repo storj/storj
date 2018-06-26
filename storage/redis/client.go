@@ -72,10 +72,17 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *redisClient) List() (_ storage.Keys, _ error) {
-	results, err := c.db.Keys("*").Result()
-	if err != nil {
-		return nil, Error.New("list error", err)
+func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (_ storage.Keys, _ error) {
+	if startingKey != nil {
+		results, err := c.db.SScan(string(startingKey), 0, "", int64(limit))
+		if err != nil {
+			return nil, Error.New("list error", err)
+		}
+	} else if startingKey == nil {
+		results, _, err := client.Scan(0, "", int64(limit)).Result()
+		if err != nil {
+			return nil, Error.New("list error", err)
+		}
 	}
 
 	keys := make(storage.Keys, len(results))
