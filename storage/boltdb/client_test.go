@@ -42,6 +42,14 @@ func (bt *BoltClientTest) Close() {
 	}
 }
 
+func (bt *BoltClientTest) HandleErr(err error, msg string) {
+	bt.Error(msg)
+	if err != nil {
+		panic(err)
+	}
+	panic(msg)
+}
+
 func tempfile() string {
 	f, err := ioutil.TempFile("", "TempBolt-")
 	if err != nil {
@@ -60,7 +68,7 @@ func TestPut(t *testing.T) {
 	defer bt.Close()
 
 	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
-		t.Error("Failed to save pointer1 to pointers bucket")
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
 	}
 }
 
@@ -69,21 +77,21 @@ func TestGet(t *testing.T) {
 	defer bt.Close()
 
 	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
-		t.Error("Failed to save pointer1 to pointers bucket")
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
 	}
 
 	retrvValue, err := bt.c.Get([]byte("test/path/1"))
 	if err != nil {
-		t.Error("Failed to get saved test pointer")
+		bt.HandleErr(err, "Failed to get saved test pointer")
 	}
 	if !bytes.Equal(retrvValue, []byte("pointer1")) {
-		t.Error("Retrieved pointer was not same as put pointer")
+		bt.HandleErr(nil, "Retrieved pointer was not same as put pointer")
 	}
 
 	// tests Get non-existent path
 	getRes, err := bt.c.Get([]byte("fake/path"))
 	if getRes != nil {
-		t.Error("Expected nil response for getting fake path")
+		bt.HandleErr(nil, "Expected nil response for getting fake path")
 	}
 }
 
@@ -92,11 +100,11 @@ func TestDelete(t *testing.T) {
 	defer bt.Close()
 
 	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
-		t.Error("Failed to save pointer1 to pointers bucket")
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
 	}
 
 	if err := bt.c.Delete([]byte("test/path/1")); err != nil {
-		t.Error("Failed to delete test entry")
+		bt.HandleErr(err, "Failed to delete test entry")
 	}
 }
 
@@ -105,14 +113,14 @@ func TestList(t *testing.T) {
 	defer bt.Close()
 
 	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
-		t.Error("Failed to put pointer2 to pointers bucket")
+		bt.HandleErr(err, "Failed to put pointer2 to pointers bucket")
 	}
 	testPaths, err := bt.c.List([]byte("test/path/2"), storage.Limit(1))
 	if err != nil {
-		t.Error("Failed to list Path keys in pointers bucket")
+		bt.HandleErr(err, "Failed to list Path keys in pointers bucket")
 	}
 
 	if !bytes.Equal(testPaths[0], []byte("test/path/2")) {
-		t.Error("Expected only test/path/2 in list")
+		bt.HandleErr(nil, "Expected only test/path/2 in list")
 	}
 }
