@@ -121,7 +121,7 @@ func main() {
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, id, 0, pieceInfo.Size)
+				rr, err := psClient.Get(ctx, id, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
