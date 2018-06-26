@@ -6,7 +6,6 @@ package ecclient
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"time"
 
 	"go.uber.org/zap"
@@ -37,7 +36,7 @@ func NewECClient(t TransportClient, mbm int) ECClient {
 
 func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
 	pieceID PieceID, data io.Reader, expiration time.Time) error {
-	readers, err := eestream.EncodeReader(ctx, ioutil.NopCloser(data), rs, ec.mbm)
+	readers, err := eestream.EncodeReader(ctx, data, rs, ec.mbm)
 	if err != nil {
 		return err
 	}
