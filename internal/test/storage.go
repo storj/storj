@@ -94,20 +94,13 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	m.ListCalled++
 	keys := storage.Keys{}
-
-	keyArr := make([]string, len(m.Data))
-	i := 0
-	for k := range m.Data {
-		keyArr[i] = k
-		i++
-	}
-	sort.Strings(keyArr)
+	keySlice := mapIntoSlice(m.Data)
 
 	if startingKey == nil {
-		startingKey = []byte(keyArr[0])
+		startingKey = []byte(keySlice[0])
 	}
 	started := false
-	for _, key := range keyArr {
+	for _, key := range keySlice {
 		if !started && key == string(startingKey) {
 			keys = append(keys, storage.Key(key))
 			started = true
@@ -121,6 +114,17 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 		}
 	}
 	return keys, nil
+}
+
+func mapIntoSlice(data KvStore) []string {
+	keySlice := make([]string, len(data))
+	i := 0
+	for k := range data {
+		keySlice[i] = k
+		i++
+	}
+	sort.Strings(keySlice)
+	return keySlice
 }
 
 // Close closes the client
