@@ -48,11 +48,7 @@ func main() {
 	pr1 := proto.PutRequest{
 		Path: []byte("test/path/1"),
 		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
+			Type:          proto.Pointer_INLINE,
 			InlineSegment: []byte("inline1"),
 		},
 		APIKey: apiKey,
@@ -60,11 +56,7 @@ func main() {
 	pr2 := proto.PutRequest{
 		Path: []byte("test/path/2"),
 		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
+			Type:          proto.Pointer_INLINE,
 			InlineSegment: []byte("inline2"),
 		},
 		APIKey: apiKey,
@@ -72,11 +64,7 @@ func main() {
 	pr3 := proto.PutRequest{
 		Path: []byte("test/path/3"),
 		Pointer: &proto.Pointer{
-			Type: proto.Pointer_INLINE,
-			Encryption: &proto.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
+			Type:          proto.Pointer_INLINE,
 			InlineSegment: []byte("inline3"),
 		},
 		APIKey: apiKey,

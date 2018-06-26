@@ -23,6 +23,11 @@ import (
 // KvStore is an in-memory, crappy key/value store type for testing
 type KvStore map[string]storage.Value
 
+// Empty checks if there are any keys in the store
+func (k *KvStore) Empty() bool {
+	return len(*k) == 0
+}
+
 // MockKeyValueStore is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
 type MockKeyValueStore struct {
 	Data         KvStore
@@ -44,11 +49,12 @@ type RedisServer struct {
 }
 
 var (
-	// ErrMissingKey is the error returned if a key is not in the mock store
-	ErrMissingKey = errs.New("missing")
+	// ErrMissingKey is the error class returned if a key is not in the mock store
+	ErrMissingKey = errs.Class("missing")
 
-	// ErrForced is the error returned when the forced error flag is passed to mock an error
-	ErrForced = errs.New("error forced by using 'error' key in mock")
+	// ErrForced is the error class returned when the forced error flag is passed
+	// to mock an error
+	ErrForced = errs.Class("error forced by using 'error' key in mock")
 
 	redisRefs = map[string]bool{}
 	testRedis = &RedisServer{
@@ -60,7 +66,7 @@ var (
 func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
-		return storage.Value{}, ErrForced
+		return storage.Value{}, ErrForced.New("forced error")
 	}
 	v, ok := m.Data[key.String()]
 	if !ok {
