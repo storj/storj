@@ -65,10 +65,11 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 type Service struct {
 	logger  *zap.Logger
 	metrics *monkit.Registry
+	errors  chan error
 }
 
 // Process is the main function that executes the service
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context) {
 	// TODO
 	// 1. Boostrap a node on the network
 	// 2. Start up the overlay gRPC service
@@ -78,28 +79,28 @@ func (s *Service) Process(ctx context.Context) error {
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
 	in, err := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
 	if err != nil {
-		return err
+		s.errors <- err
 	}
 
 	id, err := kademlia.NewID()
 	if err != nil {
-		return err
+		s.errors <- err
 	}
 
 	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
-		return err
+		s.errors <- err
 	}
 
 	if err := kad.ListenAndServe(); err != nil {
 		s.logger.Error("Failed to ListenAndServe on new Kademlia", zap.Error(err))
-		return err
+		s.errors <- err
 	}
 
 	if err := kad.Bootstrap(ctx); err != nil {
 		s.logger.Error("Failed to Bootstrap on new Kademlia", zap.Error(err))
-		return err
+		s.errors <- err
 	}
 
 	// bootstrap cache
@@ -108,16 +109,16 @@ func (s *Service) Process(ctx context.Context) error {
 		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
-			return err
+			s.errors <- err
 		}
 	} else if boltdbPath != "" {
 		cache, err = NewBoltOverlayCache(boltdbPath, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new boltdb overlay client", zap.Error(err))
-			return err
+			s.errors <- err
 		}
 	} else {
-		return process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
+		s.errors <- process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
 	}
 
 	if boltdbPath != "" {
@@ -126,7 +127,7 @@ func (s *Service) Process(ctx context.Context) error {
 
 	if err := cache.Bootstrap(ctx); err != nil {
 		s.logger.Error("Failed to boostrap cache", zap.Error(err))
-		return err
+		s.errors <- err
 	}
 
 	// send off cache refreshes concurrently
@@ -135,7 +136,7 @@ func (s *Service) Process(ctx context.Context) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
 	if err != nil {
 		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
-		return err
+		s.errors <- err
 	}
 
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
@@ -152,9 +153,21 @@ func (s *Service) Process(ctx context.Context) error {
 		}
 	}()
 
-	// If `grpcServer.Serve(...)` returns an error, shutdown/cleanup the gRPC server
+	// If `grpcServer.Serve(...)` returns an error, report error to error channel
 	defer grpcServer.GracefulStop()
-	return grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		s.errors <- err
+	}
+}
+
+// NewService creates a new Service pointer
+func NewService(l *zap.Logger, m *monkit.Registry) *Service {
+	return &Service{
+		errors:  make(chan error),
+		metrics: m,
+		logger:  l,
+	}
 }
 
 // SetLogger adds the initialized logger to the Service
@@ -167,6 +180,11 @@ func (s *Service) SetLogger(l *zap.Logger) error {
 func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
+}
+
+// Errors returns error channel for process
+func (s *Service) Errors() chan error {
+	return s.errors
 }
 
 // InstanceID implements Service.InstanceID

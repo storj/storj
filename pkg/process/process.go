@@ -6,7 +6,6 @@ package process
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"sync"
 
@@ -37,8 +36,9 @@ type ID string
 // Service defines the interface contract for all Storj services
 type Service interface {
 	// Process should run the program
-	Process(context.Context) error
+	Process(context.Context)
 
+	Errors() chan error
 	SetLogger(*zap.Logger) error
 	SetMetricHandler(*monkit.Registry) error
 
@@ -61,16 +61,20 @@ func Main(s ...Service) (err error) {
 	defer cancel()
 
 	for _, service := range s {
-		fmt.Printf("starting service %+v\n", service)
 		srv := service
 		wg.Add(1)
+
 		go func(service Service) error {
 			defer wg.Done()
-			err := StartService(ctx, service)
+			StartService(ctx, service)
+
 			select {
 			case <-ctx.Done():
 				return nil
+			case err := <-service.Errors():
+				return err
 			}
+
 			if err != nil {
 				cancel()
 				return err
@@ -117,7 +121,8 @@ func StartService(ctx context.Context, s Service) (err error) {
 		logger.Error("failed to start debug endpoints", zap.Error(err))
 	}
 
-	return s.Process(ctx)
+	s.Process(ctx)
+	return
 }
 
 // Must can be used for default Main error handling

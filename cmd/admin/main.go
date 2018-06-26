@@ -12,7 +12,10 @@ import (
 )
 
 func main() {
-	err := process.Main(&overlay.Service{}, &netstate.Service{})
+	err := process.Main(
+		overlay.NewService(nil, nil),
+		netstate.NewService(nil, nil),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
