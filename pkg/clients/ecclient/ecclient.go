@@ -18,7 +18,7 @@ import (
 
 // ECClient defines an interface for storing erasure coded data to piece store nodes
 type ECClient interface {
-	Put(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+	Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
 		pieceID PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
 		pieceID PieceID, size int64) (ranger.RangeCloser, error)
@@ -34,11 +34,11 @@ func New(t TransportClient) ECClient {
 	return &ecClient{t: t}
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
 	pieceID PieceID, data io.Reader, expiration time.Time) error {
 	// TODO config/param for minimum and optimum thresholds and max buffer memory?
 	// Should minimum and optimum thresholds become part of the ErasureScheme interface?
-	readers, err := eestream.EncodeReader(ctx, ioutil.NopCloser(data), es, 0, 0, 4*1024*1024)
+	readers, err := eestream.EncodeReader(ctx, ioutil.NopCloser(data), rs, 4*1024*1024)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, es eestream.Era
 		}
 	}
 	// TODO compare against minimum threshold?
-	if len(readers)-len(errbucket) < es.RequiredCount() {
+	if len(readers)-len(errbucket) < rs.MinimumThreshold() {
 		// TODO return error
 	}
 	return nil
