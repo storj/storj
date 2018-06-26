@@ -160,7 +160,7 @@ func TestGenerate(t *testing.T) {
 			Hosts:       "127.0.0.1",
 		}
 
-		if err := opts.generateServerTls(); err != nil {
+		if _, err := opts.generateTLS(); err != nil {
 			quickLog("", opts, err)
 			return false
 		}

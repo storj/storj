@@ -5,6 +5,7 @@ package peertls
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"path/filepath"
 
@@ -47,14 +48,20 @@ type TLSFileOptions struct {
 	Overwrite bool
 }
 
-// func VerifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-// 	// + lookup identity
-// 	// + validate identity (hash/min-difficulty/etc.)
-// 	// + save identity
-//
-// 	// certFromPems(newCertBlock())
-//
-// }
+func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+	// Verify parent ID/sig
+	// Verify leaf  ID/sig
+	// Verify leaf signed by parent
+
+	// b64 := base64.URLEncoding.EncodeToString(rawCerts[0])
+	// fmt.Printf("rawCerts:%s\n", b64)
+	fmt.Println("rawCerts:", rawCerts)
+	// parentCert, err := x509.ParseCertificate(rawCerts[0])
+	// leafCert, err := x509.ParseCertificate(rawCerts[1])
+	// parentCert.Signature
+	// parentCert.PublicKey
+	return nil
+}
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
 func NewTLSFileOptions(certPath, keyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
@@ -140,19 +147,11 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 	// NB: even when `overwrite` is false, this WILL overwrite
 	//      a key if the cert is missing (vice versa)
 	if t.Create && (t.Overwrite || certMissing || keyMissing) {
-		var (
-			err error
-		)
-
-		if t.Client {
-			err = t.generateClientTls()
-		} else {
-			err = t.generateServerTls()
-		}
-
+		_, err := t.generateTLS()
 		if err != nil {
 			return err
 		}
+
 		return nil
 	}
 
@@ -177,7 +176,7 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
 	config.Certificates = []tls.Certificate{*t.Certificate}
 	config.InsecureSkipVerify = true
-	// config.VerifyPeerCertificate = VerifyPeerCertificate
+	config.VerifyPeerCertificate = VerifyPeerCertificate
 
 	return config
 }

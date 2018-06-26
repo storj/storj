@@ -44,140 +44,63 @@ var (
 	}
 )
 
-func (t *TLSFileOptions) generateServerTls() (_ error) {
+func (t *TLSFileOptions) generateTLS() (_ *tls.Certificate, _ error) {
+	var (
+		template *x509.Certificate
+		err      error
+	)
+
 	if t.Hosts == "" {
-		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
+		return nil, ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
 
 	if err := t.EnsureAbsPaths(); err != nil {
-		return err
+		return nil, ErrGenerate.Wrap(err)
 	}
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return ErrGenerate.New("failed to generateServerTls private key", err)
+		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
 	}
 
-	template, err := serverTemplate()
-
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	hosts := strings.Split(t.Hosts, ",")
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
-	}
-
-	// DER encoded
-	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	keyPem, err := keyToPem(privKey)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	t.Certificate = certificate
-
-	return nil
-}
-
-func (t *TLSFileOptions) generateClientTls() (_ error) {
-	if t.Hosts == "" {
-		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
-	}
-
-	if err := t.EnsureAbsPaths(); err != nil {
-		return err
-	}
-
-	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return ErrGenerate.New("failed to generateServerTls private key", err)
-	}
-
-	template, err := clientTemplate()
-
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	hosts := strings.Split(t.Hosts, ",")
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
-	}
-
-	// DER encoded
-	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	if err := writeCert(certDerBytes, t.CertAbsPath); err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	if err := writeKey(privKey, t.KeyAbsPath); err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	keyPem, err := keyToPem(privKey)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	certificate, err := certFromPems(newCertBlock(certDerBytes), keyPem)
-	if err != nil {
-		return ErrGenerate.Wrap(err)
-	}
-
-	t.Certificate = certificate
-
-	return nil
-}
-
-func clientTemplate() (_ *x509.Certificate, _ error) {
-	var notBefore time.Time
-
-	// TODO: `validFrom`
-	if len(validFrom) == 0 {
-		notBefore = time.Now()
+	if t.Client {
+		template, err = clientTemplate(t)
 	} else {
-		var err error
-		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
-		if err != nil {
-			return nil, ErrTLSTemplate.New("Failed to parse creation date", err)
-		}
+		template, err = serverTemplate(t)
 	}
 
-	// TODO: `validFor`
-	notAfter := notBefore.Add(validFor)
+	if err != nil {
+		return nil, ErrGenerate.Wrap(err)
+	}
 
-	return &x509.Certificate{
+	certificate, err := createAndPersist(t.CertAbsPath, t.KeyAbsPath, template, template, &privKey.PublicKey, privKey)
+	if err != nil {
+		return nil, ErrGenerate.Wrap(err)
+	}
+
+	t.Certificate = certificate
+
+	return certificate, nil
+}
+
+func setHosts(hosts string, template *x509.Certificate) {
+	h := strings.Split(hosts, ",")
+	for _, host := range h {
+		if ip := net.ParseIP(host); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, host)
+		}
+	}
+}
+
+func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+	notBefore, notAfter, err := datesValid()
+	if err != nil {
+		return nil, ErrTLSTemplate.Wrap(err)
+	}
+
+	template := &x509.Certificate{
 		SerialNumber:          new(big.Int).SetInt64(4),
 		Subject:               name,
 		NotBefore:             notBefore,
@@ -186,25 +109,18 @@ func clientTemplate() (_ *x509.Certificate, _ error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA: false,
-	}, nil
-}
-
-func serverTemplate() (_ *x509.Certificate, _ error) {
-	var notBefore time.Time
-
-	// TODO: `validFrom`
-	if len(validFrom) == 0 {
-		notBefore = time.Now()
-	} else {
-		var err error
-		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
-		if err != nil {
-			return nil, ErrTLSTemplate.New("Failed to parse creation date", err)
-		}
 	}
 
-	// TODO: `validFor`
-	notAfter := notBefore.Add(validFor)
+	setHosts(t.Hosts, template)
+
+	return template, nil
+}
+
+func serverTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+	notBefore, notAfter, err := datesValid()
+	if err != nil {
+		return nil, ErrTLSTemplate.Wrap(err)
+	}
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
@@ -306,6 +222,49 @@ func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
 	}
 
 	return &certificate, nil
+}
+
+func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pub *ecdsa.PublicKey, priv *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+	// DER encoded
+	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := writeCert(certDerBytes, certPath); err != nil {
+		return nil, err
+	}
+
+	if err := writeKey(priv, keyPath); err != nil {
+		return nil, err
+	}
+
+	keyPem, err := keyToPem(priv)
+	if err != nil {
+		return nil, err
+	}
+
+	return certFromPems(newCertBlock(certDerBytes), keyPem)
+}
+
+func datesValid() (_, _ time.Time, _ error) {
+	var notBefore time.Time
+
+	// TODO: `validFrom`
+	if len(validFrom) == 0 {
+		notBefore = time.Now()
+	} else {
+		var err error
+		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
+		if err != nil {
+			return time.Time{}, time.Time{}, errs.New("failed to parse creation date", err)
+		}
+	}
+
+	// TODO: `validFor`
+	notAfter := notBefore.Add(validFor)
+
+	return notBefore, notAfter, nil
 }
 
 // func readPem(path string) (_ *pem.Block, _ error) {
