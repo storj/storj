@@ -169,7 +169,7 @@ func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	return res, nil
 }
 
-func matchRepOrderStmt(db *sql.DB, features []proto.Feature, notIn []string) string {
+func matchRepOrderStmt(features []proto.Feature, notIn []string) string {
 	var exclude []string
 
 	for _, not := range notIn {
@@ -182,12 +182,35 @@ func matchRepOrderStmt(db *sql.DB, features []proto.Feature, notIn []string) str
 		ordered = append(ordered, fmt.Sprintf("%s DESC", feature))
 	}
 
-	selectFeaturesStmt := fmt.Sprintf(`SELECT node_name
+	selectNodesStmt := fmt.Sprintf(`SELECT node_name
 	FROM node_reputation
 	WHERE node_name NOT IN (%s)
 	ORDER BY %s`, strings.Join(exclude, ","), strings.Join(ordered, ","))
 
-	return selectFeaturesStmt
+	return selectNodesStmt
+}
+
+func matchRepOrder(db *sql.DB, features []proto.Feature, notIn []string) ([]string, error) {
+	rows, err := db.Query(matchRepOrderStmt(features, notIn))
+	if err != nil {
+		return nil, SelectError.Wrap(err)
+	}
+	defer rows.Close()
+
+	var res []string
+
+	for rows.Next() {
+		var s string
+		err := rows.Scan(s)
+		if err != nil {
+			return nil, SelectError.Wrap(err)
+		}
+
+		res = append(res, s)
+	}
+
+	return res, nil
+
 }
 
 func selectAllBetaStateStmt() string {
