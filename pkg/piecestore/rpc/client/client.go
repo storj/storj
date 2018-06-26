@@ -23,7 +23,7 @@ import (
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
-	Get(ctx context.Context, id PieceID, offset, length int64) (ranger.RangeCloser, error)
+	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 }
 
@@ -38,16 +38,21 @@ func (id PieceID) String() string {
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
 	route pb.PieceStoreRoutesClient
+	conn  *grpc.ClientConn
 }
 
 // NewPSClient -- Initilize Client
 func NewPSClient(conn *grpc.ClientConn) PSClient {
-	return &Client{route: pb.NewPieceStoreRoutesClient(conn)}
+	return &Client{conn: conn, route: pb.NewPieceStoreRoutesClient(conn)}
 }
 
 // NewCustomRoute creates new Client with custom route interface
 func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
 	return &Client{route: route}
+}
+
+func (client *Client) CloseConn() error {
+	return client.conn.Close()
 }
 
 // Meta -- Request info about a piece by Id
@@ -78,13 +83,8 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get -- Begin Download Piece from Server
-func (client *Client) Get(ctx context.Context, id PieceID, offset, length int64) (ranger.RangeCloser, error) {
-	stream, err := client.route.Retrieve(ctx, &pb.PieceRetrieval{Id: id.String(), Size: length, Offset: offset})
-	if err != nil {
-		return nil, err
-	}
-
-	return NewStreamReader(stream), nil
+func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
+	return PieceRangerSize(client, id, size), nil
 }
 
 // Delete -- Delete Piece From Server

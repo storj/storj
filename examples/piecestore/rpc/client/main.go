@@ -120,7 +120,15 @@ func main() {
 					return err
 				}
 
-				reader, err := psClient.Get(context.Background(), id, 0, pieceInfo.Size)
+				ctx := context.Background()
+				rr, err := psClient.Get(ctx, id, 0, pieceInfo.Size)
+				if err != nil {
+					fmt.Printf("Failed to retrieve file of id: %s\n", id)
+					os.Remove(dataPath)
+					return err
+				}
+
+				reader, err := rr.Range(ctx, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", id)
 					os.Remove(dataPath)
