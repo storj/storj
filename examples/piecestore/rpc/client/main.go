@@ -68,11 +68,12 @@ func main() {
 
 				id := client.NewPieceID()
 
-				err := psClient.Put(context.Background(), id, dataSection, ttl)
-				if err != nil {
+				if err := psClient.Put(context.Background(), id, dataSection, ttl); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
+
+				fmt.Printf("Successfully stored file of id: %s\n", id)
 
 				return nil
 			},
