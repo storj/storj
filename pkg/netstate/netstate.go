@@ -17,12 +17,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-// PointerEntry - Path and Pointer are saved as a key/value pair to a `storage.KeyValueStore`.
-type PointerEntry struct {
-	Path    []byte
-	Pointer []byte
-}
-
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore
@@ -45,7 +39,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
-// Put formats and hands off a file path to be saved to boltdb
+// Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
@@ -60,16 +54,11 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	pe := PointerEntry{
-		Path:    putReq.Path,
-		Pointer: pointerBytes,
-	}
-
-	if err := s.DB.Put(pe.Path, pe.Pointer); err != nil {
+	if err := s.DB.Put(putReq.Path, pointerBytes); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("put to the db: " + string(pe.Path))
+	s.logger.Debug("put to the db: " + string(putReq.Path))
 
 	return &pb.PutResponse{}, nil
 }
