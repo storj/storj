@@ -17,7 +17,7 @@ import (
 )
 
 // createCmd represents the create command
-var CreateCmd = &cobra.Command{
+var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new farmer node",
 	Long:  "Create a config file and set values for a new farmer node",
@@ -25,7 +25,7 @@ var CreateCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(CreateCmd)
+	RootCmd.AddCommand(createCmd)
 
 	nodeID := pstore.GenerateID()[:20]
 
@@ -34,19 +34,19 @@ func init() {
 		zap.S().Fatal(err)
 	}
 
-	CreateCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
-	CreateCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")
-	CreateCmd.Flags().String("kademliaListenPort", "7776", "Kademlia server `listen port`")
-	CreateCmd.Flags().String("pieceStoreHost", "127.0.0.1", "Farmer's public ip/host")
-	CreateCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
-	CreateCmd.Flags().String("dir", home, "`dir` of drive being shared")
+	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
+	createCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")
+	createCmd.Flags().String("kademliaListenPort", "7776", "Kademlia server `listen port`")
+	createCmd.Flags().String("pieceStoreHost", "127.0.0.1", "Farmer's public ip/host")
+	createCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
+	createCmd.Flags().String("dir", home, "`dir` of drive being shared")
 
-	viper.BindPFlag("kademlia.host", CreateCmd.Flags().Lookup("kademliaHost"))
-	viper.BindPFlag("kademlia.port", CreateCmd.Flags().Lookup("kademliaPort"))
-	viper.BindPFlag("kademlia.listen.port", CreateCmd.Flags().Lookup("kademliaListenPort"))
-	viper.BindPFlag("piecestore.host", CreateCmd.Flags().Lookup("pieceStoreHost"))
-	viper.BindPFlag("piecestore.port", CreateCmd.Flags().Lookup("pieceStorePort"))
-	viper.BindPFlag("piecestore.dir", CreateCmd.Flags().Lookup("dir"))
+	viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost"))
+	viper.BindPFlag("kademlia.port", createCmd.Flags().Lookup("kademliaPort"))
+	viper.BindPFlag("kademlia.listen.port", createCmd.Flags().Lookup("kademliaListenPort"))
+	viper.BindPFlag("piecestore.host", createCmd.Flags().Lookup("pieceStoreHost"))
+	viper.BindPFlag("piecestore.port", createCmd.Flags().Lookup("pieceStorePort"))
+	viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir"))
 
 	viper.SetDefault("piecestore.id", nodeID)
 
