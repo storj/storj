@@ -22,9 +22,9 @@ import (
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
+	tlsRootCertPath, tlsRootKeyPath, tlsCertBasePath, tlsKeyBasePath, tlsHosts               string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	tlsCertPath, tlsKeyPath, tlsHosts                                                        string
 	tlsCreate, tlsOverwrite                                                                  bool
 )
 
@@ -38,9 +38,9 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
-	flag.StringVar(&tlsCertPath, "tlsCertPath", "", "TLS Certificate file")
-	flag.StringVar(&tlsKeyPath, "tlsKeyPath", "", "TLS Key file")
-	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS Key file")
+	flag.StringVar(&tlsCertBasePath, "tlsCertBasePath", "", "The base path for TLS certificates")
+	flag.StringVar(&tlsKeyBasePath, "tlsKeyBasePath", "", "The base path for TLS keys")
+	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS host(s) (comma-delimited)")
 	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
 	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
@@ -71,8 +71,8 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 
 func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
 	t, err := tls.NewTLSFileOptions(
-		tlsCertPath,
-		tlsKeyPath,
+		tlsCertBasePath,
+		tlsKeyBasePath,
 		tlsHosts,
 		false,
 		tlsCreate,
@@ -97,8 +97,8 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 // returns a new instance of an overlay Client
 func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	t, err := tls.NewTLSFileOptions(
-		tlsCertPath,
-		tlsKeyPath,
+		tlsRootCertPath,
+		tlsRootKeyPath,
 		tlsHosts,
 		true,
 		tlsCreate,

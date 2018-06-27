@@ -69,32 +69,58 @@ func TestNewTLSFileOptions(t *testing.T) {
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempPath)
 
-		certPath := fmt.Sprintf("%s.crt", filepath.Join(tempPath, cert))
-		keyPath := fmt.Sprintf("%s.key", filepath.Join(tempPath, key))
-		opts, err := NewTLSFileOptions(certPath, keyPath, hosts, client, true, overwrite)
+		var subExt string
+		if client {
+			subExt = "client"
+		} else {
+			subExt = "leaf"
+		}
+
+		certBasePath := filepath.Join(tempPath, cert)
+		keyBasePath := filepath.Join(tempPath, key)
+		certPath := fmt.Sprintf("%s.%s.cert", certBasePath, subExt)
+		keyPath := fmt.Sprintf("%s.%s.key", keyBasePath, subExt)
+		opts, err := NewTLSFileOptions(certBasePath, keyBasePath, hosts, client, true, overwrite)
 		if !assert.NoError(t, err) {
 			quickLog("", nil, err)
 			return false
 		}
 
-		if !assert.NotEmpty(t, opts.CertAbsPath) {
+		if !assert.Equal(t, opts.RootCertRelPath, fmt.Sprintf("%s.%s.cert", certBasePath, "root")) {
 			return false
 		}
-		if !assert.NotEmpty(t, opts.KeyAbsPath) {
+		if !assert.Equal(t, opts.RootKeyRelPath, fmt.Sprintf("%s.%s.key", keyBasePath, "root")) {
 			return false
 		}
-		if !assert.NotEmpty(t, opts.Certificate.PrivateKey) {
-			return false
+
+		if client {
+			if !assert.NotEmpty(t, opts.ClientCertificate) {
+				return false
+			}
+			if !assert.NotEmpty(t, opts.ClientCertificate.PrivateKey) {
+				return false
+			}
+			if !assert.Equal(t, opts.ClientCertRelPath, certPath) {
+				return false
+			}
+			if !assert.Equal(t, opts.ClientKeyRelPath, keyPath) {
+				return false
+			}
+		} else {
+			if !assert.NotEmpty(t, opts.LeafCertificate) {
+				return false
+			}
+			if !assert.NotEmpty(t, opts.LeafCertificate.PrivateKey) {
+				return false
+			}
+			if !assert.Equal(t, opts.LeafCertRelPath, certPath) {
+				return false
+			}
+			if !assert.Equal(t, opts.LeafKeyRelPath, keyPath) {
+				return false
+			}
 		}
-		if !assert.NotEmpty(t, opts.Certificate) {
-			return false
-		}
-		if !assert.Equal(t, opts.CertRelPath, certPath) {
-			return false
-		}
-		if !assert.Equal(t, opts.KeyRelPath, keyPath) {
-			return false
-		}
+
 		if !assert.Equal(t, opts.Hosts, hosts) {
 			return false
 		}
@@ -115,24 +141,40 @@ func TestNewTLSFileOptions(t *testing.T) {
 func TestEnsureAbsPath(t *testing.T) {
 	f := func(val string) (_ bool) {
 		opts := &TLSFileOptions{
-			CertRelPath: fmt.Sprintf("%s.crt", val),
-			KeyRelPath:  fmt.Sprintf("%s.key", val),
+			RootCertRelPath:   fmt.Sprintf("%s.root.crt", val),
+			RootKeyRelPath:    fmt.Sprintf("%s.root.key", val),
+			LeafCertRelPath:   fmt.Sprintf("%s.leaf.crt", val),
+			LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", val),
+			ClientCertRelPath: fmt.Sprintf("%s.client.crt", val),
+			ClientKeyRelPath:  fmt.Sprintf("%s.client.key", val),
 		}
 
 		opts.EnsureAbsPaths()
 
-		if opts.CertAbsPath == "" && opts.KeyAbsPath == "" {
-			quickLog("absolute path is empty string", opts, nil)
-			return false
+		// TODO(bryanchriswhite) cleanup/refactor
+		for _, requiredRole := range opts.requiredFiles() {
+			for absPtr, role := range opts.pathRoleMap() {
+				if role == requiredRole {
+					if *absPtr == "" {
+						msg := fmt.Sprintf("absolute path for %s is empty string", fileLabels[role])
+						quickLog(msg, opts, nil)
+						return false
+					}
+				}
+			}
 		}
 
-		base := filepath.Base
-		wrongCert := base(opts.CertAbsPath) != base(opts.CertRelPath)
-		wrongKey := base(opts.CertAbsPath) != base(opts.CertRelPath)
-
-		if wrongCert || wrongKey {
-			quickLog("basenames don't match", opts, nil)
-			return false
+		for _, requiredRole := range opts.requiredFiles() {
+			for absPtr, role := range opts.pathRoleMap() {
+				base := filepath.Base
+				if role == requiredRole {
+					relPath := opts.pathMap()[absPtr]
+					if base(*absPtr) != base(relPath) {
+						quickLog("basenames don't match", opts, nil)
+						return false
+					}
+				}
+			}
 		}
 
 		return true
@@ -149,34 +191,29 @@ func TestGenerate(t *testing.T) {
 
 	f := func(val string) (_ bool) {
 		basePath := filepath.Join(tempPath, val)
-		certPath := fmt.Sprintf("%s.crt", basePath)
-		keyPath := fmt.Sprintf("%s.key", basePath)
+		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
+		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)
+		LeafCertPath := fmt.Sprintf("%s.leaf.cert", basePath)
+		LeafKeyPath := fmt.Sprintf("%s.leaf.key", basePath)
 
 		opts := &TLSFileOptions{
-			CertAbsPath: certPath,
-			KeyAbsPath:  keyPath,
-			Create:      true,
-			Overwrite:   false,
-			Hosts:       "127.0.0.1",
+			RootCertAbsPath: RootCertPath,
+			RootKeyAbsPath:  RootKeyPath,
+			LeafCertAbsPath: LeafCertPath,
+			LeafKeyAbsPath:  LeafKeyPath,
+			Create:          true,
+			Overwrite:       false,
+			Hosts:           "127.0.0.1",
 		}
 
-		if _, err := opts.generateTLS(); err != nil {
+		if err := opts.generateTLS(); err != nil {
 			quickLog("", opts, err)
 			return false
 		}
 
-		fPaths := map[string]string{"cert": certPath, "key": keyPath}
-		for k, fPath := range fPaths {
-			if _, err := os.Stat(fPath); err != nil {
-				err = ErrNotExist.Wrap(err)
-				quickLog(fmt.Sprintf("%s error", k), opts, err)
-				return false
-			}
-		}
-
-		loadedCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		loadedCert, err := LoadCert(LeafCertPath, LeafKeyPath)
 		if err != nil {
-			quickLog("", opts, err)
+			quickLog("error loading cert", opts, err)
 			return false
 		}
 
@@ -211,7 +248,7 @@ func TestGenerate(t *testing.T) {
 			return true
 		}
 
-		return certsMatch(&loadedCert, opts.Certificate)
+		return certsMatch(loadedCert, opts.LeafCertificate)
 	}
 
 	err = quick.Check(f, quickConfig)
@@ -225,15 +262,19 @@ func TestEnsureExists_Create(t *testing.T) {
 
 	f := func(val string) (_ bool) {
 		basePath := filepath.Join(tempPath, val)
-		certPath := fmt.Sprintf("%s.crt", basePath)
-		keyPath := fmt.Sprintf("%s.key", basePath)
+		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
+		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)
+		LeafCertPath := fmt.Sprintf("%s.leaf.cert", basePath)
+		LeafKeyPath := fmt.Sprintf("%s.leaf.key", basePath)
 
 		opts := &TLSFileOptions{
-			CertAbsPath: certPath,
-			KeyAbsPath:  keyPath,
-			Create:      true,
-			Overwrite:   false,
-			Hosts:       "127.0.0.1",
+			RootCertAbsPath: RootCertPath,
+			RootKeyAbsPath:  RootKeyPath,
+			LeafCertAbsPath: LeafCertPath,
+			LeafKeyAbsPath:  LeafKeyPath,
+			Create:          true,
+			Overwrite:       false,
+			Hosts:           "127.0.0.1",
 		}
 
 		err := opts.EnsureExists()
@@ -242,13 +283,18 @@ func TestEnsureExists_Create(t *testing.T) {
 			return false
 		}
 
-		fPaths := []string{certPath, keyPath}
-		for _, fPath := range fPaths {
-			if _, err = os.Stat(fPath); err != nil {
-				quickLog("path doesn't exist", opts, nil)
-				return false
+		for _, requiredRole := range opts.requiredFiles() {
+			for absPtr, role := range opts.pathRoleMap() {
+				if role == requiredRole {
+					if _, err = os.Stat(*absPtr); err != nil {
+						quickLog("path doesn't exist", opts, nil)
+						return false
+					}
+				}
 			}
 		}
+
+		// TODO: check for *tls.Certificate and pubkey
 
 		return true
 	}
@@ -265,48 +311,57 @@ func TestEnsureExists_Overwrite(t *testing.T) {
 
 	f := func(val string) (_ bool) {
 		basePath := filepath.Join(tempPath, val)
-		certPath := fmt.Sprintf("%s.crt", basePath)
-		keyPath := fmt.Sprintf("%s.key", basePath)
-		fPaths := map[string]string{"cert": certPath, "key": keyPath}
+		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
+		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)
+		LeafCertPath := fmt.Sprintf("%s.leaf.cert", basePath)
+		LeafKeyPath := fmt.Sprintf("%s.leaf.key", basePath)
 
 		checkFiles := func(opts *TLSFileOptions, checkSize bool) bool {
-			for k, fPath := range fPaths {
-				f, err := os.Stat(fPath)
+			for _, requiredRole := range opts.requiredFiles() {
+				for absPtr, role := range opts.pathRoleMap() {
+					if role == requiredRole {
+						f, err := os.Stat(*absPtr)
 
-				if err != nil {
-					quickLog(fmt.Sprintf("%s path doesn't exist", k), opts, nil)
-					return false
-				}
+						if err != nil {
+							quickLog(fmt.Sprintf("%s path doesn't exist", *absPtr), opts, nil)
+							return false
+						}
 
-				if checkSize && !(f.Size() > 0) {
-					quickLog(fmt.Sprintf("%s has size 0", k), opts, nil)
-					return false
+						if checkSize && !(f.Size() > 0) {
+							quickLog(fmt.Sprintf("%s has size 0", *absPtr), opts, nil)
+							return false
+						}
+					}
 				}
 			}
 
 			return true
 		}
 
-		if c, err := os.Create(certPath); err != nil {
-			quickLog("", nil, errs.Wrap(err))
-			return false
-		} else {
-			c.Close()
+		requiredFiles := []string{
+			RootCertPath,
+			RootKeyPath,
+			LeafCertPath,
+			LeafKeyPath,
 		}
 
-		if k, err := os.Create(keyPath); err != nil {
-			quickLog("", nil, errs.Wrap(err))
-			return false
-		} else {
-			k.Close()
+		for _, path := range requiredFiles {
+			if c, err := os.Create(path); err != nil {
+				quickLog("", nil, errs.Wrap(err))
+				return false
+			} else {
+				c.Close()
+			}
 		}
 
 		opts := &TLSFileOptions{
-			CertAbsPath: certPath,
-			KeyAbsPath:  keyPath,
-			Create:      true,
-			Overwrite:   true,
-			Hosts:       "127.0.0.1",
+			RootCertAbsPath: RootCertPath,
+			RootKeyAbsPath:  RootKeyPath,
+			LeafCertAbsPath: LeafCertPath,
+			LeafKeyAbsPath:  LeafKeyPath,
+			Create:          true,
+			Overwrite:       true,
+			Hosts:           "127.0.0.1",
 		}
 
 		// Ensure files exist to be overwritten
@@ -333,14 +388,19 @@ func TestEnsureExists_NotExistError(t *testing.T) {
 
 	f := func(val string) (_ bool) {
 		basePath := filepath.Join(tempPath, val)
-		certPath := fmt.Sprintf("%s.crt", basePath)
-		keyPath := fmt.Sprintf("%s.key", basePath)
+		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
+		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)
+		LeafCertPath := fmt.Sprintf("%s.leaf.cert", basePath)
+		LeafKeyPath := fmt.Sprintf("%s.leaf.key", basePath)
 
 		opts := &TLSFileOptions{
-			CertAbsPath: certPath,
-			KeyAbsPath:  keyPath,
-			Create:      false,
-			Overwrite:   false,
+			RootCertAbsPath: RootCertPath,
+			RootKeyAbsPath:  RootKeyPath,
+			LeafCertAbsPath: LeafCertPath,
+			LeafKeyAbsPath:  LeafKeyPath,
+			Create:          false,
+			Overwrite:       false,
+			Hosts:           "127.0.0.1",
 		}
 
 		if err := opts.EnsureExists(); err != nil {
@@ -381,5 +441,5 @@ func TestNewTLSConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	config := opts.NewTLSConfig(nil)
-	assert.Equal(t, *opts.Certificate, config.Certificates[0])
+	assert.Equal(t, *opts.LeafCertificate, config.Certificates[0])
 }

@@ -17,7 +17,6 @@ package peertls
 // (see https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail)
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -32,10 +31,52 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+	"io/ioutil"
+
 	"github.com/zeebo/errs"
 )
 
+type fileRole int
+
+// type certRole int
+// type templateFunc func(*TLSFileOptions) (*x509.Certificate, error)
+
+const (
+	// root   certRole = iota
+	// leaf
+	// client
+
+	rootCert fileRole = iota
+	rootKey
+	leafCert
+	leafKey
+	clientCert
+	clientKey
+)
+
 var (
+	// roles = map[certRole]string{
+	// 	root:   "root",
+	// 	leaf:   "leaf",
+	// 	client: "client",
+	// }
+	//
+	// roleTemplates = map[certRole]templateFunc{
+	// 	root:   rootTemplate,
+	// 	leaf:   leafTemplate,
+	// 	client: clientTemplate,
+	// }
+
+	fileLabels = map[fileRole]string{
+		rootCert:   "root certificate",
+		rootKey:    "root key",
+		leafCert:   "leaf certificate",
+		leafKey:    "leaf key",
+		clientCert: "client certificate",
+		clientKey:  "client key",
+	}
+
 	validFrom = ""                   // flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011")
 	validFor  = 365 * 24 * time.Hour // flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for")
 	isCA      = false                // flag.Bool("ca", false, "whether this cert should be its own Certificate Authority")
@@ -44,43 +85,85 @@ var (
 	}
 )
 
-func (t *TLSFileOptions) generateTLS() (_ *tls.Certificate, _ error) {
+func (t *TLSFileOptions) generateTLS() (_ error) {
 	var (
-		template *x509.Certificate
-		err      error
+		err error
 	)
 
 	if t.Hosts == "" {
-		return nil, ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
+		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
 
 	if err := t.EnsureAbsPaths(); err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return ErrGenerate.Wrap(err)
 	}
 
-	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// roles := map[certRole]
+	// for role, templateFunc := range roleTemplates {
+	// 	rivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// 	if err != nil {
+	// 		return nil, ErrGenerate.New("failed to generateServerTLS %s private key", roles[role], err)
+	// 	}
+	//
+	// 	template, err := templateFunc(t)
+	// 	if err != nil {
+	// 		return nil, ErrGenerate.Wrap(err)
+	// 	}
+	// }
+
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.New("failed to generateServerTls private key", err)
+		return ErrGenerate.New("failed to generateServerTLS root private key", err)
+	}
+
+	rootT, err := rootTemplate(t)
+	if err != nil {
+		return ErrGenerate.Wrap(err)
+	}
+
+	_, err = createAndPersist(t.RootCertAbsPath, t.RootKeyAbsPath, rootT, rootT, &rootKey.PublicKey, rootKey)
+	if err != nil {
+		return ErrGenerate.Wrap(err)
+	}
+
+	newKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return ErrGenerate.New("failed to generateTLS client private key", err)
 	}
 
 	if t.Client {
-		template, err = clientTemplate(t)
+		clientT, err := clientTemplate(t)
+		if err != nil {
+			return ErrGenerate.Wrap(err)
+		}
+
+		clientC, err := createAndPersist(t.ClientCertAbsPath, t.ClientKeyAbsPath, clientT, rootT, &newKey.PublicKey, rootKey)
+		// clientDERBytes, err := x509.CreateCertificate(rand.Reader, clientT, rootT, &newKey.PublicKey, rootKey)
+		// if err != nil {
+		// 	return ErrGenerate.Wrap(err)
+		// }
+		//
+		// clientCertBlock := newCertBlock(clientDERBytes)
+		// if err != nil {
+		// 	return ErrGenerate.Wrap(err)
+		// }
+
+		t.ClientCertificate = clientC
 	} else {
-		template, err = serverTemplate(t)
+		leafT, err := leafTemplate(t)
+		if err != nil {
+			return ErrGenerate.Wrap(err)
+		}
+
+		leafC, err := createAndPersist(t.LeafCertAbsPath, t.LeafKeyAbsPath, leafT, rootT, &newKey.PublicKey, rootKey)
+		if err != nil {
+			return ErrGenerate.Wrap(err)
+		}
+
+		t.LeafCertificate = leafC
 	}
 
-	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
-	}
-
-	certificate, err := createAndPersist(t.CertAbsPath, t.KeyAbsPath, template, template, &privKey.PublicKey, privKey)
-	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
-	}
-
-	t.Certificate = certificate
-
-	return certificate, nil
+	return nil
 }
 
 func setHosts(hosts string, template *x509.Certificate) {
@@ -116,33 +199,94 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	return template, nil
 }
 
-func serverTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+// func serverTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+// 	notBefore, notAfter, err := datesValid()
+// 	if err != nil {
+// 		return nil, ErrTLSTemplate.Wrap(err)
+// 	}
+//
+// 	serialNumber, err := newSerialNumber()
+// 	if err != nil {
+// 		return nil, ErrTLSTemplate.Wrap(err)
+// 	}
+//
+// 	template := &x509.Certificate{
+// 		SerialNumber:          serialNumber,
+// 		Subject:               name,
+// 		NotBefore:             notBefore,
+// 		NotAfter:              notAfter,
+// 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+// 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+// 		BasicConstraintsValid: true,
+// 	}
+//
+// 	// TODO: `isCA`
+// 	if isCA {
+// 		template.IsCA = true
+// 		template.KeyUsage |= x509.KeyUsageCertSign
+// 	}
+//
+// 	setHosts(t.Hosts, template)
+//
+// 	return template, nil
+// }
+
+func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	notBefore, notAfter, err := datesValid()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
 	}
 
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	serialNumber, err := newSerialNumber()
 	if err != nil {
-		return nil, ErrTLSTemplate.New("failed to generateServerTls serial number: %s", err.Error())
+		return nil, ErrTLSTemplate.Wrap(err)
 	}
 
 	template := &x509.Certificate{
-		SerialNumber:          serialNumber,
-		Subject:               name,
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+			CommonName:   "Root CA",
+		},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
+		IsCA: true,
 	}
 
-	// TODO: `isCA`
-	if isCA {
-		template.IsCA = true
-		template.KeyUsage |= x509.KeyUsageCertSign
+	setHosts(t.Hosts, template)
+
+	return template, nil
+}
+
+func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+	notBefore, notAfter, err := datesValid()
+	if err != nil {
+		return nil, ErrTLSTemplate.Wrap(err)
 	}
+
+	serialNumber, err := newSerialNumber()
+	if err != nil {
+		return nil, ErrTLSTemplate.Wrap(err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+			CommonName:   "test_cert_1",
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA: false,
+	}
+
+	setHosts(t.Hosts, template)
 
 	return template, nil
 }
@@ -155,10 +299,19 @@ func newCertBlock(b []byte) (_ *pem.Block) {
 	return &pem.Block{Type: "CERTIFICATE", Bytes: b}
 }
 
-func keyToPem(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
+func keyToDERBytes(key *ecdsa.PrivateKey) (_ []byte, _ error) {
 	b, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, errs.New("unable to marshal ECDSA private key", err)
+	}
+
+	return b, nil
+}
+
+func keyToBlock(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
+	b, err := keyToDERBytes(key)
+	if err != nil {
+		return nil, err
 	}
 
 	return newKeyBlock(b), nil
@@ -197,7 +350,7 @@ func writeKey(key *ecdsa.PrivateKey, path string) (_ error) {
 		return errs.New("unable to open \"%s\" for writing", path, err)
 	}
 
-	block, err := keyToPem(key)
+	block, err := keyToBlock(key)
 	if err != nil {
 		return err
 	}
@@ -209,20 +362,128 @@ func writeKey(key *ecdsa.PrivateKey, path string) (_ error) {
 	return nil
 }
 
-func certFromPems(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
-	certBuffer := bytes.NewBuffer([]byte{})
-	pem.Encode(certBuffer, cert)
-
-	keyBuffer := bytes.NewBuffer([]byte{})
-	pem.Encode(keyBuffer, key)
-
-	certificate, err := tls.X509KeyPair(certBuffer.Bytes(), keyBuffer.Bytes())
+// LoadX509KeyPair reads and parses a public/private key pair from a pair
+// of files. The files must contain PEM encoded data. The certificate file
+// may contain intermediate certificates following the leaf certificate to
+// form a certificate chain. On successful return, Certificate.Leaf will
+// be nil because the parsed form of the certificate is not retained.
+func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
+	certPEMBytes, err := ioutil.ReadFile(certFile)
 	if err != nil {
-		return nil, errs.New("unable to get certificate from PEM-encoded cert/key bytes", err)
+		return &tls.Certificate{}, err
+	}
+	keyPEMBytes, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return &tls.Certificate{}, err
 	}
 
-	return &certificate, nil
+	certPEMBlock, _ := pem.Decode(certPEMBytes)
+	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
+	return certFromPEMs(certPEMBlock.Bytes, keyPEMBlock.Bytes)
+	// return certFromPEMs(certPEMBlock, keyPEMBlock)
 }
+
+// X509KeyPair parses a public/private key pair from a pair of
+// PEM encoded data. On successful return, Certificate.Leaf will be nil because
+// the parsed form of the certificate is not retained.
+func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
+	fail := func(err error) (*tls.Certificate, error) { return &tls.Certificate{}, err }
+
+	var cert tls.Certificate
+	var skippedBlockTypes []string
+	// for {
+	// var certDERBlock *pem.Block
+	// certDERBlock, certDERBytes = pem.Decode(certDERBytes)
+	// if certDERBlock == nil {
+	// 	break
+	// }
+	// if certDERBlock.Type == "CERTIFICATE" {
+	cert.Certificate = append(cert.Certificate, certDERBytes)
+	// } else {
+	// 	skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
+	// }
+	// }
+
+	if len(cert.Certificate) == 0 {
+		if len(skippedBlockTypes) == 0 {
+			return fail(errs.New("tls: failed to find any PEM data in certificate input"))
+		}
+		if len(skippedBlockTypes) == 1 && strings.HasSuffix(skippedBlockTypes[0], "PRIVATE KEY") {
+			return fail(errs.New("tls: failed to find certificate PEM data in certificate input, but did find a private key; PEM inputs may have been switched"))
+		}
+		return fail(fmt.Errorf("tls: failed to find \"CERTIFICATE\" PEM block in certificate input after skipping PEM blocks of the following types: %v", skippedBlockTypes))
+	}
+
+	skippedBlockTypes = skippedBlockTypes[:0]
+	// var keyDERBlock *pem.Block
+	// for {
+	// 	keyDERBlock, keyDERBytes = pem.Decode(keyDERBytes)
+	// 	if keyDERBlock == nil {
+	// 		if len(skippedBlockTypes) == 0 {
+	// 			return fail(errs.New("tls: failed to find any PEM data in key input"))
+	// 		}
+	// 		if len(skippedBlockTypes) == 1 && skippedBlockTypes[0] == "CERTIFICATE" {
+	// 			return fail(errs.New("tls: found a certificate rather than a key in the PEM for the private key"))
+	// 		}
+	// 		return fail(fmt.Errorf("tls: failed to find PEM block with type ending in \"PRIVATE KEY\" in key input after skipping PEM blocks of the following types: %v", skippedBlockTypes))
+	// 	}
+	// 	if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
+	// 		break
+	// 	}
+	// 	skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)
+	// }
+
+	var err error
+	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
+	if err != nil {
+		return fail(err)
+	}
+
+	// We don't need to parse the public key for TLS, but we so do anyway
+	// to check that it looks sane and matches the private key.
+	// x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+	// if err != nil {
+	// 	return fail(err)
+	// }
+	//
+	// switch pub := x509Cert.PublicKey.(type) {
+	// case *rsa.PublicKey:
+	// 	priv, ok := cert.PrivateKey.(*rsa.PrivateKey)
+	// 	if !ok {
+	// 		return fail(errs.New("tls: private key type does not match public key type"))
+	// 	}
+	// 	if pub.N.Cmp(priv.N) != 0 {
+	// 		return fail(errs.New("tls: private key does not match public key"))
+	// 	}
+	// case *ecdsa.PublicKey:
+	// 	priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
+	// 	if !ok {
+	// 		return fail(errs.New("tls: private key type does not match public key type"))
+	// 	}
+	// 	if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
+	// 		return fail(errs.New("tls: private key does not match public key"))
+	// 	}
+	// default:
+	// 	return fail(errs.New("tls: unknown public key algorithm"))
+	// }
+
+	return &cert, nil
+}
+
+// func certFromPEMs(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
+// 	certBuffer := bytes.NewBuffer([]byte{})
+// 	pem.Encode(certBuffer, cert)
+//
+// 	keyBuffer := bytes.NewBuffer([]byte{})
+// 	pem.Encode(keyBuffer, key)
+//
+// 	certificate, err := tls.X509KeyPair(certBuffer.Bytes(), keyBuffer.Bytes())
+// 	if err != nil {
+// 		return nil, errs.New("unable to get certificate from PEM-encoded cert/key bytes", err)
+// 	}
+//
+// 	return &certificate, nil
+// }
 
 func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pub *ecdsa.PublicKey, priv *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
 	// DER encoded
@@ -239,12 +500,19 @@ func createAndPersist(certPath, keyPath string, template, parent *x509.Certifica
 		return nil, err
 	}
 
-	keyPem, err := keyToPem(priv)
+	keyDERBytes, err := keyToDERBytes(priv)
 	if err != nil {
 		return nil, err
 	}
 
-	return certFromPems(newCertBlock(certDerBytes), keyPem)
+	// keyPEMBlock, err := keyToBlock(priv)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	return certFromPEMs(certDerBytes, keyDERBytes)
+	// return certFromPEMs(newCertBlock(certDerBytes), keyPEMBlock)
+
 }
 
 func datesValid() (_, _ time.Time, _ error) {
@@ -265,6 +533,16 @@ func datesValid() (_, _ time.Time, _ error) {
 	notAfter := notBefore.Add(validFor)
 
 	return notBefore, notAfter, nil
+}
+
+func newSerialNumber() (_ *big.Int, _ error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, errs.New("failed to generateServerTls serial number: %s", err.Error())
+	}
+
+	return serialNumber, nil
 }
 
 // func readPem(path string) (_ *pem.Block, _ error) {
@@ -290,5 +568,5 @@ func datesValid() (_, _ time.Time, _ error) {
 // 		return nil, err
 // 	}
 //
-// 	return certFromPems(certBlock, keyBlock)
+// 	return certFromPEMs(certBlock, keyBlock)
 // }

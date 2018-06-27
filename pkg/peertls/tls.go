@@ -6,8 +6,10 @@ package peertls
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -31,13 +33,22 @@ func IsNotExist(err error) bool {
 
 // TLSFileOptions stores information about a tls certificate and key, and options for use with tls helper functions/methods
 type TLSFileOptions struct {
-	CertRelPath string
-	CertAbsPath string
-	Certificate *tls.Certificate
+	RootCertRelPath   string
+	RootCertAbsPath   string
+	LeafCertRelPath   string
+	LeafCertAbsPath   string
+	ClientCertRelPath string
+	ClientCertAbsPath string
 	// NB: Populate absolute paths from relative paths,
 	// 			with respect to pwd via `.EnsureAbsPaths`
-	KeyRelPath string
-	KeyAbsPath string
+	RootKeyRelPath    string
+	RootKeyAbsPath    string
+	LeafKeyRelPath    string
+	LeafKeyAbsPath    string
+	ClientKeyRelPath  string
+	ClientKeyAbsPath  string
+	LeafCertificate   *tls.Certificate
+	ClientCertificate *tls.Certificate
 	// Comma-separated list of hostname(s) (IP or FQDN)
 	Hosts string
 	// If true, key is not required or checked
@@ -64,18 +75,18 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(certPath, keyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
+func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
-		CertRelPath: certPath,
-		KeyRelPath:  keyPath,
-		Client:      client,
-		Overwrite:   overwrite,
-		Create:      create,
-		Hosts:       hosts,
-	}
-
-	if err := t.EnsureAbsPaths(); err != nil {
-		return nil, err
+		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
+		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
+		LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", baseCertPath),
+		LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", baseKeyPath),
+		ClientCertRelPath: fmt.Sprintf("%s.client.cert", baseCertPath),
+		ClientKeyRelPath:  fmt.Sprintf("%s.client.key", baseKeyPath),
+		Client:            client,
+		Overwrite:         overwrite,
+		Create:            create,
+		Hosts:             hosts,
 	}
 
 	if err := t.EnsureExists(); err != nil {
@@ -85,32 +96,47 @@ func NewTLSFileOptions(certPath, keyPath, hosts string, client, create, overwrit
 	return t, nil
 }
 
+func (t *TLSFileOptions) pathMap() (_ map[*string]string) {
+	return map[*string]string{
+		&t.RootCertAbsPath:   t.RootCertRelPath,
+		&t.RootKeyAbsPath:    t.RootKeyRelPath,
+		&t.LeafCertAbsPath:   t.LeafCertRelPath,
+		&t.LeafKeyAbsPath:    t.LeafKeyRelPath,
+		&t.ClientCertAbsPath: t.ClientCertRelPath,
+		&t.ClientKeyAbsPath:  t.ClientKeyRelPath,
+	}
+}
+
+func (t *TLSFileOptions) pathRoleMap() (_ map[*string]fileRole) {
+	return map[*string]fileRole{
+		&t.RootCertAbsPath:   rootCert,
+		&t.RootKeyAbsPath:    rootKey,
+		&t.LeafCertAbsPath:   leafCert,
+		&t.LeafKeyAbsPath:    leafKey,
+		&t.ClientCertAbsPath: clientCert,
+		&t.ClientKeyAbsPath:  clientKey,
+	}
+}
+
 // EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
 func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
-	if t.CertAbsPath == "" {
-		if t.CertRelPath == "" {
-			return ErrTLSOptions.New("No relative certificate path provided")
+	for _, role := range t.requiredFiles() {
+		for absPtr, relPath := range t.pathMap() {
+			if t.pathRoleMap()[absPtr] == role {
+				if *absPtr == "" {
+					if relPath == "" {
+						return ErrTLSOptions.New("No relative %s path provided", fileLabels[t.pathRoleMap()[absPtr]])
+					}
+
+					absPath, err := filepath.Abs(relPath)
+					if err != nil {
+						return ErrTLSOptions.Wrap(err)
+					}
+
+					*absPtr = absPath
+				}
+			}
 		}
-
-		certAbsPath, err := filepath.Abs(t.CertRelPath)
-		if err != nil {
-			return ErrTLSOptions.Wrap(err)
-		}
-
-		t.CertAbsPath = certAbsPath
-	}
-
-	if t.KeyAbsPath == "" {
-		if t.KeyRelPath == "" {
-			return ErrTLSOptions.New("No relative key path provided")
-		}
-
-		keyAbsPath, err := filepath.Abs(t.KeyRelPath)
-		if err != nil {
-			return errs.New(err.Error())
-		}
-
-		t.KeyAbsPath = keyAbsPath
 	}
 
 	return nil
@@ -118,63 +144,66 @@ func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 
 // EnsureExists checks whether the cert/key exists and whether to create/overwrite them given `t`s fields
 func (t *TLSFileOptions) EnsureExists() (_ error) {
-	// Assume cert and key exist
-	certMissing, keyMissing := false, false
-	var lastErr error
-
 	if err := t.EnsureAbsPaths(); err != nil {
 		return err
 	}
 
-	if _, err := os.Stat(t.CertAbsPath); err != nil {
-		lastErr = ErrNoCreate.Wrap(err)
-		certMissing = true
+	hasRequiredFiles, err := t.hasRequiredFiles()
+	if err != nil {
+		return err
 	}
 
-	if _, err := os.Stat(t.KeyAbsPath); err != nil {
-		if !IsNotExist(err) {
-			return errs.New(err.Error())
-		}
-
-		lastErr = ErrNoCreate.Wrap(err)
-		keyMissing = true
-	}
-
-	if t.Create && !t.Overwrite && (!certMissing || !keyMissing) {
-		return ErrNoOverwrite.New("certificate and key exist; refusing to create without overwrite")
+	if t.Create && !t.Overwrite && hasRequiredFiles {
+		return ErrNoOverwrite.New("certificates and keys exist; refusing to create without overwrite")
 	}
 
 	// NB: even when `overwrite` is false, this WILL overwrite
 	//      a key if the cert is missing (vice versa)
-	if t.Create && (t.Overwrite || certMissing || keyMissing) {
-		_, err := t.generateTLS()
-		if err != nil {
+	if t.Create && (t.Overwrite || !hasRequiredFiles) {
+		if err := t.generateTLS(); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-	if certMissing || keyMissing {
-		return ErrNotExist.Wrap(lastErr)
+	if !hasRequiredFiles {
+		missingRoles, _ := t.missingFiles()
+		missing := []string{}
+
+		for _, role := range missingRoles {
+			missing = append(missing, fileLabels[role])
+		}
+
+		return ErrNotExist.New(fmt.Sprintf(strings.Join(missing, ", ")))
 	}
 
 	// NB: ensure `t.Certificate` is not nil when create is false
 	if !t.Create {
-		cert, err := tls.LoadX509KeyPair(t.CertAbsPath, t.KeyAbsPath)
-		if err != nil {
-			return err
-		}
-
-		t.Certificate = &cert
+		t.loadTLS()
 	}
 
 	return nil
 }
 
+func (t *TLSFileOptions) loadTLS() {
+	if t.Client {
+		tls.LoadX509KeyPair(t.ClientCertAbsPath, t.ClientKeyAbsPath)
+	} else {
+		tls.LoadX509KeyPair(t.LeafCertAbsPath, t.LeafKeyAbsPath)
+	}
+}
+
 func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
-	config.Certificates = []tls.Certificate{*t.Certificate}
+
+	// TODO(bryanchriswhite): more
+	if t.Client {
+		config.Certificates = []tls.Certificate{*t.ClientCertificate}
+	} else {
+		config.Certificates = []tls.Certificate{*t.LeafCertificate}
+	}
+
 	config.InsecureSkipVerify = true
 	config.VerifyPeerCertificate = VerifyPeerCertificate
 
@@ -197,6 +226,66 @@ func (t *TLSFileOptions) ServerOption() (_ grpc.ServerOption) {
 	creds := t.NewPeerTLS(nil)
 
 	return grpc.Creds(creds)
+}
+
+func (t *TLSFileOptions) missingFiles() (_ []fileRole, _ error) {
+	missingRoles := []fileRole{}
+
+	paths := map[fileRole]string{
+		rootCert:   t.RootCertAbsPath,
+		rootKey:    t.RootKeyAbsPath,
+		leafCert:   t.LeafCertAbsPath,
+		leafKey:    t.LeafKeyAbsPath,
+		clientCert: t.ClientCertAbsPath,
+		clientKey:  t.ClientKeyAbsPath,
+	}
+
+	requiredFiles := t.requiredFiles()
+
+	for _, requiredRole := range requiredFiles {
+		for role, path := range paths {
+			if role == requiredRole {
+				if _, err := os.Stat(path); err != nil {
+					if !IsNotExist(err) {
+						return nil, errs.Wrap(err)
+					}
+
+					missingRoles = append(missingRoles, role)
+				}
+			}
+		}
+	}
+
+	return missingRoles, nil
+}
+
+func (t *TLSFileOptions) requiredFiles() (_ []fileRole) {
+	var roles = []fileRole{}
+
+	// rootCert is always required
+	roles = append(roles, rootCert)
+
+	if t.Create {
+		// required for writing rootKey when create is true
+		roles = append(roles, rootKey)
+	}
+
+	if t.Client {
+		roles = append(roles, clientCert, clientKey)
+	} else {
+		roles = append(roles, leafCert, leafKey)
+	}
+
+	return roles
+}
+
+func (t *TLSFileOptions) hasRequiredFiles() (_ bool, _ error) {
+	missingFiles, err := t.missingFiles()
+	if err != nil {
+		return false, err
+	}
+
+	return len(missingFiles) == 0, nil
 }
 
 // * Copyright 2017 gRPC authors.

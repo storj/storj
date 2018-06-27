@@ -27,20 +27,6 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
-func setTLSFlags(basePath string, create bool) {
-	var createString string
-	if create {
-		createString = "true"
-	} else {
-		createString = "false"
-	}
-
-	flag.Set("tlsCertPath", fmt.Sprintf("%s.crt", basePath))
-	flag.Set("tlsKeyPath", fmt.Sprintf("%s.key", basePath))
-	flag.Set("tlsCreate", createString)
-	flag.Set("tlsHosts", "localhost,127.0.0.1,::")
-}
-
 func newTestService(t *testing.T) Service {
 	return Service{
 		logger:  zap.NewNop(),
@@ -66,11 +52,11 @@ func TestNewClient_CreateTLS(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpPath)
 
-	setTLSFlags(filepath.Join(tmpPath, "TestNewClient_CreateTLS"), true)
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, tlsOpts := newMockTLSServer(t)
+
+	basePath := filepath.Join(tmpPath, "TestNewClient_CreateTLS")
+	srv, tlsOpts := newMockTLSServer(t, basePath, "", true)
 	go srv.Serve(lis)
 	defer srv.Stop()
 
@@ -100,12 +86,10 @@ func TestNewClient_LoadTLS(t *testing.T) {
 		false,
 	)
 
-	// NB: do NOT create a cert, it should be loaded from disk
-	setTLSFlags(basePath, false)
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, tlsOpts := newMockTLSServer(t)
+	// NB: do NOT create a cert, it should be loaded from disk
+	srv, tlsOpts := newMockTLSServer(t, basePath, "", false)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
@@ -129,19 +113,26 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	clientBasePath := filepath.Join(tmpPath, "client")
 	serverBasePath := filepath.Join(tmpPath, "server")
 
-	setTLSFlags(serverBasePath, true)
-
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, tlsOpts := newMockTLSServer(t)
+	srv, _ := newMockTLSServer(t, serverBasePath, "", true)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
 
-	setTLSFlags(clientBasePath, true)
+	clientTLSOps, err := peertls.NewTLSFileOptions(
+		clientBasePath,
+		clientBasePath,
+		"localhost,127.0.0.1,::",
+		true,
+		true,
+		false,
+	)
+
+	assert.NoError(t, err)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(&address, clientTLSOps.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -155,7 +146,6 @@ func TestProcess_redis(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	flag.Set("localPort", "0")
-	setTLSFlags(filepath.Join(tempPath, "TestProcess_redis"), true)
 	done := test.EnsureRedis(t)
 	defer done()
 
@@ -171,7 +161,6 @@ func TestProcess_bolt(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	flag.Set("localPort", "0")
-	setTLSFlags(filepath.Join(tempPath, "TestProcess_bolt"), true)
 	flag.Set("redisAddress", "")
 	boltdbPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
@@ -198,7 +187,6 @@ func TestProcess_error(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	flag.Set("localPort", "0")
-	setTLSFlags(filepath.Join(tempPath, "TestProcess_error"), true)
 	flag.Set("boltdbPath", "")
 	flag.Set("redisAddress", "")
 
@@ -215,14 +203,18 @@ func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	return grpcServer
 }
 
-func newMockTLSServer(t *testing.T) (*grpc.Server, *peertls.TLSFileOptions) {
+func newMockTLSServer(t *testing.T, tlsBasePath, tlsHosts string, create bool) (*grpc.Server, *peertls.TLSFileOptions) {
+	if tlsHosts == "" {
+		tlsHosts = "localhost,127.0.0.1,::"
+	}
+
 	tlsOpts, err := peertls.NewTLSFileOptions(
-		tlsCertPath,
-		tlsKeyPath,
+		tlsBasePath,
+		tlsBasePath,
 		tlsHosts,
 		false,
-		tlsCreate,
-		tlsOverwrite,
+		create,
+		false,
 	)
 	assert.NoError(t, err)
 
