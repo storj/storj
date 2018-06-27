@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	rep "storj.io/storj/pkg/nodereputation"
 	proto "storj.io/storj/protos/nodereputation"
 
 	// import of sqlite3 for side effects
@@ -97,10 +98,6 @@ func insertNewNodeName(db *sql.DB, nodeName string) error {
 	}
 
 	return tx.Commit()
-}
-
-func beta(x float64) float64 {
-	return float64(42)
 }
 
 type nodeFeature struct {
@@ -246,8 +243,8 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
-	newRep := beta(updateToFloat(value))
-	newSum := node.cumulativeSum + newRep
+	betaRes := rep.Beta(node.badRecall, node.goodRecall, node.weightDenominator, node.weightCounter, node.cumulativeSum, updateToFloat(value))
+	newSum := node.cumulativeSum + betaRes.Reputation
 	newCount := node.weightCounter + 1
 
 	tx, err := db.Begin()
