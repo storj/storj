@@ -132,7 +132,6 @@ func createNewNodeRecord(db *sql.DB, nodeName string) error {
 				CreateNodeError.Wrap(err)
 			}
 		}
-
 	}
 
 	return nil
@@ -173,10 +172,11 @@ type nodeFeature struct {
 	reputation        float64
 }
 
-func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeature, error) {
+func selectNodeFeature(db *sql.DB, nodeName string, feature proto.Feature) (nodeFeature, error) {
 	var res nodeFeature
 
-	rows, err := db.Query(selectFeatureStmt(col, nodeName))
+	stmt := selectFeatureStmt(feature, nodeName)
+	rows, err := db.Query(stmt)
 	if err != nil {
 		return res, SelectError.Wrap(err)
 	}
@@ -188,7 +188,7 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeat
 	}
 
 	res.nodeName = nodeName
-	res.feature = col.String()
+	res.feature = feature.String()
 
 	err = rows.Err()
 	if err != nil {
@@ -202,7 +202,7 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeat
 func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	var res []nodeFeature
 	updateRes := func(res []nodeFeature, feature proto.Feature) ([]nodeFeature, error) {
-		newRes, err := selectNodeFeature(db, nodeName, proto.Feature_UPTIME)
+		newRes, err := selectNodeFeature(db, nodeName, feature)
 		if err != nil {
 			return nil, SelectError.Wrap(err)
 		}
@@ -448,7 +448,7 @@ func selectFeatureStmt(f proto.Feature, nodeName string) string {
 		res = pre("shards_modified")
 	}
 
-	return res + "WHERE node_name = '" + nodeName + "';"
+	return res + " FROM node_reputation WHERE node_name = '" + nodeName + "';"
 }
 
 func updateToFloat(val proto.UpdateRepValue) float64 {

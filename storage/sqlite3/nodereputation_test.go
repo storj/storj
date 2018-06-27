@@ -4,26 +4,43 @@
 package nodereputation
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
 
 func TestCreateTable(t *testing.T) {
-	testTableName := "./TestCreateTable.db"
-	db, _ := startDB(testTableName)
+	testDatabaseName := "./TestCreateTable.db"
+	db, _ := startDB(testDatabaseName)
 
 	createReputationTable(db)
 
-	os.Remove(testTableName)
+	os.Remove(testDatabaseName)
 }
 
 func TestCreateNode(t *testing.T) {
-	testTableName := "./TestCreateNode.db"
-	db, _ := startDB(testTableName)
+	testDatabaseName := "./TestCreateNode.db"
+	db, _ := startDB(testDatabaseName)
 
 	createReputationTable(db)
 
 	createNewNodeRecord(db, "Alice")
 
-	os.Remove(testTableName)
+	os.Remove(testDatabaseName)
+}
+
+func TestSelectReputation(t *testing.T) {
+	testDatabaseName := "./TestSelectReputation.db"
+	db, _ := startDB(testDatabaseName)
+
+	createReputationTable(db)
+
+	createNewNodeRecord(db, "Alice")
+
+	nodeFeatures, err := getRep(db, "Alice")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(nodeFeatures)
+
 }
