@@ -4,24 +4,45 @@
 package client
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
+	"time"
 
+	"github.com/mr-tron/base58/base58"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
 )
+
+type PSClient interface {
+	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
+	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
+	Delete(ctx context.Context, pieceID PieceID) error
+	CloseConn() error
+}
+
+// PieceID - Id for piece
+type PieceID string
+
+// String -- Get String from PieceID
+func (id PieceID) String() string {
+	return string(id)
+}
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
 	route pb.PieceStoreRoutesClient
+	conn  *grpc.ClientConn
 }
 
-// New -- Initilize Client
-func New(conn *grpc.ClientConn) *Client {
-	return &Client{route: pb.NewPieceStoreRoutesClient(conn)}
+// NewPSClient initilizes a PSClient
+func NewPSClient(conn *grpc.ClientConn) PSClient {
+	return &Client{conn: conn, route: pb.NewPieceStoreRoutesClient(conn)}
 }
 
 // NewCustomRoute creates new Client with custom route interface
@@ -29,43 +50,64 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
 	return &Client{route: route}
 }
 
-// PieceMetaRequest -- Request info about a piece by Id
-func (client *Client) PieceMetaRequest(ctx context.Context, id string) (*pb.PieceSummary, error) {
-	return client.route.Piece(ctx, &pb.PieceId{Id: id})
+func (client *Client) CloseConn() error {
+	return client.conn.Close()
 }
 
-// StorePieceRequest -- Upload Piece to Server
-func (client *Client) StorePieceRequest(ctx context.Context, id string, ttl int64) (io.WriteCloser, error) {
+// Meta requests info about a piece by Id
+func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
+	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
+}
+
+// Put uploads a Piece to a piece store Server
+func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// SSend preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id, Ttl: ttl}); err != nil {
+	// Send preliminary data
+	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
 		stream.CloseAndRecv()
-		return nil, fmt.Errorf("%v.Send() = %v", stream, err)
+		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	return &StreamWriter{stream: stream}, err
+	writer := &StreamWriter{stream: stream}
+
+	defer writer.Close()
+
+	_, err = io.Copy(writer, data)
+
+	return err
 }
 
-// RetrievePieceRequest -- Begin Download Piece from Server
-func (client *Client) RetrievePieceRequest(ctx context.Context, id string, offset int64, length int64) (io.ReadCloser, error) {
-	stream, err := client.route.Retrieve(ctx, &pb.PieceRetrieval{Id: id, Size: length, Offset: offset})
-	if err != nil {
-		return nil, err
-	}
-
-	return NewStreamReader(stream), nil
+// Get begins downloading a Piece from a piece store Server
+func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
+	return PieceRangerSize(client, id, size), nil
 }
 
-// DeletePieceRequest -- Delete Piece From Server
-func (client *Client) DeletePieceRequest(ctx context.Context, id string) error {
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id})
+// Delete a Piece from a piece store Server
+func (client *Client) Delete(ctx context.Context, id PieceID) error {
+	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
 	if err != nil {
 		return err
 	}
 	log.Printf("Route summary : %v", reply)
 	return nil
+}
+
+func (id PieceID) IsValid() bool {
+	return len(id) >= 20
+}
+
+// NewPieceID creates a PieceID
+func NewPieceID() PieceID {
+	b := make([]byte, 32)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return PieceID(base58.Encode(b))
 }

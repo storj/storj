@@ -34,18 +34,28 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 		{
 			Name:      "store",
 			Aliases:   []string{"s"},
-			Usage:     "Store data by hash",
-			ArgsUsage: "[hash] [dataPath] [storeDir]",
+			Usage:     "Store data by id",
+			ArgsUsage: "[id] [dataPath] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
+					return argError.New("No id specified")
+				}
+
+				id := c.Args().Get(0)
+
+				if c.Args().Get(1) == "" {
 					return argError.New("No input file specified")
 				}
 
-				if c.Args().Get(1) == "" {
+				path := c.Args().Get(1)
+
+				if c.Args().Get(2) == "" {
 					return argError.New("No output directory specified")
 				}
 
-				file, err := os.Open(c.Args().Get(0))
+				outputDir := c.Args().Get(2)
+
+				file, err := os.Open(path)
 				if err != nil {
 					return err
 				}
@@ -53,18 +63,16 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 				// Close the file when we are done
 				defer file.Close()
 
-				fileInfo, err := os.Stat(c.Args().Get(0))
+				fileInfo, err := os.Stat(path)
 				if err != nil {
 					return err
 				}
 
 				if fileInfo.IsDir() {
-					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
+					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", path))
 				}
 
-				id := pstore.DetermineID()
-
-				dataFileChunk, err := pstore.StoreWriter(id, c.Args().Get(1))
+				dataFileChunk, err := pstore.StoreWriter(id, outputDir)
 				if err != nil {
 					return err
 				}
@@ -80,11 +88,11 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 		{
 			Name:      "retrieve",
 			Aliases:   []string{"r"},
-			Usage:     "Retrieve data by hash and print to Stdout",
-			ArgsUsage: "[hash] [storeDir]",
+			Usage:     "Retrieve data by id and print to Stdout",
+			ArgsUsage: "[id] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
+					return argError.New("Missing data id")
 				}
 				if c.Args().Get(1) == "" {
 					return argError.New("Missing file path")
@@ -114,11 +122,11 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 		{
 			Name:      "delete",
 			Aliases:   []string{"d"},
-			Usage:     "Delete data by hash",
-			ArgsUsage: "[hash] [storeDir]",
+			Usage:     "Delete data by id",
+			ArgsUsage: "[id] [storeDir]",
 			Action: func(c *cli.Context) error {
 				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Hash")
+					return argError.New("Missing data id")
 				}
 				if c.Args().Get(1) == "" {
 					return argError.New("No directory specified")
