@@ -11,12 +11,12 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-// StreamWriter -- Struct for writing piece to server upload stream
+// StreamWriter creates a StreamWriter for writing data to the piece store server
 type StreamWriter struct {
 	stream pb.PieceStoreRoutes_StoreClient
 }
 
-// Write -- Write method for piece upload to stream
+// Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	if err := s.stream.Send(&pb.PieceStore{Content: b}); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
@@ -25,7 +25,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// Close -- Close Write Stream
+// Closes the piece store Write Stream
 func (s *StreamWriter) Close() error {
 	reply, err := s.stream.CloseAndRecv()
 	if err != nil {
@@ -43,7 +43,7 @@ type StreamReader struct {
 	src    *utils.ReaderSource
 }
 
-// NewStreamReader creates a StreamReader
+// NewStreamReader creates a StreamReader for reading data from the piece store server
 func NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
 	return &StreamReader{
 		stream: stream,
@@ -57,12 +57,12 @@ func NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
 	}
 }
 
-// Read -- Read method for piece download stream
+// Read Piece data from piece store server download stream
 func (s *StreamReader) Read(b []byte) (int, error) {
 	return s.src.Read(b)
 }
 
-// Close -- Close Read Stream
+// Close the piece store server Read Stream
 func (s *StreamReader) Close() error {
 	return s.stream.CloseSend()
 }

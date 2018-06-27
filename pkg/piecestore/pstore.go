@@ -5,13 +5,11 @@ package pstore
 
 import (
 	"context"
-	"crypto/rand"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/ranger"
@@ -40,18 +38,6 @@ func PathByID(id, dir string) (string, error) {
 	fileName := string(id[4:])
 
 	return path.Join(dir, folder1, folder2, fileName), nil
-}
-
-// DetermineID creates random id
-func DetermineID() string {
-	b := make([]byte, 32)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return base58.Encode(b)
 }
 
 // StoreWriter stores data into piece store in multiple writes
