@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
@@ -23,11 +24,11 @@ var ErrNodeNotFound = errs.Class("Node not found")
 // Cache is used to store overlay data in Redis
 type Cache struct {
 	DB  storage.KeyValueStore
-	DHT kademlia.DHT
+	DHT dht.DHT
 }
 
 // NewRedisOverlayCache returns a pointer to a new Cache instance with an initalized connection to Redis.
-func NewRedisOverlayCache(address, password string, db int, DHT kademlia.DHT) (*Cache, error) {
+func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache, error) {
 	rc, err := redis.NewClient(address, password, db)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func NewRedisOverlayCache(address, password string, db int, DHT kademlia.DHT) (*
 }
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initalized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, DHT kademlia.DHT) (*Cache, error) {
+func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 	bc, err := boltdb.NewClient(nil, dbPath, boltdb.OverlayBucket)
 	if err != nil {
 		return nil, err
@@ -83,7 +84,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
+		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
 		if err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
@@ -138,8 +139,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		_, err := o.DHT.FindNode(ctx, kademlia.NodeID(v.Id))
-		if err != nil {
+		if _, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id)); err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
 	}
