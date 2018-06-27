@@ -7,7 +7,7 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b
 	github.com/cloudfoundry/gosigar v1.1.0
-	github.com/coyle/kademlia v0.0.0-20180604160050-23c5c505df98
+	github.com/coyle/kademlia v0.0.0-20180618235119-de4313d761cd
 	github.com/fatih/structs v1.0.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
