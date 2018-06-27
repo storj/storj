@@ -17,6 +17,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mr-tron/base58/base58"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
@@ -75,7 +76,7 @@ func connectToKad(id, ip, kadlistenport, kadaddress string) *kademlia.Kademlia {
 
 func main() { process.Must(process.Main(process.ServiceFunc(run))) }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store Farmer CLI"

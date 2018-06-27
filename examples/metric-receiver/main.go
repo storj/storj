@@ -8,6 +8,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/telemetry"
 )
@@ -20,7 +22,7 @@ func main() {
 	process.Must(process.Main(process.ServiceFunc(run)))
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	s, err := telemetry.Listen(*addr)
 	if err != nil {
 		return err

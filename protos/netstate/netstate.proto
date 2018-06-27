@@ -4,7 +4,7 @@
 syntax = "proto3";
 package netstate;
 
-import "timestamp.proto";
+import "google/protobuf/timestamp.proto";
 
 // NetState defines the interface for interacting with the network state persistence layer
 service NetState {
@@ -45,7 +45,6 @@ message EncryptionScheme {
 message RemotePiece {
   int64 piece_num = 1;
   string node_id = 2;
-  int64 size = 3; // full size including merkle tree
 }
 
 message RemoteSegment {
@@ -54,7 +53,6 @@ message RemoteSegment {
   repeated RemotePiece remote_pieces = 3;
 
   bytes merkle_root = 4; // root hash of the hashes of all of these pieces
-  int64 merkle_size = 5; // amount of space the merkle tree takes up at the end of each chunk
 }
 
 message Pointer {
@@ -64,14 +62,15 @@ message Pointer {
   }
 
   DataType type = 1;
-  EncryptionScheme encryption = 2;
 
   bytes inline_segment = 3;
   RemoteSegment remote = 4;
-  bytes encrypted_unencrypted_size = 5; // size of the unencrypted object (!)
+  int64 size = 5;
 
   google.protobuf.Timestamp creation_date = 6;
   google.protobuf.Timestamp expiration_date = 7;
+
+  bytes metadata = 8;
 }
 
 // PutRequest is a request message for the Put rpc call
