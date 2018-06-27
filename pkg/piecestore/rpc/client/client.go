@@ -10,9 +10,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/mr-tron/base58/base58"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/mr-tron/base58/base58"
 
 	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
