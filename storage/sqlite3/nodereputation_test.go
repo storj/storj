@@ -6,8 +6,6 @@ package nodereputation
 import (
 	"os"
 	"testing"
-
-	proto "storj.io/storj/protos/nodereputation"
 )
 
 func TestCreateTable(t *testing.T) {
@@ -25,21 +23,7 @@ func TestCreateNode(t *testing.T) {
 
 	createReputationTable(db)
 
-	params := []paramValue{
-		paramValue{
-			param: proto.Parameter_BAD_RECALL,
-			val:   0.995,
-		},
-		paramValue{
-			param: proto.Parameter_GOOD_RECALL,
-			val:   0.995,
-		},
-		paramValue{
-			param: proto.Parameter_WEIGHT_DENOMINATOR,
-			val:   10000.0,
-		},
-	}
-	createNewNodeRecord(db, "Alice", params)
+	createNewNodeRecord(db, "Alice")
 
-	// os.Remove(testTableName)
+	os.Remove(testTableName)
 }

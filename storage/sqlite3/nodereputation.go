@@ -76,26 +76,63 @@ func createReputationTable(db *sql.DB) error {
 	return nil
 }
 
-type paramValue struct {
-	param proto.Parameter
-	val   float64
-}
+func createNewNodeRecord(db *sql.DB, nodeName string) error {
 
-// type stateValue struct {
-// 	state proto.BetaStateCols
-// 	val   proto.UpdateRepValue
-// }
+	type paramValue struct {
+		param proto.Parameter
+		val   float64
+	}
 
-func createNewNodeRecord(db *sql.DB, nodeName string, params []paramValue) error {
+	type stateValue struct {
+		state proto.BetaStateCols
+		val   proto.UpdateRepValue
+	}
+
+	params := []paramValue{
+		paramValue{
+			param: proto.Parameter_BAD_RECALL,
+			val:   0.995,
+		},
+		paramValue{
+			param: proto.Parameter_GOOD_RECALL,
+			val:   0.995,
+		},
+		paramValue{
+			param: proto.Parameter_WEIGHT_DENOMINATOR,
+			val:   10000.0,
+		},
+	}
+	states := []stateValue{
+		stateValue{
+			state: proto.BetaStateCols_CUMULATIVE_SUM_REPUTATION,
+			val:   proto.UpdateRepValue_ZERO,
+		},
+		stateValue{
+			state: proto.BetaStateCols_CURRENT_REPUTATION,
+			val:   proto.UpdateRepValue_ZERO,
+		},
+		stateValue{
+			state: proto.BetaStateCols_FEATURE_COUNTER,
+			val:   proto.UpdateRepValue_ZERO,
+		},
+	}
+
 	insertNewNodeName(db, nodeName)
 	for _, feature := range proto.Feature_name {
 		for _, pair := range params {
-			// err :=
-			updateNodeParameters(db, nodeName, feature, pair.param, pair.val)
-			// if err != nil {
-			// 	panic(err)
-			// }
+			err := updateNodeParameters(db, nodeName, feature, pair.param, pair.val)
+			if err != nil {
+				CreateNodeError.Wrap(err)
+			}
 		}
+
+		for _, state := range states {
+			err := updateNodeState(db, nodeName, feature, state.state, state.val)
+			if err != nil {
+				CreateNodeError.Wrap(err)
+			}
+		}
+
 	}
 
 	return nil
@@ -304,6 +341,25 @@ func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter
 	updateParamString := fmt.Sprintf(`UPDATE node_reputation
 	 SET %s_%s = %.4f
 	 WHERE node_name = '%s';`, feature, parameter.String(), parameterValue, nodeName)
+
+	_, err = tx.Exec(updateParamString)
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+
+	return tx.Commit()
+}
+
+func updateNodeState(db *sql.DB, nodeName string, feature string, parameter proto.BetaStateCols, parameterValue proto.UpdateRepValue) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+	defer tx.Rollback()
+
+	updateParamString := fmt.Sprintf(`UPDATE node_reputation
+	 SET %s_%s = %.4f
+	 WHERE node_name = '%s';`, feature, parameter.String(), updateToFloat(parameterValue), nodeName)
 
 	_, err = tx.Exec(updateParamString)
 	if err != nil {
