@@ -25,6 +25,7 @@ type PSClient interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
 	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
+	CloseConn() error
 }
 
 // PieceID - Id for piece
