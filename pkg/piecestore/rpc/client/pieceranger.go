@@ -18,7 +18,7 @@ import (
 var Error = errs.Class("pieceRanger error")
 
 type pieceRanger struct {
-	c    *Client
+	c    PSClient
 	id   PieceID
 	size int64
 }
