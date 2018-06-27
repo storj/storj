@@ -40,7 +40,7 @@ type Client struct {
 	conn  *grpc.ClientConn
 }
 
-// NewPSClient -- Initilize Client
+// NewPSClient initilizes a PSClient
 func NewPSClient(conn *grpc.ClientConn) PSClient {
 	return &Client{conn: conn, route: pb.NewPieceStoreRoutesClient(conn)}
 }
@@ -54,19 +54,19 @@ func (client *Client) CloseConn() error {
 	return client.conn.Close()
 }
 
-// Meta -- Request info about a piece by Id
+// Meta requests info about a piece by Id
 func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
 	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
-// Put -- Upload Piece to Server
+// Put uploads a Piece to a piece store Server
 func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
 		return err
 	}
 
-	// SSend preliminary data
+	// Send preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
 		stream.CloseAndRecv()
 		return fmt.Errorf("%v.Send() = %v", stream, err)
@@ -81,12 +81,12 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	return err
 }
 
-// Get -- Begin Download Piece from Server
+// Get begins downloading a Piece from a piece store Server
 func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
 	return PieceRangerSize(client, id, size), nil
 }
 
-// Delete -- Delete Piece From Server
+// Delete a Piece from a piece store Server
 func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
 	if err != nil {
@@ -100,7 +100,7 @@ func (id PieceID) IsValid() bool {
 	return len(id) >= 20
 }
 
-// NewPieceID creates random id
+// NewPieceID creates a PieceID
 func NewPieceID() PieceID {
 	b := make([]byte, 32)
 
