@@ -40,6 +40,7 @@ func main() {
 			Aliases: []string{"u"},
 			Usage:   "upload data",
 			Action: func(c *cli.Context) error {
+
 				if c.Args().Get(0) == "" {
 					return argError.New("No input file specified")
 				}
@@ -84,8 +85,8 @@ func main() {
 			Usage:   "download data",
 			Action: func(c *cli.Context) error {
 				const (
-				    id int = iota
-				    outputDir
+					id int = iota
+					outputDir
 				)
 
 				if c.Args().Get(id) == "" {
