@@ -139,6 +139,7 @@ func selectNodeFeature(db *sql.DB, nodeName string, col proto.Feature) (nodeFeat
 	return res, nil
 }
 
+//
 func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	var res []nodeFeature
 	updateRes := func(res []nodeFeature, feature proto.Feature) ([]nodeFeature, error) {
@@ -190,6 +191,7 @@ func matchRepOrderStmt(features []proto.Feature, notIn []string) string {
 	return selectNodesStmt
 }
 
+//
 func matchRepOrder(db *sql.DB, features []proto.Feature, notIn []string) ([]string, error) {
 	rows, err := db.Query(matchRepOrderStmt(features, notIn))
 	if err != nil {
@@ -238,6 +240,7 @@ func selectAllBetaStateStmt() string {
 	return res
 }
 
+//
 func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateValue) error {
 	node, err := selectNodeFeature(db, nodeName, col)
 	if err != nil {

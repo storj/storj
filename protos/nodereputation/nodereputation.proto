@@ -75,6 +75,12 @@ message FeatureReputation {
     Feature feature = 3;
 }
 
+message FeatureState {
+    string feature = 1;
+	float cumulative_mean_reputation = 2;
+	float current_reputation = 3;
+}
+
 enum QueryStatus {
     NODE_FOUND = 0;
     NODE_NOT_FOUND = 1;
@@ -115,7 +121,7 @@ enum Parameter {
 	BAD_RECALL = 1;
 	WEIGHT = 2;
 }
-enum BetaState {
+enum BetaStateCols {
     WEIGHT_COUNTER = 0;
 	CUMULATIVE_SUM_REPUTATION = 1;
 	CURRENT_REPUTATION = 2;
