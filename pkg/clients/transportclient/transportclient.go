@@ -16,7 +16,7 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// TransportClient defines the interface to an network client.
+// TransportClient defines the interface to any client wanting to open a gRPC connection.
 type TransportClient interface {
 	DialUnauthenticated(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
 	DialNode(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
@@ -40,10 +40,11 @@ func NewTransportClient(ctx context.Context, addr string) (TransportClient, erro
 
 // Dial using the authenticated mode
 func (o *transportClient) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
+	/* TODO@ASK add security in after the security layer is finished. It is a filler but working code */
 	if node == nil {
 		return nil, errors.New("node param uninitialized")
 	} else {
-		/* A dozen attempts... Recommendation: this value should be configurable */
+		/* TODO@ASK A dozen attempts... Recommendation: this value should be configurable */
 		maxAttempts := 12
 		if node.Address == nil {
 			/* check to see nodeID is present to look up for the corresponding address */
