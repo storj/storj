@@ -60,18 +60,23 @@ func Main(s ...Service) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	errors := make(chan error)
+
 	for _, service := range s {
 		fmt.Printf("starting service %+v\n", service)
 		srv := service
 		wg.Add(1)
+
 		go func(service Service) error {
 			defer wg.Done()
 			err := StartService(ctx, service)
-			select {
-			case <-ctx.Done():
-				return nil
-			}
+
 			if err != nil {
+				select {
+				case <-ctx.Done():
+					return nil
+				case errors <- errs.New("error starting service", err):
+				}
 				cancel()
 				return err
 			}
@@ -79,8 +84,13 @@ func Main(s ...Service) (err error) {
 		}(srv)
 	}
 
+	errorVals := <-errors
 	wg.Wait()
-	return
+
+	if errorVals != nil {
+		return errorVals
+	}
+	return nil
 }
 
 // StartService will start the specified service up, load its flags,
