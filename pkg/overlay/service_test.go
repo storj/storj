@@ -36,7 +36,7 @@ func TestProcess_redis(t *testing.T) {
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	err := o.Process(ctx)
+	err := o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
 
@@ -58,7 +58,7 @@ func TestProcess_bolt(t *testing.T) {
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	err = o.Process(ctx)
+	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
 
@@ -69,6 +69,6 @@ func TestProcess_error(t *testing.T) {
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	err := o.Process(ctx)
+	err := o.Process(ctx, nil, nil)
 	assert.True(t, process.ErrUsage.Has(err))
 }
