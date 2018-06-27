@@ -83,17 +83,20 @@ func main() {
 			Aliases: []string{"d"},
 			Usage:   "download data",
 			Action: func(c *cli.Context) error {
-				if c.Args().Get(0) == "" {
+				const (
+				    id int = iota
+				    outputDir
+				)
+
+				if c.Args().Get(id) == "" {
 					return argError.New("No id specified")
 				}
 
-				var id client.PieceID = client.PieceID(c.Args().Get(0))
-
-				if c.Args().Get(1) == "" {
+				if c.Args().Get(outputDir) == "" {
 					return argError.New("No output file specified")
 				}
 
-				_, err := os.Stat(c.Args().Get(1))
+				_, err := os.Stat(c.Args().Get(outputDir))
 				if err != nil && !os.IsNotExist(err) {
 					return err
 				}
@@ -102,46 +105,44 @@ func main() {
 					return argError.New("File already exists")
 				}
 
-				dataPath := c.Args().Get(1)
-
-				if err = os.MkdirAll(filepath.Dir(dataPath), 0700); err != nil {
+				if err = os.MkdirAll(filepath.Dir(c.Args().Get(outputDir)), 0700); err != nil {
 					return err
 				}
 
 				// Create File on file system
-				dataFile, err := os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, 0755)
+				dataFile, err := os.OpenFile(c.Args().Get(outputDir), os.O_RDWR|os.O_CREATE, 0755)
 				if err != nil {
 					return err
 				}
 				defer dataFile.Close()
 
-				pieceInfo, err := psClient.Meta(context.Background(), id)
+				pieceInfo, err := psClient.Meta(context.Background(), client.PieceID(c.Args().Get(id)))
 				if err != nil {
-					os.Remove(dataPath)
+					os.Remove(c.Args().Get(outputDir))
 					return err
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, id, pieceInfo.Size)
+				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size)
 				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", id)
-					os.Remove(dataPath)
+					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
+					os.Remove(c.Args().Get(outputDir))
 					return err
 				}
 
 				reader, err := rr.Range(ctx, 0, pieceInfo.Size)
 				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", id)
-					os.Remove(dataPath)
+					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
+					os.Remove(c.Args().Get(outputDir))
 					return err
 				}
 
 				_, err = io.Copy(dataFile, reader)
 				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", id)
-					os.Remove(dataPath)
+					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
+					os.Remove(c.Args().Get(outputDir))
 				} else {
-					fmt.Printf("Successfully retrieved file of id: %s\n", id)
+					fmt.Printf("Successfully retrieved file of id: %s\n", c.Args().Get(id))
 				}
 
 				return reader.Close()
