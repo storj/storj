@@ -23,8 +23,8 @@ type pieceRanger struct {
 	size int64
 }
 
-// PieceRanger turns a gRPC connection to piece store into a Ranger
-func PieceRanger(ctx context.Context, c *Client, id PieceID) (ranger.RangeCloser, error) {
+// PieceRanger PieceRanger returns a RangeCloser from a PieceID.
+func PieceRanger(ctx context.Context, c PSClient, id PieceID) (ranger.RangeCloser, error) {
 	piece, err := c.Meta(ctx, PieceID(id))
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func PieceRanger(ctx context.Context, c *Client, id PieceID) (ranger.RangeCloser
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *Client, id PieceID, size int64) ranger.RangeCloser {
+func PieceRangerSize(c PSClient, id PieceID, size int64) ranger.RangeCloser {
 	return &pieceRanger{c: c, id: id, size: size}
 }
 
