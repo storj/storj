@@ -57,7 +57,7 @@ message NodeReputationQueryStatus {
 message NodeReputationUpdate {
     string node_id = 1;
     Feature feature = 2;
-    UpdateValue value = 3;
+    UpdateRepValue value = 3;
 }
 
 // NodeReputationUpdataStatus tells if a value was set for a node's feature
@@ -77,7 +77,7 @@ message FeatureReputation {
 
 message FeatureState {
     string feature = 1;
-	float cumulative_mean_reputation = 2;
+	float mean_reputation = 2;
 	float current_reputation = 3;
 }
 
@@ -105,7 +105,7 @@ enum Feature {
     SHARDS_MODIFIED =5;
 }
 
-enum UpdateValue {
+enum UpdateRepValue {
     NEGITIVE_ONE = 0;
     NEGITIVE_POINT_FIVE = 1;
     NEGITIVE_POINT_TWENTY_FIVE = 2;
@@ -118,11 +118,11 @@ enum UpdateValue {
 
 enum Parameter {
     GOOD_RECALL = 0;
-	BAD_RECALL = 1;
-	WEIGHT = 2;
+    BAD_RECALL = 1;
+    WEIGHT_DENOMINATOR = 2;
 }
 enum BetaStateCols {
-    WEIGHT_COUNTER = 0;
+    FEATURE_COUNTER = 0;
 	CUMULATIVE_SUM_REPUTATION = 1;
 	CURRENT_REPUTATION = 2;
 }

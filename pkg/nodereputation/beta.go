@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package nodereputation
 
 // BetaReturn Result type from Beta function
@@ -24,7 +27,7 @@ func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featu
 	meanRep := featureSum / featureCount
 
 	return BetaReturn{
-		reputation: newRep,
-		mean:       meanRep,
+		Reputation: newRep,
+		Mean:       meanRep,
 	}
 }

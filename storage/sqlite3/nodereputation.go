@@ -28,14 +28,26 @@ var SelectError = errs.Class("reputation selection error")
 // UpdateError is an error class for errors related to the reputation package
 var UpdateError = errs.Class("reputation update error")
 
-// createTable creates a table in sqlite3 based on the create table string parameter
-func createTable(db *sql.DB) error {
+// StartDBError is an error class for errors related to the reputation package
+var StartDBError = errs.Class("reputation start sqlite3 error")
+
+// startDB starts a sqlite3 database from the file path parameter
+func startDB(filePath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", filePath)
+	if err != nil {
+		return nil, StartDBError.Wrap(err)
+	}
+
+	return db, nil
+}
+
+// createReputationTable creates a table in sqlite3 based on the create table string parameter
+func createReputationTable(db *sql.DB) error {
 
 	pre := func(s string) string {
-		return fmt.Sprintf(`SELECT
-			%s_good_recall REAL,
+		return fmt.Sprintf(`%s_good_recall REAL,
 			%s_bad_recall REAL,
-			%s_weight_counter REAL,
+			%s_feature_counter REAL,
 			%s_weight_denominator REAL,
 			%s_cumulative_sum_reputation REAL,
 			%s_current_reputation REAL`, s, s, s, s, s, s)
@@ -66,14 +78,27 @@ func createTable(db *sql.DB) error {
 
 type paramValue struct {
 	param proto.Parameter
-	val   proto.UpdateValue
+	val   float64
 }
 
-func createNewNodeRecord(db *sql.DB, nodeName string, params []paramValue) {
+// type stateValue struct {
+// 	state proto.BetaStateCols
+// 	val   proto.UpdateRepValue
+// }
+
+func createNewNodeRecord(db *sql.DB, nodeName string, params []paramValue) error {
 	insertNewNodeName(db, nodeName)
-	for _, pair := range params {
-		updateNodeParameters(db, nodeName, pair.param, updateToFloat(pair.val))
+	for _, feature := range proto.Feature_name {
+		for _, pair := range params {
+			// err :=
+			updateNodeParameters(db, nodeName, feature, pair.param, pair.val)
+			// if err != nil {
+			// 	panic(err)
+			// }
+		}
 	}
+
+	return nil
 }
 
 func insertNewNodeName(db *sql.DB, nodeName string) error {
@@ -105,7 +130,7 @@ type nodeFeature struct {
 	feature           string
 	goodRecall        float64
 	badRecall         float64
-	weightCounter     float64
+	featureCounter    float64
 	weightDenominator float64
 	cumulativeSum     float64
 	reputation        float64
@@ -219,7 +244,7 @@ func selectAllBetaStateStmt() string {
 
 	pre := func(f string) string {
 		return fmt.Sprintf(`
-			%s_weight_counter,
+			%s_feature_counter,
 			%s_cumulative_sum_reputation,
 			%s_current_reputation`, f, f, f)
 	}
@@ -238,14 +263,14 @@ func selectAllBetaStateStmt() string {
 }
 
 //
-func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateValue) error {
+func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateRepValue) error {
 	node, err := selectNodeFeature(db, nodeName, col)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
-	betaRes := rep.Beta(node.badRecall, node.goodRecall, node.weightDenominator, node.weightCounter, node.cumulativeSum, updateToFloat(value))
+	betaRes := rep.Beta(node.badRecall, node.goodRecall, node.weightDenominator, node.featureCounter, node.cumulativeSum, updateToFloat(value))
 	newSum := node.cumulativeSum + betaRes.Reputation
-	newCount := node.weightCounter + 1
+	newCount := node.featureCounter + 1
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -261,7 +286,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	}
 	defer updateStmt.Close()
 
-	_, err = updateStmt.Exec(newCount, newSum, newRep, nodeName)
+	_, err = updateStmt.Exec(newCount, newSum, betaRes.Reputation, nodeName)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -269,7 +294,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	return tx.Commit()
 }
 
-func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter, parameterValue float64) error {
+func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter proto.Parameter, parameterValue float64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return UpdateError.Wrap(err)
@@ -277,16 +302,10 @@ func updateNodeParameters(db *sql.DB, nodeName string, parameter proto.Parameter
 	defer tx.Rollback()
 
 	updateParamString := fmt.Sprintf(`UPDATE node_reputation
-	 SET %s = ?
-	 WHERE node_name = '?';`, parameter.String())
+	 SET %s_%s = %.4f
+	 WHERE node_name = '%s';`, feature, parameter.String(), parameterValue, nodeName)
 
-	updateStmt, err := tx.Prepare(updateParamString)
-	if err != nil {
-		return UpdateError.Wrap(err)
-	}
-	defer updateStmt.Close()
-
-	_, err = updateStmt.Exec(parameterValue, nodeName)
+	_, err = tx.Exec(updateParamString)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -302,7 +321,7 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
 		err := rows.Scan(
 			&res.goodRecall,
 			&res.badRecall,
-			&res.weightCounter,
+			&res.featureCounter,
 			&res.weightDenominator,
 			&res.cumulativeSum,
 			&res.reputation,
@@ -320,7 +339,7 @@ func updateFeatureRepStmt(feature proto.Feature) string {
 	SET last_seen = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'),`
 
 	pre := func(f string) string {
-		return fmt.Sprintf(`%s_weight_counter = ?,
+		return fmt.Sprintf(`%s_feature_counter = ?,
 			%s_cumulative_sum_reputation = ?,
 			%s_current_reputation = ?
 			WHERE node_name = '?';`, f, f, f)
@@ -350,7 +369,7 @@ func selectFeatureStmt(f proto.Feature, nodeName string) string {
 		return fmt.Sprintf(`SELECT
 			%s_good_recall,
 			%s_bad_recall,
-			%s_weight_counter,
+			%s_feature_counter,
 			%s_weight_denominator,
 			%s_cumulative_sum_reputation,
 			%s_current_reputation`, s, s, s, s, s, s)
@@ -376,7 +395,7 @@ func selectFeatureStmt(f proto.Feature, nodeName string) string {
 	return res + "WHERE node_name = '" + nodeName + "';"
 }
 
-func updateToFloat(val proto.UpdateValue) float64 {
+func updateToFloat(val proto.UpdateRepValue) float64 {
 	res := float64(0)
 
 	switch val {
