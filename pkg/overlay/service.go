@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -68,7 +69,8 @@ type Service struct {
 }
 
 // Process is the main function that executes the service
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
+	err error) {
 	// TODO
 	// 1. Boostrap a node on the network
 	// 2. Start up the overlay gRPC service
