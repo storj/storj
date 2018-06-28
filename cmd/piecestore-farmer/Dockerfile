@@ -9,8 +9,15 @@ RUN cd /go/src/storj.io/storj/cmd/piecestore-farmer && go build -o piecestore-fa
 
 # final stage
 FROM alpine
+ENV KAD_HOST= \
+    KAD_LISTEN_PORT= \
+    KAD_PORT= \
+    PSID= \
+    PS_DIR= \
+    PUBLIC_IP= \
+    RPC_PORT=
+
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/cmd/piecestore-farmer/piecestore-farmer /app/
-
-RUN export PSID=$(./piecestore-farmer c --pieceStoreHost=${PUBLIC_IP} --pieceStorePort=${RPC_PORT} --kademliaPort=${KAD_PORT} --kademliaHost=${KAD_HOST} --kademliaListenPort=${KAD_LISTEN_PORT} --dir={$PS_DIR} | grep 'ID' | awk '{ print $2 }')
-ENTRYPOINT ./piecestore-farmer s $PSID
+COPY cmd/piecestore-farmer/entrypoint /piecestore-farmer-entrypoint
+ENTRYPOINT ["/piecestore-farmer-entrypoint"]
