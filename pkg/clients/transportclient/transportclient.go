@@ -26,7 +26,6 @@ func DialUnauthenticated(ctx context.Context, addr string) (conn *grpc.ClientCon
 	} else {
 		/* A dozen attempts... Recommendation: this value should be configurable */
 		maxAttempts := 12
-		/* err is nil, that means lookup passed complete info */
 		conn, err = grpc.Dial(addr, grpc.WithInsecure())
 		if err != nil {
 			return nil, err
