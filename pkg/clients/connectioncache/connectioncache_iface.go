@@ -51,6 +51,8 @@ type ConnectionCache interface {
 	DialUnauthenticated(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
 	DialNode(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
 
+	CacheConnections(ctx context.Context, numOfConn int64) (*[]grpc.ClientConn, error)
+
 	/* TODO@ASK add here the cache supported connection and any other methods to encapsulate
 	any of the inner working details about making connection or lookup or conn selection or
 	cache mechanism/algorithm functionality */

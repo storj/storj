@@ -99,6 +99,19 @@ func (o *connectionCache) DialUnauthenticated(ctx context.Context, node *proto.N
 	}
 }
 
+// CacheConnections returns the requested numOfConns from the overlay
+func (o *connectionCache) CacheConnections(ctx context.Context, numOfConns int64) (*[]grpc.ClientConn, error) {
+	if numOfConns < 0 {
+		return nil, errors.New("Invalid numOfConn requested")
+	} else {
+		// request the nodes from the Overlay (DHT)
+		_, _ = o.overlayClient.Choose(ctx, numOfConns, int64(1000))
+
+	}
+
+	return nil, nil
+}
+
 // // GetTransportClientType returns the transportclient.Type of ClientConn.
 // // This is an EXPERIMENTAL API.
 // func GetClient(tc transportclient.Client) string {
