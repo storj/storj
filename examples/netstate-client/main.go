@@ -91,7 +91,6 @@ func main() {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			EncryptedUnencryptedSize: []byte("this big"),
 		},
 		APIKey: apiKey,
 	}
