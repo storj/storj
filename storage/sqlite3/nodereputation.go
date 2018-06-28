@@ -216,7 +216,7 @@ func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	return res, nil
 }
 
-func matchRepOrderStmt(features []proto.Feature, notIn []string) string {
+func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaStateCols, notIn []string) string {
 	var exclude []string
 
 	for _, not := range notIn {
@@ -227,21 +227,24 @@ func matchRepOrderStmt(features []proto.Feature, notIn []string) string {
 
 	for _, feature := range features {
 		ordered = append(ordered,
-			fmt.Sprintf("%s_%s",
-				feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String()))
+			fmt.Sprintf("%s_%s DESC",
+				feature.String(), state.String()))
 	}
 
 	selectNodesStmt := fmt.Sprintf(`SELECT node_name
 	FROM node_reputation
 	WHERE node_name NOT IN (%s)
-	ORDER BY %s`, strings.Join(exclude, ","), strings.Join(ordered, ","))
+	ORDER BY %s
+	LIMIT %d;`, strings.Join(exclude, ","), strings.Join(ordered, ",\n"), limit)
 
 	return selectNodesStmt
 }
 
 //
-func matchRepOrder(db *sql.DB, features []proto.Feature, notIn []string) ([]string, error) {
-	rows, err := db.Query(matchRepOrderStmt(features, notIn))
+func matchRepOrder(db *sql.DB, limit int64, features []proto.Feature, notIn []string) ([]string, error) {
+	stmt := matchRepOrderStmt(limit, features, proto.BetaStateCols_CURRENT_REPUTATION, notIn)
+	fmt.Println(stmt)
+	rows, err := db.Query(stmt)
 	if err != nil {
 		return nil, SelectError.Wrap(err)
 	}
@@ -260,7 +263,6 @@ func matchRepOrder(db *sql.DB, features []proto.Feature, notIn []string) ([]stri
 	}
 
 	return res, nil
-
 }
 
 func selectAllBetaStateStmt() string {
@@ -289,9 +291,12 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
-	betaRes := rep.Beta(node.badRecall, node.goodRecall, node.weightDenominator, node.featureCounter, node.cumulativeSum, updateToFloat(value))
-	newSum := node.cumulativeSum + betaRes.Reputation
-	newCount := node.featureCounter + 1
+
+	newValue := updateToFloat(value)
+	betaRes := rep.Beta(node.badRecall, node.goodRecall, node.weightDenominator, node.featureCounter, node.cumulativeSum, newValue)
+	newRep := betaRes.Reputation
+	newSum := node.cumulativeSum + newRep
+	newCount := node.featureCounter + 1.0
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -299,7 +304,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 	}
 	defer tx.Rollback()
 
-	updateStringRep := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String(), updateToFloat(value))
+	updateStringRep := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String(), newRep)
 
 	_, err = tx.Exec(updateStringRep)
 	if err != nil {

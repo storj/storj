@@ -139,7 +139,7 @@ func TestMatch(t *testing.T) {
 	features := []proto.Feature{proto.Feature_UPTIME, proto.Feature_LATENCY}
 	var exclude []string
 
-	nodes, err := matchRepOrder(db, features, exclude)
+	nodes, err := matchRepOrder(db, 4, features, exclude)
 	if err != nil {
 		panic(err)
 	}
