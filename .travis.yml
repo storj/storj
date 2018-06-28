@@ -11,3 +11,6 @@ install:
 
 script:
   - make test
+  - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
+  - gover
+  - goveralls -coverprofile=gover.coverprofile -service=travis-ci
