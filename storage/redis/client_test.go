@@ -6,6 +6,7 @@ package redis
 import (
 	"testing"
 
+	"storj.io/storj/internal/test"
 	"storj.io/storj/storage"
 )
 
@@ -15,10 +16,8 @@ type RedisClientTest struct {
 }
 
 func NewRedisClientTest(t *testing.T) *RedisClientTest {
-	c, err := NewClient("127.0.0.1:6379", "", 1)
-	if err != nil {
-		panic(err)
-	}
+	kv := make(test.KvStore)
+	c := test.NewMockKeyValueStore(kv)
 	return &RedisClientTest{
 		T: t,
 		c: c,
