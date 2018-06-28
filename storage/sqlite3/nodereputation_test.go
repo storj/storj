@@ -107,7 +107,7 @@ func TestMatch(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = updateNodeRecord(db, "Carol", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
+	err = updateNodeRecord(db, "Carol", proto.Feature_UPTIME, proto.UpdateRepValue_POINT_FIVE)
 	if err != nil {
 		panic(err)
 	}
@@ -135,7 +135,7 @@ func TestMatch(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = updateNodeRecord(db, "Eve", proto.Feature_LATENCY, proto.UpdateRepValue_POINT_FIVE)
+	err = updateNodeRecord(db, "Eve", proto.Feature_LATENCY, proto.UpdateRepValue_NEGITIVE_POINT_FIVE)
 	if err != nil {
 		panic(err)
 	}
