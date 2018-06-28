@@ -4,13 +4,14 @@
 package boltdb
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/netstate"
+
+	"storj.io/storj/storage"
 )
 
 func tempfile() string {
@@ -26,60 +27,59 @@ func tempfile() string {
 	return f.Name()
 }
 
-func TestNetState(t *testing.T) {
-	logger, _ := zap.NewDevelopment()
-	c, err := NewClient(logger, tempfile(), "test_bucket")
-	if err != nil {
-		t.Error("Failed to create test db")
-	}
-	defer func() {
-		c.Close()
-		switch client := c.(type) {
-		case *boltClient:
-			os.Remove(client.Path)
-		}
-	}()
-
-	testEntry1 := netstate.PointerEntry{
-		Path:    []byte(`test/path`),
-		Pointer: []byte(`pointer1`),
+func TestClient(t *testing.T) {
+	cases := []struct {
+		bucket  string
+		path    []byte
+		pointer []byte
+	}{
+		{
+			bucket:  "test-bucket",
+			path:    []byte(`test/path`),
+			pointer: []byte(`pointer1`),
+		},
 	}
 
-	testEntry2 := netstate.PointerEntry{
-		Path:    []byte(`test/path2`),
-		Pointer: []byte(`pointer2`),
-	}
+	for _, c := range cases {
+		logger, err := zap.NewDevelopment()
+		assert.NoError(t, err)
 
-	// tests Put function
-	if err := c.Put(testEntry1.Path, testEntry1.Pointer); err != nil {
-		t.Error("Failed to save testFile to pointers bucket")
-	}
+		client, err := NewClient(logger, tempfile(), c.bucket)
+		assert.NoError(t, err)
+		defer cleanup(client)
 
-	// tests Get function
-	retrvValue, err := c.Get([]byte("test/path"))
-	if err != nil {
-		t.Error("Failed to get saved test pointer")
-	}
-	if !bytes.Equal(retrvValue, testEntry1.Pointer) {
-		t.Error("Retrieved pointer was not same as put pointer")
-	}
+		// tests Put function
+		err = client.Put(c.path, c.pointer)
+		assert.NoError(t, err)
 
-	// tests Delete function
-	if err := c.Delete([]byte("test/path")); err != nil {
-		t.Error("Failed to delete test entry")
-	}
+		// tests Get function
+		v, err := client.Get(c.path)
+		assert.NoError(t, err)
+		assert.Equal(t, c.pointer, []byte(v))
 
-	// tests List function
-	if err := c.Put(testEntry2.Path, testEntry2.Pointer); err != nil {
-		t.Error("Failed to put testEntry2 to pointers bucket")
-	}
-	testPaths, err := c.List()
-	if err != nil {
-		t.Error("Failed to list Path keys in pointers bucket")
-	}
+		// tests Delete function
+		err = client.Delete(c.path)
+		assert.NoError(t, err)
 
-	// tests List + Delete function
-	if !bytes.Equal(testPaths[0], []byte("test/path2")) {
-		t.Error("Expected only testEntry2 path in list")
+		v, err = client.Get(c.path)
+		assert.Error(t, err)
+		assert.Empty(t, v)
+
+		// tests List function
+		err = client.Put(c.path, c.pointer)
+		assert.NoError(t, err)
+
+		p, err := client.List()
+		assert.NoError(t, err)
+		assert.Len(t, p, 1)
+		assert.Equal(t, c.path, p.ByteSlices()[0])
+	}
+}
+
+func cleanup(c storage.KeyValueStore) {
+	c.Close()
+	switch client := c.(type) {
+	case *boltClient:
+		os.Remove(client.Path)
 	}
 }
