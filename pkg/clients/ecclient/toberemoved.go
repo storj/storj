@@ -26,17 +26,17 @@ type PSClient interface {
 	Get(ctx context.Context, pieceID PieceID, size int64) (
 		ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
+	CloseConn() error
 }
 
 // NewPSClient is temporarily defined here.
 // TODO: remove it.
 func NewPSClient(conn *grpc.ClientConn) PSClient {
-	panic("TODO")
+	return nil
 }
 
 // TransportClient is temporarily defined here.
 // TODO: remove it
 type TransportClient interface {
-	DialUnauthenticated(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
-	DialNode(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
+	DialNode(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
 }
