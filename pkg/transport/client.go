@@ -18,8 +18,8 @@ var (
 	Error = errs.Class("error")
 )
 
-// TransportClient defines the interface to an network client.
-type client interface {
+// client defines the interface to an network client.
+type Client interface {
 	DialUnauthenticated(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
 	DialNode(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
 }
