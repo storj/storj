@@ -12,6 +12,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -21,27 +22,27 @@ var mon = monkit.Package()
 // ECClient defines an interface for storing erasure coded data to piece store nodes
 type ECClient interface {
 	Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
-		pieceID PieceID, data io.Reader, expiration time.Time) error
+		pieceID client.PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
-		pieceID PieceID, size int64) (ranger.RangeCloser, error)
-	Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) error
+		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
+	Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) error
 }
 
 type dialer interface {
-	dial(ctx context.Context, node proto.Node) (ps PSClient, err error)
+	dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error)
 }
 
 type defaultDialer struct {
 	t TransportClient
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node proto.Node) (ps PSClient, err error) {
+func (d *defaultDialer) dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
 		return nil, err
 	}
-	return NewPSClient(c), nil
+	return client.NewPSClient(c), nil
 }
 
 type ecClient struct {
@@ -55,7 +56,7 @@ func NewECClient(t TransportClient, mbm int) ECClient {
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
-	pieceID PieceID, data io.Reader, expiration time.Time) (err error) {
+	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return Error.New("number of nodes do not match total count of erasure scheme")
@@ -95,7 +96,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
-	pieceID PieceID, size int64) (rr ranger.RangeCloser, err error) {
+	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes do not match total count of erasure scheme")
@@ -137,7 +138,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	return eestream.Decode(rrs, es, ec.mbm)
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {

@@ -12,14 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/ranger"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/ranger"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -41,10 +40,10 @@ var (
 )
 
 type mockDialer struct {
-	m map[proto.Node]PSClient
+	m map[proto.Node]client.PSClient
 }
 
-func (d *mockDialer) dial(ctx context.Context, node proto.Node) (ps PSClient, err error) {
+func (d *mockDialer) dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error) {
 	ps = d.m[node]
 	if ps == nil {
 		return nil, ErrDialFailed
@@ -57,14 +56,15 @@ func TestNewECClient(t *testing.T) {
 	defer ctrl.Finish()
 
 	tc := NewMockTransportClient(ctrl)
+	mbm := 1234
 
-	ec := NewECClient(tc, 1234)
+	ec := NewECClient(tc, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
 	assert.True(t, ok)
 	assert.NotNil(t, ecc.d)
-	assert.Equal(t, 1234, ecc.mbm)
+	assert.Equal(t, mbm, ecc.mbm)
 
 	dd, ok := ecc.d.(*defaultDialer)
 	assert.True(t, ok)
@@ -133,7 +133,7 @@ func TestPut(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := PieceID(pstore.DetermineID())
+		id := client.NewPieceID()
 		size := 32 * 1024
 		ttl := time.Now()
 
@@ -142,7 +142,7 @@ func TestPut(t *testing.T) {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]PSClient, len(tt.nodes))
+		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed && tt.mbm >= 0 {
 				ps := NewMockPSClient(ctrl)
@@ -206,7 +206,7 @@ func TestGet(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := PieceID(pstore.DetermineID())
+		id := client.NewPieceID()
 		size := 32 * 1024
 
 		errs := make(map[proto.Node]error, len(tt.nodes))
@@ -214,7 +214,7 @@ func TestGet(t *testing.T) {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]PSClient, len(tt.nodes))
+		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
 				ps := NewMockPSClient(ctrl)
@@ -262,14 +262,14 @@ func TestDelete(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := PieceID(pstore.DetermineID())
+		id := client.NewPieceID()
 
 		errs := make(map[proto.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]PSClient, len(tt.nodes))
+		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
 				ps := NewMockPSClient(ctrl)
