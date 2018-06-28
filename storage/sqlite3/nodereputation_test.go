@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	proto "storj.io/storj/protos/nodereputation"
 )
 
 func TestCreateTable(t *testing.T) {
@@ -42,5 +44,30 @@ func TestSelectReputation(t *testing.T) {
 		panic(err)
 	}
 	fmt.Println(nodeFeatures)
+	os.Remove(testDatabaseName)
+}
 
+func TestUpdateReputation(t *testing.T) {
+	testDatabaseName := "./TestUpdateReputation.db"
+	db, _ := startDB(testDatabaseName)
+
+	createReputationTable(db)
+
+	createNewNodeRecord(db, "Alice")
+
+	nodeFeaturesBefore, err := getRep(db, "Alice")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(nodeFeaturesBefore)
+
+	updateNodeRecord(db, "Alice", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
+
+	nodeFeaturesAfter, err := getRep(db, "Alice")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(nodeFeaturesAfter)
+
+	os.Remove(testDatabaseName)
 }

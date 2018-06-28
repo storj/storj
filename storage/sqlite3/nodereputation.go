@@ -172,7 +172,7 @@ type nodeFeature struct {
 	reputation        float64
 }
 
-func selectNodeFeature(db *sql.DB, nodeName string, feature proto.Feature) (nodeFeature, error) {
+func selectNodeFeature(db *sql.DB, nodeName string, feature string) (nodeFeature, error) {
 	var res nodeFeature
 
 	stmt := selectFeatureStmt(feature, nodeName)
@@ -188,7 +188,7 @@ func selectNodeFeature(db *sql.DB, nodeName string, feature proto.Feature) (node
 	}
 
 	res.nodeName = nodeName
-	res.feature = feature.String()
+	res.feature = feature
 
 	err = rows.Err()
 	if err != nil {
@@ -201,30 +201,21 @@ func selectNodeFeature(db *sql.DB, nodeName string, feature proto.Feature) (node
 //
 func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	var res []nodeFeature
-	updateRes := func(res []nodeFeature, feature proto.Feature) ([]nodeFeature, error) {
+	updateRes := func(feature string) (nodeFeature, error) {
+		var newRes nodeFeature
 		newRes, err := selectNodeFeature(db, nodeName, feature)
 		if err != nil {
-			return nil, SelectError.Wrap(err)
+			return newRes, SelectError.Wrap(err)
 		}
-		res = append(res, newRes)
-		return res, nil
+		return newRes, nil
 	}
 
-	for i := range proto.Feature_name {
-		switch i {
-		case 0:
-			updateRes(res, proto.Feature_UPTIME)
-		case 1:
-			updateRes(res, proto.Feature_AUDIT)
-		case 2:
-			updateRes(res, proto.Feature_LATENCY)
-		case 3:
-			updateRes(res, proto.Feature_AMOUNT_OF_DATA_STORED)
-		case 4:
-			updateRes(res, proto.Feature_FALSE_CLAIMS)
-		case 5:
-			updateRes(res, proto.Feature_SHARDS_MODIFIED)
+	for _, feature := range proto.Feature_name {
+		update, err := updateRes(feature)
+		if err != nil {
+			SelectError.Wrap(err)
 		}
+		res = append(res, update)
 	}
 	return res, nil
 }
@@ -300,8 +291,8 @@ func selectAllBetaStateStmt() string {
 }
 
 //
-func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value proto.UpdateRepValue) error {
-	node, err := selectNodeFeature(db, nodeName, col)
+func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value proto.UpdateRepValue) error {
+	node, err := selectNodeFeature(db, nodeName, feature.String())
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -315,15 +306,23 @@ func updateNodeRecord(db *sql.DB, nodeName string, col proto.Feature, value prot
 	}
 	defer tx.Rollback()
 
-	updateString := updateFeatureRepStmt(col)
+	updateStringRep := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String(), updateToFloat(value))
 
-	updateStmt, err := tx.Prepare(updateString)
+	_, err = tx.Exec(updateStringRep)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
-	defer updateStmt.Close()
 
-	_, err = updateStmt.Exec(newCount, newSum, betaRes.Reputation, nodeName)
+	updateStringSum := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CUMULATIVE_SUM_REPUTATION.String(), newSum)
+
+	_, err = tx.Exec(updateStringSum)
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+
+	updateStringCount := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_FEATURE_COUNTER.String(), newCount)
+
+	_, err = tx.Exec(updateStringCount)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -350,7 +349,7 @@ func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter
 	return tx.Commit()
 }
 
-func updateNodeState(db *sql.DB, nodeName string, feature string, parameter proto.BetaStateCols, parameterValue proto.UpdateRepValue) error {
+func updateNodeState(db *sql.DB, nodeName string, feature string, state proto.BetaStateCols, stateValue proto.UpdateRepValue) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return UpdateError.Wrap(err)
@@ -359,7 +358,7 @@ func updateNodeState(db *sql.DB, nodeName string, feature string, parameter prot
 
 	updateParamString := fmt.Sprintf(`UPDATE node_reputation
 	 SET %s_%s = %.4f
-	 WHERE node_name = '%s';`, feature, parameter.String(), updateToFloat(parameterValue), nodeName)
+	 WHERE node_name = '%s';`, feature, state.String(), updateToFloat(stateValue), nodeName)
 
 	_, err = tx.Exec(updateParamString)
 	if err != nil {
@@ -390,65 +389,25 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
 	return res, nil
 }
 
-func updateFeatureRepStmt(feature proto.Feature) string {
-	res := `UPDATE node_reputation
+func updateFeatureRepStmt(nodeName string, feature string, state string, value float64) string {
+	update := `UPDATE node_reputation
 	SET last_seen = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'),`
 
-	pre := func(f string) string {
-		return fmt.Sprintf(`%s_feature_counter = ?,
-			%s_cumulative_sum_reputation = ?,
-			%s_current_reputation = ?
-			WHERE node_name = '?';`, f, f, f)
-	}
-
-	switch feature {
-	case 0:
-		res = res + pre("uptime")
-	case 1:
-		res = res + pre("audit")
-	case 2:
-		res = res + pre("latency")
-	case 3:
-		res = res + pre("amount_of_data_stored")
-	case 4:
-		res = res + pre("false_claims")
-	case 5:
-		res = res + pre("shards_modified")
-	}
-
-	return res
+	return fmt.Sprintf(`%s
+		%s_%s = %.4f
+		WHERE node_name = '%s';`, update, feature, state, value, nodeName)
 }
 
-func selectFeatureStmt(f proto.Feature, nodeName string) string {
-
-	pre := func(s string) string {
-		return fmt.Sprintf(`SELECT
+func selectFeatureStmt(feature string, nodeName string) string {
+	return fmt.Sprintf(`SELECT
 			%s_good_recall,
 			%s_bad_recall,
 			%s_feature_counter,
 			%s_weight_denominator,
 			%s_cumulative_sum_reputation,
-			%s_current_reputation`, s, s, s, s, s, s)
-	}
-
-	res := ""
-
-	switch f {
-	case 0:
-		res = pre("uptime")
-	case 1:
-		res = pre("audit")
-	case 2:
-		res = pre("latency")
-	case 3:
-		res = pre("amount_of_data_stored")
-	case 4:
-		res = pre("false_claims")
-	case 5:
-		res = pre("shards_modified")
-	}
-
-	return res + " FROM node_reputation WHERE node_name = '" + nodeName + "';"
+		%s_current_reputation
+		FROM node_reputation WHERE node_name = '%s';`,
+		feature, feature, feature, feature, feature, feature, nodeName)
 }
 
 func updateToFloat(val proto.UpdateRepValue) float64 {
