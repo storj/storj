@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -20,6 +21,7 @@ import (
 type Client interface {
 	Choose(ctx context.Context, limit, space int64) ([]*NodeID, error)
 	Lookup(ctx context.Context, nodeID NodeID) (*proto.Node, error)
+	LookupAndConnect(ctx context.Context, nodeID NodeID) (*node.Client, error)
 }
 
 // Overlay is the overlay concrete implementation of the client interface
