@@ -19,5 +19,5 @@ ENV KAD_HOST= \
 
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/cmd/piecestore-farmer/piecestore-farmer /app/
-COPY dockerfiles/piecestore-farmer-entrypoint /
+COPY cmd/piecestore-farmer/entrypoint /piecestore-farmer-entrypoint
 ENTRYPOINT ["/piecestore-farmer-entrypoint"]
