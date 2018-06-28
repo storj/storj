@@ -5,36 +5,24 @@ package transportclient
 
 import (
 	"context"
-	"errors"
-	"time"
-
-	"google.golang.org/grpc/connectivity"
 
 	"google.golang.org/grpc"
+	proto "storj.io/storj/protos/overlay"
 )
 
 // Dial using the authenticated mode
-func (o *transportClient) DialNode(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
+func (o *transportClient) DialNode(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
+
 	/* TODO@ASK security feature under development */
-	return o.DialUnauthenticated(ctx, addr)
+	return o.DialUnauthenticated(ctx, node)
 }
 
 // Dial using unauthenticated mode
-func (o *transportClient) DialUnauthenticated(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
-	/* A dozen attempts... Recommendation: this value should be configurable */
-	maxAttempts := 12
-	conn, err = grpc.Dial(addr, grpc.WithInsecure())
+func (o *transportClient) DialUnauthenticated(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
+	conn, err = grpc.Dial(node.Address.Address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
-	/* connection retry attempt */
-	for (conn.GetState() != connectivity.State(connectivity.Ready)) && ((maxAttempts <= 12) && (maxAttempts > 0)) {
-		time.Sleep(15 * time.Millisecond)
-		maxAttempts--
-	}
-	if maxAttempts <= 0 {
-		return nil, errors.New("Connection failed to open using grpc")
-	}
 	return conn, err
 }

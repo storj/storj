@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	proto "storj.io/storj/protos/overlay"
 
 	"google.golang.org/grpc"
 )
@@ -19,8 +20,8 @@ var (
 
 // TransportClient defines the interface to an network client.
 type TransportClient interface {
-	DialUnauthenticated(ctx context.Context, addr string) (*grpc.ClientConn, error)
-	DialNode(ctx context.Context, addr string) (*grpc.ClientConn, error)
+	DialUnauthenticated(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
+	DialNode(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
 }
 
 // transportClient is the concrete implementation of the networkclient interface
