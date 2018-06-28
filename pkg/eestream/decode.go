@@ -238,6 +238,9 @@ func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.R
 	if mbm < 0 {
 		return nil, Error.New("negative max buffer memory")
 	}
+	if len(rrs) < es.RequiredCount() {
+		return nil, Error.New("not enough readers to reconstruct data!")
+	}
 	size := int64(-1)
 	for _, rr := range rrs {
 		if size == -1 {
@@ -255,9 +258,6 @@ func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.R
 	if size%int64(es.EncodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure decoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
-	}
-	if len(rrs) < es.RequiredCount() {
-		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
 		es:     es,

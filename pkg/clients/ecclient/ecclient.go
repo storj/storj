@@ -121,19 +121,14 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 			rrch <- rangerInfo{i: i, rr: rr, err: err}
 		}(i, n)
 	}
-	var first error
 	for range nodes {
 		rri := <-rrch
 		if rri.err != nil {
 			// TODO better error for the failed node
 			zap.S().Error(rri.err)
-			first = rri.err
 			continue
 		}
 		rrs[rri.i] = rri.rr
-	}
-	if len(rrs) == 0 {
-		return nil, Error.New("could not get from any node: %v", first)
 	}
 	return eestream.Decode(rrs, es, ec.mbm)
 }

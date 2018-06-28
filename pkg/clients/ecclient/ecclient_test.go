@@ -201,8 +201,8 @@ func TestGet(t *testing.T) {
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"eestream error: not enough readers to reconstruct data!"},
 		{[]proto.Node{node0, node1, node2, node3}, 0,
-			[]error{ErrDialFailed, ErrDialFailed, ErrDialFailed, ErrDialFailed},
-			"ecclient error: could not get from any node: dial failed"},
+			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed},
+			"eestream error: not enough readers to reconstruct data!"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
