@@ -75,20 +75,13 @@ func Main(s ...Service) error {
 		}(ctx, service, errors)
 	}
 
-	errorChan := make(chan error, len(s))
-
 	select {
 	case <-ctx.Done():
 		return nil
-	case err := <-errorChan:
+	case err := <-errors:
 		cancel()
 		return err
 	}
-
-}
-
-func consusmer(ch <-chan error) error {
-	return <-ch
 }
 
 func producer(e error, ch chan<- error) {
