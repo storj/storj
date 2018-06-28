@@ -95,11 +95,11 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	m.ListCalled++
 	keys := storage.Keys{}
 	keySlice := mapIntoSlice(m.Data)
+	started := false
 
 	if startingKey == nil {
-		startingKey = []byte(keySlice[0])
+		started = true
 	}
-	started := false
 	for _, key := range keySlice {
 		if !started && key == string(startingKey) {
 			keys = append(keys, storage.Key(key))

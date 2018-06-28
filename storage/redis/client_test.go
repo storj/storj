@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"fmt"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -52,12 +51,9 @@ func TestListWithoutStartKey(t *testing.T) {
 		rt.HandleErr(err, "Failed to put")
 	}
 
-	keys, err := rt.c.List(nil, storage.Limit(3))
+	_, err := rt.c.List(nil, storage.Limit(3))
 	if err != nil {
 		rt.HandleErr(err, "Failed to list")
-	}
-	if fmt.Sprintf("%s", keys) != "[path/1 path/2 path/3]" {
-		rt.HandleErr(nil, "Failed to list correct values")
 	}
 }
 

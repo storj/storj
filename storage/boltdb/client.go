@@ -80,16 +80,13 @@ func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage
 	var paths storage.Keys
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		cur := tx.Bucket(c.Bucket).Cursor()
+		var k []byte
 		if startingKey == nil {
-			for k, _ := cur.First(); k != nil; k, _ = cur.Next() {
-				paths = append(paths, k)
-				if limit > 0 && int(limit) == int(len(paths)) {
-					break
-				}
-			}
-			return nil
+			k, _ = cur.First()
+		} else {
+			k, _ = cur.Seek(startingKey)
 		}
-		for k, _ := cur.Seek(startingKey); k != nil; k, _ = cur.Next() {
+		for ; k != nil; k, _ = cur.Next() {
 			paths = append(paths, k)
 			if limit > 0 && int(limit) == int(len(paths)) {
 				break
