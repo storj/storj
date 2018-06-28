@@ -61,7 +61,10 @@ func TestUpdateReputation(t *testing.T) {
 	}
 	fmt.Println(nodeFeaturesBefore)
 
-	updateNodeRecord(db, "Alice", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
+	err = updateNodeRecord(db, "Alice", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
+	if err != nil {
+		panic(err)
+	}
 
 	nodeFeaturesAfter, err := getRep(db, "Alice")
 	if err != nil {
@@ -69,5 +72,5 @@ func TestUpdateReputation(t *testing.T) {
 	}
 	fmt.Println(nodeFeaturesAfter)
 
-	os.Remove(testDatabaseName)
+	// os.Remove(testDatabaseName)
 }

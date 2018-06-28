@@ -43,14 +43,15 @@ func startDB(filePath string) (*sql.DB, error) {
 
 // createReputationTable creates a table in sqlite3 based on the create table string parameter
 func createReputationTable(db *sql.DB) error {
+	var res []string
 
-	pre := func(s string) string {
-		return fmt.Sprintf(`%s_good_recall REAL,
-			%s_bad_recall REAL,
-			%s_feature_counter REAL,
-			%s_weight_denominator REAL,
-			%s_cumulative_sum_reputation REAL,
-			%s_current_reputation REAL`, s, s, s, s, s, s)
+	for _, feature := range proto.Feature_name {
+		for _, param := range proto.Parameter_name {
+			res = append(res, fmt.Sprintf("%s_%s", feature, param))
+		}
+		for _, state := range proto.BetaStateCols_name {
+			res = append(res, fmt.Sprintf("%s_%s", feature, state))
+		}
 	}
 
 	timefmt := "%Y-%m-%d %H:%M:%f"
@@ -58,15 +59,10 @@ func createReputationTable(db *sql.DB) error {
 	createTableStmt := fmt.Sprintf(`CREATE table node_reputation (
 		node_name TEXT NOT NULL,
 		last_seen timestamp DEFAULT(STRFTIME('%s', 'NOW')) NOT NULL,
-		%s, %s, %s, %s, %s, %s,
+		%s,
 		PRIMARY KEY(node_name, last_seen));`,
 		timefmt,
-		pre("uptime"),
-		pre("audit"),
-		pre("latency"),
-		pre("amount_of_data_stored"),
-		pre("false_claims"),
-		pre("shards_modified"),
+		strings.Join(res, ",\n"),
 	)
 
 	_, err := db.Exec(createTableStmt)
@@ -95,7 +91,7 @@ func createNewNodeRecord(db *sql.DB, nodeName string) error {
 		},
 		paramValue{
 			param: proto.Parameter_GOOD_RECALL,
-			val:   0.995,
+			val:   0.99,
 		},
 		paramValue{
 			param: proto.Parameter_WEIGHT_DENOMINATOR,
@@ -270,17 +266,12 @@ func selectAllBetaStateStmt() string {
 	fromWhere := `FROM node_reputation
 	WHERE node_name = ?`
 
-	pre := func(f string) string {
-		return fmt.Sprintf(`
-			%s_feature_counter,
-			%s_cumulative_sum_reputation,
-			%s_current_reputation`, f, f, f)
-	}
-
 	var repState []string
 
-	for _, v := range proto.Feature_name {
-		repState = append(repState, pre(v))
+	for _, feature := range proto.Feature_name {
+		for _, state := range proto.BetaStateCols_name {
+			repState = append(repState, fmt.Sprintf("%s_%s", feature, state))
+		}
 	}
 
 	joined := strings.Join(repState, ",")
@@ -399,6 +390,21 @@ func updateFeatureRepStmt(nodeName string, feature string, state string, value f
 }
 
 func selectFeatureStmt(feature string, nodeName string) string {
+	// var cols []string
+
+	// for _, state := range proto.Parameter_name {
+	// 	cols = append(cols, fmt.Sprintf("%s_%s", feature, state))
+	// }
+
+	// for _, params := range proto.BetaStateCols_name {
+	// 	cols = append(cols, fmt.Sprintf("%s_%s", feature, params))
+	// }
+	// return fmt.Sprintf(`SELECT
+	// 	%s
+	// 	FROM node_reputation
+	// 	WHERE node_name = '%s';`,
+	// 	strings.Join(cols, ",\n"), nodeName)
+
 	return fmt.Sprintf(`SELECT
 			%s_good_recall,
 			%s_bad_recall,
