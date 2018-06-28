@@ -4,6 +4,7 @@
 package process
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -51,8 +52,9 @@ func Execute(cmd *cobra.Command) {
 }
 
 // Main runs a Service
-func Main(s Service) error {
+func Main(s ...Service) error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
+	ctx, cancel := context.WithCancel(context.Background())
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -64,7 +66,33 @@ func Main(s Service) error {
 		viper.ReadInConfig()
 	}
 
-	return CtxService(s)(&cobra.Command{}, pflag.Args())
+	errors := make(chan error, len(s))
+
+	for _, service := range s {
+		go func(ctx context.Context, s Service, ch <-chan error) {
+			err := CtxService(s)(&cobra.Command{}, pflag.Args())
+			producer(err, errors)
+		}(ctx, service, errors)
+	}
+
+	errorChan := make(chan error, len(s))
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errorChan:
+		cancel()
+		return err
+	}
+
+}
+
+func consusmer(ch <-chan error) error {
+	return <-ch
+}
+
+func producer(e error, ch chan<- error) {
+	ch <- e
 }
 
 // Must checks for errors

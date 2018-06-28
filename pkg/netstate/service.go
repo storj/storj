@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -24,7 +25,7 @@ var (
 )
 
 // Process fits the `Process` interface for services
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
 	if err := setEnv(); err != nil {
 		return err
 	}

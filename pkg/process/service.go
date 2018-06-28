@@ -21,7 +21,9 @@ var (
 		"switch to 'prod' to get less output")
 
 	// Error is a process error class
-	Error    = errs.Class("proc error")
+	Error = errs.Class("proc error")
+
+	// ErrUsage is a process error class
 	ErrUsage = errs.Class("usage error")
 )
 
