@@ -225,8 +225,10 @@ func matchRepOrderStmt(features []proto.Feature, notIn []string) string {
 
 	var ordered []string
 
-	for _, feature := range proto.Feature_name {
-		ordered = append(ordered, fmt.Sprintf("%s DESC", feature))
+	for _, feature := range features {
+		ordered = append(ordered,
+			fmt.Sprintf("%s_%s",
+				feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String()))
 	}
 
 	selectNodesStmt := fmt.Sprintf(`SELECT node_name
@@ -249,7 +251,7 @@ func matchRepOrder(db *sql.DB, features []proto.Feature, notIn []string) ([]stri
 
 	for rows.Next() {
 		var s string
-		err := rows.Scan(s)
+		err := rows.Scan(&s)
 		if err != nil {
 			return nil, SelectError.Wrap(err)
 		}
