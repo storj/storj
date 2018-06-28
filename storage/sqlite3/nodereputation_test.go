@@ -72,5 +72,5 @@ func TestUpdateReputation(t *testing.T) {
 	}
 	fmt.Println(nodeFeaturesAfter)
 
-	// os.Remove(testDatabaseName)
+	os.Remove(testDatabaseName)
 }

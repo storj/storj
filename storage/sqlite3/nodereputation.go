@@ -365,10 +365,10 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
 
 	for rows.Next() {
 		err := rows.Scan(
-			&res.goodRecall,
 			&res.badRecall,
-			&res.featureCounter,
 			&res.weightDenominator,
+			&res.goodRecall,
+			&res.featureCounter,
 			&res.cumulativeSum,
 			&res.reputation,
 		)
@@ -390,30 +390,19 @@ func updateFeatureRepStmt(nodeName string, feature string, state string, value f
 }
 
 func selectFeatureStmt(feature string, nodeName string) string {
-	// var cols []string
+	var cols []string
 
-	// for _, state := range proto.Parameter_name {
-	// 	cols = append(cols, fmt.Sprintf("%s_%s", feature, state))
-	// }
+	for _, state := range proto.Parameter_name {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, state))
+	}
 
-	// for _, params := range proto.BetaStateCols_name {
-	// 	cols = append(cols, fmt.Sprintf("%s_%s", feature, params))
-	// }
-	// return fmt.Sprintf(`SELECT
-	// 	%s
-	// 	FROM node_reputation
-	// 	WHERE node_name = '%s';`,
-	// 	strings.Join(cols, ",\n"), nodeName)
+	for _, params := range proto.BetaStateCols_name {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, params))
+	}
 
-	return fmt.Sprintf(`SELECT
-			%s_good_recall,
-			%s_bad_recall,
-			%s_feature_counter,
-			%s_weight_denominator,
-			%s_cumulative_sum_reputation,
-		%s_current_reputation
-		FROM node_reputation WHERE node_name = '%s';`,
-		feature, feature, feature, feature, feature, feature, nodeName)
+	return fmt.Sprintf(`SELECT 
+		%s FROM node_reputation WHERE node_name = '%s';`,
+		strings.Join(cols, ",\n"), nodeName)
 }
 
 func updateToFloat(val proto.UpdateRepValue) float64 {
