@@ -47,11 +47,7 @@ func TestNetStateClient(t *testing.T) {
 	pr1 := pb.PutRequest{
 		Path: []byte("here/is/a/path"),
 		Pointer: &pb.Pointer{
-			Type: pb.Pointer_INLINE,
-			Encryption: &pb.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
+			Type:          pb.Pointer_INLINE,
 			InlineSegment: []byte("oatmeal"),
 		},
 		APIKey: []byte("abc123"),
@@ -97,11 +93,7 @@ func TestNetStateClient(t *testing.T) {
 	pr2 := pb.PutRequest{
 		Path: []byte("here/is/another/path"),
 		Pointer: &pb.Pointer{
-			Type: pb.Pointer_INLINE,
-			Encryption: &pb.EncryptionScheme{
-				EncryptedEncryptionKey: []byte("key"),
-				EncryptedStartingNonce: []byte("nonce"),
-			},
+			Type:          pb.Pointer_INLINE,
 			InlineSegment: []byte("raisins"),
 		},
 		APIKey: []byte("abc123"),

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -25,7 +26,7 @@ var (
 	dbPath = flag.String("db", "netstate.db", "db path")
 )
 
-func (s *serv) Process(ctx context.Context) error {
+func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
 	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
 
 	if err != nil {

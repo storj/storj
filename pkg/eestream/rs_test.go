@@ -194,7 +194,7 @@ func TestRSEncoderInputParams(t *testing.T) {
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		es := NewRSScheme(fc, 8*1024)
 		rs, err := NewRedundancyStrategy(es, 0, 0)
@@ -224,7 +224,7 @@ func TestRSRangerInputParams(t *testing.T) {
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		es := NewRSScheme(fc, 8*1024)
 		rs, err := NewRedundancyStrategy(es, 0, 0)

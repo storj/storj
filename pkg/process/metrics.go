@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/admission/admproto"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
+
 	"storj.io/storj/pkg/telemetry"
 )
 

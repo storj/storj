@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -41,7 +42,7 @@ func init() {
 func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Server{
-		kad:     k,
+		dht:     k,
 		cache:   cache,
 		logger:  l,
 		metrics: m,
@@ -68,7 +69,8 @@ type Service struct {
 }
 
 // Process is the main function that executes the service
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
+	err error) {
 	// TODO
 	// 1. Boostrap a node on the network
 	// 2. Start up the overlay gRPC service
@@ -76,9 +78,17 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+	in, err := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
+	if err != nil {
+		return err
+	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
+	id, err := kademlia.NewID()
+	if err != nil {
+		return err
+	}
+
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
