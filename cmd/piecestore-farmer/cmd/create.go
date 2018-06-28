@@ -49,7 +49,6 @@ func init() {
 	viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir"))
 
 	viper.SetDefault("piecestore.id", nodeID)
-
 }
 
 // createNode creates a config file for a new farmer node

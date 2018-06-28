@@ -43,7 +43,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return errs.New("no id specified")
+		return errs.New("No ID specified")
 	}
 
 	SetConfigPath(home, args[0])

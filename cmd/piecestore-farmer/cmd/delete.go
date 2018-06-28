@@ -31,7 +31,7 @@ func init() {
 // deleteNode deletes a farmer node by ID
 func deleteNode(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
-		return errs.New("no id specified")
+		return errs.New("No ID specified")
 	}
 
 	home, err := homedir.Dir()
@@ -44,7 +44,7 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 	_, configFile := SetConfigPath(home, nodeID)
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return errs.New("Invalid node id. Config file does not exist")
+		return errs.New("Invalid node ID. Config file does not exist")
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
