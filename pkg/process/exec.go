@@ -70,8 +70,7 @@ func Main(s ...Service) error {
 
 	for _, service := range s {
 		go func(ctx context.Context, s Service, ch <-chan error) {
-			err := CtxService(s)(&cobra.Command{}, pflag.Args())
-			producer(err, errors)
+			errors <- CtxService(s)(&cobra.Command{}, pflag.Args())
 		}(ctx, service, errors)
 	}
 
@@ -82,10 +81,6 @@ func Main(s ...Service) error {
 		cancel()
 		return err
 	}
-}
-
-func producer(e error, ch chan<- error) {
-	ch <- e
 }
 
 // Must checks for errors

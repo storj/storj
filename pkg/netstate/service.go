@@ -31,7 +31,6 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 	}
 
 	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
-
 	if err != nil {
 		return err
 	}
