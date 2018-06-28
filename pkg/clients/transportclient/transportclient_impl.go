@@ -14,13 +14,13 @@ import (
 )
 
 // Dial using the authenticated mode
-func DialNode(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
+func (o *transportClient) DialNode(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
 	/* TODO@ASK security feature under development */
-	return DialUnauthenticated(ctx, addr)
+	return o.DialUnauthenticated(ctx, addr)
 }
 
 // Dial using unauthenticated mode
-func DialUnauthenticated(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
+func (o *transportClient) DialUnauthenticated(ctx context.Context, addr string) (conn *grpc.ClientConn, err error) {
 	/* A dozen attempts... Recommendation: this value should be configurable */
 	maxAttempts := 12
 	conn, err = grpc.Dial(addr, grpc.WithInsecure())
