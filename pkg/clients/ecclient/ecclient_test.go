@@ -43,7 +43,8 @@ type mockDialer struct {
 	m map[proto.Node]client.PSClient
 }
 
-func (d *mockDialer) dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error) {
+func (d *mockDialer) dial(ctx context.Context, node proto.Node) (
+	ps client.PSClient, err error) {
 	ps = d.m[node]
 	if ps == nil {
 		return nil, ErrDialFailed
@@ -218,7 +219,8 @@ func TestGet(t *testing.T) {
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), id, int64(size)).Return(ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
+				ps.EXPECT().Get(gomock.Any(), id, int64(size)).Return(
+					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
 				m[n] = ps
 			}
 		}

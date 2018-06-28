@@ -78,15 +78,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 			errs <- err
 		}(i, n)
 	}
-	var errbucket []error
-	for range readers {
-		err := <-errs
-		if err != nil {
-			errbucket = append(errbucket, err)
-			// TODO log error?
-		}
-	}
-	sc := len(readers) - len(errbucket)
+	allerrs := collectErrors(errs, len(readers))
+	sc := len(readers) - len(allerrs)
 	if sc < rs.MinimumThreshold() {
 		return Error.New(
 			"successful puts (%d) less than minimum threshold (%d)",
@@ -115,16 +108,15 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 				rrch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			// no defer ps.CloseConn() here, the connection will be closed by
-			// the caller using RangeCloser.Close
 			rr, err := ps.Get(ctx, pieceID, size)
+			// no ps.CloseConn() here, the connection will be closed by
+			// the caller using RangeCloser.Close
 			rrch <- rangerInfo{i: i, rr: rr, err: err}
 		}(i, n)
 	}
 	for range nodes {
 		rri := <-rrch
 		if rri.err != nil {
-			// TODO better error for the failed node
 			zap.S().Error(rri.err)
 			continue
 		}
@@ -148,15 +140,21 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 			errs <- err
 		}(n)
 	}
-	var errbucket []error
-	for range nodes {
-		err := <-errs
-		if err != nil {
-			errbucket = append(errbucket, err)
-		}
-	}
-	if len(errbucket) > 0 && len(errbucket) == len(nodes) {
-		return errbucket[0]
+	allerrs := collectErrors(errs, len(nodes))
+	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
+		return allerrs[0]
 	}
 	return nil
+}
+
+func collectErrors(errs <-chan error, size int) []error {
+	var result []error
+	for i := 0; i < size; i++ {
+		err := <-errs
+		if err != nil {
+			zap.S().Error(err)
+			result = append(result, err)
+		}
+	}
+	return result
 }
