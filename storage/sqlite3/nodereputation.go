@@ -6,6 +6,7 @@ package nodereputation
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	rep "storj.io/storj/pkg/nodereputation"
@@ -243,7 +244,6 @@ func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaSt
 //
 func matchRepOrder(db *sql.DB, limit int64, features []proto.Feature, notIn []string) ([]string, error) {
 	stmt := matchRepOrderStmt(limit, features, proto.BetaStateCols_CURRENT_REPUTATION, notIn)
-	fmt.Println(stmt)
 	rows, err := db.Query(stmt)
 	if err != nil {
 		return nil, SelectError.Wrap(err)
@@ -372,9 +372,9 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
 
 	for rows.Next() {
 		err := rows.Scan(
+			&res.goodRecall,
 			&res.badRecall,
 			&res.weightDenominator,
-			&res.goodRecall,
 			&res.featureCounter,
 			&res.cumulativeSum,
 			&res.reputation,
@@ -399,12 +399,24 @@ func updateFeatureRepStmt(nodeName string, feature string, state string, value f
 func selectFeatureStmt(feature string, nodeName string) string {
 	var cols []string
 
-	for _, state := range proto.Parameter_name {
-		cols = append(cols, fmt.Sprintf("%s_%s", feature, state))
+	var paramK []int32
+	for k := range proto.Parameter_name {
+		paramK = append(paramK, k)
+	}
+	sort.Slice(paramK, func(i, j int) bool { return paramK[i] < paramK[j] })
+
+	for _, k := range paramK {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.Parameter_name[k]))
 	}
 
-	for _, params := range proto.BetaStateCols_name {
-		cols = append(cols, fmt.Sprintf("%s_%s", feature, params))
+	var stateK []int32
+	for k := range proto.BetaStateCols_name {
+		stateK = append(stateK, k)
+	}
+	sort.Slice(stateK, func(i, j int) bool { return stateK[i] < stateK[j] })
+
+	for _, k := range stateK {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.BetaStateCols_name[k]))
 	}
 
 	return fmt.Sprintf(`SELECT 

@@ -135,6 +135,10 @@ func TestMatch(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	err = updateNodeRecord(db, "Eve", proto.Feature_LATENCY, proto.UpdateRepValue_POINT_FIVE)
+	if err != nil {
+		panic(err)
+	}
 
 	features := []proto.Feature{proto.Feature_UPTIME, proto.Feature_LATENCY}
 	var exclude []string
@@ -145,5 +149,5 @@ func TestMatch(t *testing.T) {
 	}
 	fmt.Println(nodes)
 
-	// os.Remove(testDatabaseName)
+	os.Remove(testDatabaseName)
 }
