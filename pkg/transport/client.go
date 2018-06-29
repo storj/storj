@@ -14,12 +14,13 @@ import (
 )
 
 var (
-	mon   = monkit.Package()
-	Error = errs.Class("error")
+	mon = monkit.Package()
+	//Error is the errs class of standard Transport Client errors
+	Error = errs.Class("transport error")
 )
 
-// client defines the interface to an network client.
+// Client defines the interface to an network client.
 type Client interface {
-	DialUnauthenticated(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
+	DialUnauthenticated(ctx context.Context, addr proto.NodeAddress) (*grpc.ClientConn, error)
 	DialNode(ctx context.Context, node proto.Node) (*grpc.ClientConn, error)
 }
