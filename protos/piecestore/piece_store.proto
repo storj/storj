@@ -16,11 +16,26 @@ service PieceStoreRoutes {
 
 }
 
-message PieceStore {
-  string id = 1;
-  int64 ttl = 2;
+message BandwidthAllocation {
+  message Data {
+    string payer = 1;
+    string client = 2;
+    int64 size = 3;
+  }
 
-  bytes content = 3;
+  Data data = 1;
+  bytes signature = 2;
+}
+
+message PieceStore {
+  message PieceData {
+    string id = 1;
+    int64 ttl = 2;
+    bytes content = 3;
+  }
+
+  BandwidthAllocation bandwidthallocation = 1;
+  PieceData piecedata = 2;
 }
 
 message PieceId {
@@ -34,9 +49,11 @@ message PieceSummary {
 }
 
 message PieceRetrieval {
-  string id = 1;
-  int64 size = 2;
-  int64 offset = 3;
+  BandwidthAllocation bandwidthallocation = 1;
+
+  string id = 2;
+  int64 size = 3;
+  int64 offset = 4;
 }
 
 message PieceRetrievalStream {
