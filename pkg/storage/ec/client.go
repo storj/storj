@@ -19,8 +19,8 @@ import (
 
 var mon = monkit.Package()
 
-// ECClient defines an interface for storing erasure coded data to piece store nodes
-type ECClient interface {
+// Client defines an interface for storing erasure coded data to piece store nodes
+type Client interface {
 	Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
@@ -50,8 +50,8 @@ type ecClient struct {
 	mbm int
 }
 
-// NewECClient from the given TransportClient and max buffer memory
-func NewECClient(t TransportClient, mbm int) ECClient {
+// NewClient from the given TransportClient and max buffer memory
+func NewClient(t TransportClient, mbm int) Client {
 	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
 }
 

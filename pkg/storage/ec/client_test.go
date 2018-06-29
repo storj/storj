@@ -59,7 +59,7 @@ func TestNewECClient(t *testing.T) {
 	tc := NewMockTransportClient(ctrl)
 	mbm := 1234
 
-	ec := NewECClient(tc, mbm)
+	ec := NewClient(tc, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
