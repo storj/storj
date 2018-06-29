@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	proto "storj.io/storj/protos/overlay"
 )
 

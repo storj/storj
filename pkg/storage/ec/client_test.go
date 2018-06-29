@@ -56,7 +56,7 @@ func TestNewECClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	tc := NewMockTransportClient(ctrl)
+	tc := NewMockClient(ctrl)
 	mbm := 1234
 
 	ec := NewClient(tc, mbm)
@@ -87,7 +87,7 @@ func TestDefaultDialer(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		tc := NewMockTransportClient(ctrl)
+		tc := NewMockClient(ctrl)
 		tc.EXPECT().DialNode(gomock.Any(), node0).Return(nil, tt.err)
 
 		dd := defaultDialer{t: tc}
