@@ -9,7 +9,7 @@ type BetaReturn struct {
 	Mean       float64
 }
 
-// Beta function
+// Beta function first attempt for the Reputation function
 func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featureCount float64, featureSum float64, featureCurrent float64) BetaReturn {
 	alpha := 1.0
 	beta := 1.0

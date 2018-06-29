@@ -31,9 +31,14 @@ var UpdateError = errs.Class("reputation update error")
 // StartDBError is an error class for errors related to the reputation package
 var StartDBError = errs.Class("reputation start sqlite3 error")
 
-// startDB starts a sqlite3 database from the file path parameter
-func startDB(filePath string) (*sql.DB, error) {
+// StartDB starts a sqlite3 database from the file path parameter
+func StartDB(filePath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", filePath)
+	if err != nil {
+		return nil, StartDBError.Wrap(err)
+	}
+
+	err = createReputationTable(db)
 	if err != nil {
 		return nil, StartDBError.Wrap(err)
 	}
@@ -72,7 +77,8 @@ func createReputationTable(db *sql.DB) error {
 	return nil
 }
 
-func createNewNodeRecord(db *sql.DB, nodeName string) error {
+// CreateNewNodeRecord creates a new record for a node in the database, not idempotent
+func CreateNewNodeRecord(db *sql.DB, nodeName string) error {
 
 	type paramValue struct {
 		param proto.Parameter
@@ -84,6 +90,7 @@ func createNewNodeRecord(db *sql.DB, nodeName string) error {
 		val   proto.UpdateRepValue
 	}
 
+	// default values
 	params := []paramValue{
 		paramValue{
 			param: proto.Parameter_BAD_RECALL,
@@ -133,6 +140,7 @@ func createNewNodeRecord(db *sql.DB, nodeName string) error {
 	return nil
 }
 
+// insertNewNodeName inserts a row into the database with the provied name, not idempotent
 func insertNewNodeName(db *sql.DB, nodeName string) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -157,7 +165,8 @@ func insertNewNodeName(db *sql.DB, nodeName string) error {
 	return tx.Commit()
 }
 
-type nodeFeature struct {
+// NodeFeature is a GO type to represent a single feature from the database
+type NodeFeature struct {
 	nodeName          string
 	feature           string
 	goodRecall        float64
@@ -168,8 +177,9 @@ type nodeFeature struct {
 	reputation        float64
 }
 
-func selectNodeFeature(db *sql.DB, nodeName string, feature string) (nodeFeature, error) {
-	var res nodeFeature
+// selectNodeFeature is a function used to select a single feature for a given node name
+func selectNodeFeature(db *sql.DB, nodeName string, feature string) (NodeFeature, error) {
+	var res NodeFeature
 
 	stmt := selectFeatureStmt(feature, nodeName)
 	rows, err := db.Query(stmt)
@@ -194,11 +204,11 @@ func selectNodeFeature(db *sql.DB, nodeName string, feature string) (nodeFeature
 	return res, nil
 }
 
-//
-func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
-	var res []nodeFeature
-	updateRes := func(feature string) (nodeFeature, error) {
-		var newRes nodeFeature
+// GetRep is a function to retrive the reputation for a given node name from the database
+func GetRep(db *sql.DB, nodeName string) ([]NodeFeature, error) {
+	var res []NodeFeature
+	updateRes := func(feature string) (NodeFeature, error) {
+		var newRes NodeFeature
 		newRes, err := selectNodeFeature(db, nodeName, feature)
 		if err != nil {
 			return newRes, SelectError.Wrap(err)
@@ -216,6 +226,7 @@ func getRep(db *sql.DB, nodeName string) ([]nodeFeature, error) {
 	return res, nil
 }
 
+// matchRepOrderStmt is a function that generates a string for filtering nodes from the database
 func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaStateCols, notIn []string) string {
 	var exclude []string
 
@@ -240,7 +251,7 @@ func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaSt
 	return selectNodesStmt
 }
 
-//
+// matchRepOrderStmt is a function that looks for nodes that satisfy the constraint parameters
 func matchRepOrder(db *sql.DB, limit int64, features []proto.Feature, notIn []string) ([]string, error) {
 	stmt := matchRepOrderStmt(limit, features, proto.BetaStateCols_CURRENT_REPUTATION, notIn)
 	rows, err := db.Query(stmt)
@@ -264,27 +275,7 @@ func matchRepOrder(db *sql.DB, limit int64, features []proto.Feature, notIn []st
 	return res, nil
 }
 
-func selectAllBetaStateStmt() string {
-	res := "SELECT"
-	fromWhere := `FROM node_reputation
-	WHERE node_name = ?`
-
-	var repState []string
-
-	for _, feature := range proto.Feature_name {
-		for _, state := range proto.BetaStateCols_name {
-			repState = append(repState, fmt.Sprintf("%s_%s", feature, state))
-		}
-	}
-
-	joined := strings.Join(repState, ",")
-
-	res = res + joined + fromWhere
-
-	return res
-}
-
-//
+// updateNodeRecord is a function that updates a single node's feature
 func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value proto.UpdateRepValue) error {
 	node, err := selectNodeFeature(db, nodeName, feature.String())
 	if err != nil {
@@ -327,6 +318,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 	return tx.Commit()
 }
 
+// updateNodeParameters is a function that updates a node's state values
 func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter proto.Parameter, parameterValue float64) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -346,6 +338,7 @@ func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter
 	return tx.Commit()
 }
 
+// updateNodeState is a function that updates a node's state values
 func updateNodeState(db *sql.DB, nodeName string, feature string, state proto.BetaStateCols, stateValue proto.UpdateRepValue) error {
 	tx, err := db.Begin()
 	if err != nil {
@@ -365,9 +358,9 @@ func updateNodeState(db *sql.DB, nodeName string, feature string, state proto.Be
 	return tx.Commit()
 }
 
-// assumtion one row per node id
-func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
-	var res nodeFeature
+// selectedFeaturesToNodeRecord converts a row to a NodFeature struct, assumtion one row per node id
+func selectedFeaturesToNodeRecord(rows *sql.Rows) (NodeFeature, error) {
+	var res NodeFeature
 
 	for rows.Next() {
 		err := rows.Scan(
@@ -386,6 +379,7 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (nodeFeature, error) {
 	return res, nil
 }
 
+// updateFeatureRepStmt a function that generates a string for the database to update a node's feature
 func updateFeatureRepStmt(nodeName string, feature string, state string, value float64) string {
 	update := `UPDATE node_reputation
 	SET last_seen = STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'),`
@@ -395,6 +389,7 @@ func updateFeatureRepStmt(nodeName string, feature string, state string, value f
 		WHERE node_name = '%s';`, update, feature, state, value, nodeName)
 }
 
+// selectFeatureStmt a function that generates a string for the database to select a single feature of a node
 func selectFeatureStmt(feature string, nodeName string) string {
 	var cols []string
 
@@ -411,6 +406,7 @@ func selectFeatureStmt(feature string, nodeName string) string {
 		strings.Join(cols, ",\n"), nodeName)
 }
 
+// updateToFloat converts a proto enum to a float
 func updateToFloat(val proto.UpdateRepValue) float64 {
 	res := float64(0)
 

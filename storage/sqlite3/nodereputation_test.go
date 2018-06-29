@@ -13,79 +13,66 @@ import (
 
 func TestCreateTable(t *testing.T) {
 	testDatabaseName := "./TestCreateTable.db"
-	db, _ := startDB(testDatabaseName)
-
-	createReputationTable(db)
-
+	StartDB(testDatabaseName)
 	os.Remove(testDatabaseName)
 }
 
 func TestCreateNode(t *testing.T) {
 	testDatabaseName := "./TestCreateNode.db"
-	db, _ := startDB(testDatabaseName)
+	db, _ := StartDB(testDatabaseName)
 
-	createReputationTable(db)
-
-	createNewNodeRecord(db, "Alice")
+	CreateNewNodeRecord(db, "Alice")
 
 	os.Remove(testDatabaseName)
 }
 
 func TestSelectReputation(t *testing.T) {
 	testDatabaseName := "./TestSelectReputation.db"
-	db, _ := startDB(testDatabaseName)
+	db, _ := StartDB(testDatabaseName)
 
-	createReputationTable(db)
+	CreateNewNodeRecord(db, "Alice")
 
-	createNewNodeRecord(db, "Alice")
-
-	nodeFeatures, err := getRep(db, "Alice")
+	_, err := GetRep(db, "Alice")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(nodeFeatures)
+
 	os.Remove(testDatabaseName)
 }
 
 func TestUpdateReputation(t *testing.T) {
 	testDatabaseName := "./TestUpdateReputation.db"
-	db, _ := startDB(testDatabaseName)
+	db, _ := StartDB(testDatabaseName)
 
-	createReputationTable(db)
+	CreateNewNodeRecord(db, "Alice")
 
-	createNewNodeRecord(db, "Alice")
-
-	nodeFeaturesBefore, err := getRep(db, "Alice")
+	_, err := GetRep(db, "Alice")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(nodeFeaturesBefore)
 
 	err = updateNodeRecord(db, "Alice", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
 	if err != nil {
 		panic(err)
 	}
 
-	nodeFeaturesAfter, err := getRep(db, "Alice")
+	_, err = GetRep(db, "Alice")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(nodeFeaturesAfter)
 
 	os.Remove(testDatabaseName)
 }
 
 func TestMatch(t *testing.T) {
 	testDatabaseName := "./TestMatch.db"
-	db, _ := startDB(testDatabaseName)
+	db, _ := StartDB(testDatabaseName)
 
-	createReputationTable(db)
-
-	createNewNodeRecord(db, "Alice")
-	createNewNodeRecord(db, "Bob")
-	createNewNodeRecord(db, "Carol")
-	createNewNodeRecord(db, "Dave")
-	createNewNodeRecord(db, "Eve")
+	CreateNewNodeRecord(db, "Alice")
+	CreateNewNodeRecord(db, "Bob")
+	CreateNewNodeRecord(db, "Carol")
+	CreateNewNodeRecord(db, "Dave")
+	CreateNewNodeRecord(db, "Eve")
 
 	err := updateNodeRecord(db, "Alice", proto.Feature_UPTIME, proto.UpdateRepValue_ONE)
 	if err != nil {
@@ -148,6 +135,14 @@ func TestMatch(t *testing.T) {
 		panic(err)
 	}
 	fmt.Println(nodes)
+
+	test := []string{"Bob", "Carol", "Alice", "Dave"}
+
+	for i := range test {
+		if test[i] != nodes[i] {
+			t.Error("expected nodes [Bob Carol Alice Dave] got", nodes)
+		}
+	}
 
 	os.Remove(testDatabaseName)
 }
