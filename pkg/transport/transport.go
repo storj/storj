@@ -11,7 +11,7 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// Transport is the concrete implementation of the networkclient interface
+// Transport interface structure
 type Transport struct {
 }
 
