@@ -21,7 +21,8 @@ func (m *MockedService) InstanceID() string {
 }
 
 func (m *MockedService) Process(ctx context.Context, cmd *cobra.Command, args []string) error {
-	return nil
+	arguments := m.Called(ctx, cmd, args)
+	return arguments.Error(0)
 }
 
 func (m *MockedService) SetLogger(*zap.Logger) error {
@@ -40,6 +41,7 @@ func TestMainSingleProcess(t *testing.T) {
 	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	assert.Nil(t, process.Main(mockService))
+	mockService.AssertExpectations(t)
 }
 
 func TestMainMultipleProcess(t *testing.T) {
