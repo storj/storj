@@ -119,8 +119,8 @@ type encodedReader struct {
 // soon as the timer expires or the optimum threshold is reached.
 func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy,
 	mbm int) ([]io.Reader, error) {
-	if mbm < 0 {
-		return nil, Error.New("negative max buffer memory")
+	if err := checkMBM(mbm); err != nil {
+		return nil, err
 	}
 	er := &encodedReader{
 		r:     r,
@@ -330,8 +330,8 @@ func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*Encode
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
-	if mbm < 0 {
-		return nil, Error.New("negative max buffer memory")
+	if err := checkMBM(mbm); err != nil {
+		return nil, err
 	}
 	return &EncodedRanger{
 		rs:  rs,
@@ -377,4 +377,11 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		readers[i] = io.LimitReader(r, length)
 	}
 	return readers, nil
+}
+
+func checkMBM(mbm int) error {
+	if mbm < 0 {
+		return Error.New("negative max buffer memory")
+	}
+	return nil
 }

@@ -166,13 +166,13 @@ func TestNewRedundancyStrategy(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		es := NewRSScheme(fc, 8*1024)
 		rs, err := NewRedundancyStrategy(es, tt.min, tt.opt)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-			return
+			continue
 		}
 		assert.NoError(t, err, errTag)
 		assert.Equal(t, tt.expMin, rs.MinimumThreshold(), errTag)
@@ -199,7 +199,7 @@ func TestRSEncoderInputParams(t *testing.T) {
 		es := NewRSScheme(fc, 8*1024)
 		rs, err := NewRedundancyStrategy(es, 0, 0)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
 		if tt.errString == "" {
@@ -229,7 +229,7 @@ func TestRSRangerInputParams(t *testing.T) {
 		es := NewRSScheme(fc, 8*1024)
 		rs, err := NewRedundancyStrategy(es, 0, 0)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
 		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
 		if tt.errString == "" {

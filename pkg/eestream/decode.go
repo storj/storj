@@ -50,9 +50,8 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 		return readcloser.FatalReadCloser(
 			Error.New("expected size not a factor decoded block size"))
 	}
-	if mbm < 0 {
-		return readcloser.FatalReadCloser(
-			Error.New("negative max buffer memory"))
+	if err := checkMBM(mbm); err != nil {
+		return readcloser.FatalReadCloser(err)
 	}
 	chanSize := mbm / (len(rs) * es.EncodedBlockSize())
 	if chanSize < 1 {
@@ -235,8 +234,8 @@ type decodedRanger struct {
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
 func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.RangeCloser, error) {
-	if mbm < 0 {
-		return nil, Error.New("negative max buffer memory")
+	if err := checkMBM(mbm); err != nil {
+		return nil, err
 	}
 	if len(rrs) < es.RequiredCount() {
 		return nil, Error.New("not enough readers to reconstruct data!")
