@@ -5,7 +5,9 @@ package objects
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"path"
 	"time"
 
 	"storj.io/storj/pkg/ranger"
@@ -13,6 +15,8 @@ import (
 
 //Objects structure
 type Objects struct {
+	//segStore    segments.SegmentStore
+	//streamStore streams.StreamStore
 }
 
 //Meta structure
@@ -27,38 +31,46 @@ type Meta struct {
 // }
 
 //PutObject interface method
-func (o *Objects) PutObject(ctx context.Context, path string, data io.Reader, metadata []byte, expiration time.Time) (err error) {
+func (o *Objects) PutObject(ctx context.Context, objpath string, data io.Reader, metadata []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
 //GetObject interface method
-func (o *Objects) GetObject(ctx context.Context, path string) (r ranger.Ranger, m Meta, err error) {
+func (o *Objects) GetObject(ctx context.Context, objpath string) (r ranger.Ranger, m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	getObjectPath := path.Join("object", objpath)
+
+	/* TODO@ASK clean up the below line */
+	fmt.Println(getObjectPath)
 	panic("TODO")
 }
 
 //DeleteObject interface method
-func (o *Objects) DeleteObject(ctx context.Context, path string) (err error) {
+func (o *Objects) DeleteObject(ctx context.Context, objpath string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
 //ListObjects interface method
-func (o *Objects) ListObjects(ctx context.Context, startingPath, endingPath string) (paths []string, truncated bool, err error) {
+func (o *Objects) ListObjects(ctx context.Context, startingPath, endingPath string) (objpaths []string, truncated bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
 //SetXAttr interface method
-func (o *Objects) SetXAttr(ctx context.Context, path, xattr string, data io.Reader, metadata []byte) (err error) {
+func (o *Objects) SetXAttr(ctx context.Context, objpath, xattr string, data io.Reader, metadata []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
 //GetXAttr interface method
-func (o *Objects) GetXAttr(ctx context.Context, path, xattr string) (r ranger.Ranger, m Meta, err error) {
+func (o *Objects) GetXAttr(ctx context.Context, objpath, xattr string) (r ranger.Ranger, m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	getXAttrPath := path.Join("xattr", objpath, xattr)
+
+	/* TODO@ASK clean up the below line */
+	fmt.Println(getXAttrPath)
 	panic("TODO")
 }
 

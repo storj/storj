@@ -5,7 +5,6 @@ package transport
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc"
 
@@ -20,17 +19,20 @@ type Transport struct {
 func (o *Transport) DialNode(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if node.Address == nil {
+		return nil, Error.New("no address")
+	}
 	/* TODO@ASK security feature under development */
-	return o.DialUnauthenticated(ctx, node)
+	return o.DialUnauthenticated(ctx, *node.Address)
 }
 
 // DialUnauthenticated using unauthenticated mode
-func (o *Transport) DialUnauthenticated(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialUnauthenticated(ctx context.Context, addr proto.NodeAddress) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if node.Address == nil || node.Address.Address == "" {
-		return nil, errors.New("No Address")
+	if addr.Address == "" {
+		return nil, Error.New("no address")
 	}
 
-	return grpc.Dial(node.Address.Address, grpc.WithInsecure())
+	return grpc.Dial(addr.Address, grpc.WithInsecure())
 }
