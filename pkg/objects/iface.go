@@ -16,8 +16,8 @@ import (
 
 var (
 	mon = monkit.Package()
-	//Error monkit
-	Error = errs.Class("error")
+	//Error is the errs class of standard Object Store errors
+	Error = errs.Class("objectstore error")
 )
 
 //ObjectStore interface
