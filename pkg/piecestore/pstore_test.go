@@ -4,6 +4,7 @@
 package pstore
 
 import (
+	"context"
 	"os"
 	"path"
 	"path/filepath"
@@ -168,7 +169,7 @@ func TestRetrieve(t *testing.T) {
 			}
 			createdFile.Close()
 
-			storeFile, err := RetrieveReader(tt.id, tt.offset, tt.size, os.TempDir())
+			storeFile, err := RetrieveReader(context.Background(), tt.id, tt.offset, tt.size, os.TempDir())
 			if tt.err != "" {
 				if assert.NotNil(err) {
 					assert.Equal(tt.err, err.Error())
@@ -261,19 +262,6 @@ func TestDelete(t *testing.T) {
 			return
 		})
 	}
-}
-
-func TestDetermineID(t *testing.T) {
-	t.Run("should return an id string", func(t *testing.T) {
-		assert := assert.New(t)
-		id := DetermineID()
-		assert.Equal(len(id) >= IDLength, true)
-	})
-
-	t.Run("should return a different string on each call", func(t *testing.T) {
-		assert := assert.New(t)
-		assert.NotEqual(DetermineID(), DetermineID())
-	})
 }
 
 func TestMain(m *testing.M) {

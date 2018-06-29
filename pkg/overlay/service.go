@@ -10,36 +10,39 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 )
 
 var (
-	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort string
-	db                                                                           int
-	srvPort                                                                      uint
+	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
+	db                                                                                       int
+	srvPort                                                                                  uint
 )
 
 func init() {
 	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
 	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
+	flag.StringVar(&boltdbPath, "boltdbPath", "", "The path to the boltdb file that should be loaded or created")
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
-	flag.StringVar(&localPort, "localPort", "8080", "Specify a different port to listen on locally")
+	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
 }
 
 // NewServer creates a new Overlay Service Server
 func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
-	proto.RegisterOverlayServer(grpcServer, &Overlay{
-		kad:     k,
+	proto.RegisterOverlayServer(grpcServer, &Server{
+		dht:     k,
 		cache:   cache,
 		logger:  l,
 		metrics: m,
@@ -66,7 +69,8 @@ type Service struct {
 }
 
 // Process is the main function that executes the service
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
+	err error) {
 	// TODO
 	// 1. Boostrap a node on the network
 	// 2. Start up the overlay gRPC service
@@ -74,9 +78,17 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+	in, err := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
+	if err != nil {
+		return err
+	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
+	id, err := kademlia.NewID()
+	if err != nil {
+		return err
+	}
+
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -100,6 +112,18 @@ func (s *Service) Process(ctx context.Context) error {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
 		}
+	} else if boltdbPath != "" {
+		cache, err = NewBoltOverlayCache(boltdbPath, kad)
+		if err != nil {
+			s.logger.Error("Failed to create a new boltdb overlay client", zap.Error(err))
+			return err
+		}
+	} else {
+		return process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
+	}
+
+	if boltdbPath != "" {
+
 	}
 
 	if err := cache.Bootstrap(ctx); err != nil {
@@ -118,8 +142,9 @@ func (s *Service) Process(ctx context.Context) error {
 
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
 	go cache.Walk(ctx)
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server
