@@ -122,7 +122,7 @@ func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, er
 }
 
 func storjGatewayMain(ctx *cli.Context) {
-	s := &Storj{}
+	s := &Storj{os: mockObjectStore()}
 	s.createSampleBucketList()
 	minio.StartGateway(ctx, s)
 }
@@ -141,6 +141,7 @@ type S3FileList struct {
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
 	bucketlist []S3Bucket
+	os         ObjectStore
 }
 
 // Name implements cmd.Gateway
@@ -189,7 +190,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
 	object string) error {
-	panic("TODO")
+	return s.storj.os.DeleteObject(ctx, object)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (

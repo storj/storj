@@ -39,7 +39,10 @@ func (o *Objects) PutObject(ctx context.Context, objpath string, data io.Reader,
 //GetObject interface method
 func (o *Objects) GetObject(ctx context.Context, objpath string) (r ranger.Ranger, m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	//objpath is it the concat of bucket and object --> /<bucket>/<object> ??
 	getObjectPath := path.Join("object", objpath)
+
+	//Calls the streamstore's Get() interface method and pass getObjectPath and get readers to pieces.
 
 	/* TODO@ASK clean up the below line */
 	fmt.Println(getObjectPath)
