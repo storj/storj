@@ -19,10 +19,20 @@ type Limit int
 type KeyValueStore interface {
 	// Put adds a value to the provided key in the KeyValueStore, returning an error on failure.
 	Put(Key, Value) error
-	Get(Key) (Value, error)
+	Get(Key) Value
 	List(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
+}
+
+// IsZero returns true if the value struct is it's zero value
+func (v *Value) IsZero() (_ bool) {
+	return len(*v) == 0
+}
+
+// IsZero returns true if the key struct is it's zero value
+func (k *Key) IsZero() (_ bool) {
+	return len(*k) == 0
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for the Value type

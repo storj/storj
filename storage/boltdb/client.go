@@ -61,7 +61,7 @@ func (c *boltClient) Put(key storage.Key, value storage.Value) error {
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.
-func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
+func (c *boltClient) Get(pathKey storage.Key) (storage.Value) {
 	c.logger.Debug("entering bolt get: " + string(pathKey))
 	var pointerBytes []byte
 	err := c.db.Update(func(tx *bolt.Tx) error {
@@ -71,7 +71,12 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 		return nil
 	})
 
-	return pointerBytes, err
+	if err != nil {
+		// TODO: log
+		return nil
+	}
+
+	return pointerBytes
 }
 
 // List returns either a list of keys for which boltdb has values or an error.

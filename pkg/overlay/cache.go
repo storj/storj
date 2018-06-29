@@ -55,9 +55,10 @@ func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 
 // Get looks up the provided nodeID from the redis cache
 func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
-	b, err := o.DB.Get([]byte(key))
-	if err != nil {
-		return nil, err
+	b := o.DB.Get([]byte(key))
+	if b.IsZero() {
+		// TODO: log? return an error?
+		return nil, nil
 	}
 
 	na := &overlay.NodeAddress{}
