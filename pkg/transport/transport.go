@@ -5,32 +5,34 @@ package transport
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay"
 )
 
-// transportClient is the concrete implementation of the networkclient interface
+// Transport is the concrete implementation of the networkclient interface
 type Transport struct {
 }
 
-// Dial using the authenticated mode
+// DialNode using the authenticated mode
 func (o *Transport) DialNode(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if node.Address == nil {
+		return nil, Error.New("no address")
+	}
 	/* TODO@ASK security feature under development */
-	return o.DialUnauthenticated(ctx, node)
+	return o.DialUnauthenticated(ctx, *node.Address)
 }
 
-// Dial using unauthenticated mode
-func (o *Transport) DialUnauthenticated(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
+// DialUnauthenticated using unauthenticated mode
+func (o *Transport) DialUnauthenticated(ctx context.Context, addr proto.NodeAddress) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if node.Address == nil || node.Address.Address == "" {
-		return nil, errors.New("No Address")
+	if addr.Address == "" {
+		return nil, Error.New("no address")
 	}
 
-	return grpc.Dial(node.Address.Address, grpc.WithInsecure())
+	return grpc.Dial(addr.Address, grpc.WithInsecure())
 }
