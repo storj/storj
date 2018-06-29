@@ -70,11 +70,17 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 		go func(i int, n proto.Node) {
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
+				zap.S().Errorf("Failed putting piece %s to node %s: %v",
+					pieceID, n.GetId(), err)
 				errs <- err
 				return
 			}
 			err = ps.Put(ctx, pieceID, readers[i], expiration)
 			ps.CloseConn()
+			if err != nil {
+				zap.S().Errorf("Failed putting piece %s to node %s: %v",
+					pieceID, n.GetId(), err)
+			}
 			errs <- err
 		}(i, n)
 	}
@@ -100,27 +106,31 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 		rr  ranger.RangeCloser
 		err error
 	}
-	rrch := make(chan rangerInfo, len(nodes))
+	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
 		go func(i int, n proto.Node) {
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
-				rrch <- rangerInfo{i: i, rr: nil, err: err}
+				zap.S().Errorf("Failed getting piece %s from node %s: %v",
+					pieceID, n.GetId(), err)
+				ch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
 			rr, err := ps.Get(ctx, pieceID, size)
 			// no ps.CloseConn() here, the connection will be closed by
 			// the caller using RangeCloser.Close
-			rrch <- rangerInfo{i: i, rr: rr, err: err}
+			if err != nil {
+				zap.S().Errorf("Failed getting piece %s from node %s: %v",
+					pieceID, n.GetId(), err)
+			}
+			ch <- rangerInfo{i: i, rr: rr, err: err}
 		}(i, n)
 	}
 	for range nodes {
-		rri := <-rrch
-		if rri.err != nil {
-			zap.S().Error(rri.err)
-			continue
+		rri := <-ch
+		if rri.err == nil {
+			rrs[rri.i] = rri.rr
 		}
-		rrs[rri.i] = rri.rr
 	}
 	return eestream.Decode(rrs, es, ec.mbm)
 }
@@ -132,11 +142,17 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 		go func(n proto.Node) {
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
+				zap.S().Errorf("Failed deleting piece %s from node %s: %v",
+					pieceID, n.GetId(), err)
 				errs <- err
 				return
 			}
 			err = ps.Delete(ctx, pieceID)
 			ps.CloseConn()
+			if err != nil {
+				zap.S().Errorf("Failed deleting piece %s from node %s: %v",
+					pieceID, n.GetId(), err)
+			}
 			errs <- err
 		}(n)
 	}
@@ -152,7 +168,6 @@ func collectErrors(errs <-chan error, size int) []error {
 	for i := 0; i < size; i++ {
 		err := <-errs
 		if err != nil {
-			zap.S().Error(err)
 			result = append(result, err)
 		}
 	}
