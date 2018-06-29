@@ -47,14 +47,14 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
-func (c *redisClient) Get(key storage.Key) (storage.Value) {
+func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
 	if err != nil {
 		// TODO: log
-		return nil
+		return nil, Error.New("get error", err)
 	}
 
-	return b
+	return b, nil
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.

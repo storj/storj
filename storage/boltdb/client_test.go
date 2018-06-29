@@ -80,7 +80,10 @@ func TestGet(t *testing.T) {
 		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
 	}
 
-	retrvValue := bt.c.Get([]byte("test/path/1"))
+	retrvValue, err := bt.c.Get([]byte("test/path/1"))
+	if err != nil {
+		bt.HandleErr(err, "Failed to get")
+	}
 	if retrvValue.IsZero() {
 		bt.HandleErr(nil, "Failed to get saved test pointer")
 	}
@@ -89,7 +92,10 @@ func TestGet(t *testing.T) {
 	}
 
 	// tests Get non-existent path
-	getRes := bt.c.Get([]byte("fake/path"))
+	getRes, err := bt.c.Get([]byte("fake/path"))
+	if err != nil {
+		bt.HandleErr(err, "Failed to get")
+	}
 	if !getRes.IsZero() {
 		bt.HandleErr(nil, "Expected zero-value response for getting fake path")
 	}

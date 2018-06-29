@@ -19,7 +19,7 @@ type Limit int
 type KeyValueStore interface {
 	// Put adds a value to the provided key in the KeyValueStore, returning an error on failure.
 	Put(Key, Value) error
-	Get(Key) Value
+	Get(Key) (Value, error)
 	List(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error

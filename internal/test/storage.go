@@ -63,17 +63,17 @@ var (
 )
 
 // Get looks up the provided key from the MockKeyValueStore returning either an error or the result.
-func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value) {
+func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
-		return nil
+		return nil, nil
 	}
 	v, ok := m.Data[key.String()]
 	if !ok {
-		return storage.Value{}
+		return storage.Value{}, nil
 	}
 
-	return v
+	return v, nil
 }
 
 // Put adds a value to the provided key in the MockKeyValueStore, returning an error on failure.
