@@ -45,7 +45,20 @@ func TestMainSingleProcess(t *testing.T) {
 }
 
 func TestMainMultipleProcess(t *testing.T) {
+	mockService1 := MockedService{}
+	mockService2 := MockedService{}
 
+	mockService1.On("SetLogger", mock.Anything).Return(nil)
+	mockService1.On("SetMetricHandler", mock.Anything).Return(nil)
+	mockService1.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	mockService2.On("SetLogger", mock.Anything).Return(nil)
+	mockService2.On("SetMetricHandler", mock.Anything).Return(nil)
+	mockService2.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	assert.Nil(t, process.Main(&mockService1, &mockService2))
+	mockService1.AssertExpectations(t)
+	mockService2.AssertExpectations(t)
 }
 
 func TestMust(t *testing.T) {
