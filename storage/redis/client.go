@@ -50,6 +50,10 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
 	if err != nil {
+		if err.Error() == "redis: nil" {
+			return nil, nil
+		}
+
 		// TODO: log
 		return nil, Error.New("get error", err)
 	}
