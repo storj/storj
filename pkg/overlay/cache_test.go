@@ -225,7 +225,7 @@ func TestRedisPut(t *testing.T) {
 			err := oc.Put(c.key, c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
-			v := db.Get([]byte(c.key))
+			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
 			na := &overlay.NodeAddress{}
 
@@ -261,7 +261,7 @@ func TestBoltPut(t *testing.T) {
 			err := oc.Put(c.key, c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
-			v := db.Get([]byte(c.key))
+			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
 			na := &overlay.NodeAddress{}
 
