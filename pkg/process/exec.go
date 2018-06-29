@@ -15,16 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/zeebo/errs"
-)
-
-var (
-	// ErrLogger Class
-	ErrLogger = errs.Class("Logger Error")
-	// ErrMetricHandler Class
-	ErrMetricHandler = errs.Class("Metric Handler Error")
-	//ErrProcess Class
-	ErrProcess = errs.Class("Process Error")
 )
 
 func defaultConfigPath(name string) string {

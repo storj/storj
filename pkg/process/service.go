@@ -25,6 +25,15 @@ var (
 
 	// ErrUsage is a process error class
 	ErrUsage = errs.Class("usage error")
+
+	// ErrLogger Class
+	ErrLogger = errs.Class("Logger Error")
+
+	// ErrMetricHandler Class
+	ErrMetricHandler = errs.Class("Metric Handler Error")
+
+	//ErrProcess Class
+	ErrProcess = errs.Class("Process Error")
 )
 
 type idKey string
