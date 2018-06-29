@@ -61,6 +61,17 @@ func TestMainMultipleProcess(t *testing.T) {
 	mockService2.AssertExpectations(t)
 }
 
+func TestMainLoggerError(t *testing.T) {
+	mockService := MockedService{}
+
+	err := process.ErrLogger.New("Logger Error")
+	mockService.On("SetLogger", mock.Anything).Return(err)
+	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
+	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	assert.Equal(t, process.Main(&mockService), err)
+	mockService.AssertExpectations(t)
+}
+
 func TestMust(t *testing.T) {
 	t.Skip()
 }
