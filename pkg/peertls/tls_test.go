@@ -207,13 +207,19 @@ func TestGenerate(t *testing.T) {
 		}
 
 		if err := opts.generateTLS(); err != nil {
-			quickLog("", opts, err)
+			quickLog("generateTLS error", opts, err)
 			return false
 		}
 
-		loadedCert, err := LoadCert(LeafCertPath, LeafKeyPath)
+		rootCert, err := LoadCert(RootCertPath, RootKeyPath)
 		if err != nil {
-			quickLog("error loading cert", opts, err)
+			quickLog("error root loading cert", opts, err)
+			return false
+		}
+
+		leafCert, err := LoadCert(LeafCertPath, LeafKeyPath)
+		if err != nil {
+			quickLog("error leaf loading cert", opts, err)
 			return false
 		}
 
@@ -234,21 +240,37 @@ func TestGenerate(t *testing.T) {
 		certsMatch := func(c1, c2 *tls.Certificate) bool {
 			for i, cert := range c1.Certificate {
 				if bytes.Compare(cert, c2.Certificate[i]) != 0 {
+					quickLog("certs don't match", opts, err)
 					return false
 				}
 			}
 
-			k1 := privKeyBytes(c1.PrivateKey)
-			k2 := privKeyBytes(c2.PrivateKey)
+			return true
+		}
 
+		keysMatch := func(k1, k2 []byte) bool {
 			if bytes.Compare(k1, k2) != 0 {
+				quickLog("keys don't match", opts, err)
 				return false
 			}
 
 			return true
 		}
 
-		return certsMatch(loadedCert, opts.LeafCertificate)
+		if !certsMatch(leafCert, opts.LeafCertificate) {
+			quickLog("certs don't match", opts, nil)
+			return false
+		}
+
+		if !keysMatch(
+			privKeyBytes(leafCert.PrivateKey),
+			privKeyBytes(rootCert.PrivateKey),
+			) {
+			quickLog("keys don't match", opts, nil)
+			return false
+		}
+
+		return true
 	}
 
 	err = quick.Check(f, quickConfig)

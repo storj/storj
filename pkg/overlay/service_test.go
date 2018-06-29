@@ -77,7 +77,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	defer os.RemoveAll(tmpPath)
 
 	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
-	tlsOpts, err := peertls.NewTLSFileOptions(
+	_, err = peertls.NewTLSFileOptions(
 		fmt.Sprintf("%s.crt", basePath),
 		fmt.Sprintf("%s.key", basePath),
 		"localhost,127.0.0.1,::",
@@ -85,6 +85,8 @@ func TestNewClient_LoadTLS(t *testing.T) {
 		true,
 		false,
 	)
+
+	assert.NoError(t, err)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)

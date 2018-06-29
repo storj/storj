@@ -138,6 +138,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		}
 
 		clientC, err := createAndPersist(t.ClientCertAbsPath, t.ClientKeyAbsPath, clientT, rootT, &newKey.PublicKey, rootKey)
+		clientC.PrivateKey = newKey
 		// clientDERBytes, err := x509.CreateCertificate(rand.Reader, clientT, rootT, &newKey.PublicKey, rootKey)
 		// if err != nil {
 		// 	return ErrGenerate.Wrap(err)
@@ -156,6 +157,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		}
 
 		leafC, err := createAndPersist(t.LeafCertAbsPath, t.LeafKeyAbsPath, leafT, rootT, &newKey.PublicKey, rootKey)
+		leafC.PrivateKey = newKey
 		if err != nil {
 			return ErrGenerate.Wrap(err)
 		}
