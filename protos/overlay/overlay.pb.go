@@ -528,13 +528,11 @@ type OverlayClient interface {
 	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
 	FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error)
 }
-
-type overlayClient struct {
-	cc *grpc.ClientConn
+func (m *Nodes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Nodes.Unmarshal(m, b)
 }
-
-func NewOverlayClient(cc *grpc.ClientConn) OverlayClient {
-	return &overlayClient{cc}
+func (m *Nodes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Nodes.Marshal(b, m, deterministic)
 }
 
 func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error) {
@@ -563,8 +561,17 @@ type OverlayServer interface {
 	FindStorageNodes(context.Context, *FindStorageNodesRequest) (*FindStorageNodesResponse, error)
 }
 
-func RegisterOverlayServer(s *grpc.Server, srv OverlayServer) {
-	s.RegisterService(&_Overlay_serviceDesc, srv)
+func init() {
+	proto.RegisterType((*LookupRequest)(nil), "LookupRequest")
+	proto.RegisterType((*LookupResponse)(nil), "LookupResponse")
+	proto.RegisterType((*FindStorageNodesResponse)(nil), "FindStorageNodesResponse")
+	proto.RegisterType((*FindStorageNodesRequest)(nil), "FindStorageNodesRequest")
+	proto.RegisterType((*NodeAddress)(nil), "NodeAddress")
+	proto.RegisterType((*OverlayOptions)(nil), "OverlayOptions")
+	proto.RegisterType((*NodeRep)(nil), "NodeRep")
+	proto.RegisterType((*Node)(nil), "Node")
+	proto.RegisterType((*Nodes)(nil), "Nodes")
+	proto.RegisterEnum("NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
 func _Overlay_Lookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
