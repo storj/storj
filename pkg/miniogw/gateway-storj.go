@@ -22,6 +22,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/objects"
 )
 
 var (
@@ -127,6 +128,10 @@ func storjGatewayMain(ctx *cli.Context) {
 	minio.StartGateway(ctx, s)
 }
 
+func mockObjectStore() objects.ObjectStore {
+	return &objects.Objects{}
+}
+
 //S3Bucket structure
 type S3Bucket struct {
 	bucket   minio.BucketInfo
@@ -141,7 +146,7 @@ type S3FileList struct {
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
 	bucketlist []S3Bucket
-	os         ObjectStore
+	os         objects.ObjectStore
 }
 
 // Name implements cmd.Gateway
@@ -206,7 +211,11 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
-	panic("TODO")
+	_, m, err := s.storj.os.GetObject(ctx, object)
+	objInfo = minio.ObjectInfo{
+		Bucket: m.Bucket,
+	}
+	return objInfo, err
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
