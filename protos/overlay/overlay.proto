@@ -62,3 +62,8 @@ message Node {
     string id = 1;
     NodeAddress address = 2;
 }
+
+// Nodes represents a collection of nodes in the overlay network
+message Nodes {
+    repeated Node nodes = 1;
+}

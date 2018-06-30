@@ -29,3 +29,4 @@ func (b *KBucket) Midpoint() string {
 func (b *KBucket) Nodes() []*proto.Node {
 	return b.nodes
 }
+

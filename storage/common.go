@@ -21,6 +21,7 @@ type KeyValueStore interface {
 	Put(Key, Value) error
 	Get(Key) (Value, error)
 	List(Key, Limit) (Keys, error)
+	ReverseList(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
 }
