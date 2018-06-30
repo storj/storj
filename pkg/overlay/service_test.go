@@ -78,8 +78,8 @@ func TestNewClient_LoadTLS(t *testing.T) {
 
 	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
 	_, err = peertls.NewTLSFileOptions(
-		fmt.Sprintf("%s.crt", basePath),
-		fmt.Sprintf("%s.key", basePath),
+		basePath,
+		basePath,
 		"localhost,127.0.0.1,::",
 		false,
 		true,
@@ -219,6 +219,7 @@ func newMockTLSServer(t *testing.T, tlsBasePath, tlsHosts string, create bool) (
 		false,
 	)
 	assert.NoError(t, err)
+	assert.NotNil(t, tlsOpts)
 
 	grpcServer := newMockServer(tlsOpts.ServerOption())
 	return grpcServer, tlsOpts

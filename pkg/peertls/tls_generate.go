@@ -47,7 +47,7 @@ const (
 	// leaf
 	// client
 
-	rootCert fileRole = iota
+	rootCert   fileRole = iota
 	rootKey
 	leafCert
 	leafKey
@@ -193,7 +193,7 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
-		IsCA: false,
+		IsCA:                  false,
 	}
 
 	setHosts(t.Hosts, template)
@@ -255,7 +255,7 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 
 	setHosts(t.Hosts, template)
@@ -285,7 +285,7 @@ func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA: false,
+		IsCA:                  false,
 	}
 
 	setHosts(t.Hosts, template)
@@ -324,23 +324,24 @@ func writePem(block *pem.Block, file io.WriteCloser) (_ error) {
 		return errs.New("unable to PEM-encode/write bytes to file", err)
 	}
 
-	if err := file.Close(); err != nil {
-		return errs.New("unable to close file", err)
-	}
-
 	return nil
 }
 
 func writeCert(b []byte, path string) (_ error) {
 	file, err := os.Create(path)
+	defer file.Close()
+
 	if err != nil {
 		return errs.New("unable to open file \"%s\" for writing", path, err)
 	}
 
 	block := newCertBlock(b)
-
 	if err := writePem(block, file); err != nil {
 		return err
+	}
+
+	if err := file.Close(); err != nil {
+		return errs.New("unable to close file", err)
 	}
 
 	return nil
@@ -383,6 +384,7 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
 	return certFromPEMs(certPEMBlock.Bytes, keyPEMBlock.Bytes)
 	// return certFromPEMs(certPEMBlock, keyPEMBlock)
+	// return certFromPEMs(certPEMBytes, keyPEMBytes)
 }
 
 // X509KeyPair parses a public/private key pair from a pair of

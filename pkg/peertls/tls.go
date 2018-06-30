@@ -14,8 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"encoding/json"
-	"encoding/base64"
 )
 
 var (
@@ -68,15 +66,15 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 
 	// b64 := base64.URLEncoding.EncodeToString(rawCerts[0])
 	// fmt.Printf("rawCerts:%s\n", b64)
-	fmt.Printf("rawCerts: %.10x\n", rawCerts)
-	fmt.Println("len rawCerts", len(rawCerts))
-	parentCert, err := x509.ParseCertificate(rawCerts[0])
-	b64Cert := base64.StdEncoding.EncodeToString(rawCerts[0])
-	fmt.Printf("cert0: %.15s\n", b64Cert)
-	fmt.Printf("cert0: %.10x\n", parentCert)
-	jCert, _ := json.MarshalIndent(parentCert, "", "  ")
-	fmt.Printf("cert0: %s\n", jCert)
-	fmt.Println("err", err)
+	// fmt.Printf("rawCerts: %.10x\n", rawCerts)
+	// fmt.Println("len rawCerts", len(rawCerts))
+	// parentCert, err := x509.ParseCertificate(rawCerts[0])
+	// b64Cert := base64.StdEncoding.EncodeToString(rawCerts[0])
+	// fmt.Printf("cert0: %.15s\n", b64Cert)
+	// fmt.Printf("cert0: %.10x\n", parentCert)
+	// jCert, _ := json.MarshalIndent(parentCert, "", "  ")
+	// fmt.Printf("cert0: %s\n", jCert)
+	// fmt.Println("err", err)
 	// leafCert, err := x509.ParseCertificate(rawCerts[1])
 	// parentCert.Signature
 	// parentCert.PublicKey
@@ -177,12 +175,7 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 	}
 
 	if !hasRequiredFiles {
-		missingRoles, _ := t.missingFiles()
-		missing := []string{}
-
-		for _, role := range missingRoles {
-			missing = append(missing, fileLabels[role])
-		}
+		missing, _ := t.missingFiles()
 
 		return ErrNotExist.New(fmt.Sprintf(strings.Join(missing, ", ")))
 	}
@@ -195,12 +188,24 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 	return nil
 }
 
-func (t *TLSFileOptions) loadTLS() {
+func (t *TLSFileOptions) loadTLS() (_ error) {
 	if t.Client {
-		tls.LoadX509KeyPair(t.ClientCertAbsPath, t.ClientKeyAbsPath)
+		clientC, err := LoadCert(t.ClientCertAbsPath, t.ClientKeyAbsPath)
+		if err != nil {
+			return err
+		}
+
+		t.ClientCertificate = clientC
 	} else {
-		tls.LoadX509KeyPair(t.LeafCertAbsPath, t.LeafKeyAbsPath)
+		leafC, err := LoadCert(t.LeafCertAbsPath, t.LeafKeyAbsPath)
+		if err != nil {
+			return err
+		}
+
+		t.LeafCertificate = leafC
 	}
+
+	return nil
 }
 
 func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
@@ -237,8 +242,8 @@ func (t *TLSFileOptions) ServerOption() (_ grpc.ServerOption) {
 	return grpc.Creds(creds)
 }
 
-func (t *TLSFileOptions) missingFiles() (_ []fileRole, _ error) {
-	missingRoles := []fileRole{}
+func (t *TLSFileOptions) missingFiles() (_ []string, _ error) {
+	missingFiles := []string{}
 
 	paths := map[fileRole]string{
 		rootCert:   t.RootCertAbsPath,
@@ -259,13 +264,13 @@ func (t *TLSFileOptions) missingFiles() (_ []fileRole, _ error) {
 						return nil, errs.Wrap(err)
 					}
 
-					missingRoles = append(missingRoles, role)
+					missingFiles = append(missingFiles, fileLabels[role])
 				}
 			}
 		}
 	}
 
-	return missingRoles, nil
+	return missingFiles, nil
 }
 
 func (t *TLSFileOptions) requiredFiles() (_ []fileRole) {

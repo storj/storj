@@ -141,11 +141,11 @@ func TestNewTLSFileOptions(t *testing.T) {
 func TestEnsureAbsPath(t *testing.T) {
 	f := func(val string) (_ bool) {
 		opts := &TLSFileOptions{
-			RootCertRelPath:   fmt.Sprintf("%s.root.crt", val),
+			RootCertRelPath:   fmt.Sprintf("%s.root.cert", val),
 			RootKeyRelPath:    fmt.Sprintf("%s.root.key", val),
-			LeafCertRelPath:   fmt.Sprintf("%s.leaf.crt", val),
+			LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", val),
 			LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", val),
-			ClientCertRelPath: fmt.Sprintf("%s.client.crt", val),
+			ClientCertRelPath: fmt.Sprintf("%s.client.cert", val),
 			ClientKeyRelPath:  fmt.Sprintf("%s.client.key", val),
 		}
 
@@ -275,6 +275,10 @@ func TestGenerate(t *testing.T) {
 
 	err = quick.Check(f, quickConfig)
 	assert.NoError(t, err)
+}
+
+func  TestLoadCert(t *testing.T) {
+	t.SkipNow()
 }
 
 func TestEnsureExists_Create(t *testing.T) {
@@ -449,12 +453,10 @@ func TestNewTLSConfig(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	basePath := filepath.Join(tempPath, "TestNewPeerTLS")
-	certPath := fmt.Sprintf("%s.crt", basePath)
-	keyPath := fmt.Sprintf("%s.key", basePath)
 
 	opts, err := NewTLSFileOptions(
-		certPath,
-		keyPath,
+		basePath,
+		basePath,
 		"127.0.0.1",
 		false,
 		true,
