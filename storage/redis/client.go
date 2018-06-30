@@ -106,6 +106,11 @@ func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storag
 	return listKeys, nil
 }
 
+func (c *redisClient) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	//TODO
+	return storage.Keys{}, nil
+}
+
 // Delete deletes a key/value pair from redis, for a given the key
 func (c *redisClient) Delete(key storage.Key) error {
 	err := c.db.Del(key.String()).Err()
