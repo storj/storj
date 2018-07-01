@@ -5,12 +5,7 @@ package storj
 
 import (
 	"context"
-	"crypto/sha256"
-	"flag"
-	"fmt"
 	"io"
-	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -19,17 +14,8 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
-	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/objects"
-)
-
-var (
-	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
-	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
 )
 
 func init() {
@@ -233,71 +219,11 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	panic("TODO")
 }
 
-//encryptFile encrypts the uploaded files
-func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
-	dir := os.TempDir()
-	dir = filepath.Join(dir, "gateway", bucket, object)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-	fc, err := infectious.NewFEC(*rsk, *rsn)
-	if err != nil {
-		return err
-	}
-	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize())
-	if err != nil {
-		return err
-	}
-	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(data, encrypter.InBlockSize()), encrypter, 0),
-		es, 0, 0, 4*1024*1024)
-	if err != nil {
-		return err
-	}
-	errs := make(chan error, len(readers))
-	for i := range readers {
-		go func(i int) {
-			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
-			if err != nil {
-				errs <- err
-				return
-			}
-			defer fh.Close()
-			_, err = io.Copy(fh, readers[i])
-			errs <- err
-		}(i)
-	}
-	for range readers {
-		err := <-errs
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	writer, err := os.Create(srcFile)
-	if err != nil {
-		return objInfo, err
-	}
-
-	wsize, err := io.CopyN(writer, data, data.Size())
-	if err != nil {
-		os.Remove(srcFile)
-		return objInfo, err
-	}
-
-	err = encryptFile(writer, uint(wsize), bucket, object)
+	objPath := filepath.Join(bucket, object)
+	wsize, err := s.storj.os.PutObject(ctx, objPath, data, nil, time.Now())
 	if err == nil {
 		s.uploadFile(bucket, object, wsize, metadata)
 	}

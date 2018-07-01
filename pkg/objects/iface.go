@@ -22,7 +22,7 @@ var (
 
 //ObjectStore interface
 type ObjectStore interface {
-	PutObject(ctx context.Context, path string, data io.Reader, metadata []byte, expiration time.Time) error
+	PutObject(ctx context.Context, path string, data io.Reader, metadata []byte, expiration time.Time) (size int64, err error)
 	GetObject(ctx context.Context, path string) (ranger.Ranger, Meta, error)
 	DeleteObject(ctx context.Context, path string) error
 	ListObjects(ctx context.Context, startingPath, endingPath string) (paths []string, truncated bool, err error)
