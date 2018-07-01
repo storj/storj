@@ -6,6 +6,7 @@ package peertls
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,20 +65,22 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	// Verify leaf  ID/sig
 	// Verify leaf signed by parent
 
-	// b64 := base64.URLEncoding.EncodeToString(rawCerts[0])
-	// fmt.Printf("rawCerts:%s\n", b64)
-	// fmt.Printf("rawCerts: %.10x\n", rawCerts)
-	// fmt.Println("len rawCerts", len(rawCerts))
-	// parentCert, err := x509.ParseCertificate(rawCerts[0])
-	// b64Cert := base64.StdEncoding.EncodeToString(rawCerts[0])
-	// fmt.Printf("cert0: %.15s\n", b64Cert)
-	// fmt.Printf("cert0: %.10x\n", parentCert)
+	b64 := base64.URLEncoding.EncodeToString(rawCerts[0])
+	fmt.Printf("rawCerts:%s\n", b64)
+	fmt.Printf("rawCerts: %.10x\n", rawCerts)
+	fmt.Println("len rawCerts", len(rawCerts))
+	parentCert, err := x509.ParseCertificate(rawCerts[0])
+	fmt.Printf("cert0: %.10x\n", parentCert)
+	b64Cert := base64.StdEncoding.EncodeToString(rawCerts[0])
+	fmt.Printf("cert0: %.15s\n", b64Cert)
 	// jCert, _ := json.MarshalIndent(parentCert, "", "  ")
 	// fmt.Printf("cert0: %s\n", jCert)
-	// fmt.Println("err", err)
+	fmt.Println("err", err)
 	// leafCert, err := x509.ParseCertificate(rawCerts[1])
-	// parentCert.Signature
-	// parentCert.PublicKey
+	fmt.Printf("parentCert.Signature: % .10x\n", parentCert.Signature)
+	fmt.Printf("parentCert.PublicKey: % .10x\n", parentCert.PublicKey)
+	// fmt.Printf("leafCert.Signature:", leafCert.Signature)
+	// fmt.Printf("leafCert.PublicKey:", leafCert.PublicKey)
 	return nil
 }
 

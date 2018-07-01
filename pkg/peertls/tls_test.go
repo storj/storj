@@ -131,6 +131,8 @@ func TestNewTLSFileOptions(t *testing.T) {
 			return false
 		}
 
+		// TODO(bryanchriswhite): check cert/key bytes in memory vs disk
+
 		return true
 	}
 
@@ -211,11 +213,11 @@ func TestGenerate(t *testing.T) {
 			return false
 		}
 
-		rootCert, err := LoadCert(RootCertPath, RootKeyPath)
-		if err != nil {
-			quickLog("error root loading cert", opts, err)
-			return false
-		}
+		// _, err := LoadCert(RootCertPath, RootKeyPath)
+		// if err != nil {
+		// 	quickLog("error root loading cert", opts, err)
+		// 	return false
+		// }
 
 		leafCert, err := LoadCert(LeafCertPath, LeafKeyPath)
 		if err != nil {
@@ -223,50 +225,24 @@ func TestGenerate(t *testing.T) {
 			return false
 		}
 
-		privKeyBytes := func(key crypto.PrivateKey) []byte {
-			switch key.(type) {
-			case *ecdsa.PrivateKey:
-			default:
-				quickLog("non-ecdsa private key", key, nil)
-				panic("non-ecdsa private key")
-			}
-			ecKey := key.(*ecdsa.PrivateKey)
-			b, err := x509.MarshalECPrivateKey(ecKey)
-			assert.NoError(t, err)
-
-			return b
-		}
-
-		certsMatch := func(c1, c2 *tls.Certificate) bool {
-			for i, cert := range c1.Certificate {
-				if bytes.Compare(cert, c2.Certificate[i]) != 0 {
-					quickLog("certs don't match", opts, err)
-					return false
-				}
-			}
-
-			return true
-		}
-
-		keysMatch := func(k1, k2 []byte) bool {
-			if bytes.Compare(k1, k2) != 0 {
-				quickLog("keys don't match", opts, err)
-				return false
-			}
-
-			return true
-		}
-
 		if !certsMatch(leafCert, opts.LeafCertificate) {
 			quickLog("certs don't match", opts, nil)
 			return false
 		}
 
+		// if !keysMatch(
+		// 	privKeyBytes(t, leafCert.PrivateKey),
+		// 	privKeyBytes(t, rootCert.PrivateKey),
+		// ) {
+		// 	quickLog("leaf and root private keys don't match", opts, nil)
+		// 	return false
+		// }
+
 		if !keysMatch(
-			privKeyBytes(leafCert.PrivateKey),
-			privKeyBytes(rootCert.PrivateKey),
-			) {
-			quickLog("keys don't match", opts, nil)
+			privKeyBytes(t, opts.LeafCertificate.PrivateKey),
+			privKeyBytes(t, leafCert.PrivateKey),
+		) {
+			quickLog("generated and loaded leaf keys don't match", opts, nil)
 			return false
 		}
 
@@ -277,7 +253,74 @@ func TestGenerate(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func  TestLoadCert(t *testing.T) {
+func TestLoadTLS(t *testing.T) {
+	t.SkipNow()
+
+	tempPath, err := ioutil.TempDir("", "TestLoadTLS")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tempPath)
+
+	f := func(val string) (_ bool) {
+		var err error
+
+		basePath := filepath.Join(tempPath, val)
+		assert.NoError(t, err)
+		defer os.RemoveAll(basePath)
+
+		// Generate/write certs/keys to files
+		generatedTLS, err := NewTLSFileOptions(
+			basePath,
+			basePath,
+			"localhost,127.0.0.1,::",
+			false,
+			true,
+			false,
+		)
+
+		if err != nil {
+			quickLog("NewTLSFileOptions error", nil, err)
+			return false
+		}
+
+		loadedTLS, err := NewTLSFileOptions(
+			basePath,
+			basePath,
+			"localhost,127.0.0.1,::",
+			false,
+			false,
+			false,
+		)
+
+		if err != nil {
+			quickLog("NewTLSFileOptions error", nil, err)
+			return false
+		}
+
+		if !certsMatch(
+			generatedTLS.LeafCertificate,
+			loadedTLS.LeafCertificate,
+		) {
+			return false
+		}
+
+		if !keysMatch(
+			privKeyBytes(t, generatedTLS.LeafCertificate.PrivateKey),
+			privKeyBytes(t, loadedTLS.LeafCertificate.PrivateKey),
+			// privKeyBytes(t, rootCert.PrivateKey),
+		) {
+			quickLog("keys don't match", nil, nil)
+			return false
+		}
+		// if !keysMatch(generatedTLS.LeafCertificate.PrivateKey, loadedTLS.LeafCertificate)
+
+		return true
+	}
+
+	err = quick.Check(f, quickConfig)
+	assert.NoError(t, err)
+}
+
+func TestLoadCert(t *testing.T) {
 	t.SkipNow()
 }
 
@@ -466,4 +509,32 @@ func TestNewTLSConfig(t *testing.T) {
 
 	config := opts.NewTLSConfig(nil)
 	assert.Equal(t, *opts.LeafCertificate, config.Certificates[0])
+}
+
+func privKeyBytes(t *testing.T, key crypto.PrivateKey) []byte {
+	switch key.(type) {
+	case *ecdsa.PrivateKey:
+	default:
+		quickLog("non-ecdsa private key", key, nil)
+		panic("non-ecdsa private key")
+	}
+	ecKey := key.(*ecdsa.PrivateKey)
+	b, err := x509.MarshalECPrivateKey(ecKey)
+	assert.NoError(t, err)
+
+	return b
+}
+
+func certsMatch(c1, c2 *tls.Certificate) bool {
+	for i, cert := range c1.Certificate {
+		if bytes.Compare(cert, c2.Certificate[i]) != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func keysMatch(k1, k2 []byte) bool {
+	return bytes.Compare(k1, k2) == 0
 }

@@ -25,14 +25,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
 	"strings"
 	"time"
-
-	"fmt"
-	"io/ioutil"
 
 	"github.com/zeebo/errs"
 )
@@ -47,7 +45,7 @@ const (
 	// leaf
 	// client
 
-	rootCert   fileRole = iota
+	rootCert fileRole = iota
 	rootKey
 	leafCert
 	leafKey
@@ -121,7 +119,14 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	_, err = createAndPersist(t.RootCertAbsPath, t.RootKeyAbsPath, rootT, rootT, &rootKey.PublicKey, rootKey)
+	_, err = createAndPersist(
+		t.RootCertAbsPath,
+		t.RootKeyAbsPath,
+		rootT,
+		rootT,
+		&rootKey.PublicKey,
+		rootKey,
+	)
 	if err != nil {
 		return ErrGenerate.Wrap(err)
 	}
@@ -137,8 +142,20 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			return ErrGenerate.Wrap(err)
 		}
 
-		clientC, err := createAndPersist(t.ClientCertAbsPath, t.ClientKeyAbsPath, clientT, rootT, &newKey.PublicKey, rootKey)
-		clientC.PrivateKey = newKey
+		clientC, err := createAndPersist(
+			t.ClientCertAbsPath,
+			t.ClientKeyAbsPath,
+			clientT,
+			rootT,
+			&newKey.PublicKey,
+			newKey,
+		)
+
+		if err != nil {
+			return ErrGenerate.Wrap(err)
+		}
+		// clientC.PrivateKey = newKey
+
 		// clientDERBytes, err := x509.CreateCertificate(rand.Reader, clientT, rootT, &newKey.PublicKey, rootKey)
 		// if err != nil {
 		// 	return ErrGenerate.Wrap(err)
@@ -156,11 +173,19 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			return ErrGenerate.Wrap(err)
 		}
 
-		leafC, err := createAndPersist(t.LeafCertAbsPath, t.LeafKeyAbsPath, leafT, rootT, &newKey.PublicKey, rootKey)
-		leafC.PrivateKey = newKey
+		leafC, err := createAndPersist(
+			t.LeafCertAbsPath,
+			t.LeafKeyAbsPath,
+			leafT,
+			rootT,
+			&newKey.PublicKey,
+			newKey,
+		)
+
 		if err != nil {
 			return ErrGenerate.Wrap(err)
 		}
+		// leafC.PrivateKey = newKey
 
 		t.LeafCertificate = leafC
 	}
@@ -193,7 +218,7 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
-		IsCA:                  false,
+		IsCA: false,
 	}
 
 	setHosts(t.Hosts, template)
@@ -255,7 +280,7 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA:                  true,
+		IsCA: true,
 	}
 
 	setHosts(t.Hosts, template)
@@ -285,7 +310,7 @@ func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA:                  false,
+		IsCA: false,
 	}
 
 	setHosts(t.Hosts, template)
@@ -393,49 +418,8 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
 	fail := func(err error) (*tls.Certificate, error) { return &tls.Certificate{}, err }
 
-	var cert tls.Certificate
-	var skippedBlockTypes []string
-	// for {
-	// var certDERBlock *pem.Block
-	// certDERBlock, certDERBytes = pem.Decode(certDERBytes)
-	// if certDERBlock == nil {
-	// 	break
-	// }
-	// if certDERBlock.Type == "CERTIFICATE" {
+	var cert = new(tls.Certificate)
 	cert.Certificate = append(cert.Certificate, certDERBytes)
-	// } else {
-	// 	skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
-	// }
-	// }
-
-	if len(cert.Certificate) == 0 {
-		if len(skippedBlockTypes) == 0 {
-			return fail(errs.New("tls: failed to find any PEM data in certificate input"))
-		}
-		if len(skippedBlockTypes) == 1 && strings.HasSuffix(skippedBlockTypes[0], "PRIVATE KEY") {
-			return fail(errs.New("tls: failed to find certificate PEM data in certificate input, but did find a private key; PEM inputs may have been switched"))
-		}
-		return fail(fmt.Errorf("tls: failed to find \"CERTIFICATE\" PEM block in certificate input after skipping PEM blocks of the following types: %v", skippedBlockTypes))
-	}
-
-	skippedBlockTypes = skippedBlockTypes[:0]
-	// var keyDERBlock *pem.Block
-	// for {
-	// 	keyDERBlock, keyDERBytes = pem.Decode(keyDERBytes)
-	// 	if keyDERBlock == nil {
-	// 		if len(skippedBlockTypes) == 0 {
-	// 			return fail(errs.New("tls: failed to find any PEM data in key input"))
-	// 		}
-	// 		if len(skippedBlockTypes) == 1 && skippedBlockTypes[0] == "CERTIFICATE" {
-	// 			return fail(errs.New("tls: found a certificate rather than a key in the PEM for the private key"))
-	// 		}
-	// 		return fail(fmt.Errorf("tls: failed to find PEM block with type ending in \"PRIVATE KEY\" in key input after skipping PEM blocks of the following types: %v", skippedBlockTypes))
-	// 	}
-	// 	if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
-	// 		break
-	// 	}
-	// 	skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)
-	// }
 
 	var err error
 	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
@@ -443,35 +427,7 @@ func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
 		return fail(err)
 	}
 
-	// We don't need to parse the public key for TLS, but we so do anyway
-	// to check that it looks sane and matches the private key.
-	// x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-	// if err != nil {
-	// 	return fail(err)
-	// }
-	//
-	// switch pub := x509Cert.PublicKey.(type) {
-	// case *rsa.PublicKey:
-	// 	priv, ok := cert.PrivateKey.(*rsa.PrivateKey)
-	// 	if !ok {
-	// 		return fail(errs.New("tls: private key type does not match public key type"))
-	// 	}
-	// 	if pub.N.Cmp(priv.N) != 0 {
-	// 		return fail(errs.New("tls: private key does not match public key"))
-	// 	}
-	// case *ecdsa.PublicKey:
-	// 	priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
-	// 	if !ok {
-	// 		return fail(errs.New("tls: private key type does not match public key type"))
-	// 	}
-	// 	if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
-	// 		return fail(errs.New("tls: private key does not match public key"))
-	// 	}
-	// default:
-	// 	return fail(errs.New("tls: unknown public key algorithm"))
-	// }
-
-	return &cert, nil
+	return cert, nil
 }
 
 // func certFromPEMs(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
@@ -489,9 +445,9 @@ func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
 // 	return &certificate, nil
 // }
 
-func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pub *ecdsa.PublicKey, priv *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pubKey *ecdsa.PublicKey, privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
 	// DER encoded
-	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
+	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, privKey)
 	if err != nil {
 		return nil, err
 	}
@@ -500,22 +456,16 @@ func createAndPersist(certPath, keyPath string, template, parent *x509.Certifica
 		return nil, err
 	}
 
-	if err := writeKey(priv, keyPath); err != nil {
+	if err := writeKey(privKey, keyPath); err != nil {
 		return nil, err
 	}
 
-	keyDERBytes, err := keyToDERBytes(priv)
+	keyDERBytes, err := keyToDERBytes(privKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// keyPEMBlock, err := keyToBlock(priv)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	return certFromPEMs(certDerBytes, keyDERBytes)
-	// return certFromPEMs(newCertBlock(certDerBytes), keyPEMBlock)
 
 }
 
@@ -548,29 +498,3 @@ func newSerialNumber() (_ *big.Int, _ error) {
 
 	return serialNumber, nil
 }
-
-// func readPem(path string) (_ *pem.Block, _ error) {
-// 	b, err := ioutil.ReadFile(path)
-// 	if err != nil {
-// 		return nil, errs.New("unable to open key file \"%s\" for reading", path, err)
-// 	}
-//
-// 	// NB: only decodes *first* PEM encoded block?
-// 	block, _ := pem.Decode(b)
-//
-// 	return block, nil
-// }
-
-// func readCertificate(certPath, keyPath string) (_ *tls.Certificate, _ error) {
-// 	certBlock, err := readPem(certPath)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	keyBlock, err := readPem(keyPath)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	return certFromPEMs(certBlock, keyBlock)
-// }
