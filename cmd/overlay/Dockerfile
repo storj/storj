@@ -1,4 +1,4 @@
-FROM golang:1.10 AS build-env
+FROM golang:1.10-alpine AS build-env
 COPY . /go/src/storj.io/storj
 RUN go get -u golang.org/x/vgo
 RUN cd /go/src/storj.io/storj && vgo install ./...
