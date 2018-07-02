@@ -5,31 +5,14 @@ package objects
 
 import (
 	"context"
-	"crypto/sha256"
-	"flag"
-	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/vivint/infectious"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/ranger"
-)
-
-var (
-	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
-	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
 )
 
 //Objects structure
 type Objects struct {
-	//segStore    segments.SegmentStore
-	//streamStore streams.StreamStore
 }
 
 //Meta structure
@@ -73,76 +56,9 @@ type Meta struct {
 	AccTime time.Time
 }
 
-// func NewObjects(store streams.StreamStore) ObjectStore {
-// 	panic("TODO")
-// }
-type recordingReader struct {
-	data   io.Reader
-	amount int64
-}
-
-func (r *recordingReader) Read(p []byte) (n int, err error) {
-	n, err = r.data.Read(p)
-	r.amount += int64(n)
-	return n, err
-}
-
-//encryptFile encrypts the uploaded files
-func encryptFile(data io.Reader, objPath string) (size int64, err error) {
-	dir := os.TempDir()
-	dir = filepath.Join(dir, "gateway", objPath)
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		return 0, err
-	}
-	fc, err := infectious.NewFEC(*rsk, *rsn)
-	if err != nil {
-		return 0, err
-	}
-	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize())
-	if err != nil {
-		return 0, err
-	}
-	recorder := &recordingReader{
-		data: data,
-	}
-	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(ioutil.NopCloser(recorder), encrypter.InBlockSize()), encrypter, 0),
-		es, 0, 0, 4*1024*1024)
-	if err != nil {
-		return 0, err
-	}
-	errs := make(chan error, len(readers))
-	for i := range readers {
-		go func(i int) {
-			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
-			if err != nil {
-				errs <- err
-				return
-			}
-			defer fh.Close()
-			_, err = io.Copy(fh, readers[i])
-			errs <- err
-		}(i)
-	}
-	for range readers {
-		err := <-errs
-		if err != nil {
-			return 0, err
-		}
-	}
-	return recorder.amount, nil
-}
-
 //PutObject interface method
 func (o *Objects) PutObject(ctx context.Context, objpath string, data io.Reader, metadata []byte, expiration time.Time) (size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	//wsize, err := encryptFile(data, objpath)
 	return 0, nil
 }
 
