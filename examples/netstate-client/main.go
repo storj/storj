@@ -36,7 +36,6 @@ func main() {
 
 	nsclient, err := client.NewNetStateClient(port)
 	if err != nil {
-		fmt.Println("error page !!!!!")
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
@@ -111,75 +110,12 @@ func main() {
 	}
 
 	// Example Puts
-<<<<<<< HEAD
-	_, err = client.Put(ctx, &pr1)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr2)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr3)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr4)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-
-	// Example Get
-	getReq := proto.GetRequest{
-		Path:   []byte("test/path/1"),
-		APIKey: apiKey,
-	}
-	getRes, err := client.Get(ctx, &getReq)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to get", zap.Error(err))
-	} else {
-		pointer := string(getRes.Pointer)
-		logger.Debug("get response: " + pointer)
-	}
-
-	// Example List
-	listReq := proto.ListRequest{
-		StartingPathKey: []byte("test/path/2"),
-		Limit:           5,
-		APIKey:          apiKey,
-	}
-	listRes, err := client.List(ctx, &listReq)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to list file paths")
-	} else {
-		var stringList []string
-		for _, pathByte := range listRes.Paths {
-			stringList = append(stringList, string(pathByte))
-		}
-		logger.Debug("listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", listRes.Truncated))
-	}
-
-	// Example Delete
-	delReq := proto.DeleteRequest{
-		Path:   []byte("test/path/1"),
-		APIKey: apiKey,
-	}
-	_, err = client.Delete(ctx, &delReq)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to delete: " + string(delReq.Path))
-	}
-=======
 	// puts passes api creds
 	_, err = nsclient.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to put", zap.Error(err))
 	}
 	
-
-
-
-
-
 	
 	// _, err = client.Put(ctx, &pr2)
 	// if err != nil || status.Code(err) == codes.Internal {
@@ -238,5 +174,4 @@ func main() {
 	// if err != nil || status.Code(err) == codes.Internal {
 	// 	logger.Error("failed to delete: " + string(delReq.Path))
 	// }
->>>>>>> wip testing client
 }
