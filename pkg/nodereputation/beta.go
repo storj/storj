@@ -3,15 +3,9 @@
 
 package nodereputation
 
-// BetaReturn Result type from Beta function
-type BetaReturn struct {
-	Reputation float64
-	Mean       float64
-}
-
 // Beta function first attempt for the Reputation function
 // An implementation based on http://folk.uio.no/josang/papers/JI2002-Bled.pdf
-func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featureCount float64, featureSum float64, featureCurrent float64) BetaReturn {
+func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featureGoodCount float64, featureCount float64, featureSum float64, featureCurrent float64) float64 {
 	alpha := 1.0
 	beta := 1.0
 
@@ -25,10 +19,6 @@ func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featu
 	beta = beta*recallBad + s
 
 	newRep := alpha / (alpha + beta)
-	meanRep := featureSum / featureCount
 
-	return BetaReturn{
-		Reputation: newRep,
-		Mean:       meanRep,
-	}
+	return newRep
 }

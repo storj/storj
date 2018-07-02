@@ -75,12 +75,6 @@ message FeatureReputation {
     Feature feature = 3;
 }
 
-message FeatureState {
-    string feature = 1;
-	float mean_reputation = 2;
-	float current_reputation = 3;
-}
-
 enum QueryStatus {
     NODE_FOUND = 0;
     NODE_NOT_FOUND = 1;
@@ -116,21 +110,15 @@ enum UpdateRepValue {
 }
 
 
-enum Parameter {
+enum RepParameter {
     GOOD_RECALL = 0;
     BAD_RECALL = 1;
     WEIGHT_DENOMINATOR = 2;
 }
-enum BetaStateCols {
+
+enum RepState {
     FEATURE_COUNTER = 0;
-	CUMULATIVE_SUM_REPUTATION = 1;
-	CURRENT_REPUTATION = 2;
-}
-enum Operand {
-    EQUAL_TO = 0;
-    GREATER_THAN = 1;
-    GREATER_THAN_EQUAL_TO = 2;
-    LESS_THAN = 3;
-    LESS_THAN_EQUAL_TO = 4;
-    NOT_EQUAL_TO = 5;
+    FEATURE_GOOD_COUNTER = 1;
+    CUMULATIVE_SUM_REPUTATION = 2;
+    CURRENT_REPUTATION = 3;
 }
