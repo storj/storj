@@ -107,6 +107,45 @@ func TestPrependWithSegments(t *testing.T) {
 	}
 }
 
+func TestAppend(t *testing.T) {
+	for i, tt := range []struct {
+		path     string
+		suffix   string
+		expected Path
+	}{
+		{"", "", []string{""}},
+		{"", "suffix", []string{"suffix"}},
+		{"my/path", "", []string{"my", "path"}},
+		{"my/path", "suffix", []string{"my", "path", "suffix"}},
+		{"my/path", "s1/s2/s3", []string{"my", "path", "s1", "s2", "s3"}},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		p := New(tt.path).Append(tt.suffix)
+		assert.Equal(t, tt.expected, p, errTag)
+	}
+}
+
+func TestAppendWithSegments(t *testing.T) {
+	for i, tt := range []struct {
+		path     string
+		segs     []string
+		expected Path
+	}{
+		{"", []string{""}, []string{""}},
+		{"", []string{"suffix"}, []string{"suffix"}},
+		{"my/path", []string{""}, []string{"my", "path"}},
+		{"my/path", []string{"suffix"}, []string{"my", "path", "suffix"}},
+		{"my/path", []string{"s1/s2/s3"}, []string{"my", "path", "s1", "s2", "s3"}},
+		{"my/path", []string{"s1", "s2/s3"}, []string{"my", "path", "s1", "s2", "s3"}},
+		{"my/path", []string{"s1", "s2", "s3"}, []string{"my", "path", "s1", "s2", "s3"}},
+		{"my/path", []string{"", "s1", "", "", "s2", "s3", ""}, []string{"my", "path", "s1", "s2", "s3"}},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		p := New(tt.path).Append(tt.segs...)
+		assert.Equal(t, tt.expected, p, errTag)
+	}
+}
+
 func TestEncryption(t *testing.T) {
 	for i, path := range []Path{
 		[]string{},   // empty path

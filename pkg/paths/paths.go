@@ -33,6 +33,11 @@ func (p Path) Prepend(segs ...string) Path {
 	return New(append(segs, []string(p)...)...)
 }
 
+// Append creates new Path from the current path with the given segments appended
+func (p Path) Append(segs ...string) Path {
+	return New(append(p, segs...)...)
+}
+
 // Encrypt creates new Path by encrypting the current path with the given key
 func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 	encrypted = make([]string, len(p))
