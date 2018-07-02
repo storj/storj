@@ -126,6 +126,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		rootT,
 		&rootKey.PublicKey,
 		rootKey,
+		rootKey,
 	)
 	if err != nil {
 		return ErrGenerate.Wrap(err)
@@ -148,6 +149,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			clientT,
 			rootT,
 			&newKey.PublicKey,
+			rootKey,
 			newKey,
 		)
 
@@ -179,6 +181,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			leafT,
 			rootT,
 			&newKey.PublicKey,
+			rootKey,
 			newKey,
 		)
 
@@ -405,21 +408,42 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 		return &tls.Certificate{}, err
 	}
 
-	certPEMBlock, _ := pem.Decode(certPEMBytes)
-	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
-	return certFromPEMs(certPEMBlock.Bytes, keyPEMBlock.Bytes)
-	// return certFromPEMs(certPEMBlock, keyPEMBlock)
-	// return certFromPEMs(certPEMBytes, keyPEMBytes)
+	// keyPEMBlock, _ := pem.Decode(keyPEMBytes)
+	return certFromPEMs(certPEMBytes, keyPEMBytes)
+	// return certFromDERs(certPEMBlock.Bytes, keyPEMBlock.Bytes)
+	// return certFromDERs(certPEMBlock, keyPEMBlock)
+	// return certFromDERs(certPEMBytes, keyPEMBytes)
 }
 
-// X509KeyPair parses a public/private key pair from a pair of
-// PEM encoded data. On successful return, Certificate.Leaf will be nil because
-// the parsed form of the certificate is not retained.
-func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
+func  certFromPEMs(certPEMBytes,  keyPEMBytes []byte) (*tls.Certificate, error) {
+	var (
+		// skippedBlockTypes []string
+		certDERs = [][]byte{}
+	)
+
+	for {
+		var certDERBlock *pem.Block
+		certDERBlock, certPEMBytes = pem.Decode(certPEMBytes)
+		if certDERBlock == nil {
+			break
+		}
+		// if certDERBlock.Type == "CERTIFICATE" {
+			certDERs = append(certDERs, certDERBlock.Bytes)
+		// } else {
+		// 	skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
+		// }
+	}
+
+	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
+
+	return certFromDERs(certDERs, keyPEMBlock.Bytes)
+}
+
+func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
 	fail := func(err error) (*tls.Certificate, error) { return &tls.Certificate{}, err }
 
 	var cert = new(tls.Certificate)
-	cert.Certificate = append(cert.Certificate, certDERBytes)
+	cert.Certificate = certDERBytes
 
 	var err error
 	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
@@ -430,24 +454,9 @@ func certFromPEMs(certDERBytes, keyDERBytes []byte) (*tls.Certificate, error) {
 	return cert, nil
 }
 
-// func certFromPEMs(cert, key *pem.Block) (_ *tls.Certificate, _ error) {
-// 	certBuffer := bytes.NewBuffer([]byte{})
-// 	pem.Encode(certBuffer, cert)
-//
-// 	keyBuffer := bytes.NewBuffer([]byte{})
-// 	pem.Encode(keyBuffer, key)
-//
-// 	certificate, err := tls.X509KeyPair(certBuffer.Bytes(), keyBuffer.Bytes())
-// 	if err != nil {
-// 		return nil, errs.New("unable to get certificate from PEM-encoded cert/key bytes", err)
-// 	}
-//
-// 	return &certificate, nil
-// }
-
-func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pubKey *ecdsa.PublicKey, privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pubKey *ecdsa.PublicKey, rootKey, privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
 	// DER encoded
-	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, privKey)
+	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, rootKey)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +474,7 @@ func createAndPersist(certPath, keyPath string, template, parent *x509.Certifica
 		return nil, err
 	}
 
-	return certFromPEMs(certDerBytes, keyDERBytes)
+	return certFromDERs([][]byte{certDerBytes}, keyDERBytes)
 
 }
 
