@@ -9,11 +9,9 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite driver
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 )
 
 // deleteCmd represents the delete command
@@ -34,14 +32,12 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 		return errs.New("No ID specified")
 	}
 
-	home, err := homedir.Dir()
+	nodeID := args[0]
+
+	_, configFile, err := SetConfigPath(nodeID)
 	if err != nil {
 		return err
 	}
-
-	nodeID := args[0]
-
-	_, configFile := SetConfigPath(home, nodeID)
 
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return errs.New("Invalid node ID. Config file does not exist")
@@ -66,7 +62,6 @@ func deleteNode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	zap.S().Infof("Node %s deleted", nodeID)
 	fmt.Printf("Node %s deleted\n", nodeID)
 
 	return nil

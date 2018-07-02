@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite driver
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -37,16 +36,15 @@ func init() {
 // startNode starts a farmer node by ID
 func startNode(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	home, err := homedir.Dir()
-	if err != nil {
-		return err
-	}
 
 	if len(args) == 0 {
 		return errs.New("No ID specified")
 	}
 
-	SetConfigPath(home, args[0])
+	_, _, err := SetConfigPath(args[0])
+	if err != nil {
+		return err
+	}
 
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -88,14 +86,14 @@ func startNode(cmd *cobra.Command, args []string) error {
 	// routinely check DB and delete expired entries
 	go func() {
 		err := s.DB.DBCleanup(dataDir)
-		zap.S().Fatalf("Error in DBCleanup: %v", err)
+		zap.S().Fatalf("Error in DBCleanup: %v\n", err)
 	}()
 
 	fmt.Printf("Node %s started\n", config.NodeID)
 
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {
-		zap.S().Fatalf("failed to serve: %s", err)
+		zap.S().Fatalf("failed to serve: %s\n", err)
 	}
 
 	return nil

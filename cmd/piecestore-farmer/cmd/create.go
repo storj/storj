@@ -53,12 +53,10 @@ func init() {
 
 // createNode creates a config file for a new farmer node
 func createNode(cmd *cobra.Command, args []string) error {
-	home, err := homedir.Dir()
+	configDir, configFile, err := SetConfigPath(viper.GetString("piecestore.id"))
 	if err != nil {
 		return err
 	}
-
-	configDir, configFile := SetConfigPath(home, viper.GetString("piecestore.id"))
 
 	pieceStoreDir := viper.GetString("piecestore.dir")
 
@@ -83,10 +81,8 @@ func createNode(cmd *cobra.Command, args []string) error {
 
 	path := viper.ConfigFileUsed()
 
-	zap.S().Info("Config: ", path)
-	zap.S().Info("ID: ", viper.GetString("piecestore.id"))
-
 	fmt.Printf("Node %s created\n", viper.GetString("piecestore.id"))
+	fmt.Println("Config: ", path)
 
 	return nil
 }

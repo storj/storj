@@ -6,6 +6,7 @@ package cmd
 import (
 	"path/filepath"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/net/context"
@@ -26,13 +27,18 @@ type Config struct {
 }
 
 // SetConfigPath sets and returns viper config directory and filepath
-func SetConfigPath(dir, fileName string) (configDir, configFile string) {
-	configDir = filepath.Join(dir, ".storj")
+func SetConfigPath(fileName string) (configDir, configFile string, err error) {
+	home, err := homedir.Dir()
+	if err != nil {
+		return "", "", err
+	}
+
+	configDir = filepath.Join(home, ".storj")
 	configFile = filepath.Join(configDir, fileName+".yaml")
 
 	viper.SetConfigFile(configFile)
 
-	return configDir, configFile
+	return configDir, configFile, nil
 }
 
 // GetConfigValues returns a struct with config file values
