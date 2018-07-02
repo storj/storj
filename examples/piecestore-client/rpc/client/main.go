@@ -67,11 +67,7 @@ func main() {
 				// Created a section reader so that we can concurrently retrieve the same file.
 				dataSection := io.NewSectionReader(file, 0, length)
 
-<<<<<<< HEAD:examples/piecestore/rpc/client/main.go
-				id := pstore.GenerateID()
-=======
 				id := client.NewPieceID()
->>>>>>> fb251f58e21a96633f26b40ce730a2a7825f01a7:examples/piecestore-client/rpc/client/main.go
 
 				if err := psClient.Put(context.Background(), id, dataSection, ttl); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)

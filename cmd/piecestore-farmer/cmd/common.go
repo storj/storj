@@ -28,7 +28,7 @@ type Config struct {
 	PieceStoreDir string
 }
 
-// GenerateID generates a random 20 byte ID 
+// GenerateID generates a random 20 byte ID
 func GenerateID() string {
 	b := make([]byte, 32)
 
