@@ -47,15 +47,15 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	// If we put in the database first then that checks if the data already exists
-	if err := s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
+	if err := s.DB.AddTTLToDB(piece.Piecedata.Id, piece.Piecedata.Ttl); err != nil {
 		log.Println(err)
 		return err
 	}
 
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(piece.Id, s.PieceStoreDir)
+	storeFile, err := pstore.StoreWriter(piece.Piecedata.Id, s.PieceStoreDir)
 	if err != nil {
-		if err := cleanup(s, piece.Id); err != nil {
+		if err := cleanup(s, piece.Piecedata.Id); err != nil {
 			log.Printf("Failed on cleanup in Store: %s", err.Error())
 		}
 
@@ -66,7 +66,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	reader := NewStreamReader(stream)
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
-		if err := cleanup(s, piece.Id); err != nil {
+		if err := cleanup(s, piece.Piecedata.Id); err != nil {
 			log.Printf("Failed on cleanup in Store: %s", err.Error())
 		}
 

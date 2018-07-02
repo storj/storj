@@ -266,13 +266,13 @@ func TestStore(t *testing.T) {
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Id: tt.id, Ttl: tt.ttl}); err != nil {
+			if err := stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Content: tt.content}); err != nil {
+			if err := stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: tt.content}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}

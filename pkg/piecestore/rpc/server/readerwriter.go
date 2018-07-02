@@ -36,7 +36,7 @@ func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 			if err != nil {
 				return nil, err
 			}
-			return msg.Content, nil
+			return msg.Piecedata.Content, nil
 		}),
 	}
 }

@@ -18,6 +18,7 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+// PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
@@ -50,6 +51,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
 	return &Client{route: route}
 }
 
+// CloseConn closes the connection with piecestore
 func (client *Client) CloseConn() error {
 	return client.conn.Close()
 }
@@ -67,7 +69,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	// Send preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
+	if err := stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), Ttl: ttl.Unix()}}); err != nil {
 		stream.CloseAndRecv()
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
@@ -96,6 +98,7 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	return nil
 }
 
+// IsValid returns whether the id is valid or not
 func (id PieceID) IsValid() bool {
 	return len(id) >= 20
 }

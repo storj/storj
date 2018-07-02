@@ -18,14 +18,14 @@ type StreamWriter struct {
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
-	if err := s.stream.Send(&pb.PieceStore{Content: b}); err != nil {
+	if err := s.stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: b}}); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
 
 	return len(b), nil
 }
 
-// Closes the piece store Write Stream
+// Close the piece store Write Stream
 func (s *StreamWriter) Close() error {
 	reply, err := s.stream.CloseAndRecv()
 	if err != nil {
