@@ -5,6 +5,7 @@ package netstate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -43,8 +44,11 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
-	APIKeyBytes := []byte(putReq.APIKey)
-	if err := s.validateAuth(APIKeyBytes); err != nil {
+	fmt.Println("apikey is: ", putReq.APIKey)
+
+	//APIKeyBytes := []byte(putReq.APIKey)
+	//APIKeyBytes := putReq.APIKey
+	if err := s.validateAuth(putReq.APIKey); err != nil {
 		return nil, err
 	}
 

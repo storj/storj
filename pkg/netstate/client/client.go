@@ -9,8 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 	//"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	//"google.golang.org/grpc/codes"
+	//"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/netstate"
 	pb "storj.io/storj/protos/netstate"
@@ -48,13 +48,11 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (pb.NetStateClient, 
 }
 
 func (ns *NetState) Put(ctx context.Context, path []byte, pointer *pb.Pointer, APIKey []byte) error {
-	resp, err := ns.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer, APIKey: APIKey})
+	_, err := ns.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer, APIKey: APIKey})
 	if err != nil {
-		//logger.Error("Failed to make a PUT request ", zap.Error(err))
 		return err
 	}
-	fmt.Println(resp)
-	return status.Errorf(codes.Internal, err.Error())
+	return nil
 }
 
 
