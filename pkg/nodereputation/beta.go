@@ -10,6 +10,7 @@ type BetaReturn struct {
 }
 
 // Beta function first attempt for the Reputation function
+// An implementation based on http://folk.uio.no/josang/papers/JI2002-Bled.pdf
 func Beta(recallBad float64, recallGood float64, weightDenomiator float64, featureCount float64, featureSum float64, featureCurrent float64) BetaReturn {
 	alpha := 1.0
 	beta := 1.0
