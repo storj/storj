@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -35,7 +34,6 @@ type Objects struct {
 
 //Meta structure
 type Meta struct {
-	//Modified   time.Time
 	Expiration time.Time
 	Data       []byte
 	// ObjectInfo - represents object metadata.
@@ -144,8 +142,8 @@ func encryptFile(data io.Reader, objPath string) (size int64, err error) {
 //PutObject interface method
 func (o *Objects) PutObject(ctx context.Context, objpath string, data io.Reader, metadata []byte, expiration time.Time) (size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	wsize, err := encryptFile(data, objpath)
-	return wsize, err
+	//wsize, err := encryptFile(data, objpath)
+	return 0, nil
 }
 
 //GetObject interface method
@@ -160,39 +158,44 @@ func (o *Objects) GetObject(ctx context.Context, objpath string) (r ranger.Range
 //DeleteObject interface method
 func (o *Objects) DeleteObject(ctx context.Context, objpath string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	return nil
 }
 
 //ListObjects interface method
 func (o *Objects) ListObjects(ctx context.Context, startingPath, endingPath string) (objpaths []string, truncated bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	objpaths = []string{"objpath1", "objpath2", "objpath3"}
+	truncated = true
+	err = nil
+	return objpaths, truncated, err
 }
 
 //SetXAttr interface method
 func (o *Objects) SetXAttr(ctx context.Context, objpath, xattr string, data io.Reader, metadata []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	return nil
 }
 
 //GetXAttr interface method
 func (o *Objects) GetXAttr(ctx context.Context, objpath, xattr string) (r ranger.Ranger, m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	getXAttrPath := path.Join("xattr", objpath, xattr)
-
-	/* TODO@ASK clean up the below line */
-	fmt.Println(getXAttrPath)
-	panic("TODO")
+	m = Meta{
+		Name: "GetXAttr",
+	}
+	return nil, m, nil
 }
 
 //DeleteXAttr interface method
 func (o *Objects) DeleteXAttr(ctx context.Context, path, xattr string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	return nil
 }
 
 //ListXAttrs interface method
 func (o *Objects) ListXAttrs(ctx context.Context, path, startingXAttr, endingXAttr string) (xattrs []string, truncated bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	xattrs = []string{"xattrs1", "xattrs2", "xattrs3"}
+	truncated = true
+	err = nil
+	return xattrs, truncated, err
 }
