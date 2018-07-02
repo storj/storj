@@ -28,7 +28,7 @@ message GetResponse {
 message MatchRequest {
     int64 limit = 1;
     repeated Feature featureOrdering = 2;
-    repeated string excuding = 3;
+    repeated string excluding = 3;
 }
 
 // MatchRepsonse tells if the limit was meet and node ids that have the "best" features
@@ -106,9 +106,9 @@ enum Feature {
 }
 
 enum UpdateRepValue {
-    NEGITIVE_ONE = 0;
-    NEGITIVE_POINT_FIVE = 1;
-    NEGITIVE_POINT_TWENTY_FIVE = 2;
+    NEGATIVE_ONE = 0;
+    NEGATIVE_POINT_FIVE = 1;
+    NEGATIVE_POINT_TWENTY_FIVE = 2;
     ZERO = 3;
     POINT_TWENTY_FIVE = 4;
     POINT_FIVE = 5;
