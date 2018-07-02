@@ -105,6 +105,7 @@ message GetResponse {
 // ListResponse is a response message for the List rpc call
 message ListResponse {
   repeated bytes paths = 1;
+  bool truncated = 2;
 }
 
 message DeleteRequest {

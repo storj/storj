@@ -59,6 +59,10 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, erro
 	if err != nil {
 		return nil, err
 	}
+	if b.IsZero() {
+		// TODO: log? return an error?
+		return nil, nil
+	}
 
 	na := &overlay.NodeAddress{}
 	if err := proto.Unmarshal(b, na); err != nil {

@@ -67,30 +67,38 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
-		if v == nil {
-			return Error.New("pointer at %#v not found", string(pathKey))
-		}
 		pointerBytes = v
 		return nil
 	})
 
-	return pointerBytes, err
+	if err != nil {
+		// TODO: log
+		return nil, err
+	}
+
+	return pointerBytes, nil
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *boltClient) List() (storage.Keys, error) {
+func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	c.logger.Debug("entering bolt list")
 	var paths storage.Keys
 	err := c.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(c.Bucket)
-
-		err := b.ForEach(func(key, value []byte) error {
-			paths = append(paths, key)
-			return nil
-		})
-		return err
+		cur := tx.Bucket(c.Bucket).Cursor()
+		var k []byte
+		if startingKey == nil {
+			k, _ = cur.First()
+		} else {
+			k, _ = cur.Seek(startingKey)
+		}
+		for ; k != nil; k, _ = cur.Next() {
+			paths = append(paths, k)
+			if limit > 0 && int(limit) == int(len(paths)) {
+				break
+			}
+		}
+		return nil
 	})
-
 	return paths, err
 }
 

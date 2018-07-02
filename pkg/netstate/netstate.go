@@ -17,12 +17,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-// PointerEntry - Path and Pointer are saved as a key/value pair to a `storage.KeyValueStore`.
-type PointerEntry struct {
-	Path    []byte
-	Pointer []byte
-}
-
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore
@@ -45,7 +39,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
-// Put formats and hands off a file path to be saved to boltdb
+// Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering netstate put")
 
@@ -60,16 +54,11 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	pe := PointerEntry{
-		Path:    putReq.Path,
-		Pointer: pointerBytes,
-	}
-
-	if err := s.DB.Put(pe.Path, pe.Pointer); err != nil {
+	if err := s.DB.Put(putReq.Path, pointerBytes); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("put to the db: " + string(pe.Path))
+	s.logger.Debug("put to the db: " + string(putReq.Path))
 
 	return &pb.PutResponse{}, nil
 }
@@ -84,7 +73,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	}
 
 	pointerBytes, err := s.DB.Get(req.Path)
-
 	if err != nil {
 		s.logger.Error("err getting file", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -99,23 +87,46 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering netstate list")
 
+	if req.Limit <= 0 {
+		return nil, Error.New("err Limit is less than or equal to 0")
+	}
+
 	APIKeyBytes := []byte(req.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
-	pathKeys, err := s.DB.List()
-
-	if err != nil {
-		s.logger.Error("err listing path keys", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
+	var keyList storage.Keys
+	if req.StartingPathKey == nil {
+		pathKeys, err := s.DB.List(nil, storage.Limit(req.Limit))
+		if err != nil {
+			s.logger.Error("err listing path keys with no starting key", zap.Error(err))
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+		keyList = pathKeys
+	} else if req.StartingPathKey != nil {
+		pathKeys, err := s.DB.List(storage.Key(req.StartingPathKey), storage.Limit(req.Limit))
+		if err != nil {
+			s.logger.Error("err listing path keys", zap.Error(err))
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+		keyList = pathKeys
 	}
+
+	truncated := isItTruncated(keyList, int(req.Limit))
 
 	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
-		// pathKeys is an array of byte arrays
-		Paths: pathKeys.ByteSlices(),
+		Paths:     keyList.ByteSlices(),
+		Truncated: truncated,
 	}, nil
+}
+
+func isItTruncated(keyList storage.Keys, limit int) bool {
+	if len(keyList) == limit {
+		return true
+	}
+	return false
 }
 
 // Delete formats and hands off a file path to delete from boltdb
@@ -129,7 +140,7 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteR
 
 	err := s.DB.Delete(req.Path)
 	if err != nil {
-		s.logger.Error("err deleting pointer entry", zap.Error(err))
+		s.logger.Error("err deleting path and pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("deleted pointer at path: " + string(req.Path))
