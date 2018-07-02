@@ -18,8 +18,8 @@ ENV REDIS_ADDRESS= \
     HTTP_PORT=8080
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/cmd/overlay/overlay /app/
-EXPOSE 8081:8081/udp \
-    8080:8080 \
-    7070:7070
+EXPOSE 8081/udp \
+    8080 \
+    7070
 
 ENTRYPOINT ./overlay --redisAddress=${REDIS_ADDRESS} --redisPassword=${REDIS_PASSWORD} --db=${REDIS_DB} --srvPort=${OVERLAY_PORT} --httpPort=${HTTP_PORT}
