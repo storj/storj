@@ -4,11 +4,9 @@
 package cmd
 
 import (
-	"crypto/rand"
 	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/mr-tron/base58/base58"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/net/context"
@@ -26,18 +24,6 @@ type Config struct {
 	KadPort       string
 	KadHost       string
 	PieceStoreDir string
-}
-
-// GenerateID generates a random 20 byte ID
-func GenerateID() string {
-	b := make([]byte, 32)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return base58.Encode(b)[:20]
 }
 
 // SetConfigPath sets and returns viper config directory and filepath
@@ -79,7 +65,7 @@ func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 		},
 	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{node}, ip, kadListenPort)
+	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, ip, kadListenPort)
 	if err != nil {
 		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
 	}

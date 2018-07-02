@@ -199,7 +199,7 @@ func TestStart(t *testing.T) {
 				"start",
 				viper.GetString("piecestore.id"),
 			},
-			err: "Failed to ListenAndServe on new Kademlia: listen udp: lookup 123: no such host",
+			err: "Failed to instantiate new Kademlia: lookup 123: no such host",
 		},
 		{
 			it: "should err with missing Kademlia Listen Port",
@@ -216,7 +216,7 @@ func TestStart(t *testing.T) {
 				"start",
 				viper.GetString("piecestore.id"),
 			},
-			err: "Failed to instantiate new Kademlia: Port and IP required",
+			err: "Failed to instantiate new Kademlia: node error: must specify port in request to NewKademlia",
 		},
 		{
 			it: "should err with missing IP",
@@ -233,7 +233,7 @@ func TestStart(t *testing.T) {
 				"start",
 				viper.GetString("piecestore.id"),
 			},
-			err: "Failed to instantiate new Kademlia: Port and IP required",
+			err: "Failed to instantiate new Kademlia: lookup : no such host",
 		},
 	}
 

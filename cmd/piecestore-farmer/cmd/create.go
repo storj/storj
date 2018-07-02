@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/kademlia"
 )
 
 // createCmd represents the create command
@@ -25,7 +26,10 @@ var createCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(createCmd)
 
-	nodeID := GenerateID()
+	nodeID, err := kademlia.NewID()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
 
 	home, err := homedir.Dir()
 	if err != nil {
@@ -46,7 +50,7 @@ func init() {
 	viper.BindPFlag("piecestore.port", createCmd.Flags().Lookup("pieceStorePort"))
 	viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir"))
 
-	viper.SetDefault("piecestore.id", nodeID)
+	viper.SetDefault("piecestore.id", nodeID.String())
 }
 
 // createNode creates a config file for a new farmer node
