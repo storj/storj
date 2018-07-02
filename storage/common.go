@@ -12,14 +12,27 @@ type Value []byte
 // Keys is the type for a slice of keys in a `KeyValueStore`
 type Keys []Key
 
+// Limit indicates how many keys to return when calling List
+type Limit int
+
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {
 	// Put adds a value to the provided key in the KeyValueStore, returning an error on failure.
 	Put(Key, Value) error
 	Get(Key) (Value, error)
-	List() (Keys, error)
+	List(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
+}
+
+// IsZero returns true if the value struct is it's zero value
+func (v *Value) IsZero() (_ bool) {
+	return len(*v) == 0
+}
+
+// IsZero returns true if the key struct is it's zero value
+func (k *Key) IsZero() (_ bool) {
+	return len(*k) == 0
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for the Value type
