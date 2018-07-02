@@ -6,13 +6,15 @@ package client
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/netstate"
 	pb "storj.io/storj/protos/netstate"
 )
 
-// NetState creates a grpcClient
 type NetState struct {
 	grpcClient pb.NetStateClient
 }
