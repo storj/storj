@@ -4,6 +4,7 @@
 package ranger
 
 import (
+	"context"
 	"io"
 )
 
@@ -29,7 +30,7 @@ type readerAtReader struct {
 	offset, length int64
 }
 
-func (r *readerAtRanger) Range(offset, length int64) (io.ReadCloser, error) {
+func (r *readerAtRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}

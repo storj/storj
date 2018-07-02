@@ -5,6 +5,7 @@ package eestream
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
@@ -47,8 +48,8 @@ func Unpad(data ranger.Ranger, padding int) (ranger.Ranger, error) {
 
 // UnpadSlow is like Unpad, but does not require the amount of padding.
 // UnpadSlow will have to do extra work to make up for this missing information.
-func UnpadSlow(data ranger.Ranger) (ranger.Ranger, error) {
-	r, err := data.Range(data.Size()-uint32Size, uint32Size)
+func UnpadSlow(ctx context.Context, data ranger.Ranger) (ranger.Ranger, error) {
+	r, err := data.Range(ctx, data.Size()-uint32Size, uint32Size)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

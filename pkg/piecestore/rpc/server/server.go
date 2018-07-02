@@ -99,7 +99,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(pieceMeta.Id, pieceMeta.Offset, totalToRead, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(stream.Context(), pieceMeta.Id, pieceMeta.Offset, totalToRead, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}

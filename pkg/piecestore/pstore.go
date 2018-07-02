@@ -4,13 +4,12 @@
 package pstore
 
 import (
-	"crypto/rand"
+	"context"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/mr-tron/base58/base58"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/ranger"
@@ -41,18 +40,6 @@ func PathByID(id, dir string) (string, error) {
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
 
-// GenerateID creates random id
-func GenerateID() string {
-	b := make([]byte, 32)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return base58.Encode(b)
-}
-
 // StoreWriter stores data into piece store in multiple writes
 // 	id is the id of the data to be stored
 // 	dir is the pstore directory containing all other data stored
@@ -78,7 +65,7 @@ func StoreWriter(id string, dir string) (io.WriteCloser, error) {
 //	length is the amount of data to read. Read all data if -1
 //	dir is the pstore directory containing all other data stored
 // 	returns error if failed and nil if successful
-func RetrieveReader(id string, offset int64, length int64, dir string) (io.ReadCloser, error) {
+func RetrieveReader(ctx context.Context, id string, offset int64, length int64, dir string) (io.ReadCloser, error) {
 	dataPath, err := PathByID(id, dir)
 	if err != nil {
 		return nil, err
@@ -115,7 +102,7 @@ func RetrieveReader(id string, offset int64, length int64, dir string) (io.ReadC
 		return nil, err
 	}
 
-	return rr.Range(offset, length)
+	return rr.Range(ctx, offset, length)
 }
 
 // Delete deletes data from farmer

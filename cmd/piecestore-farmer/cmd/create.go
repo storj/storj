@@ -12,8 +12,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
-	"storj.io/storj/pkg/piecestore"
 )
 
 // createCmd represents the create command
@@ -27,7 +25,7 @@ var createCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(createCmd)
 
-	nodeID := pstore.GenerateID()[:20]
+	nodeID := GenerateID()
 
 	home, err := homedir.Dir()
 	if err != nil {

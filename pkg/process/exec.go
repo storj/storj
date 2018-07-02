@@ -47,10 +47,7 @@ func Execute(cmd *cobra.Command) {
 		}
 	})
 
-	err := cmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+	Must(cmd.Execute())
 }
 
 // Main runs a Service

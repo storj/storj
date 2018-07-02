@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package ranger
+package client
 
 import (
 	"context"
@@ -13,11 +13,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/piecestore/rpc/client"
 	pb "storj.io/storj/protos/piecestore"
 )
 
-func TestGRPCRanger(t *testing.T) {
+func TestPieceRanger(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -36,9 +35,9 @@ func TestGRPCRanger(t *testing.T) {
 		{"abcdef", 6, 1, 4, "bcde", ""},
 		{"abcdef", 6, 2, 4, "cdef", ""},
 		{"abcdefg", 7, 1, 4, "bcde", ""},
-		{"abcdef", 6, 0, 7, "abcdef", "ranger error: range beyond end"},
-		{"abcdef", 6, -1, 7, "abcde", "ranger error: negative offset"},
-		{"abcdef", 6, 0, -1, "abcde", "ranger error: negative length"},
+		{"abcdef", 6, 0, 7, "abcdef", "pieceRanger error: range beyond end"},
+		{"abcdef", 6, -1, 7, "abcde", "pieceRanger error: negative offset"},
+		{"abcdef", 6, 0, -1, "abcde", "pieceRanger error: negative length"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -64,15 +63,16 @@ func TestGRPCRanger(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		c := client.NewCustomRoute(context.Background(), route)
-		rr, err := GRPCRanger(c, "")
+		ctx := context.Background()
+		c := NewCustomRoute(route)
+		rr, err := PieceRanger(ctx, c, "")
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-			return
+			continue
 		}
 		assert.NoError(t, err, errTag)
 		data, err := ioutil.ReadAll(r)
@@ -82,7 +82,7 @@ func TestGRPCRanger(t *testing.T) {
 	}
 }
 
-func TestGRPCRangerSize(t *testing.T) {
+func TestPieceRangerSize(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -101,9 +101,9 @@ func TestGRPCRangerSize(t *testing.T) {
 		{"abcdef", 6, 1, 4, "bcde", ""},
 		{"abcdef", 6, 2, 4, "cdef", ""},
 		{"abcdefg", 7, 1, 4, "bcde", ""},
-		{"abcdef", 6, 0, 7, "abcdef", "ranger error: range beyond end"},
-		{"abcdef", 6, -1, 7, "abcde", "ranger error: negative offset"},
-		{"abcdef", 6, 0, -1, "abcde", "ranger error: negative length"},
+		{"abcdef", 6, 0, 7, "abcdef", "pieceRanger error: range beyond end"},
+		{"abcdef", 6, -1, 7, "abcde", "pieceRanger error: negative offset"},
+		{"abcdef", 6, 0, -1, "abcde", "pieceRanger error: negative length"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -123,13 +123,14 @@ func TestGRPCRangerSize(t *testing.T) {
 			)
 		}
 
-		c := client.NewCustomRoute(context.Background(), route)
-		rr := GRPCRangerSize(c, "", tt.size)
+		ctx := context.Background()
+		c := NewCustomRoute(route)
+		rr := PieceRangerSize(c, "", tt.size)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
-		r, err := rr.Range(tt.offset, tt.length)
+		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
-			return
+			continue
 		}
 		assert.NoError(t, err, errTag)
 		data, err := ioutil.ReadAll(r)

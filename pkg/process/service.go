@@ -21,7 +21,8 @@ var (
 		"switch to 'prod' to get less output")
 
 	// Error is a process error class
-	Error = errs.Class("proc error")
+	Error    = errs.Class("proc error")
+	ErrUsage = errs.Class("usage error")
 )
 
 type idKey string
