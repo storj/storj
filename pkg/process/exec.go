@@ -51,11 +51,8 @@ func Execute(cmd *cobra.Command) {
 	Must(cmd.Execute())
 }
 
-// Main runs a Service
-func Main(s ...Service) error {
+func ConfigEnvironment() error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
-	ctx, cancel := context.WithCancel(context.Background())
-
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
@@ -66,6 +63,12 @@ func Main(s ...Service) error {
 		viper.ReadInConfig()
 	}
 
+	return nil
+}
+
+// Main runs a Service
+func Main(config func() error, s ...Service) error {
+	ctx, cancel := context.WithCancel(context.Background())
 	errors := make(chan error, len(s))
 
 	for _, service := range s {

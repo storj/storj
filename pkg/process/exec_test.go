@@ -40,7 +40,7 @@ func TestMainSingleProcess(t *testing.T) {
 	mockService.On("SetLogger", mock.Anything).Return(nil)
 	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	assert.Nil(t, process.Main(mockService))
+	assert.Nil(t, process.Main(func() error { return nil }, mockService))
 	mockService.AssertExpectations(t)
 }
 
@@ -56,7 +56,7 @@ func TestMainMultipleProcess(t *testing.T) {
 	mockService2.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService2.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	assert.Nil(t, process.Main(&mockService1, &mockService2))
+	assert.Nil(t, process.Main(func() error { return nil }, &mockService1, &mockService2))
 	mockService1.AssertExpectations(t)
 	mockService2.AssertExpectations(t)
 }
@@ -68,8 +68,12 @@ func TestMainProcessError(t *testing.T) {
 	mockService.On("SetLogger", mock.Anything).Return(nil)
 	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(err)
-	assert.Equal(t, err, process.Main(&mockService))
+	assert.Equal(t, err, process.Main(func() error { return nil }, &mockService))
 	mockService.AssertExpectations(t)
+}
+
+func TestConfigEnvironment(t *testing.T) {
+	t.Skip()
 }
 
 func TestMust(t *testing.T) {
