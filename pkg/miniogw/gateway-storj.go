@@ -194,8 +194,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
 	panic("TODO")
 }
 
-func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
-	object string) error {
+func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) error {
 	objpath := paths.New(bucket, object)
 	return s.storj.os.DeleteObject(ctx, objpath.String())
 }
