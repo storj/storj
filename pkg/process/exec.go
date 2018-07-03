@@ -51,6 +51,7 @@ func Execute(cmd *cobra.Command) {
 	Must(cmd.Execute())
 }
 
+// ConfigEnvironment sets up a standard Viper environment and parses CLI flags
 func ConfigEnvironment() error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -68,6 +69,7 @@ func ConfigEnvironment() error {
 
 // Main runs a Service
 func Main(config func() error, s ...Service) error {
+	ConfigEnvironment()
 	ctx, cancel := context.WithCancel(context.Background())
 	errors := make(chan error, len(s))
 
