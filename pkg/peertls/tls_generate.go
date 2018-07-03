@@ -119,11 +119,12 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	_, err = createAndPersist(
+	rootC, err := createAndPersist(
 		t.RootCertAbsPath,
 		t.RootKeyAbsPath,
 		rootT,
 		rootT,
+		nil,
 		&rootKey.PublicKey,
 		rootKey,
 		rootKey,
@@ -148,6 +149,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			t.ClientKeyAbsPath,
 			clientT,
 			rootT,
+			rootC.Certificate,
 			&newKey.PublicKey,
 			rootKey,
 			newKey,
@@ -180,6 +182,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 			t.LeafKeyAbsPath,
 			leafT,
 			rootT,
+			rootC.Certificate,
 			&newKey.PublicKey,
 			rootKey,
 			newKey,
@@ -355,7 +358,7 @@ func writePem(block *pem.Block, file io.WriteCloser) (_ error) {
 	return nil
 }
 
-func writeCert(b []byte, path string) (_ error) {
+func writeCerts(certs [][]byte, path string) (_ error) {
 	file, err := os.Create(path)
 	defer file.Close()
 
@@ -363,9 +366,11 @@ func writeCert(b []byte, path string) (_ error) {
 		return errs.New("unable to open file \"%s\" for writing", path, err)
 	}
 
-	block := newCertBlock(b)
-	if err := writePem(block, file); err != nil {
-		return err
+	for _, cert := range certs {
+		block := newCertBlock(cert)
+		if err := writePem(block, file); err != nil {
+			return err
+		}
 	}
 
 	if err := file.Close(); err != nil {
@@ -408,16 +413,11 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 		return &tls.Certificate{}, err
 	}
 
-	// keyPEMBlock, _ := pem.Decode(keyPEMBytes)
 	return certFromPEMs(certPEMBytes, keyPEMBytes)
-	// return certFromDERs(certPEMBlock.Bytes, keyPEMBlock.Bytes)
-	// return certFromDERs(certPEMBlock, keyPEMBlock)
-	// return certFromDERs(certPEMBytes, keyPEMBytes)
 }
 
-func  certFromPEMs(certPEMBytes,  keyPEMBytes []byte) (*tls.Certificate, error) {
+func certFromPEMs(certPEMBytes, keyPEMBytes []byte) (*tls.Certificate, error) {
 	var (
-		// skippedBlockTypes []string
 		certDERs = [][]byte{}
 	)
 
@@ -427,11 +427,8 @@ func  certFromPEMs(certPEMBytes,  keyPEMBytes []byte) (*tls.Certificate, error) 
 		if certDERBlock == nil {
 			break
 		}
-		// if certDERBlock.Type == "CERTIFICATE" {
-			certDERs = append(certDERs, certDERBlock.Bytes)
-		// } else {
-		// 	skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
-		// }
+
+		certDERs = append(certDERs, certDERBlock.Bytes)
 	}
 
 	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
@@ -454,14 +451,25 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 	return cert, nil
 }
 
-func createAndPersist(certPath, keyPath string, template, parent *x509.Certificate, pubKey *ecdsa.PublicKey, rootKey, privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
-	// DER encoded
-	certDerBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pubKey, rootKey)
+func createAndPersist(
+	certPath,
+	keyPath string,
+	template,
+	parentTemplate *x509.Certificate,
+	parentDERCerts [][]byte,
+	pubKey *ecdsa.PublicKey,
+	rootKey,
+	privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := writeCert(certDerBytes, certPath); err != nil {
+	DERCerts := [][]byte{}
+	DERCerts = append(DERCerts, certDERBytes)
+	DERCerts = append(DERCerts, parentDERCerts...)
+
+	if err := writeCerts(DERCerts, certPath); err != nil {
 		return nil, err
 	}
 
@@ -474,7 +482,7 @@ func createAndPersist(certPath, keyPath string, template, parent *x509.Certifica
 		return nil, err
 	}
 
-	return certFromDERs([][]byte{certDerBytes}, keyDERBytes)
+	return certFromDERs(DERCerts, keyDERBytes)
 
 }
 

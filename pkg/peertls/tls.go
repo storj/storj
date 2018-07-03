@@ -6,7 +6,6 @@ package peertls
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -65,22 +64,10 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	// Verify leaf  ID/sig
 	// Verify leaf signed by parent
 
-	b64 := base64.URLEncoding.EncodeToString(rawCerts[0])
-	fmt.Printf("rawCerts:%s\n", b64)
-	fmt.Printf("rawCerts: %.10x\n", rawCerts)
-	fmt.Println("len rawCerts", len(rawCerts))
-	parentCert, err := x509.ParseCertificate(rawCerts[0])
-	fmt.Printf("cert0: %.10x\n", parentCert)
-	b64Cert := base64.StdEncoding.EncodeToString(rawCerts[0])
-	fmt.Printf("cert0: %.15s\n", b64Cert)
-	// jCert, _ := json.MarshalIndent(parentCert, "", "  ")
-	// fmt.Printf("cert0: %s\n", jCert)
-	fmt.Println("err", err)
-	// leafCert, err := x509.ParseCertificate(rawCerts[1])
-	fmt.Printf("parentCert.Signature: % .10x\n", parentCert.Signature)
-	fmt.Printf("parentCert.PublicKey: % .10x\n", parentCert.PublicKey)
-	// fmt.Printf("leafCert.Signature:", leafCert.Signature)
-	// fmt.Printf("leafCert.PublicKey:", leafCert.PublicKey)
+	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
+	// (https://www.pivotaltracker.com/story/show/158238535)
+	fmt.Println("len(rawCerts):", len(rawCerts))
+
 	return nil
 }
 
@@ -152,7 +139,7 @@ func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 	return nil
 }
 
-// EnsureExists checks whether the cert/key exists and whether to create/overwrite them given `t`s fields
+// EnsureExists checks whether the cert/key exists and whether to create/overwrite them given `t`s field values.
 func (t *TLSFileOptions) EnsureExists() (_ error) {
 	if err := t.EnsureAbsPaths(); err != nil {
 		return err
