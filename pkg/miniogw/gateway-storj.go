@@ -116,9 +116,9 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	objpath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objpath)
+	_, m, err := s.storj.os.GetObject(ctx, objpath)
 	objInfo = minio.ObjectInfo{
-		ModTime: time.Now(),
+		ModTime: m.Modified,
 	}
 	return objInfo, err
 }
@@ -135,6 +135,11 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	result = minio.ListObjectsInfo{}
 	err = nil
 	return result, err
+}
+
+func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
+	bucket string, location string) error {
+	return nil
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
