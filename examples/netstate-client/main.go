@@ -15,11 +15,12 @@ import (
 
 	client "storj.io/storj/pkg/netstate/client"
 	proto "storj.io/storj/protos/netstate"
+	p "storj.io/storj/pkg/paths"
 )
 
 var (
-	port   string
-	apiKey = []byte("abc123")
+	port string
+	//APIKey = []byte("abc123")
 )
 
 func initializeFlags() {
@@ -45,13 +46,12 @@ func main() {
 	// Example pointer paths to put
 	// the client library creates a put req. object of these items
 	// and sends to server
-	path := []byte("another/pointer/for/the/pile, another/two")
-	pointer := &proto.Pointer{
+
+	var path = p.New("fold1/fold2/fold3/file.txt")
+
+	//path := "test/pointer/path"
+	pointer := &proto.Pointer {
 		Type: proto.Pointer_INLINE,
-		Encryption: &proto.EncryptionScheme{
-			EncryptedEncryptionKey: []byte("key"),
-			EncryptedStartingNonce: []byte("nonce"),
-		},
 		InlineSegment: []byte("popcorn"),
 	}
 	APIKey := []byte("abc123")
@@ -72,20 +72,18 @@ func main() {
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
 	} else {
+		fmt.Println(getRes)
 		// WIP; i need to convert a custom type to string,
 		// will work on this later
-		fmt.Println(getRes)
 		logger.Info("Success: got Pointer from db",
 			zap.String("pointer", p),
 		)
 	}
 
-	// Example List
-
-	// This pagination functionality doesn't work yet.
-	// The given arguments are placeholders.
-	startingPathKey := []byte("test/pointer/path")
-	var limit int64 = 5
+	// Example List with pagination 
+	
+	startingPathKey := path
+	var limit int64 = 2
 
 	paths, trunc, err := nsclient.List(ctx, startingPathKey, limit, APIKey)
 
@@ -96,8 +94,7 @@ func main() {
 		for _, pathByte := range paths {
 			stringList = append(stringList, string(pathByte))
 		}
-		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", "))
-		fmt.Println(trunc)
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", trunc))
 	}
 
 	// Example Delete
