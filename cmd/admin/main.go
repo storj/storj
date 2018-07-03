@@ -13,8 +13,7 @@ import (
 
 func main() {
 	err := process.Main(func() error {
-		process.ConfigEnvironment()
-		return nil
+		return process.ConfigEnvironment()
 	}, &overlay.Service{}, &netstate.Service{})
 	if err != nil {
 		log.Fatal(err)
