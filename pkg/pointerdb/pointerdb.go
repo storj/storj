@@ -5,7 +5,7 @@ package pointerdb
 
 import (
 	"context"
-
+	
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -94,7 +94,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
-
+	
 	var keyList storage.Keys
 	if req.StartingPathKey == nil {
 		pathKeys, err := s.DB.List(nil, storage.Limit(req.Limit))
