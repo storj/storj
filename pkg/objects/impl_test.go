@@ -19,9 +19,8 @@ func TestPutObject(t *testing.T) {
 }
 func TestGetObject(t *testing.T) {
 	os := Objects{}
-	r, m, err := os.GetObject(context.Background(), nil)
+	r, _, err := os.GetObject(context.Background(), nil)
 	assert.Nil(t, r)
-	assert.Equal(t, nil, m.Data)
 	assert.Nil(t, err)
 }
 func TestDeleteObject(t *testing.T) {
@@ -45,9 +44,8 @@ func TestSetXAttr(t *testing.T) {
 }
 func TestGetXAttr(t *testing.T) {
 	os := Objects{}
-	r, m, err := os.GetXAttr(context.Background(), nil, "")
+	r, _, err := os.GetXAttr(context.Background(), nil, "")
 	assert.Nil(t, r)
-	assert.Equal(t, nil, m.Data)
 	assert.Nil(t, err)
 }
 func TestDeleteXAttr(t *testing.T) {

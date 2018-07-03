@@ -13,14 +13,12 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
 )
 
 var (
-	mon = monkit.Package()
 	//Error is the errs class of standard Object Store errors
 	Error = errs.Class("objectstore error")
 )
