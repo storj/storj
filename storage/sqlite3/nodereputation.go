@@ -51,10 +51,10 @@ func createReputationTable(db *sql.DB) error {
 	var res []string
 
 	for _, feature := range proto.Feature_name {
-		for _, param := range proto.Parameter_name {
+		for _, param := range proto.RepParameter_name {
 			res = append(res, fmt.Sprintf("%s_%s", feature, param))
 		}
-		for _, state := range proto.BetaStateCols_name {
+		for _, state := range proto.RepState_name {
 			res = append(res, fmt.Sprintf("%s_%s", feature, state))
 		}
 	}
@@ -81,41 +81,41 @@ func createReputationTable(db *sql.DB) error {
 func CreateNewNodeRecord(db *sql.DB, nodeName string) error {
 
 	type paramValue struct {
-		param proto.Parameter
+		param proto.RepParameter
 		val   float64
 	}
 
 	type stateValue struct {
-		state proto.BetaStateCols
+		state proto.RepState
 		val   proto.UpdateRepValue
 	}
 
 	// default values
 	params := []paramValue{
 		paramValue{
-			param: proto.Parameter_BAD_RECALL,
+			param: proto.RepParameter_BAD_RECALL,
 			val:   0.995,
 		},
 		paramValue{
-			param: proto.Parameter_GOOD_RECALL,
+			param: proto.RepParameter_GOOD_RECALL,
 			val:   0.99,
 		},
 		paramValue{
-			param: proto.Parameter_WEIGHT_DENOMINATOR,
+			param: proto.RepParameter_WEIGHT_DENOMINATOR,
 			val:   10000.0,
 		},
 	}
 	states := []stateValue{
 		stateValue{
-			state: proto.BetaStateCols_CUMULATIVE_SUM_REPUTATION,
+			state: proto.RepState_CUMULATIVE_SUM_REPUTATION,
 			val:   proto.UpdateRepValue_ZERO,
 		},
 		stateValue{
-			state: proto.BetaStateCols_CURRENT_REPUTATION,
+			state: proto.RepState_CURRENT_REPUTATION,
 			val:   proto.UpdateRepValue_ZERO,
 		},
 		stateValue{
-			state: proto.BetaStateCols_FEATURE_COUNTER,
+			state: proto.RepState_FEATURE_COUNTER,
 			val:   proto.UpdateRepValue_ZERO,
 		},
 	}
@@ -167,14 +167,15 @@ func insertNewNodeName(db *sql.DB, nodeName string) error {
 
 // NodeFeature is a GO type to represent a single feature from the database
 type NodeFeature struct {
-	nodeName          string
-	feature           string
-	goodRecall        float64
-	badRecall         float64
-	featureCounter    float64
-	weightDenominator float64
-	cumulativeSum     float64
-	reputation        float64
+	nodeName           string
+	feature            string
+	goodRecall         float64
+	badRecall          float64
+	featureGoodCounter float64
+	featureCounter     float64
+	weightDenominator  float64
+	cumulativeSum      float64
+	reputation         float64
 }
 
 // selectNodeFeature is a function used to select a single feature for a given node name
@@ -227,7 +228,7 @@ func GetRep(db *sql.DB, nodeName string) ([]NodeFeature, error) {
 }
 
 // matchRepOrderStmt is a function that generates a string for filtering nodes from the database
-func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaStateCols, notIn []string) string {
+func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.RepState, notIn []string) string {
 	var exclude []string
 
 	for _, not := range notIn {
@@ -253,7 +254,7 @@ func matchRepOrderStmt(limit int64, features []proto.Feature, state proto.BetaSt
 
 // matchRepOrderStmt is a function that looks for nodes that satisfy the constraint parameters
 func matchRepOrder(db *sql.DB, limit int64, features []proto.Feature, notIn []string) ([]string, error) {
-	stmt := matchRepOrderStmt(limit, features, proto.BetaStateCols_CURRENT_REPUTATION, notIn)
+	stmt := matchRepOrderStmt(limit, features, proto.RepState_CURRENT_REPUTATION, notIn)
 	rows, err := db.Query(stmt)
 	if err != nil {
 		return nil, SelectError.Wrap(err)
@@ -288,29 +289,39 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 	newSum := node.cumulativeSum + newRep
 	newCount := node.featureCounter + 1.0
 
+	newGoodCount := 0.0
+	if value > 0 {
+		newGoodCount = newGoodCount + node.featureGoodCounter + 1.0
+	} else {
+		newGoodCount = newGoodCount + node.featureGoodCounter + 0.0
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
 	defer tx.Rollback()
 
-	updateStringRep := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CURRENT_REPUTATION.String(), newRep)
-
+	updateStringRep := updateFeatureRepStmt(nodeName, feature.String(), proto.RepState_CURRENT_REPUTATION.String(), newRep)
 	_, err = tx.Exec(updateStringRep)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
 
-	updateStringSum := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_CUMULATIVE_SUM_REPUTATION.String(), newSum)
-
+	updateStringSum := updateFeatureRepStmt(nodeName, feature.String(), proto.RepState_CUMULATIVE_SUM_REPUTATION.String(), newSum)
 	_, err = tx.Exec(updateStringSum)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
 
-	updateStringCount := updateFeatureRepStmt(nodeName, feature.String(), proto.BetaStateCols_FEATURE_COUNTER.String(), newCount)
-
+	updateStringCount := updateFeatureRepStmt(nodeName, feature.String(), proto.RepState_FEATURE_COUNTER.String(), newCount)
 	_, err = tx.Exec(updateStringCount)
+	if err != nil {
+		return UpdateError.Wrap(err)
+	}
+
+	updateStringGoodCount := updateFeatureRepStmt(nodeName, feature.String(), proto.RepState_FEATURE_GOOD_COUNTER.String(), newGoodCount)
+	_, err = tx.Exec(updateStringGoodCount)
 	if err != nil {
 		return UpdateError.Wrap(err)
 	}
@@ -319,7 +330,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 }
 
 // updateNodeParameters is a function that updates a node's state values
-func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter proto.Parameter, parameterValue float64) error {
+func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter proto.RepParameter, parameterValue float64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return UpdateError.Wrap(err)
@@ -339,7 +350,7 @@ func updateNodeParameters(db *sql.DB, nodeName string, feature string, parameter
 }
 
 // updateNodeState is a function that updates a node's state values
-func updateNodeState(db *sql.DB, nodeName string, feature string, state proto.BetaStateCols, stateValue proto.UpdateRepValue) error {
+func updateNodeState(db *sql.DB, nodeName string, feature string, state proto.RepState, stateValue proto.UpdateRepValue) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return UpdateError.Wrap(err)
@@ -367,6 +378,7 @@ func selectedFeaturesToNodeRecord(rows *sql.Rows) (NodeFeature, error) {
 			&res.goodRecall,
 			&res.badRecall,
 			&res.weightDenominator,
+			&res.featureGoodCounter,
 			&res.featureCounter,
 			&res.cumulativeSum,
 			&res.reputation,
@@ -393,12 +405,12 @@ func updateFeatureRepStmt(nodeName string, feature string, state string, value f
 func selectFeatureStmt(feature string, nodeName string) string {
 	var cols []string
 
-	for i := 0; i < len(proto.Parameter_name); i++ {
-		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.Parameter_name[int32(i)]))
+	for i := 0; i < len(proto.RepParameter_name); i++ {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.RepParameter_name[int32(i)]))
 	}
 
-	for i := 0; i < len(proto.BetaStateCols_name); i++ {
-		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.BetaStateCols_name[int32(i)]))
+	for i := 0; i < len(proto.RepState_name); i++ {
+		cols = append(cols, fmt.Sprintf("%s_%s", feature, proto.RepState_name[int32(i)]))
 	}
 
 	return fmt.Sprintf(`SELECT
