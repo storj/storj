@@ -50,9 +50,8 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 		return readcloser.FatalReadCloser(
 			Error.New("expected size not a factor decoded block size"))
 	}
-	if mbm < 0 {
-		return readcloser.FatalReadCloser(
-			Error.New("negative max buffer memory"))
+	if err := checkMBM(mbm); err != nil {
+		return readcloser.FatalReadCloser(err)
 	}
 	chanSize := mbm / (len(rs) * es.EncodedBlockSize())
 	if chanSize < 1 {
@@ -223,7 +222,7 @@ func (dr *decodedReader) readBlock(inbufs map[int][]byte) error {
 
 type decodedRanger struct {
 	es     ErasureScheme
-	rrs    map[int]ranger.Ranger
+	rrs    map[int]ranger.RangeCloser
 	inSize int64
 	mbm    int // max buffer memory
 }
@@ -234,9 +233,12 @@ type decodedRanger struct {
 // rrs is a map of erasure piece numbers to erasure piece rangers.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger, error) {
-	if mbm < 0 {
-		return nil, Error.New("negative max buffer memory")
+func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.RangeCloser, error) {
+	if err := checkMBM(mbm); err != nil {
+		return nil, err
+	}
+	if len(rrs) < es.RequiredCount() {
+		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	size := int64(-1)
 	for _, rr := range rrs {
@@ -244,20 +246,17 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 			size = rr.Size()
 		} else {
 			if size != rr.Size() {
-				return nil, Error.New("decode failure: range reader sizes don't " +
-					"all match")
+				return nil, Error.New(
+					"decode failure: range reader sizes don't all match")
 			}
 		}
 	}
 	if size == -1 {
-		return ranger.ByteRanger(nil), nil
+		return ranger.NopCloser(ranger.ByteRanger(nil)), nil
 	}
 	if size%int64(es.EncodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure decoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
-	}
-	if len(rrs) < es.RequiredCount() {
-		return nil, Error.New("not enough readers to reconstruct data!")
 	}
 	return &decodedRanger{
 		es:     es,
@@ -314,4 +313,21 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	}
 	// length might not have included all of the blocks, limit what we return
 	return readcloser.LimitReadCloser(r, length), nil
+}
+
+func (dr *decodedRanger) Close() error {
+	errs := make(chan error, len(dr.rrs))
+	for _, rr := range dr.rrs {
+		go func(rr ranger.RangeCloser) {
+			errs <- rr.Close()
+		}(rr)
+	}
+	var first error
+	for range dr.rrs {
+		err := <-errs
+		if err != nil && first == nil {
+			first = Error.Wrap(err)
+		}
+	}
+	return first
 }
