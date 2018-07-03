@@ -48,8 +48,6 @@ func main() {
 	// and sends to server
 
 	var path = p.New("fold1/fold2/fold3/file.txt")
-
-	//path := "test/pointer/path"
 	pointer := &proto.Pointer {
 		Type: proto.Pointer_INLINE,
 		InlineSegment: []byte("popcorn"),
@@ -81,7 +79,7 @@ func main() {
 	}
 
 	// Example List with pagination 
-	
+
 	startingPathKey := path
 	var limit int64 = 2
 

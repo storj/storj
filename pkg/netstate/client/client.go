@@ -5,7 +5,6 @@ package client
 
 import (
 	"context"
-	//"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
