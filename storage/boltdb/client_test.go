@@ -10,9 +10,45 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	"storj.io/storj/storage"
 )
+
+type BoltClientTest struct {
+	*testing.T
+	c storage.KeyValueStore
+}
+
+func NewBoltClientTest(t *testing.T) *BoltClientTest {
+	logger, _ := zap.NewDevelopment()
+	dbName := tempfile()
+
+	c, err := NewClient(logger, dbName, "test_bucket")
+	if err != nil {
+		t.Error("Failed to create test db")
+		panic(err)
+	}
+
+	return &BoltClientTest{
+		T: t,
+		c: c,
+	}
+}
+
+func (bt *BoltClientTest) Close() {
+	bt.c.Close()
+	switch client := bt.c.(type) {
+	case *boltClient:
+		os.Remove(client.Path)
+	}
+}
+
+func (bt *BoltClientTest) HandleErr(err error, msg string) {
+	bt.Error(msg)
+	if err != nil {
+		panic(err)
+	}
+	panic(msg)
+}
 
 func tempfile() string {
 	f, err := ioutil.TempFile("", "TempBolt-")
@@ -27,59 +63,95 @@ func tempfile() string {
 	return f.Name()
 }
 
-func TestClient(t *testing.T) {
-	cases := []struct {
-		bucket  string
-		path    []byte
-		pointer []byte
-	}{
-		{
-			bucket:  "test-bucket",
-			path:    []byte(`test/path`),
-			pointer: []byte(`pointer1`),
-		},
-	}
+func TestPut(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
 
-	for _, c := range cases {
-		logger, err := zap.NewDevelopment()
-		assert.NoError(t, err)
-
-		client, err := NewClient(logger, tempfile(), c.bucket)
-		assert.NoError(t, err)
-		defer cleanup(client)
-
-		// tests Put function
-		err = client.Put(c.path, c.pointer)
-		assert.NoError(t, err)
-
-		// tests Get function
-		v, err := client.Get(c.path)
-		assert.NoError(t, err)
-		assert.Equal(t, c.pointer, []byte(v))
-
-		// tests Delete function
-		err = client.Delete(c.path)
-		assert.NoError(t, err)
-
-		v, err = client.Get(c.path)
-		assert.Error(t, err)
-		assert.Empty(t, v)
-
-		// tests List function
-		err = client.Put(c.path, c.pointer)
-		assert.NoError(t, err)
-
-		p, err := client.List()
-		assert.NoError(t, err)
-		assert.Len(t, p, 1)
-		assert.Equal(t, c.path, p.ByteSlices()[0])
+	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
 	}
 }
 
-func cleanup(c storage.KeyValueStore) {
-	c.Close()
-	switch client := c.(type) {
-	case *boltClient:
-		os.Remove(client.Path)
+func TestGet(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
+	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
+	}
+
+	retrvValue, err := bt.c.Get([]byte("test/path/1"))
+	if err != nil {
+		bt.HandleErr(err, "Failed to get")
+	}
+	if retrvValue.IsZero() {
+		bt.HandleErr(nil, "Failed to get saved test pointer")
+	}
+	if !bytes.Equal(retrvValue, []byte("pointer1")) {
+		bt.HandleErr(nil, "Retrieved pointer was not same as put pointer")
+	}
+
+	// tests Get non-existent path
+	getRes, err := bt.c.Get([]byte("fake/path"))
+	if err != nil {
+		bt.HandleErr(err, "Failed to get")
+	}
+	if !getRes.IsZero() {
+		bt.HandleErr(nil, "Expected zero-value response for getting fake path")
+	}
+}
+
+func TestDelete(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
+	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
+	}
+
+	if err := bt.c.Delete([]byte("test/path/1")); err != nil {
+		bt.HandleErr(err, "Failed to delete test entry")
+	}
+}
+
+func TestList(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
+	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
+		bt.HandleErr(err, "Failed to put pointer2 to pointers bucket")
+	}
+	testPaths, err := bt.c.List([]byte("test/path/2"), storage.Limit(1))
+	if err != nil {
+		bt.HandleErr(err, "Failed to list Path keys in pointers bucket")
+	}
+
+	if !bytes.Equal(testPaths[0], []byte("test/path/2")) {
+		bt.HandleErr(nil, "Expected only test/path/2 in list")
+	}
+}
+
+func TestListNoStartingKey(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
+	if err := bt.c.Put([]byte("test/path/1"), []byte("pointer1")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer1 to pointers bucket")
+	}
+	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer2 to pointers bucket")
+	}
+	if err := bt.c.Put([]byte("test/path/3"), []byte("pointer3")); err != nil {
+		bt.HandleErr(err, "Failed to save pointer3 to pointers bucket")
+	}
+
+	testPaths, err := bt.c.List(nil, storage.Limit(3))
+	if err != nil {
+		bt.HandleErr(err, "Failed to list Paths")
+	}
+}
+
+	if !bytes.Equal(testPaths[2], []byte("test/path/3")) {
+		bt.HandleErr(nil, "Expected test/path/3 to be last in list")
 	}
 }

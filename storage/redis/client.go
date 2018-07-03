@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -49,6 +50,11 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
 	if err != nil {
+		if err.Error() == "redis: nil" {
+			return nil, nil
+		}
+
+		// TODO: log
 		return nil, Error.New("get error", err)
 	}
 
@@ -72,18 +78,32 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *redisClient) List() (_ storage.Keys, _ error) {
-	results, err := c.db.Keys("*").Result()
-	if err != nil {
-		return nil, Error.New("list error", err)
+func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	var noOrderKeys []string
+	if startingKey != nil {
+		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
+		if err != nil {
+			return nil, Error.New("list error with starting key", err)
+		}
+		keys, _, err := c.db.Scan(cursor, "", int64(limit)).Result()
+		if err != nil {
+			return nil, Error.New("list error with starting key", err)
+		}
+		noOrderKeys = keys
+	} else if startingKey == nil {
+		keys, _, err := c.db.Scan(0, "", int64(limit)).Result()
+		if err != nil {
+			return nil, Error.New("list error without starting key", err)
+		}
+		noOrderKeys = keys
 	}
 
-	keys := make(storage.Keys, len(results))
-	for i, k := range results {
-		keys[i] = storage.Key(k)
+	listKeys := make(storage.Keys, len(noOrderKeys))
+	for i, k := range noOrderKeys {
+		listKeys[i] = storage.Key(k)
 	}
 
-	return keys, nil
+	return listKeys, nil
 }
 
 // Delete deletes a key/value pair from redis, for a given the key

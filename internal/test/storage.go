@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -65,11 +66,11 @@ var (
 func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 	m.GetCalled++
 	if key.String() == "error" {
-		return storage.Value{}, ErrForced.New("forced error")
+		return nil, nil
 	}
 	v, ok := m.Data[key.String()]
 	if !ok {
-		return storage.Value{}, ErrMissingKey.New("key %v missing", key)
+		return storage.Value{}, nil
 	}
 
 	return v, nil
@@ -90,14 +91,40 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 }
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (m *MockKeyValueStore) List() (_ storage.Keys, _ error) {
+func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	m.ListCalled++
 	keys := storage.Keys{}
-	for k := range m.Data {
-		keys = append(keys, storage.Key(k))
-	}
+	keySlice := mapIntoSlice(m.Data)
+	started := false
 
+	if startingKey == nil {
+		started = true
+	}
+	for _, key := range keySlice {
+		if !started && key == string(startingKey) {
+			keys = append(keys, storage.Key(key))
+			started = true
+			continue
+		}
+		if started {
+			if len(keys) == int(limit) {
+				break
+			}
+			keys = append(keys, storage.Key(key))
+		}
+	}
 	return keys, nil
+}
+
+func mapIntoSlice(data KvStore) []string {
+	keySlice := make([]string, len(data))
+	i := 0
+	for k := range data {
+		keySlice[i] = k
+		i++
+	}
+	sort.Strings(keySlice)
+	return keySlice
 }
 
 // Close closes the client
