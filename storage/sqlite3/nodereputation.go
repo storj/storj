@@ -115,6 +115,10 @@ func CreateNewNodeRecord(db *sql.DB, nodeName string) error {
 			val:   proto.UpdateRepValue_ZERO,
 		},
 		stateValue{
+			state: proto.RepState_FEATURE_GOOD_COUNTER,
+			val:   proto.UpdateRepValue_ZERO,
+		},
+		stateValue{
 			state: proto.RepState_FEATURE_COUNTER,
 			val:   proto.UpdateRepValue_ZERO,
 		},
@@ -290,7 +294,7 @@ func updateNodeRecord(db *sql.DB, nodeName string, feature proto.Feature, value 
 	newCount := node.featureCounter + 1.0
 
 	newGoodCount := 0.0
-	if value > 0 {
+	if newValue > 0 {
 		newGoodCount = newGoodCount + node.featureGoodCounter + 1.0
 	} else {
 		newGoodCount = newGoodCount + node.featureGoodCounter + 0.0
