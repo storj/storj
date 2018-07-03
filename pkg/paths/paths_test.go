@@ -27,6 +27,7 @@ func TestNew(t *testing.T) {
 		assert.Equal(t, tt.expected, p, errTag)
 	}
 }
+
 func TestNewWithSegments(t *testing.T) {
 	for i, tt := range []struct {
 		segs     []string
@@ -69,22 +70,20 @@ func TestString(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
-	for i, tt := range []struct {
-		path     Path
-		expected []byte
-	}{
-		{[]string{""}, [""]},
-		//{[]string{""}, [""]},
-		//{[]byte{"a"}, "a"},
-		//{[]byte{"a", "b"}, "a/b"},
-	//	{[]byte{"a", "b", "c", "d"}, "a/b/c/d"},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		b := tt.path.Bytes()
-		assert.Equal(t, tt.expected, b, errTag)
-	}
+    for i, tt := range []struct {
+        path     Path
+        expected []byte
+    }{
+        {[]string{""}, []byte("")},
+		{[]string{"a/b"}, []byte{97, 47, 98}},
+        {[]string{"a/b/c"}, []byte{97, 47, 98, 47, 99}},
+        {[]string{"a/b/c/d/e/f"}, []byte{97, 47, 98, 47, 99, 47, 100, 47, 101, 47, 102}},
+    }{
+        errTag := fmt.Sprintf("Test case #%d", i)
+        b := tt.path.Bytes()
+        assert.Equal(t, tt.expected, b, errTag)
+    }
 }
-
 
 func TestPrepend(t *testing.T) {
 	for i, tt := range []struct {
@@ -97,7 +96,7 @@ func TestPrepend(t *testing.T) {
 		{"", "my/path", []string{"my", "path"}},
 		{"prefix", "my/path", []string{"prefix", "my", "path"}},
 		{"p1/p2/p3", "my/path", []string{"p1", "p2", "p3", "my", "path"}},
-	} {
+	}{
 		errTag := fmt.Sprintf("Test case #%d", i)
 		p := New(tt.path).Prepend(tt.prefix)
 		assert.Equal(t, tt.expected, p, errTag)
