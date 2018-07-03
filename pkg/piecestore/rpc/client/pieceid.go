@@ -41,5 +41,9 @@ func (id PieceID) Derive(secret []byte) PieceID {
 	mac := hmac.New(sha512.New, secret)
 	mac.Write([]byte(id))
 	h := mac.Sum(nil)
-	return PieceID(base58.Encode(h[:32]))
+	// Trim the hash if greater than 32 bytes
+	if len(h) > 32 {
+		h = h[:32]
+	}
+	return PieceID(base58.Encode(h))
 }
