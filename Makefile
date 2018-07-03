@@ -10,6 +10,7 @@ lint: check-copyrights
 	--disable-all \
 	--vendor .\
 	--enable=golint \
+	--enable=errcheck \
 	--enable=goimports \
 	--enable=vet \
 	--enable=deadcode \
