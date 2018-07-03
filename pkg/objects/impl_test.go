@@ -9,30 +9,30 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/pkg/paths"
 )
 
 func TestPutObject(t *testing.T) {
 	os := Objects{}
-	size, err := os.PutObject(context.Background(), "", nil, nil, time.Now())
+	err := os.PutObject(context.Background(), nil, nil, nil, time.Now())
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), size)
 }
 func TestGetObject(t *testing.T) {
 	os := Objects{}
-	r, m, err := os.GetObject(context.Background(), "")
+	r, m, err := os.GetObject(context.Background(), nil)
 	assert.Nil(t, r)
-	assert.Equal(t, "GetObject", m.Name)
+	assert.Equal(t, nil, m.Data)
 	assert.Nil(t, err)
 }
 func TestDeleteObject(t *testing.T) {
 	os := Objects{}
-	err := os.DeleteObject(context.Background(), "")
+	err := os.DeleteObject(context.Background(), nil)
 	assert.Nil(t, err)
 }
 func TestListObjects(t *testing.T) {
 	os := Objects{}
-	op, trn, err := os.ListObjects(context.Background(), "", "")
-	objpaths := []string{"objpath1", "objpath2", "objpath3"}
+	op, trn, err := os.ListObjects(context.Background(), nil, nil)
+	objpaths := paths.Path{"objpath1", "objpath2", "objpath3"}
 	comp := reflect.DeepEqual(objpaths, op)
 	assert.Equal(t, comp, true)
 	assert.Equal(t, trn, true)
@@ -40,24 +40,24 @@ func TestListObjects(t *testing.T) {
 }
 func TestSetXAttr(t *testing.T) {
 	os := Objects{}
-	err := os.SetXAttr(context.Background(), "", "", nil, nil)
+	err := os.SetXAttr(context.Background(), nil, "", nil, nil)
 	assert.Nil(t, err)
 }
 func TestGetXAttr(t *testing.T) {
 	os := Objects{}
-	r, m, err := os.GetXAttr(context.Background(), "", "")
+	r, m, err := os.GetXAttr(context.Background(), nil, "")
 	assert.Nil(t, r)
-	assert.Equal(t, "GetXAttr", m.Name)
+	assert.Equal(t, nil, m.Data)
 	assert.Nil(t, err)
 }
 func TestDeleteXAttr(t *testing.T) {
 	os := Objects{}
-	err := os.DeleteXAttr(context.Background(), "", "")
+	err := os.DeleteXAttr(context.Background(), nil, "")
 	assert.Nil(t, err)
 }
 func TestListXAttrs(t *testing.T) {
 	os := Objects{}
-	op, trn, err := os.ListXAttrs(context.Background(), "", "", "")
+	op, trn, err := os.ListXAttrs(context.Background(), nil, "", "")
 	xattrs := []string{"xattrs1", "xattrs2", "xattrs3"}
 	comp := reflect.DeepEqual(xattrs, op)
 	assert.Equal(t, comp, true)

@@ -5,32 +5,24 @@ package storj
 
 import (
 	"context"
-	"crypto/sha256"
-	"flag"
-	"fmt"
 	"io"
-	"os"
-	"path"
-	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
-	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
 )
 
 var (
-	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
-	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
+	mon = monkit.Package()
+	//Error is the errs class of standard Object Store errors
+	Error = errs.Class("objectstore error")
 )
 
 func init() {
@@ -42,90 +34,8 @@ func init() {
 	})
 }
 
-// getBuckets returns the buckets list
-func (s *storjObjects) getBuckets() (buckets []minio.BucketInfo, err error) {
-	buckets = make([]minio.BucketInfo, len(s.storj.bucketlist))
-	for i, bi := range s.storj.bucketlist {
-		buckets[i] = minio.BucketInfo{
-			Name:    bi.bucket.Name,
-			Created: bi.bucket.Created,
-		}
-	}
-	return buckets, nil
-}
-
-// uploadFile function handles to add the uploaded file to the bucket's file list structure
-func (s *storjObjects) uploadFile(bucket, object string, filesize int64, metadata map[string]string) (result minio.ListObjectsInfo, err error) {
-	var fl []minio.ObjectInfo
-	for i, v := range s.storj.bucketlist {
-		// bucket string comparision
-		if v.bucket.Name == bucket {
-			/* append the file to the filelist */
-			s.storj.bucketlist[i].filelist.file.Objects = append(
-				s.storj.bucketlist[i].filelist.file.Objects,
-				minio.ObjectInfo{
-					Bucket:      bucket,
-					Name:        object,
-					ModTime:     time.Now(),
-					Size:        filesize,
-					IsDir:       false,
-					ContentType: "application/octet-stream",
-				},
-			)
-			/* populate the filelist */
-			f := make([]minio.ObjectInfo, len(s.storj.bucketlist[i].filelist.file.Objects))
-			for j, fi := range s.storj.bucketlist[i].filelist.file.Objects {
-				f[j] = minio.ObjectInfo{
-					Bucket:      v.bucket.Name,
-					Name:        fi.Name,
-					ModTime:     fi.ModTime,
-					Size:        fi.Size,
-					IsDir:       fi.IsDir,
-					ContentType: fi.ContentType,
-				}
-			}
-			fl = f
-			break
-		}
-	}
-	result = minio.ListObjectsInfo{
-		IsTruncated: false,
-		Objects:     fl,
-	}
-	return result, nil
-}
-
-// getFiles returns the files list for a bucket
-func (s *storjObjects) getFiles(bucket string) (result minio.ListObjectsInfo, err error) {
-	var fl []minio.ObjectInfo
-	for i, v := range s.storj.bucketlist {
-		if v.bucket.Name == bucket {
-			/* populate the filelist */
-			f := make([]minio.ObjectInfo, len(s.storj.bucketlist[i].filelist.file.Objects))
-			for j, fi := range s.storj.bucketlist[i].filelist.file.Objects {
-				f[j] = minio.ObjectInfo{
-					Bucket:      v.bucket.Name,
-					Name:        fi.Name,
-					ModTime:     fi.ModTime,
-					Size:        fi.Size,
-					IsDir:       fi.IsDir,
-					ContentType: fi.ContentType,
-				}
-			}
-			fl = f
-			break
-		}
-	}
-	result = minio.ListObjectsInfo{
-		IsTruncated: false,
-		Objects:     fl,
-	}
-	return result, nil
-}
-
 func storjGatewayMain(ctx *cli.Context) {
 	s := &Storj{os: mockObjectStore()}
-	s.createSampleBucketList()
 	minio.StartGateway(ctx, s)
 }
 
@@ -166,24 +76,6 @@ func (s *Storj) Production() bool {
 	return false
 }
 
-//createSampleBucketList function initializes sample buckets and files in each bucket
-func (s *Storj) createSampleBucketList() {
-	s.bucketlist = make([]S3Bucket, 10)
-	for i := range s.bucketlist {
-		s.bucketlist[i].bucket.Name = "TestBucket" + strconv.Itoa(i+1)
-		s.bucketlist[i].bucket.Created = time.Now()
-		s.bucketlist[i].filelist.file.IsTruncated = false
-		s.bucketlist[i].filelist.file.Objects = make([]minio.ObjectInfo, 0x0A)
-		for j := range s.bucketlist[i].filelist.file.Objects {
-			s.bucketlist[i].filelist.file.Objects[j].Bucket = s.bucketlist[i].bucket.Name
-			s.bucketlist[i].filelist.file.Objects[j].Name = s.bucketlist[i].bucket.Name + "file" + strconv.Itoa(j+1)
-			s.bucketlist[i].filelist.file.Objects[j].ModTime = time.Now()
-			s.bucketlist[i].filelist.file.Objects[j].Size = 100
-			s.bucketlist[i].filelist.file.Objects[j].ContentType = "application/octet-stream"
-		}
-	}
-}
-
 type storjObjects struct {
 	minio.GatewayUnsupported
 	TempDir string // Temporary storage location for file transfers.
@@ -196,7 +88,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) error {
 	objpath := paths.New(bucket, object)
-	return s.storj.os.DeleteObject(ctx, objpath.String())
+	return s.storj.os.DeleteObject(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -207,119 +99,54 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	objpath := paths.New(bucket, object)
-	r, _, err := s.storj.os.GetObject(ctx, objpath.String())
-	size := r.Size()
-	rr, err := r.Range(ctx, 0, size)
-	_, err = io.CopyN(writer, rr, size)
-	rr.Close()
+	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	if err != nil {
+		return Error.New("ObjectStore GetObject() error")
+	}
+	defer rr.Close()
+	r, err := rr.Range(ctx, startOffset, length)
+	if err != nil {
+		return Error.New("ranger error")
+	}
+	defer r.Close()
+	_, err = io.Copy(writer, r)
 	return err
 }
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	objpath := paths.New(bucket, object)
-	_, m, err := s.storj.os.GetObject(ctx, objpath.String())
+	rr, m, err := s.storj.os.GetObject(ctx, objpath)
 	objInfo = minio.ObjectInfo{
-		Bucket: m.Bucket,
+		ModTime: time.Now(),
 	}
 	return objInfo, err
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
-	return s.getBuckets()
+	buckets = nil
+	err = nil
+	return buckets, err
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
-	_, _, _ = s.storj.os.ListObjects(ctx, prefix, delimiter)
-	return s.getFiles(bucket)
-}
-
-func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
-	bucket string, location string) error {
-	panic("TODO")
-}
-
-//encryptFile encrypts the uploaded files
-func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) error {
-	dir := os.TempDir()
-	dir = filepath.Join(dir, "gateway", bucket, object)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-	fc, err := infectious.NewFEC(*rsk, *rsn)
-	if err != nil {
-		return err
-	}
-	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
-	if err != nil {
-		return err
-	}
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize())
-	if err != nil {
-		return err
-	}
-	readers, err := eestream.EncodeReader(context.Background(),
-		eestream.TransformReader(eestream.PadReader(data,
-			encrypter.InBlockSize()), encrypter, 0), rs, 4*1024*1024)
-	if err != nil {
-		return err
-	}
-	errs := make(chan error, len(readers))
-	for i := range readers {
-		go func(i int) {
-			fh, err := os.Create(
-				filepath.Join(dir, fmt.Sprintf("%d.piece", i)))
-			if err != nil {
-				errs <- err
-				return
-			}
-			defer fh.Close()
-			_, err = io.Copy(fh, readers[i])
-			errs <- err
-		}(i)
-	}
-	for range readers {
-		err := <-errs
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	result = minio.ListObjectsInfo{}
+	err = nil
+	return result, err
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
-	objPath := filepath.Join(bucket, object)
-	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
-	writer, err := os.Create(srcFile)
-	if err != nil {
-		return objInfo, err
-	}
-
-	wsize, err := io.CopyN(writer, data, data.Size())
-	if err != nil {
-		os.Remove(srcFile)
-		return objInfo, err
-	}
-
-	err = encryptFile(writer, uint(wsize), bucket, object)
-	if err == nil {
-		s.uploadFile(bucket, object, wsize, metadata)
-	}
-	_, err = s.storj.os.PutObject(ctx, objPath, data, nil, time.Now())
+	objpath := paths.New(bucket, object)
+	err = s.storj.os.PutObject(ctx, objpath, data, nil, time.Now())
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
 		ModTime: time.Now(),
-		Size:    wsize,
+		Size:    data.Size(),
 		ETag:    minio.GenETag(),
 	}, err
 }
