@@ -120,7 +120,7 @@
   branch = "master"
   name = "github.com/dvyukov/go-fuzz"
   packages = ["gen"]
-  revision = "d6e0377705f98dbae098a3cdcf74e89ce7c06a0c"
+  revision = "c2814e6bc6d77bf44add053ab5d92fdef86d6755"
 
 [[projects]]
   name = "github.com/eapache/go-resiliency"
@@ -132,7 +132,7 @@
   branch = "master"
   name = "github.com/eapache/go-xerial-snappy"
   packages = ["."]
-  revision = "bb955e01b9346ac19dc29eb16586c90ded99a98c"
+  revision = "040cc1a32f578808623071247fdbd5cc43f37f5f"
 
 [[projects]]
   name = "github.com/eapache/queue"
@@ -461,7 +461,7 @@
     "pkg/wildcard",
     "pkg/words"
   ]
-  revision = "360f3f93358ba2f1a2b8ae7d5ccb0a9fb8ea8579"
+  revision = "e40a5e05e1e77f6e5df3b978b2a4f3255d2eb315"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -713,8 +713,17 @@
   revision = "e5adc2ada8b8efff032bf61173a233d143e9318e"
 
 [[projects]]
+  name = "github.com/stretchr/objx"
+  packages = ["."]
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "mock"
+  ]
   revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
   version = "v1.2.2"
 
@@ -847,7 +856,7 @@
     "trace",
     "websocket"
   ]
-  revision = "4cb1c02c05b0e749b0365f61ae859a8e0cfceed9"
+  revision = "ed29d75add3d7c4bf7ca65aac0c6df3d1420216f"
 
 [[projects]]
   branch = "master"
@@ -1002,6 +1011,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a8ba6d2f3f33508dc6fb766902941b7934b2e361caa5ae6146828ed224997b55"
+  inputs-digest = "bbbfafb1e1723b41717351f2e01b9f4b5d4cb2f2049ab72a49c63b2be170ff23"
   solver-name = "gps-cdcl"
   solver-version = 1
