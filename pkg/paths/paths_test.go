@@ -68,6 +68,24 @@ func TestString(t *testing.T) {
 	}
 }
 
+func TestBytes(t *testing.T) {
+	for i, tt := range []struct {
+		path     Path
+		expected []byte
+	}{
+		{[]string{""}, [""]},
+		//{[]string{""}, [""]},
+		//{[]byte{"a"}, "a"},
+		//{[]byte{"a", "b"}, "a/b"},
+	//	{[]byte{"a", "b", "c", "d"}, "a/b/c/d"},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		b := tt.path.Bytes()
+		assert.Equal(t, tt.expected, b, errTag)
+	}
+}
+
+
 func TestPrepend(t *testing.T) {
 	for i, tt := range []struct {
 		prefix   string
