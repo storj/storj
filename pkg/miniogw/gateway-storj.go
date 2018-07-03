@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -22,6 +23,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/objects"
+	"storj.io/storj/pkg/paths"
 )
 
 var (
@@ -194,7 +196,8 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket,
 	object string) error {
-	return s.storj.os.DeleteObject(ctx, object)
+	objpath := paths.New(bucket, object)
+	return s.storj.os.DeleteObject(ctx, objpath.String())
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -204,13 +207,19 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-	_, _, err = s.storj.os.GetObject(ctx, object)
+	objpath := paths.New(bucket, object)
+	r, _, err := s.storj.os.GetObject(ctx, objpath.String())
+	size := r.Size()
+	rr, err := r.Range(ctx, 0, size)
+	_, err = io.CopyN(writer, rr, size)
+	rr.Close()
 	return err
 }
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
-	_, m, err := s.storj.os.GetObject(ctx, object)
+	objpath := paths.New(bucket, object)
+	_, m, err := s.storj.os.GetObject(ctx, objpath.String())
 	objInfo = minio.ObjectInfo{
 		Bucket: m.Bucket,
 	}
@@ -290,10 +299,23 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	objPath := filepath.Join(bucket, object)
-	wsize, err := s.storj.os.PutObject(ctx, objPath, data, nil, time.Now())
+	srcFile := path.Join(s.TempDir, minio.MustGetUUID())
+	writer, err := os.Create(srcFile)
+	if err != nil {
+		return objInfo, err
+	}
+
+	wsize, err := io.CopyN(writer, data, data.Size())
+	if err != nil {
+		os.Remove(srcFile)
+		return objInfo, err
+	}
+
+	err = encryptFile(writer, uint(wsize), bucket, object)
 	if err == nil {
 		s.uploadFile(bucket, object, wsize, metadata)
 	}
+	_, err = s.storj.os.PutObject(ctx, objPath, data, nil, time.Now())
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
