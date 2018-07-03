@@ -61,7 +61,7 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	rrs := map[int]ranger.Ranger{}
+	rrs := map[int]ranger.RangeCloser{}
 	for _, piece := range pieces {
 		piecenum, err := strconv.Atoi(strings.TrimSuffix(piece.Name(), ".piece"))
 		if err != nil {
@@ -71,14 +71,14 @@ func Main() error {
 		if err != nil {
 			return err
 		}
-		defer r.Close()
 		rrs[piecenum] = r
 	}
-	rr, err := eestream.Decode(rrs, es, 4*1024*1024)
+	rc, err := eestream.Decode(rrs, es, 4*1024*1024)
 	if err != nil {
 		return err
 	}
-	rr, err = eestream.Transform(rr, decrypter)
+	defer rc.Close()
+	rr, err := eestream.Transform(rc, decrypter)
 	if err != nil {
 		return err
 	}
