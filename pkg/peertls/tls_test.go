@@ -254,8 +254,6 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestLoadTLS(t *testing.T) {
-	t.SkipNow()
-
 	tempPath, err := ioutil.TempDir("", "TestLoadTLS")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
@@ -318,10 +316,6 @@ func TestLoadTLS(t *testing.T) {
 
 	err = quick.Check(f, quickConfig)
 	assert.NoError(t, err)
-}
-
-func TestLoadCert(t *testing.T) {
-	t.SkipNow()
 }
 
 func TestEnsureExists_Create(t *testing.T) {
