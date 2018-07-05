@@ -31,7 +31,8 @@ func TestDeleteObject(t *testing.T) {
 func TestListObjects(t *testing.T) {
 	os := Objects{}
 	op, trn, err := os.ListObjects(context.Background(), nil, nil)
-	objpaths := paths.Path{"objpath1", "objpath2", "objpath3"}
+	//objpaths := paths.Path{"objpath1", "objpath2", "objpath3"}
+	objpaths := []paths.Path{{"x"}, {"objpath1", "objpath2", "objpath3"}}
 	comp := reflect.DeepEqual(objpaths, op)
 	assert.Equal(t, comp, true)
 	assert.Equal(t, trn, true)

@@ -46,9 +46,9 @@ func (o *Objects) DeleteObject(ctx context.Context, path paths.Path) (err error)
 }
 
 //ListObjects interface method
-func (o *Objects) ListObjects(ctx context.Context, startingPath, endingPath paths.Path) (path paths.Path, truncated bool, err error) {
+func (o *Objects) ListObjects(ctx context.Context, startingPath, endingPath paths.Path) (path []paths.Path, truncated bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	path = paths.Path{"objpath1", "objpath2", "objpath3"}
+	path = []paths.Path{{"x"}, {"objpath1", "objpath2", "objpath3"}}
 	truncated = true
 	err = nil
 	return path, truncated, err
