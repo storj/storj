@@ -26,7 +26,7 @@ type ObjectStore interface {
 	PutObject(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) error
 	GetObject(ctx context.Context, path paths.Path) (ranger.RangeCloser, Meta, error)
 	DeleteObject(ctx context.Context, path paths.Path) error
-	ListObjects(ctx context.Context, startingPath, endingPath paths.Path) (paths paths.Path, truncated bool, err error)
+	ListObjects(ctx context.Context, startingPath, endingPath paths.Path) (paths []paths.Path, truncated bool, err error)
 	SetXAttr(ctx context.Context, path paths.Path, xattr string, data io.Reader, metadata []byte) error
 	GetXAttr(ctx context.Context, path paths.Path, xattr string) (ranger.RangeCloser, Meta, error)
 	DeleteXAttr(ctx context.Context, path paths.Path, xattr string) error
