@@ -65,21 +65,16 @@ func main() {
 
 	// Example Get
 	getRes, err := nsclient.Get(ctx, path, APIKey)
-	p := "success"
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
 	} else {
-		fmt.Println(getRes)
-		// WIP; i need to convert a custom type to string,
-		// will work on this later
 		logger.Info("Success: got Pointer from db",
-			zap.String("pointer", p),
+			zap.String("pointer", getRes.String()),
 		)
 	}
 
 	// Example List with pagination 
-
 	startingPathKey := path
 	var limit int64 = 2
 
