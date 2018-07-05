@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -63,7 +62,6 @@ func (s *serv) SetLogger(l *zap.Logger) error {
 func setEnv() error {
 	viper.SetEnvPrefix("api")
 	viper.BindEnv("key")
-	os.Setenv("API_KEY", "abc123")
 	viper.AutomaticEnv()
 	return nil
 }
