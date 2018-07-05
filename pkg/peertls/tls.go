@@ -21,15 +21,16 @@ import (
 )
 
 var (
-	ErrNotExist       = errs.Class("file or directory not found error")
-	ErrNoCreate       = errs.Class("tls creation disabled error")
-	ErrNoOverwrite    = errs.Class("tls overwrite disabled error")
-	ErrBadHost        = errs.Class("bad host error")
-	ErrGenerate       = errs.Class("tls generation error")
-	ErrCredentials    = errs.Class("grpc credentials error")
-	ErrTLSOptions     = errs.Class("tls options error")
-	ErrTLSTemplate    = errs.Class("tls template error")
-	ErrVerifyPeerCert = errs.Class("tls peer certificate verification error")
+	ErrNotExist            = errs.Class("file or directory not found error")
+	ErrNoCreate        = errs.Class("tls creation disabled error")
+	ErrNoOverwrite     = errs.Class("tls overwrite disabled error")
+	ErrBadHost         = errs.Class("bad host error")
+	ErrGenerate        = errs.Class("tls generation error")
+	ErrCredentials     = errs.Class("grpc credentials error")
+	ErrTLSOptions      = errs.Class("tls options error")
+	ErrTLSTemplate     = errs.Class("tls template error")
+	ErrVerifyPeerCert  = errs.Class("tls peer certificate verification error")
+	ErrVerifySignature = errs.Class("tls certificate signature verification error")
 )
 
 func IsNotExist(err error) bool {
@@ -78,11 +79,7 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	fmt.Println("len(rawCerts):", len(rawCerts))
 
 	for i, cert := range rawCerts {
-		var (
-			pubkey    *ecdsa.PublicKey
-			digest    []byte
-			signature *ecdsaSignature
-		)
+		isValid := false
 
 		if i < len(rawCerts)-1 {
 			parentCert, err := x509.ParseCertificate(rawCerts[i+1])
@@ -95,63 +92,60 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 				return ErrVerifyPeerCert.New("unable to parse certificate", err)
 			}
 
-			fmt.Printf("childCert: % .10x\n", childCert)
-			fmt.Println("childCert:", childCert)
-			fmt.Printf("child signature: % .10x\n", childCert.Signature)
-
-			fmt.Printf("parentCert: % .10x\n", parentCert)
-			fmt.Println("parentCert:", parentCert)
-			fmt.Printf("parent signature: % .10x\n", parentCert.Signature)
-
-			pubkey = parentCert.PublicKey.(*ecdsa.PublicKey)
-
-			fmt.Printf("pubkey X: % .10x\npubkey Y: % .10x\n", pubkey.X, pubkey.Y)
-			// fmt.Printf("signature algo: %x\n", c.SignatureAlgorithm)
-
-			signature = new(ecdsaSignature)
-			if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
-				return ErrVerifyPeerCert.New("unable to unmarshal ecdsa signature", err)
+			isValid, err = verifyCertSignature(parentCert, childCert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
 			}
-
-			h := crypto.SHA256.New()
-			h.Write(childCert.RawTBSCertificate)
-			digest = h.Sum(nil)
 		} else {
-			c, err := x509.ParseCertificate(cert)
+			rootCert, err := x509.ParseCertificate(cert)
 			if err != nil {
 				return ErrVerifyPeerCert.New("unable to parse certificate", err)
 			}
 
-			fmt.Printf("c: % .10x\n", c)
-			fmt.Println("c:", c)
-			fmt.Printf("signature: % .10x\n", c.Signature)
-
-			pubkey = c.PublicKey.(*ecdsa.PublicKey)
-
-			fmt.Printf("pubkey X: % .10x\npubkey Y: % .10x\n", pubkey.X, pubkey.Y)
-			// fmt.Printf("signature algo: %x\n", c.SignatureAlgorithm)
-
-			signature = new(ecdsaSignature)
-			if _, err := asn1.Unmarshal(c.Signature, signature); err != nil {
-				return ErrVerifyPeerCert.New("unable to unmarshal ecdsa signature", err)
+			isValid, err = verifyCertSignature(rootCert, rootCert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
 			}
-
-			h := crypto.SHA256.New()
-			h.Write(c.RawTBSCertificate)
-			digest = h.Sum(nil)
 		}
 
-		fmt.Printf("digest X: % .10x\nR: % .10x\nS: % .10x\n", digest, signature.R, signature.S)
-		isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)
-		fmt.Println("isValid:", isValid)
-		fmt.Println("")
-
 		if !isValid {
-			return ErrVerifyPeerCert.New("signature verificatiion failed")
+			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
 		}
 	}
 
 	return nil
+}
+
+func verifyCertSignature(parentCert, childCert *x509.Certificate) (_ bool, _ error) {
+	fmt.Printf("childCert: % .10x\n", childCert)
+	fmt.Println("childCert:", childCert)
+	fmt.Printf("child signature: % .10x\n", childCert.Signature)
+
+	fmt.Printf("parentCert: % .10x\n", parentCert)
+	fmt.Println("parentCert:", parentCert)
+	fmt.Printf("parent signature: % .10x\n", parentCert.Signature)
+
+	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
+
+	fmt.Printf("pubkey X: % .10x\npubkey Y: % .10x\n", pubkey.X, pubkey.Y)
+	// fmt.Printf("signature algo: %x\n", c.SignatureAlgorithm)
+
+	signature := new(ecdsaSignature)
+	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
+		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature", err)
+	}
+
+	h := crypto.SHA256.New()
+	h.Write(childCert.RawTBSCertificate)
+	digest := h.Sum(nil)
+
+	// return digest, nil
+	fmt.Printf("digest X: % .10x\nR: % .10x\nS: % .10x\n", digest, signature.R, signature.S)
+	isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)
+	fmt.Println("isValid:", isValid)
+	fmt.Println("")
+
+	return isValid, nil
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
