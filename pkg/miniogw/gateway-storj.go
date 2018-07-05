@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
@@ -16,6 +17,7 @@ import (
 
 	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
+	mpb "storj.io/storj/protos/objects"
 )
 
 var (
@@ -143,8 +145,13 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
+	//metadata serialized
+	test := &mpb.StorjMetaInfo{
+		Metadata: metadata,
+	}
+	metainfo, err := proto.Marshal(test)
 	objpath := paths.New(bucket, object)
-	err = s.storj.os.PutObject(ctx, objpath, data, nil, time.Now())
+	err = s.storj.os.PutObject(ctx, objpath, data, metainfo, time.Now())
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
