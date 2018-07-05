@@ -99,7 +99,9 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	objpath := paths.New(bucket, object)
-	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	rr, m, err := s.storj.os.GetObject(ctx, objpath)
+	newmetainfo := &mpb.StorjMetaInfo{}
+	err = proto.Unmarshal(m.Data, newmetainfo)
 	if err != nil {
 		return Error.New("ObjectStore GetObject() error")
 	}
