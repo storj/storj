@@ -19,9 +19,9 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"math/big"
-	"time"
-	"strings"
 	"net"
+	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 )

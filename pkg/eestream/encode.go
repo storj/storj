@@ -39,13 +39,68 @@ type ErasureScheme interface {
 	RequiredCount() int
 }
 
+// RedundancyStrategy is an ErasureScheme with a minimum and optimum thresholds
+type RedundancyStrategy struct {
+	ErasureScheme
+	min int
+	opt int
+}
+
+// NewRedundancyStrategy from the given ErasureScheme, minimum and optimum
+// thresholds
+//
+// min is the minimum threshold. If set to 0, it will be reset to the
+// TotalCount of the ErasureScheme.
+// opt is the optimum threshold. If set to 0, it will be reset to the
+// TotalCount of the ErasureScheme.
+func NewRedundancyStrategy(es ErasureScheme, min, opt int) (RedundancyStrategy, error) {
+	if min == 0 {
+		min = es.TotalCount()
+	}
+	if opt == 0 {
+		opt = es.TotalCount()
+	}
+	if min < 0 {
+		return RedundancyStrategy{}, Error.New("negative minimum threshold")
+	}
+	if min > 0 && min < es.RequiredCount() {
+		return RedundancyStrategy{}, Error.New("minimum threshold less than required count")
+	}
+	if min > es.TotalCount() {
+		return RedundancyStrategy{}, Error.New("minimum threshold greater than total count")
+	}
+	if opt < 0 {
+		return RedundancyStrategy{}, Error.New("negative optimum threshold")
+	}
+	if opt > 0 && opt < es.RequiredCount() {
+		return RedundancyStrategy{}, Error.New("optimum threshold less than required count")
+	}
+	if opt > es.TotalCount() {
+		return RedundancyStrategy{}, Error.New("optimum threshold greater than total count")
+	}
+	if min > opt {
+		return RedundancyStrategy{}, Error.New("minimum threshold greater than optimum threshold")
+	}
+	return RedundancyStrategy{ErasureScheme: es, min: min, opt: opt}, nil
+}
+
+// MinimumThreshold is the number of available erasure pieces below which
+// the data must be repaired to avoid loss
+func (rs *RedundancyStrategy) MinimumThreshold() int {
+	return rs.min
+}
+
+// OptimumThreshold is the number of available erasure pieces above which
+// there is no need for the data to be repaired
+func (rs *RedundancyStrategy) OptimumThreshold() int {
+	return rs.opt
+}
+
 type encodedReader struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	r      io.Reader
-	es     ErasureScheme
-	min    int // minimum threshold
-	opt    int // optimum threshold
+	rs     RedundancyStrategy
 	inbuf  []byte
 	eps    map[int](*encodedPiece)
 	mux    sync.Mutex
@@ -53,94 +108,52 @@ type encodedReader struct {
 	done   int // number of readers done
 }
 
-// EncodeReader takes a Reader and an ErasureScheme and return a slice of
+// EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // Readers.
 //
-// min is the minimum threshold - the minimum number of erasure pieces that
-// are completely stored. If set to 0, it will be reset to the TotalCount
-// of the ErasureScheme.
-// opt is the optimum threshold - the optimum number of erasure pieces that
-// are completely stored. If set to 0, it will be reset to the TotalCount
-// of the ErasureScheme.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
 //
 // When the minimum threshold is reached a timer will be started with another
 // 1.5x the amount of time that took so far. The Readers will be aborted as
 // soon as the timer expires or the optimum threshold is reached.
-func EncodeReader(ctx context.Context, r io.Reader, es ErasureScheme,
-	min, opt, mbm int) ([]io.Reader, error) {
-	if min == 0 {
-		min = es.TotalCount()
-	}
-	if opt == 0 {
-		opt = es.TotalCount()
-	}
-	if err := checkParams(es, min, opt, mbm); err != nil {
+func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy,
+	mbm int) ([]io.Reader, error) {
+	if err := checkMBM(mbm); err != nil {
 		return nil, err
 	}
 	er := &encodedReader{
 		r:     r,
-		es:    es,
-		min:   min,
-		opt:   opt,
-		inbuf: make([]byte, es.DecodedBlockSize()),
-		eps:   make(map[int](*encodedPiece), es.TotalCount()),
+		rs:    rs,
+		inbuf: make([]byte, rs.DecodedBlockSize()),
+		eps:   make(map[int](*encodedPiece), rs.TotalCount()),
 		start: time.Now(),
 	}
 	er.ctx, er.cancel = context.WithCancel(ctx)
-	readers := make([]io.Reader, 0, es.TotalCount())
-	for i := 0; i < es.TotalCount(); i++ {
+	readers := make([]io.Reader, 0, rs.TotalCount())
+	for i := 0; i < rs.TotalCount(); i++ {
 		er.eps[i] = &encodedPiece{
 			er: er,
 		}
 		er.eps[i].ctx, er.eps[i].cancel = context.WithCancel(er.ctx)
 		readers = append(readers, er.eps[i])
 	}
-	chanSize := mbm / (es.TotalCount() * es.EncodedBlockSize())
+	chanSize := mbm / (rs.TotalCount() * rs.EncodedBlockSize())
 	if chanSize < 1 {
 		chanSize = 1
 	}
-	for i := 0; i < es.TotalCount(); i++ {
+	for i := 0; i < rs.TotalCount(); i++ {
 		er.eps[i].ch = make(chan block, chanSize)
 	}
 	go er.fillBuffer()
 	return readers, nil
 }
 
-func checkParams(es ErasureScheme, min, opt, mbm int) error {
-	if min < 0 {
-		return Error.New("negative minimum threshold")
-	}
-	if min > 0 && min < es.RequiredCount() {
-		return Error.New("minimum threshold less than required count")
-	}
-	if min > es.TotalCount() {
-		return Error.New("minimum threshold greater than total count")
-	}
-	if opt < 0 {
-		return Error.New("negative optimum threshold")
-	}
-	if opt > 0 && opt < es.RequiredCount() {
-		return Error.New("optimum threshold less than required count")
-	}
-	if opt > es.TotalCount() {
-		return Error.New("optimum threshold greater than total count")
-	}
-	if min > opt {
-		return Error.New("minimum threshold greater than optimum threshold")
-	}
-	if mbm < 0 {
-		return Error.New("negative max buffer memory")
-	}
-	return nil
-}
-
 func (er *encodedReader) fillBuffer() {
 	// these channels will synchronize the erasure encoder output with the
 	// goroutines for adding the output to the reader buffers
-	copiers := make(map[int]chan block, er.es.TotalCount())
-	for i := 0; i < er.es.TotalCount(); i++ {
+	copiers := make(map[int]chan block, er.rs.TotalCount())
+	for i := 0; i < er.rs.TotalCount(); i++ {
 		copiers[i] = make(chan block)
 		// closing the channel will exit the next goroutine
 		defer close(copiers[i])
@@ -157,7 +170,7 @@ func (er *encodedReader) fillBuffer() {
 			}
 			return
 		}
-		err = er.es.Encode(er.inbuf, func(num int, data []byte) {
+		err = er.rs.Encode(er.inbuf, func(num int, data []byte) {
 			b := block{
 				i:    num,
 				num:  blockNum,
@@ -228,7 +241,7 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 	// check if more than the required buffer channels are empty, i.e. the
 	// current channel is slow and should be closed and its context should be
 	// canceled
-	closed = ec >= er.min
+	closed = ec >= er.rs.MinimumThreshold()
 	if closed {
 		close(er.eps[num].ch)
 		er.eps[num].ch = nil
@@ -242,12 +255,12 @@ func (er *encodedReader) readerDone() {
 	er.mux.Lock()
 	defer er.mux.Unlock()
 	er.done++
-	if er.done == er.min {
+	if er.done == er.rs.MinimumThreshold() {
 		// minimum threshold reached, wait for 1.5x the duration and cancel
 		// the context regardless if optimum threshold is reached
 		time.AfterFunc(time.Since(er.start)*3/2, er.cancel)
 	}
-	if er.done == er.opt {
+	if er.done == er.rs.OptimumThreshold() {
 		// optimum threshold reached - cancel the context
 		er.cancel()
 	}
@@ -305,34 +318,24 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 // interface.
 type EncodedRanger struct {
 	rr  ranger.Ranger
-	es  ErasureScheme
-	min int // minimum threshold
-	opt int // optimum threshold
+	rs  RedundancyStrategy
 	mbm int // max buffer memory
 }
 
-// NewEncodedRanger creates an EncodedRanger. See the comments for EncodeReader
-// about min, opt and mbm.
-func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme, min, opt, mbm int) (*EncodedRanger, error) {
-	if rr.Size()%int64(es.DecodedBlockSize()) != 0 {
+// NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
+// comments for EncodeReader about the minumum and optimum thresholds, and the
+// max buffer memory.
+func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*EncodedRanger, error) {
+	if rr.Size()%int64(rs.DecodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
-	if min == 0 {
-		min = es.TotalCount()
-	}
-	if opt == 0 {
-		opt = es.TotalCount()
-	}
-	err := checkParams(es, min, opt, mbm)
-	if err != nil {
+	if err := checkMBM(mbm); err != nil {
 		return nil, err
 	}
 	return &EncodedRanger{
-		es:  es,
+		rs:  rs,
 		rr:  rr,
-		min: min,
-		opt: opt,
 		mbm: mbm,
 	}, nil
 }
@@ -340,8 +343,8 @@ func NewEncodedRanger(rr ranger.Ranger, es ErasureScheme, min, opt, mbm int) (*E
 // OutputSize is like Ranger.Size but returns the Size of the erasure encoded
 // pieces that come out.
 func (er *EncodedRanger) OutputSize() int64 {
-	blocks := er.rr.Size() / int64(er.es.DecodedBlockSize())
-	return blocks * int64(er.es.EncodedBlockSize())
+	blocks := er.rr.Size() / int64(er.rs.DecodedBlockSize())
+	return blocks * int64(er.rs.EncodedBlockSize())
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
@@ -349,15 +352,15 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := calcEncompassingBlocks(
-		offset, length, er.es.EncodedBlockSize())
+		offset, length, er.rs.EncodedBlockSize())
 	// okay, now let's encode the reader for the range containing the blocks
 	r, err := er.rr.Range(ctx,
-		firstBlock*int64(er.es.DecodedBlockSize()),
-		blockCount*int64(er.es.DecodedBlockSize()))
+		firstBlock*int64(er.rs.DecodedBlockSize()),
+		blockCount*int64(er.rs.DecodedBlockSize()))
 	if err != nil {
 		return nil, err
 	}
-	readers, err := EncodeReader(ctx, r, er.es, er.min, er.opt, er.mbm)
+	readers, err := EncodeReader(ctx, r, er.rs, er.mbm)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +368,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		// the offset might start a few bytes in, so we potentially have to
 		// discard the beginning bytes
 		_, err := io.CopyN(ioutil.Discard, r,
-			offset-firstBlock*int64(er.es.EncodedBlockSize()))
+			offset-firstBlock*int64(er.rs.EncodedBlockSize()))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -374,4 +377,11 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		readers[i] = io.LimitReader(r, length)
 	}
 	return readers, nil
+}
+
+func checkMBM(mbm int) error {
+	if mbm < 0 {
+		return Error.New("negative max buffer memory")
+	}
+	return nil
 }
