@@ -12,9 +12,7 @@ import (
 )
 
 func main() {
-	err := process.Main(func() error {
-		return process.ConfigEnvironment()
-	}, &overlay.Service{}, &netstate.Service{})
+	err := process.Main(process.ConfigEnvironment, &overlay.Service{}, &netstate.Service{})
 	if err != nil {
 		log.Fatal(err)
 	}

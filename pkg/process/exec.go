@@ -68,8 +68,8 @@ func ConfigEnvironment() error {
 }
 
 // Main runs a Service
-func Main(config func() error, s ...Service) error {
-	ConfigEnvironment()
+func Main(configFn func() error, s ...Service) error {
+	configFn()
 	ctx, cancel := context.WithCancel(context.Background())
 	errors := make(chan error, len(s))
 
