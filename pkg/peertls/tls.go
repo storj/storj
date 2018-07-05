@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	ErrNotExist            = errs.Class("file or directory not found error")
+	ErrNotExist        = errs.Class("file or directory not found error")
 	ErrNoCreate        = errs.Class("tls creation disabled error")
 	ErrNoOverwrite     = errs.Class("tls overwrite disabled error")
 	ErrBadHost         = errs.Class("bad host error")
@@ -76,7 +76,6 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 
 	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
 	// (https://www.pivotaltracker.com/story/show/158238535)
-	fmt.Println("len(rawCerts):", len(rawCerts))
 
 	for i, cert := range rawCerts {
 		isValid := false
@@ -117,20 +116,9 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (_ bool, _ error) {
-	fmt.Printf("childCert: % .10x\n", childCert)
-	fmt.Println("childCert:", childCert)
-	fmt.Printf("child signature: % .10x\n", childCert.Signature)
-
-	fmt.Printf("parentCert: % .10x\n", parentCert)
-	fmt.Println("parentCert:", parentCert)
-	fmt.Printf("parent signature: % .10x\n", parentCert.Signature)
-
 	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
-
-	fmt.Printf("pubkey X: % .10x\npubkey Y: % .10x\n", pubkey.X, pubkey.Y)
-	// fmt.Printf("signature algo: %x\n", c.SignatureAlgorithm)
-
 	signature := new(ecdsaSignature)
+
 	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
 		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature", err)
 	}
@@ -139,11 +127,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (_ bool, _ err
 	h.Write(childCert.RawTBSCertificate)
 	digest := h.Sum(nil)
 
-	// return digest, nil
-	fmt.Printf("digest X: % .10x\nR: % .10x\nS: % .10x\n", digest, signature.R, signature.S)
 	isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)
-	fmt.Println("isValid:", isValid)
-	fmt.Println("")
 
 	return isValid, nil
 }

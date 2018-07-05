@@ -158,17 +158,6 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		if err != nil {
 			return ErrGenerate.Wrap(err)
 		}
-		// clientC.PrivateKey = newKey
-
-		// clientDERBytes, err := x509.CreateCertificate(rand.Reader, clientT, rootT, &newKey.PublicKey, rootKey)
-		// if err != nil {
-		// 	return ErrGenerate.Wrap(err)
-		// }
-		//
-		// clientCertBlock := newCertBlock(clientDERBytes)
-		// if err != nil {
-		// 	return ErrGenerate.Wrap(err)
-		// }
 
 		t.ClientCertificate = clientC
 	} else {
@@ -191,7 +180,6 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		if err != nil {
 			return ErrGenerate.Wrap(err)
 		}
-		// leafC.PrivateKey = newKey
 
 		t.LeafCertificate = leafC
 	}
@@ -231,38 +219,6 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 
 	return template, nil
 }
-
-// func serverTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
-// 	notBefore, notAfter, err := datesValid()
-// 	if err != nil {
-// 		return nil, ErrTLSTemplate.Wrap(err)
-// 	}
-//
-// 	serialNumber, err := newSerialNumber()
-// 	if err != nil {
-// 		return nil, ErrTLSTemplate.Wrap(err)
-// 	}
-//
-// 	template := &x509.Certificate{
-// 		SerialNumber:          serialNumber,
-// 		Subject:               name,
-// 		NotBefore:             notBefore,
-// 		NotAfter:              notAfter,
-// 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-// 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-// 		BasicConstraintsValid: true,
-// 	}
-//
-// 	// TODO: `isCA`
-// 	if isCA {
-// 		template.IsCA = true
-// 		template.KeyUsage |= x509.KeyUsageCertSign
-// 	}
-//
-// 	setHosts(t.Hosts, template)
-//
-// 	return template, nil
-// }
 
 func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	notBefore, notAfter, err := datesValid()
