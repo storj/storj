@@ -23,7 +23,7 @@ import (
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("db", "pointerdb.db", "db path")
+	dbPath = flag.String("db", "pointers.db", "db path")
 )
 
 func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
