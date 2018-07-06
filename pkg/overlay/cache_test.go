@@ -21,9 +21,13 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
+var (
+	ctx = context.Background()
+)
+
 type dbClient int
 type responses map[dbClient]*overlay.NodeAddress
-type errors map[dbClient]error
+type errors map[dbClient]*errs.Class
 
 const (
 	mock dbClient = iota
@@ -79,7 +83,7 @@ var (
 				}
 			}(),
 			expectedErrors: errors{
-				mock:   test.ErrForced,
+				mock:   nil,
 				bolt:   nil,
 				_redis: nil,
 			},
@@ -103,9 +107,9 @@ var (
 			},
 			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
-				mock:   test.ErrMissingKey,
-				bolt:   errs.New("boltdb error"),
-				_redis: errs.New("redis error"),
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
 				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
@@ -143,9 +147,13 @@ var (
 
 func redisTestClient(t *testing.T, data test.KvStore) storage.KeyValueStore {
 	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client
 }
@@ -165,7 +173,9 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		assert.NoError(t, err)
 	}
 
-	populateStorage(t, client, data)
+	if !(data.Empty()) {
+		populateStorage(t, client, data)
+	}
 
 	return client, cleanup
 }
@@ -186,14 +196,18 @@ func TestRedisGet(t *testing.T) {
 			db := redisTestClient(t, c.data)
 			oc := Cache{DB: db}
 
-			resp, err := oc.Get(context.Background(), c.key)
-			if expectedErr := c.expectedErrors[_redis]; expectedErr != nil {
-				assert.Error(t, err)
-			} else {
-				assert.Equal(t, expectedErr, err)
-			}
+			resp, err := oc.Get(ctx, c.key)
+			assertErrClass(t, c.expectedErrors[_redis], err)
 			assert.Equal(t, c.expectedResponses[_redis], resp)
 		})
+	}
+}
+
+func assertErrClass(t *testing.T, class *errs.Class, err error) {
+	if class != nil {
+		assert.True(t, class.Has(err))
+	} else {
+		assert.NoError(t, err)
 	}
 }
 
@@ -209,7 +223,7 @@ func TestRedisPut(t *testing.T) {
 			oc := Cache{DB: db}
 
 			err := oc.Put(c.key, c.value)
-			assert.Equal(t, c.expectedErrors[_redis], err)
+			assertErrClass(t, c.expectedErrors[_redis], err)
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
@@ -229,14 +243,9 @@ func TestBoltGet(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			resp, err := oc.Get(context.Background(), c.key)
-			if expectedErr := c.expectedErrors[bolt]; expectedErr != nil {
-				assert.Error(t, err)
-			} else {
-				assert.Equal(t, expectedErr, err)
-			}
+			resp, err := oc.Get(ctx, c.key)
+			assertErrClass(t, c.expectedErrors[bolt], err)
 			assert.Equal(t, c.expectedResponses[bolt], resp)
-
 		})
 	}
 }
@@ -250,7 +259,7 @@ func TestBoltPut(t *testing.T) {
 			oc := Cache{DB: db}
 
 			err := oc.Put(c.key, c.value)
-			assert.Equal(t, c.expectedErrors[_redis], err)
+			assertErrClass(t, c.expectedErrors[_redis], err)
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
@@ -271,8 +280,8 @@ func TestMockGet(t *testing.T) {
 
 			assert.Equal(t, 0, db.GetCalled)
 
-			resp, err := oc.Get(context.Background(), c.key)
-			assert.Equal(t, c.expectedErrors[mock], err)
+			resp, err := oc.Get(ctx, c.key)
+			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedResponses[mock], resp)
 			assert.Equal(t, c.expectedTimesCalled, db.GetCalled)
 		})
@@ -289,7 +298,7 @@ func TestMockPut(t *testing.T) {
 			assert.Equal(t, 0, db.PutCalled)
 
 			err := oc.Put(c.key, c.value)
-			assert.Equal(t, c.expectedErrors[mock], err)
+			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedTimesCalled, db.PutCalled)
 
 			v := db.Data[c.key]

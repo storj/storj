@@ -10,19 +10,23 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 )
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
+	tlsRootCertPath, tlsRootKeyPath, tlsCertBasePath, tlsKeyBasePath, tlsHosts               string
 	db                                                                                       int
 	srvPort                                                                                  uint
+	tlsCreate, tlsOverwrite                                                                  bool
 )
 
 func init() {
@@ -35,13 +39,18 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
+	flag.StringVar(&tlsCertBasePath, "tlsCertBasePath", "", "The base path for TLS certificates")
+	flag.StringVar(&tlsKeyBasePath, "tlsKeyBasePath", "", "The base path for TLS keys")
+	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS host(s) (comma-delimited)")
+	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
 func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) *grpc.Server {
 	grpcServer := grpc.NewServer()
 	proto.RegisterOverlayServer(grpcServer, &Server{
-		kad:     k,
+		dht:     k,
 		cache:   cache,
 		logger:  l,
 		metrics: m,
@@ -61,6 +70,54 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 	return proto.NewOverlayClient(conn), nil
 }
 
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
+	t, err := peertls.NewTLSFileOptions(
+		tlsCertBasePath,
+		tlsKeyBasePath,
+		tlsHosts,
+		false,
+		tlsCreate,
+		tlsOverwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	grpcServer := grpc.NewServer(t.ServerOption())
+	proto.RegisterOverlayServer(grpcServer, &Server{
+		dht:     k,
+		cache:   cache,
+		logger:  l,
+		metrics: m,
+	})
+
+	return grpcServer, nil
+}
+
+// NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
+// returns a new instance of an overlay Client
+func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t, err := peertls.NewTLSFileOptions(
+		tlsRootCertPath,
+		tlsRootKeyPath,
+		tlsHosts,
+		true,
+		tlsCreate,
+		tlsOverwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, t.DialOption())
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return proto.NewOverlayClient(conn), nil
+}
+
 // Service contains all methods needed to implement the process.Service interface
 type Service struct {
 	logger  *zap.Logger
@@ -68,7 +125,8 @@ type Service struct {
 }
 
 // Process is the main function that executes the service
-func (s *Service) Process(ctx context.Context) error {
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
+	err error) {
 	// TODO
 	// 1. Boostrap a node on the network
 	// 2. Start up the overlay gRPC service
@@ -76,9 +134,17 @@ func (s *Service) Process(ctx context.Context) error {
 	// 4. Boostrap Redis Cache
 
 	// TODO(coyle): Should add the ability to pass a configuration to change the bootstrap node
-	in := kademlia.GetIntroNode(bootstrapIP, bootstrapPort)
+	in, err := kademlia.GetIntroNode("", bootstrapIP, bootstrapPort)
+	if err != nil {
+		return err
+	}
 
-	kad, err := kademlia.NewKademlia([]proto.Node{in}, "0.0.0.0", localPort)
+	id, err := kademlia.NewID()
+	if err != nil {
+		return err
+	}
+
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -134,7 +200,7 @@ func (s *Service) Process(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), nil) }()
+	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
 	go cache.Walk(ctx)
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server

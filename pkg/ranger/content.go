@@ -8,6 +8,7 @@
 package ranger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,8 +25,8 @@ import (
 
 // ServeContent is the Go standard library's http.ServeContent but modified to
 // work with Rangers.
-func ServeContent(w http.ResponseWriter, r *http.Request, name string,
-	modtime time.Time, content Ranger) {
+func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
+	name string, modtime time.Time, content Ranger) {
 	setLastModified(w, modtime)
 	done, rangeReq := checkPreconditions(w, r, modtime)
 	if done {
@@ -44,7 +45,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 	// handle Content-Range header.
 	sendSize := size
 	sendContent := func() (io.ReadCloser, error) {
-		return content.Range(0, size)
+		return content.Range(ctx, 0, size)
 	}
 
 	ranges, err := parseRange(rangeReq, size)
@@ -76,7 +77,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 		// A response to a request for a single range MUST NOT
 		// be sent using the multipart/byteranges media type."
 		ra := ranges[0]
-		sendContent = func() (io.ReadCloser, error) { return content.Range(ra.start, ra.length) }
+		sendContent = func() (io.ReadCloser, error) { return content.Range(ctx, ra.start, ra.length) }
 		sendSize = ra.length
 		code = http.StatusPartialContent
 		w.Header().Set("Content-Range", ra.contentRange(size))
@@ -95,7 +96,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					amount = sniffLen
 				}
 				// TODO: cache this somewhere so we don't have to pull it out again
-				r, err := content.Range(0, amount)
+				r, err := content.Range(ctx, 0, amount)
 				if err == nil {
 					defer r.Close()
 					n, _ := io.ReadFull(r, buf[:])
@@ -126,7 +127,7 @@ func ServeContent(w http.ResponseWriter, r *http.Request, name string,
 					pw.CloseWithError(err)
 					return
 				}
-				partReader, err := content.Range(ra.start, ra.length)
+				partReader, err := content.Range(ctx, ra.start, ra.length)
 				if err != nil {
 					pw.CloseWithError(err)
 					return

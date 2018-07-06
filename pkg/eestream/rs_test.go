@@ -29,8 +29,12 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs := NewRSScheme(fc, 8*1024)
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	es := NewRSScheme(fc, 8*1024)
+	rs, err := NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +62,12 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs := NewRSScheme(fc, 8*1024)
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 0)
+	es := NewRSScheme(fc, 8*1024)
+	rs, err := NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +90,11 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs := NewRSScheme(fc, 8*1024)
+	es := NewRSScheme(fc, 8*1024)
+	rs, err := NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	encKey := sha256.Sum256([]byte("the secret key"))
 	var firstNonce [12]byte
 	encrypter, err := NewAESGCMEncrypter(
@@ -91,8 +103,7 @@ func TestRSRanger(t *testing.T) {
 		t.Fatal(err)
 	}
 	readers, err := EncodeReader(ctx, TransformReader(PadReader(ioutil.NopCloser(
-		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0),
-		rs, 0, 0, 0)
+		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,25 +111,26 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rrs := map[int]ranger.Ranger{}
+	rrs := map[int]ranger.RangeCloser{}
 	for i, piece := range pieces {
-		rrs[i] = ranger.ByteRanger(piece)
+		rrs[i] = ranger.NopCloser(ranger.ByteRanger(piece))
 	}
 	decrypter, err := NewAESGCMDecrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())
-	rr, err := Decode(ctx, rrs, rs, 0)
+	rc, err := Decode(rrs, rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err = Transform(rr, decrypter)
+	defer rc.Close()
+	rr, err := Transform(rc, decrypter)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err = UnpadSlow(rr)
+	rr, err = UnpadSlow(ctx, rr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := rr.Range(0, rr.Size())
+	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,35 +143,65 @@ func TestRSRanger(t *testing.T) {
 	}
 }
 
-func TestRSEncoderInputParams(t *testing.T) {
+func TestNewRedundancyStrategy(t *testing.T) {
 	for i, tt := range []struct {
 		min       int
 		opt       int
+		expMin    int
+		expOpt    int
+		errString string
+	}{
+		{0, 0, 4, 4, ""},
+		{-1, 0, 0, 0, "eestream error: negative minimum threshold"},
+		{1, 0, 0, 0, "eestream error: minimum threshold less than required count"},
+		{5, 0, 0, 0, "eestream error: minimum threshold greater than total count"},
+		{0, -1, 0, 0, "eestream error: negative optimum threshold"},
+		{0, 1, 0, 0, "eestream error: optimum threshold less than required count"},
+		{0, 5, 0, 0, "eestream error: optimum threshold greater than total count"},
+		{3, 4, 3, 4, ""},
+		{0, 3, 0, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{4, 3, 0, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{4, 4, 4, 4, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		fc, err := infectious.NewFEC(2, 4)
+		if !assert.NoError(t, err, errTag) {
+			continue
+		}
+		es := NewRSScheme(fc, 8*1024)
+		rs, err := NewRedundancyStrategy(es, tt.min, tt.opt)
+		if tt.errString != "" {
+			assert.EqualError(t, err, tt.errString, errTag)
+			continue
+		}
+		assert.NoError(t, err, errTag)
+		assert.Equal(t, tt.expMin, rs.MinimumThreshold(), errTag)
+		assert.Equal(t, tt.expOpt, rs.OptimumThreshold(), errTag)
+	}
+}
+
+func TestRSEncoderInputParams(t *testing.T) {
+	for i, tt := range []struct {
 		mbm       int
 		errString string
 	}{
-		{0, 0, 0, ""},
-		{-1, 0, 0, "eestream error: negative minimum threshold"},
-		{1, 0, 0, "eestream error: minimum threshold less than required count"},
-		{5, 0, 0, "eestream error: minimum threshold greater than total count"},
-		{0, -1, 0, "eestream error: negative optimum threshold"},
-		{0, 1, 0, "eestream error: optimum threshold less than required count"},
-		{0, 5, 0, "eestream error: optimum threshold greater than total count"},
-		{3, 4, 0, ""},
-		{0, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
-		{4, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
-		{0, 0, -1, "eestream error: negative max buffer memory"},
-		{4, 4, 1024, ""},
+		{0, ""},
+		{-1, "eestream error: negative max buffer memory"},
+		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		ctx := context.Background()
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
-		rs := NewRSScheme(fc, 8*1024)
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
+		es := NewRSScheme(fc, 8*1024)
+		rs, err := NewRedundancyStrategy(es, 0, 0)
+		if !assert.NoError(t, err, errTag) {
+			continue
+		}
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -170,33 +212,26 @@ func TestRSEncoderInputParams(t *testing.T) {
 
 func TestRSRangerInputParams(t *testing.T) {
 	for i, tt := range []struct {
-		min       int
-		opt       int
 		mbm       int
 		errString string
 	}{
-		{0, 0, 0, ""},
-		{-1, 0, 0, "eestream error: negative minimum threshold"},
-		{1, 0, 0, "eestream error: minimum threshold less than required count"},
-		{5, 0, 0, "eestream error: minimum threshold greater than total count"},
-		{0, -1, 0, "eestream error: negative optimum threshold"},
-		{0, 1, 0, "eestream error: optimum threshold less than required count"},
-		{0, 5, 0, "eestream error: optimum threshold greater than total count"},
-		{3, 4, 0, ""},
-		{0, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
-		{4, 3, 0, "eestream error: minimum threshold greater than optimum threshold"},
-		{0, 0, -1, "eestream error: negative max buffer memory"},
-		{4, 4, 1024, ""},
+		{0, ""},
+		{-1, "eestream error: negative max buffer memory"},
+		{1024, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		ctx := context.Background()
 		data := randData(32 * 1024)
 		fc, err := infectious.NewFEC(2, 4)
 		if !assert.NoError(t, err, errTag) {
-			return
+			continue
 		}
-		rs := NewRSScheme(fc, 8*1024)
-		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.min, tt.opt, tt.mbm)
+		es := NewRSScheme(fc, 8*1024)
+		rs, err := NewRedundancyStrategy(es, 0, 0)
+		if !assert.NoError(t, err, errTag) {
+			continue
+		}
+		_, err = EncodeReader(ctx, bytes.NewReader(data), rs, tt.mbm)
 		if tt.errString == "" {
 			assert.NoError(t, err, errTag)
 		} else {
@@ -399,8 +434,12 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	rs := NewRSScheme(fc, tt.blockSize)
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0, 0, 3*1024)
+	es := NewRSScheme(fc, tt.blockSize)
+	rs, err := NewRedundancyStrategy(es, 0, 0)
+	if !assert.NoError(t, err, errTag) {
+		return
+	}
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 3*1024)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -471,8 +510,12 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rs := NewRSScheme(fc, 1024)
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 35, 50, 0)
+	es := NewRSScheme(fc, 1024)
+	rs, err := NewRedundancyStrategy(es, 35, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
