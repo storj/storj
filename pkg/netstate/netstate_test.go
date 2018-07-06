@@ -26,57 +26,19 @@ var (
 	ctx = context.Background()
 )
 
-
 func TestNewNetStateClient(t *testing.T) {
+	// mocked grpcClient so we don't have
+	// to call the network to test the code
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	//mdb := test.NewMockKeyValueStore(test.KvStore{})
+	gc:= NewMockNetStateClient(ctrl)
+	nsc := NetState{grpcClient: gc}
 
-	 gc:= NewMockNetStateClient(ctrl)
-	 nsc := NetState{grpcClient: gc}
-	 
-	 assert.NotNil(t, nsc)
-
-
-	
-	 nsc.Put(ctx, "file1/file2", "pointer", "abc123" )
-
-
-
-	// viper.Reset()
-	// viper.Set("key", "abc123")
-
-	// tests should always listen on "localhost:0"
-	// lis, err := net.Listen("tcp", "localhost:0")
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// grpcServer := grpc.NewServer()
-	// pb.RegisterNetStateServer(grpcServer, NewServer(mdb, zap.L()))
-	// go grpcServer.Serve(lis)
-
-	// conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure())
-	// if err != nil {
-	// 	grpcServer.GracefulStop()
-	// 	lis.Close()
-	// 	t.Fatal(err)
-	// }
-
-	// return &NetStateClientTest{
-	// 	T:      t,
-	// 	server: grpcServer,
-	// 	lis:    lis,
-	// 	mdb:    mdb,
-	// 	c:      pb.NewNetStateClient(conn),
-	// }
+	assert.NotNil(t, nsc)
+	assert.NotNil(t, nsc.grpcClient)
 }
 
-// func (nt *NetStateClientTest) Close() {
-// 	nt.server.GracefulStop()
-// 	nt.lis.Close()
-// }
 
 func MakePointer(path p.Path, auth bool) pb.PutRequest {
 	var APIKey = "abc123"
@@ -122,6 +84,12 @@ func MakePointers(howMany int) []pb.PutRequest {
 	}
 	return pointers
 }
+
+
+
+
+	// viper.Reset()
+	// viper.Set("key", "abc123")
 
 
 // func (m *MockedNetState) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error {
