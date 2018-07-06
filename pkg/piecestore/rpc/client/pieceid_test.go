@@ -6,7 +6,10 @@ package client
 import (
 	"testing"
 
+	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/pkg/kademlia"
 )
 
 func TestNewPieceID(t *testing.T) {
@@ -22,6 +25,17 @@ func TestNewPieceID(t *testing.T) {
 	})
 }
 
-func TestMain(m *testing.M) {
-	m.Run()
+func TestDerivePieceID(t *testing.T) {
+	pid := NewPieceID()
+	nid, err := kademlia.NewID()
+	assert.NoError(t, err)
+
+	did := pid.Derive(nid.Bytes())
+	assert.NotEqual(t, pid, did)
+
+	did2 := pid.Derive(nid.Bytes())
+	assert.Equal(t, did, did2)
+
+	_, err = base58.Decode(did.String())
+	assert.NoError(t, err)
 }
