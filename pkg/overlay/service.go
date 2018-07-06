@@ -16,7 +16,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
-	tls "storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -71,7 +71,7 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 }
 
 func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
-	t, err := tls.NewTLSFileOptions(
+	t, err := peertls.NewTLSFileOptions(
 		tlsCertBasePath,
 		tlsKeyBasePath,
 		tlsHosts,
@@ -97,7 +97,7 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
 func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	t, err := tls.NewTLSFileOptions(
+	t, err := peertls.NewTLSFileOptions(
 		tlsRootCertPath,
 		tlsRootKeyPath,
 		tlsHosts,

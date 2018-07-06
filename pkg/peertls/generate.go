@@ -27,14 +27,10 @@ import (
 )
 
 const (
-	oneYear = 365 * 24 * time.Hour
+	OneYear = 365 * 24 * time.Hour
 )
 
 func (t *TLSFileOptions) generateTLS() (_ error) {
-	var (
-		err error
-	)
-
 	if t.Hosts == "" {
 		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
@@ -179,15 +175,16 @@ func setHosts(hosts string, template *x509.Certificate) {
 	for _, host := range h {
 		if ip := net.ParseIP(host); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, host)
+			continue
 		}
+
+		template.DNSNames = append(template.DNSNames, host)
 	}
 }
 
 func defaultExpiration() (_, _ time.Time) {
 	notBefore := time.Now()
-	notAfter := notBefore.Add(oneYear)
+	notAfter := notBefore.Add(OneYear)
 
 	return notBefore, notAfter
 }

@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -20,7 +21,7 @@ import (
 //
 // Lookup finds a Node with the provided identifier.
 type Client interface {
-	Choose(ctx context.Context, limit, space int64) ([]*kademlia.NodeID, error)
+	Choose(ctx context.Context, limit, space int64) ([]*dht.NodeID, error)
 	Lookup(ctx context.Context, nodeID kademlia.NodeID) (*proto.Node, error)
 }
 
@@ -56,7 +57,7 @@ func (o *Overlay) Choose(ctx context.Context, limit, space int64) ([]*proto.Node
 }
 
 // Lookup provides a Node with the given address
-func (o *Overlay) Lookup(ctx context.Context, nodeID kademlia.NodeID) (*proto.Node, error) {
+func (o *Overlay) Lookup(ctx context.Context, nodeID dht.NodeID) (*proto.Node, error) {
 	resp, err := o.client.Lookup(ctx, &proto.LookupRequest{NodeID: nodeID.String()})
 	if err != nil {
 		return nil, err

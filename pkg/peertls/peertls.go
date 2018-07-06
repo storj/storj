@@ -17,15 +17,22 @@ import (
 )
 
 var (
-	ErrNotExist        = errs.Class("file or directory not found error")
-	ErrNoCreate        = errs.Class("tls creation disabled error")
-	ErrNoOverwrite     = errs.Class("tls overwrite disabled error")
-	ErrBadHost         = errs.Class("bad host error")
-	ErrGenerate        = errs.Class("tls generation error")
-	ErrCredentials     = errs.Class("grpc credentials error")
-	ErrTLSOptions      = errs.Class("tls options error")
-	ErrTLSTemplate     = errs.Class("tls template error")
-	ErrVerifyPeerCert  = errs.Class("tls peer certificate verification error")
+	// ErrNotExist is used when a file or directory doesn't exist
+	ErrNotExist = errs.Class("file or directory not found error")
+	// ErrNoOverwrite is used when `create == true && overwrite == false`
+	// 	and tls certs/keys already exist at the specified paths
+	ErrNoOverwrite = errs.Class("tls overwrite disabled error")
+	// ErrBadHost is used tls host(s) aren't provided
+	ErrBadHost = errs.Class("bad host error")
+	// ErrGenerate is used when an error occured during cert/key generation
+	ErrGenerate = errs.Class("tls generation error")
+	// ErrTLSOptions is used inconsistently and should probably just be removed
+	ErrTLSOptions = errs.Class("tls options error")
+	// ErrTLSTemplate is used when an error occurs during tls template generation
+	ErrTLSTemplate = errs.Class("tls template error")
+	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`
+	ErrVerifyPeerCert = errs.Class("tls peer certificate verification error")
+	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
 )
 

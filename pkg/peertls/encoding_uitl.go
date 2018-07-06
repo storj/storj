@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package peertls
 
 import (
@@ -9,12 +12,17 @@ import (
 	"github.com/zeebo/errs"
 )
 
+const (
+	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
+	BlockTypeCertificate  = "CERTIFICATE"
+)
+
 func newKeyBlock(b []byte) (_ *pem.Block) {
-	return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
+	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
 func newCertBlock(b []byte) (_ *pem.Block) {
-	return &pem.Block{Type: "CERTIFICATE", Bytes: b}
+	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
 func keyToDERBytes(key *ecdsa.PrivateKey) (_ []byte, _ error) {
@@ -36,12 +44,11 @@ func keyToBlock(key *ecdsa.PrivateKey) (_ *pem.Block, _ error) {
 }
 
 func certFromPEMs(certPEMBytes, keyPEMBytes []byte) (*tls.Certificate, error) {
-	var (
-		certDERs = [][]byte{}
-	)
+	certDERs := [][]byte{}
 
 	for {
 		var certDERBlock *pem.Block
+
 		certDERBlock, certPEMBytes = pem.Decode(certPEMBytes)
 		if certDERBlock == nil {
 			break
@@ -51,20 +58,23 @@ func certFromPEMs(certPEMBytes, keyPEMBytes []byte) (*tls.Certificate, error) {
 	}
 
 	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
+	if keyPEMBlock == nil {
+		return nil, errs.New("unable to decode key PEM data")
+	}
 
 	return certFromDERs(certDERs, keyPEMBlock.Bytes)
 }
 
 func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
-	fail := func(err error) (*tls.Certificate, error) { return &tls.Certificate{}, err }
+	var (
+		err  error
+		cert = new(tls.Certificate)
+	)
 
-	var cert = new(tls.Certificate)
 	cert.Certificate = certDERBytes
-
-	var err error
 	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
 	if err != nil {
-		return fail(err)
+		return nil, errs.New("unable to parse EC private key", err)
 	}
 
 	return cert, nil

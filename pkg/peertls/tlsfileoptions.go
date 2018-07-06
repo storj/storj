@@ -114,21 +114,15 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 }
 
 func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) (_ credentials.TransportCredentials) {
-	creds := credentials.NewTLS(t.NewTLSConfig(config))
-
-	return creds
+	return credentials.NewTLS(t.NewTLSConfig(config))
 }
 
 func (t *TLSFileOptions) DialOption() (_ grpc.DialOption) {
-	creds := t.NewPeerTLS(nil)
-
-	return grpc.WithTransportCredentials(creds)
+	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
 func (t *TLSFileOptions) ServerOption() (_ grpc.ServerOption) {
-	creds := t.NewPeerTLS(nil)
-
-	return grpc.Creds(creds)
+	return grpc.Creds(t.NewPeerTLS(nil))
 }
 
 func (t *TLSFileOptions) loadTLS() (_ error) {
