@@ -20,7 +20,6 @@ import (
 
 var (
 	port string
-	//APIKey = []byte("abc123")
 )
 
 func initializeFlags() {
