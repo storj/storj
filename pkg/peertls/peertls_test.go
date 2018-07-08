@@ -80,7 +80,7 @@ func TestNewTLSFileOptions(t *testing.T) {
 		keyBasePath := filepath.Join(tempPath, key)
 		certPath := fmt.Sprintf("%s.%s.cert", certBasePath, subExt)
 		keyPath := fmt.Sprintf("%s.%s.key", keyBasePath, subExt)
-		opts, err := NewTLSFileOptions(certBasePath, keyBasePath, hosts, client, true, overwrite)
+		opts, err := NewTLSFileOptions(certBasePath, keyBasePath, client, true, overwrite)
 		if !assert.NoError(t, err) {
 			quickLog("", nil, err)
 			return false
@@ -121,9 +121,6 @@ func TestNewTLSFileOptions(t *testing.T) {
 			}
 		}
 
-		if !assert.Equal(t, opts.Hosts, hosts) {
-			return false
-		}
 		if !assert.Equal(t, opts.Client, client) {
 			return false
 		}
@@ -269,7 +266,6 @@ func TestLoadTLS(t *testing.T) {
 		generatedTLS, err := NewTLSFileOptions(
 			basePath,
 			basePath,
-			"localhost,127.0.0.1,::",
 			false,
 			true,
 			false,
@@ -283,7 +279,6 @@ func TestLoadTLS(t *testing.T) {
 		loadedTLS, err := NewTLSFileOptions(
 			basePath,
 			basePath,
-			"localhost,127.0.0.1,::",
 			false,
 			false,
 			false,
@@ -494,7 +489,6 @@ func TestNewTLSConfig(t *testing.T) {
 	opts, err := NewTLSFileOptions(
 		basePath,
 		basePath,
-		"127.0.0.1",
 		false,
 		true,
 		false,

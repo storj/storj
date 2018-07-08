@@ -22,8 +22,6 @@ var (
 	// ErrNoOverwrite is used when `create == true && overwrite == false`
 	// 	and tls certs/keys already exist at the specified paths
 	ErrNoOverwrite = errs.Class("tls overwrite disabled error")
-	// ErrBadHost is used tls host(s) aren't provided
-	ErrBadHost = errs.Class("bad host error")
 	// ErrGenerate is used when an error occured during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
 	// ErrTLSOptions is used inconsistently and should probably just be removed
@@ -119,7 +117,7 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
+func NewTLSFileOptions(baseCertPath, baseKeyPath string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
 		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
 		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
@@ -130,7 +128,6 @@ func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, 
 		Client:            client,
 		Overwrite:         overwrite,
 		Create:            create,
-		Hosts:             hosts,
 	}
 
 	if err := t.EnsureExists(); err != nil {

@@ -88,7 +88,12 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		nodeID, err := kademlia.ParseNodeID(v.Id)
+		if err != nil {
+			errs.New("unable to parse node id \"%s\"", v.Id, err)
+		}
+
+		found, err := o.DHT.FindNode(ctx, nodeID)
 		if err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
@@ -143,7 +148,11 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		if _, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id)); err != nil {
+		nodeID, err := kademlia.ParseNodeID(v.Id)
+		if err != nil {
+			errs.New("unable to parse node id \"%s\"", v.Id, err)
+		}
+		if _, err := o.DHT.FindNode(ctx, nodeID); err != nil {
 			fmt.Println("could not find node in network", err, v.Id)
 		}
 	}

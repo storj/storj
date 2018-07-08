@@ -21,7 +21,7 @@ const (
 )
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
-	bid, err := newID()
+	bnid, err := newID(0)
 	assert.NoError(t, err)
 
 	bnid := NodeID(bid)

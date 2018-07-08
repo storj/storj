@@ -74,7 +74,6 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 	t, err := peertls.NewTLSFileOptions(
 		tlsCertBasePath,
 		tlsKeyBasePath,
-		tlsHosts,
 		false,
 		tlsCreate,
 		tlsOverwrite,
@@ -100,7 +99,6 @@ func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayCli
 	t, err := peertls.NewTLSFileOptions(
 		tlsRootCertPath,
 		tlsRootKeyPath,
-		tlsHosts,
 		true,
 		tlsCreate,
 		tlsOverwrite,

@@ -21,8 +21,6 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		IsCA: false,
 	}
 
-	setHosts(t.Hosts, template)
-
 	return template, nil
 }
 
@@ -44,8 +42,6 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		IsCA: true,
 	}
 
-	setHosts(t.Hosts, template)
-
 	return template, nil
 }
 
@@ -66,8 +62,6 @@ func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 		BasicConstraintsValid: true,
 		IsCA: false,
 	}
-
-	setHosts(t.Hosts, template)
 
 	return template, nil
 }
