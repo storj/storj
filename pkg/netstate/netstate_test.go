@@ -24,6 +24,7 @@ import (
 
 var (
 	ctx = context.Background()
+	APIKey = "abc123"
 )
 
 func TestNewNetStateClient(t *testing.T) {
@@ -85,25 +86,63 @@ func MakePointers(howMany int) []pb.PutRequest {
 	return pointers
 }
 
+func TestPut(t *testing.T){
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	path := p.New("file1/file2")
+	pr1 := MakePointer(path, true)
+	//pr2 := MakePointer(path, false)
+
+	for i, tt := range []struct {
+		APIKey []byte
+		path p.Path
+		err error 
+		errString string
+	}{
+		{pr1.APIKey, path, nil, ""},
+		
+	}{
+		errTag := fmt.Sprintf("Test case #%d", i)
+		
+		gc:= NewMockNetStateClient(ctrl)
+		nsc := NetState{grpcClient: gc}
+
+
+		gomock.InOrder(
+			gc.EXPECT().Put(ctx, &pr1).Return(nil, nil),
+		)
+
+		err := nsc.Put(ctx, tt.path, pr1.Pointer, tt.APIKey)
+		fmt.Println("this is the error: ", err, errTag)
+		
+		if err != nil {
+			assert.EqualError(t, err, tt.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
+		
+		//p := New(tt.path)
+		//assert.Equal(t, tt.expected, p, errTag)
+
+
+		// Got: path:"file1/file2" pointer:<type:REMOTE remote:<redundancy:<min_req:1 total:3 repair_threshold:2 success_threshold:3 > piece_id:"testId" remote_pieces:<piece_num:1 node_id:"testId" > > size:1 > APIKey:"abc123"
+		// Want: is equal to {[102 105 108 101 49 47 102 105 108 101 50] type:REMOTE remote:<redundancy:<min_req:1 total:3 repair_threshold:2 success_threshold:3 > piece_id:"testId" remote_pieces:<piece_num:1 node_id:"testId" > > size:1  [97 98 99 49 50 51]}
+	}
+}
+
+
+
+
+
+
+
+
 
 
 
 	// viper.Reset()
 	// viper.Set("key", "abc123")
-
-
-// func (m *MockedNetState) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error {
-// 	args := m.Called(ctx, path, pointer, APIKey)
-// 	pre := m.mdb.PutCalled
-// 	_, err := m.c.Put(ctx, &pb.PutRequest{Path: path.Bytes(), Pointer: pointer, APIKey: APIKey})
-// 	if err != nil {
-// 		m.HandleErr(err, "Failed to put")
-// 	}
-// 	if pre+1 != m.mdb.PutCalled {
-// 		m.HandleErr(nil, "Failed to call Put correct number of times")
-// 	}
-// 	return args.Error(0)
-// }
 
 
 
