@@ -27,11 +27,29 @@ and documentation, who to contact about what, etc.
 
 First of all install `git`, `golang` and `redis-server` and add environment variables.
 
+#### Debian based (like Ubuntu)
+
 ```bash
 apt-get install git golang redis-server
 echo 'export GOPATH="$HOME/go"' >> $HOME/.bashrc
 echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bashrc
 source $HOME/.bashrc
+```
+
+#### Mac OSX
+
+```bash
+brew install git go redis
+if test -e $HOME/.bash_profile
+then
+	echo 'export GOPATH="$HOME/go"' >> $HOME/.bash_profile
+	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bash_profile
+	source $HOME/.bash_profile
+else
+	echo 'export GOPATH="$HOME/go"' >> $HOME/.profile
+	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.profile
+	source $HOME/.profile
+fi
 ```
 
 ### Install storj
