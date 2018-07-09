@@ -119,7 +119,7 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
+func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, overwrite bool) (*TLSFileOptions, error) {
 	t := &TLSFileOptions{
 		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
 		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
@@ -140,7 +140,7 @@ func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, 
 	return t, nil
 }
 
-func verifyCertSignature(parentCert, childCert *x509.Certificate) (_ bool, _ error) {
+func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
 	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
 	signature := new(ecdsaSignature)
 

@@ -8,7 +8,7 @@ import (
 	"math/big"
 )
 
-func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+func clientTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	notBefore, notAfter := defaultExpiration()
 
 	template := &x509.Certificate{
@@ -26,7 +26,7 @@ func clientTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	return template, nil
 }
 
-func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	notBefore, notAfter := defaultExpiration()
 
 	serialNumber, err := newSerialNumber()
@@ -49,7 +49,7 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	return template, nil
 }
 
-func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
+func leafTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	notBefore, notAfter := defaultExpiration()
 
 	serialNumber, err := newSerialNumber()

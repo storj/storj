@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package peertls
 
 import (
@@ -35,7 +38,7 @@ var (
 )
 
 // EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
-func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
+func (t *TLSFileOptions) EnsureAbsPaths() (error) {
 	for _, role := range t.requiredFiles() {
 		for absPtr, relPath := range t.pathMap() {
 			if t.pathRoleMap()[absPtr] == role {
@@ -59,7 +62,7 @@ func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 }
 
 // EnsureExists checks whether the cert/key exists and whether to create/overwrite them given `t`s field values.
-func (t *TLSFileOptions) EnsureExists() (_ error) {
+func (t *TLSFileOptions) EnsureExists() (error) {
 	if err := t.EnsureAbsPaths(); err != nil {
 		return err
 	}
@@ -113,19 +116,19 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	return config
 }
 
-func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) (_ credentials.TransportCredentials) {
+func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) (credentials.TransportCredentials) {
 	return credentials.NewTLS(t.NewTLSConfig(config))
 }
 
-func (t *TLSFileOptions) DialOption() (_ grpc.DialOption) {
+func (t *TLSFileOptions) DialOption() (grpc.DialOption) {
 	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
-func (t *TLSFileOptions) ServerOption() (_ grpc.ServerOption) {
+func (t *TLSFileOptions) ServerOption() (grpc.ServerOption) {
 	return grpc.Creds(t.NewPeerTLS(nil))
 }
 
-func (t *TLSFileOptions) loadTLS() (_ error) {
+func (t *TLSFileOptions) loadTLS() (error) {
 	if t.Client {
 		clientC, err := LoadCert(t.ClientCertAbsPath, t.ClientKeyAbsPath)
 		if err != nil {
@@ -145,7 +148,7 @@ func (t *TLSFileOptions) loadTLS() (_ error) {
 	return nil
 }
 
-func (t *TLSFileOptions) missingFiles() (_ []string, _ error) {
+func (t *TLSFileOptions) missingFiles() ([]string, error) {
 	missingFiles := []string{}
 
 	paths := map[fileRole]string{
@@ -176,7 +179,7 @@ func (t *TLSFileOptions) missingFiles() (_ []string, _ error) {
 	return missingFiles, nil
 }
 
-func (t *TLSFileOptions) requiredFiles() (_ []fileRole) {
+func (t *TLSFileOptions) requiredFiles() ([]fileRole) {
 	var roles = []fileRole{}
 
 	// rootCert is always required
@@ -196,7 +199,7 @@ func (t *TLSFileOptions) requiredFiles() (_ []fileRole) {
 	return roles
 }
 
-func (t *TLSFileOptions) hasRequiredFiles() (_ bool, _ error) {
+func (t *TLSFileOptions) hasRequiredFiles() (bool, error) {
 	missingFiles, err := t.missingFiles()
 	if err != nil {
 		return false, err
@@ -205,7 +208,7 @@ func (t *TLSFileOptions) hasRequiredFiles() (_ bool, _ error) {
 	return len(missingFiles) == 0, nil
 }
 
-func (t *TLSFileOptions) pathMap() (_ map[*string]string) {
+func (t *TLSFileOptions) pathMap() (map[*string]string) {
 	return map[*string]string{
 		&t.RootCertAbsPath:   t.RootCertRelPath,
 		&t.RootKeyAbsPath:    t.RootKeyRelPath,
@@ -216,7 +219,7 @@ func (t *TLSFileOptions) pathMap() (_ map[*string]string) {
 	}
 }
 
-func (t *TLSFileOptions) pathRoleMap() (_ map[*string]fileRole) {
+func (t *TLSFileOptions) pathRoleMap() (map[*string]fileRole) {
 	return map[*string]fileRole{
 		&t.RootCertAbsPath:   rootCert,
 		&t.RootKeyAbsPath:    rootKey,

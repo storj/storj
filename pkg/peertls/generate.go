@@ -30,7 +30,7 @@ const (
 	OneYear = 365 * 24 * time.Hour
 )
 
-func (t *TLSFileOptions) generateTLS() (_ error) {
+func (t *TLSFileOptions) generateTLS() (error) {
 	if t.Hosts == "" {
 		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
 	}
@@ -143,7 +143,7 @@ func createAndPersist(
 	parentDERCerts [][]byte,
 	pubKey *ecdsa.PublicKey,
 	rootKey,
-	privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func defaultExpiration() (_, _ time.Time) {
 	return notBefore, notAfter
 }
 
-func newSerialNumber() (_ *big.Int, _ error) {
+func newSerialNumber() (*big.Int, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
