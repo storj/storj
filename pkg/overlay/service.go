@@ -23,10 +23,9 @@ import (
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
-	tlsRootCertPath, tlsRootKeyPath, tlsCertBasePath, tlsKeyBasePath, tlsHosts               string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	tlsCreate, tlsOverwrite                                                                  bool
+	options                                                                                  peertls.TLSFileOptions
 )
 
 func init() {
@@ -39,11 +38,11 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
-	flag.StringVar(&tlsCertBasePath, "tlsCertBasePath", "", "The base path for TLS certificates")
-	flag.StringVar(&tlsKeyBasePath, "tlsKeyBasePath", "", "The base path for TLS keys")
-	flag.StringVar(&tlsHosts, "tlsHosts", "", "TLS host(s) (comma-delimited)")
-	flag.BoolVar(&tlsCreate, "tlsCreate", false, "If true, generate a new TLS cert/key files")
-	flag.BoolVar(&tlsOverwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
+	flag.StringVar(&options.RootCertRelPath, "tlsCertBasePath", "", "The base path for TLS certificates")
+	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
+	flag.StringVar(&options.Hosts, "tlsHosts", "", "TLS host(s) (comma-delimited)")
+	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -70,14 +69,16 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 	return proto.NewOverlayClient(conn), nil
 }
 
-func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry) (_ *grpc.Server, _ error) {
+// NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSFileOptions) (_ *grpc.Server, _ error) {
 	t, err := peertls.NewTLSFileOptions(
-		tlsCertBasePath,
-		tlsKeyBasePath,
-		tlsHosts,
+		// TODO(coyle): Should this be relative or absolute ?
+		fopts.RootCertRelPath,
+		fopts.RootKeyRelPath,
+		fopts.Hosts,
 		false,
-		tlsCreate,
-		tlsOverwrite,
+		fopts.Create,
+		fopts.Overwrite,
 	)
 	if err != nil {
 		return nil, err
@@ -96,14 +97,15 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
-func NewTLSClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	t, err := peertls.NewTLSFileOptions(
-		tlsRootCertPath,
-		tlsRootKeyPath,
-		tlsHosts,
+		// TODO(coyle): Should this be relative or absolute ?
+		fopts.RootCertAbsPath,
+		fopts.RootKeyAbsPath,
+		fopts.Hosts,
 		true,
-		tlsCreate,
-		tlsOverwrite,
+		fopts.Create,
+		fopts.Overwrite,
 	)
 	if err != nil {
 		return nil, err
