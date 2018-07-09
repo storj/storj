@@ -6,12 +6,12 @@ package main
 import (
 	"log"
 
-	"storj.io/storj/pkg/netstate"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 )
 
 func main() {
-	err := process.Main(process.ConfigEnvironment, &netstate.Service{})
+	err := process.Main(process.ConfigEnvironment, &pointerdb.Service{})
 	if err != nil {
 		log.Fatal(err)
 	}

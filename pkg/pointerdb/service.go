@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package netstate
+package pointerdb
 
 import (
 	"context"
@@ -15,13 +15,13 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	proto "storj.io/storj/protos/netstate"
+	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
 )
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("netstateDB", "netstate.db", "netstate db path")
+	dbPath = flag.String("pointerdbDB", "pointerdb.db", "pointerdb db path")
 )
 
 // Process fits the `Process` interface for services
@@ -44,7 +44,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 
 	grpcServer := grpc.NewServer()
 
-	proto.RegisterNetStateServer(grpcServer, NewServer(bdb, s.logger))
+	proto.RegisterPointerDBServer(grpcServer, NewServer(bdb, s.logger))
 	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
 	defer grpcServer.GracefulStop()
