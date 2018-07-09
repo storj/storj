@@ -461,7 +461,7 @@
     "pkg/wildcard",
     "pkg/words"
   ]
-  revision = "e40a5e05e1e77f6e5df3b978b2a4f3255d2eb315"
+  revision = "0ef0d7e685bd2fbe57bd0351e36649e971cc9a93"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -474,8 +474,8 @@
     "pkg/s3utils",
     "pkg/set"
   ]
-  revision = "3adf3e30ef96aea8469c7aff8ef19ed38901817b"
-  version = "v6.0.4"
+  revision = "70799fe8dae6ecfb6c7d7e9e048fce27f23a1992"
+  version = "v6.0.5"
 
 [[projects]]
   branch = "master"
@@ -608,7 +608,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "40f013a808ec4fa79def444a1a56de4d1727efcb"
+  revision = "ae68e2d4c00fed4943b5f6698d504a5fe083da8a"
 
 [[projects]]
   branch = "master"
@@ -856,7 +856,7 @@
     "trace",
     "websocket"
   ]
-  revision = "ed29d75add3d7c4bf7ca65aac0c6df3d1420216f"
+  revision = "32a936f46389aa10549d60bd7833e54b01685d09"
 
 [[projects]]
   branch = "master"
@@ -866,7 +866,7 @@
     "unix",
     "windows"
   ]
-  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
+  revision = "ce36f3865eeb42541ce3f87f32f8462c5687befa"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -1011,6 +1011,10 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
+<<<<<<< HEAD
   inputs-digest = "9c05cf2ea65617806454427ce9caa5a36376912fd04575f7e0dcb554f257f6f1"
+=======
+  inputs-digest = "bbbfafb1e1723b41717351f2e01b9f4b5d4cb2f2049ab72a49c63b2be170ff23"
+>>>>>>> 192e68c8e38215e17994a2dd5d61b3e59158ec7e
   solver-name = "gps-cdcl"
   solver-version = 1
