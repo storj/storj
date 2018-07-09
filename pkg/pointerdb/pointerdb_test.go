@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"errors"
 	"testing"
+	"log"
 
-	//"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	//"github.com/spf13/viper"
 	//"go.uber.org/zap"
 	//"google.golang.org/grpc"
@@ -112,7 +113,54 @@ func TestPut(t *testing.T){
 	}
 }
 
+func TestGet(t *testing.T){
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	for i, tt := range []struct {
+		APIKey []byte
+		path p.Path
+		err error 
+		errString string
+		//response pb.GetResponse
+	}{
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+	}{
+		pr:= MakePointer(tt.path, tt.APIKey)
+		gr:= pb.GetRequest{Path: tt.path.Bytes(), APIKey: tt.APIKey}
+		
+		data, err := proto.Marshal(pr.Pointer)
+		if err != nil {
+			log.Fatal("marshaling error: ", err)
+		}
+
+		byteData := []byte(data)
+
+		grr := pb.GetResponse{byteData}
+
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		
+		gc:= NewMockNetStateClient(ctrl)
+		nsc := NetState{grpcClient: gc}
+
+		gomock.InOrder(
+			gc.EXPECT().Get(ctx, &gr).Return(&grr, tt.err),
+		)
+
+		pointer, err := nsc.Get(ctx, tt.path, tt.APIKey)
+
+		if err != nil {
+			assert.EqualError(t, err, tt.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
+	}
+}
 
 
 
