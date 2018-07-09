@@ -19,18 +19,14 @@ const (
 	rootKey
 	leafCert
 	leafKey
-	clientCert
-	clientKey
 )
 
 var (
 	fileLabels = map[fileRole]string{
-		rootCert:   "root certificate",
-		rootKey:    "root key",
-		leafCert:   "leaf certificate",
-		leafKey:    "leaf key",
-		clientCert: "client certificate",
-		clientKey:  "client key",
+		rootCert: "root certificate",
+		rootKey:  "root key",
+		leafCert: "leaf certificate",
+		leafKey:  "leaf key",
 	}
 )
 
@@ -41,7 +37,7 @@ func (t *TLSFileOptions) EnsureAbsPaths() (_ error) {
 			if t.pathRoleMap()[absPtr] == role {
 				if *absPtr == "" {
 					if relPath == "" {
-						return ErrTLSOptions.New("No relative %s path provided", fileLabels[t.pathRoleMap()[absPtr]])
+						return ErrTLSOptions.New("no relative %s path provided", fileLabels[t.pathRoleMap()[absPtr]])
 					}
 
 					absPath, err := filepath.Abs(relPath)
@@ -100,14 +96,12 @@ func (t *TLSFileOptions) EnsureExists() (_ error) {
 func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
 
-	// TODO(bryanchriswhite): more
-	if t.Client {
-		config.Certificates = []tls.Certificate{*t.ClientCertificate}
-	} else {
-		config.Certificates = []tls.Certificate{*t.LeafCertificate}
-	}
-
+	config.Certificates = []tls.Certificate{*t.LeafCertificate}
+	// Skip normal verification
 	config.InsecureSkipVerify = true
+	// Required client certificate
+	config.ClientAuth = tls.RequireAnyClientCert
+	// Custom verification logic for *both* client and server
 	config.VerifyPeerCertificate = VerifyPeerCertificate
 
 	return config
@@ -126,22 +120,12 @@ func (t *TLSFileOptions) ServerOption() (_ grpc.ServerOption) {
 }
 
 func (t *TLSFileOptions) loadTLS() (_ error) {
-	if t.Client {
-		clientC, err := LoadCert(t.ClientCertAbsPath, t.ClientKeyAbsPath)
-		if err != nil {
-			return err
-		}
-
-		t.ClientCertificate = clientC
-	} else {
-		leafC, err := LoadCert(t.LeafCertAbsPath, t.LeafKeyAbsPath)
-		if err != nil {
-			return err
-		}
-
-		t.LeafCertificate = leafC
+	leafC, err := LoadCert(t.LeafCertAbsPath, t.LeafKeyAbsPath)
+	if err != nil {
+		return err
 	}
 
+	t.LeafCertificate = leafC
 	return nil
 }
 
@@ -149,12 +133,10 @@ func (t *TLSFileOptions) missingFiles() (_ []string, _ error) {
 	missingFiles := []string{}
 
 	paths := map[fileRole]string{
-		rootCert:   t.RootCertAbsPath,
-		rootKey:    t.RootKeyAbsPath,
-		leafCert:   t.LeafCertAbsPath,
-		leafKey:    t.LeafKeyAbsPath,
-		clientCert: t.ClientCertAbsPath,
-		clientKey:  t.ClientKeyAbsPath,
+		rootCert: t.RootCertAbsPath,
+		rootKey:  t.RootKeyAbsPath,
+		leafCert: t.LeafCertAbsPath,
+		leafKey:  t.LeafKeyAbsPath,
 	}
 
 	requiredFiles := t.requiredFiles()
@@ -180,19 +162,12 @@ func (t *TLSFileOptions) requiredFiles() (_ []fileRole) {
 	var roles = []fileRole{}
 
 	// rootCert is always required
-	roles = append(roles, rootCert)
+	roles = append(roles, rootCert, leafCert, leafKey)
 
 	if t.Create {
 		// required for writing rootKey when create is true
 		roles = append(roles, rootKey)
 	}
-
-	if t.Client {
-		roles = append(roles, clientCert, clientKey)
-	} else {
-		roles = append(roles, leafCert, leafKey)
-	}
-
 	return roles
 }
 
@@ -211,8 +186,6 @@ func (t *TLSFileOptions) pathMap() (_ map[*string]string) {
 		&t.RootKeyAbsPath:    t.RootKeyRelPath,
 		&t.LeafCertAbsPath:   t.LeafCertRelPath,
 		&t.LeafKeyAbsPath:    t.LeafKeyRelPath,
-		&t.ClientCertAbsPath: t.ClientCertRelPath,
-		&t.ClientKeyAbsPath:  t.ClientKeyRelPath,
 	}
 }
 
@@ -222,7 +195,5 @@ func (t *TLSFileOptions) pathRoleMap() (_ map[*string]fileRole) {
 		&t.RootKeyAbsPath:    rootKey,
 		&t.LeafCertAbsPath:   leafCert,
 		&t.LeafKeyAbsPath:    leafKey,
-		&t.ClientCertAbsPath: clientCert,
-		&t.ClientKeyAbsPath:  clientKey,
 	}
 }

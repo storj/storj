@@ -52,7 +52,6 @@ func LoadID(basePath string) (_ dht.NodeID, _ error) {
 	t, err := peertls.NewTLSFileOptions(
 		basePath,
 		basePath,
-		false,
 		true,
 		false,
 	)
@@ -68,52 +67,50 @@ func LoadID(basePath string) (_ dht.NodeID, _ error) {
 	return nodeID, nil
 }
 
-func LoadOrCreateID(basePath string, minDifficulty uint16) (_ dht.NodeID, _ error) {
-	t, err := peertls.NewTLSFileOptions(
-		basePath,
-		basePath,
-		false,
-		false,
-		false,
-	)
-
-	if err != nil {
-		if peertls.ErrNotExist.Has(err) {
-		}
-
-		return nil, errs.Wrap(err)
-	}
-
-	baseDir := filepath.Dir(basePath)
-
-	if _, err := os.Stat(baseDir); err != nil {
-		if err == os.ErrNotExist {
-			if err := os.MkdirAll(baseDir, 600); err != nil {
-				return nil, errs.Wrap(err)
-			}
-
-			t, err := peertls.NewTLSFileOptions(
-				basePath,
-				basePath,
-				false,
-				true,
-				false,
-			)
-
-			pubkey := t.LeafCertificate.Leaf.PublicKey.(*crypto.PublicKey)
-			nodeID, err := keyToNodeID(pubkey, 256)
-			if err != nil {
-				return nil, errs.Wrap(err)
-			}
-
-			nodeID.t = t
-
-			return nodeID, nil
-		} else {
-			return nil, errs.Wrap(err)
-		}
-	}
-}
+// func LoadOrCreateID(basePath string, minDifficulty uint16) (_ dht.NodeID, _ error) {
+// 	t, err := peertls.NewTLSFileOptions(
+// 		basePath,
+// 		basePath,
+// 		false,
+// 		false,
+// 	)
+//
+// 	if err != nil {
+// 		if peertls.ErrNotExist.Has(err) {
+// 		}
+//
+// 		return nil, errs.Wrap(err)
+// 	}
+//
+// 	baseDir := filepath.Dir(basePath)
+//
+// 	if _, err := os.Stat(baseDir); err != nil {
+// 		if err == os.ErrNotExist {
+// 			if err := os.MkdirAll(baseDir, 600); err != nil {
+// 				return nil, errs.Wrap(err)
+// 			}
+//
+// 			t, err := peertls.NewTLSFileOptions(
+// 				basePath,
+// 				basePath,
+// 				true,
+// 				false,
+// 			)
+//
+// 			pubkey := t.LeafCertificate.Leaf.PublicKey.(*crypto.PublicKey)
+// 			nodeID, err := keyToNodeID(pubkey, 256)
+// 			if err != nil {
+// 				return nil, errs.Wrap(err)
+// 			}
+//
+// 			nodeID.t = t
+//
+// 			return nodeID, nil
+// 		} else {
+// 			return nil, errs.Wrap(err)
+// 		}
+// 	}
+// }
 
 func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *KadID, _ error) {
 	keyBytes, err := x509.MarshalPKIXPublicKey(pubKey)

@@ -80,7 +80,6 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	_, err = peertls.NewTLSFileOptions(
 		basePath,
 		basePath,
-		false,
 		true,
 		false,
 	)
@@ -124,7 +123,6 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	clientTLSOps, err := peertls.NewTLSFileOptions(
 		clientBasePath,
 		clientBasePath,
-		true,
 		true,
 		false,
 	)
@@ -207,7 +205,6 @@ func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Serv
 	tlsOpts, err := peertls.NewTLSFileOptions(
 		tlsBasePath,
 		tlsBasePath,
-		false,
 		create,
 		false,
 	)

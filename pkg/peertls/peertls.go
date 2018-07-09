@@ -117,15 +117,12 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath string, client, create, overwrite bool) (_ *TLSFileOptions, _ error) {
+func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
 		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
 		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
 		LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", baseCertPath),
 		LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", baseKeyPath),
-		ClientCertRelPath: fmt.Sprintf("%s.client.cert", baseCertPath),
-		ClientKeyRelPath:  fmt.Sprintf("%s.client.key", baseKeyPath),
-		Client:            client,
 		Overwrite:         overwrite,
 		Create:            create,
 	}

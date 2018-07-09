@@ -64,51 +64,27 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.New("failed to generateTLS client private key", err)
 	}
 
-	if t.Client {
-		clientT, err := clientTemplate(t)
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		clientC, err := createAndWrite(
-			t.ClientCertAbsPath,
-			t.ClientKeyAbsPath,
-			clientT,
-			rootT,
-			rootC.Certificate,
-			&newKey.PublicKey,
-			rootKey,
-			newKey,
-		)
-
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		t.ClientCertificate = clientC
-	} else {
-		leafT, err := leafTemplate(t)
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		leafC, err := createAndWrite(
-			t.LeafCertAbsPath,
-			t.LeafKeyAbsPath,
-			leafT,
-			rootT,
-			rootC.Certificate,
-			&newKey.PublicKey,
-			rootKey,
-			newKey,
-		)
-
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		t.LeafCertificate = leafC
+	leafT, err := leafTemplate(t)
+	if err != nil {
+		return ErrGenerate.Wrap(err)
 	}
+
+	leafC, err := createAndWrite(
+		t.LeafCertAbsPath,
+		t.LeafKeyAbsPath,
+		leafT,
+		rootT,
+		rootC.Certificate,
+		&newKey.PublicKey,
+		rootKey,
+		newKey,
+	)
+
+	if err != nil {
+		return ErrGenerate.Wrap(err)
+	}
+
+	t.LeafCertificate = leafC
 
 	return nil
 }
