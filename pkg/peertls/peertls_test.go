@@ -62,7 +62,7 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSFileOptions(t *testing.T) {
-	f := func(cert, key, hosts string, overwrite bool) (bool) {
+	f := func(cert, key, hosts string, overwrite bool) bool {
 		tempPath, err := ioutil.TempDir("", "TestNewTLSFileOptions")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempPath)
@@ -214,7 +214,7 @@ func TestLoadTLS(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	f := func(val string) (bool) {
+	f := func(val string) bool {
 		var err error
 
 		basePath := filepath.Join(tempPath, val)
@@ -273,7 +273,7 @@ func TestEnsureExists_Create(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	f := func(val string) (bool) {
+	f := func(val string) bool {
 		basePath := filepath.Join(tempPath, val)
 		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
 		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)

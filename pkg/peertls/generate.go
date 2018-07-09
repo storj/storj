@@ -30,7 +30,7 @@ const (
 	OneYear = 365 * 24 * time.Hour
 )
 
-func (t *TLSFileOptions) generateTLS() (error) {
+func (t *TLSFileOptions) generateTLS() error {
 	if err := t.EnsureAbsPaths(); err != nil {
 		return ErrGenerate.Wrap(err)
 	}
@@ -108,14 +108,14 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 }
 
 func createAndWrite(
-		certPath,
-		keyPath string,
-		template,
-		parentTemplate *x509.Certificate,
-		parentDERCerts [][]byte,
-		pubKey *ecdsa.PublicKey,
-		rootKey,
-		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+	certPath,
+	keyPath string,
+	template,
+	parentTemplate *x509.Certificate,
+	parentDERCerts [][]byte,
+	pubKey *ecdsa.PublicKey,
+	rootKey,
+	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
 
 	DERCerts, keyDERBytes, err := createDERs(
 		template,
@@ -141,12 +141,12 @@ func createAndWrite(
 }
 
 func createDERs(
-		template,
-		parentTemplate *x509.Certificate,
-		parentDERCerts [][]byte,
-		pubKey *ecdsa.PublicKey,
-		rootKey,
-		privKey *ecdsa.PrivateKey) (_ [][]byte, _ []byte, _ error) {
+	template,
+	parentTemplate *x509.Certificate,
+	parentDERCerts [][]byte,
+	pubKey *ecdsa.PublicKey,
+	rootKey,
+	privKey *ecdsa.PrivateKey) (_ [][]byte, _ []byte, _ error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
 		return nil, nil, err

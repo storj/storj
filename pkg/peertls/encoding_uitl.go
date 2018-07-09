@@ -17,11 +17,11 @@ const (
 	BlockTypeCertificate  = "CERTIFICATE"
 )
 
-func newKeyBlock(b []byte) (*pem.Block) {
+func newKeyBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
-func newCertBlock(b []byte) (*pem.Block) {
+func newCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 

@@ -34,7 +34,7 @@ var (
 )
 
 // EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
-func (t *TLSFileOptions) EnsureAbsPaths() (error) {
+func (t *TLSFileOptions) EnsureAbsPaths() error {
 	for _, role := range t.requiredFiles() {
 		for absPtr, relPath := range t.pathMap() {
 			if t.pathRoleMap()[absPtr] == role {
@@ -58,7 +58,7 @@ func (t *TLSFileOptions) EnsureAbsPaths() (error) {
 }
 
 // EnsureExists checks whether the cert/key exists and whether to create/overwrite them given `t`s field values.
-func (t *TLSFileOptions) EnsureExists() (error) {
+func (t *TLSFileOptions) EnsureExists() error {
 	if err := t.EnsureAbsPaths(); err != nil {
 		return err
 	}
@@ -110,15 +110,15 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	return config
 }
 
-func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) (credentials.TransportCredentials) {
+func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
 	return credentials.NewTLS(t.NewTLSConfig(config))
 }
 
-func (t *TLSFileOptions) DialOption() (grpc.DialOption) {
+func (t *TLSFileOptions) DialOption() grpc.DialOption {
 	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
-func (t *TLSFileOptions) ServerOption() (grpc.ServerOption) {
+func (t *TLSFileOptions) ServerOption() grpc.ServerOption {
 	return grpc.Creds(t.NewPeerTLS(nil))
 }
 
@@ -161,7 +161,7 @@ func (t *TLSFileOptions) missingFiles() ([]string, error) {
 	return missingFiles, nil
 }
 
-func (t *TLSFileOptions) requiredFiles() ([]fileRole) {
+func (t *TLSFileOptions) requiredFiles() []fileRole {
 	var roles = []fileRole{}
 
 	// rootCert is always required
@@ -183,20 +183,20 @@ func (t *TLSFileOptions) hasRequiredFiles() (bool, error) {
 	return len(missingFiles) == 0, nil
 }
 
-func (t *TLSFileOptions) pathMap() (map[*string]string) {
+func (t *TLSFileOptions) pathMap() map[*string]string {
 	return map[*string]string{
-		&t.RootCertAbsPath:   t.RootCertRelPath,
-		&t.RootKeyAbsPath:    t.RootKeyRelPath,
-		&t.LeafCertAbsPath:   t.LeafCertRelPath,
-		&t.LeafKeyAbsPath:    t.LeafKeyRelPath,
+		&t.RootCertAbsPath: t.RootCertRelPath,
+		&t.RootKeyAbsPath:  t.RootKeyRelPath,
+		&t.LeafCertAbsPath: t.LeafCertRelPath,
+		&t.LeafKeyAbsPath:  t.LeafKeyRelPath,
 	}
 }
 
-func (t *TLSFileOptions) pathRoleMap() (map[*string]fileRole) {
+func (t *TLSFileOptions) pathRoleMap() map[*string]fileRole {
 	return map[*string]fileRole{
-		&t.RootCertAbsPath:   rootCert,
-		&t.RootKeyAbsPath:    rootKey,
-		&t.LeafCertAbsPath:   leafCert,
-		&t.LeafKeyAbsPath:    leafKey,
+		&t.RootCertAbsPath: rootCert,
+		&t.RootKeyAbsPath:  rootKey,
+		&t.LeafCertAbsPath: leafCert,
+		&t.LeafKeyAbsPath:  leafKey,
 	}
 }
