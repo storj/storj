@@ -9,12 +9,8 @@ import (
 )
 
 func clientTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
-	notBefore, notAfter := defaultExpiration()
-
 	template := &x509.Certificate{
 		SerialNumber:          new(big.Int).SetInt64(4),
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
@@ -27,8 +23,6 @@ func clientTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 }
 
 func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
-	notBefore, notAfter := defaultExpiration()
-
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
@@ -36,8 +30,6 @@ func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
@@ -50,8 +42,6 @@ func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 }
 
 func leafTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
-	notBefore, notAfter := defaultExpiration()
-
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
@@ -59,8 +49,6 @@ func leafTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,

@@ -182,13 +182,6 @@ func setHosts(hosts string, template *x509.Certificate) {
 	}
 }
 
-func defaultExpiration() (_, _ time.Time) {
-	notBefore := time.Now()
-	notAfter := notBefore.Add(OneYear)
-
-	return notBefore, notAfter
-}
-
 func newSerialNumber() (*big.Int, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
