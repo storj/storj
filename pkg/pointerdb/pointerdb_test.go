@@ -8,8 +8,6 @@ import (
 	"context"
 	"fmt"
 	"errors"
-
-	//"net"
 	"testing"
 
 	//"github.com/golang/protobuf/proto"
@@ -25,11 +23,13 @@ import (
 
 const (
 	unauthenticated = "failed API creds"
+	noPathGiven = "file path not given"
 )
 
 var (
 	ctx = context.Background()
 	ErrUnauthenticated = errors.New(unauthenticated)
+	ErrNoFileGiven = errors.New(noPathGiven)
 )
 
 func TestNewNetStateClient(t *testing.T) {
@@ -46,11 +46,7 @@ func TestNewNetStateClient(t *testing.T) {
 }
 
 
-func MakePointer(path p.Path, auth bool) pb.PutRequest {
-	var APIKey = "abc123"
-	if !auth {
-		APIKey = "wrong key"
-	}
+func MakePointer(path p.Path, auth []byte) pb.PutRequest {
 	// rps is an example slice of RemotePieces to add to this
 	// REMOTE pointer type.
 	var rps []*pb.RemotePiece
@@ -75,27 +71,14 @@ func MakePointer(path p.Path, auth bool) pb.PutRequest {
 			},
 			Size: int64(1),
 		},
-		APIKey: []byte(APIKey),
+		APIKey: auth,
 	}
 	return pr
-}
-
-func MakePointers(howMany int) []pb.PutRequest {
-	var pointers []pb.PutRequest
-	for i := 1; i <= howMany; i++ {
-		var path = p.New("file/path/"+ fmt.Sprintf("%d", i))
-
-		newPointer := MakePointer(path, true)
-		pointers = append(pointers, newPointer)
-	}
-	return pointers
 }
 
 func TestPut(t *testing.T){
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	path := p.New("file1/file2")
 
 	for i, tt := range []struct {
 		APIKey []byte
@@ -103,48 +86,23 @@ func TestPut(t *testing.T){
 		err error 
 		errString string
 	}{
-		{[]byte("abc123"), path, nil, ""},
-		{[]byte("wrong key"), path, ErrUnauthenticated,unauthenticated},
-		
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 	}{
-		var rps []*pb.RemotePiece
-		rps = append(rps, &pb.RemotePiece{
-			PieceNum: int64(1),
-			NodeId:   "testId",
-		})
-
-		pr1 := pb.PutRequest{
-			Path: tt.path.Bytes(),
-			Pointer: &pb.Pointer{
-				Type: pb.Pointer_REMOTE,
-				Remote: &pb.RemoteSegment{
-					Redundancy: &pb.RedundancyScheme{
-						Type:             pb.RedundancyScheme_RS,
-						MinReq:           int64(1),
-						Total:            int64(3),
-						RepairThreshold:  int64(2),
-						SuccessThreshold: int64(3),
-					},
-					PieceId:      "testId",
-					RemotePieces: rps,
-				},
-				Size: int64(1),
-			},
-			APIKey: tt.APIKey,
-		}
+		pr:= MakePointer(tt.path, tt.APIKey)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc:= NewMockNetStateClient(ctrl)
 		nsc := NetState{grpcClient: gc}
 
 		gomock.InOrder(
-			// &pr2 has different api creds
-			// change pr to match the items in table
-			gc.EXPECT().Put(ctx, &pr1).Return(nil, tt.err),
+			gc.EXPECT().Put(ctx, &pr).Return(nil, tt.err),
 		)
 
-		err := nsc.Put(ctx, tt.path, pr1.Pointer, tt.APIKey)
-		fmt.Println("this is the error: ", err)
+		err := nsc.Put(ctx, tt.path, pr.Pointer, tt.APIKey)
 		
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
