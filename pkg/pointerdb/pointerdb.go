@@ -5,6 +5,7 @@ package pointerdb
 
 import (
 	"context"
+	"fmt"
 	
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -55,6 +56,7 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 
 	if err := s.DB.Put(putReq.Path, pointerBytes); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
+		fmt.Println("error is: ", err)
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("put to the db: " + string(putReq.Path))

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	client "storj.io/storj/pkg/netstate/client"
+	client "storj.io/storj/pkg/netstate"
 	proto "storj.io/storj/protos/netstate"
 	p "storj.io/storj/pkg/paths"
 )
