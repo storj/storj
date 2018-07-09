@@ -8,7 +8,7 @@ package piecestoreroutes;
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
 
-  rpc Retrieve(PieceRetrieval) returns (stream PieceRetrievalStream) {}
+  rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
 
   rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
 
