@@ -100,12 +100,15 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	objpath := paths.New(bucket, object)
 	rr, m, err := s.storj.os.GetObject(ctx, objpath)
+	if err != nil {
+		return err
+	}
+	defer rr.Close()
 	newmetainfo := &mpb.StorjMetaInfo{}
 	err = proto.Unmarshal(m.Data, newmetainfo)
 	if err != nil {
-		return Error.New("ObjectStore GetObject() error")
+		return Error.New("ObjectStore GetObject() Unmarshalling erro")
 	}
-	defer rr.Close()
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return Error.New("ranger error")
@@ -118,7 +121,12 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	objpath := paths.New(bucket, object)
-	_, m, err := s.storj.os.GetObject(ctx, objpath)
+	rr, m, err := s.storj.os.GetObject(ctx, objpath)
+	if err != nil {
+		return objInfo, err
+	}
+	defer rr.Close()
+
 	objInfo = minio.ObjectInfo{
 		ModTime: m.Modified,
 	}
@@ -152,6 +160,9 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		Metadata: metadata,
 	}
 	metainfo, err := proto.Marshal(test)
+	if err != nil {
+		return objInfo, err
+	}
 	objpath := paths.New(bucket, object)
 	err = s.storj.os.PutObject(ctx, objpath, data, metainfo, time.Now())
 	return minio.ObjectInfo{
