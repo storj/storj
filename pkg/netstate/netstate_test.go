@@ -7,6 +7,8 @@ import (
 	//"bytes"
 	"context"
 	"fmt"
+	"errors"
+
 	//"net"
 	"testing"
 
@@ -22,9 +24,13 @@ import (
 	p "storj.io/storj/pkg/paths"
 )
 
+const (
+	unauthenticated = "failed API creds"
+)
+
 var (
 	ctx = context.Background()
-	APIKey = "abc123"
+	ErrUnauthenticated = errors.New(unauthenticated)
 )
 
 func TestNewNetStateClient(t *testing.T) {
@@ -91,8 +97,6 @@ func TestPut(t *testing.T){
 	defer ctrl.Finish()
 
 	path := p.New("file1/file2")
-	pr1 := MakePointer(path, true)
-	//pr2 := MakePointer(path, false)
 
 	for i, tt := range []struct {
 		APIKey []byte
@@ -100,34 +104,54 @@ func TestPut(t *testing.T){
 		err error 
 		errString string
 	}{
-		{pr1.APIKey, path, nil, ""},
+		{[]byte("abc123"), path, nil, ""},
+		{[]byte("wrong key"), path, ErrUnauthenticated,unauthenticated},
 		
 	}{
+		var rps []*pb.RemotePiece
+		rps = append(rps, &pb.RemotePiece{
+			PieceNum: int64(1),
+			NodeId:   "testId",
+		})
+
+		pr1 := pb.PutRequest{
+			Path: tt.path.Bytes(),
+			Pointer: &pb.Pointer{
+				Type: pb.Pointer_REMOTE,
+				Remote: &pb.RemoteSegment{
+					Redundancy: &pb.RedundancyScheme{
+						Type:             pb.RedundancyScheme_RS,
+						MinReq:           int64(1),
+						Total:            int64(3),
+						RepairThreshold:  int64(2),
+						SuccessThreshold: int64(3),
+					},
+					PieceId:      "testId",
+					RemotePieces: rps,
+				},
+				Size: int64(1),
+			},
+			APIKey: tt.APIKey,
+		}
+
 		errTag := fmt.Sprintf("Test case #%d", i)
-		
 		gc:= NewMockNetStateClient(ctrl)
 		nsc := NetState{grpcClient: gc}
 
-
 		gomock.InOrder(
-			gc.EXPECT().Put(ctx, &pr1).Return(nil, nil),
+			// &pr2 has different api creds
+			// change pr to match the items in table
+			gc.EXPECT().Put(ctx, &pr1).Return(nil, tt.err),
 		)
 
 		err := nsc.Put(ctx, tt.path, pr1.Pointer, tt.APIKey)
-		fmt.Println("this is the error: ", err, errTag)
+		fmt.Println("this is the error: ", err)
 		
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
 			assert.NoError(t, err, errTag)
 		}
-		
-		//p := New(tt.path)
-		//assert.Equal(t, tt.expected, p, errTag)
-
-
-		// Got: path:"file1/file2" pointer:<type:REMOTE remote:<redundancy:<min_req:1 total:3 repair_threshold:2 success_threshold:3 > piece_id:"testId" remote_pieces:<piece_num:1 node_id:"testId" > > size:1 > APIKey:"abc123"
-		// Want: is equal to {[102 105 108 101 49 47 102 105 108 101 50] type:REMOTE remote:<redundancy:<min_req:1 total:3 repair_threshold:2 success_threshold:3 > piece_id:"testId" remote_pieces:<piece_num:1 node_id:"testId" > > size:1  [97 98 99 49 50 51]}
 	}
 }
 
