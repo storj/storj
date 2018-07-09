@@ -19,8 +19,6 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"math/big"
-	"net"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -162,18 +160,6 @@ func createDERs(
 	}
 
 	return DERCerts, keyDERBytes, nil
-}
-
-func setHosts(hosts string, template *x509.Certificate) {
-	h := strings.Split(hosts, ",")
-	for _, host := range h {
-		if ip := net.ParseIP(host); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-			continue
-		}
-
-		template.DNSNames = append(template.DNSNames, host)
-	}
 }
 
 func newSerialNumber() (*big.Int, error) {
