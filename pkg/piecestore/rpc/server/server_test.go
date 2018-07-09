@@ -197,8 +197,24 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			req := &pb.PieceRetrieval{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}
-			stream, err := c.Retrieve(context.Background(), req)
+			stream, err := c.Retrieve(context.Background())
+
+			// Send signature
+			stream.Send(&pb.PieceRetrieval{Signature: []byte{'A', 'B'}})
+			if err != nil {
+				t.Errorf("Unexpected error: %v\n", err)
+				return
+			}
+
+			// Send bandwidth bandwidthAllocation
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "ABCD", Size: tt.reqSize}})
+			if err != nil {
+				t.Errorf("Unexpected error: %v\n", err)
+				return
+			}
+
+			// send piece database
+			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return

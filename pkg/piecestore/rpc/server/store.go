@@ -45,7 +45,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	pd := recv.Piecedata
-	log.Printf("ID: %s, TTL: %s\n", pd.Id, pd.Ttl)
+	log.Printf("ID: %s, TTL: %v\n", pd.Id, pd.Ttl)
 
 	// If we put in the database first then that checks if the data already exists
 	if err := s.DB.AddTTLToDB(pd.Id, pd.Ttl); err != nil {
