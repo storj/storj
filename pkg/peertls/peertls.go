@@ -22,8 +22,6 @@ var (
 	// ErrNoOverwrite is used when `create == true && overwrite == false`
 	// 	and tls certs/keys already exist at the specified paths
 	ErrNoOverwrite = errs.Class("tls overwrite disabled error")
-	// ErrBadHost is used tls host(s) aren't provided
-	ErrBadHost = errs.Class("bad host error")
 	// ErrGenerate is used when an error occured during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
 	// ErrTLSOptions is used inconsistently and should probably just be removed
@@ -46,22 +44,13 @@ type TLSFileOptions struct {
 	RootCertAbsPath   string
 	LeafCertRelPath   string
 	LeafCertAbsPath   string
-	ClientCertRelPath string
-	ClientCertAbsPath string
 	// NB: Populate absolute paths from relative paths,
 	// 			with respect to pwd via `.EnsureAbsPaths`
 	RootKeyRelPath    string
 	RootKeyAbsPath    string
 	LeafKeyRelPath    string
 	LeafKeyAbsPath    string
-	ClientKeyRelPath  string
-	ClientKeyAbsPath  string
 	LeafCertificate   *tls.Certificate
-	ClientCertificate *tls.Certificate
-	// Comma-separated list of hostname(s) (IP or FQDN)
-	Hosts string
-	// If true, key is not required or checked
-	Client bool
 	// Create if cert or key nonexistent
 	Create bool
 	// Overwrite if `create` is true and cert and/or key exist
@@ -79,37 +68,38 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 
 	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
 	// (https://www.pivotaltracker.com/story/show/158238535)
-	certs := []*x509.Certificate{}
 
-	for _, c := range rawCerts {
-		parsedCert, err := x509.ParseCertificate(c)
-		if err != nil {
-			return ErrVerifyPeerCert.New("unable to parse certificate", err)
-		}
+	for i, cert := range rawCerts {
+		isValid := false
 
-		certs = append(certs, parsedCert)
-	}
+		if i < len(rawCerts)-1 {
+			parentCert, err := x509.ParseCertificate(rawCerts[i+1])
+			if err != nil {
+				return ErrVerifyPeerCert.New("unable to parse certificate", err)
+			}
 
-	for i, cert := range certs {
-		if i < len(certs)-1 {
-			isValid, err := verifyCertSignature(certs[i+1], cert)
+			childCert, err := x509.ParseCertificate(cert)
+			if err != nil {
+				return ErrVerifyPeerCert.New("unable to parse certificate", err)
+			}
+
+			isValid, err = verifyCertSignature(parentCert, childCert)
 			if err != nil {
 				return ErrVerifyPeerCert.Wrap(err)
 			}
-
-			if !isValid {
-				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
+		} else {
+			rootCert, err := x509.ParseCertificate(cert)
+			if err != nil {
+				return ErrVerifyPeerCert.New("unable to parse certificate", err)
 			}
 
-			continue
+			isValid, err = verifyCertSignature(rootCert, rootCert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
+			}
 		}
 
-		rootIsValid, err := verifyCertSignature(cert, cert)
-		if err != nil {
-			return ErrVerifyPeerCert.Wrap(err)
-		}
-
-		if !rootIsValid {
+		if !isValid {
 			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
 		}
 	}
@@ -118,18 +108,14 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath, hosts string, client, create, overwrite bool) (*TLSFileOptions, error) {
+func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
 		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
 		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
 		LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", baseCertPath),
 		LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", baseKeyPath),
-		ClientCertRelPath: fmt.Sprintf("%s.client.cert", baseCertPath),
-		ClientKeyRelPath:  fmt.Sprintf("%s.client.key", baseKeyPath),
-		Client:            client,
 		Overwrite:         overwrite,
 		Create:            create,
-		Hosts:             hosts,
 	}
 
 	if err := t.EnsureExists(); err != nil {

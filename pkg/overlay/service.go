@@ -40,7 +40,6 @@ func init() {
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
 	flag.StringVar(&options.RootCertRelPath, "tlsCertBasePath", "", "The base path for TLS certificates")
 	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
-	flag.StringVar(&options.Hosts, "tlsHosts", "", "TLS host(s) (comma-delimited)")
 	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
 	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
@@ -74,8 +73,6 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 	t, err := peertls.NewTLSFileOptions(
 		fopts.RootCertRelPath,
 		fopts.RootKeyRelPath,
-		fopts.Hosts,
-		false,
 		fopts.Create,
 		fopts.Overwrite,
 	)
@@ -100,8 +97,6 @@ func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc
 	t, err := peertls.NewTLSFileOptions(
 		fopts.RootCertRelPath,
 		fopts.RootCertRelPath,
-		fopts.Hosts,
-		true,
 		fopts.Create,
 		fopts.Overwrite,
 	)

@@ -31,10 +31,6 @@ const (
 )
 
 func (t *TLSFileOptions) generateTLS() (error) {
-	if t.Hosts == "" {
-		return ErrGenerate.Wrap(ErrBadHost.New("no host provided"))
-	}
-
 	if err := t.EnsureAbsPaths(); err != nil {
 		return ErrGenerate.Wrap(err)
 	}
@@ -49,7 +45,7 @@ func (t *TLSFileOptions) generateTLS() (error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	rootC, err := createAndPersist(
+	rootC, err := createAndWrite(
 		t.RootCertAbsPath,
 		t.RootKeyAbsPath,
 		rootT,
@@ -68,56 +64,32 @@ func (t *TLSFileOptions) generateTLS() (error) {
 		return ErrGenerate.New("failed to generateTLS client private key", err)
 	}
 
-	if t.Client {
-		clientT, err := clientTemplate(t)
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		clientC, err := createAndPersist(
-			t.ClientCertAbsPath,
-			t.ClientKeyAbsPath,
-			clientT,
-			rootT,
-			rootC.Certificate,
-			&newKey.PublicKey,
-			rootKey,
-			newKey,
-		)
-
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		t.ClientCertificate = clientC
-	} else {
-		leafT, err := leafTemplate(t)
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		leafC, err := createAndPersist(
-			t.LeafCertAbsPath,
-			t.LeafKeyAbsPath,
-			leafT,
-			rootT,
-			rootC.Certificate,
-			&newKey.PublicKey,
-			rootKey,
-			newKey,
-		)
-
-		if err != nil {
-			return ErrGenerate.Wrap(err)
-		}
-
-		t.LeafCertificate = leafC
+	leafT, err := leafTemplate(t)
+	if err != nil {
+		return ErrGenerate.Wrap(err)
 	}
+
+	leafC, err := createAndWrite(
+		t.LeafCertAbsPath,
+		t.LeafKeyAbsPath,
+		leafT,
+		rootT,
+		rootC.Certificate,
+		&newKey.PublicKey,
+		rootKey,
+		newKey,
+	)
+
+	if err != nil {
+		return ErrGenerate.Wrap(err)
+	}
+
+	t.LeafCertificate = leafC
 
 	return nil
 }
 
-// LoadX509KeyPair reads and parses a cert/privkey pair from a pair
+// LoadCert reads and parses a cert/privkey pair from a pair
 // of files. The files must contain PEM encoded data. The certificate file
 // may contain intermediate certificates following the leaf certificate to
 // form a certificate chain. On successful return, Certificate.Leaf will
@@ -135,23 +107,27 @@ func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
 	return certFromPEMs(certPEMBytes, keyPEMBytes)
 }
 
-func createAndPersist(
-	certPath,
-	keyPath string,
-	template,
-	parentTemplate *x509.Certificate,
-	parentDERCerts [][]byte,
-	pubKey *ecdsa.PublicKey,
-	rootKey,
-	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
-	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
+func createAndWrite(
+		certPath,
+		keyPath string,
+		template,
+		parentTemplate *x509.Certificate,
+		parentDERCerts [][]byte,
+		pubKey *ecdsa.PublicKey,
+		rootKey,
+		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+
+	DERCerts, keyDERBytes, err := createDERs(
+		template,
+		parentTemplate,
+		parentDERCerts,
+		pubKey,
+		rootKey,
+		privKey,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	DERCerts := [][]byte{}
-	DERCerts = append(DERCerts, certDERBytes)
-	DERCerts = append(DERCerts, parentDERCerts...)
 
 	if err := writeCerts(DERCerts, certPath); err != nil {
 		return nil, err
@@ -161,13 +137,31 @@ func createAndPersist(
 		return nil, err
 	}
 
-	keyDERBytes, err := keyToDERBytes(privKey)
+	return certFromDERs(DERCerts, keyDERBytes)
+}
+
+func createDERs(
+		template,
+		parentTemplate *x509.Certificate,
+		parentDERCerts [][]byte,
+		pubKey *ecdsa.PublicKey,
+		rootKey,
+		privKey *ecdsa.PrivateKey) (_ [][]byte, _ []byte, _ error) {
+	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return certFromDERs(DERCerts, keyDERBytes)
+	DERCerts := [][]byte{}
+	DERCerts = append(DERCerts, certDERBytes)
+	DERCerts = append(DERCerts, parentDERCerts...)
 
+	keyDERBytes, err := keyToDERBytes(privKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return DERCerts, keyDERBytes, nil
 }
 
 func setHosts(hosts string, template *x509.Certificate) {

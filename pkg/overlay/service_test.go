@@ -56,7 +56,7 @@ func TestNewClient_CreateTLS(t *testing.T) {
 	assert.NoError(t, err)
 
 	basePath := filepath.Join(tmpPath, "TestNewClient_CreateTLS")
-	srv, tlsOpts := newMockTLSServer(t, basePath, "", true)
+	srv, tlsOpts := newMockTLSServer(t, basePath, true)
 	go srv.Serve(lis)
 	defer srv.Stop()
 
@@ -80,8 +80,6 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	_, err = peertls.NewTLSFileOptions(
 		basePath,
 		basePath,
-		"localhost,127.0.0.1,::",
-		false,
 		true,
 		false,
 	)
@@ -91,7 +89,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 	// NB: do NOT create a cert, it should be loaded from disk
-	srv, tlsOpts := newMockTLSServer(t, basePath, "", false)
+	srv, tlsOpts := newMockTLSServer(t, basePath, false)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
@@ -117,7 +115,7 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
-	srv, _ := newMockTLSServer(t, serverBasePath, "", true)
+	srv, _ := newMockTLSServer(t, serverBasePath, true)
 
 	go srv.Serve(lis)
 	defer srv.Stop()
@@ -125,8 +123,6 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	clientTLSOps, err := peertls.NewTLSFileOptions(
 		clientBasePath,
 		clientBasePath,
-		"localhost,127.0.0.1,::",
-		true,
 		true,
 		false,
 	)
@@ -205,16 +201,10 @@ func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	return grpcServer
 }
 
-func newMockTLSServer(t *testing.T, tlsBasePath, tlsHosts string, create bool) (*grpc.Server, *peertls.TLSFileOptions) {
-	if tlsHosts == "" {
-		tlsHosts = "localhost,127.0.0.1,::"
-	}
-
+func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Server, *peertls.TLSFileOptions) {
 	tlsOpts, err := peertls.NewTLSFileOptions(
 		tlsBasePath,
 		tlsBasePath,
-		tlsHosts,
-		false,
 		create,
 		false,
 	)

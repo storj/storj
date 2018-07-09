@@ -36,10 +36,8 @@ var quickTLSOptionsConfig = &quick.Config{
 			values[i] = reflect.ValueOf(randHex)
 		}
 
-		for i := range [2]bool{} {
-			randBool := r.Uint32()&0x01 != 0
-			values[i+3] = reflect.ValueOf(randBool)
-		}
+		randBool := r.Uint32()&0x01 != 0
+		values[3] = reflect.ValueOf(randBool)
 	},
 }
 
@@ -64,23 +62,16 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSFileOptions(t *testing.T) {
-	f := func(cert, key, hosts string, client, overwrite bool) (_ bool) {
+	f := func(cert, key, hosts string, overwrite bool) (bool) {
 		tempPath, err := ioutil.TempDir("", "TestNewTLSFileOptions")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempPath)
 
-		var subExt string
-		if client {
-			subExt = "client"
-		} else {
-			subExt = "leaf"
-		}
-
 		certBasePath := filepath.Join(tempPath, cert)
 		keyBasePath := filepath.Join(tempPath, key)
-		certPath := fmt.Sprintf("%s.%s.cert", certBasePath, subExt)
-		keyPath := fmt.Sprintf("%s.%s.key", keyBasePath, subExt)
-		opts, err := NewTLSFileOptions(certBasePath, keyBasePath, hosts, client, true, overwrite)
+		certPath := fmt.Sprintf("%s.leaf.cert", certBasePath)
+		keyPath := fmt.Sprintf("%s.leaf.key", keyBasePath)
+		opts, err := NewTLSFileOptions(certBasePath, keyBasePath, true, overwrite)
 		if !assert.NoError(t, err) {
 			quickLog("", nil, err)
 			return false
@@ -89,50 +80,32 @@ func TestNewTLSFileOptions(t *testing.T) {
 		if !assert.Equal(t, opts.RootCertRelPath, fmt.Sprintf("%s.%s.cert", certBasePath, "root")) {
 			return false
 		}
+
 		if !assert.Equal(t, opts.RootKeyRelPath, fmt.Sprintf("%s.%s.key", keyBasePath, "root")) {
 			return false
 		}
 
-		if client {
-			if !assert.NotEmpty(t, opts.ClientCertificate) {
-				return false
-			}
-			if !assert.NotEmpty(t, opts.ClientCertificate.PrivateKey) {
-				return false
-			}
-			if !assert.Equal(t, opts.ClientCertRelPath, certPath) {
-				return false
-			}
-			if !assert.Equal(t, opts.ClientKeyRelPath, keyPath) {
-				return false
-			}
-		} else {
-			if !assert.NotEmpty(t, opts.LeafCertificate) {
-				return false
-			}
-			if !assert.NotEmpty(t, opts.LeafCertificate.PrivateKey) {
-				return false
-			}
-			if !assert.Equal(t, opts.LeafCertRelPath, certPath) {
-				return false
-			}
-			if !assert.Equal(t, opts.LeafKeyRelPath, keyPath) {
-				return false
-			}
+		if !assert.NotEmpty(t, opts.LeafCertificate) {
+			return false
 		}
 
-		if !assert.Equal(t, opts.Hosts, hosts) {
+		if !assert.NotEmpty(t, opts.LeafCertificate.PrivateKey) {
 			return false
 		}
-		if !assert.Equal(t, opts.Client, client) {
+
+		if !assert.Equal(t, opts.LeafCertRelPath, certPath) {
 			return false
 		}
+
+		if !assert.Equal(t, opts.LeafKeyRelPath, keyPath) {
+			return false
+		}
+
 		if !assert.Equal(t, opts.Overwrite, overwrite) {
 			return false
 		}
 
 		// TODO(bryanchriswhite): check cert/key bytes in memory vs disk
-
 		return true
 	}
 
@@ -143,12 +116,10 @@ func TestNewTLSFileOptions(t *testing.T) {
 func TestEnsureAbsPath(t *testing.T) {
 	f := func(val string) (_ bool) {
 		opts := &TLSFileOptions{
-			RootCertRelPath:   fmt.Sprintf("%s.root.cert", val),
-			RootKeyRelPath:    fmt.Sprintf("%s.root.key", val),
-			LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", val),
-			LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", val),
-			ClientCertRelPath: fmt.Sprintf("%s.client.cert", val),
-			ClientKeyRelPath:  fmt.Sprintf("%s.client.key", val),
+			RootCertRelPath: fmt.Sprintf("%s.root.cert", val),
+			RootKeyRelPath:  fmt.Sprintf("%s.root.key", val),
+			LeafCertRelPath: fmt.Sprintf("%s.leaf.cert", val),
+			LeafKeyRelPath:  fmt.Sprintf("%s.leaf.key", val),
 		}
 
 		opts.EnsureAbsPaths()
@@ -205,19 +176,12 @@ func TestGenerate(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		if err := opts.generateTLS(); err != nil {
 			quickLog("generateTLS error", opts, err)
 			return false
 		}
-
-		// _, err := LoadCert(RootCertPath, RootKeyPath)
-		// if err != nil {
-		// 	quickLog("error root loading cert", opts, err)
-		// 	return false
-		// }
 
 		leafCert, err := LoadCert(LeafCertPath, LeafKeyPath)
 		if err != nil {
@@ -229,14 +193,6 @@ func TestGenerate(t *testing.T) {
 			quickLog("certs don't match", opts, nil)
 			return false
 		}
-
-		// if !keysMatch(
-		// 	privKeyBytes(t, leafCert.PrivateKey),
-		// 	privKeyBytes(t, rootCert.PrivateKey),
-		// ) {
-		// 	quickLog("leaf and root private keys don't match", opts, nil)
-		// 	return false
-		// }
 
 		if !keysMatch(
 			privKeyBytes(t, opts.LeafCertificate.PrivateKey),
@@ -269,10 +225,8 @@ func TestLoadTLS(t *testing.T) {
 		generatedTLS, err := NewTLSFileOptions(
 			basePath,
 			basePath,
-			"localhost,127.0.0.1,::",
-			false,
 			true,
-			false,
+			true,
 		)
 
 		if err != nil {
@@ -283,8 +237,6 @@ func TestLoadTLS(t *testing.T) {
 		loadedTLS, err := NewTLSFileOptions(
 			basePath,
 			basePath,
-			"localhost,127.0.0.1,::",
-			false,
 			false,
 			false,
 		)
@@ -304,12 +256,10 @@ func TestLoadTLS(t *testing.T) {
 		if !keysMatch(
 			privKeyBytes(t, generatedTLS.LeafCertificate.PrivateKey),
 			privKeyBytes(t, loadedTLS.LeafCertificate.PrivateKey),
-			// privKeyBytes(t, rootCert.PrivateKey),
 		) {
 			quickLog("keys don't match", nil, nil)
 			return false
 		}
-		// if !keysMatch(generatedTLS.LeafCertificate.PrivateKey, loadedTLS.LeafCertificate)
 
 		return true
 	}
@@ -337,7 +287,6 @@ func TestEnsureExists_Create(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		err := opts.EnsureExists()
@@ -424,7 +373,6 @@ func TestEnsureExists_Overwrite(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       true,
-			Hosts:           "127.0.0.1",
 		}
 
 		// Ensure files exist to be overwritten
@@ -463,7 +411,6 @@ func TestEnsureExists_NotExistError(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          false,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		if err := opts.EnsureExists(); err != nil {
@@ -494,10 +441,8 @@ func TestNewTLSConfig(t *testing.T) {
 	opts, err := NewTLSFileOptions(
 		basePath,
 		basePath,
-		"127.0.0.1",
-		false,
 		true,
-		false,
+		true,
 	)
 	assert.NoError(t, err)
 
