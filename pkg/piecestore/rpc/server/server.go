@@ -30,23 +30,34 @@ type Server struct {
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
 
-	// Verify signature
-	if err := s.receiveSignature(stream); err != nil {
+	// Receive Signature
+	signature, err := s.receiveSignature(stream)
+	if err != nil {
+		return err
+	}
+	//verify signature
+	if err := s.verifySignature(signature); err != nil {
 		return err
 	}
 
 	// Receive payer/client/size
-	if err := s.receiveExchangeInfo(stream); err != nil {
-		return err
-	}
-
-	// Receive id/ttl
-	id, err := s.receivePieceInfo(stream)
+	bandwidthAllocation, err := s.receiveExchangeInfo(stream)
 	if err != nil {
 		return err
 	}
 
-	total, err := s.storeData(stream, id)
+	// Receive id/ttl
+	pieceInfo, err := s.receivePieceInfo(stream)
+	if err != nil {
+		return err
+	}
+
+	// If we put in the database first then that checks if the data already exists
+	if err := s.saveInfoToDB(pieceInfo, bandwidthAllocation); err != nil {
+		return err
+	}
+
+	total, err := s.storeData(stream, pieceInfo.Id)
 	if err != nil {
 		return err
 	}
@@ -151,24 +162,19 @@ func (s *Server) verifySignature(signature []byte) error {
 	return nil
 }
 
-func (s *Server) receiveSignature(stream pb.PieceStoreRoutes_StoreServer) error {
+func (s *Server) receiveSignature(stream pb.PieceStoreRoutes_StoreServer) ([]byte, error) {
 	recv, err := stream.Recv()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	//verify signature
-	if err := s.verifySignature(recv.Signature); err != nil {
-		return err
-	}
-
-	return nil
+	return recv.Signature, nil
 }
 
-func (s *Server) receiveExchangeInfo(stream pb.PieceStoreRoutes_StoreServer) error {
+func (s *Server) receiveExchangeInfo(stream pb.PieceStoreRoutes_StoreServer) (*pb.BandwidthAllocation, error) {
 	info, err := stream.Recv()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ba := info.Bandwidthallocation
@@ -176,29 +182,27 @@ func (s *Server) receiveExchangeInfo(stream pb.PieceStoreRoutes_StoreServer) err
 	//verify signature
 	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Payer, ba.Client, ba.Size)
 
-	return nil
+	return ba, nil
 }
 
-func (s *Server) receivePieceInfo(stream pb.PieceStoreRoutes_StoreServer) (string, error) {
+func (s *Server) receivePieceInfo(stream pb.PieceStoreRoutes_StoreServer) (*pb.PieceStore_PieceData, error) {
 	info, err := stream.Recv()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	pd := info.Piecedata
 
-	piece, err := stream.Recv()
-	if err != nil {
-		return "", err
-	}
+	return pd, nil
+}
 
-	// If we put in the database first then that checks if the data already exists
-	if err := s.DB.AddTTLToDB(pd.Id, pd.Ttl); err != nil {
+func (s *Server) saveInfoToDB(pi *pb.PieceStore_PieceData, ba *pb.BandwidthAllocation) error {
+	if err := s.DB.AddTTLToDB(pi.Id, pi.Ttl); err != nil {
 		log.Println(err)
-		return "", err
+		return err
 	}
 
-	return pd.Id, nil
+	return nil
 }
 
 func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (int64, error) {
