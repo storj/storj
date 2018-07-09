@@ -4,13 +4,11 @@
 package client
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
-	"github.com/mr-tron/base58/base58"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -25,14 +23,6 @@ type PSClient interface {
 	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 	CloseConn() error
-}
-
-// PieceID - Id for piece
-type PieceID string
-
-// String -- Get String from PieceID
-func (id PieceID) String() string {
-	return string(id)
 }
 
 // Client -- Struct Info needed for protobuf api calls
@@ -96,21 +86,4 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	}
 	log.Printf("Route summary : %v", reply)
 	return nil
-}
-
-// IsValid returns whether the id is valid or not
-func (id PieceID) IsValid() bool {
-	return len(id) >= 20
-}
-
-// NewPieceID creates a PieceID
-func NewPieceID() PieceID {
-	b := make([]byte, 32)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return PieceID(base58.Encode(b))
 }

@@ -15,15 +15,15 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/netstate"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
-	proto "storj.io/storj/protos/netstate"
+	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
 )
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("db", "netstate.db", "db path")
+	dbPath = flag.String("db", "pointers.db", "db path")
 )
 
 func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
@@ -42,7 +42,7 @@ func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error 
 
 	grpcServer := grpc.NewServer()
 
-	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, s.logger))
+	proto.RegisterPointerDBServer(grpcServer, pointerdb.NewServer(bdb, s.logger))
 	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
 	defer grpcServer.GracefulStop()
@@ -60,7 +60,8 @@ func (s *serv) SetLogger(l *zap.Logger) error {
 }
 
 func setEnv() error {
-	viper.SetEnvPrefix("API")
+	viper.SetEnvPrefix("api")
+	viper.BindEnv("key")
 	viper.AutomaticEnv()
 	return nil
 }
