@@ -72,7 +72,6 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 // NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
 func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSFileOptions) (_ *grpc.Server, _ error) {
 	t, err := peertls.NewTLSFileOptions(
-		// TODO(coyle): Should this be relative or absolute ?
 		fopts.RootCertRelPath,
 		fopts.RootKeyRelPath,
 		fopts.Hosts,
@@ -99,9 +98,8 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 // returns a new instance of an overlay Client
 func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc.DialOption) (proto.OverlayClient, error) {
 	t, err := peertls.NewTLSFileOptions(
-		// TODO(coyle): Should this be relative or absolute ?
-		fopts.RootCertAbsPath,
-		fopts.RootKeyAbsPath,
+		fopts.RootCertRelPath,
+		fopts.RootCertRelPath,
 		fopts.Hosts,
 		true,
 		fopts.Create,
