@@ -79,38 +79,37 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 
 	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
 	// (https://www.pivotaltracker.com/story/show/158238535)
+	certs := []*x509.Certificate{}
 
-	for i, cert := range rawCerts {
-		isValid := false
-
-		if i < len(rawCerts)-1 {
-			parentCert, err := x509.ParseCertificate(rawCerts[i+1])
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			childCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(parentCert, childCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
-		} else {
-			rootCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(rootCert, rootCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
+	for _, c := range rawCerts {
+		parsedCert, err := x509.ParseCertificate(c)
+		if err != nil {
+			return ErrVerifyPeerCert.New("unable to parse certificate", err)
 		}
 
-		if !isValid {
+		certs = append(certs, parsedCert)
+	}
+
+	for i, cert := range certs {
+		if i < len(certs)-1 {
+			isValid, err := verifyCertSignature(certs[i+1], cert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
+			}
+
+			if !isValid {
+				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
+			}
+
+			continue
+		}
+
+		rootIsValid, err := verifyCertSignature(cert, cert)
+		if err != nil {
+			return ErrVerifyPeerCert.Wrap(err)
+		}
+
+		if !rootIsValid {
 			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
 		}
 	}
