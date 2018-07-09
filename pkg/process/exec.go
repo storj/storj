@@ -56,7 +56,6 @@ func ConfigEnvironment() error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
-	flag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
