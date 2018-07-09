@@ -40,26 +40,17 @@ func IsNotExist(err error) bool {
 
 // TLSFileOptions stores information about a tls certificate and key, and options for use with tls helper functions/methods
 type TLSFileOptions struct {
-	RootCertRelPath   string
-	RootCertAbsPath   string
-	LeafCertRelPath   string
-	LeafCertAbsPath   string
-	ClientCertRelPath string
-	ClientCertAbsPath string
+	RootCertRelPath string
+	RootCertAbsPath string
+	LeafCertRelPath string
+	LeafCertAbsPath string
 	// NB: Populate absolute paths from relative paths,
 	// 			with respect to pwd via `.EnsureAbsPaths`
-	RootKeyRelPath    string
-	RootKeyAbsPath    string
-	LeafKeyRelPath    string
-	LeafKeyAbsPath    string
-	ClientKeyRelPath  string
-	ClientKeyAbsPath  string
-	LeafCertificate   *tls.Certificate
-	ClientCertificate *tls.Certificate
-	// Comma-separated list of hostname(s) (IP or FQDN)
-	Hosts string
-	// If true, key is not required or checked
-	Client bool
+	RootKeyRelPath  string
+	RootKeyAbsPath  string
+	LeafKeyRelPath  string
+	LeafKeyAbsPath  string
+	LeafCertificate *tls.Certificate
 	// Create if cert or key nonexistent
 	Create bool
 	// Overwrite if `create` is true and cert and/or key exist
@@ -119,12 +110,12 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 // NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
 func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool) (_ *TLSFileOptions, _ error) {
 	t := &TLSFileOptions{
-		RootCertRelPath:   fmt.Sprintf("%s.root.cert", baseCertPath),
-		RootKeyRelPath:    fmt.Sprintf("%s.root.key", baseKeyPath),
-		LeafCertRelPath:   fmt.Sprintf("%s.leaf.cert", baseCertPath),
-		LeafKeyRelPath:    fmt.Sprintf("%s.leaf.key", baseKeyPath),
-		Overwrite:         overwrite,
-		Create:            create,
+		RootCertRelPath: fmt.Sprintf("%s.root.cert", baseCertPath),
+		RootKeyRelPath:  fmt.Sprintf("%s.root.key", baseKeyPath),
+		LeafCertRelPath: fmt.Sprintf("%s.leaf.cert", baseCertPath),
+		LeafKeyRelPath:  fmt.Sprintf("%s.leaf.key", baseKeyPath),
+		Overwrite:       overwrite,
+		Create:          create,
 	}
 
 	if err := t.EnsureExists(); err != nil {
@@ -134,7 +125,7 @@ func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool)
 	return t, nil
 }
 
-func verifyCertSignature(parentCert, childCert *x509.Certificate) (_ bool, _ error) {
+func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
 	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
 	signature := new(ecdsaSignature)
 

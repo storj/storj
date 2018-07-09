@@ -7,9 +7,7 @@ import (
 	"crypto/x509"
 )
 
-func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
-	notBefore, notAfter := defaultExpiration()
-
+func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
@@ -17,8 +15,6 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
@@ -28,9 +24,7 @@ func rootTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 	return template, nil
 }
 
-func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
-	notBefore, notAfter := defaultExpiration()
-
+func leafTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
@@ -38,8 +32,6 @@ func leafTemplate(t *TLSFileOptions) (_ *x509.Certificate, _ error) {
 
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,

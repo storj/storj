@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-package netstate;
+package pointerdb;
 
 import "google/protobuf/timestamp.proto";
 
-// NetState defines the interface for interacting with the network state persistence layer
-service NetState {
+// PointerDB defines the interface for interacting with the network state persistence layer
+service PointerDB {
   // Put formats and hands off a file path to be saved to boltdb
   rpc Put(PutRequest) returns (PutResponse);
   // Get formats and hands off a file path to get a small value from boltdb

@@ -115,7 +115,7 @@ func createAndWrite(
 		parentDERCerts [][]byte,
 		pubKey *ecdsa.PublicKey,
 		rootKey,
-		privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
+		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
 
 	DERCerts, keyDERBytes, err := createDERs(
 		template,
@@ -141,36 +141,13 @@ func createAndWrite(
 
 }
 
-func create(
-		template,
-		parentTemplate *x509.Certificate,
-		parentDERCerts [][]byte,
-		pubKey *ecdsa.PublicKey,
-		rootKey,
-		privKey *ecdsa.PrivateKey) (_ *tls.Certificate, _ error) {
-
-	DERCerts, keyDERBytes, err := createDERs(
-		template,
-		parentTemplate,
-		parentDERCerts,
-		pubKey,
-		rootKey,
-		privKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return certFromDERs(DERCerts, keyDERBytes)
-}
-
 func createDERs(
 		template,
 		parentTemplate *x509.Certificate,
 		parentDERCerts [][]byte,
 		pubKey *ecdsa.PublicKey,
 		rootKey,
-		privKey *ecdsa.PrivateKey) (_ [][]byte, _ []byte, _ error) {
+		privKey *ecdsa.PrivateKey) ([][]byte, []byte, error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
 		return nil, nil, err
@@ -207,7 +184,7 @@ func defaultExpiration() (_, _ time.Time) {
 	return notBefore, notAfter
 }
 
-func newSerialNumber() (_ *big.Int, _ error) {
+func newSerialNumber() (*big.Int, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {

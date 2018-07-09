@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package netstate
+package pointerdb
 
 import (
 	"bytes"
@@ -16,23 +16,23 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/test"
-	pb "storj.io/storj/protos/netstate"
+	pb "storj.io/storj/protos/pointerdb"
 )
 
 var (
 	ctx = context.Background()
 )
 
-type NetStateClientTest struct {
+type PointerDBClientTest struct {
 	*testing.T
 
 	server *grpc.Server
 	lis    net.Listener
 	mdb    *test.MockKeyValueStore
-	c      pb.NetStateClient
+	c      pb.PointerDBClient
 }
 
-func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
+func NewPointerDBClientTest(t *testing.T) *PointerDBClientTest {
 	mdb := test.NewMockKeyValueStore(test.KvStore{})
 
 	viper.Reset()
@@ -45,7 +45,7 @@ func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterNetStateServer(grpcServer, NewServer(mdb, zap.L()))
+	pb.RegisterPointerDBServer(grpcServer, NewServer(mdb, zap.L()))
 	go grpcServer.Serve(lis)
 
 	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure())
@@ -55,16 +55,16 @@ func NewNetStateClientTest(t *testing.T) *NetStateClientTest {
 		t.Fatal(err)
 	}
 
-	return &NetStateClientTest{
+	return &PointerDBClientTest{
 		T:      t,
 		server: grpcServer,
 		lis:    lis,
 		mdb:    mdb,
-		c:      pb.NewNetStateClient(conn),
+		c:      pb.NewPointerDBClient(conn),
 	}
 }
 
-func (nt *NetStateClientTest) Close() {
+func (nt *PointerDBClientTest) Close() {
 	nt.server.GracefulStop()
 	nt.lis.Close()
 }
@@ -112,7 +112,7 @@ func MakePointers(howMany int) []pb.PutRequest {
 	return pointers
 }
 
-func (nt *NetStateClientTest) Put(pr pb.PutRequest) *pb.PutResponse {
+func (nt *PointerDBClientTest) Put(pr pb.PutRequest) *pb.PutResponse {
 	pre := nt.mdb.PutCalled
 	putRes, err := nt.c.Put(ctx, &pr)
 	if err != nil {
@@ -124,7 +124,7 @@ func (nt *NetStateClientTest) Put(pr pb.PutRequest) *pb.PutResponse {
 	return putRes
 }
 
-func (nt *NetStateClientTest) Get(gr pb.GetRequest) *pb.GetResponse {
+func (nt *PointerDBClientTest) Get(gr pb.GetRequest) *pb.GetResponse {
 	pre := nt.mdb.GetCalled
 	getRes, err := nt.c.Get(ctx, &gr)
 	if err != nil {
@@ -136,7 +136,7 @@ func (nt *NetStateClientTest) Get(gr pb.GetRequest) *pb.GetResponse {
 	return getRes
 }
 
-func (nt *NetStateClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse) {
+func (nt *PointerDBClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse) {
 	pre := nt.mdb.ListCalled
 	listRes, err := nt.c.List(ctx, &lr)
 	if err != nil {
@@ -148,7 +148,7 @@ func (nt *NetStateClientTest) List(lr pb.ListRequest) (listRes *pb.ListResponse)
 	return listRes
 }
 
-func (nt *NetStateClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResponse) {
+func (nt *PointerDBClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResponse) {
 	pre := nt.mdb.DeleteCalled
 	delRes, err := nt.c.Delete(ctx, &dr)
 	if err != nil {
@@ -161,7 +161,7 @@ func (nt *NetStateClientTest) Delete(dr pb.DeleteRequest) (delRes *pb.DeleteResp
 	return delRes
 }
 
-func (nt *NetStateClientTest) HandleErr(err error, msg string) {
+func (nt *PointerDBClientTest) HandleErr(err error, msg string) {
 	nt.Error(msg)
 	if err != nil {
 		panic(err)
@@ -170,7 +170,7 @@ func (nt *NetStateClientTest) HandleErr(err error, msg string) {
 }
 
 func TestMockList(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	err := nt.mdb.Put([]byte("k1"), []byte("v1"))
@@ -207,8 +207,8 @@ func TestMockList(t *testing.T) {
 	}
 }
 
-func TestNetStatePutGet(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+func TestPointerDBPutGet(t *testing.T) {
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	preGet := nt.mdb.GetCalled
@@ -249,7 +249,7 @@ func TestNetStatePutGet(t *testing.T) {
 }
 
 func TestGetAuth(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	getReq := pb.GetRequest{
@@ -263,7 +263,7 @@ func TestGetAuth(t *testing.T) {
 }
 
 func TestPutAuth(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	pr := MakePointer([]byte("file/path"), false)
@@ -274,7 +274,7 @@ func TestPutAuth(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	pre := nt.mdb.DeleteCalled
@@ -299,7 +299,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDeleteAuth(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	reqs := MakePointers(1)
@@ -319,7 +319,7 @@ func TestDeleteAuth(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	reqs := MakePointers(4)
@@ -342,7 +342,7 @@ func TestList(t *testing.T) {
 }
 
 func TestListTruncated(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	reqs := MakePointers(3)
@@ -368,7 +368,7 @@ func TestListTruncated(t *testing.T) {
 }
 
 func TestListWithoutStartingKey(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	reqs := MakePointers(3)
@@ -394,7 +394,7 @@ func TestListWithoutStartingKey(t *testing.T) {
 }
 
 func TestListWithoutLimit(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	listReq := pb.ListRequest{
@@ -408,7 +408,7 @@ func TestListWithoutLimit(t *testing.T) {
 }
 
 func TestListAuth(t *testing.T) {
-	nt := NewNetStateClientTest(t)
+	nt := NewPointerDBClientTest(t)
 	defer nt.Close()
 
 	listReq := pb.ListRequest{

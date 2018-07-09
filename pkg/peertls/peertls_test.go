@@ -62,7 +62,7 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSFileOptions(t *testing.T) {
-	f := func(cert, key, hosts string, overwrite bool) (_ bool) {
+	f := func(cert, key, hosts string, overwrite bool) bool {
 		tempPath, err := ioutil.TempDir("", "TestNewTLSFileOptions")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempPath)
@@ -176,7 +176,6 @@ func TestGenerate(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		if err := opts.generateTLS(); err != nil {
@@ -215,7 +214,7 @@ func TestLoadTLS(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	f := func(val string) (_ bool) {
+	f := func(val string) bool {
 		var err error
 
 		basePath := filepath.Join(tempPath, val)
@@ -274,7 +273,7 @@ func TestEnsureExists_Create(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	f := func(val string) (_ bool) {
+	f := func(val string) bool {
 		basePath := filepath.Join(tempPath, val)
 		RootCertPath := fmt.Sprintf("%s.root.cert", basePath)
 		RootKeyPath := fmt.Sprintf("%s.root.key", basePath)
@@ -288,7 +287,6 @@ func TestEnsureExists_Create(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		err := opts.EnsureExists()
@@ -375,7 +373,6 @@ func TestEnsureExists_Overwrite(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          true,
 			Overwrite:       true,
-			Hosts:           "127.0.0.1",
 		}
 
 		// Ensure files exist to be overwritten
@@ -414,7 +411,6 @@ func TestEnsureExists_NotExistError(t *testing.T) {
 			LeafKeyAbsPath:  LeafKeyPath,
 			Create:          false,
 			Overwrite:       false,
-			Hosts:           "127.0.0.1",
 		}
 
 		if err := opts.EnsureExists(); err != nil {

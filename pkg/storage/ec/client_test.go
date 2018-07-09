@@ -146,9 +146,10 @@ func TestPut(t *testing.T) {
 		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed && tt.mbm >= 0 {
+				derivedID := id.Derive([]byte(n.GetId()))
 				ps := NewMockPSClient(ctrl)
 				gomock.InOrder(
-					ps.EXPECT().Put(gomock.Any(), id, gomock.Any(), ttl).Return(errs[n]),
+					ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl).Return(errs[n]),
 					ps.EXPECT().CloseConn().Return(nil),
 				)
 				m[n] = ps
@@ -218,8 +219,9 @@ func TestGet(t *testing.T) {
 		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
+				derivedID := id.Derive([]byte(n.GetId()))
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), id, int64(size)).Return(
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size)).Return(
 					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
 				m[n] = ps
 			}
@@ -274,9 +276,10 @@ func TestDelete(t *testing.T) {
 		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
+				derivedID := id.Derive([]byte(n.GetId()))
 				ps := NewMockPSClient(ctrl)
 				gomock.InOrder(
-					ps.EXPECT().Delete(gomock.Any(), id).Return(errs[n]),
+					ps.EXPECT().Delete(gomock.Any(), derivedID).Return(errs[n]),
 					ps.EXPECT().CloseConn().Return(nil),
 				)
 				m[n] = ps
