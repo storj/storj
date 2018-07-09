@@ -125,7 +125,7 @@ func TestPieceRangerSize(t *testing.T) {
 
 		ctx := context.Background()
 		c := NewCustomRoute(route)
-		rr := PieceRangerSize(c, "", tt.size)
+		rr := PieceRangerSize(c, "", tt.size, "ABCD", "EFGH")
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {

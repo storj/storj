@@ -23,7 +23,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	}
 
 	// TODO: verify signature
-	if err := s.verifySignature(recv.Signature); err != nil {
+	if err = s.verifySignature(recv.Signature); err != nil {
 		return err
 	}
 

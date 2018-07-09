@@ -25,7 +25,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	// TODO: verify signature
-	if err := s.verifySignature(recv.Signature); err != nil {
+	if err = s.verifySignature(recv.Signature); err != nil {
 		return err
 	}
 
@@ -48,7 +48,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	log.Printf("ID: %s, TTL: %v\n", pd.Id, pd.Ttl)
 
 	// If we put in the database first then that checks if the data already exists
-	if err := s.DB.AddTTLToDB(pd.Id, pd.Ttl); err != nil {
+	if err = s.DB.AddTTLToDB(pd.Id, pd.Ttl); err != nil {
 		log.Println(err)
 		return err
 	}
@@ -69,7 +69,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (i
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.PieceStoreDir)
 	if err != nil {
-		if err := s.deleteByID(id); err != nil {
+		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())
 		}
 
@@ -80,7 +80,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (i
 	reader := NewStreamReader(stream)
 	total, err := io.Copy(storeFile, reader)
 	if err != nil {
-		if err := s.deleteByID(id); err != nil {
+		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())
 		}
 

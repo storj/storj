@@ -20,7 +20,7 @@ import (
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
-	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
+	Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 	CloseConn() error
 }
@@ -74,8 +74,8 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
-	return PieceRangerSize(client, id, size), nil
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error) {
+	return PieceRangerSize(client, id, size, payer, clientBandWidthAlloc), nil
 }
 
 // Delete a Piece from a piece store Server
