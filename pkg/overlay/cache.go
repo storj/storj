@@ -5,10 +5,10 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -18,8 +18,11 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// ErrNodeNotFound standardizes errors here
-var ErrNodeNotFound = errs.Class("Node not found")
+// ErrNodeNotFound error standardization
+var ErrNodeNotFound = errs.New("Node not found")
+
+// OverlayError creates class of errors for stack traces
+var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
@@ -84,13 +87,16 @@ func (o *Cache) Put(nodeID string, value overlay.NodeAddress) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
-	fmt.Println("bootstrapping cache")
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
+
+	if err != nil {
+		zap.Error(OverlayError.New("Error getting nodes from DHT", err))
+	}
 
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
 		if err != nil {
-			fmt.Println("could not find node in network", err, v.Id)
+			zap.Error(ErrNodeNotFound)
 		}
 		addr, err := proto.Marshal(found.Address)
 		o.DB.Put([]byte(found.Id), addr)
@@ -143,8 +149,10 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		if _, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id)); err != nil {
-			fmt.Println("could not find node in network", err, v.Id)
+		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		if err != nil {
+			zap.Error(ErrNodeNotFound)
+			return err
 		}
 	}
 
