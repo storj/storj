@@ -6,8 +6,8 @@ package main
 import (
 	"log"
 
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 )
 
