@@ -13,11 +13,11 @@ import (
 )
 
 // Retrieve -- Retrieve data from piecestore and send to client
-func (s *Server) Retrieve(reqStream pb.PieceStoreRoutes_RetrieveServer, respStream pb.PieceStoreRoutes_RetrieveServer) error {
+func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	log.Println("Retrieving data...")
 
 	// Receive Signature
-	recv, err := reqStream.Recv()
+	recv, err := stream.Recv()
 	if err != nil {
 		return err
 	}
@@ -28,7 +28,7 @@ func (s *Server) Retrieve(reqStream pb.PieceStoreRoutes_RetrieveServer, respStre
 	}
 
 	// get bandwidth allocation
-	recv, err = reqStream.Recv()
+	recv, err = stream.Recv()
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (s *Server) Retrieve(reqStream pb.PieceStoreRoutes_RetrieveServer, respStre
 	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Payer, ba.Client, ba.Size)
 
 	// get Piecedata
-	recv, err = reqStream.Recv()
+	recv, err = stream.Recv()
 	if err != nil {
 		return err
 	}
@@ -64,14 +64,14 @@ func (s *Server) Retrieve(reqStream pb.PieceStoreRoutes_RetrieveServer, respStre
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(respStream.Context(), pd.Id, pd.Offset, totalToRead, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(stream.Context(), pd.Id, pd.Offset, totalToRead, s.PieceStoreDir)
 	if err != nil {
 		return err
 	}
 
 	defer storeFile.Close()
 
-	writer := &StreamWriter{stream: respStream}
+	writer := &StreamWriter{stream: stream}
 	_, err = io.Copy(writer, storeFile)
 	if err != nil {
 		return err

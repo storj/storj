@@ -416,7 +416,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	s = Server{tempDir, ttlDB}
+	s = Server{PieceStoreDir: tempDir, DB: ttlDB}
 
 	db = ttlDB.DB
 
