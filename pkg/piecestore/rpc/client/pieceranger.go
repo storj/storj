@@ -22,8 +22,7 @@ type pieceRanger struct {
 	c      *Client
 	id     PieceID
 	size   int64
-	payer  string
-	client string
+	stream pb.PieceStoreRoutes_RetrieveClient
 }
 
 // PieceRanger PieceRanger returns a RangeCloser from a PieceID.
@@ -38,8 +37,8 @@ func PieceRanger(ctx context.Context, c *Client, id PieceID) (ranger.RangeCloser
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *Client, id PieceID, size int64, payer, client string) ranger.RangeCloser {
-	return &pieceRanger{c: c, id: id, size: size, payer: payer, client: client}
+func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64) ranger.RangeCloser {
+	return &pieceRanger{c: c, id: id, size: size, stream: stream}
 }
 
 // Size implements Ranger.Size
@@ -66,25 +65,11 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	if length == 0 {
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
-	stream, err := r.c.route.Retrieve(ctx)
-	if err != nil {
+
+	// send piece data
+	if err := r.stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), Size: length, Offset: offset}}); err != nil {
 		return nil, err
 	}
 
-	// Send signature
-	if err = stream.Send(&pb.PieceRetrieval{Signature: []byte{'A', 'B'}}); err != nil {
-		return nil, err
-	}
-
-	// Send bandwidth bandwidthAllocation
-	if err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "ABCD", Size: length}}); err != nil {
-		return nil, err
-	}
-
-	// send piece database
-	if err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), Size: length, Offset: offset}}); err != nil {
-		return nil, err
-	}
-
-	return NewStreamReader(stream), nil
+	return NewStreamReader(r.stream), nil
 }

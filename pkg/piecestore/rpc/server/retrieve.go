@@ -4,6 +4,7 @@
 package server
 
 import (
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -18,8 +19,9 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	// Receive Signature
 	recv, err := stream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving Signature")
 	}
 
 	// TODO: verify signature
@@ -29,8 +31,9 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	// get bandwidth allocation
 	recv, err = stream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving Bandwidth Allocation Info")
 	}
 
 	ba := recv.Bandwidthallocation
@@ -38,8 +41,9 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	// get Piecedata
 	recv, err = stream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving Piece Meta Data")
 	}
 
 	pd := recv.PieceData

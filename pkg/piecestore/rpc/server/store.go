@@ -4,6 +4,7 @@
 package server
 
 import (
+	"errors"
 	"io"
 	"log"
 
@@ -20,8 +21,9 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive Signature
 	recv, err := reqStream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving signature")
 	}
 
 	// TODO: verify signature
@@ -31,8 +33,9 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive payer/client/size
 	recv, err = reqStream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving Bandwidth Allocation info")
 	}
 
 	ba := recv.Bandwidthallocation
@@ -40,8 +43,9 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive id/ttl
 	recv, err = reqStream.Recv()
-	if err != nil {
-		return err
+	if err != nil || recv == nil {
+		log.Println(err)
+		return errors.New("Error receiving Piece Meta Data")
 	}
 
 	pd := recv.Piecedata

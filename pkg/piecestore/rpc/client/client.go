@@ -19,7 +19,7 @@ import (
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
+	Put(ctx context.Context, id PieceID, size int64, data io.Reader, ttl time.Time, payer, clientBandWidthAlloc string) error
 	Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 	CloseConn() error
@@ -52,10 +52,22 @@ func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error {
+func (client *Client) Put(ctx context.Context, id PieceID, size int64, data io.Reader, ttl time.Time, payer, clientBandWidthAlloc string) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Send signature
+	if err := stream.Send(&pb.PieceStore{Signature: []byte{'A', 'B'}}); err != nil {
+		stream.CloseAndRecv()
+		return fmt.Errorf("%v.Send() = %v", stream, err)
+	}
+
+	// Send Bandwidth Allocation Data
+	if err := stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: size}}); err != nil {
+		stream.CloseAndRecv()
+		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
 	// Send preliminary data
@@ -75,7 +87,22 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 // Get begins downloading a Piece from a piece store Server
 func (client *Client) Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error) {
-	return PieceRangerSize(client, id, size, payer, clientBandWidthAlloc), nil
+	stream, err := client.route.Retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send signature
+	if err = stream.Send(&pb.PieceRetrieval{Signature: []byte{'A', 'B'}}); err != nil {
+		return nil, err
+	}
+
+	// Send bandwidth bandwidthAllocation
+	if err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: size}}); err != nil {
+		return nil, err
+	}
+
+	return PieceRangerSize(client, stream, id, size), nil
 }
 
 // Delete a Piece from a piece store Server

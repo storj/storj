@@ -281,6 +281,17 @@ func TestStore(t *testing.T) {
 				return
 			}
 
+			if err = stream.Send(&pb.PieceStore{Signature: []byte{'A', 'B'}}); err != nil {
+				t.Errorf("Unexpected error: %v\n", err)
+				return
+			}
+
+			// Send Bandwidth Allocation Data
+			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: int64(len(tt.content))}}); err != nil {
+				t.Errorf("Unexpected error: %v\n", err)
+				return
+			}
+
 			// Write the buffer to the stream we opened earlier
 			if err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
