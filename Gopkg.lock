@@ -120,7 +120,7 @@
   branch = "master"
   name = "github.com/dvyukov/go-fuzz"
   packages = ["gen"]
-  revision = "d6e0377705f98dbae098a3cdcf74e89ce7c06a0c"
+  revision = "c2814e6bc6d77bf44add053ab5d92fdef86d6755"
 
 [[projects]]
   name = "github.com/eapache/go-resiliency"
@@ -132,7 +132,7 @@
   branch = "master"
   name = "github.com/eapache/go-xerial-snappy"
   packages = ["."]
-  revision = "bb955e01b9346ac19dc29eb16586c90ded99a98c"
+  revision = "040cc1a32f578808623071247fdbd5cc43f37f5f"
 
 [[projects]]
   name = "github.com/eapache/queue"
@@ -461,7 +461,7 @@
     "pkg/wildcard",
     "pkg/words"
   ]
-  revision = "360f3f93358ba2f1a2b8ae7d5ccb0a9fb8ea8579"
+  revision = "0ef0d7e685bd2fbe57bd0351e36649e971cc9a93"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -474,8 +474,8 @@
     "pkg/s3utils",
     "pkg/set"
   ]
-  revision = "3adf3e30ef96aea8469c7aff8ef19ed38901817b"
-  version = "v6.0.4"
+  revision = "70799fe8dae6ecfb6c7d7e9e048fce27f23a1992"
+  version = "v6.0.5"
 
 [[projects]]
   branch = "master"
@@ -608,7 +608,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "40f013a808ec4fa79def444a1a56de4d1727efcb"
+  revision = "ae68e2d4c00fed4943b5f6698d504a5fe083da8a"
 
 [[projects]]
   branch = "master"
@@ -713,8 +713,17 @@
   revision = "e5adc2ada8b8efff032bf61173a233d143e9318e"
 
 [[projects]]
+  name = "github.com/stretchr/objx"
+  packages = ["."]
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "mock"
+  ]
   revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
   version = "v1.2.2"
 
@@ -847,7 +856,7 @@
     "trace",
     "websocket"
   ]
-  revision = "4cb1c02c05b0e749b0365f61ae859a8e0cfceed9"
+  revision = "32a936f46389aa10549d60bd7833e54b01685d09"
 
 [[projects]]
   branch = "master"
@@ -857,7 +866,7 @@
     "unix",
     "windows"
   ]
-  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
+  revision = "ce36f3865eeb42541ce3f87f32f8462c5687befa"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -1002,6 +1011,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1b2413431f2936a7efd498bdd0995c13e625c3d53413d1fd8c50b5d98db34017"
+  inputs-digest = "9c05cf2ea65617806454427ce9caa5a36376912fd04575f7e0dcb554f257f6f1"
   solver-name = "gps-cdcl"
   solver-version = 1
