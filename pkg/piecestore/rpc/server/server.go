@@ -4,29 +4,127 @@
 package server
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"os"
+	"path/filepath"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
+	DataDir string
+	DB      *ttl.TTL
+	config  Config
+}
+
+// Config stores values from a farmer node config file
+type Config struct {
+	NodeID        string
+	PsHost        string
+	PsPort        string
+	KadListenPort string
+	KadPort       string
+	KadHost       string
 	PieceStoreDir string
-	DB            *ttl.TTL
-	id            kademlia.NodeID
+}
+
+func New(config Config) *Server {
+	return &Server{config: config}
+}
+
+// connectToKad joins the Kademlia network
+func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string) (*kademlia.Kademlia, error) {
+	node := proto.Node{
+		Id: id,
+		Address: &proto.NodeAddress{
+			Transport: proto.NodeTransport_TCP,
+			Address:   kadAddress,
+		},
+	}
+
+	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, ip, kadListenPort)
+	if err != nil {
+		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
+	}
+
+	if err := kad.ListenAndServe(); err != nil {
+		return nil, errs.New("Failed to ListenAndServe on new Kademlia: %s", err.Error())
+	}
+
+	if err := kad.Bootstrap(ctx); err != nil {
+		return nil, errs.New("Failed to Bootstrap on new Kademlia: %s", err.Error())
+	}
+
+	return kad, nil
+}
+
+// Server -- Starts the piececstore node
+func (s *Server) Start() error {
+	ctx := context.Background()
+
+	dbPath := filepath.Join(s.config.PieceStoreDir, fmt.Sprintf("store-%s", s.config.NodeID), "ttl-data.db")
+	dataDir := filepath.Join(s.config.PieceStoreDir, fmt.Sprintf("store-%s", s.config.NodeID), "piece-store-data")
+
+	_, err := connectToKad(ctx, s.config.NodeID, s.config.PsHost, s.config.KadListenPort, fmt.Sprintf("%s:%s", s.config.KadHost, s.config.KadPort))
+	if err != nil {
+		return err
+	}
+
+	ttlDB, err := ttl.NewTTL(dbPath)
+	if err != nil {
+		return err
+	}
+
+	s.DataDir = dataDir
+	s.DB = ttlDB
+
+	// create a listener on TCP port
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", s.config.PsPort))
+	if err != nil {
+		return err
+	}
+
+	defer lis.Close()
+
+	// create a gRPC server object
+	grpcServer := grpc.NewServer()
+
+	// attach the api service to the server
+	pb.RegisterPieceStoreRoutesServer(grpcServer, s)
+
+	// routinely check DB and delete expired entries
+	go func() {
+		err := s.DB.DBCleanup(dataDir)
+		zap.S().Fatalf("Error in DBCleanup: %v\n", err)
+	}()
+
+	fmt.Printf("Node %s started\n", s.config.NodeID)
+
+	// start the server
+	if err := grpcServer.Serve(lis); err != nil {
+		zap.S().Fatalf("failed to serve: %s\n", err)
+	}
+
+	return nil
 }
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Println("Getting Meta data...")
 
-	path, err := pstore.PathByID(in.Id, s.PieceStoreDir)
+	path, err := pstore.PathByID(in.Id, s.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +157,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 }
 
 func (s *Server) deleteByID(id string) error {
-	if err := pstore.Delete(id, s.PieceStoreDir); err != nil {
+	if err := pstore.Delete(id, s.DataDir); err != nil {
 		return err
 	}
 

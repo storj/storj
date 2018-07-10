@@ -36,7 +36,7 @@ var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testID, s.DataDir)
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func TestPiece(t *testing.T) {
 		return
 	}
 
-	defer pstore.Delete(testID, s.PieceStoreDir)
+	defer pstore.Delete(testID, s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -129,7 +129,7 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testID, s.DataDir)
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer pstore.Delete(testID, s.PieceStoreDir)
+	defer pstore.Delete(testID, s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -357,7 +357,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
+			file, err := pstore.StoreWriter(testID, s.DataDir)
 			if err != nil {
 				return
 			}
@@ -380,7 +380,7 @@ func TestDelete(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(testID, s.PieceStoreDir)
+			defer pstore.Delete(testID, s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(context.Background(), req)
@@ -404,7 +404,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathByID(tt.id, s.PieceStoreDir)
+			filePath, err := pstore.PathByID(tt.id, s.DataDir)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return
@@ -443,7 +443,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	s = Server{PieceStoreDir: tempDir, DB: ttlDB}
+	s = Server{DataDir: tempDir, DB: ttlDB}
 
 	db = ttlDB.DB
 

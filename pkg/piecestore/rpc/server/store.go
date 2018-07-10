@@ -71,7 +71,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (int64, error) {
 	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(id, s.PieceStoreDir)
+	storeFile, err := pstore.StoreWriter(id, s.DataDir)
 	if err != nil {
 		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())
