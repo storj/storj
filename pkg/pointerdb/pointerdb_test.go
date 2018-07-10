@@ -10,6 +10,7 @@ import (
 	"errors"
 	"testing"
 	"log"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	//"github.com/spf13/viper"
@@ -122,7 +123,6 @@ func TestGet(t *testing.T){
 		path p.Path
 		err error 
 		errString string
-		//response pb.GetResponse
 	}{
 		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
 		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
@@ -143,7 +143,6 @@ func TestGet(t *testing.T){
 		grr := pb.GetResponse{byteData}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
-
 		
 		gc:= NewMockNetStateClient(ctrl)
 		nsc := NetState{grpcClient: gc}
@@ -154,6 +153,8 @@ func TestGet(t *testing.T){
 
 		pointer, err := nsc.Get(ctx, tt.path, tt.APIKey)
 
+		fmt.Println("pointer is: ", pointer)
+
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
@@ -162,17 +163,103 @@ func TestGet(t *testing.T){
 	}
 }
 
+func TestList(t *testing.T){
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	for i, tt := range []struct {
+		APIKey []byte
+		startingPath p.Path
+		limit int64 
+		truncated bool
+		paths []string
+		err error 
+		errString string
+	}{
+		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
+		//{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  nil, ""},
+	}{
+		lr := pb.ListRequest{
+			StartingPathKey: tt.startingPath.Bytes(),
+			Limit:           tt.limit,
+			APIKey:          tt.APIKey,
+		}
+		
+		getCorrectPaths := func(fileName string) bool { return strings.HasPrefix(fileName, "file1")}
+		filterPaths := filterPathName(tt.paths, getCorrectPaths)
+		truncatedPaths := filterPaths[0:tt.limit]
+		
+		truncatedPathsBytes := make([][]byte, len(truncatedPaths))
+		
+		for i, pathName := range truncatedPaths {
+			bytePathName := []byte(pathName)
+			truncatedPathsBytes[i] = make([]byte, 1)
+			truncatedPathsBytes[i] = bytePathName 
+		}		
+
+		lrr := pb.ListResponse{Paths: truncatedPathsBytes, Truncated: tt.truncated }
+
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		gc:= NewMockNetStateClient(ctrl)
+		nsc := NetState{grpcClient: gc}
+
+		gomock.InOrder(
+			gc.EXPECT().List(ctx, &lr).Return(&lrr, tt.err),
+		)
+
+		paths, trunc, err  := nsc.List(ctx, tt.startingPath,  tt.limit, tt.APIKey)
+		
+		if err != nil {
+			assert.EqualError(t, err, tt.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
+
+		fmt.Println("Path is: ", paths, "Trunc is: ",  trunc, "Err is: ", err)
+	}
+}
+
+func filterPathName(pathString []string, test func(string) bool) (filteredPathNames []string) {
+	for _, name := range pathString{
+		if test(name) {
+			filteredPathNames = append(filteredPathNames, name)
+		}
+	}
+	return
+}
 
 
 
 
 
+// func TestList(t *testing.T) {
+// 	// nt := NewNetStateClientTest(t)
+// 	// defer nt.Close()
+// 	mockNetStateService := new(MockedNetState)
 
+// 	reqs := MakePointers(4)
+// 	for _, req := range reqs {
+// 		mockNetStateService.Put(req)
+// 	}
 
-
-	// viper.Reset()
-	// viper.Set("key", "abc123")
-
+// 	listReq := pb.ListRequest{
+// 		StartingPathKey: []byte("file/path/2"),
+// 		Limit:           5,
+// 		APIKey:          []byte("abc123"),
+// 	}
+// 	listRes := nt.List(listReq)
+// 	if listRes.Truncated {
+// 		nt.HandleErr(nil, "Expected list slice to not be truncated")
+// 	}
+// 	if !bytes.Equal(listRes.Paths[0], []byte("file/path/2")) {
+// 		nt.HandleErr(nil, "Failed to list correct file paths")
+// 	}
+// }
 
 
 
