@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
-func main() { process.Must(process.Main(process.ServiceFunc(run))) }
+func main() { process.Must(process.Main(process.ConfigEnvironment, process.ServiceFunc(run))) }
 
 func run(ctx context.Context, _ *cobra.Command, args []string) error {
 	cmd.Main(append([]string{os.Args[0]}, args...))

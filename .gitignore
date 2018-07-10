@@ -32,3 +32,5 @@ vendor
 *test_redis-server.log
 *dump.rdb
 *test_bolt.db
+
+*.coverprofile
