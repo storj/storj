@@ -33,7 +33,10 @@ func FileRanger(path string) (RangeCloser, error) {
 	}
 	r, err := FileHandleRanger(fh)
 	if err != nil {
-		fh.Close()
+		if err := fh.Close(); err != nil {
+			return nil, err
+		}
+
 		return nil, err
 	}
 	return r, nil

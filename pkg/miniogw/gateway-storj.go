@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,12 +33,14 @@ var (
 )
 
 func init() {
-	minio.RegisterGatewayCommand(cli.Command{
+	if err := minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
 		Usage:           "Storj",
 		Action:          storjGatewayMain,
 		HideHelpCommand: true,
-	})
+	}); err != nil {
+		log.Fatal("Failed to register command storj")
+	}
 }
 
 // getBuckets returns the buckets list
@@ -262,7 +265,11 @@ func encryptFile(data io.ReadCloser, blockSize uint, bucket, object string) erro
 				errs <- err
 				return
 			}
-			defer fh.Close()
+			defer func() {
+				if err := fh.Close(); err != nil {
+					errs <- err
+				}
+			}()
 			_, err = io.Copy(fh, readers[i])
 			errs <- err
 		}(i)
@@ -287,14 +294,21 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 
 	wsize, err := io.CopyN(writer, data, data.Size())
 	if err != nil {
-		os.Remove(srcFile)
+		if err := os.Remove(srcFile); err != nil {
+			return objInfo, err
+		}
+
 		return objInfo, err
 	}
 
-	err = encryptFile(writer, uint(wsize), bucket, object)
-	if err == nil {
-		s.uploadFile(bucket, object, wsize, metadata)
+	if err := encryptFile(writer, uint(wsize), bucket, object); err != nil {
+		return objInfo, err
 	}
+
+	if _, err := s.uploadFile(bucket, object, wsize, metadata); err != nil {
+		return objInfo, err
+	}
+
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,

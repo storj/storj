@@ -77,13 +77,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 				errs <- err
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
-			ps.CloseConn()
-			if err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+			if err := ps.Put(ctx, derivedPieceID, readers[i], expiration); err != nil {
+				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
+				errs <- err
 			}
-			errs <- err
+			if err := ps.CloseConn(); err != nil {
+				zap.Error(err)
+				errs <- err
+			}
+
 		}(i, n)
 	}
 	allerrs := collectErrors(errs, len(readers))
@@ -151,13 +153,15 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 				errs <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID)
-			ps.CloseConn()
-			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
+			if err = ps.Delete(ctx, derivedPieceID); err != nil {
+				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
+				errs <- err
 			}
-			errs <- err
+
+			if err := ps.CloseConn(); err != nil {
+				zap.S().Errorf("Failed closing connection", err)
+				errs <- err
+			}
 		}(n)
 	}
 	allerrs := collectErrors(errs, len(nodes))

@@ -33,7 +33,7 @@ var (
 	}
 )
 
-// EnsureAbsPath ensures that the absolute path fields are not empty, deriving them from the relative paths if not
+// EnsureAbsPaths ensures that the absolute path fields are not empty, deriving them from the relative paths if not
 func (t *TLSFileOptions) EnsureAbsPaths() error {
 	for _, role := range t.requiredFiles() {
 		for absPtr, relPath := range t.pathMap() {
@@ -90,12 +90,13 @@ func (t *TLSFileOptions) EnsureExists() error {
 
 	// NB: ensure `t.Certificate` is not nil when create is false
 	if !t.Create {
-		t.loadTLS()
+		return t.loadTLS()
 	}
 
 	return nil
 }
 
+// NewTLSConfig returns a new tls config with defaults set
 func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
 
@@ -110,14 +111,17 @@ func (t *TLSFileOptions) NewTLSConfig(c *tls.Config) *tls.Config {
 	return config
 }
 
+// NewPeerTLS returns configured TLS transport credentials with the provided config
 func (t *TLSFileOptions) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
 	return credentials.NewTLS(t.NewTLSConfig(config))
 }
 
+// DialOption returns a new grpc ServerOption with a PeerTLS transport credentials
 func (t *TLSFileOptions) DialOption() grpc.DialOption {
 	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
+// ServerOption returns a new grpc ServerOption with a PeerTLS initalized
 func (t *TLSFileOptions) ServerOption() grpc.ServerOption {
 	return grpc.Creds(t.NewPeerTLS(nil))
 }

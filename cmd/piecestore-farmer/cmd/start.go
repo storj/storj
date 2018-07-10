@@ -72,7 +72,11 @@ func startNode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	defer lis.Close()
+	defer func() {
+		if err := lis.Close(); err != nil {
+			zap.S().Fatalf("Error in listening: %v\n", err)
+		}
+	}()
 
 	// create a server instance
 	s := server.Server{PieceStoreDir: dataDir, DB: ttlDB}

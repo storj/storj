@@ -17,6 +17,7 @@ lint: check-copyrights
 	--exclude=".*\.pb\.go" \
 	--exclude=".*_test.go" \
 	--exclude="./vendor/*" \
+	--exclude="examples/*" \
 	./...
 
 check-copyrights:
