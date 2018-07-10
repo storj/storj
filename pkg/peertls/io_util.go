@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-func writePem(block *pem.Block, file io.WriteCloser) error {
+func WritePem(block *pem.Block, file io.WriteCloser) error {
 	if err := pem.Encode(file, block); err != nil {
 		return errs.New("unable to PEM-encode/write bytes to file", err)
 	}
@@ -30,7 +30,7 @@ func writeCerts(certs [][]byte, path string) error {
 	defer file.Close()
 
 	for _, cert := range certs {
-		if err := writePem(newCertBlock(cert), file); err != nil {
+		if err := WritePem(NewCertBlock(cert), file); err != nil {
 			return err
 		}
 	}
@@ -56,7 +56,7 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 		return err
 	}
 
-	if err := writePem(block, file); err != nil {
+	if err := WritePem(block, file); err != nil {
 		return err
 	}
 

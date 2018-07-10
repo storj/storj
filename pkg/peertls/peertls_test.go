@@ -5,6 +5,7 @@ package peertls
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -175,7 +176,7 @@ func TestGenerate(t *testing.T) {
 // 			}
 // 		}
 //
-// 		// TODO: check for *tls.Certificate and pubkey
+// 		// TODO: check for *tls.Certificate and pubKey
 //
 // 		return true
 // 	}

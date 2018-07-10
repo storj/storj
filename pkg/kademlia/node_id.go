@@ -5,22 +5,23 @@ package kademlia
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/pem"
 	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/sha3"
 	"storj.io/storj/pkg/dht"
-	"crypto/rand"
 	"storj.io/storj/pkg/peertls"
-	"path/filepath"
-	"os"
-	"crypto/tls"
-	"io/ioutil"
-	"encoding/pem"
-	"crypto/ecdsa"
 )
 
 const (
@@ -32,11 +33,15 @@ var (
 )
 
 type KadID struct {
-	tlsCert *peertls.TLSHelper
 	hash    []byte
 	pubKey  []byte
-	keyLen  uint16
 	hashLen uint16
+}
+
+type KadCreds struct {
+	hash    []byte
+	hashLen uint16
+	tlsH    *peertls.TLSHelper
 }
 
 // LoadID reads and parses an "identity" file containing a tls certificate
@@ -59,13 +64,13 @@ func LoadID(path string) (dht.NodeID, error) {
 	}
 
 	// Attempt to load
-	PEMBytes, err := ioutil.ReadFile(path)
+	IDBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	cert, err := decodePEMs(PEMBytes)
-	nodeID, err := certToNodeID(cert, 256)
+	cert, hashLen, err := decodeIDBytes(IDBytes)
+	nodeID, err := certToKadCreds(cert, hashLen)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -73,7 +78,58 @@ func LoadID(path string) (dht.NodeID, error) {
 	return nodeID, nil
 }
 
-func decodePEMs(PEMBytes []byte) (*tls.Certificate, error) {
+func (k *KadCreds) Save(path string) error {
+	baseDir := filepath.Dir(path)
+
+	if _, err := os.Stat(baseDir); err != nil {
+		if err == os.ErrNotExist {
+			if err := os.MkdirAll(baseDir, 600); err != nil {
+				return errs.Wrap(err)
+			}
+		} else {
+			return errs.Wrap(err)
+		}
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return errs.New("unable to open identity file for writing \"%s\"", path, err)
+	}
+
+	defer file.Close()
+
+	if err = writeIDBytes(file, k.tlsH.Certificate(), k.hashLen); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeIDBytes(writer io.Writer, cert tls.Certificate, hashLen uint16) error {
+	for _, c := range cert.Certificate {
+		certBlock := peertls.NewCertBlock(c)
+
+		if err := pem.Encode(writer, certBlock); err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	keyDERBytes, err := peertls.KeyToDERBytes(cert.PrivateKey.(*ecdsa.PrivateKey))
+	if err != nil {
+		return err
+	}
+
+	if err := pem.Encode(writer, peertls.NewKeyBlock(keyDERBytes)); err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Write `hashLen` after private key
+	binary.Write(writer, binary.LittleEndian, hashLen)
+	return nil
+}
+
+func decodeIDBytes(PEMBytes []byte) (*tls.Certificate, uint16, error) {
+	var hashLen uint16
 	certDERs := [][]byte{}
 	keyDER := []byte{}
 
@@ -92,11 +148,31 @@ func decodePEMs(PEMBytes []byte) (*tls.Certificate, error) {
 
 		if DERBlock.Type == peertls.BlockTypeEcPrivateKey {
 			keyDER = DERBlock.Bytes
+
+			// NB: `hashLen` is stored after the private key block
+			if PEMBytes == nil || len(PEMBytes) == 0 {
+				return nil, 0, errs.New("hash length expected following private key; none found")
+			}
+
+			hashLen = binary.LittleEndian.Uint16(PEMBytes)
 			continue
 		}
 	}
 
-	return certFromDERs(certDERs, keyDER)
+	if len(certDERs) == 0 || len(certDERs[0]) == 0 {
+		return nil, 0, errs.New("no certificates found in identity file")
+	}
+
+	if len(keyDER) == 0 {
+		return nil, 0, errs.New("no private key found in identity file")
+	}
+
+	cert, err := certFromDERs(certDERs, keyDER)
+	if err != nil {
+		return nil, 0, errs.Wrap(err)
+	}
+
+	return cert, hashLen, nil
 }
 
 func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
@@ -114,7 +190,7 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 	return cert, nil
 }
 
-// func LoadOrCreateID(basePath string, minDifficulty uint16) (_ dht.NodeID, _ error) {
+// func LoadOrCreateID(basePath string, minDifficulty uint16) (dht.NodeID, error) {
 // 	t, err := peertls.NewTLSHelper(
 // 		basePath,
 // 		basePath,
@@ -144,8 +220,8 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 // 				false,
 // 			)
 //
-// 			pubkey := t.cert.Leaf.PublicKey.(*crypto.PublicKey)
-// 			nodeID, err := certToNodeID(pubkey, 256)
+// 			pubKey := t.cert.Leaf.PublicKey.(*crypto.PublicKey)
+// 			nodeID, err := certToKadCreds(pubKey, 256)
 // 			if err != nil {
 // 				return nil, errs.Wrap(err)
 // 			}
@@ -163,11 +239,11 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 //
 // }
 
-func certToNodeID(cert *tls.Certificate, hashLen uint16) (_ *KadID, _ error) {
-	pubkey := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
-	keyBytes, err := x509.MarshalPKIXPublicKey(pubkey)
+func certToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
+	pubKey := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
+	keyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {
-		return nil, errs.New("unable to marshal pubkey", err)
+		return nil, errs.New("unable to marshal pubKey", err)
 	}
 
 	shake := sha3.NewShake256()
@@ -183,17 +259,16 @@ func certToNodeID(cert *tls.Certificate, hashLen uint16) (_ *KadID, _ error) {
 		return nil, errs.New("hash length error")
 	}
 
-	nodeID := &KadID{
-		hash:    hashBytes,
-		pubKey:  keyBytes,
-		keyLen:  uint16(len(keyBytes)),
-		hashLen: hashLen,
+	tlsH, _ := peertls.NewTLSHelper(cert)
+	nodeID := &KadCreds{
+		tlsH: tlsH,
+		hash: hashBytes,
 	}
 
 	return nodeID, nil
 }
 
-func ParseNodeID(id string) (_ *KadID, _ error) {
+func ParseNodeID(id string) (*KadID, error) {
 	nodeID := &KadID{}
 
 	idBytes, err := base64.URLEncoding.DecodeString(id)
@@ -204,28 +279,34 @@ func ParseNodeID(id string) (_ *KadID, _ error) {
 
 	idBytesReader := bytes.NewReader(idBytes)
 
-	lengthsByteLen := 2 * lenSize
-	lengthsOffset := idBytesReader.Size() - lengthsByteLen
-	lengthsSectionReader := io.NewSectionReader(idBytesReader, lengthsOffset, lengthsByteLen)
+	lengthsSectionReader := io.NewSectionReader(
+		idBytesReader,
+		idBytesReader.Size()-lenSize,
+		lenSize,
+	)
 
-	lengths := []uint16{}
-	if err := binary.Read(lengthsSectionReader, binary.LittleEndian, lengths); err != nil {
+	var (
+		hashLen uint16
+	)
+	if err := binary.Read(lengthsSectionReader, binary.LittleEndian, hashLen); err != nil {
 		// TODO(bryanchriswhite): error handling
-		// ensure lengths exist
+		// ensure hashLen exist
 		return nil, ErrInvalidNodeID.Wrap(err)
 	}
 
-	nodeID.keyLen = lengths[1]
-	nodeID.hashLen = lengths[0]
+	nodeID.hashLen = hashLen
+	keyLen := idBytesReader.Size() - int64(hashLen) - int64(lenSize)
+	hashBytes := make([]byte, hashLen)
+	keyBytes := make([]byte, keyLen)
 
-	keySectionReader := io.NewSectionReader(idBytesReader, 0, int64(nodeID.keyLen))
-	if _, err := keySectionReader.Read(nodeID.pubKey); err != nil {
+	hashSectionReader := io.NewSectionReader(idBytesReader, 0, int64(hashLen))
+	if _, err := hashSectionReader.Read(hashBytes); err != nil {
 		// TODO(bryanchriswhite): error handling
 		return nil, ErrInvalidNodeID.Wrap(err)
 	}
 
-	hashSectionReader := io.NewSectionReader(idBytesReader, 0, int64(nodeID.keyLen))
-	if _, err := hashSectionReader.Read(nodeID.hash); err != nil {
+	keySectionReader := io.NewSectionReader(idBytesReader, int64(hashLen), int64(keyLen))
+	if _, err := keySectionReader.Read(keyBytes); err != nil {
 		// TODO(bryanchriswhite): error handling
 		return nil, ErrInvalidNodeID.Wrap(err)
 	}
@@ -233,7 +314,30 @@ func ParseNodeID(id string) (_ *KadID, _ error) {
 	return nodeID, nil
 }
 
-func (k *KadID) String() (_ string) {
+func (k *KadCreds) String() string {
+	return base64.URLEncoding.EncodeToString(k.Bytes())
+}
+
+func (k *KadCreds) Bytes() []byte {
+	pubKey, err := x509.MarshalPKIXPublicKey(k.tlsH.PubKey())
+	if err != nil {
+		zap.S().Error(errs.New("unable to marshal public key"))
+	}
+
+	b := bytes.NewBuffer([]byte{})
+	enc := base64.NewEncoder(base64.URLEncoding, b)
+	enc.Write(k.hash)
+	enc.Write(pubKey)
+	binary.Write(enc, binary.LittleEndian, k.hashLen)
+
+	return b.Bytes()
+}
+
+func (k *KadCreds) Hash() []byte {
+	return k.hash
+}
+
+func (k *KadID) String() string {
 	return base64.URLEncoding.EncodeToString(k.Bytes())
 }
 
@@ -242,10 +346,13 @@ func (k *KadID) Bytes() []byte {
 	enc := base64.NewEncoder(base64.URLEncoding, b)
 	enc.Write(k.hash)
 	enc.Write(k.pubKey)
-	binary.Write(enc, binary.LittleEndian, k.keyLen)
 	binary.Write(enc, binary.LittleEndian, k.hashLen)
 
 	return b.Bytes()
+}
+
+func (k *KadID) Hash() []byte {
+	return k.hash
 }
 
 type mockID struct {

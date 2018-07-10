@@ -13,6 +13,8 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -93,17 +95,56 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
-func NewTLSHelper() (*TLSHelper, error) {
-	t := &TLSHelper{}
-	if err := t.generateTLS(); err !=  nil {
-		return nil, err
+func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
+	t := &TLSHelper{
+		cert: cert,
+	}
+
+	if t.cert == nil {
+		if err := t.generateTLS(); err != nil {
+			return nil, err
+		}
 	}
 
 	return t, nil
 }
 
+func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
+	config := cloneTLSConfig(c)
+
+	config.Certificates = []tls.Certificate{*t.cert}
+	// Skip normal verification
+	config.InsecureSkipVerify = true
+	// Required client certificate
+	config.ClientAuth = tls.RequireAnyClientCert
+	// Custom verification logic for *both* client and server
+	config.VerifyPeerCertificate = VerifyPeerCertificate
+
+	return config
+}
+
+func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
+	return credentials.NewTLS(t.NewTLSConfig(config))
+}
+
+func (t *TLSHelper) DialOption() grpc.DialOption {
+	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
+}
+
+func (t *TLSHelper) ServerOption() grpc.ServerOption {
+	return grpc.Creds(t.NewPeerTLS(nil))
+}
+
+func (t *TLSHelper) PubKey() ecdsa.PublicKey {
+	return t.cert.PrivateKey.(*ecdsa.PrivateKey).PublicKey
+}
+
+func (t *TLSHelper) Certificate() tls.Certificate {
+	return *t.cert
+}
+
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
-	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
+	pubKey := parentCert.PublicKey.(*ecdsa.PublicKey)
 	signature := new(ecdsaSignature)
 
 	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
@@ -114,7 +155,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) 
 	h.Write(childCert.RawTBSCertificate)
 	digest := h.Sum(nil)
 
-	isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)
+	isValid := ecdsa.Verify(pubKey, digest, signature.R, signature.S)
 
 	return isValid, nil
 }

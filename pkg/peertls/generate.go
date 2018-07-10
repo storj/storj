@@ -18,10 +18,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"math/big"
+
 	"github.com/zeebo/errs"
 )
 
-func (t *TLSHelper) generateTLS() (error) {
+func (t *TLSHelper) generateTLS() error {
 	// if err := t.EnsureAbsPaths(); err != nil {
 	// 	return ErrGenerate.Wrap(err)
 	// }
@@ -111,12 +112,12 @@ func (t *TLSHelper) generateTLS() (error) {
 // }
 
 func createCert(
-		template,
-		parentTemplate *x509.Certificate,
-		parentDERCerts [][]byte,
-		pubKey *ecdsa.PublicKey,
-		rootKey,
-		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+	template,
+	parentTemplate *x509.Certificate,
+	parentDERCerts [][]byte,
+	pubKey *ecdsa.PublicKey,
+	rootKey,
+	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
 		return nil, err
@@ -126,7 +127,7 @@ func createCert(
 	DERCerts = append(DERCerts, certDERBytes)
 	DERCerts = append(DERCerts, parentDERCerts...)
 
-	keyDERBytes, err := keyToDERBytes(privKey)
+	keyDERBytes, err := KeyToDERBytes(privKey)
 	if err != nil {
 		return nil, err
 	}

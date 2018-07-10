@@ -16,15 +16,15 @@ const (
 	BlockTypeCertificate  = "CERTIFICATE"
 )
 
-func newKeyBlock(b []byte) *pem.Block {
+func NewKeyBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
-func newCertBlock(b []byte) *pem.Block {
+func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
-func keyToDERBytes(key *ecdsa.PrivateKey) ([]byte, error) {
+func KeyToDERBytes(key *ecdsa.PrivateKey) ([]byte, error) {
 	b, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return nil, errs.New("unable to marshal ECDSA private key", err)
@@ -34,10 +34,10 @@ func keyToDERBytes(key *ecdsa.PrivateKey) ([]byte, error) {
 }
 
 func keyToBlock(key *ecdsa.PrivateKey) (*pem.Block, error) {
-	b, err := keyToDERBytes(key)
+	b, err := KeyToDERBytes(key)
 	if err != nil {
 		return nil, err
 	}
 
-	return newKeyBlock(b), nil
+	return NewKeyBlock(b), nil
 }
