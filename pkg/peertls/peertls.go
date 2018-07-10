@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
-	"fmt"
 	"math/big"
 	"os"
 
@@ -38,23 +37,9 @@ func IsNotExist(err error) bool {
 	return os.IsNotExist(err) || ErrNotExist.Has(err)
 }
 
-// TLSFileOptions stores information about a tls certificate and key, and options for use with tls helper functions/methods
-type TLSFileOptions struct {
-	RootCertRelPath string
-	RootCertAbsPath string
-	LeafCertRelPath string
-	LeafCertAbsPath string
-	// NB: Populate absolute paths from relative paths,
-	// 			with respect to pwd via `.EnsureAbsPaths`
-	RootKeyRelPath  string
-	RootKeyAbsPath  string
-	LeafKeyRelPath  string
-	LeafKeyAbsPath  string
-	LeafCertificate *tls.Certificate
-	// Create if cert or key nonexistent
-	Create bool
-	// Overwrite if `create` is true and cert and/or key exist
-	Overwrite bool
+// TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
+type TLSHelper struct {
+	cert *tls.Certificate
 }
 
 type ecdsaSignature struct {
@@ -107,18 +92,10 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	return nil
 }
 
-// NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool) (_ *TLSFileOptions, _ error) {
-	t := &TLSFileOptions{
-		RootCertRelPath: fmt.Sprintf("%s.root.cert", baseCertPath),
-		RootKeyRelPath:  fmt.Sprintf("%s.root.key", baseKeyPath),
-		LeafCertRelPath: fmt.Sprintf("%s.leaf.cert", baseCertPath),
-		LeafKeyRelPath:  fmt.Sprintf("%s.leaf.key", baseKeyPath),
-		Overwrite:       overwrite,
-		Create:          create,
-	}
-
-	if err := t.EnsureExists(); err != nil {
+// NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
+func NewTLSHelper() (*TLSHelper, error) {
+	t := &TLSHelper{}
+	if err := t.generateTLS(); err !=  nil {
 		return nil, err
 	}
 

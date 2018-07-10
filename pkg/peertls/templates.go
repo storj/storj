@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 )
 
-func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
+func rootTemplate(t *TLSHelper) (*x509.Certificate, error) {
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)
@@ -24,7 +24,7 @@ func rootTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
 	return template, nil
 }
 
-func leafTemplate(t *TLSFileOptions) (*x509.Certificate, error) {
+func leafTemplate(t *TLSHelper) (*x509.Certificate, error) {
 	serialNumber, err := newSerialNumber()
 	if err != nil {
 		return nil, ErrTLSTemplate.Wrap(err)

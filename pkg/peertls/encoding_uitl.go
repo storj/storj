@@ -5,7 +5,6 @@ package peertls
 
 import (
 	"crypto/ecdsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 
@@ -41,41 +40,4 @@ func keyToBlock(key *ecdsa.PrivateKey) (*pem.Block, error) {
 	}
 
 	return newKeyBlock(b), nil
-}
-
-func certFromPEMs(certPEMBytes, keyPEMBytes []byte) (*tls.Certificate, error) {
-	certDERs := [][]byte{}
-
-	for {
-		var certDERBlock *pem.Block
-
-		certDERBlock, certPEMBytes = pem.Decode(certPEMBytes)
-		if certDERBlock == nil {
-			break
-		}
-
-		certDERs = append(certDERs, certDERBlock.Bytes)
-	}
-
-	keyPEMBlock, _ := pem.Decode(keyPEMBytes)
-	if keyPEMBlock == nil {
-		return nil, errs.New("unable to decode key PEM data")
-	}
-
-	return certFromDERs(certDERs, keyPEMBlock.Bytes)
-}
-
-func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
-	var (
-		err  error
-		cert = new(tls.Certificate)
-	)
-
-	cert.Certificate = certDERBytes
-	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
-	if err != nil {
-		return nil, errs.New("unable to parse EC private key", err)
-	}
-
-	return cert, nil
 }

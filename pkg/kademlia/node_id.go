@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
@@ -18,6 +17,10 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"path/filepath"
 	"os"
+	"crypto/tls"
+	"io/ioutil"
+	"encoding/pem"
+	"crypto/ecdsa"
 )
 
 const (
@@ -29,15 +32,21 @@ var (
 )
 
 type KadID struct {
-	t       *peertls.TLSFileOptions
+	tlsCert *peertls.TLSHelper
 	hash    []byte
 	pubKey  []byte
 	keyLen  uint16
 	hashLen uint16
 }
 
-func LoadID(basePath string) (_ dht.NodeID, _ error) {
-	baseDir := filepath.Dir(basePath)
+// LoadID reads and parses an "identity" file containing a tls certificate
+// chain and a private key for the leaf certificate.
+//
+// The files must contain PEM encoded data. The certificate portion
+// may contain intermediate certificates following the leaf certificate to
+// form a certificate chain.
+func LoadID(path string) (dht.NodeID, error) {
+	baseDir := filepath.Dir(path)
 
 	if _, err := os.Stat(baseDir); err != nil {
 		if err == os.ErrNotExist {
@@ -49,26 +58,64 @@ func LoadID(basePath string) (_ dht.NodeID, _ error) {
 		}
 	}
 
-	t, err := peertls.NewTLSFileOptions(
-		basePath,
-		basePath,
-		true,
-		false,
-	)
-
-	pubkey := t.LeafCertificate.Leaf.PublicKey.(*crypto.PublicKey)
-	nodeID, err := keyToNodeID(pubkey, 256)
+	// Attempt to load
+	PEMBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	nodeID.t = t
+	cert, err := decodePEMs(PEMBytes)
+	nodeID, err := certToNodeID(cert, 256)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
 
 	return nodeID, nil
 }
 
+func decodePEMs(PEMBytes []byte) (*tls.Certificate, error) {
+	certDERs := [][]byte{}
+	keyDER := []byte{}
+
+	for {
+		var DERBlock *pem.Block
+
+		DERBlock, PEMBytes = pem.Decode(PEMBytes)
+		if DERBlock == nil {
+			break
+		}
+
+		if DERBlock.Type == peertls.BlockTypeCertificate {
+			certDERs = append(certDERs, DERBlock.Bytes)
+			continue
+		}
+
+		if DERBlock.Type == peertls.BlockTypeEcPrivateKey {
+			keyDER = DERBlock.Bytes
+			continue
+		}
+	}
+
+	return certFromDERs(certDERs, keyDER)
+}
+
+func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
+	var (
+		err  error
+		cert = new(tls.Certificate)
+	)
+
+	cert.Certificate = certDERBytes
+	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
+	if err != nil {
+		return nil, errs.New("unable to parse EC private key", err)
+	}
+
+	return cert, nil
+}
+
 // func LoadOrCreateID(basePath string, minDifficulty uint16) (_ dht.NodeID, _ error) {
-// 	t, err := peertls.NewTLSFileOptions(
+// 	t, err := peertls.NewTLSHelper(
 // 		basePath,
 // 		basePath,
 // 		false,
@@ -90,15 +137,15 @@ func LoadID(basePath string) (_ dht.NodeID, _ error) {
 // 				return nil, errs.Wrap(err)
 // 			}
 //
-// 			t, err := peertls.NewTLSFileOptions(
+// 			t, err := peertls.NewTLSHelper(
 // 				basePath,
 // 				basePath,
 // 				true,
 // 				false,
 // 			)
 //
-// 			pubkey := t.LeafCertificate.Leaf.PublicKey.(*crypto.PublicKey)
-// 			nodeID, err := keyToNodeID(pubkey, 256)
+// 			pubkey := t.cert.Leaf.PublicKey.(*crypto.PublicKey)
+// 			nodeID, err := certToNodeID(pubkey, 256)
 // 			if err != nil {
 // 				return nil, errs.Wrap(err)
 // 			}
@@ -112,8 +159,13 @@ func LoadID(basePath string) (_ dht.NodeID, _ error) {
 // 	}
 // }
 
-func keyToNodeID(pubKey *crypto.PublicKey, hashLen uint16) (_ *KadID, _ error) {
-	keyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+// func generateID(minDifficulty uint16) (*KadID, error) {
+//
+// }
+
+func certToNodeID(cert *tls.Certificate, hashLen uint16) (_ *KadID, _ error) {
+	pubkey := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
+	keyBytes, err := x509.MarshalPKIXPublicKey(pubkey)
 	if err != nil {
 		return nil, errs.New("unable to marshal pubkey", err)
 	}

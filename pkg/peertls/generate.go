@@ -17,23 +17,14 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"math/big"
-	"net"
-	"strings"
-	"time"
-
 	"github.com/zeebo/errs"
 )
 
-const (
-	OneYear = 365 * 24 * time.Hour
-)
-
-func (t *TLSFileOptions) generateTLS() (_ error) {
-	if err := t.EnsureAbsPaths(); err != nil {
-		return ErrGenerate.Wrap(err)
-	}
+func (t *TLSHelper) generateTLS() (error) {
+	// if err := t.EnsureAbsPaths(); err != nil {
+	// 	return ErrGenerate.Wrap(err)
+	// }
 
 	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -45,9 +36,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	rootC, err := createAndWrite(
-		t.RootCertAbsPath,
-		t.RootKeyAbsPath,
+	rootC, err := createCert(
 		rootT,
 		rootT,
 		nil,
@@ -69,9 +58,7 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	leafC, err := createAndWrite(
-		t.LeafCertAbsPath,
-		t.LeafKeyAbsPath,
+	leafC, err := createCert(
 		leafT,
 		rootT,
 		rootC.Certificate,
@@ -84,73 +71,55 @@ func (t *TLSFileOptions) generateTLS() (_ error) {
 		return ErrGenerate.Wrap(err)
 	}
 
-	t.LeafCertificate = leafC
+	t.cert = leafC
 
 	return nil
 }
 
-// LoadCert reads and parses a cert/privkey pair from a pair
-// of files. The files must contain PEM encoded data. The certificate file
-// may contain intermediate certificates following the leaf certificate to
-// form a certificate chain. On successful return, Certificate.Leaf will
-// be nil because the parsed form of the certificate is not retained.
-func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
-	certPEMBytes, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return &tls.Certificate{}, err
-	}
-	keyPEMBytes, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return &tls.Certificate{}, err
-	}
+// func createAndWrite(
+// 		certPath,
+// 		keyPath string,
+// 		template,
+// 		parentTemplate *x509.Certificate,
+// 		parentDERCerts [][]byte,
+// 		pubKey *ecdsa.PublicKey,
+// 		rootKey,
+// 		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+//
+// 	DERCerts, keyDERBytes, err := createDERs(
+// 		template,
+// 		parentTemplate,
+// 		parentDERCerts,
+// 		pubKey,
+// 		rootKey,
+// 		privKey,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	if err := writeCerts(DERCerts, certPath); err != nil {
+// 		return nil, err
+// 	}
+//
+// 	if err := writeKey(privKey, keyPath); err != nil {
+// 		return nil, err
+// 	}
+//
+// 	return certFromDERs(DERCerts, keyDERBytes)
+//
+// }
 
-	return certFromPEMs(certPEMBytes, keyPEMBytes)
-}
-
-func createAndWrite(
-		certPath,
-		keyPath string,
+func createCert(
 		template,
 		parentTemplate *x509.Certificate,
 		parentDERCerts [][]byte,
 		pubKey *ecdsa.PublicKey,
 		rootKey,
 		privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
-
-	DERCerts, keyDERBytes, err := createDERs(
-		template,
-		parentTemplate,
-		parentDERCerts,
-		pubKey,
-		rootKey,
-		privKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := writeCerts(DERCerts, certPath); err != nil {
-		return nil, err
-	}
-
-	if err := writeKey(privKey, keyPath); err != nil {
-		return nil, err
-	}
-
-	return certFromDERs(DERCerts, keyDERBytes)
-
-}
-
-func createDERs(
-		template,
-		parentTemplate *x509.Certificate,
-		parentDERCerts [][]byte,
-		pubKey *ecdsa.PublicKey,
-		rootKey,
-		privKey *ecdsa.PrivateKey) ([][]byte, []byte, error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	DERCerts := [][]byte{}
@@ -159,29 +128,17 @@ func createDERs(
 
 	keyDERBytes, err := keyToDERBytes(privKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return DERCerts, keyDERBytes, nil
-}
-
-func setHosts(hosts string, template *x509.Certificate) {
-	h := strings.Split(hosts, ",")
-	for _, host := range h {
-		if ip := net.ParseIP(host); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-			continue
-		}
-
-		template.DNSNames = append(template.DNSNames, host)
+	cert := new(tls.Certificate)
+	cert.Certificate = DERCerts
+	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
+	if err != nil {
+		return nil, errs.New("unable to parse EC private key", err)
 	}
-}
 
-func defaultExpiration() (_, _ time.Time) {
-	notBefore := time.Now()
-	notAfter := notBefore.Add(OneYear)
-
-	return notBefore, notAfter
+	return cert, nil
 }
 
 func newSerialNumber() (*big.Int, error) {

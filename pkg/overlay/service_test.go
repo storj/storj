@@ -77,7 +77,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	defer os.RemoveAll(tmpPath)
 
 	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
-	_, err = peertls.NewTLSFileOptions(
+	_, err = peertls.NewTLSHelper(
 		basePath,
 		basePath,
 		true,
@@ -120,7 +120,7 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	go srv.Serve(lis)
 	defer srv.Stop()
 
-	clientTLSOps, err := peertls.NewTLSFileOptions(
+	clientTLSOps, err := peertls.NewTLSHelper(
 		clientBasePath,
 		clientBasePath,
 		true,
@@ -201,8 +201,8 @@ func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	return grpcServer
 }
 
-func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Server, *peertls.TLSFileOptions) {
-	tlsOpts, err := peertls.NewTLSFileOptions(
+func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Server, *peertls.TLSHelper) {
+	tlsOpts, err := peertls.NewTLSHelper(
 		tlsBasePath,
 		tlsBasePath,
 		create,

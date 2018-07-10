@@ -25,7 +25,7 @@ var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	options                                                                                  peertls.TLSFileOptions
+	options                                                                                  peertls.TLSHelper
 )
 
 func init() {
@@ -69,8 +69,8 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 }
 
 // NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
-func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSFileOptions) (_ *grpc.Server, _ error) {
-	t, err := peertls.NewTLSFileOptions(
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSHelper) (_ *grpc.Server, _ error) {
+	t, err := peertls.NewTLSHelper(
 		fopts.RootCertRelPath,
 		fopts.RootKeyRelPath,
 		fopts.Create,
@@ -93,8 +93,8 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
-func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	t, err := peertls.NewTLSFileOptions(
+func NewTLSClient(serverAddr *string, fopts peertls.TLSHelper, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t, err := peertls.NewTLSHelper(
 		fopts.RootCertRelPath,
 		fopts.RootCertRelPath,
 		fopts.Create,
