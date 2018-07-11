@@ -83,9 +83,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 			}
 			if err := ps.CloseConn(); err != nil {
 				zap.Error(err)
-				errs <- err
 			}
-
+			errs <- nil
 		}(i, n)
 	}
 	allerrs := collectErrors(errs, len(readers))
@@ -153,14 +152,14 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 				errs <- err
 				return
 			}
-			if err = ps.Delete(ctx, derivedPieceID); err != nil {
+			err = ps.Delete(ctx, derivedPieceID)
+			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
-				errs <- err
 			}
+			errs <- err
 
 			if err := ps.CloseConn(); err != nil {
 				zap.S().Errorf("Failed closing connection", err)
-				errs <- err
 			}
 		}(n)
 	}
