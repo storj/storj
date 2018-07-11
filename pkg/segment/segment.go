@@ -8,18 +8,27 @@ import (
 	"io"
 	"time"
 
+	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/protos/pointerdb"
+	ppb "storj.io/storj/protos/pointerdb"
 	opb "storj.io/storj/protos/overlay"
 )
 
-// Meta describes associated Nodes and if data is Inline
-type Meta struct {
-	dtypes.Meta
+var (
+	mon = monkit.Package()
+	netstateAddress = flag.String("netstate_addr", "35.202.58.176:4242", "address")
+)
 
+// Meta describes associated Nodes and if data is Inline or Remote
+type Meta struct {
 	Inline bool
 	Nodes  []overlay.NodeID
 }
@@ -27,18 +36,26 @@ type Meta struct {
 // Store allows Put, Get, Delete, and List methods on paths
 type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
-		expiration time.Time) error
+		expiration time.Time, rs RedundancyStrategy) error
 	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, startingPath, endingPath paths.Path) (
 		paths []paths.Path, truncated bool, err error)
 }
 
-// SegmentStore defines the SegmentStore
 type segmentStore struct {
 	pdb *pointerdb.PointerDBClient
 	oc  *overlay.Overlay
-	tc  *transport.Transport
+	tc  *transport.Client
+	// max buffer memory
+	mbm int
+	rs *eestream.RedundancyStrategy
+}
+
+// NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
+func NewSegmentStore(pdb *pointerdb.PointerDBClient, oc *overlay.Overlay, tc *transport.Transport,
+rs RedundancyStrategy, mbm int) Store {
+	return &segmentStore{pdb: pdb, oc: oc, tc: tc, rs: rs, mbm: 2}
 }
 
 // Put uploads a file to an erasure code client
@@ -52,12 +69,53 @@ metadata []byte, expiration time.Time) err error {
 		return Error.Wrap(err)
 	}
 
-	r, err := c.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
+	// uses overlay client to request a list of nodes
+	nodes, err := c.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
+	pieceID := client.NewPieceID()
 
+	// puts file to ecclient
+	ec := ecclient.NewClient(s.tc, s.mbm)
+	err := ec.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
+	if err != nil {
+		zap.S().Error("Failed putting nodes to ecclient")
+		return Error.Wrap(err)
+	}
+
+	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
+	if err != nil {
+		zap.S().Error("Failed to dial: ", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	pdc := pb.NewPointerDBClient(conn)
+
+	// creates pointer
+	pr := ppb.Pointer{
+		Type: ppb.Pointer_REMOTE,
+		Remote: &ppb.RemoteSegment{
+			Redundancy: &ppb.RedundancyScheme{
+				Type: ppb.RedundancyScheme_RS,
+				MinReq: rs.RequiredCount(),
+				Total: rs.TotalCount(),
+				RepairThreshold: rs.Min,
+				SuccessThreshold: rs.Opt,
+			},
+			PieceId: pieceID,
+			RemotePieces: nodes,
+		},
+		APIKey: []byte("abc123"),
+	}
+
+	// puts pointer to pointerDB
+	err := pdb.Put(ctx, &pr1)
+	if err != nil || status.Code(err) == codes.Internal {
+		zap.L().Error("failed to put", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
