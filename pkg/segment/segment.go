@@ -63,14 +63,8 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 metadata []byte, expiration time.Time) err error {
 	defer mon.Task()(&tcx)(&err)
 
-	addr := "bootstrap.storj.io:7070"
-	c, err := overlay.NewClient(&addr, grpc.WithInsecure())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	// uses overlay client to request a list of nodes
-	nodes, err := c.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
+	nodes, err := oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
