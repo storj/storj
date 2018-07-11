@@ -177,30 +177,37 @@ func TestList(t *testing.T){
 		err error 
 		errString string
 	}{
-		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
-		//{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  nil, ""},
+		{[]byte("wrong key"), p.New(""), 2, true, []string{""}, ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), 2, true, []string{"test"},  nil, ""},
+		{[]byte("abc123"), p.New(""), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  ErrNoFileGiven, noPathGiven},
+		{[]byte("abc123"), p.New("file1/file2"), 2, false, []string{""},  nil, ""},
+		{[]byte("wrong key"), p.New("file1/file2"), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"}, ErrUnauthenticated,unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), 3, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  nil, ""},
 	}{
 		lr := pb.ListRequest{
 			StartingPathKey: tt.startingPath.Bytes(),
 			Limit:           tt.limit,
 			APIKey:          tt.APIKey,
 		}
-		
+
+		var truncatedPathsBytes [][]byte
+
 		getCorrectPaths := func(fileName string) bool { return strings.HasPrefix(fileName, "file1")}
 		filterPaths := filterPathName(tt.paths, getCorrectPaths)
-		truncatedPaths := filterPaths[0:tt.limit]
 		
-		truncatedPathsBytes := make([][]byte, len(truncatedPaths))
+		if len(filterPaths) == 0 {
+			truncatedPathsBytes = [][]byte{{}}
+		} else{
+			truncatedPaths := filterPaths[0:tt.limit]
+			truncatedPathsBytes := make([][]byte, len(truncatedPaths))
 		
-		for i, pathName := range truncatedPaths {
-			bytePathName := []byte(pathName)
-			truncatedPathsBytes[i] = make([]byte, 1)
-			truncatedPathsBytes[i] = bytePathName 
-		}		
-
+			for i, pathName := range truncatedPaths {
+				bytePathName := []byte(pathName)
+				truncatedPathsBytes[i] = make([]byte, 1)
+				truncatedPathsBytes[i] = bytePathName 
+			}
+		}
+			
 		lrr := pb.ListResponse{Paths: truncatedPathsBytes, Truncated: tt.truncated }
 
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -212,7 +219,7 @@ func TestList(t *testing.T){
 			gc.EXPECT().List(ctx, &lr).Return(&lrr, tt.err),
 		)
 
-		paths, trunc, err  := nsc.List(ctx, tt.startingPath,  tt.limit, tt.APIKey)
+		paths, trunc, err := nsc.List(ctx, tt.startingPath,  tt.limit, tt.APIKey)
 		
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -234,6 +241,12 @@ func filterPathName(pathString []string, test func(string) bool) (filteredPathNa
 }
 
 
+func TestDelete(t *testing.T){
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+}
 
 
 
