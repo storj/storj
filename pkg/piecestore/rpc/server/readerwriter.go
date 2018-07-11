@@ -29,16 +29,14 @@ type StreamReader struct {
 }
 
 // NewStreamReader returns a new StreamReader
-func (s *Server) NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
+func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 	return &StreamReader{
 		src: utils.NewReaderSource(func() ([]byte, error) {
 			recv, err := stream.Recv()
 			if err != nil {
 				return nil, err
 			}
-			// Only read what we are being allocated to read
-			//   We may be able to remove the slice since the send makes sure that
-			//   ba.Data.Size matches the Piecedata.Content length
+
 			return recv.Piecedata.Content, nil
 		}),
 	}
