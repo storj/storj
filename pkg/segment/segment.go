@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
@@ -34,7 +35,7 @@ var (
 // Meta describes associated Nodes and if data is Inline or Remote
 type Meta struct {
 	Inline bool
-	Nodes  []overlay.NodeID
+	Nodes  []dht.NodeID
 }
 
 // Store allows Put, Get, Delete, and List methods on paths
@@ -76,8 +77,8 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	pieceID := client.NewPieceID()
 
 	// puts file to ecclient
-	ec := ecclient.NewClient(s.tc, s.mbm)
-	err := ec.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
+	ecc := ecclient.NewClient(s.tc, s.mbm)
+	err := ecc.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)
@@ -108,7 +109,7 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	// puts pointer to pointerDB
-	err := pdb.Put(ctx, &pr1)
+	err = pdb.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
 		return Error.Wrap(err)
