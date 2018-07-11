@@ -335,21 +335,12 @@ func ParseID(id string) (*KadID, error) {
 }
 
 func (k *KadCreds) String() string {
-	// idBuffer := bytes.NewBuffer([]byte{})
-	// // idString := []byte{}
-	// // base64.URLEncoding.Encode(idString, k.Bytes())
-	// encoder := base64.NewEncoder(base64.URLEncoding, idBuffer)
-	// encoder.Write(k.Bytes())
-	// binary.Write(encoder, binary.LittleEndian, k.hashLen)
-	// encoder.Close()
-	//
-	// return idBuffer.String()
-
 	return string(k.Bytes())
 }
 
 func (k *KadCreds) Bytes() []byte {
-	pubKey, err := x509.MarshalPKIXPublicKey(k.tlsH.PubKey())
+	p := k.tlsH.PubKey()
+	pubKey, err := x509.MarshalPKIXPublicKey(&p)
 	if err != nil {
 		zap.S().Error(errs.New("unable to marshal public key"))
 	}
@@ -369,17 +360,6 @@ func (k *KadCreds) Hash() []byte {
 }
 
 func (k *KadID) String() string {
-	// return base64.URLEncoding.EncodeToString(k.Bytes())
-
-	// idBuffer := bytes.NewBuffer([]byte{})
-	// // idString := []byte{}
-	// // base64.URLEncoding.Encode(idString, k.Bytes())
-	// encoder := base64.NewEncoder(base64.URLEncoding, idBuffer)
-	// encoder.Write(k.Bytes())
-	// binary.Write(encoder, binary.LittleEndian, k.hashLen)
-	// encoder.Close()
-	//
-	// return idBuffer.String()
 	return string(k.Bytes())
 }
 
