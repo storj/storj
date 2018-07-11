@@ -178,11 +178,11 @@ func TestList(t *testing.T){
 		errString string
 	}{
 		{[]byte("wrong key"), p.New(""), 2, true, []string{""}, ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), 2, true, []string{"test"},  nil, ""},
+		{[]byte("abc123"), p.New("file1"), 2, true, []string{"test"},  nil, ""},
 		{[]byte("abc123"), p.New(""), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  ErrNoFileGiven, noPathGiven},
-		{[]byte("abc123"), p.New("file1/file2"), 2, false, []string{""},  nil, ""},
-		{[]byte("wrong key"), p.New("file1/file2"), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"}, ErrUnauthenticated,unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), 3, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  nil, ""},
+		{[]byte("abc123"), p.New("file1"), 2, false, []string{""},  nil, ""},
+		{[]byte("wrong key"), p.New("file1"), 2, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"}, ErrUnauthenticated,unauthenticated},
+		{[]byte("abc123"), p.New("file1"), 3, true, []string{"file1/file2", "file3/file4", "file1", "file1/file2/great3", "test"},  nil, ""},
 	}{
 		lr := pb.ListRequest{
 			StartingPathKey: tt.startingPath.Bytes(),
@@ -219,7 +219,7 @@ func TestList(t *testing.T){
 			gc.EXPECT().List(ctx, &lr).Return(&lrr, tt.err),
 		)
 
-		paths, trunc, err := nsc.List(ctx, tt.startingPath,  tt.limit, tt.APIKey)
+		paths, trunc, err := nsc.List(ctx, tt.startingPath, tt.limit, tt.APIKey)
 		
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -240,12 +240,41 @@ func filterPathName(pathString []string, test func(string) bool) (filteredPathNa
 	return
 }
 
-
 func TestDelete(t *testing.T){
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	for i, tt := range []struct {
+		APIKey []byte
+		path p.Path
+		err error 
+		errString string
+	}{
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated,unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+	}{
+		dr:= pb.DeleteRequest{tt.path.Bytes(), tt.APIKey}
+
+		errTag := fmt.Sprintf("Test case #%d", i)
+		gc:= NewMockNetStateClient(ctrl)
+		nsc := NetState{grpcClient: gc}
+
+		gomock.InOrder(
+			gc.EXPECT().Delete(ctx, &dr).Return(nil, tt.err),
+		)
+
+		err := nsc.Delete(ctx, tt.path, tt.APIKey)
+		
+		if err != nil {
+			assert.EqualError(t, err, tt.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
+	}
 }
 
 
