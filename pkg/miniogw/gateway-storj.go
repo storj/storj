@@ -167,7 +167,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
 	serMetaInfo := &mpb.StorjMetaInfo{
-		ContentType: metadata["ContentType"],
+		ContentType: metadata["content-type"],
 		Bucket:      bucket,
 		Name:        object,
 	}
