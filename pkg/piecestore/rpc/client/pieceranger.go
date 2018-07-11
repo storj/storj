@@ -19,10 +19,12 @@ import (
 var Error = errs.Class("pieceRanger error")
 
 type pieceRanger struct {
-	c      *Client
-	id     PieceID
-	size   int64
-	stream pb.PieceStoreRoutes_RetrieveClient
+	c               *Client
+	id              PieceID
+	size            int64
+	bandwidthClient string
+	payer           string
+	stream          pb.PieceStoreRoutes_RetrieveClient
 }
 
 // PieceRanger PieceRanger returns a RangeCloser from a PieceID.
@@ -37,8 +39,8 @@ func PieceRanger(ctx context.Context, c *Client, id PieceID) (ranger.RangeCloser
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64) ranger.RangeCloser {
-	return &pieceRanger{c: c, id: id, size: size, stream: stream}
+func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, payer, bandwidthClient string) ranger.RangeCloser {
+	return &pieceRanger{c: c, id: id, size: size, stream: stream, payer: payer, bandwidthClient: bandwidthClient}
 }
 
 // Size implements Ranger.Size
@@ -71,5 +73,5 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		return nil, err
 	}
 
-	return NewStreamReader(r.stream), nil
+	return r.c.NewStreamReader(r.stream, r.payer, r.bandwidthClient), nil
 }

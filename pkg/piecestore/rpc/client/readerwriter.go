@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -13,12 +14,39 @@ import (
 
 // StreamWriter creates a StreamWriter for writing data to the piece store server
 type StreamWriter struct {
-	stream pb.PieceStoreRoutes_StoreClient
+	stream          pb.PieceStoreRoutes_StoreClient
+	signer          PSClient // We need this for signing
+	bandwidthClient string
+	payer           string
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
-	if err := s.stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: b}}); err != nil {
+
+	// TODO: What does the message look like?
+	sig, err := s.signer.Sign(context.Background(), []byte{'m', 's', 'g'})
+	if err != nil {
+		return 0, err
+	}
+
+	bandwidthAllocationMSG := &pb.PieceStore{
+		Bandwidthallocation: &pb.BandwidthAllocation{
+			Data: &pb.BandwidthAllocation_Data{
+				Payer: s.payer, Client: s.bandwidthClient, Size: int64(len(b)),
+			},
+			Signature: sig,
+		},
+	}
+
+	// First we send the bandwidth allocation
+	if err := s.stream.Send(bandwidthAllocationMSG); err != nil {
+		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
+	}
+
+	contentMSG := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: b}}
+
+	// Second we send the actual content
+	if err := s.stream.Send(contentMSG); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
 
@@ -44,15 +72,35 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
+func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient, bandwidthClient, payer string) *StreamReader {
 	return &StreamReader{
 		stream: stream,
 		src: utils.NewReaderSource(func() ([]byte, error) {
-			msg, err := stream.Recv()
+
+			// TODO: What does the message look like?
+			sig, err := signer.Sign(context.Background(), []byte{'m', 's', 'g'})
 			if err != nil {
 				return nil, err
 			}
-			return msg.Content, nil
+
+			msg := &pb.PieceRetrieval{
+				Bandwidthallocation: &pb.BandwidthAllocation{
+					Signature: sig,
+					Data: &pb.BandwidthAllocation_Data{
+						Payer: payer, Client: bandwidthClient, Size: 64 * 1024,
+					},
+				},
+			}
+
+			if err = stream.Send(msg); err != nil {
+				return nil, err
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				return nil, err
+			}
+			return resp.Content, nil
 		}),
 	}
 }

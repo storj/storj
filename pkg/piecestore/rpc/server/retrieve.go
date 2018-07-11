@@ -21,29 +21,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	recv, err := stream.Recv()
 	if err != nil || recv == nil {
 		log.Println(err)
-		return errors.New("Error receiving Signature")
-	}
-
-	// TODO: verify signature
-	if err = s.verifySignature(recv.Signature); err != nil {
-		return err
-	}
-
-	// get bandwidth allocation
-	recv, err = stream.Recv()
-	if err != nil || recv == nil {
-		log.Println(err)
-		return errors.New("Error receiving Bandwidth Allocation Info")
-	}
-
-	ba := recv.Bandwidthallocation
-	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Payer, ba.Client, ba.Size)
-
-	// get Piecedata
-	recv, err = stream.Recv()
-	if err != nil || recv == nil {
-		log.Println(err)
-		return errors.New("Error receiving Piece Meta Data")
+		return errors.New("Error receiving Piece data")
 	}
 
 	pd := recv.PieceData
@@ -76,12 +54,41 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	defer storeFile.Close()
 
 	writer := &StreamWriter{stream: stream}
-	_, err = io.Copy(writer, storeFile)
-	if err != nil {
-		return err
-	}
 
-	// TODO: Save bandwidthallocation to DB
+	for {
+		// Receive Bandwidth allocation
+		recv, err = stream.Recv()
+		if err != nil || recv.Bandwidthallocation == nil {
+			log.Println(err)
+			return errors.New("Error receiving Bandwidth Allocation data")
+		}
+
+		ba := recv.Bandwidthallocation
+
+		// TODO: Should we check if all the variables on ba are good?
+
+		// TODO: verify signature
+		if err = s.verifySignature(ba.Signature); err != nil {
+			return err
+		}
+
+		// TODO: Save bandwidthallocation to DB
+		if err = s.writeBandwidthAllocToDB(ba); err != nil {
+			return err
+		}
+
+		buf := make([]byte, ba.Data.Size) // buffer size defined by what is being allocated
+
+		n, err := storeFile.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		// Write the buffer to the stream we opened earlier
+		_, err = writer.Write(buf[:n])
+		if err != nil {
+			return err
+		}
+	}
 
 	log.Println("Successfully retrieved data.")
 	return nil

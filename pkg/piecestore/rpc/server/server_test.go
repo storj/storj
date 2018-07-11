@@ -30,11 +30,11 @@ var tempDBPath = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
 var s Server
 var c pb.PieceStoreRoutesClient
-var testID = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
 var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
+	var testID = "11111111111111111111"
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 	if err != nil {
@@ -128,6 +128,8 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
+	var testID = "11111111111111111111"
+
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 	if err != nil {
@@ -199,22 +201,15 @@ func TestRetrieve(t *testing.T) {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			stream, err := c.Retrieve(context.Background())
 
-			// Send signature
-			stream.Send(&pb.PieceRetrieval{Signature: []byte{'A', 'B'}})
+			// send piece database
+			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "ABCD", Size: tt.reqSize}})
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
-
-			// send piece database
-			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "ABCD", Client: "ABCD", Size: tt.reqSize}}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -244,6 +239,8 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
+	var testID = "11111111111111111111"
+
 	tests := []struct {
 		id            string
 		size          int64
@@ -281,19 +278,14 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			if err = stream.Send(&pb.PieceStore{Signature: []byte{'A', 'B'}}); err != nil {
+			// Write the buffer to the stream we opened earlier
+			if err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
 
 			// Send Bandwidth Allocation Data
-			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: int64(len(tt.content))}}); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
-
-			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}}); err != nil {
+			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "ABCD", Client: "EFGH", Size: int64(len(tt.content))}}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
@@ -330,6 +322,8 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	var testID = "11111111111111111111"
+
 	// set up test cases
 	tests := []struct {
 		id      string

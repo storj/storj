@@ -19,9 +19,10 @@ import (
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, size int64, data io.Reader, ttl time.Time, payer, clientBandWidthAlloc string) error
-	Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error)
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, payer, bandwidthClient string) error
+	Get(ctx context.Context, id PieceID, size int64, payer, bandwidthClient string) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
+	Sign(ctx context.Context, message []byte) (signature []byte, err error)
 	CloseConn() error
 }
 
@@ -29,6 +30,7 @@ type PSClient interface {
 type Client struct {
 	route pb.PieceStoreRoutesClient
 	conn  *grpc.ClientConn
+	pkey  []byte
 }
 
 // NewPSClient initilizes a PSClient
@@ -46,28 +48,23 @@ func (client *Client) CloseConn() error {
 	return client.conn.Close()
 }
 
+// Sign a message using the clients private key
+func (client *Client) Sign(ctx context.Context, msg []byte) (signature []byte, err error) {
+	// use c.pkey to sign msg
+
+	return signature, err
+}
+
 // Meta requests info about a piece by Id
 func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
 	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
 // Put uploads a Piece to a piece store Server
-func (client *Client) Put(ctx context.Context, id PieceID, size int64, data io.Reader, ttl time.Time, payer, clientBandWidthAlloc string) error {
+func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, payer, bandwidthClient string) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
 		return err
-	}
-
-	// Send signature
-	if err := stream.Send(&pb.PieceStore{Signature: []byte{'A', 'B'}}); err != nil {
-		stream.CloseAndRecv()
-		return fmt.Errorf("%v.Send() = %v", stream, err)
-	}
-
-	// Send Bandwidth Allocation Data
-	if err := stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: size}}); err != nil {
-		stream.CloseAndRecv()
-		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
 	// Send preliminary data
@@ -76,7 +73,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, size int64, data io.R
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{stream: stream}
+	writer := &StreamWriter{signer: client, payer: payer, bandwidthClient: bandwidthClient, stream: stream}
 
 	defer writer.Close()
 
@@ -86,23 +83,13 @@ func (client *Client) Put(ctx context.Context, id PieceID, size int64, data io.R
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64, payer, clientBandWidthAlloc string) (ranger.RangeCloser, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, payer, bandwidthClient string) (ranger.RangeCloser, error) {
 	stream, err := client.route.Retrieve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Send signature
-	if err = stream.Send(&pb.PieceRetrieval{Signature: []byte{'A', 'B'}}); err != nil {
-		return nil, err
-	}
-
-	// Send bandwidth bandwidthAllocation
-	if err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Payer: "ABCD", Client: "EFGH", Size: size}}); err != nil {
-		return nil, err
-	}
-
-	return PieceRangerSize(client, stream, id, size), nil
+	return PieceRangerSize(client, stream, id, size, payer, bandwidthClient), nil
 }
 
 // Delete a Piece from a piece store Server
