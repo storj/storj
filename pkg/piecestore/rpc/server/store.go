@@ -59,7 +59,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 	}
 	defer storeFile.Close()
 
-	reader := s.NewStreamReader(stream)
+	reader := NewStreamReader(stream)
 
 	for {
 		// Receive Bandwidth allocation
