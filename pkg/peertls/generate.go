@@ -123,6 +123,8 @@ func createCert(
 		return nil, err
 	}
 
+	parsedLeaf, _ := x509.ParseCertificate(certDERBytes)
+
 	DERCerts := [][]byte{}
 	DERCerts = append(DERCerts, certDERBytes)
 	DERCerts = append(DERCerts, parentDERCerts...)
@@ -133,6 +135,7 @@ func createCert(
 	}
 
 	cert := new(tls.Certificate)
+	cert.Leaf = parsedLeaf
 	cert.Certificate = DERCerts
 	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
 	if err != nil {

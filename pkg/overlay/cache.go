@@ -95,7 +95,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := kademlia.ParseNodeID(v.Id)
+		nodeID, err := kademlia.ParseID(v.Id)
 		if err != nil {
 			zap.Error(errs.New("unable to parse node id \"%s\"", v.Id, err))
 		}
@@ -156,7 +156,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := kademlia.ParseNodeID(v.Id)
+		nodeID, err := kademlia.ParseID(v.Id)
 		if err != nil {
 			errs.New("unable to parse node id \"%s\"", v.Id, err)
 		}
