@@ -13,7 +13,6 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
-	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/objects"
@@ -22,9 +21,7 @@ import (
 )
 
 var (
-	//Error is the errs class of standard Object Store errors
-	Error = errs.Class("objectstore error")
-	mon   = monkit.Package()
+	mon = monkit.Package()
 )
 
 func init() {
@@ -106,6 +103,9 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
 	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	if err != nil {
+		return err
+	}
 	defer rr.Close()
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
@@ -120,16 +120,23 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := paths.New(bucket, object)
-	_, m, err := s.storj.os.GetObject(ctx, objPath)
+	rr, m, err := s.storj.os.GetObject(ctx, objPath)
+	if err != nil {
+		return objInfo, err
+	}
+	defer rr.Close()
 	newmetainfo := &mpb.StorjMetaInfo{}
 	err = proto.Unmarshal(m.Data, newmetainfo)
 	if err != nil {
-		return objInfo, Error.New("ObjectStore GetObject() error")
+		return objInfo, err
 	}
-	objInfo = minio.ObjectInfo{
+	return minio.ObjectInfo{
+		Name:    newmetainfo.GetName(),
+		Bucket:  newmetainfo.GetBucket(),
 		ModTime: m.Modified,
-	}
-	return objInfo, err
+		Size:    newmetainfo.GetSize(),
+		ETag:    newmetainfo.GetETag(),
+	}, err
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
@@ -160,13 +167,15 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
 	serMetaInfo := &mpb.StorjMetaInfo{
-		Metadata: metadata,
-		Bucket:   bucket,
-		Name:     object,
+		ContentType: metadata["ContentType"],
+		Bucket:      bucket,
+		Name:        object,
 	}
 	metainfo, err := proto.Marshal(serMetaInfo)
 	objPath := paths.New(bucket, object)
 	t := time.Now()
+
+	/* TODO: @ASK added the expiration time as 10min, but needs to be revisited */
 	expAfterTenMin := t.Add(time.Minute * 10)
 	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expAfterTenMin)
 	return minio.ObjectInfo{
