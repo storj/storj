@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/transport"
@@ -58,13 +57,13 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
-func NewSegmentStore(pdb *pointerdb.PointerDBClient, oc *overlay.Overlay, tc *transport.Transport,
+func NewSegmentStore(oc *overlay.Overlay, tc *transport.Transport,
 	rs eestream.RedundancyStrategy, mbm int) Store {
 	return &segmentStore{pdb: pdb, oc: oc, tc: tc, rs: rs, mbm: 2}
 }
 
 // Put uploads a file to an erasure code client
-func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
+func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -118,14 +117,14 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 }
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
-func (s *SegmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
+func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
 }
 
 // Delete issues deletes of a file to all piece stores and deletes from pointerdb
-func (s *SegmentStore) Delete(ctx context.Context, path paths.Path) error {
+func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
 }
 
 // List lists paths stored in the pointerdb
-func (s *SegmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
+func (s *segmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
 	paths []paths.Path, truncated bool, err error) {
 }
