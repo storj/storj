@@ -50,9 +50,8 @@ type Store interface {
 }
 
 type segmentStore struct {
-	pdb *pointerdb.PointerDBClient
-	oc  *overlay.Overlay
-	tc  *transport.Client
+	oc *overlay.Overlay
+	tc *transport.Client
 	// max buffer memory
 	mbm int
 	rs  *eestream.RedundancyStrategy
@@ -110,7 +109,7 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	// puts pointer to pointerDB
-	err = pdb.Put(ctx, &pr1)
+	err = pdc.Put(ctx, &pr1)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
 		return Error.Wrap(err)
