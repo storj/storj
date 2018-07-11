@@ -5,7 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"fmt"
 	
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -56,7 +55,6 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 
 	if err := s.DB.Put(putReq.Path, pointerBytes); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
-		fmt.Println("error is: ", err)
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("put to the db: " + string(putReq.Path))
@@ -105,20 +103,16 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListRespons
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 		keyList = pathKeys
-		fmt.Println(keyList, " this is the keyLisst")
 	} else if req.StartingPathKey != nil {
 		pathKeys, err := s.DB.List(storage.Key(req.StartingPathKey), storage.Limit(req.Limit))
-		fmt.Println("pathKeys is: ", pathKeys)
 		if err != nil {
 			s.logger.Error("err listing path keys", zap.Error(err))
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 		keyList = pathKeys
-		fmt.Println("finally keylist: ", keyList)
 	}
 
 	truncated := isItTruncated(keyList, int(req.Limit))
-	fmt.Println(truncated, " is it truncated")
 
 	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{
