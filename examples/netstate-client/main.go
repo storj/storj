@@ -42,10 +42,7 @@ func main() {
 	logger.Debug(fmt.Sprintf("client dialed port %s", port))
 	ctx := context.Background()
 
-	// Example pointer paths to put
-	// the client library creates a put req. object of these items
-	// and sends to server
-
+	// Example parameters to pass into API calls
 	var path = p.New("fold1/fold2/fold3/file.txt")
 	pointer := &proto.Pointer {
 		Type: proto.Pointer_INLINE,
@@ -53,8 +50,17 @@ func main() {
 	}
 	APIKey := []byte("abc123")
 
-	// Example Put
+	// Example Put1
 	err = nsclient.Put(ctx, path, pointer, APIKey)
+
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("couldn't put pointer in db", zap.Error(err))
+	} else {
+		logger.Debug("Success: put pointer in db")
+	}
+
+	// Example Put2
+	err = nsclient.Put(ctx, p.New("fold1/fold2"), pointer, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
@@ -74,8 +80,8 @@ func main() {
 	}
 
 	// Example List with pagination 
-	startingPathKey := path
-	var limit int64 = 2
+	startingPathKey := p.New("fold1/")
+	var limit int64 = 1
 
 	paths, trunc, err := nsclient.List(ctx, startingPathKey, limit, APIKey)
 
