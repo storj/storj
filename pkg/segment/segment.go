@@ -5,25 +5,29 @@ package segment
 
 import (
 	"context"
+	"flag"
 	"io"
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/transport"
-	ppb "storj.io/storj/protos/pointerdb"
 	opb "storj.io/storj/protos/overlay"
+	ppb "storj.io/storj/protos/pointerdb"
 )
 
 var (
-	mon = monkit.Package()
+	mon             = monkit.Package()
 	netstateAddress = flag.String("netstate_addr", "35.202.58.176:4242", "address")
 )
 
@@ -49,19 +53,19 @@ type segmentStore struct {
 	tc  *transport.Client
 	// max buffer memory
 	mbm int
-	rs *eestream.RedundancyStrategy
+	rs  *eestream.RedundancyStrategy
 }
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
 func NewSegmentStore(pdb *pointerdb.PointerDBClient, oc *overlay.Overlay, tc *transport.Transport,
-rs RedundancyStrategy, mbm int) Store {
+	rs RedundancyStrategy, mbm int) Store {
 	return &segmentStore{pdb: pdb, oc: oc, tc: tc, rs: rs, mbm: 2}
 }
 
 // Put uploads a file to an erasure code client
 func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-metadata []byte, expiration time.Time) err error {
-	defer mon.Task()(&tcx)(&err)
+	metadata []byte, expiration time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// uses overlay client to request a list of nodes
 	nodes, err := oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
@@ -91,13 +95,13 @@ metadata []byte, expiration time.Time) err error {
 		Type: ppb.Pointer_REMOTE,
 		Remote: &ppb.RemoteSegment{
 			Redundancy: &ppb.RedundancyScheme{
-				Type: ppb.RedundancyScheme_RS,
-				MinReq: rs.RequiredCount(),
-				Total: rs.TotalCount(),
-				RepairThreshold: rs.Min,
+				Type:             ppb.RedundancyScheme_RS,
+				MinReq:           rs.RequiredCount(),
+				Total:            rs.TotalCount(),
+				RepairThreshold:  rs.Min,
 				SuccessThreshold: rs.Opt,
 			},
-			PieceId: pieceID,
+			PieceId:      pieceID,
 			RemotePieces: nodes,
 		},
 		APIKey: []byte("abc123"),
@@ -122,5 +126,5 @@ func (s *SegmentStore) Delete(ctx context.Context, path paths.Path) error {
 
 // List lists paths stored in the pointerdb
 func (s *SegmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
-paths []paths.Path, truncated bool, err error) {
+	paths []paths.Path, truncated bool, err error) {
 }
