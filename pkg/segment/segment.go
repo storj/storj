@@ -47,7 +47,7 @@ type Store interface {
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, startingPath, endingPath paths.Path) (
 		paths []paths.Path, truncated bool, err error)
-
+}
 
 type segmentStore struct {
 	pdb *pointerdb.PointerDBClient
