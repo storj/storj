@@ -144,4 +144,4 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
 
-func main() { process.Must(process.Main(process.ServiceFunc(run))) }
+func main() { process.Must(process.Main(func() error { return nil }, process.ServiceFunc(run))) }

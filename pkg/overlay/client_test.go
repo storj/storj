@@ -12,8 +12,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht"
 	proto "storj.io/storj/protos/overlay"
 )
+
+type mockNodeID struct {
+}
+
+func (m mockNodeID) String() string {
+	return "foobar"
+}
+
+func (m mockNodeID) Bytes() []byte {
+	return []byte("foobar")
+}
 
 func TestNewOverlayClient(t *testing.T) {
 	cases := []struct {
@@ -69,11 +81,11 @@ func TestChoose(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
-		nodeID        NodeID
+		nodeID        dht.NodeID
 		expectedCalls int
 	}{
 		{
-			nodeID:        "foobar",
+			nodeID:        mockNodeID{},
 			expectedCalls: 1,
 		},
 	}
