@@ -30,6 +30,38 @@ func defaultConfigPath(name string) string {
 	return filepath.Join(home, path)
 }
 
+// ReadFlags will read in and bind flags for viper and pflag
+func ReadFlags() {
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+}
+
+// get config path
+func configPath() string {
+	home, _ := homedir.Dir()
+	return filepath.Join(home, ".storj")
+}
+
+// AddConfig will add a config to viper
+func AddConfig() error {
+	home, err := homedir.Dir()
+	storj := filepath.Join(home, ".storj")
+	viper.SetConfigName("main")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath(storj)
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.Fatal("error reading in config", err)
+		return err
+	}
+	return nil
+}
+
+func writeConfig(v *viper.Viper) error {
+	return v.WriteConfig()
+}
+
 // Execute runs a *cobra.Command and sets up Storj-wide process configuration
 // like a configuration file and logging.
 func Execute(cmd *cobra.Command) {
@@ -52,24 +84,14 @@ func Execute(cmd *cobra.Command) {
 }
 
 // ConfigEnvironment sets up a standard Viper environment and parses CLI flags
-func ConfigEnvironment() error {
-	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-	viper.BindPFlags(pflag.CommandLine)
+func ConfigEnvironment() (*viper.Viper, error) {
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
-	if *cfgFile != "" {
-		viper.SetConfigFile(*cfgFile)
-		viper.ReadInConfig()
-	}
-
-	return nil
+	return nil, nil
 }
 
 // Main runs a Service
-func Main(configFn func() error, s ...Service) error {
-	configFn()
+func Main(configFn func() (*viper.Viper, error), s ...Service) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	errors := make(chan error, len(s))
 
