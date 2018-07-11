@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/transport"
@@ -41,12 +42,12 @@ type Meta struct {
 // Store allows Put, Get, Delete, and List methods on paths
 type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
-		expiration time.Time, rs RedundancyStrategy) error
+		expiration time.Time, rs eestream.RedundancyStrategy) error
 	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, startingPath, endingPath paths.Path) (
 		paths []paths.Path, truncated bool, err error)
-}
+
 
 type segmentStore struct {
 	pdb *pointerdb.PointerDBClient
@@ -59,7 +60,7 @@ type segmentStore struct {
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
 func NewSegmentStore(pdb *pointerdb.PointerDBClient, oc *overlay.Overlay, tc *transport.Transport,
-	rs RedundancyStrategy, mbm int) Store {
+	rs eestream.RedundancyStrategy, mbm int) Store {
 	return &segmentStore{pdb: pdb, oc: oc, tc: tc, rs: rs, mbm: 2}
 }
 
@@ -78,7 +79,7 @@ func (s *SegmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// puts file to ecclient
 	ecc := ecclient.NewClient(s.tc, s.mbm)
-	err := ecc.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
+	err = ecc.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)
