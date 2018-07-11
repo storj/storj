@@ -2,6 +2,9 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
 package objects;
 
 message StorjMetaInfo {
@@ -33,6 +36,9 @@ message StorjMetaInfo {
 
     //add custom fields here 
 	map<string, string> Metadata= 10;
+
+	// modified time
+	google.protobuf.Timestamp ModifiedTime= 11;
 }
 
 //Object Info Meta data

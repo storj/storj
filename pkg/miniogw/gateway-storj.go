@@ -14,6 +14,7 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
@@ -23,6 +24,7 @@ import (
 var (
 	//Error is the errs class of standard Object Store errors
 	Error = errs.Class("objectstore error")
+	mon   = monkit.Package()
 )
 
 func init() {
@@ -82,36 +84,32 @@ type storjObjects struct {
 	storj   *Storj
 }
 
-func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) error {
+func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
-func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) error {
+func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
 	return s.storj.os.DeleteObject(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	bucketInfo minio.BucketInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objpath)
-	if err != nil {
-		return err
-	}
+	rr, _, err := s.storj.os.GetObject(ctx, objpath)
 	defer rr.Close()
-	newmetainfo := &mpb.StorjMetaInfo{}
-	err = proto.Unmarshal(m.Data, newmetainfo)
-	if err != nil {
-		return Error.New("ObjectStore GetObject() Unmarshalling erro")
-	}
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
-		return Error.New("ranger error")
+		return err
 	}
 	defer r.Close()
 	_, err = io.Copy(writer, r)
@@ -120,13 +118,14 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
-	objpath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objpath)
+	defer mon.Task()(&ctx)(&err)
+	objPath := paths.New(bucket, object)
+	_, m, err := s.storj.os.GetObject(ctx, objPath)
+	newmetainfo := &mpb.StorjMetaInfo{}
+	err = proto.Unmarshal(m.Data, newmetainfo)
 	if err != nil {
-		return objInfo, err
+		return objInfo, Error.New("ObjectStore GetObject() error")
 	}
-	defer rr.Close()
-
 	objInfo = minio.ObjectInfo{
 		ModTime: m.Modified,
 	}
@@ -135,6 +134,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	buckets = nil
 	err = nil
 	return buckets, err
@@ -142,29 +142,33 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	result = minio.ListObjectsInfo{}
 	err = nil
 	return result, err
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
-	bucket string, location string) error {
+	bucket string, location string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
+	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
-	test := &mpb.StorjMetaInfo{
+	serMetaInfo := &mpb.StorjMetaInfo{
 		Metadata: metadata,
+		Bucket:   bucket,
+		Name:     object,
 	}
-	metainfo, err := proto.Marshal(test)
-	if err != nil {
-		return objInfo, err
-	}
-	objpath := paths.New(bucket, object)
-	err = s.storj.os.PutObject(ctx, objpath, data, metainfo, time.Now())
+	metainfo, err := proto.Marshal(serMetaInfo)
+	objPath := paths.New(bucket, object)
+	t := time.Now()
+	expAfterTenMin := t.Add(time.Minute * 10)
+	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expAfterTenMin)
 	return minio.ObjectInfo{
 		Name:    object,
 		Bucket:  bucket,
@@ -174,7 +178,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	}, err
 }
 
-func (s *storjObjects) Shutdown(context.Context) error {
+func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	panic("TODO")
 }
 
