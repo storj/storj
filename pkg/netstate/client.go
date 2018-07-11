@@ -82,9 +82,10 @@ func (ns *NetState) List(ctx context.Context, startingPathKey p.Path, limit int6
 	res, err := ns.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey.Bytes(), Limit: limit, APIKey: APIKey})
 
 	if err != nil {
-		return nil, false, err
+		return nil, res.Truncated, err
 	}
-	return res.Paths, true, nil
+	
+	return res.Paths, res.Truncated, nil
 }
 
 // Delete is the interface to make a Delete request, needs Path and APIKey
