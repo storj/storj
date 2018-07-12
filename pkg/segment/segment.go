@@ -120,7 +120,11 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
-	return nil, &Meta{Inline: true, Nodes: []dht.NodeID}, nil
+	m := &Meta{
+		Inline: true,
+		Nodes: []dht.NodeID,
+	}
+	return nil, m, nil
 }
 
 // Delete issues deletes of a file to all piece stores and deletes from pointerdb
