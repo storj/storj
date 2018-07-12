@@ -82,14 +82,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 				errs <- err
 				return
 			}
-			if err := ps.Put(ctx, derivedPieceID, readers[i], expiration); err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
-				errs <- err
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
+			if err != nil {
+				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
+					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			if err := ps.CloseConn(); err != nil {
-				zap.Error(err)
-			}
-			errs <- nil
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
+			errs <- err
 		}(i, n)
 	}
 	allerrs := collectErrors(errs, len(readers))
@@ -169,13 +170,13 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 			}
 			err = ps.Delete(ctx, derivedPieceID)
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
+				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
+					pieceID, derivedPieceID, n.GetId(), err)
 			}
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
 			errs <- err
-
-			if err := ps.CloseConn(); err != nil {
-				zap.S().Errorf("Failed closing connection", err)
-			}
 		}(n)
 	}
 	allerrs := collectErrors(errs, len(nodes))
@@ -194,4 +195,11 @@ func collectErrors(errs <-chan error, size int) []error {
 		}
 	}
 	return result
+}
+
+func closeConn(ps client.PSClient, nodeID string) {
+	err := ps.CloseConn()
+	if err != nil {
+		zap.S().Errorf("Failed closing connection to node %s: %v", nodeID, err)
+	}
 }
