@@ -92,7 +92,8 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// creates pointer
 	pr := ppb.PutRequest{
-		&ppb.Pointer{
+		Path: path,
+		Pointer: &ppb.Pointer{
 			Type: ppb.Pointer_REMOTE,
 			Remote: &ppb.RemoteSegment{
 				Redundancy: &ppb.RedundancyScheme{
@@ -122,7 +123,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
 	m := &Meta{
 		Inline: true,
-		Nodes: []dht.NodeID,
+		Nodes:  nil,
 	}
 	return nil, m, nil
 }
