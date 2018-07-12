@@ -57,7 +57,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
-func NewSegmentStore(oc *opb.OverlayClient, tc transport.Client,
+func NewSegmentStore(oc opb.OverlayClient, tc transport.Client,
 	rs eestream.RedundancyStrategy, mbm int) Store {
 	return &segmentStore{oc: oc, tc: tc, rs: rs, mbm: 2}
 }
