@@ -13,6 +13,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
+	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/objects"
@@ -21,7 +22,8 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon   = monkit.Package()
+	Error = errs.Class("ObjectStore error")
 )
 
 func init() {
@@ -172,19 +174,24 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		Name:        object,
 	}
 	metainfo, err := proto.Marshal(serMetaInfo)
+	if err != nil {
+		return objInfo, err
+	}
 	objPath := paths.New(bucket, object)
-	t := time.Now()
-
-	/* TODO: @ASK added the expiration time as 10min, but needs to be revisited */
-	expAfterTenMin := t.Add(time.Minute * 10)
-	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expAfterTenMin)
-	return minio.ObjectInfo{
-		Name:    object,
-		Bucket:  bucket,
-		ModTime: time.Now(),
-		Size:    data.Size(),
-		ETag:    minio.GenETag(),
-	}, err
+	/* The zero value of type Time is January 1, year 1, 00:00:00.000000000 UTC */
+	expTime := time.Time{}
+	if expTime.IsZero() {
+		/* TODO: @ASK added the expiration time as 10min, but needs to be revisited */
+		err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
+		return minio.ObjectInfo{
+			Name:    object,
+			Bucket:  bucket,
+			ModTime: time.Now(),
+			Size:    data.Size(),
+			ETag:    minio.GenETag(),
+		}, err
+	}
+	return objInfo, Error.New("Expiration Time not set")
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
