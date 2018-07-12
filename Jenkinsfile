@@ -1,22 +1,23 @@
 node('node') {
   try {
 
-    stage 'Checkout'
+    stage('Checkout') {
+        checkout scm
+    }
 
-      checkout scm
-
-    stage 'Build Images'
+    stage('Build Images') {
       sh 'make images'
+    }
 
-    stage 'Deploy'
-        echo 'Deploy'
-
-    stage 'Cleanup'
-
-      echo 'prune and cleanup'
+    stage('Deploy') {
+      if (env.BRANCH_NAME != 'master') {
+		echo 'Skipping deploy stage'
+        return
+      }
+      sh 'make push-images'
+    }
 
   }
-
   catch (err) {
     currentBuild.result = "FAILURE"
 
@@ -29,5 +30,14 @@ node('node') {
 
       throw err
     */
+
+  }
+  finally {
+
+    stage('Cleanup') {
+      sh 'make clean-images'
+      deleteDir()
+    }
+
   }
 }
