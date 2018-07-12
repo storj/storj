@@ -43,8 +43,10 @@ func configPath() string {
 	return filepath.Join(home, ".storj")
 }
 
-// AddConfig will add a config to viper
-func AddConfig() error {
+// ConfigEnv will read in command line flags, set the name of the config file,
+// then look for configs in the current working directory and in $HOME/.storj
+func ConfigEnv() (*viper.Viper, error) {
+	ReadFlags()
 	home, err := homedir.Dir()
 	storj := filepath.Join(home, ".storj")
 	viper.SetConfigName("main")
@@ -53,31 +55,23 @@ func AddConfig() error {
 	err = viper.ReadInConfig()
 	if err != nil {
 		log.Fatal("error reading in config", err)
-		return err
+		return nil, err
 	}
-	return nil
-}
 
-func writeConfig(v *viper.Viper) error {
-	return v.WriteConfig()
+	v := viper.GetViper()
+	return v, nil
 }
 
 // Execute runs a *cobra.Command and sets up Storj-wide process configuration
 // like a configuration file and logging.
 func Execute(cmd *cobra.Command) {
-	cfgFile := flag.String("config", defaultConfigPath(cmd.Name()),
-		"config file")
-
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	cobra.OnInitialize(func() {
+		ConfigEnv()
 		viper.BindPFlags(cmd.Flags())
 		viper.SetEnvPrefix("storj")
 		viper.AutomaticEnv()
-		if *cfgFile != "" {
-			viper.SetConfigFile(*cfgFile)
-			viper.ReadInConfig()
-		}
 	})
 
 	Must(cmd.Execute())

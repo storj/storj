@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -123,13 +122,10 @@ type Service struct {
 // Process is the main function that executes the service
 func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	err error) {
-	if err := process.AddConfig(); err != nil {
+	v, err := process.ConfigEnv()
+	if err != nil {
 		return err
 	}
-
-	boltdbpath, _ := viper.Get("boltdbpath").(string)
-	redisaddress, _ := viper.Get("redisaddress").(string)
-	srvport, _ := viper.Get("srvPort").(int)
 
 	// TODO
 	// 1. Boostrap a node on the network
@@ -166,20 +162,20 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 
 	// bootstrap cache
 	var cache *Cache
-	if redisaddress != "" {
+	if v.GetString("redisaddress") != "" {
 		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
 		}
-		s.logger.Info("starting overlay cache with redis %s", zap.String("redisaddress", redisaddress))
-	} else if boltdbpath != "" {
-		cache, err = NewBoltOverlayCache(boltdbpath, kad)
+		s.logger.Info("starting overlay cache with redis %s", zap.String("redisaddress", v.GetString("redisaddress")))
+	} else if v.GetString("boltdbpath") != "" {
+		cache, err = NewBoltOverlayCache(v.GetString("boltdbpath"), kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new boltdb overlay client", zap.Error(err))
 			return err
 		}
-		s.logger.Info("starting overlay cache with boltDB at %s", zap.String("boltdbpath", boltdbpath))
+		s.logger.Info("starting overlay cache with boltDB at %s", zap.String("boltdbpath", v.GetString("boltdbpath")))
 	} else {
 		return process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
 	}
@@ -192,7 +188,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	// send off cache refreshes concurrently
 	go cache.Refresh(ctx)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvport))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", v.GetInt("srvport")))
 	if err != nil {
 		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
 		return err
