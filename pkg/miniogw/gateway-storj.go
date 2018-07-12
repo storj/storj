@@ -181,7 +181,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	/* The zero value of type Time is January 1, year 1, 00:00:00.000000000 UTC */
 	expTime := time.Time{}
 	if expTime.IsZero() {
-		/* TODO: @ASK added the expiration time as 10min, but needs to be revisited */
+		/* TODO: @ASK added the expiration time set to never expires , but needs to be revisited */
 		err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
 		return minio.ObjectInfo{
 			Name:    object,
@@ -191,7 +191,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 			ETag:    minio.GenETag(),
 		}, err
 	}
-	return objInfo, Error.New("Expiration Time not set")
+	return objInfo, Error.New("Set expiration time")
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
