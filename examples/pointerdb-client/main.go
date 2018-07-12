@@ -14,16 +14,16 @@ import (
 	"google.golang.org/grpc/status"
 
 	proto "storj.io/storj/protos/pointerdb"
-	nsclient "storj.io/storj/pkg/netstate"
+	client "storj.io/storj/pkg/pointerdb"
+	p "storj.io/storj/pkg/paths"
 )
 
 var (
-	port   string
-	apiKey = []byte("abc123")
+	pointerdbClientPort string
 )
 
 func initializeFlags() {
-	flag.StringVar(&port, "port", ":8080", "port")
+	flag.StringVar(&pointerdbClientPort, "pointerdb port", ":8080", "this is your port")
 	flag.Parse()
 }
 
@@ -33,33 +33,34 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	nsclient, err := client.NewNetstateClient(port)
+	pdbclient, err := client.NewPointerDBClient(pointerdbClientPort)
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
-	client := proto.NewPointerDBClient(conn)
-
-	logger.Debug(fmt.Sprintf("client dialed port %s", port))
+	logger.Debug(fmt.Sprintf("client dialed port %s", pointerdbClientPort, pdbclient))
 	ctx := context.Background()
 
-	// Example pointer paths to put
-	// the client library creates a put req. object of these items
-	// and sends to server
-	path := []byte("another/pointer/for/the/pile, another/two")
-	pointer := &proto.Pointer{
+	// Example parameters to pass into API calls
+	var path = p.New("fold1/fold2/fold3/file.txt")
+	pointer := &proto.Pointer {
 		Type: proto.Pointer_INLINE,
-		Encryption: &proto.EncryptionScheme{
-			EncryptedEncryptionKey: []byte("key"),
-			EncryptedStartingNonce: []byte("nonce"),
-		},
 		InlineSegment: []byte("popcorn"),
 	}
 	APIKey := []byte("abc123")
 
-	// Example Put
-	err = nsclient.Put(ctx, path, pointer, APIKey)
+	// Example Put1
+	err = pdbclient.Put(ctx, path, pointer, APIKey)
+
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("couldn't put pointer in db", zap.Error(err))
+	} else {
+		logger.Debug("Success: put pointer in db")
+	}
+
+	// Example Put2
+	err = pdbclient.Put(ctx, p.New("fold1/fold2"), pointer, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
@@ -68,45 +69,37 @@ func main() {
 	}
 
 	// Example Get
-	getRes, err := nsclient.Get(ctx, path, APIKey)
-	p := "success"
+	getRes, err := pdbclient.Get(ctx, path, APIKey)
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
 	} else {
-		// WIP; i need to convert a custom type to string,
-		// will work on this later
-		fmt.Println(getRes)
 		logger.Info("Success: got Pointer from db",
-			zap.String("pointer", p),
+			zap.String("pointer", getRes.String()),
 		)
 	}
 
-	// Example List
+	// Example List with pagination 
+	startingPathKey := p.New("fold1/")
+	var limit int64 = 1
 
-	// This pagination functionality doesn't work yet.
-	// The given arguments are placeholders.
-	startingPathKey := []byte("test/pointer/path")
-	var limit int64 = 5
-
-	paths, trunc, err := nsclient.List(ctx, startingPathKey, limit, APIKey)
+	paths, trunc, err := pdbclient.List(ctx, startingPathKey, limit, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to list file paths")
+		logger.Error("failed to list file paths", zap.Error(err))
 	} else {
 		var stringList []string
 		for _, pathByte := range paths {
 			stringList = append(stringList, string(pathByte))
 		}
-		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", "))
-		fmt.Println(trunc)
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", trunc))
 	}
 
 	// Example Delete
-	err = nsclient.Delete(ctx, path, APIKey)
+	err = pdbclient.Delete(ctx, path, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("Error in deleteing file from db")
+		logger.Error("Error in deleteing file from db", zap.Error(err))
 	} else {
 		logger.Debug("Success: file is deleted from db")
 	}
