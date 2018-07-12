@@ -24,9 +24,9 @@ var mon = monkit.Package()
 type Client interface {
 	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
-	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
-	Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) error
+	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
 }
 
 type dialer interface {
