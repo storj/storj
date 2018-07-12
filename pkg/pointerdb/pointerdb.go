@@ -86,7 +86,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	s.logger.Debug("entering pointerdb list")
 
-	if req.Limit <= 0 {
+	if req.Limit <= 0 {		
 		return nil, Error.New("err Limit is less than or equal to 0")
 	}
 
