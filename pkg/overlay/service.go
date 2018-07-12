@@ -31,14 +31,11 @@ var (
 	options                                                                                  peertls.TLSFileOptions
 )
 
-var home, _ = homedir.Dir()
-var boltDBPath = filepath.Join(home, ".storj", "overlaydb.db")
-
 func init() {
 	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
 	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
-	flag.StringVar(&boltdbPath, "boltdbPath", boltDBPath, "The path to the boltdb file that should be loaded or created")
+	flag.StringVar(&boltdbPath, "boltdbPath", defaultBoltDBPath(), "The path to the boltdb file that should be loaded or created")
 	flag.IntVar(&db, "db", 0, "The network cache database")
 	flag.UintVar(&srvPort, "srvPort", 8082, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
@@ -48,6 +45,11 @@ func init() {
 	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
 	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
 	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
+}
+
+func defaultBoltDBPath() string {
+	home, _ := homedir.Dir()
+	return filepath.Join(home, ".storj", "overlaydb.db")
 }
 
 // NewServer creates a new Overlay Service Server
