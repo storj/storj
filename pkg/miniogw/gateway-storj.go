@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	mon   = monkit.Package()
-	Error = errs.Class("ObjectStore error")
+	mon = monkit.Package()
+	//Error is the errs class of standard End User Client errors
+	Error = errs.Class("Storj Gateway error")
 )
 
 func init() {
