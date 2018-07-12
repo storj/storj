@@ -94,7 +94,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	for i := range nodeRes.Nodes {
 		remotePieces = append(remotePieces, &ppb.RemotePiece{
 			PieceNum: int64(i),
-			NodeId: nodeRes.Nodes[i].Id
+			NodeId:   nodeRes.Nodes[i].Id,
 		})
 	}
 
