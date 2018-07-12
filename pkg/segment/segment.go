@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -28,10 +27,9 @@ var (
 	mon = monkit.Package()
 )
 
-// Meta describes associated Nodes and if data is Inline or Remote
+// Meta will contain encryption and stream information
 type Meta struct {
-	Inline bool
-	Nodes  []dht.NodeID
+	Data []byte
 }
 
 // Store allows Put, Get, Delete, and List methods on paths
@@ -101,6 +99,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 				PieceId:      string(pieceID),
 				RemotePieces: remotePieces,
 			},
+			Metadata: metadata,
 		},
 		APIKey: nil,
 	}
@@ -117,8 +116,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
 	m := Meta{
-		Inline: true,
-		Nodes:  nil,
+		Data: []byte(""),
 	}
 	return nil, m, nil
 }
