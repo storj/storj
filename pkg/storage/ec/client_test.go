@@ -33,10 +33,10 @@ var (
 )
 
 var (
-	node0 = *proto.Node{Id: "node-0"}
-	node1 = *proto.Node{Id: "node-1"}
-	node2 = *proto.Node{Id: "node-2"}
-	node3 = *proto.Node{Id: "node-3"}
+	node0 = &proto.Node{Id: "node-0"}
+	node1 = &proto.Node{Id: "node-1"}
+	node2 = &proto.Node{Id: "node-2"}
+	node3 = &proto.Node{Id: "node-3"}
 )
 
 type mockDialer struct {
@@ -113,22 +113,22 @@ func TestPut(t *testing.T) {
 		errs      []error
 		errString string
 	}{
-		{[]proto.Node{}, 0, 0, []error{}, "ecclient error: " +
+		{[]*proto.Node{}, 0, 0, []error{}, "ecclient error: " +
 			"number of nodes do not match total count of erasure scheme"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, -1,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, ErrDialFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, ErrOpFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than minimum threshold (2)"},
 	} {
