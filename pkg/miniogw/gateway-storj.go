@@ -45,21 +45,9 @@ func mockObjectStore() objects.ObjectStore {
 	return &objects.Objects{}
 }
 
-//S3Bucket structure
-type S3Bucket struct {
-	bucket   minio.BucketInfo
-	filelist S3FileList
-}
-
-//S3FileList structure
-type S3FileList struct {
-	file minio.ListObjectsInfo
-}
-
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	bucketlist []S3Bucket
-	os         objects.ObjectStore
+	os objects.ObjectStore
 }
 
 // Name implements cmd.Gateway
@@ -80,8 +68,7 @@ func (s *Storj) Production() bool {
 
 type storjObjects struct {
 	minio.GatewayUnsupported
-	TempDir string // Temporary storage location for file transfers.
-	storj   *Storj
+	storj *Storj
 }
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
@@ -179,21 +166,17 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		return objInfo, err
 	}
 	objPath := paths.New(bucket, object)
-	/* The zero value of type Time is January 1, year 1, 00:00:00.000000000 UTC */
+	// setting zero value means the object never expires
 	expTime := time.Time{}
-	if expTime.IsZero() {
-		/* TODO: @ASK added the expiration time set to never expires , but needs to be revisited */
-		err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
-		return minio.ObjectInfo{
-			Name:   object,
-			Bucket: bucket,
-			/* TODO create a followup ticket in JIRA to fix ModTime */
-			ModTime: time.Now(),
-			Size:    data.Size(),
-			ETag:    minio.GenETag(),
-		}, err
-	}
-	return objInfo, Error.New("Set expiration time")
+	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
+	return minio.ObjectInfo{
+		Name:   object,
+		Bucket: bucket,
+		// TODO create a followup ticket in JIRA to fix ModTime
+		ModTime: time.Now(),
+		Size:    data.Size(),
+		ETag:    minio.GenETag(),
+	}, err
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
