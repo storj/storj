@@ -185,8 +185,9 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		/* TODO: @ASK added the expiration time set to never expires , but needs to be revisited */
 		err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
 		return minio.ObjectInfo{
-			Name:    object,
-			Bucket:  bucket,
+			Name:   object,
+			Bucket: bucket,
+			/* TODO create a followup ticket in JIRA to fix ModTime */
 			ModTime: time.Now(),
 			Size:    data.Size(),
 			ETag:    minio.GenETag(),
