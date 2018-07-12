@@ -96,7 +96,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	return nil
 }
 
-func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != es.TotalCount() {
@@ -110,7 +110,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	}
 	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
-		go func(i int, n proto.Node) {
+		go func(i int, n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
@@ -138,11 +138,11 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	return eestream.Decode(rrs, es, ec.mbm)
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
-		go func(n proto.Node) {
+		go func(n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
