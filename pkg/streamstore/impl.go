@@ -4,17 +4,18 @@
 package streams
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"time"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/ranger"
 )
 
 type streamStore struct {
-	segments    segments.SegmentStore
+	segments    segment.segmentStore
 	segmentSize int64
 }
 
@@ -31,6 +32,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	// *last* piece at l/<path>. Store the given metadata, along with the number
 	// of segments, in a new protobuf, in the metadata of l/<path>.
 
+	type meta struct {
+		segmentNumber int64
+		segmentSize   int64
+	}
+
 	segmentByteSlice := make([]byte, s.segmentSize)
 	totalSegmentsSize := 0
 	totalSegments := 0
@@ -41,21 +47,25 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		if err != nil {
 			stopLoop = true
 			if err == io.EOF {
+				var lastSegmentMetadata bytes.Buffer
+
 				totalSegments = totalSegments + 1
 				totalSegmentsSize = totalSegmentsSize + numBytesRead
 				segmentData := NewReader(segmentByteSlice)
 				lastSegmentPath := path.Prepend("l")
-				lastSegmentMetadata := metadata
+				m := meta{segmentNumber: totalSegments, segmentSize: totalSegmentsSize}
+				binary.Write(&lastSegmentMetadata, binary.BigEndian, metadata)
+				binary.Write(&lastSegmentMetadata, binary.BigEndian, m)
 				s.segments.Put(ctx, lastSegmentPath, segmentData, lastSegmentMetadata, expiration)
 			}
 
 			return err
 		}
 
+		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		totalSegments = totalSegments + 1
 		totalSegmentsSize = totalSegmentsSize + numBytesRead
 		segmentData := NewReader(segmentByteSlice)
-		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments-1))
 		segmentMetatdata := metadata
 		s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
 	}
@@ -63,6 +73,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	return nil
 }
 
+/*
 func (s *streamStore) Get(ctx context.Context, path dtypes.Path) (rv ranger.Ranger, m dtypes.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -92,3 +103,4 @@ func (s *streamStore) List(ctx context.Context, startingPath, endingPath dtypes.
 
 	return s.store.List(ctx, startingPath, endingPath)
 }
+*/
