@@ -68,7 +68,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	defer mon.Task()(&ctx)(&err)
 
 	// uses overlay client to request a list of nodes
-	nodes, err := s.oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
+	nodeRes, err := s.oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -90,9 +90,17 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 	pdc := ppb.NewPointerDBClient(conn)
 
+	var remotePieces []*ppb.RemotePiece
+	for i := range nodeRes.Nodes {
+		remotePieces = append(remotePieces, &ppb.RemotePiece{
+			PieceNum: int64(i),
+			NodeId: nodeRes.Nodes[i].Id
+		})
+	}
+
 	// creates pointer
 	pr := ppb.PutRequest{
-		Path: path,
+		Path: []byte(path),
 		Pointer: &ppb.Pointer{
 			Type: ppb.Pointer_REMOTE,
 			Remote: &ppb.RemoteSegment{
@@ -104,7 +112,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 					SuccessThreshold: int64(s.rs.Opt),
 				},
 				PieceId:      fmt.Sprintf("%s", pieceID),
-				RemotePieces: nodes.GetNodes(),
+				RemotePieces: remotePieces,
 			},
 		},
 		APIKey: nil,
@@ -121,7 +129,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
-	m := &Meta{
+	m := Meta{
 		Inline: true,
 		Nodes:  nil,
 	}
