@@ -77,7 +77,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// puts file to ecclient
 	ecc := ecclient.NewClient(s.tc, s.mbm)
-	err = ecc.Put(ctx, nodes, s.rs, pieceID, data, expiration)
+	err = ecc.Put(ctx, nodes.GetNodes(), s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)
@@ -92,7 +92,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// creates pointer
 	pr := ppb.PutRequest{
-		ppb.Pointer{
+		&ppb.Pointer{
 			Type: ppb.Pointer_REMOTE,
 			Remote: &ppb.RemoteSegment{
 				Redundancy: &ppb.RedundancyScheme{
@@ -103,10 +103,10 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 					SuccessThreshold: int64(s.rs.Opt),
 				},
 				PieceId:      fmt.Sprintf("%s", pieceID),
-				RemotePieces: nodes,
+				RemotePieces: nodes.GetNodes(),
 			},
 		},
-		APIKey: byte("abc123"),
+		APIKey: nil,
 	}
 
 	// puts pointer to pointerDB
@@ -120,7 +120,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
-	return nil, nil, nil
+	return nil, &Meta{Inline: true, Nodes: []dht.NodeID}, nil
 }
 
 // Delete issues deletes of a file to all piece stores and deletes from pointerdb
