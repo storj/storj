@@ -5,13 +5,11 @@ package segment
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -28,8 +26,7 @@ import (
 )
 
 var (
-	mon             = monkit.Package()
-	netstateAddress = flag.String("netstate_addr", "35.202.58.176:4242", "address")
+	mon = monkit.Package()
 )
 
 // Meta describes associated Nodes and if data is Inline or Remote
@@ -51,6 +48,8 @@ type Store interface {
 type segmentStore struct {
 	oc opb.OverlayClient
 	tc transport.Client
+	ec ecclient.Client
+	pc ppb.PointerDBClient
 	// max buffer memory
 	mbm int
 	rs  eestream.RedundancyStrategy
@@ -76,19 +75,11 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	pieceID := client.NewPieceID()
 
 	// puts file to ecclient
-	ecc := ecclient.NewClient(s.tc, s.mbm)
-	err = ecc.Put(ctx, nodeRes.GetNodes(), s.rs, pieceID, data, expiration)
+	err = s.ec.Put(ctx, nodeRes.GetNodes(), s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)
 	}
-
-	conn, err := grpc.Dial(*netstateAddress, grpc.WithInsecure())
-	if err != nil {
-		zap.S().Error("Failed to dial: ", zap.Error(err))
-		return Error.Wrap(err)
-	}
-	pdc := ppb.NewPointerDBClient(conn)
 
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodeRes.Nodes {
@@ -111,7 +102,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 					RepairThreshold:  int64(s.rs.Min),
 					SuccessThreshold: int64(s.rs.Opt),
 				},
-				PieceId:      fmt.Sprintf("%s", pieceID),
+				PieceId:      string(pieceID),
 				RemotePieces: remotePieces,
 			},
 		},
@@ -119,7 +110,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	// puts pointer to pointerDB
-	_, err = pdc.Put(ctx, &pr)
+	_, err = pc.Put(ctx, &pr)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
 		return Error.Wrap(err)
