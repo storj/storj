@@ -83,13 +83,13 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 				return
 			}
 			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			// normally the bellow call should be deferred, but doing so fails
-			// randomly the unit tests
-			closeConn(ps, n.GetId())
 			errs <- err
 		}(i, n)
 	}
@@ -169,13 +169,13 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 				return
 			}
 			err = ps.Delete(ctx, derivedPieceID)
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			// normally the bellow call should be deferred, but doing so fails
-			// randomly the unit tests
-			closeConn(ps, n.GetId())
 			errs <- err
 		}(n)
 	}
