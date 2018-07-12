@@ -50,25 +50,25 @@ type Store interface {
 
 type segmentStore struct {
 	oc *overlay.Overlay
-	tc *transport.Client
+	tc transport.Client
 	// max buffer memory
 	mbm int
-	rs  *eestream.RedundancyStrategy
+	rs  eestream.RedundancyStrategy
 }
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
-func NewSegmentStore(oc *overlay.Overlay, tc *transport.Transport,
+func NewSegmentStore(oc *overlay.Overlay, tc transport.Client,
 	rs eestream.RedundancyStrategy, mbm int) Store {
-	return &segmentStore{pdb: pdb, oc: oc, tc: tc, rs: rs, mbm: 2}
+	return &segmentStore{oc: oc, tc: tc, rs: rs, mbm: 2}
 }
 
 // Put uploads a file to an erasure code client
 func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (err error) {
+	metadata []byte, expiration time.Time, *eestream.RedundancyStrategy) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// uses overlay client to request a list of nodes
-	nodes, err := oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
+	nodes, err := s.oc.FindStorageNodes(ctx, &opb.FindStorageNodesRequest{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -77,7 +77,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// puts file to ecclient
 	ecc := ecclient.NewClient(s.tc, s.mbm)
-	err = ecc.Put(s.ctx, nodes, s.rs, pieceID, data, expiration)
+	err = ecc.Put(ctx, nodes, s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)
@@ -88,7 +88,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		zap.S().Error("Failed to dial: ", zap.Error(err))
 		return Error.Wrap(err)
 	}
-	pdc := pb.NewPointerDBClient(conn)
+	pdc := ppb.NewPointerDBClient(conn)
 
 	// creates pointer
 	pr := ppb.Pointer{
@@ -96,10 +96,10 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		Remote: &ppb.RemoteSegment{
 			Redundancy: &ppb.RedundancyScheme{
 				Type:             ppb.RedundancyScheme_RS,
-				MinReq:           rs.RequiredCount(),
-				Total:            rs.TotalCount(),
-				RepairThreshold:  rs.Min,
-				SuccessThreshold: rs.Opt,
+				MinReq:           s.rs.RequiredCount(),
+				Total:            s.rs.TotalCount(),
+				RepairThreshold:  s.rs.Min,
+				SuccessThreshold: s.rs.Opt,
 			},
 			PieceId:      pieceID,
 			RemotePieces: nodes,
