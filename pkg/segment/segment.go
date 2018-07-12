@@ -6,6 +6,7 @@ package segment
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
@@ -49,7 +49,7 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc *overlay.Overlay
+	oc *opb.OverlayClient
 	tc transport.Client
 	// max buffer memory
 	mbm int
@@ -57,7 +57,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
-func NewSegmentStore(oc *overlay.Overlay, tc transport.Client,
+func NewSegmentStore(oc *opb.OverlayClient, tc transport.Client,
 	rs eestream.RedundancyStrategy, mbm int) Store {
 	return &segmentStore{oc: oc, tc: tc, rs: rs, mbm: 2}
 }
@@ -96,19 +96,18 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		Remote: &ppb.RemoteSegment{
 			Redundancy: &ppb.RedundancyScheme{
 				Type:             ppb.RedundancyScheme_RS,
-				MinReq:           s.rs.RequiredCount(),
-				Total:            s.rs.TotalCount(),
-				RepairThreshold:  s.rs.Min,
-				SuccessThreshold: s.rs.Opt,
+				MinReq:           int64(s.rs.RequiredCount()),
+				Total:            int64(s.rs.TotalCount()),
+				RepairThreshold:  int64(s.rs.Min),
+				SuccessThreshold: int64(s.rs.Opt),
 			},
-			PieceId:      pieceID,
+			PieceId:      fmt.Sprintf("%s", pieceID),
 			RemotePieces: nodes,
 		},
-		APIKey: []byte("abc123"),
 	}
 
 	// puts pointer to pointerDB
-	err = pdc.Put(ctx, &pr1)
+	_, err = pdc.Put(ctx, &pr)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
 		return Error.Wrap(err)
@@ -118,13 +117,16 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
+	return nil, nil
 }
 
 // Delete issues deletes of a file to all piece stores and deletes from pointerdb
 func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
+	return nil
 }
 
 // List lists paths stored in the pointerdb
 func (s *segmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
 	paths []paths.Path, truncated bool, err error) {
+	return nil, nil, nil
 }
