@@ -52,7 +52,7 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(t *transport.Client, mbm int) Client {
+func NewClient(t transport.Client, mbm int) Client {
 	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
 }
 
