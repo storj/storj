@@ -69,7 +69,12 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 	errs := make(chan error, len(readers))
 	for i, n := range nodes {
 		go func(i int, n proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				errs <- err
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
@@ -112,7 +117,12 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
 		go func(i int, n proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				ch <- rangerInfo{i: i, rr: nil, err: err}
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed getting piece %s -> %s from node %s: %v",
@@ -144,7 +154,12 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID clie
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(n proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				errs <- err
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
