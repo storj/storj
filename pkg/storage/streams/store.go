@@ -21,7 +21,7 @@ type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
 		expiration time.Time) (storage.Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
-	List(ctx context.Context, root, startAfter, endBefore paths.Path,
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 		recursive bool, limit int, metaFlags uint64) (items []paths.Path,
 		more bool, err error)
 }

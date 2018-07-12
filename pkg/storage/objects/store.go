@@ -26,7 +26,7 @@ type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
 		expiration time.Time) (meta storage.Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
-	List(ctx context.Context, root, startAfter, endBefore paths.Path,
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 		recursive bool, limit int, metaFlags uint64) (items []paths.Path,
 		more bool, err error)
 }
@@ -43,39 +43,30 @@ func NewStore(store streams.Store) Store {
 func (o *objStore) Meta(ctx context.Context, path paths.Path) (
 	meta storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	objPath := getDefautStreamPath(path)
-	return o.s.Meta(ctx, objPath)
+	return o.s.Meta(ctx, path)
 }
 
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	objPath := getDefautStreamPath(path)
-	return o.s.Get(ctx, objPath)
+	return o.s.Get(ctx, path)
 }
 
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (meta storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	objPath := getDefautStreamPath(path)
-	return o.s.Put(ctx, objPath, data, metadata, expiration)
+	return o.s.Put(ctx, path, data, metadata, expiration)
 }
 
 func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	objPath := getDefautStreamPath(path)
-	return o.s.Delete(ctx, objPath)
+	return o.s.Delete(ctx, path)
 }
 
-func (o *objStore) List(ctx context.Context, root, startAfter,
+func (o *objStore) List(ctx context.Context, prefix, startAfter,
 	endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
 	items []paths.Path, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rootObjPath := getDefautStreamPath(root)
-	return o.s.List(ctx, rootObjPath, startAfter, endBefore, recursive, limit,
+	return o.s.List(ctx, prefix, startAfter, endBefore, recursive, limit,
 		metaFlags)
-}
-
-func getDefautStreamPath(path paths.Path) paths.Path {
-	return path.Prepend("object")
 }
