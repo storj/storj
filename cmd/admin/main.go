@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	err := process.Main(process.ConfigEnv, &overlay.Service{}, &pointerdb.Service{})
+	err := process.Main(process.ConfigEnvironment, &overlay.Service{}, &pointerdb.Service{})
 	if err != nil {
 		log.Fatal(err)
 	}

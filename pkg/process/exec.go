@@ -6,9 +6,7 @@ package process
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -16,21 +14,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
-
-const configType = ".json"
-
-func defaultConfigPath(name string) string {
-	if name == "" {
-		name = filepath.Base(os.Args[0])
-	}
-	path := filepath.Join(".storj", fmt.Sprintf("%s.json", name))
-	home, err := homedir.Dir()
-	if err != nil {
-		log.Println(err)
-		return path
-	}
-	return filepath.Join(home, path)
-}
 
 // ReadFlags will read in and bind flags for viper and pflag
 func readFlags() {
@@ -52,9 +35,9 @@ func generateConfig() error {
 	return err
 }
 
-// ConfigEnv will read in command line flags, set the name of the config file,
+// ConfigEnvironment will read in command line flags, set the name of the config file,
 // then look for configs in the current working directory and in $HOME/.storj
-func ConfigEnv() (*viper.Viper, error) {
+func ConfigEnvironment() (*viper.Viper, error) {
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
 	viper.SetConfigName("main")
@@ -80,7 +63,7 @@ func Execute(cmd *cobra.Command) {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	cobra.OnInitialize(func() {
-		ConfigEnv()
+		ConfigEnvironment()
 		viper.BindPFlags(cmd.Flags())
 		viper.SetEnvPrefix("storj")
 		viper.AutomaticEnv()
