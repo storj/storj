@@ -22,7 +22,7 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
+	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
 		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
@@ -30,14 +30,14 @@ type Client interface {
 }
 
 type dialer interface {
-	dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error)
+	dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error)
 }
 
 type defaultDialer struct {
 	t transport.Client
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error) {
+func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
