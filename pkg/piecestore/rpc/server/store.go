@@ -72,12 +72,10 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 
 		// TODO: Should we check if all the variables on ba are good?
 
-		// TODO: verify signature
 		if err = s.verifySignature(ba.Signature); err != nil {
 			break
 		}
 
-		// TODO: Save bandwidthallocation to DB
 		if err = s.writeBandwidthAllocToDB(ba); err != nil {
 			break
 		}
@@ -97,7 +95,6 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 		total += int64(n)
 	}
 
-	// total, err := io.Copy(storeFile, reader)
 	if err != nil && err != io.EOF {
 		log.Println(err)
 

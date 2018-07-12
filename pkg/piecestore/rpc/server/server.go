@@ -73,7 +73,7 @@ func (s *Server) deleteByID(id string) error {
 }
 
 func (s *Server) verifySignature(signature []byte) error {
-	//verify signature
+	// TODO: verify signature
 	log.Printf("Verified signature: %s\n", signature)
 
 	return nil

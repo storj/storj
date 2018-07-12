@@ -67,13 +67,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 		// TODO: Should we check if all the variables on ba are good?
 
-		// TODO: verify signature
 		if err = s.verifySignature(ba.Signature); err != nil {
-			return err
-		}
-
-		// TODO: Save bandwidthallocation to DB
-		if err = s.writeBandwidthAllocToDB(ba); err != nil {
 			return err
 		}
 
@@ -86,6 +80,10 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		// Write the buffer to the stream we opened earlier
 		_, err = writer.Write(buf[:n])
 		if err != nil {
+			return err
+		}
+
+		if err = s.writeBandwidthAllocToDB(ba); err != nil {
 			return err
 		}
 	}
