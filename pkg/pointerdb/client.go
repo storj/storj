@@ -9,8 +9,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
-	pb "storj.io/storj/protos/pointerdb"
 	p "storj.io/storj/pkg/paths"
+	pb "storj.io/storj/protos/pointerdb"
 )
 
 // PointerDB creates a grpcClient
@@ -79,11 +79,11 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.
 func (pdb *PointerDB) List(ctx context.Context, startingPathKey p.Path, limit int64, APIKey []byte) (
 	paths [][]byte, truncated bool, err error) {
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey.Bytes(), Limit: limit, APIKey: APIKey})
-	
+
 	if err != nil {
 		return nil, false, err
 	}
-	
+
 	return res.Paths, res.Truncated, nil
 }
 

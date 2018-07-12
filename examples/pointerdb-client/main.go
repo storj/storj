@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	proto "storj.io/storj/protos/pointerdb"
-	client "storj.io/storj/pkg/pointerdb"
 	p "storj.io/storj/pkg/paths"
+	client "storj.io/storj/pkg/pointerdb"
+	proto "storj.io/storj/protos/pointerdb"
 )
 
 var (
@@ -44,8 +44,8 @@ func main() {
 
 	// Example parameters to pass into API calls
 	var path = p.New("fold1/fold2/fold3/file.txt")
-	pointer := &proto.Pointer {
-		Type: proto.Pointer_INLINE,
+	pointer := &proto.Pointer{
+		Type:          proto.Pointer_INLINE,
 		InlineSegment: []byte("popcorn"),
 	}
 	APIKey := []byte("abc123")
@@ -79,7 +79,7 @@ func main() {
 		)
 	}
 
-	// Example List with pagination 
+	// Example List with pagination
 	startingPathKey := p.New("fold1/")
 	var limit int64 = 1
 

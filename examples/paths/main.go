@@ -64,6 +64,5 @@ func Main() error {
 	// implement Bytes() function
 	var pathBytes = path.Bytes()
 	fmt.Println("path in Bytes is: ", pathBytes)
-
 	return nil
 }
