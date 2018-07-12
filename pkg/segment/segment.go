@@ -41,7 +41,7 @@ type Meta struct {
 // Store allows Put, Get, Delete, and List methods on paths
 type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
-		expiration time.Time, rs eestream.RedundancyStrategy) error
+		expiration time.Time) error
 	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, startingPath, endingPath paths.Path) (
@@ -64,7 +64,7 @@ func NewSegmentStore(oc *overlay.Overlay, tc transport.Client,
 
 // Put uploads a file to an erasure code client
 func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time, *eestream.RedundancyStrategy) (err error) {
+	metadata []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// uses overlay client to request a list of nodes
