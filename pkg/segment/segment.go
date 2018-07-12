@@ -49,7 +49,7 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc *opb.OverlayClient
+	oc opb.OverlayClient
 	tc transport.Client
 	// max buffer memory
 	mbm int
@@ -91,19 +91,22 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	pdc := ppb.NewPointerDBClient(conn)
 
 	// creates pointer
-	pr := ppb.Pointer{
-		Type: ppb.Pointer_REMOTE,
-		Remote: &ppb.RemoteSegment{
-			Redundancy: &ppb.RedundancyScheme{
-				Type:             ppb.RedundancyScheme_RS,
-				MinReq:           int64(s.rs.RequiredCount()),
-				Total:            int64(s.rs.TotalCount()),
-				RepairThreshold:  int64(s.rs.Min),
-				SuccessThreshold: int64(s.rs.Opt),
+	pr := ppb.PutRequest{
+		ppb.Pointer{
+			Type: ppb.Pointer_REMOTE,
+			Remote: &ppb.RemoteSegment{
+				Redundancy: &ppb.RedundancyScheme{
+					Type:             ppb.RedundancyScheme_RS,
+					MinReq:           int64(s.rs.RequiredCount()),
+					Total:            int64(s.rs.TotalCount()),
+					RepairThreshold:  int64(s.rs.Min),
+					SuccessThreshold: int64(s.rs.Opt),
+				},
+				PieceId:      fmt.Sprintf("%s", pieceID),
+				RemotePieces: nodes,
 			},
-			PieceId:      fmt.Sprintf("%s", pieceID),
-			RemotePieces: nodes,
 		},
+		APIKey: byte("abc123"),
 	}
 
 	// puts pointer to pointerDB
@@ -117,7 +120,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // Get retrieves a file from the erasure code client with help from overlay and pointerdb
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
-	return nil, nil
+	return nil, nil, nil
 }
 
 // Delete issues deletes of a file to all piece stores and deletes from pointerdb
@@ -128,5 +131,5 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
 // List lists paths stored in the pointerdb
 func (s *segmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
 	paths []paths.Path, truncated bool, err error) {
-	return nil, nil, nil
+	return nil, true, nil
 }
