@@ -100,7 +100,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// creates pointer
 	pr := ppb.PutRequest{
-		Path: []byte(path),
+		Path: []byte(fmt.Sprintf("%s", path)),
 		Pointer: &ppb.Pointer{
 			Type: ppb.Pointer_REMOTE,
 			Remote: &ppb.RemoteSegment{
