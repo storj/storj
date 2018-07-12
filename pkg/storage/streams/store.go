@@ -22,5 +22,6 @@ type Store interface {
 		expiration time.Time) (storage.Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, root, startAfter, endBefore paths.Path,
-		recursive bool, limit int) (result []paths.Path, more bool, err error)
+		recursive bool, limit int, metaFlags uint64) (items []paths.Path,
+		more bool, err error)
 }

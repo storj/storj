@@ -3,11 +3,18 @@
 
 package storage
 
-import "time"
+import (
+	"time"
+)
 
 // Meta info
 type Meta struct {
-	Modified   time.Time
-	Expiration time.Time
-	Data       []byte
+	Size        int64
+	Modified    time.Time
+	Expiration  time.Time
+	ContentType string
+	Checksum    string
+	// Redundancy  eestream.RedundancyStrategy
+	// EncryptionScheme
+	Data []byte
 }

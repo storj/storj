@@ -27,7 +27,8 @@ type Store interface {
 		expiration time.Time) (meta storage.Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, root, startAfter, endBefore paths.Path,
-		recursive bool, limit int) (result []paths.Path, more bool, err error)
+		recursive bool, limit int, metaFlags uint64) (items []paths.Path,
+		more bool, err error)
 }
 
 type objStore struct {
@@ -39,11 +40,11 @@ func NewStore(store streams.Store) Store {
 	return &objStore{s: store}
 }
 
-func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (meta storage.Meta, err error) {
+func (o *objStore) Meta(ctx context.Context, path paths.Path) (
+	meta storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := getDefautStreamPath(path)
-	return o.s.Put(ctx, objPath, data, metadata, expiration)
+	return o.s.Meta(ctx, objPath)
 }
 
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
@@ -53,11 +54,11 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	return o.s.Get(ctx, objPath)
 }
 
-func (o *objStore) Meta(ctx context.Context, path paths.Path) (
-	meta storage.Meta, err error) {
+func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
+	metadata []byte, expiration time.Time) (meta storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := getDefautStreamPath(path)
-	return o.s.Meta(ctx, objPath)
+	return o.s.Put(ctx, objPath, data, metadata, expiration)
 }
 
 func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
@@ -67,11 +68,12 @@ func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 }
 
 func (o *objStore) List(ctx context.Context, root, startAfter,
-	endBefore paths.Path, recursive bool, limit int) (result []paths.Path,
-	more bool, err error) {
+	endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
+	items []paths.Path, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rootObjPath := getDefautStreamPath(root)
-	return o.s.List(ctx, rootObjPath, startAfter, endBefore, recursive, limit)
+	return o.s.List(ctx, rootObjPath, startAfter, endBefore, recursive, limit,
+		metaFlags)
 }
 
 func getDefautStreamPath(path paths.Path) paths.Path {
