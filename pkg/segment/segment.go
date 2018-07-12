@@ -77,7 +77,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// puts file to ecclient
 	ecc := ecclient.NewClient(s.tc, s.mbm)
-	err = ecc.Put(ctx, nodes.GetNodes(), s.rs, pieceID, data, expiration)
+	err = ecc.Put(ctx, nodeRes.GetNodes(), s.rs, pieceID, data, expiration)
 	if err != nil {
 		zap.S().Error("Failed putting nodes to ecclient")
 		return Error.Wrap(err)

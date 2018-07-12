@@ -56,7 +56,7 @@ func NewClient(t transport.Client, mbm int) Client {
 	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
+func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
@@ -68,7 +68,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 	}
 	errs := make(chan error, len(readers))
 	for i, n := range nodes {
-		go func(i int, n proto.Node) {
+		go func(i int, n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
