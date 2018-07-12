@@ -11,8 +11,12 @@ import (
 	"io"
 	"time"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/segment"
 )
+
+var mon = monkit.Package()
 
 type streamStore struct {
 	segments    segment.segmentStore
