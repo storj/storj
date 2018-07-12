@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/transport"
 	opb "storj.io/storj/protos/overlay"
 	ppb "storj.io/storj/protos/pointerdb"
 )
@@ -47,18 +46,15 @@ type Store interface {
 
 type segmentStore struct {
 	oc opb.OverlayClient
-	tc transport.Client
 	ec ecclient.Client
 	pc ppb.PointerDBClient
-	// max buffer memory
-	mbm int
-	rs  eestream.RedundancyStrategy
+	rs eestream.RedundancyStrategy
 }
 
-// NewSegmentStore creates a new instance of segmentStore; mbm is max buffer memory
-func NewSegmentStore(oc opb.OverlayClient, tc transport.Client,
-	rs eestream.RedundancyStrategy, mbm int) Store {
-	return &segmentStore{oc: oc, tc: tc, rs: rs, mbm: 2}
+// NewSegmentStore creates a new instance of segmentStore
+func NewSegmentStore(oc opb.OverlayClient, ec ecclient.Client, pc ppb.PointerDBClient,
+	rs eestream.RedundancyStrategy) Store {
+	return &segmentStore{oc: oc, ec: ec, pc: pc, rs: rs}
 }
 
 // Put uploads a file to an erasure code client
@@ -110,7 +106,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	// puts pointer to pointerDB
-	_, err = pc.Put(ctx, &pr)
+	_, err = s.pc.Put(ctx, &pr)
 	if err != nil || status.Code(err) == codes.Internal {
 		zap.L().Error("failed to put", zap.Error(err))
 		return Error.Wrap(err)
