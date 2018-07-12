@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const configType = ".json"
+
 func defaultConfigPath(name string) string {
 	if name == "" {
 		name = filepath.Base(os.Args[0])
@@ -31,7 +33,7 @@ func defaultConfigPath(name string) string {
 }
 
 // ReadFlags will read in and bind flags for viper and pflag
-func ReadFlags() {
+func readFlags() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
@@ -43,21 +45,31 @@ func configPath() string {
 	return filepath.Join(home, ".storj")
 }
 
+func generateConfig() error {
+	readFlags()
+	storj := filepath.Join(configPath(), "main.json")
+	err := viper.WriteConfigAs(storj)
+	return err
+}
+
 // ConfigEnv will read in command line flags, set the name of the config file,
 // then look for configs in the current working directory and in $HOME/.storj
 func ConfigEnv() (*viper.Viper, error) {
-	ReadFlags()
-	home, err := homedir.Dir()
-	storj := filepath.Join(home, ".storj")
+	viper.SetEnvPrefix("storj")
+	viper.AutomaticEnv()
 	viper.SetConfigName("main")
 	viper.AddConfigPath(".")
-	viper.AddConfigPath(storj)
-	err = viper.ReadInConfig()
+	viper.AddConfigPath(configPath())
+
+	err := viper.ReadInConfig()
 	if err != nil {
-		log.Fatal("error reading in config", err)
-		return nil, err
+		log.Print("cannot find config file, generating new config from defaults.")
+		if err := generateConfig(); err != nil {
+			log.Print("error generating config", err)
+		}
 	}
 
+	readFlags()
 	v := viper.GetViper()
 	return v, nil
 }
@@ -77,15 +89,9 @@ func Execute(cmd *cobra.Command) {
 	Must(cmd.Execute())
 }
 
-// ConfigEnvironment sets up a standard Viper environment and parses CLI flags
-func ConfigEnvironment() (*viper.Viper, error) {
-	viper.SetEnvPrefix("storj")
-	viper.AutomaticEnv()
-	return nil, nil
-}
-
 // Main runs a Service
 func Main(configFn func() (*viper.Viper, error), s ...Service) error {
+	configFn()
 	ctx, cancel := context.WithCancel(context.Background())
 	errors := make(chan error, len(s))
 

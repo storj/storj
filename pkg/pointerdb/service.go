@@ -21,7 +21,7 @@ import (
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("pointerdbDB", "pointerdb.db", "pointerdb db path")
+	dbPath = flag.String("pointerdb", "pointerdb.db", "pointerdb db path")
 )
 
 // Process fits the `Process` interface for services
