@@ -25,16 +25,13 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-var tempDir = path.Join(os.TempDir(), "test-data", "3000")
-var tempDBPath = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
 var s Server
 var c pb.PieceStoreRoutesClient
-var testCreatedDate int64 = 1234567890
-var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
 	var testID = "11111111111111111111"
+
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 	if err != nil {
@@ -61,21 +58,21 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:         testID,
+			id:         "11111111111111111111",
 			size:       5,
-			expiration: testExpiration,
+			expiration: 9999999999,
 			err:        "",
 		},
 		{ // server should err with invalid id
 			id:         "123",
 			size:       5,
-			expiration: testExpiration,
+			expiration: 9999999999,
 			err:        "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
-			expiration: testExpiration,
+			expiration: 9999999999,
 			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 	}
@@ -84,7 +81,7 @@ func TestPiece(t *testing.T) {
 		t.Run("should return expected PieceSummary values", func(t *testing.T) {
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testExpiration))
+			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
 			if err != nil {
 				t.Errorf("Error: %v\nCould not make TTL entry", err)
 				return
@@ -118,7 +115,7 @@ func TestPiece(t *testing.T) {
 			}
 
 			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, testID))
+			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 			if err != nil {
 				t.Errorf("Error cleaning test DB entry")
 				return
@@ -156,7 +153,7 @@ func TestRetrieve(t *testing.T) {
 		err      string
 	}{
 		{ // should successfully retrieve data
-			id:       testID,
+			id:       "11111111111111111111",
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -180,7 +177,7 @@ func TestRetrieve(t *testing.T) {
 			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:       testID,
+			id:       "11111111111111111111",
 			reqSize:  5,
 			respSize: 4,
 			offset:   1,
@@ -188,7 +185,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:       testID,
+			id:       "11111111111111111111",
 			reqSize:  4,
 			respSize: 4,
 			offset:   0,
@@ -239,8 +236,6 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	var testID = "11111111111111111111"
-
 	tests := []struct {
 		id            string
 		size          int64
@@ -252,8 +247,8 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			id:            testID,
-			ttl:           testExpiration,
+			id:            "11111111111111111111",
+			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "OK",
 			totalReceived: 5,
@@ -261,7 +256,7 @@ func TestStore(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:            "butts",
-			ttl:           testExpiration,
+			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
@@ -322,8 +317,6 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	var testID = "11111111111111111111"
-
 	// set up test cases
 	tests := []struct {
 		id      string
@@ -331,7 +324,7 @@ func TestDelete(t *testing.T) {
 		err     string
 	}{
 		{ // should successfully delete data
-			id:      testID,
+			id:      "11111111111111111111",
 			message: "OK",
 			err:     "",
 		},
@@ -351,7 +344,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
+			file, err := pstore.StoreWriter(tt.id, s.PieceStoreDir)
 			if err != nil {
 				return
 			}
@@ -366,7 +359,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testCreatedDate))
+			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
 			if err != nil {
 				t.Errorf("Error: %v\nCould not make TTL entry", err)
 				return
@@ -374,7 +367,7 @@ func TestDelete(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(testID, s.PieceStoreDir)
+			defer pstore.Delete(tt.id, s.PieceStoreDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(context.Background(), req)
@@ -432,10 +425,14 @@ func TestMain(m *testing.M) {
 	defer conn.Close()
 	c = pb.NewPieceStoreRoutesClient(conn)
 
+	tempDBPath := path.Join(os.TempDir(), "test.db")
+
 	ttlDB, err := ttl.NewTTL(tempDBPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	tempDir := path.Join(os.TempDir(), "test-data", "3000")
 
 	s = Server{PieceStoreDir: tempDir, DB: ttlDB}
 
