@@ -6,12 +6,13 @@ package main
 import (
 	"log"
 
-	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 )
 
 func main() {
-	if err := process.Main(process.ConfigEnvironment, &overlay.Service{}); err != nil {
+	err := process.Main(process.ConfigEnvironment, &pointerdb.Service{})
+	if err != nil {
 		log.Fatal(err)
 	}
 }

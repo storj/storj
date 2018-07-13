@@ -1,11 +1,11 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package netstate
+package segment
 
 import (
 	"github.com/zeebo/errs"
 )
 
-// Error is the default boltdb errs class
-var Error = errs.Class("netstate error")
+// Error is the errs class of standard segment errors
+var Error = errs.Class("segment error")

@@ -33,17 +33,17 @@ var (
 )
 
 var (
-	node0 = proto.Node{Id: "node-0"}
-	node1 = proto.Node{Id: "node-1"}
-	node2 = proto.Node{Id: "node-2"}
-	node3 = proto.Node{Id: "node-3"}
+	node0 = &proto.Node{Id: "node-0"}
+	node1 = &proto.Node{Id: "node-1"}
+	node2 = &proto.Node{Id: "node-2"}
+	node3 = &proto.Node{Id: "node-3"}
 )
 
 type mockDialer struct {
-	m map[proto.Node]client.PSClient
+	m map[*proto.Node]client.PSClient
 }
 
-func (d *mockDialer) dial(ctx context.Context, node proto.Node) (
+func (d *mockDialer) dial(ctx context.Context, node *proto.Node) (
 	ps client.PSClient, err error) {
 	ps = d.m[node]
 	if ps == nil {
@@ -107,28 +107,28 @@ func TestPut(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		nodes     []proto.Node
+		nodes     []*proto.Node
 		min       int
 		mbm       int
 		errs      []error
 		errString string
 	}{
-		{[]proto.Node{}, 0, 0, []error{}, "ecclient error: " +
+		{[]*proto.Node{}, 0, 0, []error{}, "ecclient error: " +
 			"number of nodes do not match total count of erasure scheme"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, -1,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, ErrDialFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
 			[]error{nil, ErrOpFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than minimum threshold (2)"},
 	} {
@@ -138,12 +138,12 @@ func TestPut(t *testing.T) {
 		size := 32 * 1024
 		ttl := time.Now()
 
-		errs := make(map[proto.Node]error, len(tt.nodes))
+		errs := make(map[*proto.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
+		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed && tt.mbm >= 0 {
 				derivedID := id.Derive([]byte(n.GetId()))
@@ -183,26 +183,26 @@ func TestGet(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		nodes     []proto.Node
+		nodes     []*proto.Node
 		mbm       int
 		errs      []error
 		errString string
 	}{
-		{[]proto.Node{}, 0, []error{}, "ecclient error: " +
+		{[]*proto.Node{}, 0, []error{}, "ecclient error: " +
 			"number of nodes do not match total count of erasure scheme"},
-		{[]proto.Node{node0, node1, node2, node3}, -1,
+		{[]*proto.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]proto.Node{node0, node1, node2, node3}, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, ErrOpFailed, nil, nil}, ""},
-		{[]proto.Node{node0, node1, node2, node3}, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"eestream error: not enough readers to reconstruct data!"},
-		{[]proto.Node{node0, node1, node2, node3}, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed},
 			"eestream error: not enough readers to reconstruct data!"},
 	} {
@@ -211,12 +211,12 @@ func TestGet(t *testing.T) {
 		id := client.NewPieceID()
 		size := 32 * 1024
 
-		errs := make(map[proto.Node]error, len(tt.nodes))
+		errs := make(map[*proto.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
+		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
 				derivedID := id.Derive([]byte(n.GetId()))
@@ -250,30 +250,30 @@ func TestDelete(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		nodes     []proto.Node
+		nodes     []*proto.Node
 		errs      []error
 		errString string
 	}{
-		{[]proto.Node{}, []error{}, ""},
-		{[]proto.Node{node0}, []error{nil}, ""},
-		{[]proto.Node{node0}, []error{ErrDialFailed}, dialFailed},
-		{[]proto.Node{node0}, []error{ErrOpFailed}, opFailed},
-		{[]proto.Node{node0, node1}, []error{nil, nil}, ""},
-		{[]proto.Node{node0, node1}, []error{ErrDialFailed, nil}, ""},
-		{[]proto.Node{node0, node1}, []error{nil, ErrOpFailed}, ""},
-		{[]proto.Node{node0, node1}, []error{ErrDialFailed, ErrDialFailed}, dialFailed},
-		{[]proto.Node{node0, node1}, []error{ErrOpFailed, ErrOpFailed}, opFailed},
+		{[]*proto.Node{}, []error{}, ""},
+		{[]*proto.Node{node0}, []error{nil}, ""},
+		{[]*proto.Node{node0}, []error{ErrDialFailed}, dialFailed},
+		{[]*proto.Node{node0}, []error{ErrOpFailed}, opFailed},
+		{[]*proto.Node{node0, node1}, []error{nil, nil}, ""},
+		{[]*proto.Node{node0, node1}, []error{ErrDialFailed, nil}, ""},
+		{[]*proto.Node{node0, node1}, []error{nil, ErrOpFailed}, ""},
+		{[]*proto.Node{node0, node1}, []error{ErrDialFailed, ErrDialFailed}, dialFailed},
+		{[]*proto.Node{node0, node1}, []error{ErrOpFailed, ErrOpFailed}, opFailed},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := client.NewPieceID()
 
-		errs := make(map[proto.Node]error, len(tt.nodes))
+		errs := make(map[*proto.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[proto.Node]client.PSClient, len(tt.nodes))
+		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
 				derivedID := id.Derive([]byte(n.GetId()))

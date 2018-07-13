@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"storj.io/storj/netstate/auth"
+	"storj.io/storj/pointerdb/auth"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"

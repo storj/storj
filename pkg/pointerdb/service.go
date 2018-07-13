@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package pointerdb
 
 import (
 	"context"
@@ -15,20 +15,22 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/netstate"
-	"storj.io/storj/pkg/process"
-	proto "storj.io/storj/protos/netstate"
+	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
 )
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("db", "netstate.db", "db path")
+	dbPath = flag.String("pointerdbDB", "pointerdb.db", "pointerdb db path")
 )
 
-func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
-	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
+// Process fits the `Process` interface for services
+func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) error {
+	if err := setEnv(); err != nil {
+		return err
+	}
 
+	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
 	if err != nil {
 		return err
 	}
@@ -42,19 +44,21 @@ func (s *serv) Process(ctx context.Context, _ *cobra.Command, _ []string) error 
 
 	grpcServer := grpc.NewServer()
 
-	proto.RegisterNetStateServer(grpcServer, netstate.NewServer(bdb, s.logger))
+	proto.RegisterPointerDBServer(grpcServer, NewServer(bdb, s.logger))
 	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)
 }
 
-type serv struct {
+// Service struct for process
+type Service struct {
 	logger  *zap.Logger
 	metrics *monkit.Registry
 }
 
-func (s *serv) SetLogger(l *zap.Logger) error {
+// SetLogger for process
+func (s *Service) SetLogger(l *zap.Logger) error {
 	s.logger = l
 	return nil
 }
@@ -65,14 +69,11 @@ func setEnv() error {
 	return nil
 }
 
-func (s *serv) SetMetricHandler(m *monkit.Registry) error {
+// SetMetricHandler for  process
+func (s *Service) SetMetricHandler(m *monkit.Registry) error {
 	s.metrics = m
 	return nil
 }
 
-func (s *serv) InstanceID() string { return "" }
-
-func main() {
-	setEnv()
-	process.Must(process.Main(&serv{}))
-}
+// InstanceID assigns a new instance ID to the process
+func (s *Service) InstanceID() string { return "" }

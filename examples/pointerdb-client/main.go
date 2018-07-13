@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	proto "storj.io/storj/protos/netstate"
+	proto "storj.io/storj/protos/pointerdb"
 )
 
 var (
@@ -38,7 +38,7 @@ func main() {
 		logger.Error("Failed to dial: ", zap.Error(err))
 	}
 
-	client := proto.NewNetStateClient(conn)
+	client := proto.NewPointerDBClient(conn)
 
 	logger.Debug(fmt.Sprintf("client dialed port %s", port))
 

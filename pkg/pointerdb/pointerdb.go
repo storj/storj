@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package netstate
+package pointerdb
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/netstate/auth"
-	pb "storj.io/storj/protos/netstate"
+	"storj.io/storj/pointerdb/auth"
+	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 )
 
@@ -41,7 +41,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
-	s.logger.Debug("entering netstate put")
+	s.logger.Debug("entering pointerdb put")
 
 	APIKeyBytes := []byte(putReq.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {
@@ -65,7 +65,7 @@ func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutRespons
 
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
-	s.logger.Debug("entering netstate get")
+	s.logger.Debug("entering pointerdb get")
 
 	APIKeyBytes := []byte(req.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {
@@ -85,7 +85,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 
 // List calls the bolt client's List function and returns all Path keys in the Pointers bucket
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
-	s.logger.Debug("entering netstate list")
+	s.logger.Debug("entering pointerdb list")
 
 	if req.Limit <= 0 {
 		return nil, Error.New("err Limit is less than or equal to 0")
@@ -131,7 +131,7 @@ func isItTruncated(keyList storage.Keys, limit int) bool {
 
 // Delete formats and hands off a file path to delete from boltdb
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
-	s.logger.Debug("entering netstate delete")
+	s.logger.Debug("entering pointerdb delete")
 
 	APIKeyBytes := []byte(req.APIKey)
 	if err := s.validateAuth(APIKeyBytes); err != nil {

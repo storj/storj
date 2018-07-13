@@ -1,6 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package netstate
+package pointerdb
 
-//go:generate protoc --go_out=plugins=grpc:. netstate.proto
+//go:generate protoc --go_out=plugins=grpc:. pointerdb.proto
