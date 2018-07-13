@@ -79,11 +79,14 @@ clean-local:
 
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} -f cmd/overlay/Dockerfile .
-	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} overlay:latest
+	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
 
 push-images:
 	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
 	docker push storjlabs/overlay:latest
+
+clean-images:
+	-docker rmi storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
 
 install-deps:
 	go get -u -v golang.org/x/vgo
