@@ -30,7 +30,7 @@ type Store interface {
 		err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint64) (items []paths.Path,
+		recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
 		more bool, err error)
 }
 
@@ -77,7 +77,7 @@ func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 func (o *objStore) List(ctx context.Context, prefix, startAfter,
 	endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
-	items []paths.Path, more bool, err error) {
+	items []storage.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return o.s.List(ctx, prefix, startAfter, endBefore, recursive, limit,
 		metaFlags)
