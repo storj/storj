@@ -53,6 +53,7 @@ func TestPieceRanger(t *testing.T) {
 				route.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: NewPieceID().String(), Size: tt.size, Offset: tt.offset}}).Return(),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
@@ -108,12 +109,15 @@ func TestPieceRangerSize(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		route := pb.NewMockPieceStoreRoutesClient(ctrl)
+
+		var stream *pb.MockPieceStoreRoutes_RetrieveClient
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
-			stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
+			stream = pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 			gomock.InOrder(
 				route.EXPECT().Retrieve(
 					gomock.Any(), gomock.Any(), gomock.Any(),
 				).Return(stream, nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: NewPieceID().String(), Size: tt.size, Offset: tt.offset}}).Return(),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.size,
@@ -125,7 +129,7 @@ func TestPieceRangerSize(t *testing.T) {
 
 		ctx := context.Background()
 		c := NewCustomRoute(route)
-		rr := PieceRangerSize(c, "", tt.size, "ABCD", "EFGH")
+		rr := PieceRangerSize(c, stream, NewPieceID(), tt.size, "ABCD", "EFGH")
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {
