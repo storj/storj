@@ -35,8 +35,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	// TODO: Save bandwidthAllocation and signature to DB
-
 	total, err := s.storeData(reqStream, pd.Id)
 	if err != nil {
 		return err

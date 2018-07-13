@@ -160,6 +160,14 @@ func TestRetrieve(t *testing.T) {
 			content:  []byte("butts"),
 			err:      "",
 		},
+		{ // should successfully retrieve data
+			id:       "11111111111111111111",
+			reqSize:  -1,
+			respSize: 5,
+			offset:   0,
+			content:  []byte("butts"),
+			err:      "",
+		},
 		{ // server should err with invalid id
 			id:       "123",
 			reqSize:  5,

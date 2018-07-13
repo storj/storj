@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	pb "storj.io/storj/protos/piecestore"
@@ -19,7 +18,7 @@ import (
 type Server struct {
 	PieceStoreDir string
 	DB            *ttl.TTL
-	id            kademlia.NodeID
+	id            string
 }
 
 // Piece -- Send meta data about a stored by by Id

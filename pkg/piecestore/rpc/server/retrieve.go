@@ -71,7 +71,12 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 			return err
 		}
 
-		buf := make([]byte, ba.Data.Size) // buffer size defined by what is being allocated
+		sizeToRead := ba.Data.Size
+		if ba.Data.Size < 0 {
+			sizeToRead = 1024 * 32 // 32 kb
+		}
+
+		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
 
 		n, err := storeFile.Read(buf)
 		if err == io.EOF {
