@@ -18,8 +18,8 @@ type Store interface {
 	Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
 	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
 		storage.Meta, error)
-	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
-		expiration time.Time) (storage.Meta, error)
+	Put(ctx context.Context, path paths.Path, data io.Reader,
+		metadata []byte, expiration time.Time) (storage.Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 		recursive bool, limit int, metaFlags uint64) (items []paths.Path,

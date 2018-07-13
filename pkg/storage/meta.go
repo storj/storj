@@ -5,16 +5,37 @@ package storage
 
 import (
 	"time"
+
+	"storj.io/storj/protos/meta"
 )
 
-// Meta info
+// Meta flags for the List method
+const (
+	// MetaNone represents no meta flags
+	MetaNone = uint64(1 << iota)
+	// MetaModified meta flag
+	MetaModified
+	// MetaExpiration meta flag
+	MetaExpiration
+	// MetaSize meta flags
+	MetaSize
+	// MetaChecksum meta flag
+	MetaChecksum
+	// MetaContentType meta flag
+	MetaContentType
+	// MetaUserDefined meta flag
+	MetaUserDefined
+	// MetaAll represents all the meta flags
+	MetaAll = ^uint64(0)
+)
+
+// Meta is the full object metadata
 type Meta struct {
-	Size        int64
-	Modified    time.Time
-	Expiration  time.Time
-	ContentType string
-	Checksum    string
-	// Redundancy  eestream.RedundancyStrategy
+	meta.Serializable
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Checksum   string
+	// Redundancy []eestream.RedundancyStrategy
 	// EncryptionScheme
-	Data []byte
 }

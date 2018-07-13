@@ -1,0 +1,12 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+package meta;
+
+// Serializable is the metadata that will be stored serialized
+message Serializable {
+	string ContentType = 1;
+	map<string, string> UserDefined= 2;
+}
