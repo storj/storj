@@ -5,7 +5,6 @@ package segment
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
 	opb "storj.io/storj/protos/overlay"
-	pspb "storj.io/storj/protos/piecestore"
 	ppb "storj.io/storj/protos/pointerdb"
 )
 
@@ -47,15 +45,14 @@ type Store interface {
 type segmentStore struct {
 	oc  opb.OverlayClient
 	ec  ecclient.Client
-	ps  pspb.PieceStoreRoutesClient
 	pdb ppb.PointerDBClient
 	rs  eestream.RedundancyStrategy
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc opb.OverlayClient, ec ecclient.Client, ps pspb.PieceStoreRoutesClient,
-	pdb ppb.PointerDBClient, rs eestream.RedundancyStrategy) Store {
-	return &segmentStore{oc: oc, ec: ec, ps: ps, pdb: pdb, rs: rs}
+func NewSegmentStore(oc opb.OverlayClient, ec ecclient.Client, pdb ppb.PointerDBClient,
+	rs eestream.RedundancyStrategy) Store {
+	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs}
 }
 
 // Put uploads a file to an erasure code client
@@ -88,7 +85,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// creates pointer
 	pr := ppb.PutRequest{
-		Path: []byte(fmt.Sprintf("%s", path)),
+		Path: []byte(path.String()),
 		Pointer: &ppb.Pointer{
 			Type: ppb.Pointer_REMOTE,
 			Remote: &ppb.RemoteSegment{
@@ -121,7 +118,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger,
 	m := Meta{}
 	// TODO: remove this chunk after pointerdb client interface merged
 	gr := &ppb.GetRequest{
-		Path:   []byte(fmt.Sprintf("%s", path)),
+		Path:   []byte(path.String()),
 		APIKey: nil,
 	}
 
@@ -142,16 +139,12 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger,
 		return nil, m, err
 	}
 
-	remoteSeg := pointer.Remote
-	var nodes []*opb.Node
-	for i := 0; i < len(remoteSeg.RemotePieces); i++ {
-		overlayRes, err := s.oc.Lookup(ctx, &opb.LookupRequest{NodeID: remoteSeg.RemotePieces[i].NodeId})
-		if err != nil {
-			return nil, m, err
-		}
-		nodes = append(nodes, overlayRes.Node)
+	nodes, err := s.overlayHelper(ctx, pointer.Remote)
+	if err != nil {
+		return nil, m, err
 	}
-	pid := client.PieceID(remoteSeg.PieceId)
+
+	pid := client.PieceID(pointer.Remote.PieceId)
 	ecRes, err := s.ec.Get(ctx, nodes, s.rs, pid, pointer.Size)
 	if err != nil {
 		return nil, m, err
@@ -166,7 +159,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger,
 func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
 	// TODO: remove this chunk after pointerdb client interface merged
 	gr := &ppb.GetRequest{
-		Path:   []byte(fmt.Sprintf("%s", path)),
+		Path:   []byte(path.String()),
 		APIKey: nil,
 	}
 
@@ -183,15 +176,20 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
 		return err
 	}
 
-	// piece store client sends delete request
-	_, err = s.ps.Delete(ctx, &pspb.PieceDelete{Id: pointer.Remote.PieceId})
+	nodes, err := s.overlayHelper(ctx, pointer.Remote)
+	if err != nil {
+		return err
+	}
+
+	// ecclient sends delete request
+	err = s.ec.Delete(ctx, nodes, client.PieceID(pointer.Remote.PieceId))
 	if err != nil {
 		return err
 	}
 
 	// TODO: remove this chunk after pointerdb client interface merged
 	dr := &ppb.DeleteRequest{
-		Path:   []byte(fmt.Sprintf("%s", path)),
+		Path:   []byte(path.String()),
 		APIKey: nil,
 	}
 
@@ -204,13 +202,25 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) error {
 	return nil
 }
 
+// overlayHelper calls Lookup to get node addresses from the overlay
+func (s *segmentStore) overlayHelper(ctx context.Context, rem *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
+	for i := 0; i < len(rem.RemotePieces); i++ {
+		overlayRes, err := s.oc.Lookup(ctx, &opb.LookupRequest{NodeID: rem.RemotePieces[i].NodeId})
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, overlayRes.Node)
+	}
+	return nodes, nil
+}
+
 // List lists paths stored in the pointerdb
 func (s *segmentStore) List(ctx context.Context, startingPath, endingPath paths.Path) (
 	listPaths []paths.Path, truncated bool, err error) {
 
 	// TODO: remove this chunk after pointerdb client interface merged
 	lr := &ppb.ListRequest{
-		StartingPathKey: []byte(fmt.Sprintf("%s", startingPath)),
+		StartingPathKey: []byte(startingPath.String()),
 		// TODO: change limit to endingPath when supported
 		Limit:  1,
 		APIKey: nil,
@@ -222,9 +232,8 @@ func (s *segmentStore) List(ctx context.Context, startingPath, endingPath paths.
 	}
 
 	for _, path := range res.Paths {
-		var pathType []string
-		pathType = append(pathType, string(path[:]))
-		listPaths = append(listPaths, pathType)
+		np := paths.New(string(path[:]))
+		listPaths = append(listPaths, np)
 	}
 
 	return listPaths, res.Truncated, nil
