@@ -86,8 +86,9 @@ func (k Kademlia) Disconnect() error {
 	return k.dht.Disconnect()
 }
 
-// GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
-func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
+// GetNodes returns all nodes from a starting node up to a maximum limit
+// stored in the local routing table limiting the result by the specified restrictions
+func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...dht.NodeRestriction) ([]*proto.Node, error) {
 	if start == "" {
 		start = k.dht.GetSelfID()
 	}
@@ -96,6 +97,13 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*pro
 	if err != nil {
 		return []*proto.Node{}, err
 	}
+
+	nodes := convertNetworkNodes(nn)
+
+	for _, r := range restrictions {
+		nodes = r(nodes)
+	}
+
 	return convertNetworkNodes(nn), nil
 }
 
