@@ -1,0 +1,20 @@
+package node
+
+import (
+	"context"
+
+	"storj.io/storj/pkg/dht"
+
+	proto "storj.io/storj/protos/overlay"
+)
+
+// Server implements the grpc Node Server
+type Server struct {
+	rt dht.RoutingTable
+}
+
+// Query is a node to node communication query
+func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.QueryResponse, error) {
+	// TODO(coyle): this will need to be added to the overlay service
+	return proto.QueryResponse{}, nil
+}
