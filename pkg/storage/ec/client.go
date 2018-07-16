@@ -22,22 +22,22 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
+	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
-	Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
-	Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) error
+	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
 }
 
 type dialer interface {
-	dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error)
+	dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error)
 }
 
 type defaultDialer struct {
 	t transport.Client
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node proto.Node) (ps client.PSClient, err error) {
+func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
@@ -56,7 +56,7 @@ func NewClient(t transport.Client, mbm int) Client {
 	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.RedundancyStrategy,
+func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
@@ -68,7 +68,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 	}
 	errs := make(chan error, len(readers))
 	for i, n := range nodes {
-		go func(i int, n proto.Node) {
+		go func(i int, n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
@@ -96,7 +96,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []proto.Node, rs eestream.Red
 	return nil
 }
 
-func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.ErasureScheme,
+func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != es.TotalCount() {
@@ -110,7 +110,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	}
 	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
-		go func(i int, n proto.Node) {
+		go func(i int, n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
@@ -138,11 +138,11 @@ func (ec *ecClient) Get(ctx context.Context, nodes []proto.Node, es eestream.Era
 	return eestream.Decode(rrs, es, ec.mbm)
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []proto.Node, pieceID client.PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
-		go func(n proto.Node) {
+		go func(n *proto.Node) {
 			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
