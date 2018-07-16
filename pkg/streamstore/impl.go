@@ -13,6 +13,7 @@ import (
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/segment"
 )
 
@@ -46,7 +47,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	totalSegments := 0
 	stopLoop := false
 
-	for stopLoop != true {
+	for !stopLoop {
 		lr := io.LimitReader(data, s.segmentSize)
 
 		_, err := lr.Read(identitySlice)
@@ -79,7 +80,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	return nil
 }
 
-/*
 func (s *streamStore) Get(ctx context.Context, path dtypes.Path) (rv ranger.Ranger, m dtypes.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -94,6 +94,7 @@ func (s *streamStore) Get(ctx context.Context, path dtypes.Path) (rv ranger.Rang
 	return rv, meta.Meta, nil
 }
 
+/*
 func (s *streamStore) Delete(ctx context.Context, path dtypes.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
