@@ -40,23 +40,17 @@ type Config struct {
 	PieceStoreDir string
 }
 
-func New(config *Config) *Server {
-	ctx := context.Background()
-
+// New -- creates a new server struct
+func New(config Config) (*Server, error) {
 	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
-	_, err := connectToKad(ctx, config.NodeID, config.PsHost, config.KadListenPort, fmt.Sprintf("%s:%s", config.KadHost, config.KadPort))
-	if err != nil {
-		return err
-	}
-
 	ttlDB, err := ttl.NewTTL(dbPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: ttlDB, config: config}
+	return &Server{DataDir: dataDir, DB: ttlDB, config: config}, nil
 }
 
 // connectToKad joins the Kademlia network
@@ -87,6 +81,12 @@ func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 
 // Server -- Starts the piececstore node
 func (s *Server) Start() error {
+	ctx := context.Background()
+
+	_, err := connectToKad(ctx, s.config.NodeID, s.config.PsHost, s.config.KadListenPort, fmt.Sprintf("%s:%s", s.config.KadHost, s.config.KadPort))
+	if err != nil {
+		return err
+	}
 
 	// create a listener on TCP port
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", s.config.PsPort))

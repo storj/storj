@@ -43,7 +43,10 @@ func startNode(cmd *cobra.Command, args []string) error {
 
 	config := GetConfigValues()
 
-	s := server.New(config)
+	s, err := server.New(config)
+	if err != nil {
+		return err
+	}
 
 	err = s.Start()
 	if err != nil {
