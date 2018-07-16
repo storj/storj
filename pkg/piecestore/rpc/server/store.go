@@ -74,7 +74,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 			break
 		}
 
-		if err = s.writeBandwidthAllocToDB(ba); err != nil {
+		if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
 			break
 		}
 

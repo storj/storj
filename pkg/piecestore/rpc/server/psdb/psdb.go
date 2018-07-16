@@ -14,6 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // sqlite is weird and needs underscore
 
 	"storj.io/storj/pkg/piecestore"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 // PSDB -- Piecestore database
@@ -96,6 +97,19 @@ func (psdb *PSDB) DBCleanup(dir string) error {
 			}
 		}
 	}
+}
+
+// WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
+func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+
+	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO bandwidth_agreements (payer, client, size) VALUES ("%s", "%s", "%d")`, ba.Data.Payer, ba.Data.Client, ba.Data.Size))
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Data.Payer, ba.Data.Client, ba.Data.Size)
+
+	return nil
 }
 
 // AddTTLToDB -- Insert TTL into database by id
