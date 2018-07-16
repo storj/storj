@@ -61,8 +61,8 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	// Send preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
-		if _, err := stream.CloseAndRecv(); err != nil {
-			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", err, stream, err)
+		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
+			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 		}
 
 		return fmt.Errorf("%v.Send() = %v", stream, err)
