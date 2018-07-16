@@ -34,6 +34,7 @@ var (
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
 )
 
+// IsNotExist checks that a file or directory does not exist
 func IsNotExist(err error) bool {
 	return os.IsNotExist(err) || ErrNotExist.Has(err)
 }
@@ -61,6 +62,7 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
+// VerifyPeerCertificate verifies that the provided raw certificates are valid
 func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	// Verify parent ID/sig
 	// Verify leaf  ID/sig

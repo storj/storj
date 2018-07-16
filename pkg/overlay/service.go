@@ -183,7 +183,11 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	}
 
 	// send off cache refreshes concurrently
-	go cache.Refresh(ctx)
+	go func() {
+		if err := cache.Refresh(ctx); err != nil {
+			s.logger.Error("Failed to Refresh cache", zap.Error(err))
+		}
+	}()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
 	if err != nil {
@@ -194,9 +198,20 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
-	go cache.Walk(ctx)
+	// TODO(coyle): better health check
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { _, _ = fmt.Fprintln(w, "OK") })
+
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux); err != nil {
+			s.logger.Fatal("Failed to listen and serve", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		if err := cache.Walk(ctx); err != nil {
+			s.logger.Fatal("Failed to walk cache", zap.Error(err))
+		}
+	}()
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server
 	go func() {
