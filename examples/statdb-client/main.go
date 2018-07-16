@@ -55,13 +55,11 @@ func main() {
 	// Test farmers
 	farmer1 := proto.Node{
 		NodeId:             "nodeid1",
-		UpdateLatency:      false,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
 	farmer2 := proto.Node{
 		NodeId:             "nodeid2",
-		UpdateLatency:      false,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
@@ -92,11 +90,8 @@ func main() {
 	printNodeStats(*createRes2.Stats, *logger)
 
 	// Example Updates
-	latencyVals := []int64{205, 1671, 370, 895, 1848, 1436, 1941, 564, 1829, 1203, 913, 1795, 1017, 1282, 1231, 1497, 1322, 382, 1417, 1013}
-	farmer1.LatencyList = latencyVals
 	farmer1.AuditSuccess = true
 	farmer1.IsUp = true
-	farmer1.UpdateLatency = true
 	farmer1.UpdateAuditSuccess = true
 	farmer1.UpdateUptime = true
 
@@ -115,12 +110,9 @@ func main() {
 	// Example UpdateBatch
 	farmer1.AuditSuccess = false
 	farmer1.IsUp = false
-	farmer1.UpdateLatency = false
 
-	farmer2.LatencyList = latencyVals
 	farmer2.AuditSuccess = true
 	farmer2.IsUp = true
-	farmer2.UpdateLatency = true
 	farmer2.UpdateAuditSuccess = true
 	farmer2.UpdateUptime = true
 
