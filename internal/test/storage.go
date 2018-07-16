@@ -221,7 +221,7 @@ func (r *RedisServer) start(t *testing.T) {
 func (r *RedisServer) stop() {
 	r.started = false
 	if err := r.cmd.Process.Kill(); err != nil {
-		log.Fatalf("Failed to kill process: %s\n", err)
+		log.Printf("Failed to kill process: %s\n", err)
 	}
 }
 

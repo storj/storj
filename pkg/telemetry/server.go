@@ -78,7 +78,7 @@ func ListenAndServe(ctx context.Context, addr string, h Handler) error {
 
 	defer func() {
 		if err := s.Close(); err != nil {
-			log.Fatalf("Failed to close Server: %s", err)
+			log.Printf("Failed to close Server: %s", err)
 		}
 	}()
 	return s.Serve(ctx, h)

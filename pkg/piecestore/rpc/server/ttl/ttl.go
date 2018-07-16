@@ -81,7 +81,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 			}
 			defer func() {
 				if err := rows.Close(); err != nil {
-					log.Fatalf("failed to close Rows: %s\n", err)
+					log.Printf("failed to close Rows: %s\n", err)
 				}
 			}()
 
@@ -114,7 +114,7 @@ func (ttl *TTL) GetTTLByID(id string) (expiration int64, err error) {
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			log.Fatalf("failed to close Rows: %s\n", err)
+			log.Printf("failed to close Rows: %s\n", err)
 		}
 	}()
 

@@ -28,7 +28,7 @@ func HTTPRanger(URL string) (Ranger, error) {
 
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("Failed to close body: %v", err)
+			log.Printf("Failed to close body: %v", err)
 		}
 	}()
 

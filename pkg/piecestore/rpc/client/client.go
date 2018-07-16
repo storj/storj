@@ -71,7 +71,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	defer func() {
 		if err := writer.Close(); err != nil {
-			log.Fatalf("failed to close writer: %s\n", err)
+			log.Printf("failed to close writer: %s\n", err)
 		}
 	}()
 

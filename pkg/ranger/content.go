@@ -101,13 +101,13 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 				if err == nil {
 					defer func() {
 						if err := r.Close(); err != nil {
-							log.Fatalf("Error Closing ranger: %s", err)
+							log.Printf("Error Closing ranger: %s", err)
 						}
 					}()
 
 					n, err := io.ReadFull(r, buf[:])
 					if err != nil {
-						log.Fatalf("Error Reading full: %s", err)
+						log.Printf("Error Reading full: %s", err)
 					}
 
 					ctype = http.DetectContentType(buf[:n])
@@ -131,7 +131,7 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 		// cause writing goroutine to fail and exit if CopyN doesn't finish.
 		defer func() {
 			if err := pr.Close(); err != nil {
-				log.Fatalf("Error Closing pipereader: %s", err)
+				log.Printf("Error Closing pipereader: %s", err)
 			}
 		}()
 
@@ -140,7 +140,7 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 				part, err := mw.CreatePart(ra.mimeHeader(ctype, size))
 				if err != nil {
 					if err := pw.CloseWithError(err); err != nil {
-						log.Fatalf("Error Closing pipewriter with errors: %s", err)
+						log.Printf("Error Closing pipewriter with errors: %s", err)
 					}
 
 					return
@@ -148,31 +148,31 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 				partReader, err := content.Range(ctx, ra.start, ra.length)
 				if err != nil {
 					if err := pw.CloseWithError(err); err != nil {
-						log.Fatalf("Error Closing pipewriter with errors: %s", err)
+						log.Printf("Error Closing pipewriter with errors: %s", err)
 					}
 
 					return
 				}
 				defer func() {
 					if err := partReader.Close(); err != nil {
-						log.Fatalf("Error Closing partReader: %s", err)
+						log.Printf("Error Closing partReader: %s", err)
 					}
 				}()
 
 				if _, err := io.Copy(part, partReader); err != nil {
 					if err := pw.CloseWithError(err); err != nil {
-						log.Fatalf("Error Closing pipewriter with errors: %s", err)
+						log.Printf("Error Closing pipewriter with errors: %s", err)
 					}
 
 					return
 				}
 			}
 			if err := mw.Close(); err != nil {
-				log.Fatalf("Error Closing writer: %s", err)
+				log.Printf("Error Closing writer: %s", err)
 			}
 
 			if err := pw.Close(); err != nil {
-				log.Fatalf("Error closing pipewriter: %s", err)
+				log.Printf("Error closing pipewriter: %s", err)
 			}
 		}()
 	}
@@ -191,11 +191,11 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 		}
 
 		if _, err := io.CopyN(w, r, sendSize); err != nil {
-			log.Fatalf("Error Copying bytes: %s", err)
+			log.Printf("Error Copying bytes: %s", err)
 		}
 
 		if err := r.Close(); err != nil {
-			log.Fatalf("Error closing: %s", err)
+			log.Printf("Error closing: %s", err)
 		}
 	}
 }
@@ -548,13 +548,13 @@ func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (
 	mw := multipart.NewWriter(&w)
 	for _, ra := range ranges {
 		if _, err := mw.CreatePart(ra.mimeHeader(contentType, contentSize)); err != nil {
-			log.Fatalf("Failed to Create Part: %s", err)
+			log.Printf("Failed to Create Part: %s", err)
 		}
 
 		encSize += ra.length
 	}
 	if err := mw.Close(); err != nil {
-		log.Fatalf("Failed to close: %s", err)
+		log.Printf("Failed to close: %s", err)
 	}
 
 	encSize += int64(w)

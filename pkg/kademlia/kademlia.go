@@ -161,7 +161,7 @@ func (k *Kademlia) ListenAndServe() error {
 
 	go func() {
 		if err := k.dht.Listen(); err != nil {
-			log.Fatalf("Failed to listen on the dht: %s\n", err)
+			log.Printf("Failed to listen on the dht: %s\n", err)
 		}
 	}()
 

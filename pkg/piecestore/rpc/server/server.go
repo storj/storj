@@ -64,7 +64,7 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 	defer func() {
 		if err := storeFile.Close(); err != nil {
-			log.Fatalf("failed to close store file: %s\n", err)
+			log.Printf("failed to close store file: %s\n", err)
 		}
 	}()
 
@@ -111,7 +111,7 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 
 	defer func() {
 		if err := storeFile.Close(); err != nil {
-			log.Fatalf("failed to close store file: %s\n", err)
+			log.Printf("failed to close store file: %s\n", err)
 		}
 	}()
 
