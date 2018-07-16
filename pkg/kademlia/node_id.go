@@ -67,7 +67,7 @@ func LoadID(path string) (dht.NodeID, error) {
 	// Attempt to load
 	IDBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
 	cert, hashLen, err := decodeIDBytes(IDBytes)
@@ -130,8 +130,7 @@ func (k *KadCreds) write(writer io.Writer) error {
 	}
 
 	// Write `hashLen` after private key
-	binary.Write(writer, binary.LittleEndian, k.hashLen)
-	return nil
+	return binary.Write(writer, binary.LittleEndian, k.hashLen)
 }
 
 func decodeIDBytes(PEMBytes []byte) (*tls.Certificate, uint16, error) {
@@ -193,16 +192,18 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 		return nil, errs.New("unable to parse EC private key", err)
 	}
 
+	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)-1])
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	cert.Leaf = parsedLeaf
+
 	return cert, nil
 }
 
 // func LoadOrCreateID(basePath string, minDifficulty uint16) (dht.NodeID, error) {
-// 	t, err := peertls.NewTLSHelper(
-// 		basePath,
-// 		basePath,
-// 		false,
-// 		false,
-// 	)
+// 	nodeID, err := LoadID(basePath)
 //
 // 	if err != nil {
 // 		if peertls.ErrNotExist.Has(err) {
@@ -246,7 +247,11 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 // }
 
 func certToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
-	pubKey := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
+	pubKey, ok := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if pubKey == nil || !ok {
+		return nil, errs.New("unsupported public key type (type assertion to `*ecdsa.PublicKey` failed)")
+	}
+
 	keyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {
 		return nil, errs.New("unable to marshal pubKey", err)
@@ -265,10 +270,14 @@ func certToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 		return nil, errs.New("hash length error")
 	}
 
-	tlsH, _ := peertls.NewTLSHelper(cert)
+	tlsH, err := peertls.NewTLSHelper(cert)
+	if err != nil {
+		return nil, err
+	}
+
 	kadCreds := &KadCreds{
-		tlsH: tlsH,
-		hash: hashBytes,
+		tlsH:    tlsH,
+		hash:    hashBytes,
 		hashLen: hashLen,
 	}
 

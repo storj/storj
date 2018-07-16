@@ -16,7 +16,7 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSFileOptions(t *testing.T) {
-	opts, err := NewTLSHelper()
+	opts, err := NewTLSHelper(nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, opts.cert)
 	assert.NotEmpty(t, opts.cert.PrivateKey)

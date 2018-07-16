@@ -140,7 +140,11 @@ func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 }
 
 func (t *TLSHelper) Certificate() tls.Certificate {
-	return *t.cert
+	cert := *t.cert
+	parsedLeaf, _ := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)-1])
+	cert.Leaf = parsedLeaf
+
+	return cert
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
