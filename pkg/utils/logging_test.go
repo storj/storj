@@ -11,22 +11,26 @@ import (
 	"go.uber.org/zap"
 )
 
+var errExpected = errors.New("error with initializing logger")
+
 func TestNewLoggerDev(t *testing.T) {
 	oldZapNewDevelopment := zapNewDevelopment
 
 	defer func() { zapNewDevelopment = oldZapNewDevelopment }()
 
 	zapNewDevelopment = func(options ...zap.Option) (*zap.Logger, error) {
-		return nil, errors.New("error with initializing dev logger")
+		return nil, errExpected
 	}
 
 	_, err := NewLogger("dev")
 
 	assert.NotNil(t, err)
+	assert.Equal(t, err, errExpected)
 
 	_, err = NewLogger("development")
 
 	assert.NotNil(t, err)
+	assert.Equal(t, err, errExpected)
 }
 
 func TestNewLoggerProd(t *testing.T) {
@@ -35,16 +39,18 @@ func TestNewLoggerProd(t *testing.T) {
 	defer func() { zapNewProduction = oldZapNewProduction }()
 
 	zapNewProduction = func(options ...zap.Option) (*zap.Logger, error) {
-		return nil, errors.New("error with initializing prod logger")
+		return nil, errExpected
 	}
 
 	_, err := NewLogger("prod")
 
 	assert.NotNil(t, err)
+	assert.Equal(t, err, errExpected)
 
 	_, err = NewLogger("production")
 
 	assert.NotNil(t, err)
+	assert.Equal(t, err, errExpected)
 }
 
 func TestNewLoggerDefault(t *testing.T) {
