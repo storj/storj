@@ -41,21 +41,23 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		segmentSize   int64
 	}
 
-	segmentByteSlice := make([]byte, s.segmentSize)
+	identitySlice := make([]byte, 0)
 	totalSegmentsSize := 0
 	totalSegments := 0
 	stopLoop := false
 
-	for stopLoop {
-		numBytesRead, err := data.Read(segmentByteSlice)
+	for stopLoop != true {
+		lr := io.LimitReader(data, s.segmentSize)
+
+		_, err := lr.Read(identitySlice)
 		if err != nil {
 			stopLoop = true
-			if err == io.EOF {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				var lastSegmentMetadata bytes.Buffer
 
 				totalSegments = totalSegments + 1
-				totalSegmentsSize = totalSegmentsSize + numBytesRead
-				segmentData := NewReader(segmentByteSlice)
+				totalSegmentsSize = totalSegmentsSize + s.segmentSize
+				segmentData := bytes.NewReader(identitySlice)
 				lastSegmentPath := path.Prepend("l")
 				m := meta{segmentNumber: totalSegments, segmentSize: totalSegmentsSize}
 				binary.Write(&lastSegmentMetadata, binary.BigEndian, metadata)
@@ -68,8 +70,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		totalSegments = totalSegments + 1
-		totalSegmentsSize = totalSegmentsSize + numBytesRead
-		segmentData := NewReader(segmentByteSlice)
+		totalSegmentsSize = totalSegmentsSize + s.segmentSize
+		segmentData := lr
 		segmentMetatdata := metadata
 		s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
 	}
