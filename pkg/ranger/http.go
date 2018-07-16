@@ -88,8 +88,8 @@ func (r *httpRanger) Range(ctx context.Context, offset, length int64) (io.ReadCl
 	}
 	if resp.StatusCode != http.StatusPartialContent {
 		if err := resp.Body.Close(); err != nil {
-			return nil, Error.New("Failed to close Body :: unexpected status code: %d (expected %d)",
-				resp.StatusCode, http.StatusPartialContent)
+			return nil, Error.New("Error: (%v) Failed to close Body :: unexpected status code: %d (expected %d)",
+				err, resp.StatusCode, http.StatusPartialContent)
 		}
 
 		return nil, Error.New("unexpected status code: %d (expected %d)",

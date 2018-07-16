@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -61,7 +62,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	// Send preliminary data
 	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
 		if _, err := stream.CloseAndRecv(); err != nil {
-			return fmt.Errorf("error closing stream %s :: %v.Send() = %v", err, stream, err)
+			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", err, stream, err)
 		}
 
 		return fmt.Errorf("%v.Send() = %v", stream, err)
