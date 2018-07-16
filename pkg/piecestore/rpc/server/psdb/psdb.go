@@ -102,7 +102,7 @@ func (psdb *PSDB) DBCleanup(dir string) error {
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
 func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 
-	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO bandwidth_agreements (payer, client, size) VALUES ("%s", "%s", "%d")`, ba.Data.Payer, ba.Data.Client, ba.Data.Size))
+	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (payer, client, size) VALUES ("%s", "%s", "%d")`, ba.Data.Payer, ba.Data.Client, ba.Data.Size))
 	if err != nil {
 		return err
 	}
