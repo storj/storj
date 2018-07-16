@@ -106,6 +106,7 @@ func TestPut(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+TestLoop:
 	for i, tt := range []struct {
 		nodes     []*proto.Node
 		min       int
@@ -146,7 +147,10 @@ func TestPut(t *testing.T) {
 		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed && tt.mbm >= 0 {
-				derivedID := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive([]byte(n.GetId()))
+				if !assert.NoError(t, err, errTag) {
+					continue TestLoop
+				}
 				ps := NewMockPSClient(ctrl)
 				gomock.InOrder(
 					ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl).Return(errs[n]),
@@ -182,6 +186,7 @@ func TestGet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+TestLoop:
 	for i, tt := range []struct {
 		nodes     []*proto.Node
 		mbm       int
@@ -219,7 +224,10 @@ func TestGet(t *testing.T) {
 		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
-				derivedID := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive([]byte(n.GetId()))
+				if !assert.NoError(t, err, errTag) {
+					continue TestLoop
+				}
 				ps := NewMockPSClient(ctrl)
 				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size)).Return(
 					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
@@ -249,6 +257,7 @@ func TestDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+TestLoop:
 	for i, tt := range []struct {
 		nodes     []*proto.Node
 		errs      []error
@@ -276,7 +285,10 @@ func TestDelete(t *testing.T) {
 		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] != ErrDialFailed {
-				derivedID := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive([]byte(n.GetId()))
+				if !assert.NoError(t, err, errTag) {
+					continue TestLoop
+				}
 				ps := NewMockPSClient(ctrl)
 				gomock.InOrder(
 					ps.EXPECT().Delete(gomock.Any(), derivedID).Return(errs[n]),

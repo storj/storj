@@ -69,7 +69,12 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	errs := make(chan error, len(readers))
 	for i, n := range nodes {
 		go func(i int, n *proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				errs <- err
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
@@ -77,14 +82,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 				errs <- err
 				return
 			}
-			if err := ps.Put(ctx, derivedPieceID, readers[i], expiration); err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
-				errs <- err
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
+			if err != nil {
+				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
+					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			if err := ps.CloseConn(); err != nil {
-				zap.Error(err)
-			}
-			errs <- nil
+			errs <- err
 		}(i, n)
 	}
 	allerrs := collectErrors(errs, len(readers))
@@ -112,7 +118,12 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
 		go func(i int, n *proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				ch <- rangerInfo{i: i, rr: nil, err: err}
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed getting piece %s -> %s from node %s: %v",
@@ -144,7 +155,12 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID cli
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(n *proto.Node) {
-			derivedPieceID := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			if err != nil {
+				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
+				errs <- err
+				return
+			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
@@ -153,14 +169,14 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID cli
 				return
 			}
 			err = ps.Delete(ctx, derivedPieceID)
+			// normally the bellow call should be deferred, but doing so fails
+			// randomly the unit tests
+			closeConn(ps, n.GetId())
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v", pieceID, derivedPieceID, n.GetId(), err)
+				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
+					pieceID, derivedPieceID, n.GetId(), err)
 			}
 			errs <- err
-
-			if err := ps.CloseConn(); err != nil {
-				zap.S().Errorf("Failed closing connection", err)
-			}
 		}(n)
 	}
 	allerrs := collectErrors(errs, len(nodes))
@@ -179,4 +195,11 @@ func collectErrors(errs <-chan error, size int) []error {
 		}
 	}
 	return result
+}
+
+func closeConn(ps client.PSClient, nodeID string) {
+	err := ps.CloseConn()
+	if err != nil {
+		zap.S().Errorf("Failed closing connection to node %s: %v", nodeID, err)
+	}
 }
