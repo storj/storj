@@ -97,7 +97,8 @@ func TestPut(t *testing.T){
 		gc:= NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().Put(ctx, &putRequest).Return(nil, tt.err)
+		// here we don't care what type of context we pass
+		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
 
 		err := pdb.Put(ctx, tt.path, putRequest.Pointer, tt.APIKey)
 		
@@ -142,7 +143,7 @@ func TestGet(t *testing.T){
 		gc:= NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().Get(ctx, &getRequest).Return(&getResponse, tt.err)
+		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
 		pointer, err := pdb.Get(ctx, tt.path, tt.APIKey)
 
@@ -196,8 +197,7 @@ func TestList(t *testing.T){
 		
 			for i, pathName := range truncatedPaths {
 				bytePathName := []byte(pathName)
-				truncatedPathsBytes[i] = make([]byte, 1)
-				truncatedPathsBytes[i] = bytePathName 
+				truncatedPathsBytes[i] = bytePathName
 			}
 		}
 			
@@ -208,7 +208,7 @@ func TestList(t *testing.T){
 		gc:= NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().List(ctx, &listRequest).Return(&listResponse, tt.err)
+		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
 		paths, trunc, err := pdb.List(ctx, tt.startingPath, tt.limit, tt.APIKey)
 		
@@ -253,7 +253,7 @@ func TestDelete(t *testing.T){
 		gc:= NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().Delete(ctx, &deleteRequest).Return(nil, tt.err)
+		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 		
 		err := pdb.Delete(ctx, tt.path, tt.APIKey)
 		
