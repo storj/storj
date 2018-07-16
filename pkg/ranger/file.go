@@ -6,6 +6,8 @@ package ranger
 import (
 	"io"
 	"os"
+
+	"go.uber.org/zap"
 )
 
 // FileHandleRanger returns a RangeCloser from a file handle. The
@@ -33,7 +35,10 @@ func FileRanger(path string) (RangeCloser, error) {
 	}
 	r, err := FileHandleRanger(fh)
 	if err != nil {
-		fh.Close()
+		if closeErr := fh.Close(); closeErr != nil {
+			zap.S().Error(closeErr)
+		}
+
 		return nil, err
 	}
 	return r, nil

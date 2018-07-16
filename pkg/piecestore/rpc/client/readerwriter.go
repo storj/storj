@@ -25,7 +25,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// Closes the piece store Write Stream
+// Close Closes the piece store Write Stream
 func (s *StreamWriter) Close() error {
 	reply, err := s.stream.CloseAndRecv()
 	if err != nil {

@@ -46,7 +46,10 @@ func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 		if err != nil {
 			return nil, err
 		}
-		key = deriveSecret(key, seg)
+		key, err = deriveSecret(key, seg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return encrypted, nil
 }
@@ -59,7 +62,10 @@ func (p Path) Decrypt(key []byte) (decrypted Path, err error) {
 		if err != nil {
 			return nil, err
 		}
-		key = deriveSecret(key, decrypted[i])
+		key, err = deriveSecret(key, decrypted[i])
+		if err != nil {
+			return nil, err
+		}
 	}
 	return decrypted, nil
 }
@@ -77,13 +83,19 @@ func (p Path) DeriveKey(key []byte, depth int) (derivedKey []byte, err error) {
 
 	derivedKey = key
 	for i := 0; i < depth; i++ {
-		derivedKey = deriveSecret(derivedKey, p[i])
+		derivedKey, err = deriveSecret(derivedKey, p[i])
+		if err != nil {
+			return nil, err
+		}
 	}
 	return derivedKey, nil
 }
 
 func encrypt(text string, secret []byte) (cipherText string, err error) {
-	key, nonce := getAESGCMKeyAndNonce(secret)
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -110,7 +122,10 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
-	key, nonce := getAESGCMKeyAndNonce(secret)
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -126,18 +141,27 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	return string(decrypted), nil
 }
 
-func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte) {
+func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte, err error) {
 	mac := hmac.New(sha512.New, secret)
-	mac.Write([]byte("enc"))
+	_, err = mac.Write([]byte("enc"))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 	key = mac.Sum(nil)[:32]
 	mac.Reset()
-	mac.Write([]byte("nonce"))
+	_, err = mac.Write([]byte("nonce"))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 	nonce = mac.Sum(nil)[:12]
-	return key, nonce
+	return key, nonce, nil
 }
 
-func deriveSecret(secret []byte, child string) []byte {
+func deriveSecret(secret []byte, child string) (derived []byte, err error) {
 	mac := hmac.New(sha512.New, secret)
-	mac.Write([]byte(child))
-	return mac.Sum(nil)
+	_, err = mac.Write([]byte(child))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return mac.Sum(nil), nil
 }

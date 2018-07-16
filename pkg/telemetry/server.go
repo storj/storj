@@ -5,6 +5,7 @@ package telemetry
 
 import (
 	"context"
+	"log"
 	"net"
 	"syscall"
 
@@ -74,7 +75,12 @@ func ListenAndServe(ctx context.Context, addr string, h Handler) error {
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+
+	defer func() {
+		if err := s.Close(); err != nil {
+			log.Printf("Failed to close Server: %s", err)
+		}
+	}()
 	return s.Serve(ctx, h)
 }
 
