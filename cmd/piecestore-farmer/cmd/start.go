@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/server"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -53,7 +53,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 
 	config := GetConfigValues()
 
-	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
+	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piecestore.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
 	_, err = ConnectToKad(ctx, config.NodeID, config.PsHost, config.KadListenPort, fmt.Sprintf("%s:%s", config.KadHost, config.KadPort))
@@ -61,7 +61,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ttlDB, err := ttl.NewTTL(dbPath)
+	db, err := psdb.NewPSDB(dbPath)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 	defer lis.Close()
 
 	// create a server instance
-	s := server.Server{PieceStoreDir: dataDir, DB: ttlDB}
+	s := server.Server{PieceStoreDir: dataDir, DB: db}
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()

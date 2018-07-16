@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -435,16 +435,16 @@ func TestMain(m *testing.M) {
 
 	tempDBPath := path.Join(os.TempDir(), "test.db")
 
-	ttlDB, err := ttl.NewTTL(tempDBPath)
+	psDB, err := psdb.NewPSDB(tempDBPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	tempDir := path.Join(os.TempDir(), "test-data", "3000")
 
-	s = Server{PieceStoreDir: tempDir, DB: ttlDB}
+	s = Server{PieceStoreDir: tempDir, DB: psDB}
 
-	db = ttlDB.DB
+	db = psDB.DB
 
 	// clean up temp files
 	defer os.RemoveAll(path.Join(tempDir, "/test-data"))

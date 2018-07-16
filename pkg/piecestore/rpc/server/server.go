@@ -10,14 +10,14 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	PieceStoreDir string
-	DB            *ttl.TTL
+	DB            *psdb.PSDB
 	id            string
 }
 

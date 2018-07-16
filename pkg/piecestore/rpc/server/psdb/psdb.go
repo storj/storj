@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package ttl
+package psdb
 
 import (
 	"database/sql"
@@ -16,13 +16,13 @@ import (
 	"storj.io/storj/pkg/piecestore"
 )
 
-// TTL -- ttl database
-type TTL struct {
+// PSDB -- Piecestore database
+type PSDB struct {
 	DB *sql.DB
 }
 
-// NewTTL -- creates ttl database and struct
-func NewTTL(DBPath string) (*TTL, error) {
+// NewPSDB -- creates
+func NewPSDB(DBPath string) (*PSDB, error) {
 	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
@@ -31,12 +31,17 @@ func NewTTL(DBPath string) (*TTL, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`payer` TEXT UNIQUE, `client` TEXT UNIQUE, `size` INT);")
+	if err != nil {
+		return nil, err
+	}
 
-	return &TTL{db}, nil
+	return &PSDB{db}, nil
 }
 
 // checkEntries -- checks for and deletes expired TTL entries
@@ -67,7 +72,7 @@ func checkEntries(dir string, rows *sql.Rows) error {
 
 // DBCleanup -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
-func (ttl *TTL) DBCleanup(dir string) error {
+func (psdb *PSDB) DBCleanup(dir string) error {
 
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
@@ -75,7 +80,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 		case <-tickChan:
 			now := time.Now().Unix()
 
-			rows, err := ttl.DB.Query(fmt.Sprintf("SELECT id FROM ttl WHERE expires < %d AND expires > 0", now))
+			rows, err := psdb.DB.Query(fmt.Sprintf("SELECT id FROM ttl WHERE expires < %d AND expires > 0", now))
 			if err != nil {
 				return err
 			}
@@ -85,7 +90,7 @@ func (ttl *TTL) DBCleanup(dir string) error {
 				return err
 			}
 
-			_, err = ttl.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
+			_, err = psdb.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
 			if err != nil {
 				return err
 			}
@@ -94,16 +99,16 @@ func (ttl *TTL) DBCleanup(dir string) error {
 }
 
 // AddTTLToDB -- Insert TTL into database by id
-func (ttl *TTL) AddTTLToDB(id string, expiration int64) error {
+func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 
-	_, err := ttl.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
+	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
 	return err
 }
 
 // GetTTLByID -- Find the TTL in the database by id and return it
-func (ttl *TTL) GetTTLByID(id string) (expiration int64, err error) {
+func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
 
-	rows, err := ttl.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id))
+	rows, err := psdb.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id))
 	if err != nil {
 		return 0, err
 	}
@@ -121,8 +126,8 @@ func (ttl *TTL) GetTTLByID(id string) (expiration int64, err error) {
 }
 
 // DeleteTTLByID -- Find the TTL in the database by id and delete it
-func (ttl *TTL) DeleteTTLByID(id string) error {
+func (psdb *PSDB) DeleteTTLByID(id string) error {
 
-	_, err := ttl.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, id))
+	_, err := psdb.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, id))
 	return err
 }
