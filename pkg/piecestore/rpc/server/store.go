@@ -19,30 +19,8 @@ const OK = "OK"
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	log.Println("Storing data...")
 
-	// Receive Signature
-	recv, err := reqStream.Recv()
-	if err != nil || recv == nil {
-		log.Println(err)
-		return errors.New("Error receiving signature")
-	}
-
-	// TODO: verify signature
-	if err = s.verifySignature(recv.Signature); err != nil {
-		return err
-	}
-
-	// Receive payer/client/size
-	recv, err = reqStream.Recv()
-	if err != nil || recv == nil {
-		log.Println(err)
-		return errors.New("Error receiving Bandwidth Allocation info")
-	}
-
-	ba := recv.Bandwidthallocation
-	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Payer, ba.Client, ba.Size)
-
 	// Receive id/ttl
-	recv, err = reqStream.Recv()
+	recv, err := reqStream.Recv()
 	if err != nil || recv == nil {
 		log.Println(err)
 		return errors.New("Error receiving Piece Meta Data")
@@ -57,8 +35,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	// TODO: Save bandwidthAllocation and signature to DB
-
 	total, err := s.storeData(reqStream, pd.Id)
 	if err != nil {
 		return err
@@ -69,7 +45,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
 }
 
-func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (int64, error) {
+func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.DataDir)
 	if err != nil {
@@ -82,8 +58,44 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (i
 	defer storeFile.Close()
 
 	reader := NewStreamReader(stream)
-	total, err := io.Copy(storeFile, reader)
-	if err != nil {
+
+	for {
+		// Receive Bandwidth allocation
+		recv, err := stream.Recv()
+		if err != nil || recv.Bandwidthallocation == nil {
+			break
+		}
+
+		ba := recv.Bandwidthallocation
+
+		// TODO: Should we check if all the variables on ba are good?
+
+		if err = s.verifySignature(ba.Signature); err != nil {
+			break
+		}
+
+		if err = s.writeBandwidthAllocToDB(ba); err != nil {
+			break
+		}
+
+		buf := make([]byte, ba.Data.Size) // buffer size defined by what is being allocated
+
+		n, err := reader.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		// Write the buffer to the stream we opened earlier
+		n, err = storeFile.Write(buf[:n])
+		if err != nil {
+			break
+		}
+
+		total += int64(n)
+	}
+
+	if err != nil && err != io.EOF {
+		log.Println(err)
+
 		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())
 		}

@@ -32,11 +32,12 @@ type StreamReader struct {
 func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 	return &StreamReader{
 		src: utils.NewReaderSource(func() ([]byte, error) {
-			msg, err := stream.Recv()
+			recv, err := stream.Recv()
 			if err != nil {
 				return nil, err
 			}
-			return msg.Piecedata.Content, nil
+
+			return recv.Piecedata.Content, nil
 		}),
 	}
 }

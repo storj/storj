@@ -42,58 +42,58 @@ type ErasureScheme interface {
 // RedundancyStrategy is an ErasureScheme with a minimum and optimum thresholds
 type RedundancyStrategy struct {
 	ErasureScheme
-	min int
-	opt int
+	Min int
+	Opt int
 }
 
 // NewRedundancyStrategy from the given ErasureScheme, minimum and optimum
 // thresholds
 //
-// min is the minimum threshold. If set to 0, it will be reset to the
+// Min is the minimum threshold. If set to 0, it will be reset to the
 // TotalCount of the ErasureScheme.
-// opt is the optimum threshold. If set to 0, it will be reset to the
+// Opt is the optimum threshold. If set to 0, it will be reset to the
 // TotalCount of the ErasureScheme.
-func NewRedundancyStrategy(es ErasureScheme, min, opt int) (RedundancyStrategy, error) {
-	if min == 0 {
-		min = es.TotalCount()
+func NewRedundancyStrategy(es ErasureScheme, Min, Opt int) (RedundancyStrategy, error) {
+	if Min == 0 {
+		Min = es.TotalCount()
 	}
-	if opt == 0 {
-		opt = es.TotalCount()
+	if Opt == 0 {
+		Opt = es.TotalCount()
 	}
-	if min < 0 {
+	if Min < 0 {
 		return RedundancyStrategy{}, Error.New("negative minimum threshold")
 	}
-	if min > 0 && min < es.RequiredCount() {
+	if Min > 0 && Min < es.RequiredCount() {
 		return RedundancyStrategy{}, Error.New("minimum threshold less than required count")
 	}
-	if min > es.TotalCount() {
+	if Min > es.TotalCount() {
 		return RedundancyStrategy{}, Error.New("minimum threshold greater than total count")
 	}
-	if opt < 0 {
+	if Opt < 0 {
 		return RedundancyStrategy{}, Error.New("negative optimum threshold")
 	}
-	if opt > 0 && opt < es.RequiredCount() {
+	if Opt > 0 && Opt < es.RequiredCount() {
 		return RedundancyStrategy{}, Error.New("optimum threshold less than required count")
 	}
-	if opt > es.TotalCount() {
+	if Opt > es.TotalCount() {
 		return RedundancyStrategy{}, Error.New("optimum threshold greater than total count")
 	}
-	if min > opt {
+	if Min > Opt {
 		return RedundancyStrategy{}, Error.New("minimum threshold greater than optimum threshold")
 	}
-	return RedundancyStrategy{ErasureScheme: es, min: min, opt: opt}, nil
+	return RedundancyStrategy{ErasureScheme: es, Min: Min, Opt: Opt}, nil
 }
 
 // MinimumThreshold is the number of available erasure pieces below which
 // the data must be repaired to avoid loss
 func (rs *RedundancyStrategy) MinimumThreshold() int {
-	return rs.min
+	return rs.Min
 }
 
 // OptimumThreshold is the number of available erasure pieces above which
 // there is no need for the data to be repaired
 func (rs *RedundancyStrategy) OptimumThreshold() int {
-	return rs.opt
+	return rs.Opt
 }
 
 type encodedReader struct {

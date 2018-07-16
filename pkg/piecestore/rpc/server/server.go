@@ -15,7 +15,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	proto "storj.io/storj/protos/overlay"
@@ -169,8 +168,16 @@ func (s *Server) deleteByID(id string) error {
 }
 
 func (s *Server) verifySignature(signature []byte) error {
-	//verify signature
+	// TODO: verify signature
 	log.Printf("Verified signature: %s\n", signature)
+
+	return nil
+}
+
+func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Data.Payer, ba.Data.Client, ba.Data.Size)
+
+	// TODO: Write ba to database
 
 	return nil
 }
