@@ -79,7 +79,7 @@ func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 	return kad, nil
 }
 
-// Server -- Starts the piececstore node
+// Start the piececstore node
 func (s *Server) Start() error {
 	ctx := context.Background()
 
