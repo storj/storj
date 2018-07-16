@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	proto "storj.io/storj/pkg/statdb/proto"
-	"storj.io/storj/storage/boltdb"
+	dbx "storj.io/storj/pkg/statdb/dbx"
 )
 
 var (
@@ -29,11 +29,11 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 		return err
 	}
 
-	bdb, err := boltdb.NewClient(s.logger, *dbPath, boltdb.PointerBucket)
+	db, err := dbx.Open("postgres", *dbPath)
 	if err != nil {
 		return err
 	}
-	defer bdb.Close()
+	defer db.Close()
 
 	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
