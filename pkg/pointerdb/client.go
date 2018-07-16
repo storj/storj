@@ -29,7 +29,7 @@ type PDBClient interface {
 
 // NewPointerDBClient initializes a new pointerdb client
 func NewPointerDBClient(address string) (*PointerDB, error) {
-	c, err := NewClient(&address, grpc.WithInsecure())
+	c, err := NewClient(address, grpc.WithInsecure())
 
 	if err != nil {
 		return nil, err
@@ -40,8 +40,8 @@ func NewPointerDBClient(address string) (*PointerDB, error) {
 }
 
 // NewClient makes a server connection
-func NewClient(serverAddr *string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
-	conn, err := grpc.Dial(*serverAddr, opts...)
+func NewClient(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
+	conn, err := grpc.Dial(serverAddr, opts...)
 
 	if err != nil {
 		return nil, err

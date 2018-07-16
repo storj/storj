@@ -74,7 +74,7 @@ func TestBytes(t *testing.T) {
         path     Path
         expected []byte
     }{
-        {[]string{""}, []byte("")},
+        {[]string{""}, []byte{}},
 		{[]string{"a/b"}, []byte{97, 47, 98}},
         {[]string{"a/b/c"}, []byte{97, 47, 98, 47, 99}},
         {[]string{"a/b/c/d/e/f"}, []byte{97, 47, 98, 47, 99, 47, 100, 47, 101, 47, 102}},

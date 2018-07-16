@@ -28,6 +28,7 @@ func (p Path) String() string {
 	return path.Join([]string(p)...)
 }
 
+// Bytes serializes the current path to []byte
 func (p Path) Bytes() []byte {
 	return []byte(p.String())
 }
