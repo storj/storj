@@ -40,8 +40,23 @@ type Config struct {
 	PieceStoreDir string
 }
 
-func New(config Config) *Server {
-	return &Server{config: config}
+func New(config *Config) *Server {
+	ctx := context.Background()
+
+	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
+	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
+
+	_, err := connectToKad(ctx, config.NodeID, config.PsHost, config.KadListenPort, fmt.Sprintf("%s:%s", config.KadHost, config.KadPort))
+	if err != nil {
+		return err
+	}
+
+	ttlDB, err := ttl.NewTTL(dbPath)
+	if err != nil {
+		return err
+	}
+
+	return &Server{DataDir: dataDir, DB: ttlDB, config: config}
 }
 
 // connectToKad joins the Kademlia network
@@ -72,23 +87,6 @@ func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 
 // Server -- Starts the piececstore node
 func (s *Server) Start() error {
-	ctx := context.Background()
-
-	dbPath := filepath.Join(s.config.PieceStoreDir, fmt.Sprintf("store-%s", s.config.NodeID), "ttl-data.db")
-	dataDir := filepath.Join(s.config.PieceStoreDir, fmt.Sprintf("store-%s", s.config.NodeID), "piece-store-data")
-
-	_, err := connectToKad(ctx, s.config.NodeID, s.config.PsHost, s.config.KadListenPort, fmt.Sprintf("%s:%s", s.config.KadHost, s.config.KadPort))
-	if err != nil {
-		return err
-	}
-
-	ttlDB, err := ttl.NewTTL(dbPath)
-	if err != nil {
-		return err
-	}
-
-	s.DataDir = dataDir
-	s.DB = ttlDB
 
 	// create a listener on TCP port
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", s.config.PsPort))
@@ -106,7 +104,7 @@ func (s *Server) Start() error {
 
 	// routinely check DB and delete expired entries
 	go func() {
-		err := s.DB.DBCleanup(dataDir)
+		err := s.DB.DBCleanup(s.DataDir)
 		zap.S().Fatalf("Error in DBCleanup: %v\n", err)
 	}()
 

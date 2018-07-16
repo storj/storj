@@ -26,7 +26,6 @@ func init() {
 
 // startNode starts a farmer node by ID
 func startNode(cmd *cobra.Command, args []string) error {
-	// ctx := context.Background()
 
 	if len(args) == 0 {
 		return errs.New("No ID specified")
