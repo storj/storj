@@ -43,12 +43,29 @@ func init() {
 	createCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
 	createCmd.Flags().String("dir", home, "`dir` of drive being shared")
 
-	viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost"))
-	viper.BindPFlag("kademlia.port", createCmd.Flags().Lookup("kademliaPort"))
-	viper.BindPFlag("kademlia.listen.port", createCmd.Flags().Lookup("kademliaListenPort"))
-	viper.BindPFlag("piecestore.host", createCmd.Flags().Lookup("pieceStoreHost"))
-	viper.BindPFlag("piecestore.port", createCmd.Flags().Lookup("pieceStorePort"))
-	viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir"))
+	if err := viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.host")
+	}
+
+	if err := viper.BindPFlag("kademlia.port", createCmd.Flags().Lookup("kademliaPort")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.port")
+	}
+
+	if err := viper.BindPFlag("kademlia.listen.port", createCmd.Flags().Lookup("kademliaListenPort")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.listen.port")
+	}
+
+	if err := viper.BindPFlag("piecestore.host", createCmd.Flags().Lookup("pieceStoreHost")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.host")
+	}
+
+	if err := viper.BindPFlag("piecestore.port", createCmd.Flags().Lookup("pieceStorePort")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.port")
+	}
+
+	if err := viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.dir")
+	}
 
 	viper.SetDefault("piecestore.id", nodeID.String())
 }
