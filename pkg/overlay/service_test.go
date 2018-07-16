@@ -144,11 +144,13 @@ func TestProcess_redis(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	flag.Set("localPort", "0")
+
 	done := test.EnsureRedis(t)
 	defer done()
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	process.ConfigEnvironment()
 	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
@@ -172,26 +174,29 @@ func TestProcess_bolt(t *testing.T) {
 	}
 
 	flag.Set("boltdbPath", boltdbPath)
+	flag.Set("boltdbpath", boltdbPath)
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	process.ConfigEnvironment()
 	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
 
-func TestProcess_error(t *testing.T) {
+func TestProcess_default(t *testing.T) {
 	tempPath, err := ioutil.TempDir("", "TestProcess_error")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
 	flag.Set("localPort", "0")
 	flag.Set("boltdbPath", "")
-	flag.Set("redisAddress", "")
+
+	process.ConfigEnvironment()
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx, nil, nil)
-	assert.True(t, process.ErrUsage.Has(err))
+	assert.Nil(t, err)
 }
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {

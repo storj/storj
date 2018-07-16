@@ -166,7 +166,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	// bootstrap cache
 	var cache *Cache
 	if viper.GetString("redisaddress") != "" {
-		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
+		cache, err = NewRedisOverlayCache(viper.GetString("redisaddress"), redisPassword, db, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
