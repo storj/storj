@@ -28,12 +28,12 @@ type pieceRanger struct {
 }
 
 // PieceRanger PieceRanger returns a RangeCloser from a PieceID.
-func PieceRanger(ctx context.Context, c *Client, id PieceID) (ranger.RangeCloser, error) {
+func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, payer, bandwidthClient string) (ranger.RangeCloser, error) {
 	piece, err := c.Meta(ctx, PieceID(id))
 	if err != nil {
 		return nil, err
 	}
-	return &pieceRanger{c: c, id: id, size: piece.Size}, nil
+	return &pieceRanger{c: c, id: id, size: piece.Size, stream: stream, payer: payer, bandwidthClient: bandwidthClient}, nil
 }
 
 // PieceRangerSize creates a PieceRanger with known size.
