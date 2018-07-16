@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -68,14 +69,21 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	// Send preliminary data
-	if err := stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), Ttl: ttl.Unix()}}); err != nil {
-		stream.CloseAndRecv()
+	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
+		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
+			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
+		}
+
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
 	writer := &StreamWriter{signer: client, payer: payer, bandwidthClient: bandwidthClient, stream: stream}
 
-	defer writer.Close()
+	defer func() {
+		if err := writer.Close(); err != nil {
+			log.Printf("failed to close writer: %s\n", err)
+		}
+	}()
 
 	_, err = io.Copy(writer, data)
 

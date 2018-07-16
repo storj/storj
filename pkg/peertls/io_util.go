@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/pem"
 	"io"
+	"log"
 	"os"
 
 	"github.com/zeebo/errs"
@@ -27,7 +28,11 @@ func writeCerts(certs [][]byte, path string) error {
 		return errs.New("unable to open file \"%s\" for writing", path, err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close file: %s\n", err)
+		}
+	}()
 
 	for _, cert := range certs {
 		if err := writePem(newCertBlock(cert), file); err != nil {
@@ -49,7 +54,11 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 		return errs.New("unable to open \"%s\" for writing", path, err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close file: %s\n", err)
+		}
+	}()
 
 	block, err := keyToBlock(key)
 	if err != nil {

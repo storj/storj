@@ -6,6 +6,7 @@ package storj
 import (
 	"context"
 	"io"
+	"log"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -28,12 +29,14 @@ var (
 )
 
 func init() {
-	minio.RegisterGatewayCommand(cli.Command{
+	if err := minio.RegisterGatewayCommand(cli.Command{
 		Name:            "storj",
 		Usage:           "Storj",
 		Action:          storjGatewayMain,
 		HideHelpCommand: true,
-	})
+	}); err != nil {
+		log.Fatal("Failed to register command storj")
+	}
 }
 
 func storjGatewayMain(ctx *cli.Context) {
@@ -96,12 +99,22 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return err
 	}
-	defer rr.Close()
+	defer func() {
+		if err := rr.Close(); err != nil {
+			// ignore for now
+		}
+	}()
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+
+	defer func() {
+		if err := r.Close(); err != nil {
+			// ignore for now
+		}
+	}()
+
 	_, err = io.Copy(writer, r)
 	return err
 }
@@ -114,7 +127,12 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	if err != nil {
 		return objInfo, err
 	}
-	defer rr.Close()
+
+	defer func() {
+		if err := rr.Close(); err != nil {
+			// ignore for now
+		}
+	}()
 	newmetainfo := &mpb.StorjMetaInfo{}
 	err = proto.Unmarshal(m.Data, newmetainfo)
 	if err != nil {

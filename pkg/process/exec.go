@@ -39,12 +39,17 @@ func Execute(cmd *cobra.Command) {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	cobra.OnInitialize(func() {
-		viper.BindPFlags(cmd.Flags())
+		if err := viper.BindPFlags(cmd.Flags()); err != nil {
+			log.Fatalf("Failed to bind flags: %s\n", err)
+		}
+
 		viper.SetEnvPrefix("storj")
 		viper.AutomaticEnv()
 		if *cfgFile != "" {
 			viper.SetConfigFile(*cfgFile)
-			viper.ReadInConfig()
+			if err := viper.ReadInConfig(); err != nil {
+				log.Fatalf("Failed to read configs: %s\n", err)
+			}
 		}
 	})
 
@@ -56,12 +61,17 @@ func ConfigEnvironment() error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
-	viper.BindPFlags(pflag.CommandLine)
+	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
+		return err
+	}
+
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
 	if *cfgFile != "" {
 		viper.SetConfigFile(*cfgFile)
-		viper.ReadInConfig()
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -69,8 +79,13 @@ func ConfigEnvironment() error {
 
 // Main runs a Service
 func Main(configFn func() error, s ...Service) error {
-	configFn()
+	if err := configFn(); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	errors := make(chan error, len(s))
 
 	for _, service := range s {
@@ -83,7 +98,6 @@ func Main(configFn func() error, s ...Service) error {
 	case <-ctx.Done():
 		return nil
 	case err := <-errors:
-		cancel()
 		return err
 	}
 }

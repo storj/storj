@@ -15,7 +15,7 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-// Error is the error type for pieceranger
+// Error is the error class for pieceRanger
 var Error = errs.Class("pieceRanger error")
 
 type pieceRanger struct {
