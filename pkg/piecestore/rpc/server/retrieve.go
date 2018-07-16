@@ -28,7 +28,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.Id, pd.Size, pd.Offset)
 
 	// Get path to data being retrieved
-	path, err := pstore.PathByID(pd.Id, s.PieceStoreDir)
+	path, err := pstore.PathByID(pd.Id, s.DataDir)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(stream.Context(), pd.Id, pd.Offset, totalToRead, s.PieceStoreDir)
+	storeFile, err := pstore.RetrieveReader(stream.Context(), pd.Id, pd.Offset, totalToRead, s.DataDir)
 	if err != nil {
 		return err
 	}
