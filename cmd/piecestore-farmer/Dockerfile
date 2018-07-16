@@ -9,13 +9,13 @@ RUN cd /go/src/storj.io/storj/cmd/piecestore-farmer && go build -o piecestore-fa
 
 # final stage
 FROM alpine
-ENV KAD_HOST= \
-    KAD_LISTEN_PORT= \
-    KAD_PORT= \
+ENV KAD_HOST=bootstrap.storj.io \
+    KAD_LISTEN_PORT=7776 \
+    KAD_PORT=8080 \
     PSID= \
-    PS_DIR= \
-    PUBLIC_IP= \
-    RPC_PORT=
+    PS_DIR=/home/ \
+    PUBLIC_IP=127.0.0.1 \
+    RPC_PORT=7777
 
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/cmd/piecestore-farmer/piecestore-farmer /app/
