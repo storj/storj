@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	if err := process.Main(&overlay.Service{}); err != nil {
+	if err := process.Main(process.ConfigEnvironment, &overlay.Service{}); err != nil {
 		log.Fatal(err)
 	}
 }

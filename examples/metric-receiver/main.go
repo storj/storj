@@ -19,7 +19,7 @@ var (
 )
 
 func main() {
-	process.Must(process.Main(process.ServiceFunc(run)))
+	process.Must(process.Main(func() error { return nil }, process.ServiceFunc(run)))
 }
 
 func run(ctx context.Context, _ *cobra.Command, _ []string) error {
