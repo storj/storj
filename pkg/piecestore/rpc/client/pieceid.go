@@ -37,13 +37,16 @@ func (id PieceID) IsValid() bool {
 }
 
 // Derive a new PieceID from the current PieceID and the given secret
-func (id PieceID) Derive(secret []byte) PieceID {
+func (id PieceID) Derive(secret []byte) (derived PieceID, err error) {
 	mac := hmac.New(sha512.New, secret)
-	mac.Write([]byte(id))
+	_, err = mac.Write([]byte(id))
+	if err != nil {
+		return "", err
+	}
 	h := mac.Sum(nil)
 	// Trim the hash if greater than 32 bytes
 	if len(h) > 32 {
 		h = h[:32]
 	}
-	return PieceID(base58.Encode(h))
+	return PieceID(base58.Encode(h)), nil
 }

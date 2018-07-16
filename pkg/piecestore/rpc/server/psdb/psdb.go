@@ -85,7 +85,11 @@ func (psdb *PSDB) DBCleanup(dir string) error {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					log.Printf("failed to close Rows: %s\n", err)
+				}
+			}()
 
 			if err := checkEntries(dir, rows); err != nil {
 				return err
@@ -127,7 +131,11 @@ func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
 		return 0, err
 	}
 
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close Rows: %s\n", err)
+		}
+	}()
 
 	for rows.Next() {
 		err = rows.Scan(&expiration)

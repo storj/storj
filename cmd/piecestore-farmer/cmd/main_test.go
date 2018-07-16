@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"storj.io/storj/pkg/piecestore/rpc/server"
+
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -31,13 +33,13 @@ func TestCreate(t *testing.T) {
 
 	tests := []struct {
 		it             string
-		expectedConfig Config
+		expectedConfig server.Config
 		args           []string
 		err            string
 	}{
 		{
 			it: "should successfully write config with default values",
-			expectedConfig: Config{
+			expectedConfig: server.Config{
 				NodeID:        "",
 				PsHost:        "127.0.0.1",
 				PsPort:        "7777",
@@ -53,7 +55,7 @@ func TestCreate(t *testing.T) {
 		},
 		{
 			it: "should successfully write config with flag values",
-			expectedConfig: Config{
+			expectedConfig: server.Config{
 				NodeID:        "",
 				PsHost:        "123.4.5.6",
 				PsPort:        "1234",
@@ -75,7 +77,7 @@ func TestCreate(t *testing.T) {
 		},
 		{
 			it: "should err when a config with identical ID already exists",
-			expectedConfig: Config{
+			expectedConfig: server.Config{
 				NodeID:        "",
 				PsHost:        "123.4.5.6",
 				PsPort:        "1234",
@@ -92,7 +94,7 @@ func TestCreate(t *testing.T) {
 		},
 		{
 			it: "should err when pieceStoreDir is not a directory",
-			expectedConfig: Config{
+			expectedConfig: server.Config{
 				NodeID:        "",
 				PsHost:        "123.4.5.6",
 				PsPort:        "1234",
