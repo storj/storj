@@ -8,9 +8,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	p "storj.io/storj/pkg/paths"
 	pb "storj.io/storj/protos/pointerdb"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // PointerDB creates a grpcClient
@@ -50,23 +55,24 @@ func NewClient(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, 
 }
 
 // Put is the interface to make a PUT request, needs Pointer and APIKey
-func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error {
-	_, err := pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.Bytes(), Pointer: pointer, APIKey: APIKey})
+func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.Bytes(), Pointer: pointer, APIKey: APIKey})
+
+	return err
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error) {
+func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.Bytes(), APIKey: APIKey})
 	if err != nil {
 		return nil, err
 	}
 
-	pointer := &pb.Pointer{}
+	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(res.GetPointer(), pointer)
 
 	if err != nil {
@@ -76,8 +82,8 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
-func (pdb *PointerDB) List(ctx context.Context, startingPathKey p.Path, limit int64, APIKey []byte) (
-	paths [][]byte, truncated bool, err error) {
+func (pdb *PointerDB) List(ctx context.Context, startingPathKey p.Path, limit int64, APIKey []byte) (paths [][]byte, truncated bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey.Bytes(), Limit: limit, APIKey: APIKey})
 
 	if err != nil {
@@ -88,11 +94,10 @@ func (pdb *PointerDB) List(ctx context.Context, startingPathKey p.Path, limit in
 }
 
 // Delete is the interface to make a Delete request, needs Path and APIKey
-func (pdb *PointerDB) Delete(ctx context.Context, path p.Path, APIKey []byte) error {
-	_, err := pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.Bytes(), APIKey: APIKey})
+func (pdb *PointerDB) Delete(ctx context.Context, path p.Path, APIKey []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.Bytes(), APIKey: APIKey})
+
+	return err
 }
