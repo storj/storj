@@ -61,7 +61,12 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 
 		return err
 	}
-	defer storeFile.Close()
+
+	defer func() {
+		if err := storeFile.Close(); err != nil {
+			log.Printf("failed to close store file: %s\n", err)
+		}
+	}()
 
 	reader := NewStreamReader(stream)
 	total, err := io.Copy(storeFile, reader)
@@ -104,7 +109,11 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		return err
 	}
 
-	defer storeFile.Close()
+	defer func() {
+		if err := storeFile.Close(); err != nil {
+			log.Printf("failed to close store file: %s\n", err)
+		}
+	}()
 
 	writer := &StreamWriter{stream: stream}
 	_, err = io.Copy(writer, storeFile)

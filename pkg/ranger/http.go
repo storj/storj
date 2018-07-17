@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -24,7 +25,13 @@ func HTTPRanger(URL string) (Ranger, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close body: %v", err)
+		}
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, Error.New("unexpected status code: %d (expected %d)",
 			resp.StatusCode, http.StatusOK)
@@ -80,7 +87,11 @@ func (r *httpRanger) Range(ctx context.Context, offset, length int64) (io.ReadCl
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusPartialContent {
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			return nil, Error.New("Error: (%v) Failed to close Body :: unexpected status code: %d (expected %d)",
+				err, resp.StatusCode, http.StatusPartialContent)
+		}
+
 		return nil, Error.New("unexpected status code: %d (expected %d)",
 			resp.StatusCode, http.StatusPartialContent)
 	}

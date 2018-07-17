@@ -102,12 +102,22 @@ func CtxService(s Service) func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		defer logger.Sync()
+		defer func() {
+			if err := logger.Sync(); err != nil {
+				logger.Error("failed to sync logger", zap.Error(err))
+			}
+		}()
+
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
-		s.SetLogger(logger)
-		s.SetMetricHandler(registry)
+		if err := s.SetLogger(logger); err != nil {
+			logger.Error("failed to configure logger", zap.Error(err))
+		}
+
+		if err := s.SetMetricHandler(registry); err != nil {
+			logger.Error("failed to configure metric handler", zap.Error(err))
+		}
 
 		err = initMetrics(ctx, registry, instanceID)
 		if err != nil {
