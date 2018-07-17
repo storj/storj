@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -22,7 +21,7 @@ type StreamWriter struct {
 func (s *StreamWriter) Write(b []byte) (int, error) {
 
 	// TODO: What does the message look like?
-	sig, err := s.signer.sign(context.Background(), []byte{'m', 's', 'g'})
+	sig, err := s.signer.sign([]byte{'m', 's', 'g'})
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +75,7 @@ func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient)
 		src: utils.NewReaderSource(func() ([]byte, error) {
 
 			// TODO: What does the message look like?
-			sig, err := signer.sign(context.Background(), []byte{'m', 's', 'g'})
+			sig, err := signer.sign([]byte{'m', 's', 'g'})
 			if err != nil {
 				return nil, err
 			}

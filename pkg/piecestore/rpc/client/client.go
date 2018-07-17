@@ -110,7 +110,7 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 }
 
 // sign a message using the clients private key
-func (client *Client) sign(ctx context.Context, msg []byte) (signature []byte, err error) {
+func (client *Client) sign(msg []byte) (signature []byte, err error) {
 	// use c.pkey to sign msg
 
 	return signature, err
