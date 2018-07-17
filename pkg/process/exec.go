@@ -30,6 +30,17 @@ func defaultConfigPath(name string) string {
 	return filepath.Join(home, path)
 }
 
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		log.Fatalf("failed to check for file existence: %v", err)
+	}
+	return true
+}
+
 // Execute runs a *cobra.Command and sets up Storj-wide process configuration
 // like a configuration file and logging.
 func Execute(cmd *cobra.Command) {
@@ -45,7 +56,7 @@ func Execute(cmd *cobra.Command) {
 
 		viper.SetEnvPrefix("storj")
 		viper.AutomaticEnv()
-		if *cfgFile != "" {
+		if *cfgFile != "" && fileExists(*cfgFile) {
 			viper.SetConfigFile(*cfgFile)
 			if err := viper.ReadInConfig(); err != nil {
 				log.Fatalf("Failed to read configs: %s\n", err)
