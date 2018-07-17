@@ -99,7 +99,13 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			zap.Error(ErrNodeNotFound)
 		}
 		addr, err := proto.Marshal(found.Address)
-		o.DB.Put([]byte(found.Id), addr)
+		if err != nil {
+			return err
+		}
+
+		if err := o.DB.Put([]byte(found.Id), addr); err != nil {
+			return err
+		}
 	}
 	// called after kademlia is bootstrapped
 	// needs to take RoutingTable and start to persist it into the cache
@@ -112,11 +118,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 
 	_, err = o.DHT.GetRoutingTable(ctx)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses

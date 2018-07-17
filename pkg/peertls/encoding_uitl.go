@@ -13,8 +13,10 @@ import (
 )
 
 const (
+	// BlockTypeEcPrivateKey is the value to define a block type of private key
 	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
-	BlockTypeCertificate  = "CERTIFICATE"
+	// BlockTypeCertificate is the value to define a block type of certificate
+	BlockTypeCertificate = "CERTIFICATE"
 )
 
 func newKeyBlock(b []byte) *pem.Block {

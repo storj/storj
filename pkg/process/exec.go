@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -19,19 +20,25 @@ import (
 func readFlags() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
-	viper.BindPFlags(pflag.CommandLine)
+	err := viper.BindPFlags(pflag.CommandLine)
+	if err != nil {
+		log.Print("error parsing command line flags into viper:", err)
+	}
 }
 
-// get config path
+// get default config folder
 func configPath() string {
 	home, _ := homedir.Dir()
 	return filepath.Join(home, ".storj")
 }
 
+// get default config file
+func defaultConfigFile(name string) string {
+	return filepath.Join(configPath(), name)
+}
+
 func generateConfig() error {
-	readFlags()
-	storj := filepath.Join(configPath(), "main.json")
-	err := viper.WriteConfigAs(storj)
+	err := viper.WriteConfigAs(defaultConfigFile("main.json"))
 	return err
 }
 
@@ -41,32 +48,58 @@ func ConfigEnvironment() (*viper.Viper, error) {
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
 	viper.SetConfigName("main")
+	viper.SetConfigType("json")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath(configPath())
 
+	// Override default config with a specific config
+	cfgFile := flag.String("config", "", "config file")
+	generate := flag.Bool("generate", false, "generate a default config in ~/.storj")
+
+	// if that file exists, set it as the config instead of reading in from default locations
+	if *cfgFile != "" && fileExists(*cfgFile) {
+		viper.SetConfigFile(*cfgFile)
+	}
+
 	err := viper.ReadInConfig()
+
 	if err != nil {
-		log.Print("cannot find config file, generating new config from defaults.")
-		if err := generateConfig(); err != nil {
-			log.Print("error generating config", err)
-		}
+		log.Print("could not read config file; defaulting to command line flags for configuration")
 	}
 
 	readFlags()
+
+	if *generate == true {
+		err := generateConfig()
+		if err != nil {
+			log.Print("unable to generate config file.", err)
+		}
+	}
+
 	v := viper.GetViper()
 	return v, nil
+}
+
+// check if file exists, handle error correctly if it doesn't
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		log.Fatalf("failed to check for file existence: %v", err)
+	}
+	return true
 }
 
 // Execute runs a *cobra.Command and sets up Storj-wide process configuration
 // like a configuration file and logging.
 func Execute(cmd *cobra.Command) {
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
 	cobra.OnInitialize(func() {
-		ConfigEnvironment()
-		viper.BindPFlags(cmd.Flags())
-		viper.SetEnvPrefix("storj")
-		viper.AutomaticEnv()
+		_, err := ConfigEnvironment()
+		if err != nil {
+			log.Fatal("error configuring environment", err)
+		}
 	})
 
 	Must(cmd.Execute())
@@ -74,8 +107,13 @@ func Execute(cmd *cobra.Command) {
 
 // Main runs a Service
 func Main(configFn func() (*viper.Viper, error), s ...Service) error {
-	configFn()
+	if _, err := configFn(); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	errors := make(chan error, len(s))
 
 	for _, service := range s {
@@ -88,7 +126,6 @@ func Main(configFn func() (*viper.Viper, error), s ...Service) error {
 	case <-ctx.Done():
 		return nil
 	case err := <-errors:
-		cancel()
 		return err
 	}
 }

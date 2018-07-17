@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	// OneYear is the integer represtentation of a calendar year
 	OneYear = 365 * 24 * time.Hour
 )
 
