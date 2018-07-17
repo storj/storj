@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 
@@ -158,7 +159,11 @@ func (k *Kademlia) ListenAndServe() error {
 		return err
 	}
 
-	go k.dht.Listen()
+	go func() {
+		if err := k.dht.Listen(); err != nil {
+			log.Printf("Failed to listen on the dht: %s\n", err)
+		}
+	}()
 
 	return nil
 }

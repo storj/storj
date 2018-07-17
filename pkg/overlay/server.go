@@ -47,7 +47,7 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	// NB:  call FilterNodeReputation from node_reputation package to find nodes for storage
-	keys, err := o.cache.DB.List()
+	keys, err := o.cache.DB.List(nil, storage.Limit(10))
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
 		return nil, err

@@ -48,6 +48,10 @@ func Main() error {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		return err
+	}
 	encKey := sha256.Sum256([]byte(*key))
 	var firstNonce [12]byte
 	encrypter, err := eestream.NewAESGCMEncrypter(
@@ -55,9 +59,9 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	readers, err := eestream.EncodeReader(context.Background(), eestream.TransformReader(
-		eestream.PadReader(os.Stdin, encrypter.InBlockSize()), encrypter, 0),
-		es, 0, 0, 4*1024*1024)
+	readers, err := eestream.EncodeReader(context.Background(),
+		eestream.TransformReader(eestream.PadReader(os.Stdin,
+			encrypter.InBlockSize()), encrypter, 0), rs, 4*1024*1024)
 	if err != nil {
 		return err
 	}

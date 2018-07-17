@@ -9,45 +9,93 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
+	"path"
+	"strings"
 )
 
-// Encrypt the given path with the given key
-func Encrypt(path []string, key []byte) (encryptedPath []string, err error) {
-	encryptedPath = make([]string, len(path))
-	for i, seg := range path {
-		encryptedPath[i], err = encrypt(seg, key)
+// Path is a unique identifier for an object stored in the Storj network
+type Path []string
+
+// New creates new Path from the given path segments
+func New(segs ...string) Path {
+	s := path.Join(segs...)
+	s = strings.Trim(s, "/")
+	return strings.Split(s, "/")
+}
+
+// String returns the string representation of the path
+func (p Path) String() string {
+	return path.Join([]string(p)...)
+}
+
+// Prepend creates new Path from the current path with the given segments prepended
+func (p Path) Prepend(segs ...string) Path {
+	return New(append(segs, []string(p)...)...)
+}
+
+// Append creates new Path from the current path with the given segments appended
+func (p Path) Append(segs ...string) Path {
+	return New(append(p, segs...)...)
+}
+
+// Encrypt creates new Path by encrypting the current path with the given key
+func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
+	encrypted = make([]string, len(p))
+	for i, seg := range p {
+		encrypted[i], err = encrypt(seg, key)
 		if err != nil {
 			return nil, err
 		}
-		key = deriveSecret(key, seg)
-	}
-	return encryptedPath, nil
-}
-
-// Decrypt the given encrypted path with the given key
-func Decrypt(encryptedPath []string, key []byte) (path []string, err error) {
-	path = make([]string, len(encryptedPath))
-	for i, seg := range encryptedPath {
-		path[i], err = decrypt(seg, key)
+		key, err = deriveSecret(key, seg)
 		if err != nil {
 			return nil, err
 		}
-		key = deriveSecret(key, path[i])
 	}
-	return path, nil
+	return encrypted, nil
 }
 
-// DeriveKey derives the key for the given path from the given root key
-func DeriveKey(key []byte, path []string) (derivedKey []byte) {
+// Decrypt creates new Path by decrypting the current path with the given key
+func (p Path) Decrypt(key []byte) (decrypted Path, err error) {
+	decrypted = make([]string, len(p))
+	for i, seg := range p {
+		decrypted[i], err = decrypt(seg, key)
+		if err != nil {
+			return nil, err
+		}
+		key, err = deriveSecret(key, decrypted[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return decrypted, nil
+}
+
+// DeriveKey derives the key for the given depth from the given root key
+//
+// This method must be called on an unencrypted path.
+func (p Path) DeriveKey(key []byte, depth int) (derivedKey []byte, err error) {
+	if depth < 0 {
+		return nil, Error.New("negative depth")
+	}
+	if depth > len(p) {
+		return nil, Error.New("depth greater than path length")
+	}
+
 	derivedKey = key
-	for _, seg := range path {
-		derivedKey = deriveSecret(derivedKey, seg)
+	for i := 0; i < depth; i++ {
+		derivedKey, err = deriveSecret(derivedKey, p[i])
+		if err != nil {
+			return nil, err
+		}
 	}
-	return derivedKey
+	return derivedKey, nil
 }
 
 func encrypt(text string, secret []byte) (cipherText string, err error) {
-	key, nonce := getAESGCMKeyAndNonce(secret)
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -74,7 +122,10 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
-	key, nonce := getAESGCMKeyAndNonce(secret)
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -90,18 +141,27 @@ func decrypt(cipherText string, secret []byte) (text string, err error) {
 	return string(decrypted), nil
 }
 
-func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte) {
+func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte, err error) {
 	mac := hmac.New(sha512.New, secret)
-	mac.Write([]byte("enc"))
+	_, err = mac.Write([]byte("enc"))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 	key = mac.Sum(nil)[:32]
 	mac.Reset()
-	mac.Write([]byte("nonce"))
+	_, err = mac.Write([]byte("nonce"))
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 	nonce = mac.Sum(nil)[:12]
-	return key, nonce
+	return key, nonce, nil
 }
 
-func deriveSecret(secret []byte, child string) []byte {
+func deriveSecret(secret []byte, child string) (derived []byte, err error) {
 	mac := hmac.New(sha512.New, secret)
-	mac.Write([]byte(child))
-	return mac.Sum(nil)
+	_, err = mac.Write([]byte(child))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return mac.Sum(nil), nil
 }
