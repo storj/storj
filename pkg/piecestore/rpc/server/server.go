@@ -176,7 +176,7 @@ func (s *Server) verifySignature(signature []byte) error {
 }
 
 func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
-	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Data.Payer, ba.Data.Client, ba.Data.Size)
+	log.Printf("Payer: %s, Renter: %s, Size: %v\n", ba.Data.Payer, ba.Data.Renter, ba.Data.Size)
 
 	// TODO: Write ba to database
 

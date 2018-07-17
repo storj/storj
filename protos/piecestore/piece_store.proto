@@ -19,7 +19,7 @@ service PieceStoreRoutes {
 message BandwidthAllocation {
   message Data {
     string payer = 1;
-    string client = 2;
+    string renter = 2;
     int64 size = 3;
   }
 
