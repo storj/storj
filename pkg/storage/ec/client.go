@@ -34,7 +34,9 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	t transport.Client
+	t      transport.Client
+	payer  string
+	renter string
 }
 
 func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
@@ -43,7 +45,7 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, "payer-id", "renter-id"), nil
+	return client.NewPSClient(c, d.payer, d.renter), nil
 }
 
 type ecClient struct {
@@ -52,8 +54,9 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(t transport.Client, mbm int) Client {
-	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
+func NewClient(t transport.Client, payer, renter string, mbm int) Client {
+	d := defaultDialer{t: t, payer: payer, renter: renter}
+	return &ecClient{d: &d, mbm: mbm}
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
