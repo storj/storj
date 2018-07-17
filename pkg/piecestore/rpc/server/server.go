@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -94,7 +95,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	defer lis.Close()
+	defer utils.Close(lis)
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()

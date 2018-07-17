@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -51,7 +52,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return err
 	}
 
-	defer storeFile.Close()
+	defer utils.Close(storeFile)
 
 	writer := &StreamWriter{stream: stream}
 

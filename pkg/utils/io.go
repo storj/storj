@@ -3,6 +3,11 @@
 
 package utils
 
+import (
+	"io"
+	"log"
+)
+
 // ReaderSource takes a src func and turns it into an io.Reader
 type ReaderSource struct {
 	src func() ([]byte, error)
@@ -27,4 +32,11 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 	n = copy(p, rs.buf)
 	rs.buf = rs.buf[n:]
 	return n, rs.err
+}
+
+func Close(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

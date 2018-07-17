@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -55,7 +56,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 
 		return 0, err
 	}
-	defer storeFile.Close()
+	defer utils.Close(storeFile)
 
 	reader := NewStreamReader(stream)
 
