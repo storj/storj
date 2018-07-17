@@ -51,27 +51,27 @@ type KadCreds struct {
 // The "identity file" must contain PEM encoded data. The certificate portion
 // may contain intermediate certificates following the leaf certificate to
 // form a certificate chain.
-func LoadID(path string) (dht.NodeID, error) {
+func Load(path string) (dht.NodeID, error) {
 	baseDir := filepath.Dir(path)
 
 	if _, err := os.Stat(baseDir); err != nil {
 		if err == os.ErrNotExist {
-			if err := os.MkdirAll(baseDir, 600); err != nil {
-				return nil, errs.Wrap(err)
-			}
+			return nil, peertls.ErrNotExist.Wrap(err)
 		} else {
 			return nil, errs.Wrap(err)
 		}
+		// if err := os.MkdirAll(baseDir, 600); err != nil {
+		// 	return nil, errs.Wrap(err)
+		// }
 	}
 
-	// Attempt to load
 	IDBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	cert, hashLen, err := decodeIDBytes(IDBytes)
-	nodeID, err := certToKadCreds(cert, hashLen)
+	cert, hashLen, err := read(IDBytes)
+	nodeID, err := CertToKadCreds(cert, hashLen)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -133,7 +133,7 @@ func (k *KadCreds) write(writer io.Writer) error {
 	return binary.Write(writer, binary.LittleEndian, k.hashLen)
 }
 
-func decodeIDBytes(PEMBytes []byte) (*tls.Certificate, uint16, error) {
+func read(PEMBytes []byte) (*tls.Certificate, uint16, error) {
 	var hashLen uint16
 	certDERs := [][]byte{}
 	keyDER := []byte{}
@@ -192,7 +192,7 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 		return nil, errs.New("unable to parse EC private key", err)
 	}
 
-	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)-1])
+	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -228,7 +228,7 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 // 			)
 //
 // 			pubKey := t.cert.Leaf.PublicKey.(*crypto.PublicKey)
-// 			nodeID, err := certToKadCreds(pubKey, 256)
+// 			nodeID, err := CertToKadCreds(pubKey, 256)
 // 			if err != nil {
 // 				return nil, errs.Wrap(err)
 // 			}
@@ -246,7 +246,7 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 //
 // }
 
-func certToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
+func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 	pubKey, ok := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if pubKey == nil || !ok {
 		return nil, errs.New("unsupported public key type (type assertion to `*ecdsa.PublicKey` failed)")
@@ -400,17 +400,28 @@ func (m *mockID) Bytes() []byte {
 }
 
 // NewID returns a pointer to a newly intialized NodeID
-func NewID() (dht.NodeID, error) {
-	idBytes, err := newID(2)
+func NewID(difficulty uint16, hashLen uint16, concurrency uint, rootKeyPath string) (dht.NodeID, error) {
+	// idBytes, err := newID(2)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// nodeID := CertToKadCreds()
+	//
+	// return nodeID, nil
+
+	tlsH, err := peertls.NewTLSHelper(nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
-	nodeID := &mockID{
-		idBytes,
+	cert := tlsH.Certificate()
+	kadCreds, err := CertToKadCreds(&cert, hashLen)
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
-	return nodeID, nil
+	return kadCreds, nil
 }
 
 // newID generates a new random ID.

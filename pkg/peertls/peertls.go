@@ -41,7 +41,8 @@ func IsNotExist(err error) bool {
 
 // TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
 type TLSHelper struct {
-	cert *tls.Certificate
+	cert tls.Certificate
+	rootKey *ecdsa.PrivateKey
 }
 
 type ecdsaSignature struct {
@@ -96,14 +97,23 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
 func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
-	t := &TLSHelper{
-		cert: cert,
-	}
+	var (
+		c   tls.Certificate
+		err error
+		rootKey *ecdsa.PrivateKey = nil
+	)
 
-	if t.cert == nil {
-		if err := t.generateTLS(); err != nil {
+	if cert == nil {
+		c, rootKey, err = generateTLS(); if err != nil {
 			return nil, err
 		}
+	} else {
+		c = *cert
+	}
+
+	t := &TLSHelper{
+		cert: c,
+		rootKey: rootKey,
 	}
 
 	return t, nil
@@ -112,7 +122,7 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
 
-	config.Certificates = []tls.Certificate{*t.cert}
+	config.Certificates = []tls.Certificate{t.cert}
 	// Skip normal verification
 	config.InsecureSkipVerify = true
 	// Required client certificate
@@ -140,11 +150,7 @@ func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 }
 
 func (t *TLSHelper) Certificate() tls.Certificate {
-	cert := *t.cert
-	parsedLeaf, _ := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)-1])
-	cert.Leaf = parsedLeaf
-
-	return cert
+	return t.cert
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {

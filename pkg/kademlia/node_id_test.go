@@ -22,7 +22,7 @@ func Test_certToKadCreds(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := certToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToKadCreds(&cert, hashLen)
 	assert.NoError(t, err)
 	assert.Equal(t, cert, kadCreds.tlsH.Certificate())
 	assert.Equal(t, hashLen, kadCreds.hashLen)
@@ -35,7 +35,7 @@ func TestParseID(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := certToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToKadCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	kadID, err := ParseID(kadCreds.String())
@@ -60,7 +60,7 @@ func TestKadCreds_Bytes(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := certToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToKadCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	kadCredBytes := kadCreds.Bytes()
@@ -80,7 +80,7 @@ func TestKadCreds_Save(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := certToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToKadCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	idPath := filepath.Join(path, "id.pem")
@@ -110,21 +110,21 @@ func TestLoadID(t *testing.T) {
 	}
 	defer os.RemoveAll(path)
 
-	hashLen := uint16(128)
+	hashLen := uint16(36)
 	tlsH, err := peertls.NewTLSHelper(nil)
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
 	assert.NoError(t, err)
 
-	savedKadCreds, err := certToKadCreds(&cert, hashLen)
+	savedKadCreds, err := CertToKadCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	idPath := filepath.Join(path, "id.pem")
 	err = savedKadCreds.Save(idPath)
 	assert.NoError(t, err)
 
-	nodeID, err := LoadID(idPath)
+	nodeID, err := Load(idPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, nodeID)
 
@@ -134,4 +134,23 @@ func TestLoadID(t *testing.T) {
 	assert.Equal(t, savedKadCreds.hashLen, loadedKadCreds.hashLen)
 	assert.Equal(t, savedKadCreds.hash, loadedKadCreds.hash)
 	assert.Equal(t, savedKadCreds.tlsH.Certificate(), loadedKadCreds.tlsH.Certificate())
+}
+
+func TestNewID(t *testing.T) {
+	path, err := ioutil.TempDir("", "TestLoadID")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(path)
+
+	hashLen := uint16(36)
+	rootKeyPath := filepath.Join(path, "rootKey.pem")
+	nodeID, err := NewID(3, hashLen, 5, rootKeyPath)
+	kadCreds := nodeID.(*KadCreds)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, kadCreds)
+	assert.NotEmpty(t, *kadCreds)
+
+	// wip: resume here...
 }
