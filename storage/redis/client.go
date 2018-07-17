@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -21,15 +22,15 @@ const (
 	defaultNodeExpiration = 61 * time.Minute
 )
 
-// redisClient is the entrypoint into Redis
-type redisClient struct {
+// Client is the entrypoint into Redis
+type Client struct {
 	db  *redis.Client
 	TTL time.Duration
 }
 
 // NewClient returns a configured Client instance, verifying a sucessful connection to redis
-func NewClient(address, password string, db int) (storage.KeyValueStore, error) {
-	c := &redisClient{
+func NewClient(address, password string, db int) (*Client, error) {
+	c := &Client{
 		db: redis.NewClient(&redis.Options{
 			Addr:     address,
 			Password: password,
@@ -47,7 +48,7 @@ func NewClient(address, password string, db int) (storage.KeyValueStore, error) 
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
-func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
+func (c *Client) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
 	if err != nil {
 		if err.Error() == "redis: nil" {
@@ -62,7 +63,7 @@ func (c *redisClient) Get(key storage.Key) (storage.Value, error) {
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.
-func (c *redisClient) Put(key storage.Key, value storage.Value) error {
+func (c *Client) Put(key storage.Key, value storage.Value) error {
 	v, err := value.MarshalBinary()
 
 	if err != nil {
@@ -78,7 +79,7 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	var noOrderKeys []string
 	if startingKey != nil {
 		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
@@ -107,7 +108,7 @@ func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storag
 }
 
 // Delete deletes a key/value pair from redis, for a given the key
-func (c *redisClient) Delete(key storage.Key) error {
+func (c *Client) Delete(key storage.Key) error {
 	err := c.db.Del(key.String()).Err()
 	if err != nil {
 		return Error.New("delete error", err)
@@ -117,6 +118,30 @@ func (c *redisClient) Delete(key storage.Key) error {
 }
 
 // Close closes a redis client
-func (c *redisClient) Close() error {
+func (c *Client) Close() error {
 	return c.db.Close()
+}
+
+// GetAll is the bulk method for gets from the redis data store
+func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+	ks := []string{}
+	for _, v := range keys {
+		ks = append(ks, v.String())
+	}
+
+	vs, err := c.db.MGet(ks...).Result()
+	if err != nil {
+		return []storage.Value{}, err
+	}
+
+	values := []storage.Value{}
+	for _, v := range vs {
+		val, err := utils.GetBytes(v)
+		if err != nil {
+
+		}
+
+		values = append(values, storage.Value(val))
+	}
+	return values, nil
 }
