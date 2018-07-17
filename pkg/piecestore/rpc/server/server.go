@@ -106,17 +106,17 @@ func (s *Server) Start() error {
 	// routinely check DB and delete expired entries
 	go func() {
 		err := s.DB.DBCleanup(s.DataDir)
-		zap.S().Fatalf("Error in DBCleanup: %v\n", err)
+		zap.S().Errorf("Error in DBCleanup: %v\n", err)
 	}()
 
 	fmt.Printf("Node %s started\n", s.config.NodeID)
 
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {
-		zap.S().Fatalf("failed to serve: %s\n", err)
+		zap.S().Errorf("failed to serve: %s\n", err)
 	}
 
-	return nil
+	return err
 }
 
 // Piece -- Send meta data about a stored by by Id

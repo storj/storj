@@ -5,7 +5,8 @@ package utils
 
 import (
 	"io"
-	"log"
+
+	"go.uber.org/zap"
 )
 
 // ReaderSource takes a src func and turns it into an io.Reader
@@ -38,6 +39,6 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 func Close(c io.Closer) {
 	err := c.Close()
 	if err != nil {
-		log.Fatal(err)
+		zap.S().Error(err)
 	}
 }
