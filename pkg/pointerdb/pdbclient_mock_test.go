@@ -13,7 +13,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
-
 	pointerdb "storj.io/storj/protos/pointerdb"
 )
 
