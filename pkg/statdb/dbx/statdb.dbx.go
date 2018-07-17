@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -140,8 +140,8 @@ type DB struct {
 func Open(driver, source string) (db *DB, err error) {
 	var sql_db *sql.DB
 	switch driver {
-	case "postgres":
-		sql_db, err = openpostgres(source)
+	case "sqlite3":
+		sql_db, err = opensqlite3(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -164,8 +164,8 @@ func Open(driver, source string) (db *DB, err error) {
 	db.Hooks.Now = time.Now
 
 	switch driver {
-	case "postgres":
-		db.dbMethods = newpostgres(db)
+	case "sqlite3":
+		db.dbMethods = newsqlite3(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -228,21 +228,21 @@ func (tx *dialectTx) Rollback() (err error) {
 	return makeErr(tx.tx.Rollback())
 }
 
-type postgresImpl struct {
+type sqlite3Impl struct {
 	db      *DB
-	dialect __sqlbundle_postgres
+	dialect __sqlbundle_sqlite3
 	driver  driver
 }
 
-func (obj *postgresImpl) Rebind(s string) string {
+func (obj *sqlite3Impl) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *postgresImpl) logStmt(stmt string, args ...interface{}) {
-	postgresLogStmt(stmt, args...)
+func (obj *sqlite3Impl) logStmt(stmt string, args ...interface{}) {
+	sqlite3LogStmt(stmt, args...)
 }
 
-func (obj *postgresImpl) makeErr(err error) error {
+func (obj *sqlite3Impl) makeErr(err error) error {
 	constraint, ok := obj.isConstraintError(err)
 	if ok {
 		return constraintViolation(err, constraint)
@@ -250,52 +250,52 @@ func (obj *postgresImpl) makeErr(err error) error {
 	return makeErr(err)
 }
 
-type postgresDB struct {
+type sqlite3DB struct {
 	db *DB
-	*postgresImpl
+	*sqlite3Impl
 }
 
-func newpostgres(db *DB) *postgresDB {
-	return &postgresDB{
+func newsqlite3(db *DB) *sqlite3DB {
+	return &sqlite3DB{
 		db: db,
-		postgresImpl: &postgresImpl{
+		sqlite3Impl: &sqlite3Impl{
 			db:     db,
 			driver: db.DB,
 		},
 	}
 }
 
-func (obj *postgresDB) Schema() string {
+func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE nodes (
-	id text NOT NULL,
-	audit_success_count bigint NOT NULL,
-	total_audit_count bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
-	uptime_success_count bigint NOT NULL,
-	total_uptime_count bigint NOT NULL,
-	uptime_ratio double precision NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
+	id TEXT NOT NULL,
+	audit_success_count INTEGER NOT NULL,
+	total_audit_count INTEGER NOT NULL,
+	audit_success_ratio REAL NOT NULL,
+	uptime_success_count INTEGER NOT NULL,
+	total_uptime_count INTEGER NOT NULL,
+	uptime_ratio REAL NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );`
 }
 
-func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
-	return &postgresTx{
+func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
+	return &sqlite3Tx{
 		dialectTx: dialectTx{tx: tx},
-		postgresImpl: &postgresImpl{
+		sqlite3Impl: &sqlite3Impl{
 			db:     obj.db,
 			driver: tx,
 		},
 	}
 }
 
-type postgresTx struct {
+type sqlite3Tx struct {
 	dialectTx
-	*postgresImpl
+	*sqlite3Impl
 }
 
-func postgresLogStmt(stmt string, args ...interface{}) {
+func sqlite3LogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -693,7 +693,7 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
-func (obj *postgresImpl) Create_Node(ctx context.Context,
+func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_audit_success_count Node_AuditSuccessCount_Field,
 	node_total_audit_count Node_TotalAuditCount_Field,
@@ -714,21 +714,24 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__created_at_val := __now
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
 
-	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return node, nil
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastNode(ctx, __pk)
 
 }
 
-func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
+func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
@@ -749,13 +752,13 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
+func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -805,7 +808,17 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE nodes.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -815,7 +828,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	return node, nil
 }
 
-func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
+func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
 
@@ -841,17 +854,40 @@ func (obj *postgresImpl) Delete_Node_By_Id(ctx context.Context,
 
 }
 
-func (impl postgresImpl) isConstraintError(err error) (
+func (obj *sqlite3Impl) getLastNode(ctx context.Context,
+	pk int64) (
+	node *Node, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at FROM nodes WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	node = &Node{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
-	if e, ok := err.(*pq.Error); ok {
-		if e.Code.Class() == "23" {
-			return e.Constraint, true
+	if e, ok := err.(sqlite3.Error); ok {
+		if e.Code == sqlite3.ErrConstraint {
+			msg := err.Error()
+			colon := strings.LastIndex(msg, ":")
+			if colon != -1 {
+				return strings.TrimSpace(msg[colon:]), true
+			}
+			return "", true
 		}
 	}
 	return "", false
 }
 
-func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
+func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
@@ -1013,6 +1049,31 @@ type dbMethods interface {
 	makeErr(err error) error
 }
 
-func openpostgres(source string) (*sql.DB, error) {
-	return sql.Open("postgres", source)
+var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+
+func init() {
+	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
+		ConnectHook: sqlite3SetupConn,
+	})
+}
+
+// SQLite3JournalMode controls the journal_mode pragma for all new connections.
+// Since it is read without a mutex, it must be changed to the value you want
+// before any Open calls.
+var SQLite3JournalMode = "WAL"
+
+func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
+	_, err = conn.Exec("PRAGMA foreign_keys = ON", nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	_, err = conn.Exec("PRAGMA journal_mode = "+SQLite3JournalMode, nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	return nil
+}
+
+func opensqlite3(source string) (*sql.DB, error) {
+	return sql.Open(sqlite3DriverName, source)
 }

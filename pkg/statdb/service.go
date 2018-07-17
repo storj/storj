@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	proto "storj.io/storj/pkg/statdb/proto"
-	dbx "storj.io/storj/pkg/statdb/dbx"
 )
 
 var (
@@ -29,12 +28,6 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 		return err
 	}
 
-	db, err := dbx.Open("postgres", *dbPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
 	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
@@ -43,7 +36,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 
 	grpcServer := grpc.NewServer()
 
-	ns, err := NewServer("postgres", *dbPath, s.logger)
+	ns, err := NewServer("sqlite3", *dbPath, s.logger)
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	proto "storj.io/storj/protos/statdb"
+	proto "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
@@ -54,12 +54,12 @@ func main() {
 
 	// Test farmers
 	farmer1 := proto.Node{
-		NodeId:             "nodeid1",
+		NodeId:             []byte("nodeid1"),
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
 	farmer2 := proto.Node{
-		NodeId:             "nodeid2",
+		NodeId:             []byte("nodeid2"),
 		UpdateAuditSuccess: false,
 		UpdateUptime:       false,
 	}
