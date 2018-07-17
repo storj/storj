@@ -32,7 +32,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn, "payer-id", "renter-id")
+	psClient := client.NewPSClient(conn, 1024*32, "payer-id", "renter-id")
 
 	app.Commands = []cli.Command{
 		{

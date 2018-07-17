@@ -13,8 +13,9 @@ import (
 
 // StreamWriter creates a StreamWriter for writing data to the piece store server
 type StreamWriter struct {
-	stream pb.PieceStoreRoutes_StoreClient
-	signer *Client // We need this for signing
+	stream       pb.PieceStoreRoutes_StoreClient
+	signer       *Client // We need this for signing
+	totalWritten int64
 }
 
 // Write Piece data to a piece store server upload stream
@@ -26,10 +27,12 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 		return 0, err
 	}
 
+	updatedAllocation := s.totalWritten + int64(len(b))
+
 	bandwidthAllocationMSG := &pb.PieceStore{
 		Bandwidthallocation: &pb.BandwidthAllocation{
 			Data: &pb.BandwidthAllocation_Data{
-				Payer: s.signer.payerID, Renter: s.signer.renterID, Size: int64(len(b)),
+				Payer: s.signer.payerID, Renter: s.signer.renterID, Size: updatedAllocation,
 			},
 			Signature: sig,
 		},
@@ -39,6 +42,8 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	if err := s.stream.Send(bandwidthAllocationMSG); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
+
+	s.totalWritten = updatedAllocation
 
 	contentMSG := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: b}}
 
@@ -64,16 +69,16 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	stream pb.PieceStoreRoutes_RetrieveClient
-	src    *utils.ReaderSource
+	stream    pb.PieceStoreRoutes_RetrieveClient
+	src       *utils.ReaderSource
+	totalRead int64
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
+func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
 	return &StreamReader{
 		stream: stream,
 		src: utils.NewReaderSource(func() ([]byte, error) {
-
 			// TODO: What does the message look like?
 			sig, err := signer.sign([]byte{'m', 's', 'g'})
 			if err != nil {
@@ -84,7 +89,7 @@ func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient)
 				Bandwidthallocation: &pb.BandwidthAllocation{
 					Signature: sig,
 					Data: &pb.BandwidthAllocation_Data{
-						Payer: signer.payerID, Renter: signer.renterID, Size: 32 * 1024,
+						Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize),
 					},
 				},
 			}

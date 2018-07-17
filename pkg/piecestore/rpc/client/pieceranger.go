@@ -71,5 +71,5 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		return nil, err
 	}
 
-	return r.c.NewStreamReader(r.stream), nil
+	return NewStreamReader(r.c, r.stream), nil
 }
