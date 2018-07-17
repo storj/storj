@@ -34,6 +34,7 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 	return n, rs.err
 }
 
+// Close something in a defer for errcheck
 func Close(c io.Closer) {
 	err := c.Close()
 	if err != nil {
