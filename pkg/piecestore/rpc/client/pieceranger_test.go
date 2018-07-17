@@ -55,20 +55,20 @@ func TestPieceRanger(t *testing.T) {
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			calls = append(calls,
 				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: pid.String(), Size: tt.length, Offset: tt.offset}}).Return(nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "EFGH", Renter: "ABCD", Size: 32768}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32768}}}).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "EFGH", Renter: "ABCD", Size: 32768}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32768}}}).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 		gomock.InOrder(calls...)
 
 		ctx := context.Background()
-		c := NewCustomRoute(route, "ABCD", "EFGH")
+		c := NewCustomRoute(route, "payer-id", "renter-id")
 		rr, err := PieceRanger(ctx, c, stream, pid)
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
@@ -119,19 +119,19 @@ func TestPieceRangerSize(t *testing.T) {
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			gomock.InOrder(
 				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: pid.String(), Size: tt.length, Offset: tt.offset}}).Return(nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "EFGH", Renter: "ABCD", Size: 32768}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32768}}}).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "EFGH", Renter: "ABCD", Size: 32768}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32768}}}).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 
 		ctx := context.Background()
-		c := NewCustomRoute(route, "ABCD", "EFGH")
+		c := NewCustomRoute(route, "payer-id", "renter-id")
 		rr := PieceRangerSize(c, stream, pid, tt.size)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)

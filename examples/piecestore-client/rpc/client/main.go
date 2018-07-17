@@ -69,7 +69,7 @@ func main() {
 
 				id := client.NewPieceID()
 
-				if err := psClient.Put(context.Background(), id, dataSection, ttl, "ABCD", "EFGH"); err != nil {
+				if err := psClient.Put(context.Background(), id, dataSection, ttl, "payer-id", "renter-id"); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
@@ -124,7 +124,7 @@ func main() {
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, "ABCD", "EFGH")
+				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, "payer-id", "renter-id")
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
 					os.Remove(c.Args().Get(outputDir))

@@ -23,7 +23,6 @@ type PSClient interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
 	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
-	Sign(ctx context.Context, message []byte) (signature []byte, err error)
 	CloseConn() error
 }
 
@@ -55,13 +54,6 @@ func (client *Client) CloseConn() error {
 	return client.conn.Close()
 }
 
-// Sign a message using the clients private key
-func (client *Client) Sign(ctx context.Context, msg []byte) (signature []byte, err error) {
-	// use c.pkey to sign msg
-
-	return signature, err
-}
-
 // Meta requests info about a piece by Id
 func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
 	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
@@ -84,7 +76,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: client, payerID: client.payerID, renterID: client.renterID, stream: stream}
+	writer := &StreamWriter{signer: client, stream: stream}
 
 	defer func() {
 		if err = writer.Close(); err != nil {
@@ -115,4 +107,11 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	}
 	log.Printf("Route summary : %v", reply)
 	return nil
+}
+
+// sign a message using the clients private key
+func (client *Client) sign(ctx context.Context, msg []byte) (signature []byte, err error) {
+	// use c.pkey to sign msg
+
+	return signature, err
 }
