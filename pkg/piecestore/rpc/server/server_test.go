@@ -214,7 +214,7 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "ABCD", Client: "ABCD", Size: tt.reqSize}}})
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -288,7 +288,7 @@ func TestStore(t *testing.T) {
 			}
 
 			// Send Bandwidth Allocation Data
-			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "ABCD", Client: "EFGH", Size: int64(len(tt.content))}}}); err != nil {
+			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content))}}}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}

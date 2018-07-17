@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -14,17 +13,15 @@ import (
 
 // StreamWriter creates a StreamWriter for writing data to the piece store server
 type StreamWriter struct {
-	stream          pb.PieceStoreRoutes_StoreClient
-	signer          PSClient // We need this for signing
-	bandwidthClient string
-	payer           string
+	stream pb.PieceStoreRoutes_StoreClient
+	signer *Client // We need this for signing
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 
 	// TODO: What does the message look like?
-	sig, err := s.signer.Sign(context.Background(), []byte{'m', 's', 'g'})
+	sig, err := s.signer.sign([]byte{'m', 's', 'g'})
 	if err != nil {
 		return 0, err
 	}
@@ -32,7 +29,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	bandwidthAllocationMSG := &pb.PieceStore{
 		Bandwidthallocation: &pb.BandwidthAllocation{
 			Data: &pb.BandwidthAllocation_Data{
-				Payer: s.payer, Client: s.bandwidthClient, Size: int64(len(b)),
+				Payer: s.signer.payerID, Renter: s.signer.renterID, Size: int64(len(b)),
 			},
 			Signature: sig,
 		},
@@ -72,13 +69,13 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient, bandwidthClient, payer string) *StreamReader {
+func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
 	return &StreamReader{
 		stream: stream,
 		src: utils.NewReaderSource(func() ([]byte, error) {
 
 			// TODO: What does the message look like?
-			sig, err := signer.Sign(context.Background(), []byte{'m', 's', 'g'})
+			sig, err := signer.sign([]byte{'m', 's', 'g'})
 			if err != nil {
 				return nil, err
 			}
@@ -87,7 +84,7 @@ func (signer *Client) NewStreamReader(stream pb.PieceStoreRoutes_RetrieveClient,
 				Bandwidthallocation: &pb.BandwidthAllocation{
 					Signature: sig,
 					Data: &pb.BandwidthAllocation_Data{
-						Payer: payer, Client: bandwidthClient, Size: 32 * 1024,
+						Payer: signer.payerID, Renter: signer.renterID, Size: 32 * 1024,
 					},
 				},
 			}

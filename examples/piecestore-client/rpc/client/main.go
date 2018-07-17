@@ -32,7 +32,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn)
+	psClient := client.NewPSClient(conn, "payer-id", "renter-id")
 
 	app.Commands = []cli.Command{
 		{
@@ -69,7 +69,7 @@ func main() {
 
 				id := client.NewPieceID()
 
-				if err := psClient.Put(context.Background(), id, dataSection, ttl, "ABCD", "EFGH"); err != nil {
+				if err := psClient.Put(context.Background(), id, dataSection, ttl); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
@@ -124,7 +124,7 @@ func main() {
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, "ABCD", "EFGH")
+				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
 					os.Remove(c.Args().Get(outputDir))

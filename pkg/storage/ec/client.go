@@ -43,7 +43,7 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c), nil
+	return client.NewPSClient(c, "payer-id", "renter-id"), nil
 }
 
 type ecClient struct {
