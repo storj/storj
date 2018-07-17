@@ -30,10 +30,12 @@ func TestDerivePieceID(t *testing.T) {
 	nid, err := kademlia.NewID()
 	assert.NoError(t, err)
 
-	did := pid.Derive(nid.Bytes())
+	did, err := pid.Derive(nid.Bytes())
+	assert.NoError(t, err)
 	assert.NotEqual(t, pid, did)
 
-	did2 := pid.Derive(nid.Bytes())
+	did2, err := pid.Derive(nid.Bytes())
+	assert.NoError(t, err)
 	assert.Equal(t, did, did2)
 
 	_, err = base58.Decode(did.String())

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -24,6 +25,7 @@ var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
+	options                                                                                  peertls.TLSFileOptions
 )
 
 func init() {
@@ -36,6 +38,10 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
+	flag.StringVar(&options.RootCertRelPath, "tlsCertBasePath", "", "The base path for TLS certificates")
+	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
+	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
+	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -54,6 +60,51 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
 func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return proto.NewOverlayClient(conn), nil
+}
+
+// NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSFileOptions) (_ *grpc.Server, _ error) {
+	t, err := peertls.NewTLSFileOptions(
+		fopts.RootCertRelPath,
+		fopts.RootKeyRelPath,
+		fopts.Create,
+		fopts.Overwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	grpcServer := grpc.NewServer(t.ServerOption())
+	proto.RegisterOverlayServer(grpcServer, &Server{
+		dht:     k,
+		cache:   cache,
+		logger:  l,
+		metrics: m,
+	})
+
+	return grpcServer, nil
+}
+
+// NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
+// returns a new instance of an overlay Client
+func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t, err := peertls.NewTLSFileOptions(
+		fopts.RootCertRelPath,
+		fopts.RootCertRelPath,
+		fopts.Create,
+		fopts.Overwrite,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, t.DialOption())
 	conn, err := grpc.Dial(*serverAddr, opts...)
 	if err != nil {
 		return nil, err
@@ -132,7 +183,11 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	}
 
 	// send off cache refreshes concurrently
-	go cache.Refresh(ctx)
+	go func() {
+		if err := cache.Refresh(ctx); err != nil {
+			s.logger.Error("Failed to Refresh cache", zap.Error(err))
+		}
+	}()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
 	if err != nil {
@@ -143,9 +198,20 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 	grpcServer := NewServer(kad, cache, s.logger, s.metrics)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "OK") })
-	go func() { http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux) }()
-	go cache.Walk(ctx)
+	// TODO(coyle): better health check
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { _, _ = fmt.Fprintln(w, "OK") })
+
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf(":%s", httpPort), mux); err != nil {
+			s.logger.Fatal("Failed to listen and serve", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		if err := cache.Walk(ctx); err != nil {
+			s.logger.Fatal("Failed to walk cache", zap.Error(err))
+		}
+	}()
 
 	// If the passed context times out or is cancelled, shutdown the gRPC server
 	go func() {

@@ -21,8 +21,19 @@ var (
 		"switch to 'prod' to get less output")
 
 	// Error is a process error class
-	Error    = errs.Class("proc error")
+	Error = errs.Class("proc error")
+
+	// ErrUsage is a process error class
 	ErrUsage = errs.Class("usage error")
+
+	// ErrLogger Class
+	ErrLogger = errs.Class("Logger Error")
+
+	// ErrMetricHandler Class
+	ErrMetricHandler = errs.Class("Metric Handler Error")
+
+	//ErrProcess Class
+	ErrProcess = errs.Class("Process Error")
 )
 
 type idKey string
@@ -91,12 +102,22 @@ func CtxService(s Service) func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		defer logger.Sync()
+		defer func() {
+			if err := logger.Sync(); err != nil {
+				logger.Error("failed to sync logger", zap.Error(err))
+			}
+		}()
+
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
-		s.SetLogger(logger)
-		s.SetMetricHandler(registry)
+		if err := s.SetLogger(logger); err != nil {
+			logger.Error("failed to configure logger", zap.Error(err))
+		}
+
+		if err := s.SetMetricHandler(registry); err != nil {
+			logger.Error("failed to configure metric handler", zap.Error(err))
+		}
 
 		err = initMetrics(ctx, registry, instanceID)
 		if err != nil {

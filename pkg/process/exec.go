@@ -4,6 +4,7 @@
 package process
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -38,33 +39,67 @@ func Execute(cmd *cobra.Command) {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	cobra.OnInitialize(func() {
-		viper.BindPFlags(cmd.Flags())
+		if err := viper.BindPFlags(cmd.Flags()); err != nil {
+			log.Fatalf("Failed to bind flags: %s\n", err)
+		}
+
 		viper.SetEnvPrefix("storj")
 		viper.AutomaticEnv()
 		if *cfgFile != "" {
 			viper.SetConfigFile(*cfgFile)
-			viper.ReadInConfig()
+			if err := viper.ReadInConfig(); err != nil {
+				log.Fatalf("Failed to read configs: %s\n", err)
+			}
 		}
 	})
 
 	Must(cmd.Execute())
 }
 
-// Main runs a Service
-func Main(s Service) error {
+// ConfigEnvironment sets up a standard Viper environment and parses CLI flags
+func ConfigEnvironment() error {
 	cfgFile := flag.String("config", defaultConfigPath(""), "config file")
-
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
-	viper.BindPFlags(pflag.CommandLine)
+	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
+		return err
+	}
+
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
 	if *cfgFile != "" {
 		viper.SetConfigFile(*cfgFile)
-		viper.ReadInConfig()
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
 	}
 
-	return CtxService(s)(&cobra.Command{}, pflag.Args())
+	return nil
+}
+
+// Main runs a Service
+func Main(configFn func() error, s ...Service) error {
+	if err := configFn(); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errors := make(chan error, len(s))
+
+	for _, service := range s {
+		go func(ctx context.Context, s Service, ch <-chan error) {
+			errors <- CtxService(s)(&cobra.Command{}, pflag.Args())
+		}(ctx, service, errors)
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errors:
+		return err
+	}
 }
 
 // Must checks for errors
