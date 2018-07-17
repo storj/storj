@@ -26,7 +26,7 @@ var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	routingTable   dht.RoutingTable
+	routingTable   RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
@@ -67,9 +67,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 		return nil, err
 	}
 
-	rt := RouteTable{
-		ht:  bdht.HT,
-		dht: bdht,
+	rt := RoutingTable{
 	}
 
 	return &Kademlia{
@@ -110,9 +108,7 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return RouteTable{
-		ht:  k.dht.HT,
-		dht: k.dht,
+	return &RoutingTable {
 	}, nil
 
 }
@@ -196,58 +192,6 @@ func convertNetworkNodes(n []*bkad.NetworkNode) []*proto.Node {
 	}
 
 	return nn
-}
-
-func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
-	return &proto.Node{
-		Id:      string(v.ID),
-		Address: &proto.NodeAddress{Transport: defaultTransport, Address: net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port))},
-	}
-}
-
-func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
-	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	nn := bkad.NewNetworkNode(host, port)
-	nn.ID = []byte(v.GetId())
-
-	return nn, nil
-}
-
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID() ([]byte, error) {
-	result := make([]byte, 20)
-	_, err := rand.Read(result)
-	return result, err
-}
-
-// GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(id, ip, port string) (*proto.Node, error) {
-	addr := "bootstrap.storj.io:8080"
-	if ip != "" && port != "" {
-		addr = ip + ":" + port
-	}
-
-	if id == "" {
-		i, err := newID()
-		if err != nil {
-			return nil, err
-		}
-
-		id = string(i)
-	}
-
-	return &proto.Node{
-		Id: id,
-		Address: &proto.NodeAddress{
-			Transport: defaultTransport,
-			Address:   addr,
-		},
-	}, nil
 }
 
 func restrict(r proto.Restriction, n []*proto.Node) []*proto.Node {
