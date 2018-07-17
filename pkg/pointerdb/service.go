@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/spf13/cobra"
@@ -69,7 +70,11 @@ func (s *Service) SetLogger(l *zap.Logger) error {
 
 func setEnv() error {
 	viper.SetEnvPrefix("api")
-	viper.BindEnv("key")
+	err := viper.BindEnv("key")
+	if err != nil {
+		log.Println("Failed to set API Creds: ", err)
+		return err
+	}
 	viper.AutomaticEnv()
 	return nil
 }
