@@ -76,35 +76,42 @@ type StreamReader struct {
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
 func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
-	return &StreamReader{
+	sr := &StreamReader{
 		stream: stream,
-		src: utils.NewReaderSource(func() ([]byte, error) {
-			// TODO: What does the message look like?
-			sig, err := signer.sign([]byte{'m', 's', 'g'})
-			if err != nil {
-				return nil, err
-			}
-
-			msg := &pb.PieceRetrieval{
-				Bandwidthallocation: &pb.BandwidthAllocation{
-					Signature: sig,
-					Data: &pb.BandwidthAllocation_Data{
-						Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize),
-					},
-				},
-			}
-
-			if err = stream.Send(msg); err != nil {
-				return nil, err
-			}
-
-			resp, err := stream.Recv()
-			if err != nil {
-				return nil, err
-			}
-			return resp.Content, nil
-		}),
 	}
+
+	sr.src = utils.NewReaderSource(func() ([]byte, error) {
+		// TODO: What does the message look like?
+		sig, err := signer.sign([]byte{'m', 's', 'g'})
+		if err != nil {
+			return nil, err
+		}
+
+		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
+
+		msg := &pb.PieceRetrieval{
+			Bandwidthallocation: &pb.BandwidthAllocation{
+				Signature: sig,
+				Data: &pb.BandwidthAllocation_Data{
+					Payer: signer.payerID, Renter: signer.renterID, Size: updatedAllocation,
+				},
+			},
+		}
+
+		sr.totalRead = updatedAllocation
+
+		if err = stream.Send(msg); err != nil {
+			return nil, err
+		}
+
+		resp, err := stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Content, nil
+	})
+
+	return sr
 }
 
 // Read Piece data from piece store server download stream
