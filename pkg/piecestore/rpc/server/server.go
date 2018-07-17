@@ -17,13 +17,15 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	DataDir string
-	DB      *ttl.TTL
+	DB      *psdb.PSDB
 	config  Config
 }
 
@@ -43,12 +45,12 @@ func New(config Config) (*Server, error) {
 	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
-	ttlDB, err := ttl.NewTTL(dbPath)
+	psDB, err := psdb.NewPSDB(dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: ttlDB, config: config}, nil
+	return &Server{DataDir: dataDir, DB: psDB, config: config}, nil
 }
 
 // connectToKad joins the Kademlia network
@@ -169,14 +171,6 @@ func (s *Server) deleteByID(id string) error {
 func (s *Server) verifySignature(signature []byte) error {
 	// TODO: verify signature
 	log.Printf("Verified signature: %s\n", signature)
-
-	return nil
-}
-
-func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
-	log.Printf("Payer: %s, Renter: %s, Size: %v\n", ba.Data.Payer, ba.Data.Renter, ba.Data.Size)
-
-	// TODO: Write ba to database
 
 	return nil
 }

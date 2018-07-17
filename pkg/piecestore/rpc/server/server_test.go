@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -142,6 +143,7 @@ func TestRetrieve(t *testing.T) {
 		return
 	}
 	defer pstore.Delete(testID, s.DataDir)
+	defer db.Exec(fmt.Sprintf(`DELETE FROM bandwidth_agreements WHERE size="%d"`, 5))
 
 	// set up test cases
 	tests := []struct {
@@ -153,7 +155,7 @@ func TestRetrieve(t *testing.T) {
 		err      string
 	}{
 		{ // should successfully retrieve data
-			id:       "11111111111111111111",
+			id:       testID,
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -221,6 +223,10 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			resp, err := stream.Recv()
+
+			// Send bandwidth bandwidthAllocation
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
+
 			if len(tt.err) > 0 {
 				if err != nil {
 					if err.Error() == tt.err {
@@ -440,14 +446,14 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
-	tempDir := path.Join(os.TempDir(), "test-data", "3000")
+	tempDir := filepath.Join(os.TempDir(), "test-data", "3000")
 
-	s = Server{PieceStoreDir: tempDir, DB: psDB}
+	s = Server{DataDir: tempDir, DB: psDB}
 
 	db = psDB.DB
 
 	// clean up temp files
-	defer os.RemoveAll(path.Join(tempDir, "/test-data"))
+	defer os.RemoveAll(filepath.Join(os.TempDir(), "test-data"))
 	defer os.Remove(tempDBPath)
 	defer db.Close()
 
