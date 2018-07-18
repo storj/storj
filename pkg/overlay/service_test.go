@@ -27,8 +27,6 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
-func unsetFlags(
-
 func newTestService(t *testing.T) Service {
 	return Service{
 		logger:  zap.NewNop(),
