@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,6 +26,8 @@ import (
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
+
+func unsetFlags(
 
 func newTestService(t *testing.T) Service {
 	return Service{
@@ -143,14 +145,14 @@ func TestProcess_redis(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
+	viper.Set("localPort", "0")
 
 	done := test.EnsureRedis(t)
 	defer done()
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	process.ConfigEnvironment()
+
 	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
@@ -160,9 +162,11 @@ func TestProcess_bolt(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
-	flag.Set("redisAddress", "")
+	viper.Set("localport", "0")
+
 	boltdbPath, err := filepath.Abs("test_bolt.db")
+	viper.Set("boltdbpath", boltdbPath)
+	viper.Set("boltdbpath", boltdbPath)
 	assert.NoError(t, err)
 
 	if err != nil {
@@ -172,9 +176,6 @@ func TestProcess_bolt(t *testing.T) {
 			}
 		}()
 	}
-
-	flag.Set("boltdbPath", boltdbPath)
-	flag.Set("boltdbpath", boltdbPath)
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -188,10 +189,8 @@ func TestProcess_default(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
-	flag.Set("boltdbPath", "")
-
-	process.ConfigEnvironment()
+	viper.Set("localPort", "0")
+	viper.Set("boltdbPath", "")
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)

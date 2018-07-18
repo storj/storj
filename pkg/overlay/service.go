@@ -147,7 +147,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", viper.GetString("localport"))
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
