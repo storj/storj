@@ -224,3 +224,90 @@ func (o *MockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStora
 func (o *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
 	return &proto.LookupResponse{}, nil
 }
+
+func TestNewTLSServer_Fails(t *testing.T) {
+	server, err := NewTLSServer(nil, nil, nil, nil, peertls.TLSFileOptions{})
+
+	assert.Error(t, err)
+	assert.NotNil(t, err)
+	assert.Nil(t, server)
+}
+
+func TestNewTLSServer(t *testing.T) {
+	opts, tempPath := newTLSFileOptions(t)
+
+	defer os.RemoveAll(tempPath)
+
+	server, err := NewTLSServer(nil, nil, nil, nil, *opts)
+
+	assert.NotNil(t, server)
+	assert.NoError(t, err)
+}
+
+func TestNewTLSClient_Fails(t *testing.T) {
+	address := "127.0.0.1:15550"
+
+	client, err := NewTLSClient(&address, peertls.TLSFileOptions{}, nil)
+
+	assert.Error(t, err)
+	assert.NotNil(t, err)
+	assert.Nil(t, client)
+}
+
+// func TestNewTLSClient(t *testing.T) {
+// 	opts, tempPath := newTLSFileOptions(t)
+
+// 	defer os.RemoveAll(tempPath)
+
+// 	address := "127.0.0.1:15550"
+
+// 	client, err := NewTLSClient(&address, *opts, nil)
+
+// 	assert.NoError(t, err)
+// 	assert.NotNil(t, client)
+// }
+
+func TestSetLogger(t *testing.T) {
+	service := Service{}
+
+	result := service.SetLogger(&(zap.Logger{}))
+
+	assert.Nil(t, result)
+	assert.NotNil(t, service.logger)
+}
+
+func TestSetMetricHandler(t *testing.T) {
+	service := Service{}
+
+	result := service.SetMetricHandler(&monkit.Registry{})
+
+	assert.Nil(t, result)
+	assert.NotNil(t, service.metrics)
+}
+
+func TestInstanceID(t *testing.T) {
+	service := Service{}
+
+	result := service.InstanceID()
+
+	assert.NotNil(t, result)
+}
+
+func newTLSFileOptions(t *testing.T) (*peertls.TLSFileOptions, string) {
+	tempPath, err := ioutil.TempDir("", "TestNewPeerTLS")
+	assert.NoError(t, err)
+	//defer os.RemoveAll(tempPath)
+
+	basePath := filepath.Join(tempPath, "TestNewPeerTLS")
+
+	opts, err := peertls.NewTLSFileOptions(
+		basePath,
+		basePath,
+		true,
+		true,
+	)
+
+	assert.NoError(t, err)
+
+	return opts, tempPath
+}
