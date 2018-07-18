@@ -144,6 +144,8 @@ func TestProcess_redis(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	viper.Set("localPort", "0")
+	viper.Set("redisaddress", "127.0.0.1:6379")
+	defer viper.Set("redisaddress", "")
 
 	done := test.EnsureRedis(t)
 	defer done()
@@ -160,11 +162,12 @@ func TestProcess_bolt(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	viper.Set("localport", "0")
-
 	boltdbPath, err := filepath.Abs("test_bolt.db")
+	viper.Set("localport", "0")
 	viper.Set("boltdbpath", boltdbPath)
-	viper.Set("boltdbpath", boltdbPath)
+	defer viper.Set("boltdbpath", "")
+	defer viper.Set("redisaddress", "")
+
 	assert.NoError(t, err)
 
 	if err != nil {
@@ -188,7 +191,9 @@ func TestProcess_default(t *testing.T) {
 	defer os.RemoveAll(tempPath)
 
 	viper.Set("localPort", "0")
-	viper.Set("boltdbPath", "")
+	viper.Set("boltdbpath", defaultBoltDBPath())
+	defer viper.Set("boltdbpath", "")
+	defer viper.Set("redisaddress", "")
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
