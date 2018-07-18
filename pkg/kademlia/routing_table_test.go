@@ -139,7 +139,7 @@ func TestAddNode(t *testing.T) {
 	// fmt.Printf("key 4 %v/ %v: ",kadKeys[4],rt.getNodeIDsWithinKBucket(kadKeys[4]))
 	
 	//getting depth of 3, should be 4
-	//comparing 127 to 95 rather than 95 to 70
+	//comparing 127 to 95 rather than 95 to 79
 	//assert.Equal(t, 6, len(kadKeys)) 
 	//assert.Equal(t, 19, len(nodeKeys))
 

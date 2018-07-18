@@ -145,8 +145,8 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	defer rt.mutex.Unlock()
 	key := storage.Key(node.Id)
 	value := node
-	if node == rt.Self {
-		err := rt.createOrUpdateKBucket(rt.createFirstBucketID())
+	if node == rt.Self { //change: bytes.Compare actual ids
+		err := rt.createOrUpdateKBucket(rt.createFirstBucketID()) //this requires local node to be added first
 		if err != nil {
 			return err
 		}
