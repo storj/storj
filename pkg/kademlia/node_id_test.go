@@ -13,7 +13,7 @@ func TestString(t *testing.T) {
 	expected := "test node"
 	node := NodeID(expected)
 
-	result := node.String() 
+	result := node.String()
 
 	assert.Equal(t, expected, result)
 }
@@ -27,7 +27,6 @@ func TestStringToNodeID(t *testing.T) {
 }
 
 func TestNewID(t *testing.T) {
-	_, err := NewID();
-	assert.NoError(t, err);
+	_, err := NewID()
+	assert.NoError(t, err)
 }
-	

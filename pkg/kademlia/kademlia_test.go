@@ -35,7 +35,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 
 	boot, err := NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
 	assert.NoError(t, err)
-	
+
 	//added bootnode to dhts so it could be closed in defer as well
 	dhts = append(dhts, boot)
 

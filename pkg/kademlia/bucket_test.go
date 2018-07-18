@@ -10,29 +10,29 @@ import (
 )
 
 func TestRouting(t *testing.T) {
-	bucket := &KBucket{};
-	result := bucket.Routing();
+	bucket := &KBucket{}
+	result := bucket.Routing()
 
-	assert.NotNil(t, result);
+	assert.NotNil(t, result)
 }
 
 func TestCache(t *testing.T) {
-	bucket := &KBucket{};
-	result := bucket.Cache();
+	bucket := &KBucket{}
+	result := bucket.Cache()
 
-	assert.NotNil(t, result);
+	assert.NotNil(t, result)
 }
 
 func TestMidpoint(t *testing.T) {
-	bucket := &KBucket{};
-	result := bucket.Midpoint();
-	
-	assert.Equal(t, "", result);
+	bucket := &KBucket{}
+	result := bucket.Midpoint()
+
+	assert.Equal(t, "", result)
 }
 
 func TestNodes(t *testing.T) {
-	bucket := &KBucket{};
-	result := bucket.Nodes();
-	
-	assert.Equal(t, bucket.nodes, result);
+	bucket := &KBucket{}
+	result := bucket.Nodes()
+
+	assert.Equal(t, bucket.nodes, result)
 }
