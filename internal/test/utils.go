@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	protob "github.com/gogo/protobuf/proto"
+	pb "github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/kademlia"
@@ -14,7 +14,7 @@ import (
 // NewNodeAddressValue provides a convient way to create a storage.Value for testing purposes
 func NewNodeAddressValue(t *testing.T, address string) storage.Value {
 	na := &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: address}
-	d, err := protob.Marshal(na)
+	d, err := pb.Marshal(na)
 	assert.NoError(t, err)
 
 	return d

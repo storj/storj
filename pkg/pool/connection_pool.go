@@ -19,7 +19,7 @@ func NewConnectionPool() Pool {
 	return &ConnectionPool{}
 }
 
-// Add takes a node client and
+// Add takes a node ID as the key and a node client as the value to store
 func (mp *ConnectionPool) Add(ctx context.Context, key string, value interface{}) error {
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
@@ -28,7 +28,8 @@ func (mp *ConnectionPool) Add(ctx context.Context, key string, value interface{}
 	return nil
 }
 
-// Get (TODO)
+// Get retrieves a node connection with the provided nodeID
+// nil is returned if the NodeID is not in the connection pool
 func (mp *ConnectionPool) Get(ctx context.Context, key string) (interface{}, error) {
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
@@ -36,7 +37,7 @@ func (mp *ConnectionPool) Get(ctx context.Context, key string) (interface{}, err
 	return mp.cache[key], nil
 }
 
-// Remove (TODO)
+// Remove deletes a connection associated with the provided NodeID
 func (mp *ConnectionPool) Remove(ctx context.Context, key string) error {
 	mp.mu.Lock()
 	defer mp.mu.Unlock()

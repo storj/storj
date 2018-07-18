@@ -28,7 +28,7 @@ func TestGet(t *testing.T) {
 
 	for _, v := range cases {
 		test, err := v.pool.Get(context.Background(), v.key)
-		assert.Equal(t, err, v.expectedError)
+		assert.Equal(t, v.expectedError, err)
 		assert.Equal(t, v.expected, test)
 	}
 }
@@ -52,10 +52,10 @@ func TestAdd(t *testing.T) {
 
 	for _, v := range cases {
 		err := v.pool.Add(context.Background(), v.key, v.value)
-		assert.Equal(t, err, v.expectedError)
+		assert.Equal(t, v.expectedError, err)
 
 		test, err := v.pool.Get(context.Background(), v.key)
-		assert.Equal(t, err, v.expectedError)
+		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected, test)
 	}
@@ -79,10 +79,10 @@ func TestRemove(t *testing.T) {
 
 	for _, v := range cases {
 		err := v.pool.Remove(context.Background(), v.key)
-		assert.Equal(t, err, v.expectedError)
+		assert.Equal(t, v.expectedError, err)
 
 		test, err := v.pool.Get(context.Background(), v.key)
-		assert.Equal(t, err, v.expectedError)
+		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected, test)
 	}
