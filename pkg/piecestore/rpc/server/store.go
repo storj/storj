@@ -58,41 +58,8 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 	}
 	defer utils.Close(storeFile)
 
-	reader := NewStreamReader(stream)
-
-	for {
-		// Receive Bandwidth allocation
-		recv, err := stream.Recv()
-		if err != nil || recv.Bandwidthallocation == nil {
-			break
-		}
-
-		ba := recv.Bandwidthallocation
-
-		// TODO: Should we check if all the variables on ba are good?
-
-		if err = s.verifySignature(ba.Signature); err != nil {
-			break
-		}
-
-		if err = s.writeBandwidthAllocToDB(ba); err != nil {
-			break
-		}
-
-		buf := make([]byte, ba.Data.Size) // buffer size defined by what is being allocated
-
-		n, err := reader.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		// Write the buffer to the stream we opened earlier
-		n, err = storeFile.Write(buf[:n])
-		if err != nil {
-			break
-		}
-
-		total += int64(n)
-	}
+	reader := NewStreamReader(s, stream)
+	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		log.Println(err)

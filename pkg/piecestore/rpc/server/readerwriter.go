@@ -29,17 +29,29 @@ type StreamReader struct {
 }
 
 // NewStreamReader returns a new StreamReader
-func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
-	return &StreamReader{
-		src: utils.NewReaderSource(func() ([]byte, error) {
-			recv, err := stream.Recv()
-			if err != nil {
-				return nil, err
-			}
+func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
+	sr := &StreamReader{}
+	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
-			return recv.Piecedata.Content, nil
-		}),
-	}
+		recv, err := stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		ba := recv.Bandwidthallocation
+
+		if err = s.verifySignature(ba.Signature); err != nil {
+			return nil, err
+		}
+
+		if err = s.writeBandwidthAllocToDB(ba); err != nil {
+			return nil, err
+		}
+
+		return recv.Piecedata.Content, nil
+	})
+
+	return sr
 }
 
 // Read -- Read method for piece download from stream
