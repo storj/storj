@@ -216,7 +216,11 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
+			baSize := tt.reqSize
+			if baSize <= 0 {
+				baSize = 1024 * 32
+			}
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: baSize}}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -236,6 +240,14 @@ func TestRetrieve(t *testing.T) {
 				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
 				return
 			}
+
+			// send piece database
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: baSize * 2}}})
+			if err != nil {
+				t.Errorf("Unexpected error: %v\n", err)
+				return
+			}
+
 			if err != nil && tt.err == "" {
 				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
 				return
@@ -294,13 +306,18 @@ func TestStore(t *testing.T) {
 			}
 
 			// Send Bandwidth Allocation Data
-			if err = stream.Send(&pb.PieceStore{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content))}}}); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
+			msg := &pb.PieceStore{
+				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
+				Bandwidthallocation: &pb.BandwidthAllocation{
+					Signature: []byte{'A', 'B'},
+					Data: &pb.BandwidthAllocation_Data{
+						Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content)),
+					},
+				},
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: tt.content}}); err != nil {
+			if err = stream.Send(msg); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}

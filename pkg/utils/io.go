@@ -3,6 +3,12 @@
 
 package utils
 
+import (
+	"io"
+
+	"go.uber.org/zap"
+)
+
 // ReaderSource takes a src func and turns it into an io.Reader
 type ReaderSource struct {
 	src func() ([]byte, error)
@@ -27,4 +33,12 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 	n = copy(p, rs.buf)
 	rs.buf = rs.buf[n:]
 	return n, rs.err
+}
+
+// Close something in a defer for errcheck
+func Close(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		zap.S().Error(err)
+	}
 }

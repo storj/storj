@@ -28,25 +28,47 @@ type PSClient interface {
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
-	route    pb.PieceStoreRoutesClient
-	conn     *grpc.ClientConn
-	pkey     []byte
-	payerID  string
-	renterID string
+	route            pb.PieceStoreRoutesClient
+	conn             *grpc.ClientConn
+	pkey             []byte
+	bandwidthMsgSize int
+	payerID          string
+	renterID         string
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, payerID, renterID string) PSClient {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID string) PSClient {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > (64*1024) {
+		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
+
+		return nil
+	}
+
+	if bandwidthMsgSize == 0 {
+		bandwidthMsgSize = 32 * 1024
+	}
+
 	return &Client{
 		conn:    conn,
 		route:   pb.NewPieceStoreRoutesClient(conn),
 		payerID: payerID, renterID: renterID,
+		bandwidthMsgSize: bandwidthMsgSize,
 	}
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, payerID, renterID string) *Client {
-	return &Client{route: route, payerID: payerID, renterID: renterID}
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, payerID, renterID string) *Client {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > (64*1024) {
+		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
+
+		return nil
+	}
+
+	if bandwidthMsgSize == 0 {
+		bandwidthMsgSize = 32 * 1024
+	}
+
+	return &Client{route: route, payerID: payerID, renterID: renterID, bandwidthMsgSize: bandwidthMsgSize}
 }
 
 // CloseConn closes the connection with piecestore

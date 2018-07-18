@@ -10,6 +10,7 @@ import (
 
 // StreamWriter -- Struct for writing piece to server upload stream
 type StreamWriter struct {
+	server *Server
 	stream pb.PieceStoreRoutes_RetrieveServer
 }
 
@@ -29,17 +30,32 @@ type StreamReader struct {
 }
 
 // NewStreamReader returns a new StreamReader
-func NewStreamReader(stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
-	return &StreamReader{
-		src: utils.NewReaderSource(func() ([]byte, error) {
-			recv, err := stream.Recv()
-			if err != nil {
+func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
+	sr := &StreamReader{}
+	sr.src = utils.NewReaderSource(func() ([]byte, error) {
+
+		recv, err := stream.Recv()
+		if err != nil {
+			return nil, err
+		}
+
+		pd := recv.GetPiecedata()
+		ba := recv.GetBandwidthallocation()
+
+		if ba != nil {
+			if err = s.verifySignature(ba.GetSignature()); err != nil {
 				return nil, err
 			}
 
-			return recv.Piecedata.Content, nil
-		}),
-	}
+			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+				return nil, err
+			}
+		}
+
+		return pd.GetContent(), nil
+	})
+
+	return sr
 }
 
 // Read -- Read method for piece download from stream

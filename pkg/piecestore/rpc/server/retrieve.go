@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -51,28 +52,27 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return err
 	}
 
-	defer storeFile.Close()
+	defer utils.Close(storeFile)
 
-	writer := &StreamWriter{stream: stream}
+	writer := &StreamWriter{server: s, stream: stream}
 
 	for {
 		// Receive Bandwidth allocation
 		recv, err = stream.Recv()
-		if err != nil || recv.Bandwidthallocation == nil {
+		if err != nil {
 			log.Println(err)
-			return errors.New("Error receiving Bandwidth Allocation data")
-		}
-
-		ba := recv.Bandwidthallocation
-
-		// TODO: Should we check if all the variables on ba are good?
-
-		if err = s.verifySignature(ba.Signature); err != nil {
 			return err
 		}
 
-		sizeToRead := ba.Data.Size
-		if ba.Data.Size < 0 {
+		ba := recv.GetBandwidthallocation()
+		baData := ba.GetData()
+
+		if err = s.verifySignature(ba.GetSignature()); err != nil {
+			return err
+		}
+
+		sizeToRead := baData.GetSize()
+		if sizeToRead < 0 {
 			sizeToRead = 1024 * 32 // 32 kb
 		}
 

@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -42,7 +43,7 @@ type Config struct {
 
 // New -- creates a new server struct
 func New(config Config) (*Server, error) {
-	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "ttl-data.db")
+	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piecestore.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
 	psDB, err := psdb.NewPSDB(dbPath)
@@ -94,7 +95,7 @@ func (s *Server) Start() error {
 		return err
 	}
 
-	defer lis.Close()
+	defer utils.Close(lis)
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()
@@ -105,17 +106,17 @@ func (s *Server) Start() error {
 	// routinely check DB and delete expired entries
 	go func() {
 		err := s.DB.DBCleanup(s.DataDir)
-		zap.S().Fatalf("Error in DBCleanup: %v\n", err)
+		zap.S().Errorf("Error in DBCleanup: %v\n", err)
 	}()
 
 	fmt.Printf("Node %s started\n", s.config.NodeID)
 
 	// start the server
 	if err := grpcServer.Serve(lis); err != nil {
-		zap.S().Fatalf("failed to serve: %s\n", err)
+		zap.S().Errorf("failed to serve: %s\n", err)
 	}
 
-	return nil
+	return err
 }
 
 // Piece -- Send meta data about a stored by by Id
@@ -171,6 +172,19 @@ func (s *Server) deleteByID(id string) error {
 func (s *Server) verifySignature(signature []byte) error {
 	// TODO: verify signature
 	log.Printf("Verified signature: %s\n", signature)
+
+	return nil
+}
+
+func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+	data := ba.GetData()
+	if data == nil {
+		return nil
+	}
+
+	log.Printf("Payer: %s, Renter: %s, Size: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize())
+
+	// TODO: Write ba to database
 
 	return nil
 }
