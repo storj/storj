@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -23,7 +24,7 @@ var (
 )
 
 func initializeFlags() {
-	flag.StringVar(&pointerdbClientPort, "pointerdb port", ":8080", "this is your port")
+	flag.StringVar(&pointerdbClientPort, "pointerdbPort", ":8080", "this is your port")
 	flag.Parse()
 }
 
@@ -37,6 +38,7 @@ func main() {
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
+		os.Exit(1)
 	}
 
 	logger.Debug(fmt.Sprintf("client dialed port", pointerdbClientPort))
