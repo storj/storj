@@ -17,11 +17,6 @@ import (
 	"storj.io/storj/storage/boltdb"
 )
 
-// kbucket key length 256 bits (SHA256)
-//b = 256
-
-// max number of nodes stored in a kbucket
-//k = 20
 
 const (
 	//decimal representation of 11111111
@@ -39,8 +34,8 @@ type RoutingTable struct {
 	nodeBucketDB *storage.KeyValueStore
 	transport    *proto.NodeTransport
 	mutex        *sync.Mutex
-	b			 int
-	k			 int
+	b			 int //kbucket key length 256 bits (SHA256) b = 256
+	k			 int // max number of nodes stored in a kbucket k = 20
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -395,7 +390,7 @@ func (rt RoutingTable) splitBucket(id []byte, depth int) []byte {
 	bitIndex := depth
 	byteIndex := bitIndex / bitsInByte
 	bitInByteIndex := 7 - (bitIndex % bitsInByte)
-	mask := byte(1 << uint(bitInByteIndex))
-	newID[byteIndex] ^= mask	
+	toggle := byte(1 << uint(bitInByteIndex))
+	newID[byteIndex] ^= toggle	
 	return newID
 }
