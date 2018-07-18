@@ -14,6 +14,11 @@ type StreamWriter struct {
 	stream pb.PieceStoreRoutes_RetrieveServer
 }
 
+// NewStreamWriter returns a new StreamWriter
+func NewStreamWriter(s *Server, stream pb.PieceStoreRoutes_RetrieveServer) *StreamWriter {
+	return &StreamWriter{server: s, stream: stream}
+}
+
 // Write -- Write method for piece upload to stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	// Write the buffer to the stream we opened earlier

@@ -54,9 +54,10 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	defer utils.Close(storeFile)
 
-	writer := &StreamWriter{server: s, stream: stream}
-
-	for {
+	writer := NewStreamWriter(s, stream)
+	var totalRetrieved, totalAllocated int64
+	var allocations []int64
+	for totalRetrieved < totalToRead {
 		// Receive Bandwidth allocation
 		recv, err = stream.Recv()
 		if err != nil {
@@ -67,32 +68,46 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		ba := recv.GetBandwidthallocation()
 		baData := ba.GetData()
 
-		if err = s.verifySignature(ba.GetSignature()); err != nil {
-			return err
+		if baData != nil {
+			if err = s.verifySignature(ba.GetSignature()); err != nil {
+				return err
+			}
+
+			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+				return err
+			}
+
+			allocation := baData.GetSize()
+			if allocation < 0 {
+				allocation = 1024 * 32 // 32 kb
+			}
+
+			allocations = append(allocations, allocation)
+			totalAllocated += allocation
 		}
 
-		sizeToRead := baData.GetSize()
-		if sizeToRead < 0 {
-			sizeToRead = 1024 * 32 // 32 kb
+		if len(allocations) <= 0 {
+			continue
 		}
 
-		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
+		sizeToRead := allocations[len(allocations)-1]
 
-		n, err := storeFile.Read(buf)
+		if sizeToRead > totalToRead-totalRetrieved {
+			sizeToRead = totalToRead - totalRetrieved
+		}
+
+		n, err := io.CopyN(writer, storeFile, sizeToRead)
+		totalRetrieved += n
+
 		if err == io.EOF {
 			break
-		}
-		// Write the buffer to the stream we opened earlier
-		_, err = writer.Write(buf[:n])
-		if err != nil {
+		} else if err != nil {
 			return err
 		}
 
-		if err = s.writeBandwidthAllocToDB(ba); err != nil {
-			return err
-		}
+		allocations = allocations[:len(allocations)-1]
 	}
 
-	log.Println("Successfully retrieved data.")
+	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", totalAllocated, totalRetrieved)
 	return nil
 }
