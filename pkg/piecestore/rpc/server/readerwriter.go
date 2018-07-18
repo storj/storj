@@ -10,6 +10,7 @@ import (
 
 // StreamWriter -- Struct for writing piece to server upload stream
 type StreamWriter struct {
+	server *Server
 	stream pb.PieceStoreRoutes_RetrieveServer
 }
 
@@ -38,17 +39,20 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 			return nil, err
 		}
 
-		ba := recv.Bandwidthallocation
+		pd := recv.GetPiecedata()
+		ba := recv.GetBandwidthallocation()
 
-		if err = s.verifySignature(ba.Signature); err != nil {
-			return nil, err
+		if ba != nil {
+			if err = s.verifySignature(ba.GetSignature()); err != nil {
+				return nil, err
+			}
+
+			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+				return nil, err
+			}
 		}
 
-		if err = s.writeBandwidthAllocToDB(ba); err != nil {
-			return nil, err
-		}
-
-		return recv.Piecedata.Content, nil
+		return pd.GetContent(), nil
 	})
 
 	return sr

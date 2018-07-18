@@ -177,7 +177,12 @@ func (s *Server) verifySignature(signature []byte) error {
 }
 
 func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
-	log.Printf("Payer: %s, Renter: %s, Size: %v\n", ba.Data.Payer, ba.Data.Renter, ba.Data.Size)
+	data := ba.GetData()
+	if data == nil {
+		return nil
+	}
+
+	log.Printf("Payer: %s, Renter: %s, Size: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize())
 
 	// TODO: Write ba to database
 
