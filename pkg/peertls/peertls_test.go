@@ -6,8 +6,9 @@ package peertls
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"crypto/ecdsa"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type tlsFileOptionsTestCase struct {

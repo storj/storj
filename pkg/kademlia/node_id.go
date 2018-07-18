@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -20,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/sha3"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/peertls"
 )
@@ -51,7 +51,7 @@ type KadCreds struct {
 // The "identity file" must contain PEM encoded data. The certificate portion
 // may contain intermediate certificates following the leaf certificate to
 // form a certificate chain.
-func Load(path string) (dht.NodeID, error) {
+func Load(path string) (*KadCreds, error) {
 	baseDir := filepath.Dir(path)
 
 	if _, err := os.Stat(baseDir); err != nil {
@@ -71,12 +71,12 @@ func Load(path string) (dht.NodeID, error) {
 	}
 
 	cert, hashLen, err := read(IDBytes)
-	nodeID, err := CertToKadCreds(cert, hashLen)
+	kadCreds, err := CertToKadCreds(cert, hashLen)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	return nodeID, nil
+	return kadCreds, nil
 }
 
 // Save saves the certificate chain (leaf-first), private key, and
@@ -107,99 +107,6 @@ func (k *KadCreds) Save(path string) error {
 	}
 
 	return nil
-}
-
-func (k *KadCreds) write(writer io.Writer) error {
-	for _, c := range k.tlsH.Certificate().Certificate {
-		certBlock := peertls.NewCertBlock(c)
-
-		if err := pem.Encode(writer, certBlock); err != nil {
-			return errs.Wrap(err)
-		}
-	}
-
-	keyDERBytes, err := peertls.KeyToDERBytes(
-		k.tlsH.Certificate().PrivateKey.(*ecdsa.PrivateKey),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := pem.Encode(writer, peertls.NewKeyBlock(keyDERBytes)); err != nil {
-		return errs.Wrap(err)
-	}
-
-	// Write `hashLen` after private key
-	return binary.Write(writer, binary.LittleEndian, k.hashLen)
-}
-
-func read(PEMBytes []byte) (*tls.Certificate, uint16, error) {
-	var hashLen uint16
-	certDERs := [][]byte{}
-	keyDER := []byte{}
-
-	for {
-		var DERBlock *pem.Block
-
-		DERBlock, PEMBytes = pem.Decode(PEMBytes)
-		if DERBlock == nil {
-			break
-		}
-
-		if DERBlock.Type == peertls.BlockTypeCertificate {
-			certDERs = append(certDERs, DERBlock.Bytes)
-			continue
-		}
-
-		if DERBlock.Type == peertls.BlockTypeEcPrivateKey {
-			keyDER = DERBlock.Bytes
-
-			// NB: `hashLen` is stored after the private key block
-			if PEMBytes == nil || len(PEMBytes) == 0 {
-				return nil, 0, errs.New("hash length expected following private key; none found")
-			}
-
-			hashLen = binary.LittleEndian.Uint16(PEMBytes)
-			continue
-		}
-	}
-
-	if len(certDERs) == 0 || len(certDERs[0]) == 0 {
-		return nil, 0, errs.New("no certificates found in identity file")
-	}
-
-	if len(keyDER) == 0 {
-		return nil, 0, errs.New("no private key found in identity file")
-	}
-
-	cert, err := certFromDERs(certDERs, keyDER)
-	if err != nil {
-		return nil, 0, errs.Wrap(err)
-	}
-
-	return cert, hashLen, nil
-}
-
-func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
-	var (
-		err  error
-		cert = new(tls.Certificate)
-	)
-
-	cert.Certificate = certDERBytes
-	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
-	if err != nil {
-		return nil, errs.New("unable to parse EC private key", err)
-	}
-
-	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	cert.Leaf = parsedLeaf
-
-	return cert, nil
 }
 
 // func LoadOrCreateID(basePath string, minDifficulty uint16) (dht.NodeID, error) {
@@ -364,12 +271,26 @@ func (k *KadCreds) Bytes() []byte {
 	return b.Bytes()
 }
 
-func (k *KadCreds) Hash() []byte {
-	return k.hash
+func (k *KadCreds) Difficulty() uint16 {
+	hash := k.Hash()
+	for i := 1; i < len(hash); i++ {
+		b := hash[len(hash)-i]
+
+		if b != 0 {
+			return uint16(i - 1)
+		}
+	}
+
+	// NB: this should never happen
+	return 0
 }
 
 func (k *KadID) String() string {
 	return string(k.Bytes())
+}
+
+func (k *KadCreds) Hash() []byte {
+	return k.hash
 }
 
 func (k *KadID) Bytes() []byte {
@@ -387,51 +308,145 @@ func (k *KadID) Hash() []byte {
 	return k.hash
 }
 
-type mockID struct {
-	bytes []byte
+func (k *KadID) Difficulty() uint16 {
+	hash := k.Hash()
+	for i := 1; i < len(hash); i++ {
+		b := hash[len(hash)-i]
+
+		if b != 0 {
+			return uint16(i - 1)
+		}
+	}
+
+	// NB: this should never happen
+	return 0
 }
 
-func (m *mockID) String() string {
-	return string(m.bytes)
-}
-
-func (m *mockID) Bytes() []byte {
-	return m.bytes
-}
-
-// NewID returns a pointer to a newly intialized NodeID
+// NewID returns a pointer to a newly intialized, NodeID with at least the
+// given difficulty
 func NewID(difficulty uint16, hashLen uint16, concurrency uint, rootKeyPath string) (dht.NodeID, error) {
-	// idBytes, err := newID(2)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	//
-	// nodeID := CertToKadCreds()
-	//
-	// return nodeID, nil
-
-	tlsH, err := peertls.NewTLSHelper(nil)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	done := make(chan bool, 0)
+	c := make(chan KadCreds, 1)
+	for i := 0; i < int(concurrency); i++ {
+		go generateCreds(difficulty, hashLen, c, done)
 	}
 
-	cert := tlsH.Certificate()
-	kadCreds, err := CertToKadCreds(&cert, hashLen)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
+	kadCreds, _ := <-c
+	close(done)
 
-	return kadCreds, nil
+	// TODO(bryanchriswhite): write `tlsH.RootKey()` to `rootKeyPath`
+
+	return &kadCreds, nil
 }
 
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID(difficulty uint16) ([]byte, error) {
-	id := make([]byte, 20)
-	if _, err := rand.Read(id); err != nil {
+func generateCreds(difficulty, hashLen uint16, c chan KadCreds, done chan bool) {
+	for {
+		select {
+		case <-done:
+
+			return
+		default:
+			tlsH, _ := peertls.NewTLSHelper(nil)
+
+			cert := tlsH.Certificate()
+			kadCreds, _ := CertToKadCreds(&cert, hashLen)
+
+			if kadCreds.Difficulty() >= difficulty {
+				c <- *kadCreds
+			}
+		}
+	}
+}
+
+func (k *KadCreds) write(writer io.Writer) error {
+	for _, c := range k.tlsH.Certificate().Certificate {
+		certBlock := peertls.NewCertBlock(c)
+
+		if err := pem.Encode(writer, certBlock); err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	keyDERBytes, err := peertls.KeyToDERBytes(
+		k.tlsH.Certificate().PrivateKey.(*ecdsa.PrivateKey),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := pem.Encode(writer, peertls.NewKeyBlock(keyDERBytes)); err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Write `hashLen` after private key
+	return binary.Write(writer, binary.LittleEndian, k.hashLen)
+}
+
+func read(PEMBytes []byte) (*tls.Certificate, uint16, error) {
+	var hashLen uint16
+	certDERs := [][]byte{}
+	keyDER := []byte{}
+
+	for {
+		var DERBlock *pem.Block
+
+		DERBlock, PEMBytes = pem.Decode(PEMBytes)
+		if DERBlock == nil {
+			break
+		}
+
+		if DERBlock.Type == peertls.BlockTypeCertificate {
+			certDERs = append(certDERs, DERBlock.Bytes)
+			continue
+		}
+
+		if DERBlock.Type == peertls.BlockTypeEcPrivateKey {
+			keyDER = DERBlock.Bytes
+
+			// NB: `hashLen` is stored after the private key block
+			if PEMBytes == nil || len(PEMBytes) == 0 {
+				return nil, 0, errs.New("hash length expected following private key; none found")
+			}
+
+			hashLen = binary.LittleEndian.Uint16(PEMBytes)
+			continue
+		}
+	}
+
+	if len(certDERs) == 0 || len(certDERs[0]) == 0 {
+		return nil, 0, errs.New("no certificates found in identity file")
+	}
+
+	if len(keyDER) == 0 {
+		return nil, 0, errs.New("no private key found in identity file")
+	}
+
+	cert, err := certFromDERs(certDERs, keyDER)
+	if err != nil {
+		return nil, 0, errs.Wrap(err)
+	}
+
+	return cert, hashLen, nil
+}
+
+func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
+	var (
+		err  error
+		cert = new(tls.Certificate)
+	)
+
+	cert.Certificate = certDERBytes
+	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
+	if err != nil {
+		return nil, errs.New("unable to parse EC private key", err)
+	}
+
+	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	result := []byte(base64.URLEncoding.EncodeToString(id))
-	return result, nil
+	cert.Leaf = parsedLeaf
+
+	return cert, nil
 }

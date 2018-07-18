@@ -41,7 +41,7 @@ func IsNotExist(err error) bool {
 
 // TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
 type TLSHelper struct {
-	cert tls.Certificate
+	cert    tls.Certificate
 	rootKey *ecdsa.PrivateKey
 }
 
@@ -98,13 +98,14 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
 func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	var (
-		c   tls.Certificate
-		err error
+		c       tls.Certificate
+		err     error
 		rootKey *ecdsa.PrivateKey = nil
 	)
 
 	if cert == nil {
-		c, rootKey, err = generateTLS(); if err != nil {
+		c, rootKey, err = generateTLS()
+		if err != nil {
 			return nil, err
 		}
 	} else {
@@ -112,7 +113,7 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	}
 
 	t := &TLSHelper{
-		cert: c,
+		cert:    c,
 		rootKey: rootKey,
 	}
 
@@ -151,6 +152,14 @@ func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 
 func (t *TLSHelper) Certificate() tls.Certificate {
 	return t.cert
+}
+
+func (t *TLSHelper) RootKey() ecdsa.PrivateKey {
+	if t.rootKey == nil {
+		return ecdsa.PrivateKey{}
+	}
+
+	return *t.rootKey
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {

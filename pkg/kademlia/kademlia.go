@@ -211,12 +211,12 @@ func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	}
 
 	if id == "" {
-		i, err := newID(0)
+		i, err := NewID(1, 38, 5, "")
 		if err != nil {
 			return nil, err
 		}
 
-		id = string(i)
+		id = i.String()
 	}
 
 	return &proto.Node{
