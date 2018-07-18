@@ -34,8 +34,11 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	assert.NoError(t, err)
 
 	boot, err := NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
-
 	assert.NoError(t, err)
+	
+	//added bootnode to dhts so it could be closed in defer as well
+	dhts = append(dhts, boot)
+
 	rt, err := boot.GetRoutingTable(context.Background())
 	bootNode := rt.Local()
 
@@ -67,6 +70,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	return dhts, bootNode
 }
 
+//d dht.DHT is never used, should it be removed?
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *Kademlia {
 	i, err := newID()
 	assert.NoError(t, err)
