@@ -23,8 +23,8 @@ type PointerDB struct {
 	grpcClient pb.PointerDBClient
 }
 
-// PDBClient services offerred for the interface
-type PDBClient interface {
+// Client services offerred for the interface
+type Client interface {
 	Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error)
 	List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
