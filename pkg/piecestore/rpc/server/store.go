@@ -27,16 +27,19 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return errors.New("Error receiving Piece Meta Data")
 	}
 
-	pd := recv.Piecedata
-	log.Printf("ID: %s, TTL: %v\n", pd.Id, pd.Ttl)
+	pd := recv.GetPiecedata()
+	log.Printf("ID: %s, TTL: %v\n", pd.GetId(), pd.GetTtl())
+	if pd.GetId() == "" {
+		return errors.New("Invalid Piece ID")
+	}
 
 	// If we put in the database first then that checks if the data already exists
-	if err = s.DB.AddTTLToDB(pd.Id, pd.Ttl); err != nil {
+	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetTtl()); err != nil {
 		log.Println(err)
 		return err
 	}
 
-	total, err := s.storeData(reqStream, pd.Id)
+	total, err := s.storeData(reqStream, pd.GetId())
 	if err != nil {
 		return err
 	}
