@@ -41,14 +41,17 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	}
 
 	// Read the size specified
-	totalToRead := pd.Size
-	// Read the entire file if specified -1
-	if pd.Size <= -1 {
-		totalToRead = fileInfo.Size()
+	totalToRead := pd.GetSize()
+	fileSize := fileInfo.Size()
+
+	// Read the entire file if specified -1 but make sure we do it from the correct offset
+	if pd.GetSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
+		totalToRead = fileSize - pd.GetOffset()
 	}
 
 	retrieved, allocated, err := s.retrieveData(stream, pd.GetId(), pd.GetOffset(), totalToRead)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -65,13 +68,12 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 	defer utils.Close(storeFile)
 
 	writer := NewStreamWriter(s, stream)
-	var totalRetrieved, totalAllocated int64
-	var allocations []int64
-	for totalRetrieved < length {
+	am := NewAllocationManager(length)
+
+	for am.Used < am.MaxToUse {
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
-			log.Println(err)
 			return 0, 0, err
 		}
 
@@ -87,42 +89,21 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 				return 0, 0, err
 			}
 
-			allocation := baData.GetSize()
-			if allocation < 0 {
-				allocation = 1024 * 32 // 32 kb
-			}
-
-			allocations = append(allocations, allocation)
-			totalAllocated += allocation
+			am.AddAllocation(baData.GetSize())
 		}
 
-		if len(allocations) <= 0 {
-			continue
-		}
+		sizeToRead := am.NextReadSize()
 
-		sizeToRead := allocations[len(allocations)-1]
-
-		if sizeToRead > length-totalRetrieved {
-			sizeToRead = length - totalRetrieved
-		}
-
-		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
-		n, err := storeFile.Read(buf)
+		// Write the buffer to the stream we opened earlier
+		n, err := io.CopyN(writer, storeFile, sizeToRead)
 		if err == io.EOF {
 			break
-		}
-		// Write the buffer to the stream we opened earlier
-		n, err = writer.Write(buf[:n])
-		if err != nil {
+		} else if err != nil {
 			return 0, 0, err
 		}
-		totalRetrieved += int64(n)
-		allocations[len(allocations)-1] -= int64(n)
 
-		if allocations[len(allocations)-1] <= 0 {
-			allocations = allocations[:len(allocations)-1]
-		}
+		am.UseAllocation(n)
 	}
 
-	return totalRetrieved, totalAllocated, nil
+	return am.Used, am.Allocated, nil
 }
