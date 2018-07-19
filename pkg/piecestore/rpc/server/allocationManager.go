@@ -35,8 +35,8 @@ func (am *AllocationManager) NextReadSize() int64 {
 
 // AddAllocation adds another allcoation to the AllocationManager
 func (am *AllocationManager) AddAllocation(allocation int64) {
-	if allocation < 0 {
-		allocation = 1024 * 32 // 32 kb
+	if allocation <= 0 {
+		return
 	}
 
 	am.allocations = append(am.allocations, allocation)
