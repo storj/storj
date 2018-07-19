@@ -44,7 +44,7 @@ func NewClient(address string) (*PointerDB, error) {
 	}, nil
 }
 
-// NewClient makes a server connection
+// ClientConnection makes a server connection
 func ClientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
 	conn, err := grpc.Dial(serverAddr, opts...)
 
