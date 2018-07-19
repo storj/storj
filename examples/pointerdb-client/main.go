@@ -41,7 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Debug(fmt.Sprintf("client dialed port", pointerdbClientPort))
+	logger.Debug(fmt.Sprintf("client dialed port %s", pointerdbClientPort))
 	ctx := context.Background()
 
 	// Example parameters to pass into API calls
