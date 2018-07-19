@@ -160,12 +160,10 @@ func (o *Cache) Walk(ctx context.Context) error {
 	for _, v := range nodes {
 		nodeID, err := kademlia.ParseID(v.Id)
 		if err != nil {
-			errs.New("unable to parse node id \"%s\"", v.Id, err)
+			return errs.New("unable to parse node id \"%s\"", v.Id, err)
 		}
 		if _, err := o.DHT.FindNode(ctx, nodeID); err != nil {
-			err = ErrNodeNotFound.New("node id:", v.Id)
-			zap.Error(err)
-			return err
+			return ErrNodeNotFound.New("node id:", v.Id)
 		}
 	}
 

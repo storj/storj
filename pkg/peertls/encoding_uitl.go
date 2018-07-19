@@ -24,7 +24,7 @@ func NewKeyBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
-// NewKeyBlock converts an ASN1/DER-encoded byte-slice of a tls certificate
+// NewCertBlock converts an ASN1/DER-encoded byte-slice of a tls certificate
 // into a `pem.Block` pointer
 func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
@@ -38,13 +38,4 @@ func KeyToDERBytes(key *ecdsa.PrivateKey) ([]byte, error) {
 	}
 
 	return b, nil
-}
-
-func keyToBlock(key *ecdsa.PrivateKey) (*pem.Block, error) {
-	b, err := KeyToDERBytes(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewKeyBlock(b), nil
 }

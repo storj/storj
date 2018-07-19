@@ -40,7 +40,7 @@ type KadID struct {
 	hashLen uint16
 }
 
-// KadID implements dht.nodeID and is used for the private portion of an identity (i.e. tls cert/private key)
+// KadCreds implements dht.nodeID and is used for the private portion of an identity (i.e. tls cert/private key)
 type KadCreds struct {
 	hash    []byte
 	hashLen uint16

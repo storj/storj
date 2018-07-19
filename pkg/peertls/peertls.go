@@ -151,7 +151,7 @@ func (t *TLSHelper) DialOption() grpc.DialOption {
 	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
-// DialOption returns a grpc `ServerOption` from `t` for incoming connections
+// ServerOption returns a grpc `ServerOption` from `t` for incoming connections
 func (t *TLSHelper) ServerOption() grpc.ServerOption {
 	return grpc.Creds(t.NewPeerTLS(nil))
 }
@@ -161,7 +161,7 @@ func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 	return t.cert.PrivateKey.(*ecdsa.PrivateKey).PublicKey
 }
 
-// PubKey returns a copy of the value of the certificate (`tls.Certificate`)
+// Certificate returns a copy of the value of the certificate (`tls.Certificate`)
 func (t *TLSHelper) Certificate() tls.Certificate {
 	return t.cert
 }

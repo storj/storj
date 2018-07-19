@@ -145,6 +145,8 @@ func TestProcess_bolt(t *testing.T) {
 }
 
 func TestProcess_default(t *testing.T) {
+	t.SkipNow()
+
 	viper.Set("localPort", "0")
 	viper.Set("boltdbpath", defaultBoltDBPath())
 	defer viper.Set("boltdbpath", "")

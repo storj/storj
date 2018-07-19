@@ -9,22 +9,21 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-
-	"os"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
-	"github.com/zeebo/errs"
 )
 
 var (
