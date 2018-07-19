@@ -8,13 +8,14 @@ import (
 	"flag"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"storj.io/storj/pkg/process"
 )
 
 func main() {
 	flag.Set("metrics.interval", "1s")
-	process.Must(process.Main(func() error { return nil }, process.ServiceFunc(run)))
+	process.Must(process.Main(func() (*viper.Viper, error) { return nil, nil }, process.ServiceFunc(run)))
 }
 
 func run(ctx context.Context, _ *cobra.Command, _ []string) error {
