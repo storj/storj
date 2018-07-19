@@ -149,30 +149,38 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	//TODO: Fix parameters
+	var startAfter paths.Path
+	var fl []minio.ObjectInfo
 	for {
-		items, more, err := s.storj.os.List(ctx, paths.New(bucket, ""), nil, nil, true, int(0), storage.MetaAll)
+		items, more, err := s.storj.os.List(ctx, paths.New(bucket, ""), startAfter, nil, true, int(0), storage.MetaAll)
 		if err != nil {
 			return result, err
 		}
 		if len(items) > 0 {
-			for _, item := range items {
-				result = minio.ListObjectsInfo{
-					IsTruncated: false,
-					NextMarker:  "",
-					Objects: minio.ObjectInfo{
-						{
-							Bucket: bucket,
-						},
-					},
+			//Populate the objectlist (aka filelist)
+			f := make([]minio.ObjectInfo, len(items))
+			for i, fi := range items {
+				f[i] = minio.ObjectInfo{
+					Bucket:      fi.ListPath[0],
+					Name:        fi.ListPath[1:].String(),
+					ModTime:     fi.ListMeta.Modified,
+					Size:        fi.ListMeta.Size,
+					ContentType: fi.ListMeta.ContentType,
+					UserDefined: fi.ListMeta.UserDefined,
 				}
 			}
+			startAfter = items[len(items)-1].ListPath
+			fl = f
 		}
-
 		if !more {
 			break
 		}
+	}
+
+	result = minio.ListObjectsInfo{
+		IsTruncated: false,
+		NextMarker:  startAfter.String(),
+		Objects:     fl,
 	}
 	return result, err
 }
@@ -197,12 +205,13 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	expTime := time.Time{}
 	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
-		Name:   object,
-		Bucket: bucket,
-		// TODO create a followup ticket in JIRA to fix ModTime
-		ModTime: m.Modified,
-		Size:    data.Size(),
-		ETag:    minio.GenETag(),
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        minio.GenETag(),
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
 	}, err
 }
 
