@@ -99,6 +99,11 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 		return nil, nil, err
 	}
 
+	if len(keys) <= 0 {
+		o.logger.Info("No Keys returned from List operation")
+		return []*proto.Node{}, starting, nil
+	}
+
 	result := []*proto.Node{}
 	nodes, err := o.getNodes(ctx, keys)
 	if err != nil {
