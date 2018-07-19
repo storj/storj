@@ -34,7 +34,7 @@ type Client interface {
 
 // NewClient initializes a new pointerdb client
 func NewClient(address string) (*PointerDB, error) {
-	c, err := ClientConnection(address, grpc.WithInsecure())
+	c, err := clientConnection(address, grpc.WithInsecure())
 
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewClient(address string) (*PointerDB, error) {
 }
 
 // ClientConnection makes a server connection
-func ClientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
+func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
 	conn, err := grpc.Dial(serverAddr, opts...)
 
 	if err != nil {
