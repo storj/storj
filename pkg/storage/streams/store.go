@@ -4,7 +4,6 @@
 package streams
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,7 +14,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/segment"
+	"storj.io/storj/pkg/storage"
+	metapb "storj.io/storj/protos/meta"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -23,29 +25,32 @@ var mon = monkit.Package()
 
 // Store for streams
 type Store interface {
-	// Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
-	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) error
-	// Get(ctx context.Context, path paths.Path) (ranger.Ranger, paths.Meta, error)
-	// Delete(ctx context.Context, path paths.Path) error
-	// List(ctx context.Context, startingPath, endingPath paths.Path) (paths []paths.Path, truncated bool, err error)
-	// List​(ctx context.Context, root, startAfter, endBefore paths.Path, recursive ​bool​, limit ​int​) (result []paths.Path, more ​bool​, err ​error​)
+	Put(ctx context.Context, path paths.Path, data io.Reader,
+		metadata []byte, expiration time.Time) (storage.Meta, error)
+	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
+		storage.Meta, error)
+	Delete(ctx context.Context, path paths.Path) error
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
+		recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
+		more bool, err error)
+	Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
 }
 
 type streamStore struct {
-	segments    segment.segmentStore
+	segments    segment.Store
 	segmentSize int64
 }
 
 // NewStreams stuff
-func NewStreams(segments segments.SegmentStore, segmentSize int64) (StreamStore, error) {
+func NewStreams(segments segment.Store, segmentSize int64) (Store, error) {
 	if segmentSize < 0 {
-		return &streamStore{segments: segments, segmentSize: segmentSize}, nil
+		return nil, errors.New("Segment size must be larger than 0")
 	}
-
-	return nil, errors.New("Segment size must be larger than 0")
+	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
 
-func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (err error) {
+func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
+	metadata []byte, expiration time.Time) (storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: break up data as it comes in into s.segmentSize length pieces, then
@@ -54,8 +59,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	// of segments, in a new protobuf, in the metadata of l/<path>.
 
 	identitySlice := make([]byte, 0)
-	totalSegmentsSize := 0
-	totalSegments := 0
+	var totalSegments int64 = 0
 	stopLoop := false
 
 	for !stopLoop {
@@ -66,25 +70,39 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			stopLoop = true
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				totalSegments = totalSegments + 1
-				identitySegmentData := bytes.NewReader(identitySlice)
+				identitySegmentData := data
 				lastSegmentPath := path.Prepend("l")
 
-				md := streamspb.Meta{NumberOfSegments: totalSegments, MetaData: metadata}
+				md := streamspb.MetaStreamInfo{NumberOfSegments: totalSegments, MetaData: metadata}
 				lastSegmentMetadata, err := proto.Marshal(&md)
 
-				s.segments.Put(ctx, lastSegmentPath, identitySegmentData, lastSegmentMetadata, expiration)
+				err = s.segments.Put(ctx, lastSegmentPath, identitySegmentData, lastSegmentMetadata, expiration)
+				if err != nil {
+					return nil, err
+				}
 			}
 
-			return err
+			return nil, err
 		}
 
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := lr
 		segmentMetatdata := identitySlice
-		s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
+		err = s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return nil
+	res := storage.Meta{
+		metapb.Serializable{},
+		Modified:   time.Now(),
+		Expiration: expiration,
+		Size:       totalSegments * s.segmentSize,
+		Checksum:   "",
+	}
+
+	return nil, nil
 }
 
 /*
