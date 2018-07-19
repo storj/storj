@@ -49,7 +49,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "foo",
 			expectedResponses: func() responses {
-				na := &overlay.Node{Id: "foo", Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   na,
 					bolt:   na,
@@ -62,7 +62,7 @@ var (
 				_redis: nil,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
-				na := &overlay.Node{Id: "foo", Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				d, err := proto.Marshal(na)
 				if err != nil {
 					panic(err)
@@ -75,7 +75,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "error",
 			expectedResponses: func() responses {
-				na := &overlay.Node{Id: "foo", Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   nil,
 					bolt:   na,
@@ -88,7 +88,7 @@ var (
 				_redis: nil,
 			},
 			data: test.KvStore{"error": func() storage.Value {
-				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
+				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				d, err := proto.Marshal(na)
 				if err != nil {
 					panic(err)
@@ -112,7 +112,7 @@ var (
 				_redis: nil,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
-				na := &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}
+				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				d, err := proto.Marshal(na)
 				if err != nil {
 					panic(err)
@@ -227,7 +227,7 @@ func TestRedisPut(t *testing.T) {
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
-			na := &overlay.NodeAddress{}
+			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.Equal(t, na, &c.value)
@@ -263,7 +263,7 @@ func TestBoltPut(t *testing.T) {
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
-			na := &overlay.NodeAddress{}
+			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.Equal(t, na, &c.value)
@@ -302,7 +302,7 @@ func TestMockPut(t *testing.T) {
 			assert.Equal(t, c.expectedTimesCalled, db.PutCalled)
 
 			v := db.Data[c.key]
-			na := &overlay.NodeAddress{}
+			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.Equal(t, na, &c.value)
