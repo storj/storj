@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
+	"os"
 )
 
 var (
@@ -45,7 +46,15 @@ func init() {
 
 func defaultBoltDBPath() string {
 	home, _ := homedir.Dir()
-	return filepath.Join(home, ".storj", "overlaydb.db")
+	path := filepath.Join(home, ".storj", "overlaydb.db")
+	dirname := filepath.Dir(path)
+
+	// TODO(dylanlott, bryanchriswhite): what do do if there a different kind of error?!
+	if _, err := os.Stat(dirname); err == os.ErrNotExist {
+		os.MkdirAll(dirname, 664)
+	}
+
+	return path
 }
 
 // NewServer creates a new Overlay Service Server

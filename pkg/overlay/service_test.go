@@ -145,10 +145,6 @@ func TestProcess_bolt(t *testing.T) {
 }
 
 func TestProcess_default(t *testing.T) {
-	tempPath, err := ioutil.TempDir("", "TestProcess_error")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempPath)
-
 	viper.Set("localPort", "0")
 	viper.Set("boltdbpath", defaultBoltDBPath())
 	defer viper.Set("boltdbpath", "")
@@ -156,8 +152,8 @@ func TestProcess_default(t *testing.T) {
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	err = o.Process(ctx, nil, nil)
-	assert.True(t, process.ErrUsage.Has(err))
+	err := o.Process(ctx, nil, nil)
+	assert.Nil(t, err)
 }
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {

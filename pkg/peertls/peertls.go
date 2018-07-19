@@ -102,7 +102,7 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	var (
 		c       tls.Certificate
 		err     error
-		rootKey *ecdsa.PrivateKey = nil
+		rootKey *ecdsa.PrivateKey
 	)
 
 	if cert == nil {
