@@ -120,7 +120,11 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 
 // GetAll is a noop to adhere to the interface
 func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
-	return nil, nil
+	result := storage.Values{}
+	for _, v := range keys {
+		result = append(result, m.Data[v.String()])
+	}
+	return result, nil
 }
 
 func mapIntoSlice(data KvStore) []string {

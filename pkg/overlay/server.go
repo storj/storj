@@ -15,6 +15,10 @@ import (
 	"storj.io/storj/storage"
 )
 
+var (
+	emptyKey = storage.Key{}
+)
+
 // Server implements our overlay RPC service
 type Server struct {
 	dht     dht.DHT
@@ -60,15 +64,18 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 
 		result = append(result, nodes...)
 
-		if len(result) < int(maxNodes) {
-			continue
+		if len(result) >= int(maxNodes) || start == nil {
+			break
 		}
 
-		break
+	}
+
+	if len(result) > int(maxNodes) {
+		result = result[:maxNodes]
 	}
 
 	return &proto.FindStorageNodesResponse{
-		Nodes: result[:maxNodes],
+		Nodes: result,
 	}, nil
 }
 
@@ -93,7 +100,8 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node
 }
 
 func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64) ([]*proto.Node, storage.Key, error) {
-	keys, err := o.cache.DB.List(nil, storage.Limit(maxNodes)*2)
+	limit := storage.Limit(maxNodes) * 2
+	keys, err := o.cache.DB.List(nil, limit)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
 		return nil, nil, err
@@ -119,5 +127,10 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 		result = append(result, v)
 	}
 
-	return result, keys[len(keys)-1], nil
+	nextStart := keys[len(keys)-1]
+	if len(keys) < int(limit) {
+		nextStart = nil
+	}
+
+	return result, nextStart, nil
 }
