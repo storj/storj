@@ -14,10 +14,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/segment"
 	"storj.io/storj/pkg/storage"
-	metapb "storj.io/storj/protos/meta"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -27,13 +25,13 @@ var mon = monkit.Package()
 type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader,
 		metadata []byte, expiration time.Time) (storage.Meta, error)
-	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
-		storage.Meta, error)
-	Delete(ctx context.Context, path paths.Path) error
-	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
-		more bool, err error)
-	Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
+	// Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
+	// 	storage.Meta, error)
+	// Delete(ctx context.Context, path paths.Path) error
+	// List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
+	// 	recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
+	// 	more bool, err error)
+	// Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
 }
 
 type streamStore struct {
@@ -50,7 +48,7 @@ func NewStreams(segments segment.Store, segmentSize int64) (Store, error) {
 }
 
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (storage.Meta, err error) {
+	metadata []byte, expiration time.Time) (m storage.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: break up data as it comes in into s.segmentSize length pieces, then
@@ -59,7 +57,9 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	// of segments, in a new protobuf, in the metadata of l/<path>.
 
 	identitySlice := make([]byte, 0)
-	var totalSegments int64 = 0
+	identityMeta := storage.Meta{}
+	var totalSegments int64
+	totalSegments = 0
 	stopLoop := false
 
 	for !stopLoop {
@@ -78,11 +78,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 				err = s.segments.Put(ctx, lastSegmentPath, identitySegmentData, lastSegmentMetadata, expiration)
 				if err != nil {
-					return nil, err
+					return identityMeta, err
 				}
 			}
 
-			return nil, err
+			return identityMeta, err
 		}
 
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
@@ -90,19 +90,18 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		segmentMetatdata := identitySlice
 		err = s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
 		if err != nil {
-			return nil, err
+			return identityMeta, err
 		}
 	}
 
 	res := storage.Meta{
-		metapb.Serializable{},
 		Modified:   time.Now(),
 		Expiration: expiration,
 		Size:       totalSegments * s.segmentSize,
 		Checksum:   "",
 	}
 
-	return nil, nil
+	return res, nil
 }
 
 /*
