@@ -8,22 +8,23 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"os"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	p "storj.io/storj/pkg/paths"
+	client "storj.io/storj/pkg/pointerdb"
 	proto "storj.io/storj/protos/pointerdb"
 )
 
 var (
-	port   string
-	apiKey = []byte("abc123")
+	pointerdbClientPort string
 )
 
 func initializeFlags() {
-	flag.StringVar(&port, "port", ":8080", "port")
+	flag.StringVar(&pointerdbClientPort, "pointerdbPort", ":8080", "this is your port")
 	flag.Parse()
 }
 
@@ -33,123 +34,75 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	conn, err := grpc.Dial(port, grpc.WithInsecure())
+	pdbclient, err := client.NewClient(pointerdbClientPort)
+
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
+		os.Exit(1)
 	}
 
-	client := proto.NewPointerDBClient(conn)
-
-	logger.Debug(fmt.Sprintf("client dialed port %s", port))
-
+	logger.Debug(fmt.Sprintf("client dialed port %s", pointerdbClientPort))
 	ctx := context.Background()
 
-	// Example pointer paths to put
-	pr1 := proto.PutRequest{
-		Path: []byte("test/path/1"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline1"),
-		},
-		APIKey: apiKey,
+	// Example parameters to pass into API calls
+	var path = p.New("fold1/fold2/fold3/file.txt")
+	pointer := &proto.Pointer{
+		Type:          proto.Pointer_INLINE,
+		InlineSegment: []byte("popcorn"),
 	}
-	pr2 := proto.PutRequest{
-		Path: []byte("test/path/2"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline2"),
-		},
-		APIKey: apiKey,
-	}
-	pr3 := proto.PutRequest{
-		Path: []byte("test/path/3"),
-		Pointer: &proto.Pointer{
-			Type:          proto.Pointer_INLINE,
-			InlineSegment: []byte("inline3"),
-		},
-		APIKey: apiKey,
-	}
-	// rps is an example slice of RemotePieces, which is passed into
-	// this example Pointer of type REMOTE.
-	var rps []*proto.RemotePiece
-	rps = append(rps, &proto.RemotePiece{
-		PieceNum: int64(1),
-		NodeId:   "testId",
-	})
-	pr4 := proto.PutRequest{
-		Path: []byte("test/path/4"),
-		Pointer: &proto.Pointer{
-			Type: proto.Pointer_REMOTE,
-			Remote: &proto.RemoteSegment{
-				Redundancy: &proto.RedundancyScheme{
-					Type:             proto.RedundancyScheme_RS,
-					MinReq:           int64(1),
-					Total:            int64(3),
-					RepairThreshold:  int64(2),
-					SuccessThreshold: int64(3),
-				},
-				PieceId:      "testId",
-				RemotePieces: rps,
-			},
-		},
-		APIKey: apiKey,
+	APIKey := []byte("abc123")
+
+	// Example Put1
+	err = pdbclient.Put(ctx, path, pointer, APIKey)
+
+	if err != nil || status.Code(err) == codes.Internal {
+		logger.Error("couldn't put pointer in db", zap.Error(err))
+	} else {
+		logger.Debug("Success: put pointer in db")
 	}
 
-	// Example Puts
-	_, err = client.Put(ctx, &pr1)
+	// Example Put2
+	err = pdbclient.Put(ctx, p.New("fold1/fold2"), pointer, APIKey)
+
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr2)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr3)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
-	}
-	_, err = client.Put(ctx, &pr4)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to put", zap.Error(err))
+		logger.Error("couldn't put pointer in db", zap.Error(err))
+	} else {
+		logger.Debug("Success: put pointer in db")
 	}
 
 	// Example Get
-	getReq := proto.GetRequest{
-		Path:   []byte("test/path/1"),
-		APIKey: apiKey,
-	}
-	getRes, err := client.Get(ctx, &getReq)
-	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to get", zap.Error(err))
+	getRes, err := pdbclient.Get(ctx, path, APIKey)
+
+	if err != nil {
+		logger.Error("couldn't GET pointer from db", zap.Error(err))
 	} else {
-		pointer := string(getRes.Pointer)
-		logger.Debug("get response: " + pointer)
+		logger.Info("Success: got Pointer from db",
+			zap.String("pointer", getRes.String()),
+		)
 	}
 
-	// Example List
-	listReq := proto.ListRequest{
-		StartingPathKey: []byte("test/path/2"),
-		Limit:           5,
-		APIKey:          apiKey,
-	}
-	listRes, err := client.List(ctx, &listReq)
+	// Example List with pagination
+	startingPathKey := p.New("fold1/")
+	var limit int64 = 1
+
+	paths, trunc, err := pdbclient.List(ctx, startingPathKey, limit, APIKey)
+
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to list file paths")
+		logger.Error("failed to list file paths", zap.Error(err))
 	} else {
 		var stringList []string
-		for _, pathByte := range listRes.Paths {
+		for _, pathByte := range paths {
 			stringList = append(stringList, string(pathByte))
 		}
-		logger.Debug("listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", listRes.Truncated))
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", trunc))
 	}
 
 	// Example Delete
-	delReq := proto.DeleteRequest{
-		Path:   []byte("test/path/1"),
-		APIKey: apiKey,
-	}
-	_, err = client.Delete(ctx, &delReq)
+	err = pdbclient.Delete(ctx, path, APIKey)
+
 	if err != nil || status.Code(err) == codes.Internal {
-		logger.Error("failed to delete: " + string(delReq.Path))
+		logger.Error("Error in deleteing file from db", zap.Error(err))
+	} else {
+		logger.Debug("Success: file is deleted from db")
 	}
 }

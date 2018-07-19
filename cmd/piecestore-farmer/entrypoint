@@ -1,0 +1,16 @@
+#!/bin/sh
+set -euo pipefail
+
+# Create a new farmer, if the ID for an existing farmer isn't specified.
+if [ -z "${PSID}" ]; then
+	mkdir -p "${PS_DIR}"
+	export PSID=$(./piecestore-farmer create \
+		--pieceStoreHost=${PUBLIC_IP} \
+		--pieceStorePort=${RPC_PORT} \
+		--kademliaPort=${KAD_PORT} \
+		--kademliaHost=${KAD_HOST} \
+		--kademliaListenPort=${KAD_LISTEN_PORT} \
+		--dir=${PS_DIR} | awk '/created/ { print $2 }')
+	echo "Created farmer $PSID"
+fi
+exec ./piecestore-farmer start $PSID

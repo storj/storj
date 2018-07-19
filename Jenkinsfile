@@ -6,7 +6,7 @@ node('node') {
     }
 
     stage('Build Images') {
-      sh 'make images'
+      sh 'make images push-images'
     }
 
     stage('Deploy') {
@@ -14,7 +14,7 @@ node('node') {
 		echo 'Skipping deploy stage'
         return
       }
-      sh 'make push-images'
+      sh 'make deploy-images'
     }
 
   }

@@ -21,6 +21,10 @@ const (
 	// DefaultPacketSize sets the target packet size. MTUs are often 1500,
 	// though a good argument could be made for 512
 	DefaultPacketSize = 1000
+
+	// DefaultApplication is the default values for application name. Should be used
+	// when value in ClientOpts.Application is not set and len(os.Args) == 0
+	DefaultApplication = "unknown"
 )
 
 // ClientOpts allows you to set Client Options
@@ -69,7 +73,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 			opts.Application = os.Args[0]
 		} else {
 			// what the actual heck
-			opts.Application = "unknown"
+			opts.Application = DefaultApplication
 		}
 	}
 	if opts.Instance == "" {

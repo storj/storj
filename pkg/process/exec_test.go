@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ func TestMainSingleProcess(t *testing.T) {
 	mockService.On("SetLogger", mock.Anything).Return(nil)
 	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	assert.Nil(t, process.Main(func() error { return nil }, mockService))
+	assert.Nil(t, process.Main(func() (*viper.Viper, error) { return nil, nil }, mockService))
 	mockService.AssertExpectations(t)
 }
 
@@ -73,7 +74,7 @@ func TestMainProcessError(t *testing.T) {
 	mockService.On("SetLogger", mock.Anything).Return(nil)
 	mockService.On("SetMetricHandler", mock.Anything).Return(nil)
 	mockService.On("Process", mock.Anything, mock.Anything, mock.Anything).Return(err)
-	assert.Equal(t, err, process.Main(func() error { return nil }, &mockService))
+	assert.Equal(t, err, process.Main(func() (*viper.Viper, error) { return nil, nil }, &mockService))
 	mockService.AssertExpectations(t)
 }
 
