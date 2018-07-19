@@ -157,7 +157,7 @@ func TestProcess_default(t *testing.T) {
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx, nil, nil)
-	assert.Nil(t, err)
+	assert.True(t, process.ErrUsage.Has(err))
 }
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
