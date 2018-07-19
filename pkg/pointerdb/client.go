@@ -32,9 +32,9 @@ type Client interface {
 	Delete(ctx context.Context, path p.Path, APIKey []byte) error
 }
 
-// NewPointerDBClient initializes a new pointerdb client
-func NewPointerDBClient(address string) (*PointerDB, error) {
-	c, err := NewClient(address, grpc.WithInsecure())
+// NewClient initializes a new pointerdb client
+func NewClient(address string) (*PointerDB, error) {
+	c, err := ClientConnection(address, grpc.WithInsecure())
 
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func NewPointerDBClient(address string) (*PointerDB, error) {
 }
 
 // NewClient makes a server connection
-func NewClient(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
+func ClientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
 	conn, err := grpc.Dial(serverAddr, opts...)
 
 	if err != nil {
@@ -75,9 +75,6 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (poin
 	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(res.GetPointer(), pointer)
 
-	if err != nil {
-		return nil, err
-	}
 	return pointer, nil
 }
 

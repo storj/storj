@@ -34,7 +34,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	pdbclient, err := client.NewPointerDBClient(pointerdbClientPort)
+	pdbclient, err := client.NewClient(pointerdbClientPort)
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
