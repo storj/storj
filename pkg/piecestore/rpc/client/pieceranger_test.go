@@ -55,13 +55,13 @@ func TestPieceRanger(t *testing.T) {
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			calls = append(calls,
 				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: pid.String(), Size: tt.length, Offset: tt.offset}}).Return(nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024, Total: 32 * 1024}}}).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024 * 2}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024, Total: 32 * 1024 * 2}}}).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
@@ -119,13 +119,13 @@ func TestPieceRangerSize(t *testing.T) {
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			gomock.InOrder(
 				stream.EXPECT().Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: pid.String(), Size: tt.length, Offset: tt.offset}}).Return(nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024, Total: 32 * 1024}}}).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024 * 2}}}).Return(nil),
+				stream.EXPECT().Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 32 * 1024, Total: 32 * 1024 * 2}}}).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}

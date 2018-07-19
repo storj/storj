@@ -182,7 +182,7 @@ func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return nil
 	}
 
-	log.Printf("Payer: %s, Renter: %s, Size: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize())
+	log.Printf("Payer: %s, Renter: %s, Size: %v, Total: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize(), data.GetTotal())
 
 	// TODO: Write ba to database
 

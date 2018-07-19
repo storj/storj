@@ -33,7 +33,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 		Piecedata: &pb.PieceStore_PieceData{Content: b},
 		Bandwidthallocation: &pb.BandwidthAllocation{
 			Data: &pb.BandwidthAllocation_Data{
-				Payer: s.signer.payerID, Renter: s.signer.renterID, Size: updatedAllocation,
+				Payer: s.signer.payerID, Renter: s.signer.renterID, Total: updatedAllocation, Size: int64(len(b)),
 			},
 			Signature: sig,
 		},
@@ -87,7 +87,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 			Bandwidthallocation: &pb.BandwidthAllocation{
 				Signature: sig,
 				Data: &pb.BandwidthAllocation_Data{
-					Payer: signer.payerID, Renter: signer.renterID, Size: updatedAllocation,
+					Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize), Total: updatedAllocation,
 				},
 			},
 		}
