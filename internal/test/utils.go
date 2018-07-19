@@ -22,7 +22,7 @@ func NewNodeAddressValue(t *testing.T, address string) storage.Value {
 
 // NewNodeID returns the string representation of a dht node ID
 func NewNodeID(t *testing.T) string {
-	id, err := kademlia.NewID()
+	id, err := kademlia.NewID(1, 38, 5, "")
 	assert.NoError(t, err)
 
 	return id.String()
