@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
+	"github.com/zeebo/errs"
 )
 
 var (
@@ -50,8 +51,14 @@ func defaultBoltDBPath() string {
 	dirname := filepath.Dir(path)
 
 	// TODO(dylanlott, bryanchriswhite): what do do if there a different kind of error?!
-	if _, err := os.Stat(dirname); err == os.ErrNotExist {
-		os.MkdirAll(dirname, 664)
+	if _, err := os.Stat(dirname); err != nil {
+		if err == os.ErrNotExist {
+			if err := os.MkdirAll(dirname, 664); err != nil {
+				zap.S().Error(errs.Wrap(err))
+			}
+		}
+
+		zap.S().Error(errs.Wrap(err))
 	}
 
 	return path

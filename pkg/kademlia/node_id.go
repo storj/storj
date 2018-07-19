@@ -60,9 +60,9 @@ func LoadID(path string) (*KadCreds, error) {
 	if _, err := os.Stat(baseDir); err != nil {
 		if err == os.ErrNotExist {
 			return nil, peertls.ErrNotExist.Wrap(err)
-		} else {
-			return nil, errs.Wrap(err)
 		}
+
+		return nil, errs.Wrap(err)
 		// if err := os.MkdirAll(baseDir, 600); err != nil {
 		// 	return nil, errs.Wrap(err)
 		// }
@@ -103,7 +103,11 @@ func (k *KadCreds) Save(path string) error {
 		return errs.New("unable to open identity file for writing \"%s\"", path, err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			zap.S().Error(errs.Wrap(err))
+		}
+	}()
 
 	if err = k.write(file); err != nil {
 		return err
@@ -169,7 +173,10 @@ func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 	}
 
 	shake := sha3.NewShake256()
-	shake.Write(keyBytes)
+	if _, err := shake.Write(keyBytes); err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	hashBytes := make([]byte, hashLen)
 
 	bytesRead, err := shake.Read(hashBytes)
@@ -269,10 +276,21 @@ func (k *KadCreds) Bytes() []byte {
 
 	b := bytes.NewBuffer([]byte{})
 	encoder := base64.NewEncoder(base64.URLEncoding, b)
-	encoder.Write(k.hash)
-	encoder.Write(pubKey)
-	binary.Write(encoder, binary.LittleEndian, k.hashLen)
-	encoder.Close()
+	if _, err := encoder.Write(k.hash); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if _, err := encoder.Write(pubKey); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := binary.Write(encoder, binary.LittleEndian, k.hashLen); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := encoder.Close(); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
 
 	return b.Bytes()
 }
@@ -306,10 +324,21 @@ func (k *KadID) String() string {
 func (k *KadID) Bytes() []byte {
 	b := bytes.NewBuffer([]byte{})
 	encoder := base64.NewEncoder(base64.URLEncoding, b)
-	encoder.Write(k.hash)
-	encoder.Write(k.pubKey)
-	binary.Write(encoder, binary.LittleEndian, k.hashLen)
-	encoder.Close()
+	if _, err := encoder.Write(k.hash); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if _, err := encoder.Write(k.pubKey); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := binary.Write(encoder, binary.LittleEndian, k.hashLen); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := encoder.Close(); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
 
 	return b.Bytes()
 }

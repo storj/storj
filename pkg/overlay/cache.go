@@ -163,7 +163,9 @@ func (o *Cache) Walk(ctx context.Context) error {
 			errs.New("unable to parse node id \"%s\"", v.Id, err)
 		}
 		if _, err := o.DHT.FindNode(ctx, nodeID); err != nil {
-			zap.Error(ErrNodeNotFound.New("node id:", v.Id))
+			err = ErrNodeNotFound.New("node id:", v.Id)
+			zap.Error(err)
+			return err
 		}
 	}
 
