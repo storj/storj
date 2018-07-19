@@ -25,11 +25,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return errors.New("Error receiving Piece data")
 	}
 
-	pd := recv.PieceData
-	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.Id, pd.Size, pd.Offset)
+	pd := recv.GetPieceData()
+	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.GetId(), pd.GetSize(), pd.GetOffset())
 
 	// Get path to data being retrieved
-	path, err := pstore.PathByID(pd.Id, s.DataDir)
+	path, err := pstore.PathByID(pd.GetId(), s.DataDir)
 	if err != nil {
 		return err
 	}
@@ -47,9 +47,19 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		totalToRead = fileInfo.Size()
 	}
 
-	storeFile, err := pstore.RetrieveReader(stream.Context(), pd.Id, pd.Offset, totalToRead, s.DataDir)
+	retrieved, allocated, err := s.retrieveData(stream, pd.GetId(), pd.GetOffset(), totalToRead)
 	if err != nil {
 		return err
+	}
+
+	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", allocated, retrieved)
+	return nil
+}
+
+func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
+	storeFile, err := pstore.RetrieveReader(stream.Context(), id, offset, length, s.DataDir)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	defer utils.Close(storeFile)
@@ -57,12 +67,12 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	writer := NewStreamWriter(s, stream)
 	var totalRetrieved, totalAllocated int64
 	var allocations []int64
-	for totalRetrieved < totalToRead {
+	for totalRetrieved < length {
 		// Receive Bandwidth allocation
-		recv, err = stream.Recv()
+		recv, err := stream.Recv()
 		if err != nil {
 			log.Println(err)
-			return err
+			return 0, 0, err
 		}
 
 		ba := recv.GetBandwidthallocation()
@@ -70,11 +80,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 		if baData != nil {
 			if err = s.verifySignature(ba.GetSignature()); err != nil {
-				return err
+				return 0, 0, err
 			}
 
 			if err = s.writeBandwidthAllocToDB(ba); err != nil {
-				return err
+				return 0, 0, err
 			}
 
 			allocation := baData.GetSize()
@@ -92,8 +102,8 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 		sizeToRead := allocations[len(allocations)-1]
 
-		if sizeToRead > totalToRead-totalRetrieved {
-			sizeToRead = totalToRead - totalRetrieved
+		if sizeToRead > length-totalRetrieved {
+			sizeToRead = length - totalRetrieved
 		}
 
 		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
@@ -104,22 +114,15 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		// Write the buffer to the stream we opened earlier
 		n, err = writer.Write(buf[:n])
 		if err != nil {
-			return err
+			return 0, 0, err
 		}
 		totalRetrieved += int64(n)
 		allocations[len(allocations)-1] -= int64(n)
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
 
 		if allocations[len(allocations)-1] <= 0 {
 			allocations = allocations[:len(allocations)-1]
 		}
 	}
 
-	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", totalAllocated, totalRetrieved)
-	return nil
+	return totalRetrieved, totalAllocated, nil
 }
