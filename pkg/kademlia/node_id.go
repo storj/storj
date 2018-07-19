@@ -29,15 +29,18 @@ const (
 )
 
 var (
+	// ErrInvalidNodeID is used when a node id can't be parsed
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
 )
 
+// KadID implements dht.nodeID and is used for the public portion of an identity (i.e. tls public key)
 type KadID struct {
 	hash    []byte
 	pubKey  []byte
 	hashLen uint16
 }
 
+// KadID implements dht.nodeID and is used for the private portion of an identity (i.e. tls cert/private key)
 type KadCreds struct {
 	hash    []byte
 	hashLen uint16
@@ -153,6 +156,7 @@ func (k *KadCreds) Save(path string) error {
 //
 // }
 
+// CertToKadCreds takes a tls certificate pointer and a hash length to build a `KadCreds` struct
 func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 	pubKey, ok := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if pubKey == nil || !ok {
@@ -250,10 +254,12 @@ func ParseID(id string) (*KadID, error) {
 	return kadID, nil
 }
 
+// String serializes the hash, public key, and hash length into a PEM-encoded string
 func (k *KadCreds) String() string {
 	return string(k.Bytes())
 }
 
+// Bytes serializes the hash, public key, and hash length into a PEM-encoded byte-slice
 func (k *KadCreds) Bytes() []byte {
 	p := k.tlsH.PubKey()
 	pubKey, err := x509.MarshalPKIXPublicKey(&p)
@@ -271,6 +277,12 @@ func (k *KadCreds) Bytes() []byte {
 	return b.Bytes()
 }
 
+// Hash returns the hash the public key to a langth of `k.hashLen`
+func (k *KadCreds) Hash() []byte {
+	return k.hash
+}
+
+// Difficulty returns the number of trailing zero-value bytes in the hash
 func (k *KadCreds) Difficulty() uint16 {
 	hash := k.Hash()
 	for i := 1; i < len(hash); i++ {
@@ -285,14 +297,12 @@ func (k *KadCreds) Difficulty() uint16 {
 	return 0
 }
 
+// String serializes the hash, public key, and hash length into a PEM-encoded string
 func (k *KadID) String() string {
 	return string(k.Bytes())
 }
 
-func (k *KadCreds) Hash() []byte {
-	return k.hash
-}
-
+// Bytes serializes the hash, public key, and hash length into a PEM-encoded byte-slice
 func (k *KadID) Bytes() []byte {
 	b := bytes.NewBuffer([]byte{})
 	encoder := base64.NewEncoder(base64.URLEncoding, b)
@@ -304,10 +314,12 @@ func (k *KadID) Bytes() []byte {
 	return b.Bytes()
 }
 
+// Hash returns the hash the public key to a langth of `k.hashLen`
 func (k *KadID) Hash() []byte {
 	return k.hash
 }
 
+// Difficulty returns the number of trailing zero-value bytes in the hash
 func (k *KadID) Difficulty() uint16 {
 	hash := k.Hash()
 	for i := 1; i < len(hash); i++ {
