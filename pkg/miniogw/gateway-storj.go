@@ -9,7 +9,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
@@ -17,9 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
-	mpb "storj.io/storj/protos/objects"
+	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/protos/meta"
 )
 
 var (
@@ -44,13 +44,13 @@ func storjGatewayMain(ctx *cli.Context) {
 	minio.StartGateway(ctx, s)
 }
 
-func mockObjectStore() objects.ObjectStore {
-	return &objects.Objects{}
+func mockObjectStore() objects.Store {
+	return objects.NewStore(nil)
 }
 
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	os objects.ObjectStore
+	os objects.Store
 }
 
 // Name implements cmd.Gateway
@@ -82,7 +82,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	return s.storj.os.DeleteObject(ctx, objpath)
+	return s.storj.os.Delete(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -95,7 +95,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
 		return err
 	}
@@ -123,27 +123,18 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objPath)
-	if err != nil {
-		return objInfo, err
-	}
-
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
-	newmetainfo := &mpb.StorjMetaInfo{}
-	err = proto.Unmarshal(m.Data, newmetainfo)
+	m, err := s.storj.os.Meta(ctx, objPath)
 	if err != nil {
 		return objInfo, err
 	}
 	return minio.ObjectInfo{
-		Name:    newmetainfo.GetName(),
-		Bucket:  newmetainfo.GetBucket(),
-		ModTime: m.Modified,
-		Size:    newmetainfo.GetSize(),
-		ETag:    newmetainfo.GetETag(),
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        m.Checksum,
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
 	}, err
 }
 
@@ -158,7 +149,15 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	//TODO: Fix parameters
+	_, _, err = s.storj.os.List(ctx, paths.New(bucket, ""), nil, nil, true, int(0), storage.MetaAll)
+	if err != nil {
+		return result, err
+	}
+	// TODO: Fill the result from the return of the List()
 	result = minio.ListObjectsInfo{}
+
 	err = nil
 	return result, err
 }
@@ -174,24 +173,19 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
-	serMetaInfo := &mpb.StorjMetaInfo{
+	serMetaInfo := meta.Serializable{
 		ContentType: metadata["content-type"],
-		Bucket:      bucket,
-		Name:        object,
-	}
-	metainfo, err := proto.Marshal(serMetaInfo)
-	if err != nil {
-		return objInfo, err
+		UserDefined: nil,
 	}
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
 	expTime := time.Time{}
-	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
+	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
 		Name:   object,
 		Bucket: bucket,
 		// TODO create a followup ticket in JIRA to fix ModTime
-		ModTime: time.Now(),
+		ModTime: m.Modified,
 		Size:    data.Size(),
 		ETag:    minio.GenETag(),
 	}, err
