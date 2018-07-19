@@ -122,6 +122,10 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	return t, nil
 }
 
+// NewTLSConfig returns a tls config (based on the given config, if any)
+// which skips normal tls verification, requires a client certificate,
+// the certificate-chain from `t`, and a peer certificate verifixation
+// function compatible with our "peertls" protocol.
 func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	config := cloneTLSConfig(c)
 
@@ -136,26 +140,33 @@ func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	return config
 }
 
+// NewPeerTLS returns grpc transport credentials from `t` and the given
+// tls config, if any
 func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
 	return credentials.NewTLS(t.NewTLSConfig(config))
 }
 
+// DialOption returns a grpc `DialOption` from `t` for outgoing connections
 func (t *TLSHelper) DialOption() grpc.DialOption {
 	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
 }
 
+// DialOption returns a grpc `ServerOption` from `t` for incoming connections
 func (t *TLSHelper) ServerOption() grpc.ServerOption {
 	return grpc.Creds(t.NewPeerTLS(nil))
 }
 
+// PubKey returns a copy of the value of the public key
 func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 	return t.cert.PrivateKey.(*ecdsa.PrivateKey).PublicKey
 }
 
+// PubKey returns a copy of the value of the certificate (`tls.Certificate`)
 func (t *TLSHelper) Certificate() tls.Certificate {
 	return t.cert
 }
 
+// RootKey returns a copy of the value of the root key, if there is one
 func (t *TLSHelper) RootKey() ecdsa.PrivateKey {
 	if t.rootKey == nil {
 		return ecdsa.PrivateKey{}

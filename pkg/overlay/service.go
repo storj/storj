@@ -18,18 +18,18 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"os"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
-	"os"
 )
 
 var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	options                                                                                  peertls.TLSHelper
 )
 
 func init() {
