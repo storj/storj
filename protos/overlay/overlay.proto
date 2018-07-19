@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-import "duration.proto";
+import "google/protobuf/duration.proto";
 
 package overlay;
 
@@ -91,5 +91,6 @@ message QueryRequest {
 
 message QueryResponse {
     overlay.Node sender = 1;
+
     repeated overlay.Node response = 2;
 }
