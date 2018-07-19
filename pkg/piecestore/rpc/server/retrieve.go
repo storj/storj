@@ -96,8 +96,18 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 			sizeToRead = totalToRead - totalRetrieved
 		}
 
-		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		totalRetrieved += n
+		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
+		n, err := storeFile.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		// Write the buffer to the stream we opened earlier
+		n, err = writer.Write(buf[:n])
+		if err != nil {
+			return err
+		}
+		totalRetrieved += int64(n)
+		allocations[len(allocations)-1] -= int64(n)
 
 		if err == io.EOF {
 			break
@@ -105,7 +115,9 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 			return err
 		}
 
-		allocations = allocations[:len(allocations)-1]
+		if allocations[len(allocations)-1] <= 0 {
+			allocations = allocations[:len(allocations)-1]
+		}
 	}
 
 	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", totalAllocated, totalRetrieved)
