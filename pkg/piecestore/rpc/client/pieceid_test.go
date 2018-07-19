@@ -27,7 +27,7 @@ func TestNewPieceID(t *testing.T) {
 
 func TestDerivePieceID(t *testing.T) {
 	pid := NewPieceID()
-	nid, err := kademlia.NewID()
+	nid, err := kademlia.NewID(1, 16, 2, "")
 	assert.NoError(t, err)
 
 	did := pid.Derive(nid.Bytes())

@@ -65,7 +65,12 @@ func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 		},
 	}
 
-	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, ip, kadListenPort)
+	nodeID, err := kademlia.ParseID(id)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	kad, err := kademlia.NewKademlia(nodeID, []proto.Node{node}, ip, kadListenPort)
 	if err != nil {
 		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
 	}

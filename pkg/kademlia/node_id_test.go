@@ -124,7 +124,7 @@ func TestLoadID(t *testing.T) {
 	err = savedKadCreds.Save(idPath)
 	assert.NoError(t, err)
 
-	loadedKadCreds, err := Load(idPath)
+	loadedKadCreds, err := LoadID(idPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, loadedKadCreds)
 

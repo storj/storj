@@ -51,7 +51,7 @@ type KadCreds struct {
 // The "identity file" must contain PEM encoded data. The certificate portion
 // may contain intermediate certificates following the leaf certificate to
 // form a certificate chain.
-func Load(path string) (*KadCreds, error) {
+func LoadID(path string) (*KadCreds, error) {
 	baseDir := filepath.Dir(path)
 
 	if _, err := os.Stat(baseDir); err != nil {

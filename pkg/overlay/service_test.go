@@ -45,7 +45,7 @@ func TestNewServer(t *testing.T) {
 	srv.Stop()
 }
 
-func TestNewClient_CreateTLS(t *testing.T) {
+func TestNewClient_SingleIdentity(t *testing.T) {
 	var err error
 
 	tmpPath, err := ioutil.TempDir("", "TestNewClient")
@@ -69,48 +69,13 @@ func TestNewClient_CreateTLS(t *testing.T) {
 	assert.NotNil(t, r)
 }
 
-func TestNewClient_LoadTLS(t *testing.T) {
-	var err error
-
-	tmpPath, err := ioutil.TempDir("", "TestNewClient")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpPath)
-
-	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
-	_, err = peertls.NewTLSHelper(
-		basePath,
-		basePath,
-		true,
-		false,
-	)
-
-	assert.NoError(t, err)
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-	// NB: do NOT create a cert, it should be loaded from disk
-	srv, tlsOpts := newMockTLSServer(t, basePath, false)
-
-	go srv.Serve(lis)
-	defer srv.Stop()
-
-	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
-	assert.NoError(t, err)
-
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
-}
-
-func TestNewClient_IndependentTLS(t *testing.T) {
+func TestNewClient_IndependentIdentities(t *testing.T) {
 	var err error
 
 	tmpPath, err := ioutil.TempDir("", "TestNewClient_IndependentTLS")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpPath)
 
-	clientBasePath := filepath.Join(tmpPath, "client")
 	serverBasePath := filepath.Join(tmpPath, "server")
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
@@ -120,17 +85,11 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	go srv.Serve(lis)
 	defer srv.Stop()
 
-	clientTLSOps, err := peertls.NewTLSHelper(
-		clientBasePath,
-		clientBasePath,
-		true,
-		false,
-	)
-
+	tlsH, err := peertls.NewTLSHelper(nil)
 	assert.NoError(t, err)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, clientTLSOps.DialOption())
+	c, err := NewClient(&address, tlsH.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -202,12 +161,7 @@ func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 }
 
 func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Server, *peertls.TLSHelper) {
-	tlsOpts, err := peertls.NewTLSHelper(
-		tlsBasePath,
-		tlsBasePath,
-		create,
-		false,
-	)
+	tlsOpts, err := peertls.NewTLSHelper(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsOpts)
 

@@ -38,10 +38,6 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
-	flag.StringVar(&options.RootCertRelPath, "tlsCertBasePath", "", "The base path for TLS certificates")
-	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
-	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
-	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -70,12 +66,7 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 
 // NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
 func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSHelper) (_ *grpc.Server, _ error) {
-	t, err := peertls.NewTLSHelper(
-		fopts.RootCertRelPath,
-		fopts.RootKeyRelPath,
-		fopts.Create,
-		fopts.Overwrite,
-	)
+	t, err := peertls.NewTLSHelper(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +85,7 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
 func NewTLSClient(serverAddr *string, fopts peertls.TLSHelper, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	t, err := peertls.NewTLSHelper(
-		fopts.RootCertRelPath,
-		fopts.RootCertRelPath,
-		fopts.Create,
-		fopts.Overwrite,
-	)
+	t, err := peertls.NewTLSHelper(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +120,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	id, err := kademlia.NewID()
+	id, err := kademlia.NewID(1, 16, 2, "")
 	if err != nil {
 		return err
 	}
