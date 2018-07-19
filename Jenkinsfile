@@ -1,40 +1,23 @@
 node('node') {
-
-    // Install the desired Go version
-    def root = tool name: 'Go 1.10', type: 'go'
-    
-    // Export environment variables pointing to the directory where Go was installed
-    withEnv(["GOROOT=${root}", "PATH+GO=${root}/bin", "PATH=$PATH:${root}/bin"]) {
-        sh 'go version'
-    }
   try {
 
-    stage 'Checkout'
+    stage('Checkout') {
+        checkout scm
+    }
 
-      checkout scm
+    stage('Build Images') {
+      sh 'make images'
+    }
 
-    stage 'Test'
-
-      sh """#!/bin/bash -e
-        echo $root
-        echo "path="
-        echo $PATH
-        make build-dev-deps lint
-      """
-
-    stage 'Build Docker'
-        echo 'Build'
-
-    stage 'Deploy'
-        echo 'Deploy'
- 
-
-    stage 'Cleanup'
-
-      echo 'prune and cleanup'
+    stage('Deploy') {
+      if (env.BRANCH_NAME != 'master') {
+		echo 'Skipping deploy stage'
+        return
+      }
+      sh 'make push-images'
+    }
 
   }
-
   catch (err) {
     currentBuild.result = "FAILURE"
 
@@ -47,5 +30,14 @@ node('node') {
 
       throw err
     */
+
+  }
+  finally {
+
+    stage('Cleanup') {
+      sh 'make clean-images'
+      deleteDir()
+    }
+
   }
 }

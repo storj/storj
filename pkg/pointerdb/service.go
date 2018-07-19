@@ -21,7 +21,7 @@ import (
 
 var (
 	port   = flag.Int("port", 8080, "port")
-	dbPath = flag.String("pointerdbDB", "pointerdb.db", "pointerdb db path")
+	dbPath = flag.String("pointerdb", "pointerdb.db", "pointerdb db path")
 )
 
 // Process fits the `Process` interface for services
@@ -34,7 +34,11 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 	if err != nil {
 		return err
 	}
-	defer bdb.Close()
+	defer func() {
+		if err := bdb.Close(); err != nil {
+			s.logger.Error("failed to close boltDB client", zap.Error(err))
+		}
+	}()
 
 	// start grpc server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))

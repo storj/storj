@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
@@ -154,7 +156,10 @@ func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 
 // EnsureRedis attempts to start the `redis-server` binary
 func EnsureRedis(t *testing.T) (_ RedisDone) {
-	flag.Set("redisAddress", "127.0.0.1:6379")
+	viper.Set("redisaddress", "127.0.0.1:6379")
+	if err := flag.Set("redisAddress", "127.0.0.1:6379"); err != nil {
+		log.Fatalf("Failed to set flag 'redisAddress': %s\n", err)
+	}
 
 	index, _ := randomHex(5)
 	redisRefs[index] = true
@@ -217,7 +222,9 @@ func (r *RedisServer) start(t *testing.T) {
 
 func (r *RedisServer) stop() {
 	r.started = false
-	r.cmd.Process.Kill()
+	if err := r.cmd.Process.Kill(); err != nil {
+		log.Printf("Failed to kill process: %s\n", err)
+	}
 }
 
 func randomHex(n int) (string, error) {
