@@ -145,60 +145,76 @@ func TestRetrieve(t *testing.T) {
 
 	// set up test cases
 	tests := []struct {
-		id       string
-		reqSize  int64
-		respSize int64
-		offset   int64
-		content  []byte
-		err      string
+		id        string
+		reqSize   int64
+		respSize  int64
+		allocSize int64
+		offset    int64
+		content   []byte
+		err       string
 	}{
 		{ // should successfully retrieve data
-			id:       "11111111111111111111",
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "",
+		},
+		{ // should successfully retrieve data with lower allocations
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  3,
+			allocSize: 3,
+			offset:    0,
+			content:   []byte("but"),
+			err:       "",
 		},
 		{ // should successfully retrieve data
-			id:       "11111111111111111111",
-			reqSize:  -1,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   -1,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "",
 		},
 		{ // server should err with invalid id
-			id:       "123",
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      "rpc error: code = Unknown desc = argError: Invalid id length",
+			id:        "123",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			id:       "22222222222222222222",
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
+			id:        "22222222222222222222",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:       "11111111111111111111",
-			reqSize:  5,
-			respSize: 4,
-			offset:   1,
-			content:  []byte("utts"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  4,
+			allocSize: 5,
+			offset:    1,
+			content:   []byte("utts"),
+			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:       "11111111111111111111",
-			reqSize:  4,
-			respSize: 4,
-			offset:   0,
-			content:  []byte("butt"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   4,
+			respSize:  4,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butt"),
+			err:       "",
 		},
 	}
 
@@ -214,11 +230,7 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			// Send bandwidth bandwidthAllocation
-			baSize := tt.reqSize
-			if baSize <= 0 {
-				baSize = 1024 * 32
-			}
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: baSize}}})
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize}}})
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -232,13 +244,6 @@ func TestRetrieve(t *testing.T) {
 					}
 				}
 				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-
-			// send piece database
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: baSize * 2}}})
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
 
