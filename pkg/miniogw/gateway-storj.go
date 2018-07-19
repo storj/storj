@@ -151,14 +151,29 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	defer mon.Task()(&ctx)(&err)
 
 	//TODO: Fix parameters
-	_, _, err = s.storj.os.List(ctx, paths.New(bucket, ""), nil, nil, true, int(0), storage.MetaAll)
-	if err != nil {
-		return result, err
-	}
-	// TODO: Fill the result from the return of the List()
-	result = minio.ListObjectsInfo{}
+	for {
+		items, more, err := s.storj.os.List(ctx, paths.New(bucket, ""), nil, nil, true, int(0), storage.MetaAll)
+		if err != nil {
+			return result, err
+		}
+		if len(items) > 0 {
+			for _, item := range items {
+				result = minio.ListObjectsInfo{
+					IsTruncated: false,
+					NextMarker:  "",
+					Objects: minio.ObjectInfo{
+						{
+							Bucket: bucket,
+						},
+					},
+				}
+			}
+		}
 
-	err = nil
+		if !more {
+			break
+		}
+	}
 	return result, err
 }
 
