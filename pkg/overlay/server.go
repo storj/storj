@@ -15,10 +15,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-var (
-	emptyKey = storage.Key{}
-)
-
 // Server implements our overlay RPC service
 type Server struct {
 	dht     dht.DHT
