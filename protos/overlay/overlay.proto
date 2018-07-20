@@ -94,3 +94,21 @@ message QueryResponse {
 
     repeated overlay.Node response = 2;
 }
+
+message Restriction {
+    enum Operator {
+        LT = 0;
+        EQ = 1;
+        GT = 2;
+        LTE = 3;
+        GTE = 4;
+    }
+    enum Operand {
+        freeBandwidth = 0;
+        freeDisk = 1;
+    }
+    
+    Operator operator = 1;
+    Operand operand = 2;
+    int64 value = 3;
+}

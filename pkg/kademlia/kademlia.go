@@ -89,7 +89,7 @@ func (k Kademlia) Disconnect() error {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...dht.NodeRestriction) ([]*proto.Node, error) {
+func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
 	if start == "" {
 		start = k.dht.GetSelfID()
 	}
@@ -102,10 +102,10 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 	nodes := convertNetworkNodes(nn)
 
 	for _, r := range restrictions {
-		nodes = r(nodes)
+		nodes = restrict(r, nodes)
 	}
 
-	return convertNetworkNodes(nn), nil
+	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
@@ -248,4 +248,53 @@ func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 			Address:   addr,
 		},
 	}, nil
+}
+
+func restrict(r proto.Restriction, n []*proto.Node) []*proto.Node {
+	oper := r.GetOperand()
+	op := r.GetOperator()
+	val := r.GetValue()
+	var comp int64
+
+	results := []*proto.Node{}
+	for _, v := range n {
+		switch oper {
+		case proto.Restriction_freeBandwidth:
+			comp = v.GetRestrictions().GetFreeBandwidth()
+		case proto.Restriction_freeDisk:
+			comp = v.GetRestrictions().GetFreeDisk()
+		}
+
+		switch op {
+		case proto.Restriction_EQ:
+			if comp != val {
+				results = append(results, v)
+				continue
+			}
+		case proto.Restriction_LT:
+			if comp < val {
+				results = append(results, v)
+				continue
+			}
+		case proto.Restriction_LTE:
+			if comp <= val {
+				results = append(results, v)
+				continue
+			}
+		case proto.Restriction_GT:
+			if comp > val {
+				results = append(results, v)
+				continue
+			}
+		case proto.Restriction_GTE:
+			if comp >= val {
+				results = append(results, v)
+				continue
+			}
+
+		}
+
+	}
+
+	return results
 }

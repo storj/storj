@@ -18,8 +18,7 @@ type NodeID interface {
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start string, limit int, restrictions ...NodeRestriction) ([]*proto.Node, error)
-
+	GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error)
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node proto.Node) (proto.Node, error)
@@ -54,6 +53,3 @@ type Bucket interface {
 	Midpoint() string
 	Nodes() []*proto.Node
 }
-
-// NodeRestriction excludes node from a result set
-type NodeRestriction func([]*proto.Node) []*proto.Node

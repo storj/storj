@@ -131,13 +131,13 @@ func TestGetNodes(t *testing.T) {
 		start        string
 		limit        int
 		expectedErr  error
-		restrictions dht.NodeRestriction
+		restrictions []overlay.Restriction
 	}{
 		{
 			k:            newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)], bootNode),
 			limit:        10,
 			expectedErr:  nil,
-			restrictions: func(n []*overlay.Node) []*overlay.Node { return n },
+			restrictions: []overlay.Restriction{},
 		},
 	}
 
@@ -155,7 +155,7 @@ func TestGetNodes(t *testing.T) {
 		assert.NoError(t, err)
 		start := rt.Local().Id
 
-		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions)
+		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions...)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Len(t, nodes, v.limit)
 		v.k.dht.Disconnect()
