@@ -31,9 +31,7 @@ const (
 var (
 	// ErrInvalidNodeID is used when a node id can't be parsed
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
-	tlsConfig        = &tls.Config{
-		VerifyPeerCertificate: VerifyPeerIdentity,
-	}
+	ErrDifficulty = errs.Class("difficulty error")
 )
 
 // KadID implements dht.nodeID and is used for the public portion of an identity (i.e. tls public key)
@@ -50,12 +48,27 @@ type KadCreds struct {
 	tlsH    *peertls.TLSHelper
 }
 
-func VerifyPeerIdentity(_ [][]byte, certChains [][]*x509.Certificate) error {
-	for _, certs := range certChains {
-		kadID, err := CertToKadID(certs)
+func baseConfig(difficulty, hashLen uint16) (*tls.Config) {
+	verify := func(_ [][]byte, certChains [][]*x509.Certificate) error {
+		for _, certs := range certChains {
+			for _, c := range certs {
+				kadID, err := CertToKadID(c, hashLen)
+				if err != nil {
+					return err
+				}
+
+				if kadID.Difficulty() < difficulty {
+					return ErrDifficulty.New("expected: %d; got: %d", difficulty, kadID.Difficulty())
+				}
+			}
+		}
+
+		return nil
 	}
 
-	return nil
+	return &tls.Config{
+		VerifyPeerCertificate: verify,
+	}
 }
 
 // LoadID reads and parses an "identity" file containing a tls certificate
@@ -188,7 +201,7 @@ func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 		return nil, err
 	}
 
-	tlsH, err := peertls.NewTLSHelper(cert, tlsConfig)
+	tlsH, err := peertls.NewTLSHelper(cert)
 	if err != nil {
 		return nil, err
 	}
@@ -198,6 +211,8 @@ func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 		hash:    hashBytes,
 		hashLen: hashLen,
 	}
+
+	kadCreds.tlsH.BaseConfig = baseConfig(kadCreds.Difficulty(), hashLen)
 
 	return kadCreds, nil
 }
@@ -214,7 +229,9 @@ func CertToKadID(cert *x509.Certificate, hashLen uint16) (*KadID, error) {
 	}
 
 	kadID := &KadID{
-		pubKey: pubKey,
+		pubKey:  pubKey,
+		hash:    hashBytes,
+		hashLen: hashLen,
 	}
 
 	return kadID, nil
@@ -405,10 +422,11 @@ func generateCreds(difficulty, hashLen uint16, c chan KadCreds, done chan bool) 
 
 			return
 		default:
-			tlsH, _ := peertls.NewTLSHelper(nil, tlsConfig)
+			tlsH, _ := peertls.NewTLSHelper(nil)
 
 			cert := tlsH.Certificate()
 			kadCreds, _ := CertToKadCreds(&cert, hashLen)
+			kadCreds.tlsH.BaseConfig = baseConfig(kadCreds.Difficulty(), hashLen)
 
 			if kadCreds.Difficulty() >= difficulty {
 				c <- *kadCreds

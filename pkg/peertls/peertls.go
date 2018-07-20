@@ -44,7 +44,7 @@ func IsNotExist(err error) bool {
 type TLSHelper struct {
 	cert       tls.Certificate
 	rootKey    *ecdsa.PrivateKey
-	baseConfig *tls.Config
+	BaseConfig *tls.Config
 }
 
 type ecdsaSignature struct {
@@ -115,7 +115,7 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
-func NewTLSHelper(cert *tls.Certificate, baseConfig *tls.Config) (*TLSHelper, error) {
+func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	var (
 		c       tls.Certificate
 		err     error
@@ -132,9 +132,8 @@ func NewTLSHelper(cert *tls.Certificate, baseConfig *tls.Config) (*TLSHelper, er
 	}
 
 	t := &TLSHelper{
-		cert:    c,
-		rootKey: rootKey,
-		baseConfig: baseConfig,
+		cert:       c,
+		rootKey:    rootKey,
 	}
 
 	return t, nil
@@ -146,7 +145,7 @@ func NewTLSHelper(cert *tls.Certificate, baseConfig *tls.Config) (*TLSHelper, er
 // function compatible with our "peertls" protocol.
 func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	if c == nil {
-		c = t.baseConfig
+		c = t.BaseConfig
 	}
 
 	config := cloneTLSConfig(c)
@@ -170,12 +169,12 @@ func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredenti
 
 // DialOption returns a grpc `DialOption` from `t` for outgoing connections
 func (t *TLSHelper) DialOption() grpc.DialOption {
-	return grpc.WithTransportCredentials(t.NewPeerTLS(t.baseConfig))
+	return grpc.WithTransportCredentials(t.NewPeerTLS(t.BaseConfig))
 }
 
 // ServerOption returns a grpc `ServerOption` from `t` for incoming connections
 func (t *TLSHelper) ServerOption() grpc.ServerOption {
-	return grpc.Creds(t.NewPeerTLS(t.baseConfig))
+	return grpc.Creds(t.NewPeerTLS(t.BaseConfig))
 }
 
 // PubKey returns a copy of the value of the public key
