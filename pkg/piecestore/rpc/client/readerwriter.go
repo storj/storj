@@ -20,23 +20,19 @@ type StreamWriter struct {
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
+	updatedAllocation := s.totalWritten + int64(len(b))
+	allocationData := &pb.BandwidthAllocation_Data{
+		Payer: s.signer.payerID, Renter: s.signer.renterID, Total: updatedAllocation, Size: int64(len(b)),
+	}
 
-	// TODO: What does the message look like?
-	sig, err := s.signer.sign([]byte{'m', 's', 'g'})
+	sig, err := s.signer.sign(allocationData)
 	if err != nil {
 		return 0, err
 	}
 
-	updatedAllocation := s.totalWritten + int64(len(b))
-
 	msg := &pb.PieceStore{
-		Piecedata: &pb.PieceStore_PieceData{Content: b},
-		Bandwidthallocation: &pb.BandwidthAllocation{
-			Data: &pb.BandwidthAllocation_Data{
-				Payer: s.signer.payerID, Renter: s.signer.renterID, Total: updatedAllocation, Size: int64(len(b)),
-			},
-			Signature: sig,
-		},
+		Piecedata:           &pb.PieceStore_PieceData{Content: b},
+		Bandwidthallocation: &pb.BandwidthAllocation{Data: allocationData, Signature: sig},
 	}
 
 	s.totalWritten = updatedAllocation
@@ -75,20 +71,20 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 	}
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		// TODO: What does the message look like?
-		sig, err := signer.sign([]byte{'m', 's', 'g'})
+		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
+		allocationData := &pb.BandwidthAllocation_Data{
+			Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize), Total: updatedAllocation,
+		}
+
+		sig, err := signer.sign(allocationData)
 		if err != nil {
 			return nil, err
 		}
 
-		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
-
 		msg := &pb.PieceRetrieval{
 			Bandwidthallocation: &pb.BandwidthAllocation{
 				Signature: sig,
-				Data: &pb.BandwidthAllocation_Data{
-					Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize), Total: updatedAllocation,
-				},
+				Data:      allocationData,
 			},
 		}
 
