@@ -60,5 +60,9 @@ func Main() error {
 		return err
 	}
 	fmt.Println("decrypted path: ", decryptedPath)
+
+	// implement Bytes() function
+	var pathBytes = path.Bytes()
+	fmt.Println("path in Bytes is: ", pathBytes)
 	return nil
 }

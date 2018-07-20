@@ -3,11 +3,16 @@
 
 package server
 
+import "github.com/zeebo/errs"
+
 // AllocationManager manages allocations for file retrieval
 type AllocationManager struct {
 	Allocated, Used, MaxToUse int64
 	allocations               []int64
 }
+
+// AllocationError is a type of error for failures in AllocationManager
+var AllocationError = errs.Class("allocation error")
 
 // NewAllocationManager returns a new AllocationManager
 func NewAllocationManager(retrievalSize int64) *AllocationManager {
@@ -44,9 +49,9 @@ func (am *AllocationManager) AddAllocation(allocation int64) {
 }
 
 // UseAllocation indicates to the AllocationManager that an Amount was successfully Used for an allocation
-func (am *AllocationManager) UseAllocation(amount int64) {
+func (am *AllocationManager) UseAllocation(amount int64) error {
 	if (len(am.allocations)) == 0 {
-		return
+		return AllocationError.New("Used Unallocated Bandwidth")
 	}
 
 	am.Used += amount
@@ -55,4 +60,6 @@ func (am *AllocationManager) UseAllocation(amount int64) {
 	if am.allocations[len(am.allocations)-1] <= 0 {
 		am.allocations = am.allocations[:len(am.allocations)-1]
 	}
+
+	return nil
 }

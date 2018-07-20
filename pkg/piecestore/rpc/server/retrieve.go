@@ -4,15 +4,18 @@
 package server
 
 import (
-	"errors"
 	"io"
 	"log"
 	"os"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
+
+// RetrieveError is a type of error for failures in Server.Retrieve()
+var RetrieveError = errs.Class("retrieve error")
 
 // Retrieve -- Retrieve data from piecestore and send to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
@@ -21,8 +24,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	// Receive Signature
 	recv, err := stream.Recv()
 	if err != nil || recv == nil {
-		log.Println(err)
-		return errors.New("Error receiving Piece data")
+		return RetrieveError.New("Error receiving Piece data")
 	}
 
 	pd := recv.GetPieceData()
@@ -51,7 +53,6 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	retrieved, allocated, err := s.retrieveData(stream, pd.GetId(), pd.GetOffset(), totalToRead)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 
@@ -60,7 +61,10 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 }
 
 func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
-	storeFile, err := pstore.RetrieveReader(stream.Context(), id, offset, length, s.DataDir)
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	storeFile, err := pstore.RetrieveReader(ctx, id, offset, length, s.DataDir)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -74,19 +78,21 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
-			return 0, 0, err
+			return am.Used, am.Allocated, err
 		}
 
 		ba := recv.GetBandwidthallocation()
 		baData := ba.GetData()
 
+		// TODO: Validate that Heavy Client agrees to pay up to baData.GetTotal()
+
 		if baData != nil {
-			if err = s.verifySignature(ba.GetSignature()); err != nil {
-				return 0, 0, err
+			if err = s.verifySignature(ba); err != nil {
+				return am.Used, am.Allocated, err
 			}
 
 			if err = s.writeBandwidthAllocToDB(ba); err != nil {
-				return 0, 0, err
+				return am.Used, am.Allocated, err
 			}
 
 			am.AddAllocation(baData.GetSize())
@@ -99,10 +105,12 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return 0, 0, err
+			return am.Used, am.Allocated, err
 		}
 
-		am.UseAllocation(n)
+		if err = am.UseAllocation(n); err != nil {
+			return am.Used, am.Allocated, err
+		}
 	}
 
 	return am.Used, am.Allocated, nil

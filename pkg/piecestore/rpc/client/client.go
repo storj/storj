@@ -17,6 +17,9 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+var defaultBandwidthMsgSize = 32 * 1024
+var maxBandwidthMsgSize = 64 * 1024
+
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
@@ -38,14 +41,14 @@ type Client struct {
 
 // NewPSClient initilizes a PSClient
 func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID string) PSClient {
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > (64*1024) {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
 		return nil
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = 32 * 1024
+		bandwidthMsgSize = defaultBandwidthMsgSize
 	}
 
 	return &Client{
@@ -58,14 +61,14 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID 
 
 // NewCustomRoute creates new Client with custom route interface
 func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, payerID, renterID string) *Client {
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > (64*1024) {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
 		return nil
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = 32 * 1024
+		bandwidthMsgSize = defaultBandwidthMsgSize
 	}
 
 	return &Client{route: route, payerID: payerID, renterID: renterID, bandwidthMsgSize: bandwidthMsgSize}
@@ -132,7 +135,7 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 }
 
 // sign a message using the clients private key
-func (client *Client) sign(msg []byte) (signature []byte, err error) {
+func (client *Client) sign(msg *pb.BandwidthAllocation_Data) (signature []byte, err error) {
 	// use c.pkey to sign msg
 
 	return signature, err

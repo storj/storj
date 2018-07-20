@@ -4,10 +4,10 @@
 package server
 
 import (
-	"errors"
 	"io"
 	"log"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
@@ -15,6 +15,9 @@ import (
 
 // OK - Success!
 const OK = "OK"
+
+// StoreError is a type of error for failures in Server.Store()
+var StoreError = errs.Class("store error")
 
 // Store incoming data using piecestore
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
@@ -24,13 +27,13 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	recv, err := reqStream.Recv()
 	if err != nil || recv == nil {
 		log.Println(err)
-		return errors.New("Error receiving Piece Meta Data")
+		return StoreError.New("Error receiving Piece Meta Data")
 	}
 
 	pd := recv.GetPiecedata()
 	log.Printf("ID: %s, TTL: %v\n", pd.GetId(), pd.GetTtl())
 	if pd.GetId() == "" {
-		return errors.New("Invalid Piece ID")
+		return StoreError.New("Invalid Piece ID")
 	}
 
 	// If we put in the database first then that checks if the data already exists

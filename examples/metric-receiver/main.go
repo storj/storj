@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/telemetry"
@@ -19,7 +20,7 @@ var (
 )
 
 func main() {
-	process.Must(process.Main(func() error { return nil }, process.ServiceFunc(run)))
+	process.Must(process.Main(func() (*viper.Viper, error) { return nil, nil }, process.ServiceFunc(run)))
 }
 
 func run(ctx context.Context, _ *cobra.Command, _ []string) error {
