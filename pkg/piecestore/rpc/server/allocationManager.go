@@ -11,6 +11,7 @@ type AllocationManager struct {
 	allocations               []int64
 }
 
+// AllocationError is a type of error for failures in AllocationManager
 var AllocationError = errs.Class("allocation error")
 
 // NewAllocationManager returns a new AllocationManager
