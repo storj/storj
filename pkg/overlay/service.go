@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -32,9 +35,9 @@ func init() {
 	flag.StringVar(&httpPort, "httpPort", "", "The port for the health endpoint")
 	flag.StringVar(&redisAddress, "redisAddress", "", "The <IP:PORT> string to use for connection to a redis cache")
 	flag.StringVar(&redisPassword, "redisPassword", "", "The password used for authentication to a secured redis instance")
-	flag.StringVar(&boltdbPath, "boltdbPath", "", "The path to the boltdb file that should be loaded or created")
+	flag.StringVar(&boltdbPath, "boltdbPath", defaultBoltDBPath(), "The path to the boltdb file that should be loaded or created")
 	flag.IntVar(&db, "db", 0, "The network cache database")
-	flag.UintVar(&srvPort, "srvPort", 8080, "Port to listen on")
+	flag.UintVar(&srvPort, "srvPort", 8082, "Port to listen on")
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
@@ -42,6 +45,11 @@ func init() {
 	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
 	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
 	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
+}
+
+func defaultBoltDBPath() string {
+	home, _ := homedir.Dir()
+	return filepath.Join(home, ".storj", "overlaydb.db")
 }
 
 // NewServer creates a new Overlay Service Server
@@ -139,7 +147,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", localPort)
+	kad, err := kademlia.NewKademlia(id, []proto.Node{*in}, "0.0.0.0", viper.GetString("localport"))
 	if err != nil {
 		s.logger.Error("Failed to instantiate new Kademlia", zap.Error(err))
 		return err
@@ -157,24 +165,22 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 
 	// bootstrap cache
 	var cache *Cache
-	if redisAddress != "" {
-		cache, err = NewRedisOverlayCache(redisAddress, redisPassword, db, kad)
+	if viper.GetString("redisaddress") != "" {
+		cache, err = NewRedisOverlayCache(viper.GetString("redisaddress"), redisPassword, db, kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new redis overlay client", zap.Error(err))
 			return err
 		}
-	} else if boltdbPath != "" {
-		cache, err = NewBoltOverlayCache(boltdbPath, kad)
+		s.logger.Info("starting overlay cache with redis")
+	} else if viper.GetString("boltdbpath") != "" {
+		cache, err = NewBoltOverlayCache(viper.GetString("boltdbpath"), kad)
 		if err != nil {
 			s.logger.Error("Failed to create a new boltdb overlay client", zap.Error(err))
 			return err
 		}
+		s.logger.Info("starting overlay cache with boltDB")
 	} else {
 		return process.ErrUsage.New("You must specify one of `--boltdbPath` or `--redisAddress`")
-	}
-
-	if boltdbPath != "" {
-
 	}
 
 	if err := cache.Bootstrap(ctx); err != nil {
@@ -189,7 +195,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		}
 	}()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", srvPort))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", viper.GetInt("srvport")))
 	if err != nil {
 		s.logger.Error("Failed to initialize TCP connection", zap.Error(err))
 		return err
