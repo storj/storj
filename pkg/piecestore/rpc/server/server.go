@@ -123,7 +123,7 @@ func (s *Server) Start() error {
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Println("Getting Meta data...")
 
-	path, err := pstore.PathByID(in.Id, s.DataDir)
+	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -134,20 +134,20 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLByID(in.Id)
+	ttl, err := s.DB.GetTTLByID(in.GetId())
 	if err != nil {
 		return nil, err
 	}
 
 	log.Println("Meta data retrieved.")
-	return &pb.PieceSummary{Id: in.Id, Size: fileInfo.Size(), Expiration: ttl}, nil
+	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Println("Deleting data...")
 
-	if err := s.deleteByID(in.Id); err != nil {
+	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
@@ -182,7 +182,7 @@ func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return nil
 	}
 
-	log.Printf("Payer: %s, Renter: %s, Size: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize())
+	log.Printf("Payer: %s, Renter: %s, Size: %v, Total: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize(), data.GetTotal())
 
 	// TODO: Write ba to database
 

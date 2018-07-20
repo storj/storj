@@ -29,26 +29,20 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 
 	updatedAllocation := s.totalWritten + int64(len(b))
 
-	bandwidthAllocationMSG := &pb.PieceStore{
+	msg := &pb.PieceStore{
+		Piecedata: &pb.PieceStore_PieceData{Content: b},
 		Bandwidthallocation: &pb.BandwidthAllocation{
 			Data: &pb.BandwidthAllocation_Data{
-				Payer: s.signer.payerID, Renter: s.signer.renterID, Size: updatedAllocation,
+				Payer: s.signer.payerID, Renter: s.signer.renterID, Total: updatedAllocation, Size: int64(len(b)),
 			},
 			Signature: sig,
 		},
 	}
 
-	// First we send the bandwidth allocation
-	if err := s.stream.Send(bandwidthAllocationMSG); err != nil {
-		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
-	}
-
 	s.totalWritten = updatedAllocation
 
-	contentMSG := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Content: b}}
-
 	// Second we send the actual content
-	if err := s.stream.Send(contentMSG); err != nil {
+	if err := s.stream.Send(msg); err != nil {
 		return 0, fmt.Errorf("%v.Send() = %v", s.stream, err)
 	}
 
@@ -93,7 +87,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 			Bandwidthallocation: &pb.BandwidthAllocation{
 				Signature: sig,
 				Data: &pb.BandwidthAllocation_Data{
-					Payer: signer.payerID, Renter: signer.renterID, Size: updatedAllocation,
+					Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize), Total: updatedAllocation,
 				},
 			},
 		}
@@ -108,7 +102,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 		if err != nil {
 			return nil, err
 		}
-		return resp.Content, nil
+		return resp.GetContent(), nil
 	})
 
 	return sr

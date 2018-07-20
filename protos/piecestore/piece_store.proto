@@ -21,6 +21,7 @@ message BandwidthAllocation {
     string payer = 1;
     string renter = 2;
     int64 size = 3;
+    int64 total = 4;
   }
 
   bytes signature = 1;

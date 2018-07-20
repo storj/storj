@@ -25,11 +25,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return errors.New("Error receiving Piece data")
 	}
 
-	pd := recv.PieceData
-	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.Id, pd.Size, pd.Offset)
+	pd := recv.GetPieceData()
+	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.GetId(), pd.GetSize(), pd.GetOffset())
 
 	// Get path to data being retrieved
-	path, err := pstore.PathByID(pd.Id, s.DataDir)
+	path, err := pstore.PathByID(pd.GetId(), s.DataDir)
 	if err != nil {
 		return err
 	}
@@ -41,58 +41,69 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	}
 
 	// Read the size specified
-	totalToRead := pd.Size
-	// Read the entire file if specified -1
-	if pd.Size <= -1 {
-		totalToRead = fileInfo.Size()
+	totalToRead := pd.GetSize()
+	fileSize := fileInfo.Size()
+
+	// Read the entire file if specified -1 but make sure we do it from the correct offset
+	if pd.GetSize() <= -1 || totalToRead+pd.GetOffset() > fileSize {
+		totalToRead = fileSize - pd.GetOffset()
 	}
 
-	storeFile, err := pstore.RetrieveReader(stream.Context(), pd.Id, pd.Offset, totalToRead, s.DataDir)
+	retrieved, allocated, err := s.retrieveData(stream, pd.GetId(), pd.GetOffset(), totalToRead)
 	if err != nil {
+		log.Println(err)
 		return err
+	}
+
+	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", allocated, retrieved)
+	return nil
+}
+
+func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
+	storeFile, err := pstore.RetrieveReader(stream.Context(), id, offset, length, s.DataDir)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	defer utils.Close(storeFile)
 
-	writer := &StreamWriter{server: s, stream: stream}
+	writer := NewStreamWriter(s, stream)
+	am := NewAllocationManager(length)
 
-	for {
+	for am.Used < am.MaxToUse {
 		// Receive Bandwidth allocation
-		recv, err = stream.Recv()
+		recv, err := stream.Recv()
 		if err != nil {
-			log.Println(err)
-			return err
+			return 0, 0, err
 		}
 
 		ba := recv.GetBandwidthallocation()
 		baData := ba.GetData()
 
-		if err = s.verifySignature(ba.GetSignature()); err != nil {
-			return err
+		if baData != nil {
+			if err = s.verifySignature(ba.GetSignature()); err != nil {
+				return 0, 0, err
+			}
+
+			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+				return 0, 0, err
+			}
+
+			am.AddAllocation(baData.GetSize())
 		}
 
-		sizeToRead := baData.GetSize()
-		if sizeToRead < 0 {
-			sizeToRead = 1024 * 32 // 32 kb
-		}
+		sizeToRead := am.NextReadSize()
 
-		buf := make([]byte, sizeToRead) // buffer size defined by what is being allocated
-
-		n, err := storeFile.Read(buf)
+		// Write the buffer to the stream we opened earlier
+		n, err := io.CopyN(writer, storeFile, sizeToRead)
 		if err == io.EOF {
 			break
-		}
-		// Write the buffer to the stream we opened earlier
-		_, err = writer.Write(buf[:n])
-		if err != nil {
-			return err
+		} else if err != nil {
+			return 0, 0, err
 		}
 
-		if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
-			return err
-		}
+		am.UseAllocation(n)
 	}
 
-	log.Println("Successfully retrieved data.")
-	return nil
+	return am.Used, am.Allocated, nil
 }
