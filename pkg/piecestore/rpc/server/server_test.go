@@ -26,13 +26,23 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-var db *sql.DB
-var s Server
-var c pb.PieceStoreRoutesClient
-var ctx = context.Background()
-
 func TestPiece(t *testing.T) {
-	var testID = "11111111111111111111"
+	testID := "11111111111111111111"
+
+	s := newTestServerStruct()
+
+	grpcs := grpc.NewServer()
+	defer grpcs.Stop()
+
+	go startServer(s, grpcs)
+
+	c, conn := connect()
+
+	defer conn.Close()
+
+	db := s.DB.DB
+
+	defer cleanup(db)
 
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter(testID, s.DataDir)
@@ -60,7 +70,7 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:         "11111111111111111111",
+			id:         testID,
 			size:       5,
 			expiration: 9999999999,
 			err:        "",
@@ -92,7 +102,7 @@ func TestPiece(t *testing.T) {
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := c.Piece(ctx, req)
+			resp, err := c.Piece(context.Background(), req)
 
 			if len(tt.err) > 0 {
 
@@ -127,7 +137,22 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	var testID = "11111111111111111111"
+	testID := "11111111111111111111"
+
+	s := newTestServerStruct()
+
+	grpcs := grpc.NewServer()
+	defer grpcs.Stop()
+
+	go startServer(s, grpcs)
+
+	c, conn := connect()
+
+	defer conn.Close()
+
+	db := s.DB.DB
+
+	defer cleanup(db)
 
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter(testID, s.DataDir)
@@ -144,7 +169,6 @@ func TestRetrieve(t *testing.T) {
 		return
 	}
 	defer pstore.Delete(testID, s.DataDir)
-	defer db.Exec(fmt.Sprintf(`DELETE FROM bandwidth_agreements WHERE size="%d"`, 5))
 
 	// set up test cases
 	tests := []struct {
@@ -157,7 +181,7 @@ func TestRetrieve(t *testing.T) {
 		err       string
 	}{
 		{ // should successfully retrieve data
-			id:        "11111111111111111111",
+			id:        testID,
 			reqSize:   5,
 			respSize:  5,
 			allocSize: 5,
@@ -166,7 +190,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // should successfully retrieve data with lower allocations
-			id:        "11111111111111111111",
+			id:        testID,
 			reqSize:   5,
 			respSize:  3,
 			allocSize: 3,
@@ -175,7 +199,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // should successfully retrieve data
-			id:        "11111111111111111111",
+			id:        testID,
 			reqSize:   -1,
 			respSize:  5,
 			allocSize: 5,
@@ -202,7 +226,7 @@ func TestRetrieve(t *testing.T) {
 			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:        "11111111111111111111",
+			id:        testID,
 			reqSize:   5,
 			respSize:  4,
 			allocSize: 5,
@@ -211,7 +235,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:        "11111111111111111111",
+			id:        testID,
 			reqSize:   4,
 			respSize:  4,
 			allocSize: 5,
@@ -223,7 +247,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			stream, err := c.Retrieve(ctx)
+			stream, err := c.Retrieve(context.Background())
 
 			// send piece database
 			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
@@ -268,6 +292,21 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
+	s := newTestServerStruct()
+
+	grpcs := grpc.NewServer()
+	defer grpcs.Stop()
+
+	go startServer(s, grpcs)
+
+	c, conn := connect()
+
+	defer conn.Close()
+
+	db := s.DB.DB
+
+	defer cleanup(db)
+
 	tests := []struct {
 		id            string
 		size          int64
@@ -299,7 +338,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 
-			stream, err := c.Store(ctx)
+			stream, err := c.Store(context.Background())
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -354,6 +393,21 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	s := newTestServerStruct()
+
+	grpcs := grpc.NewServer()
+	defer grpcs.Stop()
+
+	go startServer(s, grpcs)
+
+	c, conn := connect()
+
+	defer conn.Close()
+
+	db := s.DB.DB
+
+	defer cleanup(db)
+
 	// set up test cases
 	tests := []struct {
 		id      string
@@ -407,7 +461,7 @@ func TestDelete(t *testing.T) {
 			defer pstore.Delete(tt.id, s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := c.Delete(ctx, req)
+			resp, err := c.Delete(context.Background(), req)
 			if len(tt.err) > 0 {
 				if err != nil {
 					if err.Error() == tt.err {
@@ -437,32 +491,8 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func StartServer() {
-	lis, err := net.Listen("tcp", ":3000")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcs := grpc.NewServer()
-	pb.RegisterPieceStoreRoutesServer(grpcs, &s)
-	if err := grpcs.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
-func TestMain(m *testing.M) {
-	go StartServer()
-
-	// Set up a connection to the Server.
-	const address = "localhost:3000"
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		fmt.Printf("did not connect: %v", err)
-		return
-	}
-	defer conn.Close()
-	c = pb.NewPieceStoreRoutesClient(conn)
-
-	tempDBPath := path.Join(os.TempDir(), "test.db")
+func newTestServerStruct() *Server {
+	tempDBPath := filepath.Join(os.TempDir(), "test.db")
 
 	psDB, err := psdb.NewPSDB(tempDBPath)
 	if err != nil {
@@ -471,14 +501,38 @@ func TestMain(m *testing.M) {
 
 	tempDir := filepath.Join(os.TempDir(), "test-data", "3000")
 
-	s = Server{DataDir: tempDir, DB: psDB}
+	return &Server{DataDir: tempDir, DB: psDB}
+}
 
-	db = psDB.DB
+func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
 
-	// clean up temp files
-	defer os.RemoveAll(filepath.Join(os.TempDir(), "test-data"))
-	defer os.Remove(tempDBPath)
-	defer db.Close()
+	c := pb.NewPieceStoreRoutesClient(conn)
 
+	return c, conn
+}
+
+func startServer(s *Server, grpcs *grpc.Server) {
+	lis, err := net.Listen("tcp", ":3000")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	pb.RegisterPieceStoreRoutesServer(grpcs, s)
+	if err := grpcs.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func cleanup(db *sql.DB) {
+	db.Close()
+	os.RemoveAll(filepath.Join(os.TempDir(), "test-data"))
+	os.Remove(filepath.Join(os.TempDir(), "test.db"))
+	return
+}
+
+func TestMain(m *testing.M) {
 	m.Run()
 }
