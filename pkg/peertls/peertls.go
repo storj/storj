@@ -51,7 +51,7 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) (error)
+type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
 // verifies that the provided raw certificates are valid
 func VerifyPeerFunc(next PeerCertVerificationFunc) PeerCertVerificationFunc {
@@ -132,8 +132,8 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	}
 
 	t := &TLSHelper{
-		cert:       c,
-		rootKey:    rootKey,
+		cert:    c,
+		rootKey: rootKey,
 	}
 
 	return t, nil

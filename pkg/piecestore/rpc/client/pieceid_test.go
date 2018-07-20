@@ -9,7 +9,7 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 )
 
 func TestNewPieceID(t *testing.T) {
@@ -27,7 +27,7 @@ func TestNewPieceID(t *testing.T) {
 
 func TestDerivePieceID(t *testing.T) {
 	pid := NewPieceID()
-	nid, err := kademlia.NewID(1, 16, 2, "")
+	nid, err := node.NewID(1, 16, 2, "")
 	assert.NoError(t, err)
 
 	did, err := pid.Derive(nid.Bytes())

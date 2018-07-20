@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kademlia
+package node
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ func Test_certToKadCreds(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := CertToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToCreds(&cert, hashLen)
 	assert.NoError(t, err)
 	assert.Equal(t, cert, kadCreds.tlsH.Certificate())
 	assert.Equal(t, hashLen, kadCreds.hashLen)
@@ -35,7 +35,7 @@ func TestParseID(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := CertToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	kadID, err := ParseID(kadCreds.String())
@@ -60,7 +60,7 @@ func TestKadCreds_Bytes(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := CertToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	kadCredBytes := kadCreds.Bytes()
@@ -80,7 +80,7 @@ func TestKadCreds_Save(t *testing.T) {
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := CertToKadCreds(&cert, hashLen)
+	kadCreds, err := CertToCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	idPath := filepath.Join(path, "id.pem")
@@ -117,7 +117,7 @@ func TestLoadID(t *testing.T) {
 	cert := tlsH.Certificate()
 	assert.NoError(t, err)
 
-	savedKadCreds, err := CertToKadCreds(&cert, hashLen)
+	savedKadCreds, err := CertToCreds(&cert, hashLen)
 	assert.NoError(t, err)
 
 	idPath := filepath.Join(path, "id.pem")
@@ -141,7 +141,7 @@ func TestKadCreds_Difficulty_FAST(t *testing.T) {
 	cert, hashLen, err := read(idPemBytes)
 	assert.NoError(t, err)
 
-	kadCreds, err := CertToKadCreds(cert, hashLen)
+	kadCreds, err := CertToCreds(cert, hashLen)
 	assert.NoError(t, err)
 
 	difficulty := kadCreds.Difficulty()
@@ -152,14 +152,14 @@ func TestKadCreds_Difficulty_SLOW(t *testing.T) {
 	t.SkipNow()
 
 	expectedDifficulty := uint16(3)
-	var kadCreds *KadCreds
+	var kadCreds *Creds
 	hashLen := uint16(38)
 	for {
 		tlsH, err := peertls.NewTLSHelper(nil)
 		assert.NoError(t, err)
 
 		cert := tlsH.Certificate()
-		kadCreds, err = CertToKadCreds(&cert, hashLen)
+		kadCreds, err = CertToCreds(&cert, hashLen)
 		assert.NoError(t, err)
 		assert.Equal(t, cert, kadCreds.tlsH.Certificate())
 		assert.Equal(t, hashLen, kadCreds.hashLen)
@@ -199,7 +199,7 @@ func TestNewID(t *testing.T) {
 	expectedDifficulty := uint16(2)
 
 	nodeID, err := NewID(expectedDifficulty, hashLen, 2, rootKeyPath)
-	kadCreds := nodeID.(*KadCreds)
+	kadCreds := nodeID.(*Creds)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, kadCreds)

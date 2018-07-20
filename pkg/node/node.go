@@ -6,10 +6,22 @@ package node
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
+)
+
+const (
+	lenSize = int64(2) // NB: number of bytes required to represent `keyLen` and `hashLen`
+)
+
+var (
+	// ErrInvalidNodeID is used when a node id can't be parsed
+	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
+	ErrDifficulty    = errs.Class("difficulty error")
 )
 
 // Node is the storj definition for a node in the network

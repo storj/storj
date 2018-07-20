@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -216,7 +217,7 @@ func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	}
 
 	if id == "" {
-		i, err := NewID(1, 38, 5, "")
+		i, err := node.NewID(1, 38, 5, "")
 		if err != nil {
 			return nil, err
 		}

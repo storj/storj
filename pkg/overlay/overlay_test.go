@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
@@ -26,7 +26,7 @@ const (
 )
 
 func newNodeID(t *testing.T) dht.NodeID {
-	id, err := kademlia.NewID(idDifficulty, idHashLen, idGenConcurrency, idRootKeyPath)
+	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency, idRootKeyPath)
 	assert.NoError(t, err)
 
 	return id

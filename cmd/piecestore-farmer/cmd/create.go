@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 )
 
 // createCmd represents the create command
@@ -66,7 +66,7 @@ func init() {
 		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.dir")
 	}
 
-	nodeID, err := kademlia.LoadID(viper.GetString("credsBasePath"))
+	nodeID, err := node.LoadID(viper.GetString("credsBasePath"))
 	if err != nil {
 		zap.S().Fatal(err)
 	}

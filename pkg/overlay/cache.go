@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -95,7 +95,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := kademlia.ParseID(v.Id)
+		nodeID, err := node.ParseID(v.Id)
 		if err != nil {
 			zap.Error(errs.New("unable to parse node id \"%s\"", v.Id, err))
 		}
@@ -158,7 +158,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := kademlia.ParseID(v.Id)
+		nodeID, err := node.ParseID(v.Id)
 		if err != nil {
 			return errs.New("unable to parse node id \"%s\"", v.Id, err)
 		}

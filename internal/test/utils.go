@@ -9,7 +9,6 @@ import (
 	pb "github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 )
@@ -21,12 +20,4 @@ func NewNodeAddressValue(t *testing.T, address string) storage.Value {
 	assert.NoError(t, err)
 
 	return d
-}
-
-// NewNodeID returns the string representation of a dht node ID
-func NewNodeID(t *testing.T) string {
-	id, err := kademlia.NewID(1, 38, 5, "")
-	assert.NoError(t, err)
-
-	return id.String()
 }

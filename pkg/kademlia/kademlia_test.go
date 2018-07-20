@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/protos/overlay"
 )
 
@@ -25,7 +26,7 @@ const (
 )
 
 func newNodeID(t *testing.T) dht.NodeID {
-	id, err := NewID(idDifficulty, idHashLen, idGenConcurrency, idRootKeyPath)
+	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency, idRootKeyPath)
 	assert.NoError(t, err)
 
 	return id
@@ -110,13 +111,13 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 
 		localID := rt.Local().Id
-		n, err := ParseID(localID)
+		n, err := node.ParseID(localID)
 		assert.NoError(t, err)
 
-		node, err := v.k.FindNode(ctx, n)
+		foundNode, err := v.k.FindNode(ctx, n)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, localID, node.Id)
+		assert.NotEmpty(t, foundNode)
+		assert.Equal(t, localID, foundNode.Id)
 		v.k.dht.Disconnect()
 	}
 
@@ -198,7 +199,7 @@ func TestFindNode(t *testing.T) {
 		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
 
-		id, err := ParseID(rt.Local().Id)
+		id, err := node.ParseID(rt.Local().Id)
 		assert.NoError(t, err)
 
 		node, err := v.k.FindNode(ctx, id)

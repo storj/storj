@@ -21,6 +21,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
@@ -143,7 +144,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	id, err := kademlia.NewID(1, 16, 2, "")
+	id, err := node.NewID(1, 16, 2, "")
 	if err != nil {
 		return err
 	}

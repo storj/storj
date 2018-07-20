@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -57,7 +58,7 @@ func GetConfigValues() Config {
 
 // ConnectToKad joins the Kademlia network
 func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string) (*kademlia.Kademlia, error) {
-	node := proto.Node{
+	n := proto.Node{
 		Id: id,
 		Address: &proto.NodeAddress{
 			Transport: proto.NodeTransport_TCP,
@@ -65,12 +66,12 @@ func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 		},
 	}
 
-	nodeID, err := kademlia.ParseID(id)
+	nodeID, err := node.ParseID(id)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	kad, err := kademlia.NewKademlia(nodeID, []proto.Node{node}, ip, kadListenPort)
+	kad, err := kademlia.NewKademlia(nodeID, []proto.Node{n}, ip, kadListenPort)
 	if err != nil {
 		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
 	}
