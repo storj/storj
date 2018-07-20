@@ -81,7 +81,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		baData := ba.GetData()
 
 		if baData != nil {
-			if err = s.verifySignature(ba.GetSignature()); err != nil {
+			if err = s.verifySignature(ba); err != nil {
 				return am.Used, am.Allocated, err
 			}
 

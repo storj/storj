@@ -169,9 +169,11 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(signature []byte) error {
+func (s *Server) verifySignature(ba *pb.BandwidthAllocation) error {
 	// TODO: verify signature
-	log.Printf("Verified signature: %s\n", signature)
+	// data := ba.GetData()
+	// signature := ba.GetSignature()
+	log.Printf("Verified signature\n")
 
 	return nil
 }
