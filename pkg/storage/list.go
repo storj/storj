@@ -9,6 +9,6 @@ import (
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	ListPath paths.Path
-	ListMeta Meta
+	Path paths.Path
+	Meta Meta
 }

@@ -149,36 +149,32 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var startAfter paths.Path
+	startAfter := paths.New(marker, prefix)
 	var fl []minio.ObjectInfo
-	for {
-		items, more, err := s.storj.os.List(ctx, paths.New(bucket, ""), startAfter, nil, true, int(0), storage.MetaAll)
-		if err != nil {
-			return result, err
-		}
-		if len(items) > 0 {
-			//Populate the objectlist (aka filelist)
-			f := make([]minio.ObjectInfo, len(items))
-			for i, fi := range items {
-				f[i] = minio.ObjectInfo{
-					Bucket:      fi.ListPath[0],
-					Name:        fi.ListPath[1:].String(),
-					ModTime:     fi.ListMeta.Modified,
-					Size:        fi.ListMeta.Size,
-					ContentType: fi.ListMeta.ContentType,
-					UserDefined: fi.ListMeta.UserDefined,
-				}
+	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, storage.MetaAll)
+	if err != nil {
+		return result, err
+	}
+	if len(items) > 0 {
+		//Populate the objectlist (aka filelist)
+		f := make([]minio.ObjectInfo, len(items))
+		for i, fi := range items {
+			f[i] = minio.ObjectInfo{
+				Bucket:      fi.Path[0],
+				Name:        fi.Path[1:].String(),
+				ModTime:     fi.Meta.Modified,
+				Size:        fi.Meta.Size,
+				ContentType: fi.Meta.ContentType,
+				UserDefined: fi.Meta.UserDefined,
+				ETag:        fi.Meta.Checksum,
 			}
-			startAfter = items[len(items)-1].ListPath
-			fl = f
 		}
-		if !more {
-			break
-		}
+		startAfter = items[len(items)-1].Path
+		fl = f
 	}
 
 	result = minio.ListObjectsInfo{
-		IsTruncated: false,
+		IsTruncated: more,
 		NextMarker:  startAfter.String(),
 		Objects:     fl,
 	}
@@ -197,8 +193,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
 	serMetaInfo := meta.Serializable{
-		ContentType: metadata["content-type"],
-		UserDefined: nil,
+		UserDefined: metadata,
 	}
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
@@ -209,7 +204,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		Bucket:      bucket,
 		ModTime:     m.Modified,
 		Size:        m.Size,
-		ETag:        minio.GenETag(),
+		ETag:        m.Checksum,
 		ContentType: m.ContentType,
 		UserDefined: m.UserDefined,
 	}, err
