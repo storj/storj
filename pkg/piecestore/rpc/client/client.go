@@ -17,8 +17,8 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-var defaultBandwidthMsgSize int = 32 * 1024
-var maxBandwidthMsgSize int = 64 * 1024
+var defaultBandwidthMsgSize = 32 * 1024
+var maxBandwidthMsgSize = 64 * 1024
 
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {

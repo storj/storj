@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"context"
+
 	_ "github.com/mattn/go-sqlite3" // sqlite driver
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,7 +50,7 @@ func startNode(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = s.Start()
+	err = s.Start(context.Background())
 	if err != nil {
 		return err
 	}

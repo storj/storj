@@ -9,14 +9,9 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
-)
-
-var (
-	mon = monkit.Package()
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()

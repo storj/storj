@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/piecestore"
@@ -21,6 +22,10 @@ import (
 	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Server -- GRPC server meta data used in route calls
@@ -55,7 +60,12 @@ func New(config Config) (*Server, error) {
 }
 
 // connectToKad joins the Kademlia network
-func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string) (*kademlia.Kademlia, error) {
+func connectToKad(ctx context.Context, config Config) (*kademlia.Kademlia, error) {
+	id := config.NodeID
+	ip := config.PsHost
+	kadListenPort := config.KadListenPort
+	kadAddress := fmt.Sprintf("%s:%s", config.KadHost, config.KadPort)
+
 	node := proto.Node{
 		Id: id,
 		Address: &proto.NodeAddress{
@@ -81,10 +91,10 @@ func connectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 }
 
 // Start the piececstore node
-func (s *Server) Start() error {
-	ctx := context.Background()
+func (s *Server) Start(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	_, err := connectToKad(ctx, s.config.NodeID, s.config.PsHost, s.config.KadListenPort, fmt.Sprintf("%s:%s", s.config.KadHost, s.config.KadPort))
+	_, err = connectToKad(ctx, s.config)
 	if err != nil {
 		return err
 	}
@@ -106,17 +116,13 @@ func (s *Server) Start() error {
 	// routinely check DB and delete expired entries
 	go func() {
 		err := s.DB.DBCleanup(s.DataDir)
-		zap.S().Errorf("Error in DBCleanup: %v\n", err)
+		zap.S().Fatal("Error in DBCleanup: %v\n", err)
 	}()
 
-	fmt.Printf("Node %s started\n", s.config.NodeID)
+	log.Printf("Node %s started\n", s.config.NodeID)
 
 	// start the server
-	if err := grpcServer.Serve(lis); err != nil {
-		zap.S().Errorf("failed to serve: %s\n", err)
-	}
-
-	return err
+	return grpcServer.Serve(lis)
 }
 
 // Piece -- Send meta data about a stored by by Id
@@ -171,6 +177,7 @@ func (s *Server) deleteByID(id string) error {
 
 func (s *Server) verifySignature(ba *pb.BandwidthAllocation) error {
 	// TODO: verify signature
+
 	// data := ba.GetData()
 	// signature := ba.GetSignature()
 	log.Printf("Verified signature\n")
