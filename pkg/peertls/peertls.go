@@ -42,54 +42,71 @@ func IsNotExist(err error) bool {
 
 // TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
 type TLSHelper struct {
-	cert    tls.Certificate
-	rootKey *ecdsa.PrivateKey
+	cert       tls.Certificate
+	rootKey    *ecdsa.PrivateKey
+	baseConfig *tls.Config
 }
 
 type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-// VerifyPeerCertificate verifies that the provided raw certificates are valid
-func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-	// Verify parent ID/sig
-	// Verify leaf  ID/sig
-	// Verify leaf signed by parent
+type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) (error)
 
-	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
-	// (https://www.pivotaltracker.com/story/show/158238535)
-
-	for i, cert := range rawCerts {
-		isValid := false
-
-		if i < len(rawCerts)-1 {
-			parentCert, err := x509.ParseCertificate(rawCerts[i+1])
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			childCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(parentCert, childCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
-		} else {
-			rootCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(rootCert, rootCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
+// verifies that the provided raw certificates are valid
+func VerifyPeerFunc(next PeerCertVerificationFunc) PeerCertVerificationFunc {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		parsedCerts, err := parseCerts(rawCerts)
+		if err != nil {
+			return err
 		}
 
-		if !isValid {
+		verifyChainSignatures(parsedCerts)
+
+		if next != nil {
+			return next(rawCerts, [][]*x509.Certificate{parsedCerts})
+		}
+
+		return nil
+	}
+}
+
+func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
+	certs := []*x509.Certificate{}
+
+	for _, c := range rawCerts {
+		parsedCert, err := x509.ParseCertificate(c)
+		if err != nil {
+			return nil, ErrVerifyPeerCert.New("unable to parse certificate", err)
+		}
+
+		certs = append(certs, parsedCert)
+	}
+
+	return certs, nil
+}
+
+func verifyChainSignatures(certs []*x509.Certificate) error {
+	for i, cert := range certs {
+		if i < len(certs)-1 {
+			isValid, err := verifyCertSignature(certs[i+1], cert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
+			}
+
+			if !isValid {
+				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
+			}
+
+			continue
+		}
+
+		rootIsValid, err := verifyCertSignature(cert, cert)
+		if err != nil {
+			return ErrVerifyPeerCert.Wrap(err)
+		}
+
+		if !rootIsValid {
 			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
 		}
 	}
@@ -98,7 +115,7 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 }
 
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
-func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
+func NewTLSHelper(cert *tls.Certificate, baseConfig *tls.Config) (*TLSHelper, error) {
 	var (
 		c       tls.Certificate
 		err     error
@@ -117,6 +134,7 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	t := &TLSHelper{
 		cert:    c,
 		rootKey: rootKey,
+		baseConfig: baseConfig,
 	}
 
 	return t, nil
@@ -127,6 +145,10 @@ func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 // the certificate-chain from `t`, and a peer certificate verifixation
 // function compatible with our "peertls" protocol.
 func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
+	if c == nil {
+		c = t.baseConfig
+	}
+
 	config := cloneTLSConfig(c)
 
 	config.Certificates = []tls.Certificate{t.cert}
@@ -135,7 +157,7 @@ func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	// Required client certificate
 	config.ClientAuth = tls.RequireAnyClientCert
 	// Custom verification logic for *both* client and server
-	config.VerifyPeerCertificate = VerifyPeerCertificate
+	config.VerifyPeerCertificate = VerifyPeerFunc(config.VerifyPeerCertificate)
 
 	return config
 }
@@ -148,12 +170,12 @@ func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredenti
 
 // DialOption returns a grpc `DialOption` from `t` for outgoing connections
 func (t *TLSHelper) DialOption() grpc.DialOption {
-	return grpc.WithTransportCredentials(t.NewPeerTLS(nil))
+	return grpc.WithTransportCredentials(t.NewPeerTLS(t.baseConfig))
 }
 
 // ServerOption returns a grpc `ServerOption` from `t` for incoming connections
 func (t *TLSHelper) ServerOption() grpc.ServerOption {
-	return grpc.Creds(t.NewPeerTLS(nil))
+	return grpc.Creds(t.NewPeerTLS(t.baseConfig))
 }
 
 // PubKey returns a copy of the value of the public key

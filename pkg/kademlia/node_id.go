@@ -31,6 +31,9 @@ const (
 var (
 	// ErrInvalidNodeID is used when a node id can't be parsed
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
+	tlsConfig        = &tls.Config{
+		VerifyPeerCertificate: VerifyPeerIdentity,
+	}
 )
 
 // KadID implements dht.nodeID and is used for the public portion of an identity (i.e. tls public key)
@@ -45,6 +48,14 @@ type KadCreds struct {
 	hash    []byte
 	hashLen uint16
 	tlsH    *peertls.TLSHelper
+}
+
+func VerifyPeerIdentity(_ [][]byte, certChains [][]*x509.Certificate) error {
+	for _, certs := range certChains {
+		kadID, err := CertToKadID(certs)
+	}
+
+	return nil
 }
 
 // LoadID reads and parses an "identity" file containing a tls certificate
@@ -172,23 +183,12 @@ func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 		return nil, errs.New("unable to marshal pubKey", err)
 	}
 
-	shake := sha3.NewShake256()
-	if _, err := shake.Write(keyBytes); err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	hashBytes := make([]byte, hashLen)
-
-	bytesRead, err := shake.Read(hashBytes)
+	hashBytes, err := hash(keyBytes, hashLen)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
 
-	if uint16(bytesRead) != hashLen {
-		return nil, errs.New("hash length error")
-	}
-
-	tlsH, err := peertls.NewTLSHelper(cert)
+	tlsH, err := peertls.NewTLSHelper(cert, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +200,24 @@ func CertToKadCreds(cert *tls.Certificate, hashLen uint16) (*KadCreds, error) {
 	}
 
 	return kadCreds, nil
+}
+
+func CertToKadID(cert *x509.Certificate, hashLen uint16) (*KadID, error) {
+	pubKey, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	hashBytes, err := hash(pubKey, hashLen)
+	if err != nil {
+		return nil, err
+	}
+
+	kadID := &KadID{
+		pubKey: pubKey,
+	}
+
+	return kadID, nil
 }
 
 // ParseID parses a `KadID` from its `String()` representation (i.e.
@@ -387,7 +405,7 @@ func generateCreds(difficulty, hashLen uint16, c chan KadCreds, done chan bool) 
 
 			return
 		default:
-			tlsH, _ := peertls.NewTLSHelper(nil)
+			tlsH, _ := peertls.NewTLSHelper(nil, tlsConfig)
 
 			cert := tlsH.Certificate()
 			kadCreds, _ := CertToKadCreds(&cert, hashLen)
@@ -490,4 +508,24 @@ func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, 
 	cert.Leaf = parsedLeaf
 
 	return cert, nil
+}
+
+func hash(input []byte, hashLen uint16) ([]byte, error) {
+	shake := sha3.NewShake256()
+	if _, err := shake.Write(input); err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	hashBytes := make([]byte, hashLen)
+
+	bytesRead, err := shake.Read(hashBytes)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	if uint16(bytesRead) != hashLen {
+		return nil, errs.New("hash length error")
+	}
+
+	return hashBytes, nil
 }
