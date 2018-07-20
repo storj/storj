@@ -37,7 +37,7 @@ func NewPSDB(DBPath string) (*PSDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`payer` TEXT UNIQUE, `renter` TEXT UNIQUE, `size` INT);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`payer` TEXT, `renter` TEXT, `size` INT, `total` INT, `signature` BLOB);")
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +105,15 @@ func (psdb *PSDB) DBCleanup(dir string) error {
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
 func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+	data := ba.GetData()
+	if data == nil {
+		return nil
+	}
 
-	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (payer, renter, size) VALUES ("%s", "%s", "%d")`, ba.Data.Payer, ba.Data.Renter, ba.Data.Size))
+	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (payer, renter, size, total, signature) VALUES ("%s", "%s", "%d", "%d", "%v")`, data.GetPayer(), data.GetRenter(), data.GetSize(), data.GetTotal(), ba.GetSignature()))
 	if err != nil {
 		return err
 	}
-
-	log.Printf("Payer: %s, Client: %s, Size: %v\n", ba.Data.Payer, ba.Data.Renter, ba.Data.Size)
 
 	return nil
 }

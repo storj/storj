@@ -91,7 +91,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 				return am.Used, am.Allocated, err
 			}
 
-			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+			if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
 				return am.Used, am.Allocated, err
 			}
 

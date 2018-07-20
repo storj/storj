@@ -52,7 +52,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 				return nil, err
 			}
 
-			if err = s.writeBandwidthAllocToDB(ba); err != nil {
+			if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
 				return nil, err
 			}
 		}

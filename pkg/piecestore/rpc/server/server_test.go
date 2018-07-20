@@ -317,7 +317,7 @@ func TestStore(t *testing.T) {
 				Bandwidthallocation: &pb.BandwidthAllocation{
 					Signature: []byte{'A', 'B'},
 					Data: &pb.BandwidthAllocation_Data{
-						Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content)),
+						Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content)), Total: int64(len(tt.content)),
 					},
 				},
 			}

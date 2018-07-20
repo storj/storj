@@ -184,16 +184,3 @@ func (s *Server) verifySignature(ba *pb.BandwidthAllocation) error {
 
 	return nil
 }
-
-func (s *Server) writeBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
-	data := ba.GetData()
-	if data == nil {
-		return nil
-	}
-
-	log.Printf("Payer: %s, Renter: %s, Size: %v, Total: %v\n", data.GetPayer(), data.GetRenter(), data.GetSize(), data.GetTotal())
-
-	// TODO: Write ba to database
-
-	return nil
-}
