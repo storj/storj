@@ -110,7 +110,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	}
 
 	defer func() {
-		if err := r.Close(); err != nil {
+		if err = r.Close(); err != nil {
 			// ignore for now
 		}
 	}()
