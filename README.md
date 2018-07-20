@@ -23,53 +23,76 @@ See our documentation at [Storj docs](https://docs.storj.io/docs).
 The [community site](https://storj.io/community.html) hosts all information about building storj from source, how to contribute code
 and documentation, who to contact about what, etc.
 
-### Install VGO
+### Install required packages
 
-```Go
-go get -u golang.org/x/vgo
+First of all install `git`, `golang` and `redis-server` and add environment variables.
+
+#### Debian based (like Ubuntu)
+
+```bash
+apt-get install git golang redis-server
+echo 'export GOPATH="$HOME/go"' >> $HOME/.bashrc
+echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bashrc
+source $HOME/.bashrc
 ```
 
-### Install non-go development dependencies
+#### Mac OSX
 
-In order to develop on Storj, you will need to have the `protobuf` compiler installed on your system.
-
-1. Grab the latest release for your system from [here](https://github.com/google/protobuf/releases).
-
-1. place the `protoc` binary in your path. i.e.
-
-    ```bash
-    mv $HOME/Downloads/protoc-<version>-<arch>/bin/protoc /usr/local/bin
-    ```
-
-### Install go dependencies
-
-Use vgo to install both dev and non-dev dependencies.
-
-1. Install development dependencies
-
-    ```
-    make build-dev-deps
-    ```
-
-1. Install project dependencies
-
-    ```bash
-    # in project root
-    vgo install
-    ```
-
-
-If you want to build Storj right away there are two options:
-
-##### You have a working [Go environment](https://golang.org/doc/install).
-
-```
-$ go get -d storj.io/storj
-$ cd $GOPATH/src/storj.io/storj
-$ make
+```bash
+brew install git go redis
+if test -e $HOME/.bash_profile
+then
+	echo 'export GOPATH="$HOME/go"' >> $HOME/.bash_profile
+	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bash_profile
+	source $HOME/.bash_profile
+else
+	echo 'export GOPATH="$HOME/go"' >> $HOME/.profile
+	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.profile
+	source $HOME/.profile
+fi
 ```
 
-##### You have a working [Docker environment](https://docs.docker.com/engine).
+### Install storj
+
+Clone the storj repository. You may want to clone your own fork and branch.
+
+```bash
+git clone https://github.com/storj/storj $GOPATH/src/storj.io/storj
+```
+
+#### Install all dependencies
+
+`go get` can be used to install all dependencies. The execution will take some time. You can add -v if you want to get more feedback.
+
+```bash
+go get -t storj.io/storj/...
+```
+
+Fix error message `cannot use "github.com/minio/cli"` See https://github.com/minio/minio/issues/5974 for more details.
+
+```bash
+go get -t github.com/minio/cli && rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
+go get -t storj.io/storj/...
+```
+
+### Run unit tests
+
+```bash
+go clean -testcache
+go test storj.io/storj/...
+```
+
+You can execute only a single test package. For example: `go test storj.io/storj/pkg/kademlia`. Add -v for more informations about the executed unit tests.
+
+### Start farmer
+
+```bash
+piecestore-farmer --help
+```
+
+To be continued.
+
+## You have a working [Docker environment](https://docs.docker.com/engine).
 
 ```
 $ git clone https://github.com/storj/storj
