@@ -74,7 +74,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
-			return 0, 0, err
+			return am.Used, am.Allocated, err
 		}
 
 		ba := recv.GetBandwidthallocation()
@@ -82,11 +82,11 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 		if baData != nil {
 			if err = s.verifySignature(ba.GetSignature()); err != nil {
-				return 0, 0, err
+				return am.Used, am.Allocated, err
 			}
 
 			if err = s.writeBandwidthAllocToDB(ba); err != nil {
-				return 0, 0, err
+				return am.Used, am.Allocated, err
 			}
 
 			am.AddAllocation(baData.GetSize())
@@ -99,10 +99,12 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return 0, 0, err
+			return am.Used, am.Allocated, err
 		}
 
-		am.UseAllocation(n)
+		if err = am.UseAllocation(n); err != nil {
+			return am.Used, am.Allocated, err
+		}
 	}
 
 	return am.Used, am.Allocated, nil
