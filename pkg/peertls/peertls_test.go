@@ -42,7 +42,7 @@ func TestGenerate(t *testing.T) {
 	assert.NotNil(t, opts.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
 	assert.NotEmpty(t, *opts.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
 
-	err = VerifyPeerCertificate(opts.cert.Certificate, nil)
+	err = VerifyPeerFunc(nil)(opts.cert.Certificate, nil)
 	assert.NoError(t, err)
 }
 
