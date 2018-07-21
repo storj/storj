@@ -189,13 +189,19 @@ func (t *TLSHelper) Certificate() tls.Certificate {
 	return t.cert
 }
 
-// RootKey returns a copy of the value of the root key, if there is one
+// RootKey returns a copy of the value of the root key (if there is one)
 func (t *TLSHelper) RootKey() ecdsa.PrivateKey {
 	if t.rootKey == nil {
 		return ecdsa.PrivateKey{}
 	}
 
 	return *t.rootKey
+}
+
+// DeleteRootKey deletes the root key from memory
+func (t *TLSHelper) DeleteRootKey() {
+	*t.rootKey = ecdsa.PrivateKey{}
+	t.rootKey = nil
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {

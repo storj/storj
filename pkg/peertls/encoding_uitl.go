@@ -16,6 +16,9 @@ const (
 	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
 	// BlockTypeCertificate is the value to define a block type of certificate
 	BlockTypeCertificate = "CERTIFICATE"
+	// BlockTypeIDOptions is the value to define a block type of id options
+	// (e.g. `version`
+	BlockTypeIDOptions = "ID OPTIONS"
 )
 
 // NewKeyBlock converts an ASN1/DER-encoded byte-slice of a private key into

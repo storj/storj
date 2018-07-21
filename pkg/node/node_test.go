@@ -18,7 +18,7 @@ import (
 
 func NewNodeID(t *testing.T) string {
 	// NewNodeID returns the string representation of a dht node ID
-	id, err := NewID(1, 38, 5, "")
+	id, err := NewID(1, 38, 5)
 	assert.NoError(t, err)
 
 	return id.String()

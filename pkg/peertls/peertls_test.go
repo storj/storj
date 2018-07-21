@@ -18,31 +18,31 @@ type tlsFileOptionsTestCase struct {
 }
 
 func TestNewTLSHelper(t *testing.T) {
-	opts, err := NewTLSHelper(nil)
+	tlsH, err := NewTLSHelper(nil)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, opts.cert)
-	assert.NotEmpty(t, opts.cert.PrivateKey)
-	assert.NotNil(t, opts.cert.Leaf)
-	assert.NotNil(t, opts.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
+	assert.NotEmpty(t, tlsH.cert)
+	assert.NotEmpty(t, tlsH.cert.PrivateKey)
+	assert.NotNil(t, tlsH.cert.Leaf)
+	assert.NotNil(t, tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
 }
 
 func TestGenerate(t *testing.T) {
-	opts := &TLSHelper{}
+	tlsH := &TLSHelper{}
 
 	cert, rootKey, err := generateTLS()
 	assert.NoError(t, err)
 
-	opts.cert = cert
+	tlsH.cert = cert
 
 	assert.NotNil(t, rootKey)
 	assert.NotEmpty(t, *rootKey)
-	assert.NotNil(t, opts.cert)
-	assert.NotNil(t, opts.cert.PrivateKey)
-	assert.NotNil(t, opts.cert.Leaf)
-	assert.NotNil(t, opts.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
-	assert.NotEmpty(t, *opts.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
+	assert.NotNil(t, tlsH.cert)
+	assert.NotNil(t, tlsH.cert.PrivateKey)
+	assert.NotNil(t, tlsH.cert.Leaf)
+	assert.NotNil(t, tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
+	assert.NotEmpty(t, *tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
 
-	err = VerifyPeerFunc(nil)(opts.cert.Certificate, nil)
+	err = VerifyPeerFunc(nil)(tlsH.cert.Certificate, nil)
 	assert.NoError(t, err)
 }
 

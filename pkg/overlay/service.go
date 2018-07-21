@@ -51,13 +51,7 @@ func defaultBoltDBPath() string {
 	dirname := filepath.Dir(path)
 
 	// TODO(dylanlott, bryanchriswhite): what do do if there a different kind of error?!
-	if _, err := os.Stat(dirname); err != nil {
-		if err == os.ErrNotExist {
-			if err := os.MkdirAll(dirname, 664); err != nil {
-				zap.S().Error(errs.Wrap(err))
-			}
-		}
-
+	if err := os.MkdirAll(dirname, 664); err != nil {
 		zap.S().Error(errs.Wrap(err))
 	}
 
@@ -144,7 +138,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	id, err := node.NewID(1, 16, 2, "")
+	id, err := node.NewID(1, 16, 2)
 	if err != nil {
 		return err
 	}

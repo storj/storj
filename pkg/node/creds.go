@@ -4,18 +4,16 @@
 package node
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/binary"
 	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/peertls"
 )
 
@@ -26,21 +24,32 @@ type Creds struct {
 	tlsH    *peertls.TLSHelper
 }
 
+// NewID returns a pointer to a newly intialized, NodeID with at least the
+// given difficulty
+func NewID(difficulty uint16, hashLen uint16, concurrency uint) (dht.NodeID, error) {
+	done := make(chan bool, 0)
+	c := make(chan Creds, 1)
+	for i := 0; i < int(concurrency); i++ {
+		go generateCreds(difficulty, hashLen, c, done)
+	}
+
+	creds, _ := <-c
+	close(done)
+
+	return &creds, nil
+}
+
 // Save saves the certificate chain (leaf-first), private key, and
 // hash length (ordered respectively) from `Creds` to a single
 // PEM-encoded "identity file".
 func (c *Creds) Save(path string) error {
 	baseDir := filepath.Dir(path)
 
-	if _, err := os.Stat(baseDir); err != nil {
-		if err == os.ErrNotExist {
-			if err := os.MkdirAll(baseDir, 600); err != nil {
-				return errs.Wrap(err)
-			}
-		} else {
-			return errs.Wrap(err)
-		}
+	if err := os.MkdirAll(baseDir, 600); err != nil {
+		return errs.Wrap(err)
 	}
+
+	c.writeRootKey(baseDir)
 
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -106,25 +115,7 @@ func (c *Creds) Bytes() []byte {
 		zap.S().Error(errs.New("unable to marshal public key"))
 	}
 
-	b := bytes.NewBuffer([]byte{})
-	encoder := base64.NewEncoder(base64.URLEncoding, b)
-	if _, err := encoder.Write(c.hash); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	if _, err := encoder.Write(pubKey); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	if err := binary.Write(encoder, binary.LittleEndian, c.hashLen); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	if err := encoder.Close(); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	return b.Bytes()
+	return idBytes(c.hash, pubKey, c.hashLen)
 }
 
 // Hash returns the hash the public key to a langth of `k.hashLen`
@@ -132,17 +123,7 @@ func (c *Creds) Hash() []byte {
 	return c.hash
 }
 
-// Difficulty returns the number of trailing zero-value bytes in the hash
+// Difficulty returns the number of trailing zero-value bits in the hash
 func (c *Creds) Difficulty() uint16 {
-	hash := c.Hash()
-	for i := 1; i < len(hash); i++ {
-		b := hash[len(hash)-i]
-
-		if b != 0 {
-			return uint16(i - 1)
-		}
-	}
-
-	// NB: this should never happen
-	return 0
+	return idDifficulty(c.Hash())
 }

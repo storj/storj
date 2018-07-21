@@ -217,7 +217,7 @@ func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	}
 
 	if id == "" {
-		i, err := node.NewID(1, 38, 5, "")
+		i, err := node.NewID(1, 38, 5)
 		if err != nil {
 			return nil, err
 		}

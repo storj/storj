@@ -22,11 +22,10 @@ const (
 	idDifficulty     = 1
 	idHashLen        = 16
 	idGenConcurrency = 2
-	idRootKeyPath    = ""
 )
 
 func newNodeID(t *testing.T) dht.NodeID {
-	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency, idRootKeyPath)
+	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency)
 	assert.NoError(t, err)
 
 	return id

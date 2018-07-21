@@ -23,7 +23,7 @@ var (
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
 	// ErrDifficulty is used when an ID has an incompatible or
 	// insufficient difficulty
-	ErrDifficulty    = errs.Class("difficulty error")
+	ErrDifficulty = errs.Class("difficulty error")
 )
 
 // Node is the storj definition for a node in the network

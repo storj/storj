@@ -7,12 +7,21 @@ import (
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/binary"
 	"encoding/pem"
 	"io"
 
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"fmt"
+	"math/bits"
+	"os"
+	"path/filepath"
+
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/sha3"
+
 	"storj.io/storj/pkg/peertls"
 )
 
@@ -59,6 +68,79 @@ func generateCreds(difficulty, hashLen uint16, c chan Creds, done chan bool) {
 	}
 }
 
+func idBytes(hash, pubKey []byte, hashLen uint16) []byte {
+	b := bytes.NewBuffer([]byte{})
+	encoder := base64.NewEncoder(base64.URLEncoding, b)
+	if _, err := encoder.Write(hash); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if _, err := encoder.Write(pubKey); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := binary.Write(encoder, binary.BigEndian, hashLen); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	if err := encoder.Close(); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	return b.Bytes()
+}
+
+func idDifficulty(hash []byte) uint16 {
+	for i := 1; i < len(hash); i++ {
+		b := hash[len(hash)-i]
+
+		if b != 0 {
+			zeroBits := bits.TrailingZeros16(uint16(b))
+			if zeroBits == 16 {
+				zeroBits = 0
+			}
+
+			return uint16((i-1)*8 + zeroBits)
+		}
+	}
+
+	// NB: this should never happen
+	reason := fmt.Sprintf("difficulty matches hash length! hash: %s", hash)
+	zap.S().Error(reason)
+	panic(reason)
+}
+
+func (c *Creds) writeRootKey(dir string) error {
+	path := filepath.Join(filepath.Dir(dir), "root.pem")
+	rootKey := c.tlsH.RootKey()
+
+	if rootKey != (ecdsa.PrivateKey{}) {
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return errs.New("unable to open identity file for writing \"%s\"", path, err)
+		}
+
+		defer func() {
+			if err := file.Close(); err != nil {
+				zap.S().Error(errs.Wrap(err))
+			}
+		}()
+
+		keyBytes, err := peertls.KeyToDERBytes(&rootKey)
+		if err != nil {
+			return err
+		}
+
+		if err := pem.Encode(file, peertls.NewKeyBlock(keyBytes)); err != nil {
+			return errs.Wrap(err)
+		}
+
+		c.tlsH.DeleteRootKey()
+	}
+
+	return nil
+}
+
 func (c *Creds) write(writer io.Writer) error {
 	for _, c := range c.tlsH.Certificate().Certificate {
 		certBlock := peertls.NewCertBlock(c)
@@ -79,12 +161,10 @@ func (c *Creds) write(writer io.Writer) error {
 		return errs.Wrap(err)
 	}
 
-	// Write `hashLen` after private key
-	return binary.Write(writer, binary.LittleEndian, c.hashLen)
+	return nil
 }
 
-func read(PEMBytes []byte) (*tls.Certificate, uint16, error) {
-	var hashLen uint16
+func read(PEMBytes []byte) (*tls.Certificate, error) {
 	certDERs := [][]byte{}
 	keyDER := []byte{}
 
@@ -96,38 +176,31 @@ func read(PEMBytes []byte) (*tls.Certificate, uint16, error) {
 			break
 		}
 
-		if DERBlock.Type == peertls.BlockTypeCertificate {
+		switch DERBlock.Type {
+		case peertls.BlockTypeCertificate:
 			certDERs = append(certDERs, DERBlock.Bytes)
 			continue
-		}
 
-		if DERBlock.Type == peertls.BlockTypeEcPrivateKey {
+		case peertls.BlockTypeEcPrivateKey:
 			keyDER = DERBlock.Bytes
-
-			// NB: `hashLen` is stored after the private key block
-			if PEMBytes == nil || len(PEMBytes) == 0 {
-				return nil, 0, errs.New("hash length expected following private key; none found")
-			}
-
-			hashLen = binary.LittleEndian.Uint16(PEMBytes)
 			continue
 		}
 	}
 
 	if len(certDERs) == 0 || len(certDERs[0]) == 0 {
-		return nil, 0, errs.New("no certificates found in identity file")
+		return nil, errs.New("no certificates found in identity file")
 	}
 
 	if len(keyDER) == 0 {
-		return nil, 0, errs.New("no private key found in identity file")
+		return nil, errs.New("no private key found in identity file")
 	}
 
 	cert, err := certFromDERs(certDERs, keyDER)
 	if err != nil {
-		return nil, 0, errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	return cert, hashLen, nil
+	return cert, nil
 }
 
 func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
@@ -31,6 +31,8 @@ func init() {
 		zap.S().Fatal(err)
 	}
 
+	createCmd.Flags().String("nodeIDPath", "", "Path to grpc node ID PEM file")
+	createCmd.Flags().Uint16("nodeIDHashLen", 38, "Hash length to use for own identity")
 	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
 	createCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")
 	createCmd.Flags().String("kademliaListenPort", "7776", "Kademlia server `listen port`")
@@ -38,8 +40,12 @@ func init() {
 	createCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
 	createCmd.Flags().String("dir", home, "`dir` of drive being shared")
 
-	if err := viper.BindPFlag("kademlia.credsBasePath", createCmd.Flags().Lookup("credsBasePath")); err != nil {
+	if err := viper.BindPFlag("node.idPath", createCmd.Flags().Lookup("nodeIDPath")); err != nil {
 		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.credsBasePath")
+	}
+
+	if err := viper.BindPFlag("node.idHashLen", createCmd.Flags().Lookup("nodeIDHashLen")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.hashLen")
 	}
 
 	if err := viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost")); err != nil {
@@ -66,7 +72,10 @@ func init() {
 		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.dir")
 	}
 
-	nodeID, err := node.LoadID(viper.GetString("credsBasePath"))
+	nodeID, err := node.LoadID(
+		viper.GetString("kademlia.credsBasePath"),
+		uint16(viper.GetInt("kademlia.hashLen")),
+	)
 	if err != nil {
 		zap.S().Fatal(err)
 	}
