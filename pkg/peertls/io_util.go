@@ -29,7 +29,7 @@ func writeCerts(certs [][]byte, path string) error {
 	}
 
 	defer func() {
-		if err := file.Close(); err != nil {
+		if err := file.Close(); err != nil && err != os.ErrClosed {
 			log.Printf("Failed to close file: %s\n", err)
 		}
 	}()
@@ -55,7 +55,7 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 	}
 
 	defer func() {
-		if err := file.Close(); err != nil {
+		if err := file.Close(); err != nil && err != os.ErrClosed {
 			log.Printf("Failed to close file: %s\n", err)
 		}
 	}()

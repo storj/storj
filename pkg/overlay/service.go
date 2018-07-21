@@ -67,8 +67,8 @@ func NewServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Regi
 
 // NewClient connects to grpc server at the provided address with the provided options
 // returns a new instance of an overlay Client
-func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	conn, err := grpc.Dial(*serverAddr, opts...)
+func NewClient(serverAddr string, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	conn, err := grpc.Dial(serverAddr, opts...)
 	if err != nil {
 		return nil, err
 	}
