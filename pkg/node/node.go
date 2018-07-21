@@ -21,6 +21,8 @@ const (
 var (
 	// ErrInvalidNodeID is used when a node id can't be parsed
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
+	// ErrDifficulty is used when an ID has an incompatible or
+	// insufficient difficulty
 	ErrDifficulty    = errs.Class("difficulty error")
 )
 

@@ -51,6 +51,8 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
+// PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
+// `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
 // verifies that the provided raw certificates are valid
