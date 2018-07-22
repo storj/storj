@@ -55,22 +55,38 @@ type ecdsaSignature struct {
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
-// verifies that the provided raw certificates are valid
-func VerifyPeerFunc(next PeerCertVerificationFunc) PeerCertVerificationFunc {
+// VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
+// functions and adds certificate parsing.
+func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		parsedCerts, err := parseCerts(rawCerts)
+		parsedCerts, err := parseCertificateChains(rawCerts)
 		if err != nil {
 			return err
 		}
 
-		verifyChainSignatures(parsedCerts)
-
-		if next != nil {
-			return next(rawCerts, [][]*x509.Certificate{parsedCerts})
+		for _, n := range next {
+			if n != nil {
+				if err := n(nil, [][]*x509.Certificate{parsedCerts}); err != nil {
+					return err
+				}
+			}
 		}
 
 		return nil
 	}
+}
+
+func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
+	parsedCerts, err := parseCerts(rawCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedCerts, nil
+}
+
+func verifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+	return verifyChainSignatures(parsedChains[0])
 }
 
 func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
@@ -158,7 +174,10 @@ func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	// Required client certificate
 	config.ClientAuth = tls.RequireAnyClientCert
 	// Custom verification logic for *both* client and server
-	config.VerifyPeerCertificate = VerifyPeerFunc(config.VerifyPeerCertificate)
+	config.VerifyPeerCertificate = VerifyPeerFunc(
+		verifyPeerCertChains,
+		config.VerifyPeerCertificate,
+	)
 
 	return config
 }

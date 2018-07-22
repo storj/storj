@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/peertls"
-	"fmt"
 )
 
 func Test_certToKadCreds(t *testing.T) {
@@ -184,9 +183,6 @@ func TestKadCreds_Difficulty_SLOW(t *testing.T) {
 	assert.NoError(t, err)
 
 	creds = c.(*Creds)
-	b := bytes.NewBuffer([]byte{})
-	creds.write(b)
-	fmt.Println(b)
 	assert.True(t, creds.Difficulty() >= expectedDifficulty)
 }
 

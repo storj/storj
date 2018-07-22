@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -22,6 +23,38 @@ type Creds struct {
 	hash    []byte
 	hashLen uint16
 	tlsH    *peertls.TLSHelper
+}
+
+// LoadID reads and parses an "identity" file containing a tls certificate
+// chain (leaf-first), private key, and "id options" for the "identity file"
+// at `path`.
+//
+// The "identity file" must contain PEM encoded data. The certificate portion
+// may contain intermediate certificates following the leaf certificate to
+// form a certificate chain.
+func LoadID(path string, hashLen uint16) (*Creds, error) {
+	baseDir := filepath.Dir(path)
+
+	if _, err := os.Stat(baseDir); err != nil {
+		if err == os.ErrNotExist {
+			return nil, peertls.ErrNotExist.Wrap(err)
+		}
+
+		return nil, errs.Wrap(err)
+	}
+
+	IDBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+
+	cert, err := read(IDBytes)
+	kadCreds, err := CertToCreds(cert, hashLen)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return kadCreds, nil
 }
 
 // NewID returns a pointer to a newly intialized, NodeID with at least the

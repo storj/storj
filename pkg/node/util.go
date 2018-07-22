@@ -25,9 +25,9 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-func baseConfig(difficulty, hashLen uint16) *tls.Config {
-	verify := func(_ [][]byte, certChains [][]*x509.Certificate) error {
-		for _, certs := range certChains {
+func verifyPeerIdentityFunc(difficulty, hashLen uint16) peertls.PeerCertVerificationFunc {
+	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+		for _, certs := range parsedChains {
 			for _, c := range certs {
 				kadID, err := CertToID(c, hashLen)
 				if err != nil {
@@ -42,9 +42,11 @@ func baseConfig(difficulty, hashLen uint16) *tls.Config {
 
 		return nil
 	}
+}
 
+func baseConfig(difficulty, hashLen uint16) *tls.Config {
 	return &tls.Config{
-		VerifyPeerCertificate: verify,
+		VerifyPeerCertificate: verifyPeerIdentityFunc(difficulty, hashLen),
 	}
 }
 
