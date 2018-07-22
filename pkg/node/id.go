@@ -26,7 +26,7 @@ type ID struct {
 }
 
 // LoadID reads and parses an "identity" file containing a tls certificate
-// chain (leaf-first), private key, and hash length for the "identity file"
+// chain (leaf-first), private key, and "id options" for the "identity file"
 // at `path`.
 //
 // The "identity file" must contain PEM encoded data. The certificate portion
@@ -41,9 +41,6 @@ func LoadID(path string, hashLen uint16) (*Creds, error) {
 		}
 
 		return nil, errs.Wrap(err)
-		// if err := os.MkdirAll(baseDir, 600); err != nil {
-		// 	return nil, errs.Wrap(err)
-		// }
 	}
 
 	IDBytes, err := ioutil.ReadFile(path)
@@ -60,6 +57,7 @@ func LoadID(path string, hashLen uint16) (*Creds, error) {
 	return kadCreds, nil
 }
 
+// CertToID returns an `ID` given an x509 cert and a hash length
 func CertToID(cert *x509.Certificate, hashLen uint16) (*ID, error) {
 	pubKey, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	if err != nil {
