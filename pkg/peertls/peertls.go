@@ -9,11 +9,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
-	"fmt"
 	"math/big"
 	"os"
 
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -39,69 +40,91 @@ func IsNotExist(err error) bool {
 	return os.IsNotExist(err) || ErrNotExist.Has(err)
 }
 
-// TLSFileOptions stores information about a tls certificate and key, and options for use with tls helper functions/methods
-type TLSFileOptions struct {
-	RootCertRelPath string
-	RootCertAbsPath string
-	LeafCertRelPath string
-	LeafCertAbsPath string
-	// NB: Populate absolute paths from relative paths,
-	// 			with respect to pwd via `.EnsureAbsPaths`
-	RootKeyRelPath  string
-	RootKeyAbsPath  string
-	LeafKeyRelPath  string
-	LeafKeyAbsPath  string
-	LeafCertificate *tls.Certificate
-	// Create if cert or key nonexistent
-	Create bool
-	// Overwrite if `create` is true and cert and/or key exist
-	Overwrite bool
+// TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
+type TLSHelper struct {
+	cert       tls.Certificate
+	rootKey    *ecdsa.PrivateKey
+	BaseConfig *tls.Config
 }
 
 type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-// VerifyPeerCertificate verifies that the provided raw certificates are valid
-func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-	// Verify parent ID/sig
-	// Verify leaf  ID/sig
-	// Verify leaf signed by parent
+// PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
+// `VerifyPeerCertificate` function.
+type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
-	// TODO(bryanchriswhite): see "S/Kademlia extensions - Secure nodeId generation"
-	// (https://www.pivotaltracker.com/story/show/158238535)
+// VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
+// functions and adds certificate parsing.
+func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
+	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		parsedCerts, err := parseCertificateChains(rawCerts)
+		if err != nil {
+			return err
+		}
 
-	for i, cert := range rawCerts {
-		isValid := false
-
-		if i < len(rawCerts)-1 {
-			parentCert, err := x509.ParseCertificate(rawCerts[i+1])
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			childCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(parentCert, childCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
-		} else {
-			rootCert, err := x509.ParseCertificate(cert)
-			if err != nil {
-				return ErrVerifyPeerCert.New("unable to parse certificate", err)
-			}
-
-			isValid, err = verifyCertSignature(rootCert, rootCert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
+		for _, n := range next {
+			if n != nil {
+				if err := n(nil, [][]*x509.Certificate{parsedCerts}); err != nil {
+					return err
+				}
 			}
 		}
 
-		if !isValid {
+		return nil
+	}
+}
+
+func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
+	parsedCerts, err := parseCerts(rawCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedCerts, nil
+}
+
+func verifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+	return verifyChainSignatures(parsedChains[0])
+}
+
+func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
+	certs := []*x509.Certificate{}
+
+	for _, c := range rawCerts {
+		parsedCert, err := x509.ParseCertificate(c)
+		if err != nil {
+			return nil, ErrVerifyPeerCert.New("unable to parse certificate", err)
+		}
+
+		certs = append(certs, parsedCert)
+	}
+
+	return certs, nil
+}
+
+func verifyChainSignatures(certs []*x509.Certificate) error {
+	for i, cert := range certs {
+		if i < len(certs)-1 {
+			isValid, err := verifyCertSignature(certs[i+1], cert)
+			if err != nil {
+				return ErrVerifyPeerCert.Wrap(err)
+			}
+
+			if !isValid {
+				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
+			}
+
+			continue
+		}
+
+		rootIsValid, err := verifyCertSignature(cert, cert)
+		if err != nil {
+			return ErrVerifyPeerCert.Wrap(err)
+		}
+
+		if !rootIsValid {
 			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
 		}
 	}
@@ -109,26 +132,99 @@ func VerifyPeerCertificate(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 	return nil
 }
 
-// NewTLSFileOptions initializes a new `TLSFileOption` struct given the arguments
-func NewTLSFileOptions(baseCertPath, baseKeyPath string, create, overwrite bool) (_ *TLSFileOptions, _ error) {
-	t := &TLSFileOptions{
-		RootCertRelPath: fmt.Sprintf("%s.root.cert", baseCertPath),
-		RootKeyRelPath:  fmt.Sprintf("%s.root.key", baseKeyPath),
-		LeafCertRelPath: fmt.Sprintf("%s.leaf.cert", baseCertPath),
-		LeafKeyRelPath:  fmt.Sprintf("%s.leaf.key", baseKeyPath),
-		Overwrite:       overwrite,
-		Create:          create,
+// NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
+func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
+	var (
+		c       tls.Certificate
+		err     error
+		rootKey *ecdsa.PrivateKey
+	)
+
+	if cert == nil {
+		c, rootKey, err = generateTLS()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c = *cert
 	}
 
-	if err := t.EnsureExists(); err != nil {
-		return nil, err
+	t := &TLSHelper{
+		cert:    c,
+		rootKey: rootKey,
 	}
 
 	return t, nil
 }
 
+// NewTLSConfig returns a tls config (based on the given config, if any)
+// which skips normal tls verification, requires a client certificate,
+// the certificate-chain from `t`, and a peer certificate verifixation
+// function compatible with our "peertls" protocol.
+func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
+	if c == nil {
+		c = t.BaseConfig
+	}
+
+	config := cloneTLSConfig(c)
+
+	config.Certificates = []tls.Certificate{t.cert}
+	// Skip normal verification
+	config.InsecureSkipVerify = true
+	// Required client certificate
+	config.ClientAuth = tls.RequireAnyClientCert
+	// Custom verification logic for *both* client and server
+	config.VerifyPeerCertificate = VerifyPeerFunc(
+		verifyPeerCertChains,
+		config.VerifyPeerCertificate,
+	)
+
+	return config
+}
+
+// NewPeerTLS returns grpc transport credentials from `t` and the given
+// tls config, if any
+func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
+	return credentials.NewTLS(t.NewTLSConfig(config))
+}
+
+// DialOption returns a grpc `DialOption` from `t` for outgoing connections
+func (t *TLSHelper) DialOption() grpc.DialOption {
+	return grpc.WithTransportCredentials(t.NewPeerTLS(t.BaseConfig))
+}
+
+// ServerOption returns a grpc `ServerOption` from `t` for incoming connections
+func (t *TLSHelper) ServerOption() grpc.ServerOption {
+	return grpc.Creds(t.NewPeerTLS(t.BaseConfig))
+}
+
+// PubKey returns a copy of the value of the public key
+func (t *TLSHelper) PubKey() ecdsa.PublicKey {
+	return t.cert.PrivateKey.(*ecdsa.PrivateKey).PublicKey
+}
+
+// Certificate returns a copy of the value of the certificate (`tls.Certificate`)
+func (t *TLSHelper) Certificate() tls.Certificate {
+	return t.cert
+}
+
+// RootKey returns a copy of the value of the root key (if there is one)
+func (t *TLSHelper) RootKey() ecdsa.PrivateKey {
+	if t.rootKey == nil {
+		return ecdsa.PrivateKey{}
+	}
+
+	return *t.rootKey
+}
+
+// DeleteRootKey deletes the root key from memory
+func (t *TLSHelper) DeleteRootKey() {
+	*t.rootKey = ecdsa.PrivateKey{}
+	t.rootKey = nil
+}
+
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
-	pubkey := parentCert.PublicKey.(*ecdsa.PublicKey)
+	pubKey := parentCert.PublicKey.(*ecdsa.PublicKey)
 	signature := new(ecdsaSignature)
 
 	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
@@ -139,7 +235,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) 
 	h.Write(childCert.RawTBSCertificate)
 	digest := h.Sum(nil)
 
-	isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)
+	isValid := ecdsa.Verify(pubKey, digest, signature.R, signature.S)
 
 	return isValid, nil
 }

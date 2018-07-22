@@ -9,16 +9,19 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
@@ -28,7 +31,6 @@ var (
 	redisAddress, redisPassword, httpPort, bootstrapIP, bootstrapPort, localPort, boltdbPath string
 	db                                                                                       int
 	srvPort                                                                                  uint
-	options                                                                                  peertls.TLSFileOptions
 )
 
 func init() {
@@ -41,15 +43,19 @@ func init() {
 	flag.StringVar(&bootstrapIP, "bootstrapIP", "", "Optional IP to bootstrap node against")
 	flag.StringVar(&bootstrapPort, "bootstrapPort", "", "Optional port of node to bootstrap against")
 	flag.StringVar(&localPort, "localPort", "8081", "Specify a different port to listen on locally")
-	flag.StringVar(&options.RootCertRelPath, "tlsCertBasePath", "", "The base path for TLS certificates")
-	flag.StringVar(&options.RootKeyRelPath, "tlsKeyBasePath", "", "The base path for TLS keys")
-	flag.BoolVar(&options.Create, "tlsCreate", false, "If true, generate a new TLS cert/key files")
-	flag.BoolVar(&options.Overwrite, "tlsOverwrite", false, "If true, overwrite existing TLS cert/key files")
 }
 
 func defaultBoltDBPath() string {
 	home, _ := homedir.Dir()
-	return filepath.Join(home, ".storj", "overlaydb.db")
+	path := filepath.Join(home, ".storj", "overlaydb.db")
+	dirname := filepath.Dir(path)
+
+	// TODO(dylanlott, bryanchriswhite): what do do if there a different kind of error?!
+	if err := os.MkdirAll(dirname, 664); err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	return path
 }
 
 // NewServer creates a new Overlay Service Server
@@ -77,13 +83,8 @@ func NewClient(serverAddr *string, opts ...grpc.DialOption) (proto.OverlayClient
 }
 
 // NewTLSServer returns a newly initialized gRPC overlay server, configured with TLS
-func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSFileOptions) (_ *grpc.Server, _ error) {
-	t, err := peertls.NewTLSFileOptions(
-		fopts.RootCertRelPath,
-		fopts.RootKeyRelPath,
-		fopts.Create,
-		fopts.Overwrite,
-	)
+func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.Registry, fopts peertls.TLSHelper) (_ *grpc.Server, _ error) {
+	t, err := peertls.NewTLSHelper(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +102,8 @@ func NewTLSServer(k *kademlia.Kademlia, cache *Cache, l *zap.Logger, m *monkit.R
 
 // NewTLSClient connects to grpc server at the provided address with the provided options plus TLS option(s)
 // returns a new instance of an overlay Client
-func NewTLSClient(serverAddr *string, fopts peertls.TLSFileOptions, opts ...grpc.DialOption) (proto.OverlayClient, error) {
-	t, err := peertls.NewTLSFileOptions(
-		fopts.RootCertRelPath,
-		fopts.RootCertRelPath,
-		fopts.Create,
-		fopts.Overwrite,
-	)
+func NewTLSClient(serverAddr *string, fopts peertls.TLSHelper, opts ...grpc.DialOption) (proto.OverlayClient, error) {
+	t, err := peertls.NewTLSHelper(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +138,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) (
 		return err
 	}
 
-	id, err := kademlia.NewID()
+	id, err := node.NewID(1, 16, 2)
 	if err != nil {
 		return err
 	}

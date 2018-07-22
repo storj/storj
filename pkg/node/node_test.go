@@ -12,9 +12,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
+	// "storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay"
 )
+
+func NewNodeID(t *testing.T) string {
+	// NewNodeID returns the string representation of a dht node ID
+	id, err := NewID(1, 38, 5)
+	assert.NoError(t, err)
+
+	return id.String()
+}
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
@@ -25,9 +33,9 @@ func TestLookup(t *testing.T) {
 		expectedNumNodes int
 	}{
 		{
-			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
-			to:          proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
-			find:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
+			self:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
+			to:          proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
+			find:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}

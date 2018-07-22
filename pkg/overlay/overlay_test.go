@@ -13,18 +13,30 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/test"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
+
+const (
+	idDifficulty     = 1
+	idHashLen        = 16
+	idGenConcurrency = 2
+)
+
+func newNodeID(t *testing.T) dht.NodeID {
+	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency)
+	assert.NoError(t, err)
+
+	return id
+}
 
 func TestFindStorageNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	id, err := kademlia.NewID()
-	assert.NoError(t, err)
-	id2, err := kademlia.NewID()
-	assert.NoError(t, err)
+	id := newNodeID(t)
+	id2 := newNodeID(t)
 
 	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
 	assert.NotNil(t, srv)
@@ -47,10 +59,7 @@ func TestOverlayLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	id, err := kademlia.NewID()
-
-	assert.NoError(t, err)
-
+	id := newNodeID(t)
 	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
 	go srv.Serve(lis)
 	defer srv.Stop()

@@ -118,6 +118,6 @@ func (rt RouteTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time
 }
 
 // GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
-func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
+func GetNodeRoutingTable(ctx context.Context, ID dht.NodeID) (RouteTable, error) {
 	return RouteTable{}, nil
 }

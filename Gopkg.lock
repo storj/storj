@@ -832,6 +832,7 @@
     "pbkdf2",
     "poly1305",
     "salsa20/salsa",
+    "sha3",
     "ssh/terminal"
   ]
   revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
@@ -1011,6 +1012,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9c05cf2ea65617806454427ce9caa5a36376912fd04575f7e0dcb554f257f6f1"
+  inputs-digest = "aeda7954a930c61ffcae6e887d37f3efb5c582d578c2abef3b274ed192c60ebf"
   solver-name = "gps-cdcl"
   solver-version = 1

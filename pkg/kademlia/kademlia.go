@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -15,13 +14,14 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
 var NodeErr = errs.Class("node error")
 
-//TODO: shouldn't default to TCP but not sure what to do yet
+// TODO: shouldn't default to TCP but not sure what to do yet
 var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
@@ -209,14 +209,6 @@ func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
 	return nn, nil
 }
 
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID() ([]byte, error) {
-	result := make([]byte, 20)
-	_, err := rand.Read(result)
-	return result, err
-}
-
 // GetIntroNode determines the best node to bootstrap a new node onto the network
 func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	addr := "bootstrap.storj.io:8080"
@@ -225,12 +217,12 @@ func GetIntroNode(id, ip, port string) (*proto.Node, error) {
 	}
 
 	if id == "" {
-		i, err := newID()
+		i, err := node.NewID(1, 38, 5)
 		if err != nil {
 			return nil, err
 		}
 
-		id = string(i)
+		id = i.String()
 	}
 
 	return &proto.Node{

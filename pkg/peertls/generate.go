@@ -17,36 +17,29 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"math/big"
-	"time"
 
 	"github.com/zeebo/errs"
 )
 
-const (
-	// OneYear is the integer represtentation of a calendar year
-	OneYear = 365 * 24 * time.Hour
-)
+var authECCurve = elliptic.P256()
 
-func (t *TLSFileOptions) generateTLS() error {
-	if err := t.EnsureAbsPaths(); err != nil {
-		return ErrGenerate.Wrap(err)
+func generateTLS() (tls.Certificate, *ecdsa.PrivateKey, error) {
+	var fail = func(err error) (tls.Certificate, *ecdsa.PrivateKey, error) {
+		return tls.Certificate{}, nil, err
 	}
 
-	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	rootKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
-		return ErrGenerate.New("failed to generateServerTLS root private key", err)
+		return fail(ErrGenerate.New("failed to generateServerTLS root private key", err))
 	}
 
-	rootT, err := rootTemplate(t)
+	rootT, err := rootTemplate()
 	if err != nil {
-		return ErrGenerate.Wrap(err)
+		return fail(ErrGenerate.Wrap(err))
 	}
 
-	rootC, err := createAndWrite(
-		t.RootCertAbsPath,
-		t.RootKeyAbsPath,
+	rootC, err := createCert(
 		rootT,
 		rootT,
 		nil,
@@ -55,22 +48,20 @@ func (t *TLSFileOptions) generateTLS() error {
 		rootKey,
 	)
 	if err != nil {
-		return ErrGenerate.Wrap(err)
+		return fail(ErrGenerate.Wrap(err))
 	}
 
-	newKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	newKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
-		return ErrGenerate.New("failed to generateTLS client private key", err)
+		return fail(ErrGenerate.New("failed to generateTLS client private key", err))
 	}
 
-	leafT, err := leafTemplate(t)
+	leafT, err := leafTemplate()
 	if err != nil {
-		return ErrGenerate.Wrap(err)
+		return fail(ErrGenerate.Wrap(err))
 	}
 
-	leafC, err := createAndWrite(
-		t.LeafCertAbsPath,
-		t.LeafKeyAbsPath,
+	leafC, err := createCert(
 		leafT,
 		rootT,
 		rootC.Certificate,
@@ -80,87 +71,46 @@ func (t *TLSFileOptions) generateTLS() error {
 	)
 
 	if err != nil {
-		return ErrGenerate.Wrap(err)
+		return fail(ErrGenerate.Wrap(err))
 	}
 
-	t.LeafCertificate = leafC
-
-	return nil
+	return leafC, rootKey, nil
 }
 
-// LoadCert reads and parses a cert/privkey pair from a pair
-// of files. The files must contain PEM encoded data. The certificate file
-// may contain intermediate certificates following the leaf certificate to
-// form a certificate chain. On successful return, Certificate.Leaf will
-// be nil because the parsed form of the certificate is not retained.
-func LoadCert(certFile, keyFile string) (*tls.Certificate, error) {
-	certPEMBytes, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return &tls.Certificate{}, err
-	}
-	keyPEMBytes, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return &tls.Certificate{}, err
-	}
-
-	return certFromPEMs(certPEMBytes, keyPEMBytes)
-}
-
-func createAndWrite(
-	certPath,
-	keyPath string,
+func createCert(
 	template,
 	parentTemplate *x509.Certificate,
 	parentDERCerts [][]byte,
 	pubKey *ecdsa.PublicKey,
 	rootKey,
-	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+	privKey *ecdsa.PrivateKey) (tls.Certificate, error) {
+	var fail = func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
 
-	DERCerts, keyDERBytes, err := createDERs(
-		template,
-		parentTemplate,
-		parentDERCerts,
-		pubKey,
-		rootKey,
-		privKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := writeCerts(DERCerts, certPath); err != nil {
-		return nil, err
-	}
-
-	if err := writeKey(privKey, keyPath); err != nil {
-		return nil, err
-	}
-
-	return certFromDERs(DERCerts, keyDERBytes)
-}
-
-func createDERs(
-	template,
-	parentTemplate *x509.Certificate,
-	parentDERCerts [][]byte,
-	pubKey *ecdsa.PublicKey,
-	rootKey,
-	privKey *ecdsa.PrivateKey) (_ [][]byte, _ []byte, _ error) {
 	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
 	if err != nil {
-		return nil, nil, err
+		return fail(errs.Wrap(err))
 	}
+
+	parsedLeaf, _ := x509.ParseCertificate(certDERBytes)
 
 	DERCerts := [][]byte{}
 	DERCerts = append(DERCerts, certDERBytes)
 	DERCerts = append(DERCerts, parentDERCerts...)
 
-	keyDERBytes, err := keyToDERBytes(privKey)
+	keyDERBytes, err := KeyToDERBytes(privKey)
 	if err != nil {
-		return nil, nil, err
+		return fail(err)
 	}
 
-	return DERCerts, keyDERBytes, nil
+	cert := tls.Certificate{}
+	cert.Leaf = parsedLeaf
+	cert.Certificate = DERCerts
+	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
+	if err != nil {
+		return fail(errs.New("unable to parse EC private key", err))
+	}
+
+	return cert, nil
 }
 
 func newSerialNumber() (*big.Int, error) {
