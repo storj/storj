@@ -7,10 +7,10 @@ import (
 	"time"
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
-
 	"storj.io/storj/storage"
 )
 
+// boltClient implements the KeyValueStore interface
 type boltClient struct {
 	logger *zap.Logger
 	db     *bolt.DB
