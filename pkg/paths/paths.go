@@ -28,6 +28,11 @@ func (p Path) String() string {
 	return path.Join([]string(p)...)
 }
 
+// Bytes serializes the current path to []byte
+func (p Path) Bytes() []byte {
+	return []byte(p.String())
+}
+
 // Prepend creates new Path from the current path with the given segments prepended
 func (p Path) Prepend(segs ...string) Path {
 	return New(append(segs, []string(p)...)...)
