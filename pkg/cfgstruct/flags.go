@@ -16,6 +16,7 @@ type FlagSet interface {
 	UintVar(p *uint, name string, value uint, usage string)
 	Uint64Var(p *uint64, name string, value uint64, usage string)
 	DurationVar(p *time.Duration, name string, value time.Duration, usage string)
+	Float64Var(p *float64, name string, value float64, usage string)
 	StringVar(p *string, name string, value string, usage string)
 }
 

@@ -87,6 +87,10 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value) {
 				val, err := time.ParseDuration(def)
 				check(err)
 				flags.DurationVar(fieldaddr.(*time.Duration), flagname, val, help)
+			case reflect.TypeOf(float64(0)):
+				val, err := strconv.ParseFloat(def, 64)
+				check(err)
+				flags.Float64Var(fieldaddr.(*float64), flagname, val, help)
 			case reflect.TypeOf(string("")):
 				flags.StringVar(fieldaddr.(*string), flagname, os.ExpandEnv(def), help)
 			case reflect.TypeOf(bool(false)):
