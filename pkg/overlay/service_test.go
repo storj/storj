@@ -183,19 +183,6 @@ func TestNewTLSClient_Fails(t *testing.T) {
 	assert.Nil(t, client)
 }
 
-// func TestNewTLSClient(t *testing.T) {
-// 	opts, tempPath := newTLSFileOptions(t)
-
-// 	defer os.RemoveAll(tempPath)
-
-// 	address := "127.0.0.1:15550"
-
-// 	client, err := NewTLSClient(&address, *opts, nil)
-
-// 	assert.NoError(t, err)
-// 	assert.NotNil(t, client)
-// }
-
 func TestSetLogger(t *testing.T) {
 	service := Service{}
 
@@ -225,7 +212,6 @@ func TestInstanceID(t *testing.T) {
 func newTLSFileOptions(t *testing.T) (*peertls.TLSFileOptions, string) {
 	tempPath, err := ioutil.TempDir("", "TestNewPeerTLS")
 	assert.NoError(t, err)
-	//defer os.RemoveAll(tempPath)
 
 	basePath := filepath.Join(tempPath, "TestNewPeerTLS")
 
