@@ -4,15 +4,16 @@
 package storj
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-
+	"github.com/stretchr/testify/assert"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage"
 	"storj.io/storj/pkg/storage/mocks"
-	"storj.io/storj/pkg/storage/objects"
 )
 
 func TestGetObject(t *testing.T) {
@@ -20,11 +21,17 @@ func TestGetObject(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockGetObject := mocks.NewMockStore(mockCtrl)
-	testUser := objects.NewStore(nil)
+	s := Storj{os: mockGetObject}
+
+	testUser := storjObjects{storj: &s}
 
 	meta := storage.Meta{}
 
-	mockGetObject.EXPECT().Get(context.Background(), paths.New("mybucket", "myobject1")).Return(nil, meta, nil).Times(1)
+	mockGetObject.EXPECT().Get(gomock.Any(), paths.New("mybucket", "myobject1")).Return(nil, meta, nil).Times(1)
 
-	testUser.Get(context.Background(), paths.New("mybucket", "myobject1"))
+	var buf1 bytes.Buffer
+	w := io.Writer(&buf1)
+
+	err := testUser.GetObject(context.Background(), "bucke", "object", 0, 0, w, "etag")
+	assert.NoError(t, err)
 }

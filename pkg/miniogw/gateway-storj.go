@@ -100,7 +100,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 	defer func() {
-		if err = rr.Close(); err != nil {
+		if err := rr.Close(); err != nil {
 			// ignore for now
 		}
 	}()
@@ -149,7 +149,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	startAfter := paths.New(marker, prefix)
+	startAfter := paths.New(marker, "")
 	var fl []minio.ObjectInfo
 	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, storage.MetaAll)
 	if err != nil {
@@ -173,10 +173,19 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		fl = f
 	}
 
-	result = minio.ListObjectsInfo{
-		IsTruncated: more,
-		NextMarker:  startAfter.String(),
-		Objects:     fl,
+	if more {
+		result = minio.ListObjectsInfo{
+			IsTruncated: true,
+			NextMarker:  startAfter.String(),
+			Objects:     fl,
+		}
+	} else {
+		result = minio.ListObjectsInfo{
+			IsTruncated: false,
+			NextMarker:  "",
+			Objects:     fl,
+		}
+
 	}
 	return result, err
 }
@@ -193,7 +202,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 	//metadata serialized
 	serMetaInfo := meta.Serializable{
-		UserDefined: metadata,
+		ContentType: metadata["content-type"],
+		UserDefined: delete(metadata, "content-type"),
 	}
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
