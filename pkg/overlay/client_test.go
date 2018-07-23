@@ -39,11 +39,10 @@ func TestNewOverlayClient(t *testing.T) {
 	for _, v := range cases {
 		oc, err := NewOverlayClient(v.address)
 		assert.NoError(t, err)
-		assert.NotNil(t, oc)
 
-		o, ok := oc.(*Overlay)
-		assert.True(t, ok)
-		assert.NotEmpty(t, o)
+		assert.NotNil(t, oc)
+		assert.NotEmpty(t, oc.client)
+
 	}
 }
 
@@ -70,11 +69,9 @@ func TestChoose(t *testing.T) {
 
 		oc, err := NewOverlayClient(lis.Addr().String())
 		assert.NoError(t, err)
-		assert.NotNil(t, oc)
 
-		o, ok := oc.(*Overlay)
-		assert.True(t, ok)
-		assert.NotEmpty(t, o)
+		assert.NotNil(t, oc)
+		assert.NotEmpty(t, oc.client)
 
 		_, err = oc.Choose(context.Background(), v.limit, v.space)
 		assert.NoError(t, err)
@@ -102,11 +99,10 @@ func TestLookup(t *testing.T) {
 		defer srv.Stop()
 
 		oc, err := NewOverlayClient(lis.Addr().String())
-		assert.NotNil(t, oc)
+		assert.NoError(t, err)
 
-		o, ok := oc.(*Overlay)
-		assert.True(t, ok)
-		assert.NotEmpty(t, o)
+		assert.NotNil(t, oc)
+		assert.NotEmpty(t, oc.client)
 
 		_, err = oc.Lookup(context.Background(), v.nodeID)
 		assert.NoError(t, err)

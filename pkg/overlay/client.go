@@ -30,7 +30,7 @@ type Overlay struct {
 }
 
 // NewOverlayClient returns a new intialized Overlay Client
-func NewOverlayClient(address string) (Client, error) {
+func NewOverlayClient(address string) (*Overlay, error) {
 	c, err := NewClient(&address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
@@ -39,6 +39,9 @@ func NewOverlayClient(address string) (Client, error) {
 		client: c,
 	}, nil
 }
+
+// a compiler trick to make sure *Overlay implements Client
+var _ Client = (*Overlay)(nil)
 
 // Choose implements the client.Choose interface
 func (o *Overlay) Choose(ctx context.Context, limit int, space int64) ([]*proto.Node, error) {
