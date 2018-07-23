@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//TODO: tests and corresponding methods are incomplete. Make sure to update. 7/20/18
 func TestRouting(t *testing.T) {
 	bucket := &KBucket{}
 	result := bucket.Routing()
@@ -16,6 +17,7 @@ func TestRouting(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+//TODO: tests and corresponding methods are incomplete. Make sure to update. 7/20/18
 func TestCache(t *testing.T) {
 	bucket := &KBucket{}
 	result := bucket.Cache()
@@ -23,6 +25,7 @@ func TestCache(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+//TODO: tests and corresponding methods are incomplete. Make sure to update. 7/20/18
 func TestMidpoint(t *testing.T) {
 	bucket := &KBucket{}
 	result := bucket.Midpoint()
@@ -30,6 +33,7 @@ func TestMidpoint(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
+//TODO: tests and corresponding methods are incomplete. Make sure to update. 7/20/18
 func TestNodes(t *testing.T) {
 	bucket := &KBucket{}
 	result := bucket.Nodes()

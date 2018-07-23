@@ -71,7 +71,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 }
 
 //d dht.DHT is never used, should it be removed?
-func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *Kademlia {
+func newTestKademlia(t *testing.T, ip, port string, b overlay.Node) *Kademlia {
 	i, err := newID()
 	assert.NoError(t, err)
 	id := NodeID(i)
@@ -95,7 +95,7 @@ func TestBootstrap(t *testing.T) {
 		k *Kademlia
 	}{
 		{
-			k: newTestKademlia(t, "127.0.0.1", "2999", dhts[rand.Intn(testNetSize)], bootNode),
+			k: newTestKademlia(t, "127.0.0.1", "2999", bootNode),
 		},
 	}
 
@@ -137,7 +137,7 @@ func TestGetNodes(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			k:           newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)], bootNode),
+			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
 			limit:       10,
 			expectedErr: nil,
 		},
@@ -181,7 +181,7 @@ func TestFindNode(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			k:           newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)], bootNode),
+			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
 			expectedErr: nil,
 		},
 	}
@@ -225,7 +225,7 @@ func TestPing(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			k: newTestKademlia(t, "127.0.0.1", "6000", dhts[rand.Intn(testNetSize)], bootNode),
+			k: newTestKademlia(t, "127.0.0.1", "6000", bootNode),
 			input: overlay.Node{
 				Id: rt.Local().Id,
 				Address: &overlay.NodeAddress{

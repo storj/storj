@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"encoding/hex"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -62,7 +61,7 @@ func testWithBootstrap(t *testing.T, testFunc TestFunc) {
 		}
 	}(dhts)
 
-	kad := newTestKademlia(t, "127.0.0.1", "15777", dhts[rand.Intn(testNetSize)], bootNode)
+	kad := newTestKademlia(t, "127.0.0.1", "15777", bootNode)
 	routeTable, err := kad.GetRoutingTable(context.Background())
 	assert.NoError(t, err)
 
@@ -107,7 +106,7 @@ func TestGetBucket(t *testing.T) {
 			ok           bool
 		}{
 			{
-				"IdNull",
+				"IdEmptyString",
 				"",
 				false,
 			},

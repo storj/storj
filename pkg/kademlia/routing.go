@@ -62,7 +62,6 @@ func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 	if err != nil {
 		return &KBucket{}, false
 	}
-	//rt.ht.GetBucket(i) returns enormously large slice even though it should by nil-empty
 	b := rt.ht.GetBucket(i)
 	if b == nil {
 		return &KBucket{}, false
