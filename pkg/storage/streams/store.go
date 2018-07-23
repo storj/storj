@@ -60,48 +60,73 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	identityMeta := storage.Meta{}
 	var totalSegments int64
 	totalSegments = 0
-	stopLoop := false
 
-	for !stopLoop {
-		lr := io.LimitReader(data, s.segmentSize)
+	awareLimitReader := EOFAwareReader(data)
+	eofFound := awareLimitReader.isEOF()
 
-		_, err := lr.Read(identitySlice)
-		if err != nil {
-			stopLoop = true
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				totalSegments = totalSegments + 1
-				identitySegmentData := data
-				lastSegmentPath := path.Prepend("l")
-
-				md := streamspb.MetaStreamInfo{NumberOfSegments: totalSegments, MetaData: metadata}
-				lastSegmentMetadata, err := proto.Marshal(&md)
-
-				err = s.segments.Put(ctx, lastSegmentPath, identitySegmentData, lastSegmentMetadata, expiration)
-				if err != nil {
-					return identityMeta, err
-				}
-			}
-
-			return identityMeta, err
-		}
-
+	for !eofFound {
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
-		segmentData := lr
+		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
 		segmentMetatdata := identitySlice
 		err = s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
 		if err != nil {
 			return identityMeta, err
 		}
+		eofFound = awareLimitReader.isEOF()
 	}
 
-	res := storage.Meta{
+	if eofFound {
+		totalSegments = totalSegments + 1
+		identitySegmentData := data
+		lastSegmentPath := path.Prepend("l")
+
+		md := streamspb.MetaStreamInfo{
+			NumberOfSegments: totalSegments,
+			MetaData:         metadata,
+		}
+		lastSegmentMetadata, err := proto.Marshal(&md)
+		if err != nil {
+			return identityMeta, err
+		}
+
+		err = s.segments.Put(ctx, lastSegmentPath, identitySegmentData,
+			lastSegmentMetadata, expiration)
+		if err != nil {
+			return identityMeta, err
+		}
+	}
+
+	resultMeta := storage.Meta{
 		Modified:   time.Now(),
 		Expiration: expiration,
 		Size:       totalSegments * s.segmentSize,
 		Checksum:   "",
 	}
 
-	return res, nil
+	return resultMeta, nil
+}
+
+// EOFAwareLimitReader holds reader and status of EOF
+type EOFAwareLimitReader struct {
+	reader io.Reader
+	eof    bool
+}
+
+// EOFAwareReader keeps track of the state, has the internal reader reached EOF
+func EOFAwareReader(r io.Reader) *EOFAwareLimitReader {
+	return &EOFAwareLimitReader{reader: r, eof: false}
+}
+
+func (r *EOFAwareLimitReader) Read(p []byte) (n int, err error) {
+	n, err = r.reader.Read(p)
+	if err == io.EOF {
+		r.eof = true
+	}
+	return n, err
+}
+
+func (r *EOFAwareLimitReader) isEOF() bool {
+	return r.eof
 }
 
 /*
