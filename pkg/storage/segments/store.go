@@ -61,7 +61,14 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
 // Meta retrieves the metadata of the segment
 func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
-	panic("TODO")
+	defer mon.Task()(&ctx)(&err)
+
+	pr, err := s.pdb.Get(ctx, path, nil)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+
+	return Meta{Data: pr.GetMetadata()}, nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -148,7 +155,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	return rr, Meta{Data: pr.Metadata}, nil
+	return rr, Meta{Data: pr.GetMetadata()}, nil
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
