@@ -3,34 +3,17 @@
 
 package kademlia
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"os"
 	"io/ioutil"
 	"fmt"
+
+	"github.com/stretchr/testify/assert"
+
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 )
 
-//Interface tests ----------------------------------------------------
-func TestLocal(t *testing.T) {}
-func TestK(t *testing.T) {}
-
-func TestCacheSize(t *testing.T) {}
-
-func TestGetBucket(t *testing.T) {}
-func TestGetBuckets(t *testing.T) {}
-
-func TestFindNear(t *testing.T) {}
-
-func TestConnectionSuccess(t *testing.T) {}
-
-func TestConnectionFailed(t *testing.T) {}
-
-func TestSetBucketTimestamp(t *testing.T) {}
-func TestGetBucketTimestamp(t *testing.T) {}
-
-//Helper tests ----------------------------------------------------
 func TestAddNode(t *testing.T) {
 	rt := createRT()
 	//add local node

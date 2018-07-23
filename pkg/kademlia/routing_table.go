@@ -9,37 +9,30 @@ import (
 	"sync"
 	"time"
 	"errors"
-	protobuf "github.com/golang/protobuf/proto"
+
+	pb "github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/dht"
+	
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
 
 
-const (
-	//decimal representation of 11111111
-	maxByteVal = 255
-
-	//number of bits in a byte
-	bitsInByte = 8
-)
-
 // RoutingTable implements the RoutingTable interface
 // Note: k-bucket and kad bucket are interchangable
 type RoutingTable struct {
-	Self         *proto.Node
-	kadBucketDB  *storage.KeyValueStore
-	nodeBucketDB *storage.KeyValueStore
-	transport    *proto.NodeTransport
-	mutex        *sync.Mutex
-	b			 int //kbucket key length 256 bits (SHA256) b = 256
-	k			 int // max number of nodes stored in a kbucket k = 20
+	Self         	*proto.Node
+	kadBucketDB  	*storage.KeyValueStore
+	nodeBucketDB 	*storage.KeyValueStore
+	transport    	*proto.NodeTransport
+	mutex        	*sync.Mutex
+	idLength	 	int // kbucket and node id bit length (SHA256) = 256
+	maxBucketSize   int // max number of nodes stored in a kbucket = 20 (k)
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *proto.Node, kpath string, npath string, b int, k int) (*RoutingTable, error) {
+func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength int, maxBucketSize int) (*RoutingTable, error) {
 	logger, _ := zap.NewDevelopment()
 	kdb, err := boltdb.NewClient(logger, kpath, boltdb.KBucket)
 	if err != nil {
@@ -50,88 +43,15 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, b int, k
 		return nil, fmt.Errorf("create NodeBucket bucket: %s", err)
 	}
 	return &RoutingTable{
-		Self:         localNode,
-		kadBucketDB:  &kdb,
-		nodeBucketDB: &ndb,
-		transport:    &defaultTransport,
-		mutex:        &sync.Mutex{},
-		b:    		  b,
-		k:            k,
+		Self:         	localNode,
+		kadBucketDB:  	&kdb,
+		nodeBucketDB: 	&ndb,
+		transport:    	&defaultTransport,
+		mutex:        	&sync.Mutex{},
+		idLength:     	idLength,
+		maxBucketSize:  maxBucketSize,
 	}, nil
 }
-
-
-//INTERFACE METHODS -------------------
-
-// Local returns the local node
-//TODO
-func (rt RoutingTable) Local() proto.Node {
-	return proto.Node{}
-}
-
-// K returns the currently configured maximum of nodes to store in a bucket
-func (rt RoutingTable) K() int {
-	return rt.k
-}
-
-// CacheSize returns the total current size of the cache
-// TODO
-func (rt RoutingTable) CacheSize() int {
-	return 0
-}
-
-// GetBucket retrieves a bucket from the local node
-// TODO
-func (rt RoutingTable) GetBucket(id string) (dht.Bucket, bool) {
-	return &KadBucket{}, true
-}
-
-// GetBuckets retrieves all buckets from the local node
-// TODO
-func (rt RoutingTable) GetBuckets() ([]dht.Bucket, error) {
-	return []dht.Bucket{}, nil
-}
-
-// FindNear finds all Nodes near the provided nodeID up to the provided limit
-// TODO
-func (rt RoutingTable) FindNear(id NodeID, limit int) ([]*proto.Node, error) {
-	return []*proto.Node{}, nil
-}
-
-// ConnectionSuccess handles the details of what kademlia should do when
-// a successful connection is made to node on the network
-// TODO
-func (rt RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) {
-	return
-}
-
-// ConnectionFailed handles the details of what kademlia should do when
-// a connection fails for a node on the network
-// TODO
-func (rt RoutingTable) ConnectionFailed(id string, address proto.NodeAddress) {
-	return
-}
-
-// SetBucketTimestamp updates the last updated time for a bucket
-func (rt RoutingTable) SetBucketTimestamp(id string, now time.Time) error {
-	//WIP - doesn't use time
-	err := rt.createOrUpdateKBucket(storage.Key(id))
-	if err != nil {
-		return fmt.Errorf("set bucket timestamp: %s", err)
-	}
-	return nil
-}
-
-// GetBucketTimestamp retrieves the last updated time for a bucket
-func (rt RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time, error) {
-	//WIP - doesn't use bucket
-	pathKey := storage.Key(id)
-	val, _ := (*rt.kadBucketDB).Get(pathKey)
-	t, err := time.Parse("20060102150405", string(val))
-	return t, err
-}
-
-//HELPER METHODS -------------------
 
 // addNode attempts to add a new contact to the routing table
 // Not sure where this will be used, or if it will be need to be exported
@@ -184,7 +104,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 }
 
 func (rt RoutingTable) marshalNode(nodeKey storage.Key, nodeValue *proto.Node) error {
-	val, err := protobuf.Marshal(nodeValue)
+	val, err := pb.Marshal(nodeValue)
 	if err != nil {
 		return fmt.Errorf("marshaling error: %s", err)
 	}
@@ -229,7 +149,7 @@ func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) bool {
-	nodeRange := storage.Limit(rt.k / 2 + 1)
+	nodeRange := storage.Limit(rt.maxBucketSize / 2 + 1)
 	localNodeID := storage.Key(rt.Self.Id)
 	lesserNodes, _ := (*rt.nodeBucketDB).ReverseList(localNodeID, nodeRange)
 	greaterNodes, _ := (*rt.nodeBucketDB).List(localNodeID, nodeRange)
@@ -264,7 +184,7 @@ func (rt RoutingTable) kadBucketContainsLocalNode(kadID storage.Key) bool {
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
 func (rt RoutingTable) kadBucketHasRoom(kadID storage.Key) bool {
-	if len(rt.getNodeIDsWithinKBucket(kadID)) < rt.k {
+	if len(rt.getNodeIDsWithinKBucket(kadID)) < rt.maxBucketSize {
 		return true
 	}
 	return false
@@ -281,7 +201,7 @@ func (rt RoutingTable) getNodeIDsWithinKBucket(kadID storage.Key) storage.Keys {
 	for i := 0; i < len(allNodeIDs); i++ {
 		if (bytes.Compare(allNodeIDs[i], left) > 0) && (bytes.Compare(allNodeIDs[i], right) <= 0) {
 			nodeIDs = append(nodeIDs, allNodeIDs[i])
-			if len(nodeIDs) == rt.k {
+			if len(nodeIDs) == rt.maxBucketSize {
 				break
 			}
 		}
@@ -309,8 +229,8 @@ func (rt RoutingTable) getKBucketRange(kadID storage.Key) storage.Keys {
 // createFirstBucketID creates byte slice representing 11..11
 func (rt RoutingTable) createFirstBucketID() []byte {
 	var id []byte
-	x := byte(maxByteVal)
-	bytesLength := rt.b / bitsInByte
+	x := byte(255)
+	bytesLength := rt.idLength / 8
 	for i := 0; i < bytesLength; i++ {
 		id = append(id, x)
 	}
@@ -321,7 +241,7 @@ func (rt RoutingTable) createFirstBucketID() []byte {
 func (rt RoutingTable) createZeroAsStorageKey() storage.Key {
 	var id []byte
 	x := byte(0)
-	bytesLength := rt.b / bitsInByte
+	bytesLength := rt.idLength / 8
 	for i := 0; i < bytesLength; i++ {
 		id = append(id, x)
 	}
@@ -367,7 +287,7 @@ func determineDifferingBitIndex(kadID storage.Key, comparisonID storage.Key) int
 	}
 	target := differingBytes[len(differingBytes)-1]
 	var h int
-	for h = 0; h < bitsInByte; h++ {
+	for h = 0; h < 8; h++ {
 		mask := byte(1 << uint(h))
 		if mask == xorArr[target] {
 			break
@@ -376,7 +296,7 @@ func determineDifferingBitIndex(kadID storage.Key, comparisonID storage.Key) int
 	
 	bitInByteIndex := 7 - h
 	byteIndex := target
-	bitIndex := byteIndex * bitsInByte + bitInByteIndex
+	bitIndex := byteIndex * 8 + bitInByteIndex
 	return bitIndex
 }
 
@@ -386,8 +306,8 @@ func (rt RoutingTable) splitBucket(kadID []byte, depth int) []byte {
 	newID := make([]byte, len(kadID))
 	copy(newID, kadID)
 	bitIndex := depth
-	byteIndex := bitIndex / bitsInByte
-	bitInByteIndex := 7 - (bitIndex % bitsInByte)
+	byteIndex := bitIndex / 8
+	bitInByteIndex := 7 - (bitIndex % 8)
 	toggle := byte(1 << uint(bitInByteIndex))
 	newID[byteIndex] ^= toggle	
 	return newID
