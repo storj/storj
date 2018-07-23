@@ -48,7 +48,7 @@ func TestNewOverlayClient(t *testing.T) {
 
 func TestChoose(t *testing.T) {
 	cases := []struct {
-		limit         int64
+		limit         int
 		space         int64
 		expectedCalls int
 	}{
