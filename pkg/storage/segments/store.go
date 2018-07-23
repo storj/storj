@@ -182,10 +182,10 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, rem *ppb.RemoteSegment) (
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (
 	nodes []*opb.Node, err error) {
-	nodes = make([]*opb.Node, len(rem.GetRemotePieces()))
-	for i, p := range rem.GetRemotePieces() {
+	nodes = make([]*opb.Node, len(seg.GetRemotePieces()))
+	for i, p := range seg.GetRemotePieces() {
 		node, err := s.oc.Lookup(ctx, kademlia.StringToNodeID(p.GetNodeId()))
 		if err != nil {
 			// TODO better error handling: failing to lookup a few nodes should
