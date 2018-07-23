@@ -3,7 +3,9 @@
 
 syntax = "proto3";
 
-import "google/protobuf/duration.proto";
+import "duration.proto";
+
+package overlay;
 
 // NodeTransport is an enum of possible transports for the overlay network
 enum NodeTransport {
@@ -16,6 +18,10 @@ service Overlay {
     rpc Lookup(LookupRequest) returns (LookupResponse);
     // FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
     rpc FindStorageNodes(FindStorageNodesRequest) returns (FindStorageNodesResponse);
+}
+
+service Nodes {
+    rpc Query(QueryRequest) returns (QueryResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -61,4 +67,14 @@ message NodeRep {}
 message Node {
     string id = 1;
     NodeAddress address = 2;
+}
+
+message QueryRequest {
+    overlay.Node sender = 1;
+    overlay.Node receiver = 2;
+}
+
+message QueryResponse {
+    overlay.Node sender = 1;
+    repeated overlay.Node response = 2;
 }

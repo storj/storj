@@ -22,7 +22,7 @@ func TestDialNode(t *testing.T) {
 			Address:   "",
 		},
 	}
-	conn, err := oc.DialNode(context.Background(), node)
+	conn, err := oc.DialNode(context.Background(), &node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
@@ -31,7 +31,7 @@ func TestDialNode(t *testing.T) {
 		Id:      "DUMMYID2",
 		Address: nil,
 	}
-	conn, err = oc.DialNode(context.Background(), node)
+	conn, err = oc.DialNode(context.Background(), &node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
@@ -43,7 +43,7 @@ func TestDialNode(t *testing.T) {
 			Address:   "127.0.0.0:9000",
 		},
 	}
-	conn, err = oc.DialNode(context.Background(), node)
+	conn, err = oc.DialNode(context.Background(), &node)
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 }
