@@ -70,7 +70,6 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	return dhts, bootNode
 }
 
-//d dht.DHT is never used, should it be removed?
 func newTestKademlia(t *testing.T, ip, port string, b overlay.Node) *Kademlia {
 	i, err := newID()
 	assert.NoError(t, err)
