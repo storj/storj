@@ -200,10 +200,12 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+	tempContType := metadata["content-type"]
+	delete(metadata, "content-type")
 	//metadata serialized
 	serMetaInfo := meta.Serializable{
-		ContentType: metadata["content-type"],
-		UserDefined: delete(metadata, "content-type"),
+		ContentType: tempContType,
+		UserDefined: metadata,
 	}
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
