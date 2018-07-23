@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -143,12 +143,16 @@ func TestProcess_redis(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
+	viper.Set("localPort", "0")
+	viper.Set("redisaddress", "127.0.0.1:6379")
+	defer viper.Set("redisaddress", "")
+
 	done := test.EnsureRedis(t)
 	defer done()
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+
 	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
@@ -158,9 +162,12 @@ func TestProcess_bolt(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
-	flag.Set("redisAddress", "")
 	boltdbPath, err := filepath.Abs("test_bolt.db")
+	viper.Set("localport", "0")
+	viper.Set("boltdbpath", boltdbPath)
+	defer viper.Set("boltdbpath", "")
+	defer viper.Set("redisaddress", "")
+
 	assert.NoError(t, err)
 
 	if err != nil {
@@ -171,27 +178,27 @@ func TestProcess_bolt(t *testing.T) {
 		}()
 	}
 
-	flag.Set("boltdbPath", boltdbPath)
-
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	process.ConfigEnvironment()
 	err = o.Process(ctx, nil, nil)
 	assert.NoError(t, err)
 }
 
-func TestProcess_error(t *testing.T) {
+func TestProcess_default(t *testing.T) {
 	tempPath, err := ioutil.TempDir("", "TestProcess_error")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempPath)
 
-	flag.Set("localPort", "0")
-	flag.Set("boltdbPath", "")
-	flag.Set("redisAddress", "")
+	viper.Set("localPort", "0")
+	viper.Set("boltdbpath", defaultBoltDBPath())
+	defer viper.Set("boltdbpath", "")
+	defer viper.Set("redisaddress", "")
 
 	o := newTestService(t)
 	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	err = o.Process(ctx, nil, nil)
-	assert.True(t, process.ErrUsage.Has(err))
+	assert.Nil(t, err)
 }
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
