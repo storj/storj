@@ -12,17 +12,18 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage"
-	"storj.io/storj/pkg/storage/mocks"
+	//"storj.io/storj/pkg/storage/mocks"
 )
 
 func TestGetObject(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockGetObject := mocks.NewMockStore(mockCtrl)
+	mockGetObject := NewMockStore(mockCtrl)
 	s := Storj{os: mockGetObject}
 
 	testUser := storjObjects{storj: &s}
