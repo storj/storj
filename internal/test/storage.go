@@ -172,9 +172,12 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 			testRedis.start(t)
 		} else {
 			testRedis.started = true
-			conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			n, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			if err != nil {
+				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
+			}
 			b := make([]byte, 5)
-			n, err := conn.Read(b)
+			n, err = conn.Read(b)
 			if err != nil {
 				log.Fatalf("Failed to flush existing redis keys: error %s\n", err)
 			}
