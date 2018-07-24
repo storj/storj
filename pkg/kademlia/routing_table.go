@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"sync"
 	"time"
-	"errors"
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -81,8 +80,14 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	if err != nil {
 		return RoutingErr.New("could not getKBucketID: %s", err)
 	}
-	hasRoom := rt.kadBucketHasRoom(kadBucketID) 
-	containsLocal := rt.kadBucketContainsLocalNode(kadBucketID)
+	hasRoom, err := rt.kadBucketHasRoom(kadBucketID) 
+	if err != nil {
+		return err
+	}
+	containsLocal, err := rt.kadBucketContainsLocalNode(kadBucketID)
+	if err != nil {
+		return err
+	}
 	withinK := rt.nodeIsWithinNearestK(nodeKey)
 
 	for !hasRoom {
@@ -97,8 +102,14 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 			if err != nil {
 				return RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
-			hasRoom = rt.kadBucketHasRoom(kadBucketID)
-			containsLocal = rt.kadBucketContainsLocalNode(kadBucketID)
+			hasRoom, err = rt.kadBucketHasRoom(kadBucketID)
+			if err != nil {
+				return err
+			}
+			containsLocal, err = rt.kadBucketContainsLocalNode(kadBucketID)
+			if err != nil {
+				return err
+			}
 		} else {
 			return nil
 		}
@@ -183,14 +194,13 @@ func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	keys = append(keys, smallestKey)
 	keys = append(keys, kadBucketIDs ...)
 
-	for i, v := range(keys) {
-		if bytes.Compare(nodeID, v) > 0 && bytes.Compare(nodeID, keys[i+1]) <= 0 {
+	for i := 0; i < len(keys) - 1; i++ {
+		if bytes.Compare(nodeID, keys[i]) > 0 && bytes.Compare(nodeID, keys[i+1]) <= 0 {
 			return keys[i+1], nil
 		}
 	}
 	//shouldn't happen BUT return error if no matching kbucket...
-	err = errors.New("can't find k bucket")
-	return nil, err
+	return nil, RoutingErr.New("could not find k bucket")
 }
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
@@ -219,49 +229,65 @@ func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) bool {
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
-func (rt RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) bool {
+func (rt RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, error) {
 	key := storage.Key(rt.self.Id)
-	bucket, _ := rt.getKBucketID(key)
-	if bytes.Compare(bucket, bucketID) == 0 {
-		return true
+	bucket, err := rt.getKBucketID(key)
+	if err != nil {
+		return false, err
 	}
-	return false
+	if bytes.Compare(bucket, bucketID) == 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
-func (rt RoutingTable) kadBucketHasRoom(bucketID storage.Key) bool {
-	if len(rt.getNodeIDsWithinKBucket(bucketID)) < rt.bucketSize {
-		return true
+func (rt RoutingTable) kadBucketHasRoom(bucketID storage.Key) (bool, error) {
+	nodes, err := rt.getNodeIDsWithinKBucket(bucketID)
+	if err != nil {
+		return false, err
 	}
-	return false
+	if len(nodes) < rt.bucketSize {
+		return true, nil
+	}
+	return false, nil
 }
 
 // getNodeIDsWithinKBucket: helper, returns a collection of all the node ids contained within the kbucket
-func (rt RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) storage.Keys {
-	endpoints := rt.getKBucketRange(bucketID)
+func (rt RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.Keys, error) {
+	endpoints, err := rt.getKBucketRange(bucketID)
+	if err != nil {
+		return nil, err
+	}
 	left := endpoints[0]
 	right := endpoints[1]
 	var allNodeIDs storage.Keys
 	var nodeIDs storage.Keys
-	allNodeIDs, _ = rt.nodeBucketDB.List(nil, 0)
-	for i := 0; i < len(allNodeIDs); i++ {
-		if (bytes.Compare(allNodeIDs[i], left) > 0) && (bytes.Compare(allNodeIDs[i], right) <= 0) {
-			nodeIDs = append(nodeIDs, allNodeIDs[i])
+	allNodeIDs, err = rt.nodeBucketDB.List(nil, 0)
+	if err != nil {
+		return nil, RoutingErr.New("could not list nodes %s", err)
+	}
+	for _, v := range(allNodeIDs) {
+		if (bytes.Compare(v, left) > 0) && (bytes.Compare(v, right) <= 0) {
+			nodeIDs = append(nodeIDs, v)
 			if len(nodeIDs) == rt.bucketSize {
 				break
 			}
 		}
 	}
 	if len(nodeIDs) > 0 {
-		return nodeIDs
+		return nodeIDs, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
-func (rt RoutingTable) getKBucketRange(bucketID storage.Key) storage.Keys {
+func (rt RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, error) {
 	key := storage.Key(bucketID)
-	kadIDs, _ := rt.kadBucketDB.ReverseList(key, 2)
+	kadIDs, err := rt.kadBucketDB.ReverseList(key, 2)
+	if err != nil {
+		return nil, RoutingErr.New("could not reverse list nodes %s", err)
+	}
 	coords := make(storage.Keys, 2)
 	if len(kadIDs) < 2 {
 		coords[0] = rt.createZeroAsStorageKey()
@@ -269,7 +295,7 @@ func (rt RoutingTable) getKBucketRange(bucketID storage.Key) storage.Keys {
 		coords[0] = kadIDs[1]
 	}
 	coords[1] = kadIDs[0]
-	return coords
+	return coords, nil
 }
 
 // createFirstBucketID creates byte slice representing 11..11
@@ -297,26 +323,26 @@ func (rt RoutingTable) createZeroAsStorageKey() storage.Key {
 // determineLeafDepth determines the level of the bucket id in question. 
 // Eg level 0 means there is only 1 bucket, level 1 means the bucket has been split once, and so on
 func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) int {
-	// keys, _ := rt.kadBucketDB.List(nil, 0)
-	// firstBucket := rt.createFirstBucketID()
-	// max := storage.Key(firstBucket)
-	// mid := rt.splitBucket(firstBucket, 0)
-	// compareMax := bytes.Compare(bucketID, max)
-	// compareMid := bytes.Compare(bucketID, mid)
-	// if len(keys) == 1 {
-	// 	return 0
-	// } else if len(keys) == 2 {
-	// 	return 1
-	// } else if compareMid < 0 || (compareMid > 0 && compareMax < 0) {
-	// 	nextKeys, _ := rt.kadBucketDB.List(bucketID, 2)
-	// 	return determineDifferingBitIndex(bucketID, nextKeys[1]) + 1
-	// } else if compareMid == 0 || compareMax == 0 {
-	// 	prevKeys, _ := rt.kadBucketDB.ReverseList(bucketID, 2)
-	// 	return determineDifferingBitIndex(bucketID, prevKeys[1]) + 1
-	// } else {
-	// 	return -1
-	// }
-	return 1
+	//BROKEN
+	keys, _ := rt.kadBucketDB.List(nil, 0)
+	firstBucket := rt.createFirstBucketID()
+	max := storage.Key(firstBucket)
+	mid := rt.splitBucket(firstBucket, 0)
+	compareMax := bytes.Compare(bucketID, max)
+	compareMid := bytes.Compare(bucketID, mid)
+	if len(keys) == 1 {
+		return 0
+	} else if len(keys) == 2 {
+		return 1
+	} else if compareMid < 0 || (compareMid > 0 && compareMax < 0) {
+		nextKeys, _ := rt.kadBucketDB.List(bucketID, 2)
+		return determineDifferingBitIndex(bucketID, nextKeys[1]) + 1
+	} else if compareMid == 0 || compareMax == 0 {
+		prevKeys, _ := rt.kadBucketDB.ReverseList(bucketID, 2)
+		return determineDifferingBitIndex(bucketID, prevKeys[1]) + 1
+	} else {
+		return -1
+	}
 }
 
 // determineDifferingBitIndex: helper, returns the binary tree level of the id in question
@@ -327,8 +353,8 @@ func determineDifferingBitIndex(bucketID storage.Key, comparisonID storage.Key) 
 		xor := bucketID[i]^comparisonID[i]
 		xorArr = append(xorArr, xor)
 	}
-	for j := 0; j< len(xorArr); j++ {
-		if xorArr[j] != byte(0) {
+	for j, v := range(xorArr) {
+		if v != byte(0) {
 			differingBytes = append(differingBytes, j)
 		}
 	}
