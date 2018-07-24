@@ -14,11 +14,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	proto "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
-	port   = flag.Int("port", 8080, "port")
+	addr  = flag.String("addr", ":8080", "listen address")
 	dbPath = flag.String("statdb", "stats.db", "stats db path")
 )
 
@@ -29,7 +30,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 	}
 
 	// start grpc server
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	lis, err := net.Listen("tcp", *addr)
 	if err != nil {
 		return err
 	}
@@ -41,7 +42,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 		return err
 	}
 	proto.RegisterStatDBServer(grpcServer, ns)
-	s.logger.Debug(fmt.Sprintf("server listening on port %d", *port))
+	s.logger.Debug(fmt.Sprintf("server listening on address %s", addr))
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)

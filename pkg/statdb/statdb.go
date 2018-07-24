@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	//monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	pb "storj.io/storj/pkg/statdb/proto"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	"storj.io/storj/pointerdb/auth"
@@ -50,7 +52,8 @@ func (s *Server) validateAuth(apiKeyBytes []byte) error {
 }
 
 // Create a db entry for the provided farmer
-func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (*pb.CreateResponse, error) {
+func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
+	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
 
 	apiKeyBytes := []byte(createReq.ApiKey)
@@ -74,7 +77,6 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (*pb.C
 		dbx.Node_UptimeRatio(uptimeRatio),
 	)
 	if err != nil {
-		s.logger.Error("err creating node stats", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	s.logger.Debug("created in the db: " + string(node.NodeId))
@@ -90,18 +92,18 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (*pb.C
 }
 
 // Get a farmer's stats from the db
-func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (*pb.GetResponse, error) {
+func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
 	apiKeyBytes := []byte(getReq.ApiKey)
-	err := s.validateAuth(apiKeyBytes)
+	err = s.validateAuth(apiKeyBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(string(getReq.NodeId)))
 	if err != nil {
-		s.logger.Error("err getting node stats", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -116,11 +118,12 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (*pb.GetRespons
 }
 
 // Update a single farmer's stats in the db
-func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.UpdateResponse, error) {
+func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
+	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
 
 	apiKeyBytes := []byte(updateReq.ApiKey)
-	err := s.validateAuth(apiKeyBytes)
+	err = s.validateAuth(apiKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +132,6 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.U
 
 	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(string(node.NodeId)))
 	if err != nil {
-		s.logger.Error("err getting node stats", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -140,12 +142,18 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.U
 	totalUptimeCount := dbNode.TotalUptimeCount
 	uptimeRatio := dbNode.UptimeRatio
 
+	updateFields := dbx.Node_Update_Fields{}
+
 	if node.UpdateAuditSuccess {
 		auditSuccessCount, totalAuditCount, auditSuccessRatio =	UpdateRatioVars(
 			node.AuditSuccess,
 			auditSuccessCount,
 			totalAuditCount,
 		)
+
+		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(auditSuccessCount)
+		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(totalAuditCount)
+		updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditSuccessRatio)
 	}
 	if node.UpdateUptime {
 		uptimeSuccessCount, totalUptimeCount, uptimeRatio =	UpdateRatioVars(
@@ -153,19 +161,14 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.U
 			uptimeSuccessCount,
 			totalUptimeCount,
 		)
+
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
+		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+		updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 	}
 
-	updateFields := dbx.Node_Update_Fields{
-		AuditSuccessCount: dbx.Node_AuditSuccessCount(auditSuccessCount),
-		TotalAuditCount: dbx.Node_TotalAuditCount(totalAuditCount),
-		AuditSuccessRatio: dbx.Node_AuditSuccessRatio(auditSuccessRatio),
-		UptimeSuccessCount: dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
-		TotalUptimeCount: dbx.Node_TotalUptimeCount(totalUptimeCount),
-		UptimeRatio: dbx.Node_UptimeRatio(uptimeRatio),
-	}
 	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(string(node.NodeId)), updateFields)
 	if err != nil {
-		s.logger.Error("err updating node stats", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -180,7 +183,8 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.U
 }
 
 // Update multiple farmers' stats in the db
-func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (*pb.UpdateBatchResponse, error) {
+func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
+	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	apiKeyBytes := []byte(updateBatchReq.ApiKey)
@@ -193,7 +197,6 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 		updateRes, err := s.Update(ctx, updateReq)
 		if err != nil {
-			s.logger.Error("err updating node stats", zap.Error(err))
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
