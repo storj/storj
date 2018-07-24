@@ -129,7 +129,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 		return err
 	}
 
-	segments := segment.NewSegmentStore(oc, ec, pdb, rs)
+	segments := segment.NewSegmentStore(oc, ec, pdb, rs, 0)
 
 	// TODO(jt): wrap segments and turn segments into streams
 	// TODO(jt): hook streams into object store
