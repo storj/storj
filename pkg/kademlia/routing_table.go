@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/storage/boltdb"
 )
 
-
 // RoutingErr is the class for all errors pertaining to routing table operations
 var RoutingErr = errs.Class("routing table error")
 
@@ -95,18 +94,23 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	z :=0
 	for !hasRoom && z < 10 {
 		z ++
+		fmt.Printf("kbucket after get %v\n", kadBucketID)
 		if  containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)
-			fmt.Printf(" kbucket: %v, depth: %v \n", kadBucketID, depth)
+			fmt.Printf("depth %v\n", depth)
 			if err != nil {
 				return RoutingErr.New("could not determine leaf depth: %s", err)
 			}
+			fmt.Printf("kbucket before split %v\n", kadBucketID)
+
 			kadBucketID = rt.splitBucket(kadBucketID, depth)
+			fmt.Printf("kbucket after split %v\n", kadBucketID)
 			err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 			if err != nil {
 				return RoutingErr.New("could not split and create K bucket: %s", err)
 			}
 			kadBucketID, err = rt.getKBucketID(nodeKey)
+			fmt.Printf("kbucket after get %v\n", kadBucketID)
 			if err != nil {
 				return RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
@@ -118,6 +122,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 			if err != nil {
 				return err
 			}
+			fmt.Printf("kbucket at end %v\n", kadBucketID)
 
 		} else {
 			return nil
@@ -343,6 +348,7 @@ func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 	smaller := bucketRange[0]
 	fmt.Print(smaller)
 	diffBit, err := rt.determineDifferingBitIndex(bucketID, smaller)
+	fmt.Printf("diffBit %v\n                                                                                                  ", diffBit)
 	if err != nil {
 		return diffBit + 1, RoutingErr.New("could not determine differing bit %s", err)
 	}
@@ -354,6 +360,9 @@ func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparis
 	if bytes.Equal(bucketID, comparisonID) {
 		return -2, RoutingErr.New("compared two equivalent k bucket ids")
 	} 
+	if bytes.Equal(comparisonID, rt.createZeroAsStorageKey()) {
+		comparisonID = rt.createFirstBucketID()
+	}
 
 	var xorArr []byte
 	var differingByteIndex int
@@ -374,8 +383,8 @@ func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparis
 		}
 	}
 	
-	h := 8 
-	for ; h >= 0; h-- {
+	h := 0
+	for ; h < 8 ; h++ {
 		toggle := byte(1 << uint(h))
 		tempXor := differingByteXor
 		// fmt.Printf("%b\n", tempXor)
@@ -389,9 +398,7 @@ func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparis
 	bitInByteIndex := 7 - h
 	byteIndex := differingByteIndex
 	bitIndex := byteIndex * 8 + bitInByteIndex
-	if bytes.Equal(comparisonID, rt.createZeroAsStorageKey()) {
-		return bitIndex - 1, nil
-	}
+
 	return bitIndex, nil
 }
 
