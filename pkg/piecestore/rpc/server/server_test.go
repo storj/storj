@@ -25,18 +25,18 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-var tempDir string = path.Join(os.TempDir(), "test-data", "3000")
-var tempDBPath string = path.Join(os.TempDir(), "test.db")
+var tempDir = path.Join(os.TempDir(), "test-data", "3000")
+var tempDBPath = path.Join(os.TempDir(), "test.db")
 var db *sql.DB
 var s Server
 var c pb.PieceStoreRoutesClient
-var testId string = "11111111111111111111"
+var testID = "11111111111111111111"
 var testCreatedDate int64 = 1234567890
 var testExpiration int64 = 9999999999
 
 func TestPiece(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func TestPiece(t *testing.T) {
 		return
 	}
 
-	defer pstore.Delete(testId, s.PieceStoreDir)
+	defer pstore.Delete(testID, s.PieceStoreDir)
 
 	// set up test cases
 	tests := []struct {
@@ -61,7 +61,7 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:         testId,
+			id:         testID,
 			size:       5,
 			expiration: testExpiration,
 			err:        "",
@@ -118,7 +118,7 @@ func TestPiece(t *testing.T) {
 			}
 
 			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, testId))
+			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, testID))
 			if err != nil {
 				t.Errorf("Error cleaning test DB entry")
 				return
@@ -129,7 +129,7 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
+	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer pstore.Delete(testId, s.PieceStoreDir)
+	defer pstore.Delete(testID, s.PieceStoreDir)
 
 	// set up test cases
 	tests := []struct {
@@ -154,7 +154,7 @@ func TestRetrieve(t *testing.T) {
 		err      string
 	}{
 		{ // should successfully retrieve data
-			id:       testId,
+			id:       testID,
 			reqSize:  5,
 			respSize: 5,
 			offset:   0,
@@ -178,7 +178,7 @@ func TestRetrieve(t *testing.T) {
 			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:       testId,
+			id:       testID,
 			reqSize:  5,
 			respSize: 4,
 			offset:   1,
@@ -186,7 +186,7 @@ func TestRetrieve(t *testing.T) {
 			err:      "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:       testId,
+			id:       testID,
 			reqSize:  4,
 			respSize: 4,
 			offset:   0,
@@ -239,7 +239,7 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			id:            testId,
+			id:            testID,
 			ttl:           testExpiration,
 			content:       []byte("butts"),
 			message:       "OK",
@@ -266,13 +266,13 @@ func TestStore(t *testing.T) {
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Id: tt.id, Ttl: tt.ttl}); err != nil {
+			if err = stream.Send(&pb.PieceStore{Id: tt.id, Ttl: tt.ttl}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err := stream.Send(&pb.PieceStore{Content: tt.content}); err != nil {
+			if err = stream.Send(&pb.PieceStore{Content: tt.content}); err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
 			}
@@ -310,7 +310,7 @@ func TestDelete(t *testing.T) {
 		err     string
 	}{
 		{ // should successfully delete data
-			id:      testId,
+			id:      testID,
 			message: "OK",
 			err:     "",
 		},
@@ -330,7 +330,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testId, s.PieceStoreDir)
+			file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
 			if err != nil {
 				return
 			}
@@ -353,7 +353,7 @@ func TestDelete(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(testId, s.PieceStoreDir)
+			defer pstore.Delete(testID, s.PieceStoreDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(context.Background(), req)

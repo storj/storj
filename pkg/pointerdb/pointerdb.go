@@ -43,8 +43,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 func (s *Server) Put(ctx context.Context, putReq *pb.PutRequest) (*pb.PutResponse, error) {
 	s.logger.Debug("entering pointerdb put")
 
-	APIKeyBytes := []byte(putReq.APIKey)
-	if err := s.validateAuth(APIKeyBytes); err != nil {
+	if err := s.validateAuth(putReq.APIKey); err != nil {
 		return nil, err
 	}
 

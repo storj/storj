@@ -136,7 +136,10 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) 
 	}
 
 	h := crypto.SHA256.New()
-	h.Write(childCert.RawTBSCertificate)
+	_, err := h.Write(childCert.RawTBSCertificate)
+	if err != nil {
+		return false, err
+	}
 	digest := h.Sum(nil)
 
 	isValid := ecdsa.Verify(pubkey, digest, signature.R, signature.S)

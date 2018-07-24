@@ -12,6 +12,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 
@@ -144,4 +145,6 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
 }
 
-func main() { process.Must(process.Main(func() error { return nil }, process.ServiceFunc(run))) }
+func main() {
+	process.Must(process.Main(func() (*viper.Viper, error) { return nil, nil }, process.ServiceFunc(run)))
+}

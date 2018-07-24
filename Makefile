@@ -81,13 +81,18 @@ clean-local:
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} -f cmd/overlay/Dockerfile .
 	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
+	docker build -t storjlabs/piecestore-farmer:${TAG} -f cmd/piecestore-farmer/Dockerfile .
+	docker tag storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
 
 push-images:
 	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
 	docker push storjlabs/overlay:latest
+	docker push storjlabs/piecestore-farmer:${TAG}
+	docker push storjlabs/piecestore-farmer:latest
 
 clean-images:
 	-docker rmi storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
+	-docker rmi storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
 
 install-deps:
 	go get -u -v golang.org/x/vgo

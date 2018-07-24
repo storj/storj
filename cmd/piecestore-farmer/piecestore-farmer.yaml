@@ -1,0 +1,65 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: piecestore
+  labels:
+    app: piecestore
+spec:
+  ports:
+  - name: grpc
+    port: 7777
+    targetPort: 7777
+  - name: http
+    port: 7776
+    targetPort: 7776
+  selector:
+    app: piecestore
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: piecestore
+  labels:
+    app: piecestore
+spec:
+  minReadySeconds: 10
+  revisionHistoryLimit: 3
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: piecestore
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: "storjlabs/piecestore-farmer"
+        imagePullPolicy: Always
+        name: piecestore
+        env:
+          - name: PUBLIC_IP
+            value: "127.0.0.1"
+          - name: RPC_PORT
+            value: "7777"
+          - name: KAD_PORT
+            value: "8080"
+          - name: KAD_HOST
+            value: "bootstrap.storj.io"
+          - name: KAD_LISTEN_PORT
+            value: "7776"
+          - name: PS_DIR
+            value: "/home/"
+        ports:
+        - name: grpc
+          containerPort: 7777
+        - name: http
+          containerPort: 7776
+        resources:
+          requests:
+            cpu: 200m
+            memory: 64Mi
+          limits:
+            cpu: 300m
+            memory: 128Mi
