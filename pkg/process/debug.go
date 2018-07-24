@@ -4,7 +4,6 @@
 package process
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -20,7 +19,7 @@ func init() {
 	*http.DefaultServeMux = http.ServeMux{}
 }
 
-func initDebug(ctx context.Context, logger *zap.Logger, r *monkit.Registry) (
+func initDebug(logger *zap.Logger, r *monkit.Registry) (
 	err error) {
 	var mux http.ServeMux
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
