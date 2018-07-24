@@ -71,9 +71,9 @@ func checkEntries(dir string, rows *sql.Rows) error {
 	return nil
 }
 
-// DBCleanup -- go routine to check ttl database for expired entries
+// DeleteExpiredEntries -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
-func (psdb *PSDB) DBCleanup(dir string) error {
+func (psdb *PSDB) DeleteExpiredEntries(dir string) error {
 
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
