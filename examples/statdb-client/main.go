@@ -31,7 +31,7 @@ func printNodeStats(ns proto.NodeStats, logger zap.Logger) {
 	latency90 := ns.Latency_90
 	auditSuccess := ns.AuditSuccessRatio
 	uptime := ns.UptimeRatio
-	logStr := fmt.Sprintf("NodeID: %s, Latency (90th percentile): %d, Audit Success Ratio: %d, Uptime Ratio: %d", nodeId, latency90, auditSuccess, uptime)
+	logStr := fmt.Sprintf("NodeID: %s, Latency (90th percentile): %d, Audit Success Ratio: %g, Uptime Ratio: %g", nodeId, latency90, auditSuccess, uptime)
 	logger.Info(logStr)
 }
 

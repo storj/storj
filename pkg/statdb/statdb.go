@@ -5,6 +5,7 @@ package statdb
 
 import (
 	"context"
+	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -26,6 +27,11 @@ type Server struct {
 func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec(db.Schema())
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return nil, err
 	}
 
