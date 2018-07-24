@@ -28,11 +28,7 @@ func writeCerts(certs [][]byte, path string) error {
 		return errs.New("unable to open file \"%s\" for writing", path, err)
 	}
 
-	defer func() {
-		if err := file.Close(); err != nil && err != os.ErrClosed {
-			log.Printf("Failed to close file: %s\n", err)
-		}
-	}()
+	defer doubleClose(file)
 
 	for _, cert := range certs {
 		if err := writePem(newCertBlock(cert), file); err != nil {
@@ -54,11 +50,7 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 		return errs.New("unable to open \"%s\" for writing", path, err)
 	}
 
-	defer func() {
-		if err := file.Close(); err != nil && err != os.ErrClosed {
-			log.Printf("Failed to close file: %s\n", err)
-		}
-	}()
+	defer doubleClose(file)
 
 	block, err := keyToBlock(key)
 	if err != nil {
@@ -74,4 +66,15 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 	}
 
 	return nil
+}
+
+func doubleClose(fh io.Closer) {
+	err := fh.Close()
+	if err == nil || err == os.ErrClosed {
+		return
+	}
+	if perr, ok := err.(*os.PathError); ok && perr.Err == os.ErrClosed {
+		return
+	}
+	log.Printf("Failed to close file: %s\n", err)
 }

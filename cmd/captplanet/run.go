@@ -31,7 +31,9 @@ var (
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg,
+		cfgstruct.ConfDir(defaultConfDir),
+	)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
