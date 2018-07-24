@@ -29,8 +29,6 @@ import (
 var ctx = context.Background()
 
 func TestPiece(t *testing.T) {
-	testID := "11111111111111111111"
-
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
@@ -47,7 +45,7 @@ func TestPiece(t *testing.T) {
 	defer cleanup(db)
 
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.DataDir)
+	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
 	if err != nil {
 		return
 	}
@@ -62,7 +60,7 @@ func TestPiece(t *testing.T) {
 		return
 	}
 
-	defer pstore.Delete(testID, s.DataDir)
+	defer pstore.Delete("11111111111111111111", s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -72,7 +70,7 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:         testID,
+			id:         "11111111111111111111",
 			size:       5,
 			expiration: 9999999999,
 			err:        "",
@@ -104,7 +102,7 @@ func TestPiece(t *testing.T) {
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := c.Piece(ctx(), req)
+			resp, err := c.Piece(ctx, req)
 
 			if len(tt.err) > 0 {
 
@@ -139,8 +137,6 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	testID := "11111111111111111111"
-
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
@@ -157,7 +153,7 @@ func TestRetrieve(t *testing.T) {
 	defer cleanup(db)
 
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.DataDir)
+	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
 	if err != nil {
 		return
 	}
@@ -170,7 +166,7 @@ func TestRetrieve(t *testing.T) {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer pstore.Delete(testID, s.DataDir)
+	defer pstore.Delete("11111111111111111111", s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -183,7 +179,7 @@ func TestRetrieve(t *testing.T) {
 		err       string
 	}{
 		{ // should successfully retrieve data
-			id:        testID,
+			id:        "11111111111111111111",
 			reqSize:   5,
 			respSize:  5,
 			allocSize: 5,
@@ -192,7 +188,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // should successfully retrieve data with lower allocations
-			id:        testID,
+			id:        "11111111111111111111",
 			reqSize:   5,
 			respSize:  3,
 			allocSize: 3,
@@ -201,7 +197,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // should successfully retrieve data
-			id:        testID,
+			id:        "11111111111111111111",
 			reqSize:   -1,
 			respSize:  5,
 			allocSize: 5,
@@ -228,7 +224,7 @@ func TestRetrieve(t *testing.T) {
 			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:        testID,
+			id:        "11111111111111111111",
 			reqSize:   5,
 			respSize:  4,
 			allocSize: 5,
@@ -237,7 +233,7 @@ func TestRetrieve(t *testing.T) {
 			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:        testID,
+			id:        "11111111111111111111",
 			reqSize:   4,
 			respSize:  4,
 			allocSize: 5,
@@ -249,7 +245,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			stream, err := c.Retrieve(ctx())
+			stream, err := c.Retrieve(ctx)
 
 			// send piece database
 			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
@@ -340,7 +336,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 
-			stream, err := c.Store(ctx())
+			stream, err := c.Store(ctx)
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -463,7 +459,7 @@ func TestDelete(t *testing.T) {
 			defer pstore.Delete(tt.id, s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := c.Delete(ctx(), req)
+			resp, err := c.Delete(ctx, req)
 			if len(tt.err) > 0 {
 				if err != nil {
 					if err.Error() == tt.err {
