@@ -4,6 +4,7 @@
 package test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
@@ -171,6 +172,15 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 			testRedis.start(t)
 		} else {
 			testRedis.started = true
+			conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			b := make([]byte, 5)
+			n, err := conn.Read(b)
+			if err != nil {
+				log.Fatalf("Failed to flush existing redis keys: error %s\n", err)
+			}
+			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
+				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
+			}
 			conn.Close()
 		}
 	}
