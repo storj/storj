@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage"
-	//"storj.io/storj/pkg/storage/mocks"
 )
 
 func TestGetObject(t *testing.T) {
