@@ -26,6 +26,8 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+var ctx = context.Background()
+
 func TestPiece(t *testing.T) {
 	testID := "11111111111111111111"
 
@@ -102,7 +104,7 @@ func TestPiece(t *testing.T) {
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := c.Piece(context.Background(), req)
+			resp, err := c.Piece(ctx(), req)
 
 			if len(tt.err) > 0 {
 
@@ -247,7 +249,7 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			stream, err := c.Retrieve(context.Background())
+			stream, err := c.Retrieve(ctx())
 
 			// send piece database
 			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
@@ -338,7 +340,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 
-			stream, err := c.Store(context.Background())
+			stream, err := c.Store(ctx())
 			if err != nil {
 				t.Errorf("Unexpected error: %v\n", err)
 				return
@@ -461,7 +463,7 @@ func TestDelete(t *testing.T) {
 			defer pstore.Delete(tt.id, s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := c.Delete(context.Background(), req)
+			resp, err := c.Delete(ctx(), req)
 			if len(tt.err) > 0 {
 				if err != nil {
 					if err.Error() == tt.err {
