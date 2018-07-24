@@ -41,22 +41,7 @@ type Client struct {
 
 // NewPSClient initilizes a PSClient
 func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID string) PSClient {
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
-		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
-
-		return nil
-	}
-
-	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = defaultBandwidthMsgSize
-	}
-
-	return &Client{
-		conn:    conn,
-		route:   pb.NewPieceStoreRoutesClient(conn),
-		payerID: payerID, renterID: renterID,
-		bandwidthMsgSize: bandwidthMsgSize,
-	}
+	return NewCustomRoute(pb.NewPieceStoreRoutesClient(conn), bandwidthMsgSize, payerID, renterID)
 }
 
 // NewCustomRoute creates new Client with custom route interface
