@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	//monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	pb "storj.io/storj/pkg/statdb/proto"
 	dbx "storj.io/storj/pkg/statdb/dbx"
@@ -53,7 +52,6 @@ func (s *Server) validateAuth(apiKeyBytes []byte) error {
 
 // Create a db entry for the provided farmer
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
-	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
 
 	apiKeyBytes := []byte(createReq.ApiKey)
@@ -93,7 +91,6 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 // Get a farmer's stats from the db
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
-	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
 	apiKeyBytes := []byte(getReq.ApiKey)
@@ -119,7 +116,6 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 
 // Update a single farmer's stats in the db
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
-	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
 
 	apiKeyBytes := []byte(updateReq.ApiKey)
@@ -184,7 +180,6 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 
 // Update multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
-	//defer monkit.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	apiKeyBytes := []byte(updateBatchReq.ApiKey)
