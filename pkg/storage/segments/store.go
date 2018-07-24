@@ -57,16 +57,17 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc  overlay.Client
-	ec  ecclient.Client
-	pdb pointerdb.Client
-	rs  eestream.RedundancyStrategy
+	oc            overlay.Client
+	ec            ecclient.Client
+	pdb           pointerdb.Client
+	rs            eestream.RedundancyStrategy
+	thresholdSize int
 }
 
 // NewSegmentStore creates a new instance of segmentStore
 func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
-	pdb pointerdb.Client, rs eestream.RedundancyStrategy) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs}
+	pdb pointerdb.Client, rs eestream.RedundancyStrategy, t int) Store {
+	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 
 // Meta retrieves the metadata of the segment
@@ -87,21 +88,49 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// uses overlay client to request a list of nodes
-	nodes, err := s.oc.Choose(ctx, s.rs.TotalCount(), 0)
+	var p *ppb.Pointer
+
+	// checks if pointer should be inline or remote
+	// TODO(nat): check that size is less than s.thresholdSize
+	if data == nil {
+		p = &ppb.Pointer{
+			Type:     ppb.Pointer_INLINE,
+			Metadata: metadata,
+		}
+	} else {
+		// uses overlay client to request a list of nodes
+		nodes, err := s.oc.Choose(ctx, s.rs.TotalCount(), 0)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		pieceID := client.NewPieceID()
+		sizedReader := SizeReader(data)
+
+		// puts file to ecclient
+		err = s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		p = s.makeRemotePointer(nodes, pieceID, metadata)
+	}
+
+	// puts pointer to pointerDB
+	err = s.pdb.Put(ctx, path, p, nil)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	pieceID := client.NewPieceID()
-	sizedReader := SizeReader(data)
-
-	// puts file to ecclient
-	err = s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
+	// get the metadata for the newly uploaded segment
+	m, err := s.Meta(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
+	return m, nil
+}
 
+// makeRemotePointer creates a pointer of type remote
+func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID,
+	metadata []byte) (pointer *ppb.Pointer) {
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodes {
 		remotePieces = append(remotePieces, &ppb.RemotePiece{
@@ -115,8 +144,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		return Meta{}, Error.Wrap(err)
 	}
 
-	// creates pointer
-	pr := &ppb.Pointer{
+	pointer = &ppb.Pointer{
 		Type: ppb.Pointer_REMOTE,
 		Remote: &ppb.RemoteSegment{
 			Redundancy: &ppb.RedundancyScheme{
@@ -133,19 +161,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
-
-	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, pr, nil)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	// get the metadata for the newly uploaded segment
-	m, err := s.Meta(ctx, path)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-	return m, nil
+	return pointer
 }
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
