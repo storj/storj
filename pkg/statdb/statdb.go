@@ -41,8 +41,8 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) validateAuth(APIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
+func (s *Server) validateAuth(apiKeyBytes []byte) error {
+	if !auth.ValidateAPIKey(string(apiKeyBytes)) {
 		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
@@ -53,8 +53,8 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (*pb.CreateResponse, error) {
 	s.logger.Debug("entering statdb Create")
 
-	APIKeyBytes := []byte(createReq.ApiKey)
-	if err := s.validateAuth(APIKeyBytes); err != nil {
+	apiKeyBytes := []byte(createReq.ApiKey)
+	if err := s.validateAuth(apiKeyBytes); err != nil {
 		return nil, err
 	}
 
@@ -93,8 +93,8 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (*pb.C
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (*pb.GetResponse, error) {
 	s.logger.Debug("entering statdb Get")
 
-	APIKeyBytes := []byte(getReq.ApiKey)
-	err := s.validateAuth(APIKeyBytes)
+	apiKeyBytes := []byte(getReq.ApiKey)
+	err := s.validateAuth(apiKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +119,8 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (*pb.GetRespons
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.UpdateResponse, error) {
 	s.logger.Debug("entering statdb Update")
 
-	APIKeyBytes := []byte(updateReq.ApiKey)
-	err := s.validateAuth(APIKeyBytes)
+	apiKeyBytes := []byte(updateReq.ApiKey)
+	err := s.validateAuth(apiKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -183,16 +183,28 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (*pb.U
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (*pb.UpdateBatchResponse, error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	APIKeyBytes := []byte(updateBatchReq.ApiKey)
-	err := s.validateAuth(APIKeyBytes)
-	if err != nil {
-		return nil, err
+	apiKeyBytes := []byte(updateBatchReq.ApiKey)
+	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
+	for i, node := range updateBatchReq.NodeList {
+		updateReq := &pb.UpdateRequest{
+			Node: node,
+			ApiKey: apiKeyBytes,
+		}
+
+		updateRes, err := s.Update(ctx, updateReq)
+		if err != nil {
+			s.logger.Error("err updating node stats", zap.Error(err))
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		nodeStatsList[i] = updateRes.Stats
 	}
 
-	// TODO try to implement using similar code as Update
-	// Maybe call the same function from both Update and UpdateBatch to do update logic for individual farmers
 
-	return &pb.UpdateBatchResponse{}, nil
+	updateBatchRes := &pb.UpdateBatchResponse{
+		StatsList: nodeStatsList,
+	}
+	return updateBatchRes, nil
 }
 
 func InitRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
