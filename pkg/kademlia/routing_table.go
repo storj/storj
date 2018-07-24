@@ -351,56 +351,47 @@ func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 
 // determineDifferingBitIndex: helper, returns the last bit differs starting from prefix to suffix
 func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparisonID storage.Key) (int, error) {
-	//BROKEN
 	if bytes.Equal(bucketID, comparisonID) {
 		return -2, RoutingErr.New("compared two equivalent k bucket ids")
 	} 
 
-	comparingToZero := bytes.Equal(comparisonID, rt.createZeroAsStorageKey())
-	if comparingToZero {
-		comparisonID = storage.Key(rt.createFirstBucketID())
-	} 
-
 	var xorArr []byte
-	var differingBytes []int
+	var differingByteIndex int
+	var differingByteXor byte
 	for i := 0; i < len(bucketID); i++ {
 		xor := bucketID[i]^comparisonID[i]
 		xorArr = append(xorArr, xor)
 	}
-
-	if bytes.Equal(xorArr, rt.createZeroAsStorageKey()) {
+	if bytes.Equal(xorArr, rt.createFirstBucketID()) {
 		return -1, nil
 	}
 
 	for j, v := range(xorArr) {
 		if v != byte(0) {
-			differingBytes = append(differingBytes, j)
+			differingByteIndex = j
+			differingByteXor = v
+			break
 		}
 	}
-	target := differingBytes[len(differingBytes)-1]
-	h := 0 
-	if comparingToZero {
-		for ; h < 8; h++ {
-			mask := byte(1 << uint(h))
-			xorArr[target] ^= mask
-			if xorArr[target] == byte(255) {
-				break
-			}
+	
+	h := 8 
+	for ; h >= 0; h-- {
+		toggle := byte(1 << uint(h))
+		tempXor := differingByteXor
+		// fmt.Printf("%b\n", tempXor)
+		tempXor ^= toggle
+		// fmt.Printf("%b\n", tempXor)
+		if tempXor < differingByteXor { 
+			break
 		}
-		h++
-	} else {
-		fmt.Printf("%b\n", xorArr[target])
-		for ; h < 8; h++ {
-			mask := byte(1 << uint(h))
-			if mask == xorArr[target] { //this usually does NOT work
-				break
-			}
-		}
-	}
 
+	}
 	bitInByteIndex := 7 - h
-	byteIndex := target
+	byteIndex := differingByteIndex
 	bitIndex := byteIndex * 8 + bitInByteIndex
+	if bytes.Equal(comparisonID, rt.createZeroAsStorageKey()) {
+		return bitIndex - 1, nil
+	}
 	return bitIndex, nil
 }
 

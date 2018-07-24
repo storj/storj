@@ -510,6 +510,10 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, diff)
 
+	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{191, 255})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, diff)
+
 	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{127, 255})
 	assert.NoError(t, err)
 	assert.Equal(t, 2, diff)
@@ -520,11 +524,11 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 
 	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{63, 255})
 	assert.NoError(t, err)
-	assert.Equal(t, 3, diff) //check this. but also failing :( check chart...
+	assert.Equal(t, 1, diff) 
 
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 191})
+	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 255})
 	assert.NoError(t, err)
-	assert.Equal(t, 9, diff)
+	assert.Equal(t, 3, diff)
 
 	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{255, 255})
 	assert.Error(t, err)
@@ -536,11 +540,15 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 
 	diff, err = rt.determineDifferingBitIndex([]byte{127, 255}, []byte{0, 0})
 	assert.NoError(t, err)
-	assert.Equal(t, 0, diff)
+	assert.Equal(t, 0, diff) 
+
+	diff, err = rt.determineDifferingBitIndex([]byte{63, 255}, []byte{0, 0})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, diff) 
 
 	diff, err = rt.determineDifferingBitIndex([]byte{31, 255}, []byte{0, 0})
 	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
+	assert.Equal(t, 2, diff) 
 }
 
 func TestSplitBucket(t *testing.T) {
