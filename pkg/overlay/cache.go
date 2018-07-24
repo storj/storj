@@ -5,6 +5,9 @@ package overlay
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -123,35 +126,54 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
 func (o *Cache) Refresh(ctx context.Context) error {
+	log.Print("refresh function called")
 	// iterate over all nodes
 	// compare responses to find new nodes
 	// listen for responses from existing nodes
-	// if no response from existing, then mark it as offline for time period
-	// if responds, it refreshes in DHT
-	_, rtErr := o.DHT.GetRoutingTable(ctx)
-
-	if rtErr != nil {
-		return rtErr
-	}
-
-	_, err := o.DHT.GetNodes(ctx, "0", 128)
+	// if no response from existing, then do nothing
+	// if responds, it refreshes in cache
+	table, err := o.DHT.GetRoutingTable(ctx)
 
 	if err != nil {
+		zap.Error(OverlayError.New("Error getting routing table", err))
 		return err
 	}
 
+	k := table.K()
+
+	nodes, err := o.DHT.GetNodes(ctx, "0", k)
+
+	log.Print("nodes %+v\n", nodes)
+
+	for _, node := range nodes {
+		fmt.Printf("node::: %+v\n", node)
+		fmt.Printf("pointer node %+v\n", *node)
+		pinged, err := o.DHT.Ping(ctx, *node)
+		if err != nil {
+			// penalize node for not being online
+			zap.Error(ErrNodeNotFound)
+		}
+		log.Print("pinged node id %s address: %s", pinged.Id, pinged.Address.Address)
+		o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+	}
+
+	log.Print("finished refreshing cache")
 	return nil
 }
 
-// Walk iterates over buckets to traverse the network
+// Walk iterates over each node in each bucket to traverse the network
 func (o *Cache) Walk(ctx context.Context) error {
-	nodes, err := o.DHT.GetNodes(ctx, "0", 128)
+	table, _ := o.DHT.GetRoutingTable(ctx)
+	k := table.K()
+
+	nodes, err := o.DHT.GetNodes(ctx, "0", k)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range nodes {
-		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+	for _, node := range nodes {
+		fmt.Printf("node::: %+v\n", node)
+		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(node.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 			return err
@@ -159,4 +181,24 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func schedule(fn func() error, interval time.Duration) chan error {
+	ticker := time.NewTicker(interval * time.Second)
+	quit := make(chan struct{})
+	errors := make(chan error)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				err := fn()
+				if err != nil {
+					errors <- err
+				}
+			case <-quit:
+				ticker.Stop()
+			}
+		}
+	}()
+	return errors
 }
