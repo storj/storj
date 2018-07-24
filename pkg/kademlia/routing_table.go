@@ -5,9 +5,9 @@ package kademlia
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"time"
-	"fmt"
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -23,14 +23,14 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self         	*proto.Node
-	kadBucketDB  	storage.KeyValueStore
-	nodeBucketDB 	storage.KeyValueStore
-	transport    	*proto.NodeTransport
-	mutex        	*sync.Mutex
-	idLength	 	int // kbucket and node id bit length (SHA256) = 256
-	bucketSize   	int // max number of nodes stored in a kbucket = 20 (k)
-	nearestKNodes   storage.Keys
+	self          *proto.Node
+	kadBucketDB   storage.KeyValueStore
+	nodeBucketDB  storage.KeyValueStore
+	transport     *proto.NodeTransport
+	mutex         *sync.Mutex
+	idLength      int // kbucket and node id bit length (SHA256) = 256
+	bucketSize    int // max number of nodes stored in a kbucket = 20 (k)
+	nearestKNodes storage.Keys
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -45,14 +45,14 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
 	return &RoutingTable{
-		self:         	localNode,
-		kadBucketDB:  	kdb,
-		nodeBucketDB: 	ndb,
-		transport:    	&defaultTransport,
-		mutex:        	&sync.Mutex{},
-		idLength:     	idLength,
-		bucketSize:  	bucketSize,
-		nearestKNodes:  storage.Keys{},
+		self:          localNode,
+		kadBucketDB:   kdb,
+		nodeBucketDB:  ndb,
+		transport:     &defaultTransport,
+		mutex:         &sync.Mutex{},
+		idLength:      idLength,
+		bucketSize:    bucketSize,
+		nearestKNodes: storage.Keys{},
 	}, nil
 }
 
@@ -70,7 +70,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 		}
 		nodeValue, err := rt.marshalNode(node)
 		if err != nil {
-			return RoutingErr.New("could not marshal initial node: %s", err) 
+			return RoutingErr.New("could not marshal initial node: %s", err)
 		}
 		err = rt.putNode(nodeKey, nodeValue)
 		if err != nil {
@@ -82,7 +82,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	if err != nil {
 		return RoutingErr.New("could not getKBucketID: %s", err)
 	}
-	hasRoom, err := rt.kadBucketHasRoom(kadBucketID) 
+	hasRoom, err := rt.kadBucketHasRoom(kadBucketID)
 	if err != nil {
 		return err
 	}
@@ -91,11 +91,11 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 		return err
 	}
 	withinK := rt.nodeIsWithinNearestK(nodeKey)
-	z :=0
+	z := 0
 	for !hasRoom && z < 10 {
-		z ++
+		z++
 		fmt.Printf("kbucket after get %v\n", kadBucketID)
-		if  containsLocal || withinK {
+		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)
 			fmt.Printf("depth %v\n", depth)
 			if err != nil {
@@ -130,11 +130,11 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	}
 	nodeValue, err := rt.marshalNode(node)
 	if err != nil {
-		return RoutingErr.New("could not marshal node: %s", err) 
+		return RoutingErr.New("could not marshal node: %s", err)
 	}
 	err = rt.putNode(nodeKey, nodeValue)
 	if err != nil {
-		return RoutingErr.New("could not add node to nodeBucketDB: %s", err) 
+		return RoutingErr.New("could not add node to nodeBucketDB: %s", err)
 	}
 	err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 	if err != nil {
@@ -155,16 +155,17 @@ func (rt RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
 	return true, nil
 }
 
-// updateNode will update the node information given that 
+// updateNode will update the node information given that
 // the node is already in the routing table.
 func (rt RoutingTable) updateNode(node *proto.Node) error {
 	//TODO (JJ)
 	return nil
 }
-// removeNode will remove nodes and replace those entries with nodes 
-// from the replacement cache. 
+
+// removeNode will remove nodes and replace those entries with nodes
+// from the replacement cache.
 // We want to replace churned nodes (no longer online)
-func (rt RoutingTable) removeNode(nodeID storage.Key) error{
+func (rt RoutingTable) removeNode(nodeID storage.Key) error {
 	//TODO (JJ)
 	return nil
 }
@@ -206,9 +207,9 @@ func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	smallestKey := rt.createZeroAsStorageKey()
 	var keys storage.Keys
 	keys = append(keys, smallestKey)
-	keys = append(keys, kadBucketIDs ...)
+	keys = append(keys, kadBucketIDs...)
 
-	for i := 0; i < len(keys) - 1; i++ {
+	for i := 0; i < len(keys)-1; i++ {
 		if bytes.Compare(nodeID, keys[i]) > 0 && bytes.Compare(nodeID, keys[i+1]) <= 0 {
 			return keys[i+1], nil
 		}
@@ -221,26 +222,25 @@ func (rt RoutingTable) updateNearestKNodes() {
 
 }
 
-
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) bool {
-	nodeRange := storage.Limit(rt.bucketSize / 2 + 1)
+	nodeRange := storage.Limit(rt.bucketSize/2 + 1)
 	localNodeID := storage.Key(rt.self.Id)
 	lesserNodes, _ := rt.nodeBucketDB.ReverseList(localNodeID, nodeRange)
 	greaterNodes, _ := rt.nodeBucketDB.List(localNodeID, nodeRange)
 	smallestLesser := localNodeID
 	largestGreater := localNodeID
 	if len(lesserNodes) > 1 {
-		smallestLesser = lesserNodes[len(lesserNodes) - 1] 
+		smallestLesser = lesserNodes[len(lesserNodes)-1]
 	}
 	if len(greaterNodes) > 1 {
-		largestGreater = greaterNodes[len(greaterNodes) - 1] 
+		largestGreater = greaterNodes[len(greaterNodes)-1]
 	}
 	if bytes.Compare(nodeID, smallestLesser) == 1 && bytes.Compare(nodeID, largestGreater) == -1 {
 		return true
 	} else if bytes.Compare(nodeID, localNodeID) == -1 && len(lesserNodes) <= 1 {
 		return true
-	} else if bytes.Compare(nodeID, localNodeID) == 1 && len(greaterNodes) <= 1 { 
+	} else if bytes.Compare(nodeID, localNodeID) == 1 && len(greaterNodes) <= 1 {
 		return true
 	} else {
 		return false
@@ -285,7 +285,7 @@ func (rt RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.Ke
 	if err != nil {
 		return nil, RoutingErr.New("could not list nodes %s", err)
 	}
-	for _, v := range(allNodeIDs) {
+	for _, v := range allNodeIDs {
 		if (bytes.Compare(v, left) > 0) && (bytes.Compare(v, right) <= 0) {
 			nodeIDs = append(nodeIDs, v)
 			if len(nodeIDs) == rt.bucketSize {
@@ -338,7 +338,7 @@ func (rt RoutingTable) createZeroAsStorageKey() storage.Key {
 	return id
 }
 
-// determineLeafDepth determines the level of the bucket id in question. 
+// determineLeafDepth determines the level of the bucket id in question.
 // Eg level 0 means there is only 1 bucket, level 1 means the bucket has been split once, and so on
 func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 	bucketRange, err := rt.getKBucketRange(bucketID)
@@ -359,7 +359,7 @@ func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparisonID storage.Key) (int, error) {
 	if bytes.Equal(bucketID, comparisonID) {
 		return -2, RoutingErr.New("compared two equivalent k bucket ids")
-	} 
+	}
 	if bytes.Equal(comparisonID, rt.createZeroAsStorageKey()) {
 		comparisonID = rt.createFirstBucketID()
 	}
@@ -368,36 +368,36 @@ func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparis
 	var differingByteIndex int
 	var differingByteXor byte
 	for i := 0; i < len(bucketID); i++ {
-		xor := bucketID[i]^comparisonID[i]
+		xor := bucketID[i] ^ comparisonID[i]
 		xorArr = append(xorArr, xor)
 	}
 	if bytes.Equal(xorArr, rt.createFirstBucketID()) {
 		return -1, nil
 	}
 
-	for j, v := range(xorArr) {
+	for j, v := range xorArr {
 		if v != byte(0) {
 			differingByteIndex = j
 			differingByteXor = v
 			break
 		}
 	}
-	
+
 	h := 0
-	for ; h < 8 ; h++ {
+	for ; h < 8; h++ {
 		toggle := byte(1 << uint(h))
 		tempXor := differingByteXor
 		// fmt.Printf("%b\n", tempXor)
 		tempXor ^= toggle
 		// fmt.Printf("%b\n", tempXor)
-		if tempXor < differingByteXor { 
+		if tempXor < differingByteXor {
 			break
 		}
 
 	}
 	bitInByteIndex := 7 - h
 	byteIndex := differingByteIndex
-	bitIndex := byteIndex * 8 + bitInByteIndex
+	bitIndex := byteIndex*8 + bitInByteIndex
 
 	return bitIndex, nil
 }
@@ -411,6 +411,6 @@ func (rt RoutingTable) splitBucket(bucketID []byte, depth int) []byte {
 	byteIndex := bitIndex / 8
 	bitInByteIndex := 7 - (bitIndex % 8)
 	toggle := byte(1 << uint(bitInByteIndex))
-	newID[byteIndex] ^= toggle	
+	newID[byteIndex] ^= toggle
 	return newID
 }
