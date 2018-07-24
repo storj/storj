@@ -14,8 +14,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/segment"
+	// "storj.io/storj/pkg/segment"
 	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/segments"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -59,7 +60,9 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	identitySlice := make([]byte, 0)
 	identityMeta := storage.Meta{}
 	var totalSegments int64
+	var totalSize int64
 	totalSegments = 0
+	totalSize = 0
 
 	awareLimitReader := EOFAwareReader(data)
 	eofFound := awareLimitReader.isEOF()
@@ -68,10 +71,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
 		segmentMetatdata := identitySlice
-		err = s.segments.Put(ctx, segmentPath, segmentData, segmentMetatdata, expiration)
+		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData,
+			segmentMetatdata, expiration)
 		if err != nil {
 			return identityMeta, err
 		}
+		totalSize = totalSize + putMeta.Size
 		eofFound = awareLimitReader.isEOF()
 	}
 
@@ -89,17 +94,18 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return identityMeta, err
 		}
 
-		err = s.segments.Put(ctx, lastSegmentPath, identitySegmentData,
+		putMeta, err := s.segments.Put(ctx, lastSegmentPath, identitySegmentData,
 			lastSegmentMetadata, expiration)
 		if err != nil {
 			return identityMeta, err
 		}
+		totalSize = totalSize + putMeta.Size
 	}
 
 	resultMeta := storage.Meta{
 		Modified:   time.Now(),
 		Expiration: expiration,
-		Size:       totalSegments * s.segmentSize,
+		Size:       totalSize,
 		Checksum:   "",
 	}
 

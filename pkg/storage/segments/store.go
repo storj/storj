@@ -30,6 +30,7 @@ var (
 // Meta will contain encryption and stream information
 type Meta struct {
 	Data []byte
+	Size int64
 }
 
 // Store for segments
@@ -68,7 +69,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return Meta{Data: pr.GetMetadata()}, nil
+	return Meta{Data: pr.GetMetadata(), Size: pr.Size}, nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -155,7 +156,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	return rr, Meta{Data: pr.GetMetadata()}, nil
+	return rr, Meta{Data: pr.GetMetadata(), Size: rr.Size()}, nil
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
