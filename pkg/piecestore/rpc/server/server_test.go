@@ -32,9 +32,9 @@ func TestPiece(t *testing.T) {
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
-	defer grpcs.Stop()
 
 	go startServer(s, grpcs)
+	defer grpcs.Stop()
 
 	c, conn := connect()
 
@@ -140,9 +140,9 @@ func TestRetrieve(t *testing.T) {
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
-	defer grpcs.Stop()
 
 	go startServer(s, grpcs)
+	defer grpcs.Stop()
 
 	c, conn := connect()
 
@@ -293,9 +293,9 @@ func TestStore(t *testing.T) {
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
-	defer grpcs.Stop()
 
 	go startServer(s, grpcs)
+	defer grpcs.Stop()
 
 	c, conn := connect()
 
@@ -394,9 +394,9 @@ func TestDelete(t *testing.T) {
 	s := newTestServerStruct()
 
 	grpcs := grpc.NewServer()
-	defer grpcs.Stop()
 
 	go startServer(s, grpcs)
+	defer grpcs.Stop()
 
 	c, conn := connect()
 
