@@ -15,8 +15,13 @@ import (
 type Transport struct {
 }
 
+// NewClient returns a newly instantiated Transport Client
+func NewClient() *Transport {
+	return &Transport{}
+}
+
 // DialNode using the authenticated mode
-func (o *Transport) DialNode(ctx context.Context, node proto.Node) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address == nil {
