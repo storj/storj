@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -165,7 +166,13 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 	redisRefs[index] = true
 
 	if testRedis.started != true {
-		testRedis.start(t)
+		conn, err := net.Dial("tcp", "127.0.0.1:6379")
+		if err != nil {
+			testRedis.start(t)
+		} else {
+			testRedis.started = true
+			conn.Close()
+		}
 	}
 
 	return func() {
@@ -222,6 +229,9 @@ func (r *RedisServer) start(t *testing.T) {
 
 func (r *RedisServer) stop() {
 	r.started = false
+	if r.cmd == nil {
+		return
+	}
 	if err := r.cmd.Process.Kill(); err != nil {
 		log.Printf("Failed to kill process: %s\n", err)
 	}

@@ -7,7 +7,7 @@ RUN cd / \
  && git clone --recursive https://github.com/storj/storj-vendor.git /go \
  && cd /go \
  && ./setup.sh
- 
+
 COPY . /go/src/storj.io/storj
 
 WORKDIR /go/src/storj.io/storj
