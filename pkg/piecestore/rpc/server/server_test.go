@@ -275,9 +275,7 @@ func TestStore(t *testing.T) {
 
 	tests := []struct {
 		id            string
-		size          int64
 		ttl           int64
-		offset        int64
 		content       []byte
 		message       string
 		totalReceived int64
