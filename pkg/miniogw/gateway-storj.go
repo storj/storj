@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/minio/cli"
@@ -149,7 +150,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	startAfter := paths.New(marker, "")
+	startAfter := paths.New(marker)
 	var fl []minio.ObjectInfo
 	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, storage.MetaAll)
 	if err != nil {
@@ -169,24 +170,20 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 				ETag:        fi.Meta.Checksum,
 			}
 		}
-		startAfter = items[len(items)-1].Path
+		s := (items[len(items)-1].Path).String()
+		sep := (paths.New(bucket, prefix)).String()
+		startAfter = paths.Path(strings.Split(s, sep))
 		fl = f
 	}
 
-	if more {
-		result = minio.ListObjectsInfo{
-			IsTruncated: true,
-			NextMarker:  startAfter.String(),
-			Objects:     fl,
-		}
-	} else {
-		result = minio.ListObjectsInfo{
-			IsTruncated: false,
-			NextMarker:  "",
-			Objects:     fl,
-		}
-
+	result = minio.ListObjectsInfo{
+		IsTruncated: true,
+		Objects:     fl,
 	}
+	if more {
+		result.NextMarker = startAfter.String()
+	}
+
 	return result, err
 }
 
