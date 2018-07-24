@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 
 	"golang.org/x/net/context"
 
@@ -47,6 +48,7 @@ func TestPiece(t *testing.T) {
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
 	if err != nil {
+		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
@@ -91,47 +93,27 @@ func TestPiece(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceSummary values", func(t *testing.T) {
+			assert := assert.New(t)
 
 			// simulate piece TTL entry
 			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			if err != nil {
-				t.Errorf("Error: %v\nCould not make TTL entry", err)
-				return
-			}
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
 			resp, err := c.Piece(ctx, req)
 
-			if len(tt.err) > 0 {
-
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
 				return
+			} else {
+				assert.Nil(err)
 			}
 
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-
-			if resp.Id != tt.id || resp.Size != tt.size || resp.Expiration != tt.expiration {
-				t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.id, tt.size, tt.expiration, resp.Id, resp.Size, resp.Expiration)
-				return
-			}
-
-			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
-			if err != nil {
-				t.Errorf("Error cleaning test DB entry")
-				return
-			}
+			assert.Equal(tt.id, resp.Id)
+			assert.Equal(tt.size, resp.Size)
+			assert.Equal(tt.expiration, resp.Expiration)
 		})
 	}
 }
@@ -155,6 +137,7 @@ func TestRetrieve(t *testing.T) {
 	// simulate piece stored with farmer
 	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
 	if err != nil {
+		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
@@ -245,46 +228,31 @@ func TestRetrieve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
+			assert := assert.New(t)
 			stream, err := c.Retrieve(ctx)
 
 			// send piece database
 			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			assert.Nil(err)
 
 			// Send bandwidth bandwidthAllocation
 			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			assert.Nil(err)
 
 			resp, err := stream.Recv()
 
 			// Send bandwidth bandwidthAllocation
 			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
 
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
 				return
+			} else {
+				assert.Nil(err)
 			}
 
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-
-			if resp.Size != tt.respSize || bytes.Equal(resp.Content, tt.content) != true {
-				t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.respSize, tt.content, resp.Size, resp.Content)
-				return
-			}
+			assert.Equal(tt.respSize, resp.Size)
+			assert.Equal(tt.content, resp.Content)
 		})
 	}
 }
@@ -335,18 +303,13 @@ func TestStore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
-
+			assert := assert.New(t)
 			stream, err := c.Store(ctx)
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			assert.Nil(err)
 
 			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}}); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}})
+			assert.Nil(err)
 
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
@@ -360,32 +323,22 @@ func TestStore(t *testing.T) {
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(msg); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			err = stream.Send(msg)
+			assert.Nil(err)
 
 			resp, err := stream.CloseAndRecv()
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
 				return
-			}
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
+			} else {
+				assert.Nil(err)
 			}
 
-			if resp.Message != tt.message || resp.TotalReceived != tt.totalReceived {
-				t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.message, tt.totalReceived, resp.Message, resp.TotalReceived)
-			}
+			assert.Equal(tt.message, resp.Message)
+			assert.Equal(tt.totalReceived, resp.TotalReceived)
 		})
 	}
 }
@@ -431,53 +384,37 @@ func TestDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
+			assert := assert.New(t)
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(tt.id, s.DataDir)
-			if err != nil {
-				return
-			}
+			file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
+			assert.Nil(err)
 
 			// Close when finished
 			defer file.Close()
 
 			_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-			if err != nil {
-				t.Errorf("Error: %v\nCould not create test piece", err)
-				return
-			}
+			assert.Nil(err)
 
 			// simulate piece TTL entry
 			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			if err != nil {
-				t.Errorf("Error: %v\nCould not make TTL entry", err)
-				return
-			}
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(tt.id, s.DataDir)
+			defer pstore.Delete("11111111111111111111", s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
 			resp, err := c.Delete(ctx, req)
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
 				return
-			}
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
+			} else {
+				assert.Nil(err)
 			}
 
-			if resp.Message != tt.message {
-				t.Errorf("Expected: %v\nGot: %v\n", tt.message, resp.Message)
-				return
-			}
+			assert.Equal(tt.message, resp.Message)
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, s.DataDir)
