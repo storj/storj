@@ -1,16 +1,14 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storj
+package miniogw
 
 import (
 	"context"
 	"io"
-	"log"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
@@ -28,24 +26,9 @@ var (
 	Error = errs.Class("Storj Gateway error")
 )
 
-func init() {
-	if err := minio.RegisterGatewayCommand(cli.Command{
-		Name:            "storj",
-		Usage:           "Storj",
-		Action:          storjGatewayMain,
-		HideHelpCommand: true,
-	}); err != nil {
-		log.Fatal("Failed to register command storj")
-	}
-}
-
-func storjGatewayMain(ctx *cli.Context) {
-	s := &Storj{os: mockObjectStore()}
-	minio.StartGateway(ctx, s)
-}
-
-func mockObjectStore() objects.ObjectStore {
-	return &objects.Objects{}
+// NewStorjGateway creates a *Storj object from an existing ObjectStore
+func NewStorjGateway(os objects.ObjectStore) *Storj {
+	return &Storj{os: os}
 }
 
 // Storj is the implementation of a minio cmd.Gateway

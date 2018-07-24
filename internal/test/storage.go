@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
@@ -155,6 +156,7 @@ func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 
 // EnsureRedis attempts to start the `redis-server` binary
 func EnsureRedis(t *testing.T) (_ RedisDone) {
+	viper.Set("redisaddress", "127.0.0.1:6379")
 	if err := flag.Set("redisAddress", "127.0.0.1:6379"); err != nil {
 		log.Fatalf("Failed to set flag 'redisAddress': %s\n", err)
 	}
