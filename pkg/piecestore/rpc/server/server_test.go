@@ -297,6 +297,14 @@ func TestStore(t *testing.T) {
 			totalReceived: 0,
 			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
+		{ // should err with piece ID not specified
+			id:            "",
+			ttl:           9999999999,
+			content:       []byte("butts"),
+			message:       "",
+			totalReceived: 0,
+			err:           "rpc error: code = Unknown desc = store error: Piece ID not specified",
+		},
 	}
 
 	for _, tt := range tests {
@@ -325,8 +333,36 @@ func TestStore(t *testing.T) {
 			assert.Nil(err)
 
 			resp, err := stream.CloseAndRecv()
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
+				return
+			} else {
+				assert.Nil(err)
+			}
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+
+			rows, err := db.Query(`SELECT payer, renter, size, signature FROM bandwidth_agreements WHERE payer = "payer-id"`)
+			assert.Nil(err)
+
+			defer rows.Close()
+			for rows.Next() {
+				var (
+					payer     string
+					renter    string
+					size      int64
+					signature []byte
+				)
+				err = rows.Scan(&payer, &renter, &size, &signature)
+				assert.Nil(err)
+
+				assert.Equal("payer-id", payer)
+				assert.Equal("renter-id", renter)
+				assert.Equal(int64(len(tt.content)), size)
+				// TODO: assert BLOB signature equal to []byte{'A', 'B'}
+			}
+			err = rows.Err()
+			assert.Nil(err)
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())

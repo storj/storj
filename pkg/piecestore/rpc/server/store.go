@@ -33,7 +33,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	pd := recv.GetPiecedata()
 	log.Printf("ID: %s, TTL: %v\n", pd.GetId(), pd.GetTtl())
 	if pd.GetId() == "" {
-		return StoreError.New("Invalid Piece ID")
+		return StoreError.New("Piece ID not specified")
 	}
 
 	// If we put in the database first then that checks if the data already exists
