@@ -31,7 +31,7 @@ type Overlay struct {
 
 // NewOverlayClient returns a new intialized Overlay Client
 func NewOverlayClient(address string) (*Overlay, error) {
-	c, err := NewClient(&address, grpc.WithInsecure())
+	c, err := NewClient(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}

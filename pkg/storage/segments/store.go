@@ -210,7 +210,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items []storage.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, more, err := s.pdb.List(ctx, startAfter.Bytes(), int64(limit), nil)
+	res, more, err := s.pdb.List(ctx, startAfter, int64(limit), nil)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}

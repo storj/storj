@@ -61,7 +61,7 @@ func TestNewClient_CreateTLS(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -95,7 +95,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -130,7 +130,7 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	assert.NoError(t, err)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, clientTLSOps.DialOption())
+	c, err := NewClient(address, clientTLSOps.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})

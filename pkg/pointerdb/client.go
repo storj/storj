@@ -27,8 +27,8 @@ type PointerDB struct {
 type Client interface {
 	Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error)
-	List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
-		paths []byte, truncated bool, err error)
+	List(ctx context.Context, startingPathKey p.Path, limit int64, APIKey []byte) (
+		paths [][]byte, truncated bool, err error)
 	Delete(ctx context.Context, path p.Path, APIKey []byte) error
 }
 
@@ -43,6 +43,9 @@ func NewClient(address string) (*PointerDB, error) {
 		grpcClient: c,
 	}, nil
 }
+
+// a compiler trick to make sure *PointerDB implements Client
+var _ Client = (*PointerDB)(nil)
 
 // ClientConnection makes a server connection
 func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
