@@ -73,6 +73,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager(length)
+	var latestBA *pb.BandwidthAllocation
 
 	for am.Used < am.MaxToUse {
 		// Receive Bandwidth allocation
@@ -91,11 +92,11 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 				return am.Used, am.Allocated, err
 			}
 
-			if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
-				return am.Used, am.Allocated, err
-			}
-
 			am.AddAllocation(baData.GetSize())
+		}
+
+		if ba.GetData().GetTotal() > latestBA.GetData().GetTotal() {
+			latestBA = ba
 		}
 
 		sizeToRead := am.NextReadSize()
@@ -111,6 +112,10 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		if err = am.UseAllocation(n); err != nil {
 			return am.Used, am.Allocated, err
 		}
+	}
+
+	if err = s.DB.WriteBandwidthAllocToDB(latestBA); err != nil {
+		return am.Used, am.Allocated, err
 	}
 
 	return am.Used, am.Allocated, nil

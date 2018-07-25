@@ -107,9 +107,9 @@ func TestPiece(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
+
+			assert.Nil(err)
 
 			assert.Equal(tt.id, resp.Id)
 			assert.Equal(tt.size, resp.Size)
@@ -247,10 +247,9 @@ func TestRetrieve(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
 
+			assert.Nil(err)
 			assert.Equal(tt.respSize, resp.Size)
 			assert.Equal(tt.content, resp.Content)
 		})
@@ -336,9 +335,9 @@ func TestStore(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
+
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -367,10 +366,9 @@ func TestStore(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
 
+			assert.Nil(err)
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
 		})
@@ -444,10 +442,9 @@ func TestDelete(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
 
+			assert.Nil(err)
 			assert.Equal(tt.message, resp.Message)
 
 			// if test passes, check if file was indeed deleted

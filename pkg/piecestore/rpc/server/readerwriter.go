@@ -19,7 +19,7 @@ func NewStreamWriter(s *Server, stream pb.PieceStoreRoutes_RetrieveServer) *Stre
 	return &StreamWriter{server: s, stream: stream}
 }
 
-// Write -- Write method for piece upload to stream
+// Write -- Write method for piece upload to stream for Server.Retrieve
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	// Write the buffer to the stream we opened earlier
 	if err := s.stream.Send(&pb.PieceRetrievalStream{Size: int64(len(b)), Content: b}); err != nil {
@@ -31,10 +31,11 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 
 // StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
-	src *utils.ReaderSource
+	src                 *utils.ReaderSource
+	bandwidthAllocation *pb.BandwidthAllocation
 }
 
-// NewStreamReader returns a new StreamReader
+// NewStreamReader returns a new StreamReader for Server.Store
 func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 	sr := &StreamReader{}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
@@ -51,10 +52,11 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 			if err = s.verifySignature(ba); err != nil {
 				return nil, err
 			}
+		}
 
-			if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
-				return nil, err
-			}
+		// Update bandwidthallocation to be stored
+		if ba.GetData().GetTotal() > sr.bandwidthAllocation.GetData().GetTotal() {
+			sr.bandwidthAllocation = ba
 		}
 
 		return pd.GetContent(), nil
