@@ -4,10 +4,12 @@
 package test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"flag"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -165,7 +167,25 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 	redisRefs[index] = true
 
 	if testRedis.started != true {
-		testRedis.start(t)
+		conn, err := net.Dial("tcp", "127.0.0.1:6379")
+		if err != nil {
+			testRedis.start(t)
+		} else {
+			testRedis.started = true
+			n, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			if err != nil {
+				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
+			}
+			b := make([]byte, 5)
+			n, err = conn.Read(b)
+			if err != nil {
+				log.Fatalf("Failed to flush existing redis keys: error %s\n", err)
+			}
+			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
+				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
+			}
+			conn.Close()
+		}
 	}
 
 	return func() {
@@ -222,6 +242,9 @@ func (r *RedisServer) start(t *testing.T) {
 
 func (r *RedisServer) stop() {
 	r.started = false
+	if r.cmd == nil {
+		return
+	}
 	if err := r.cmd.Process.Kill(); err != nil {
 		log.Printf("Failed to kill process: %s\n", err)
 	}
