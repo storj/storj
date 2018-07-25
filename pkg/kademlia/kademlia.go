@@ -5,37 +5,32 @@ package kademlia
 
 import (
 	"context"
-	"crypto/rand"
+	// "crypto/rand"
 	"fmt"
-	"log"
+	// "log"
 	"net"
-	"strconv"
+	// "strconv"
 
-	bkad "github.com/coyle/kademlia"
+	// bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
 	proto "storj.io/storj/protos/overlay"
 )
 
-// NodeErr is the class for all errors pertaining to node operations
-var NodeErr = errs.Class("node error")
-
-//TODO: shouldn't default to TCP but not sure what to do yet
-var defaultTransport = proto.NodeTransport_TCP
-
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
+	options        KadOptions
 	routingTable   dht.RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
 	stun           bool
-	dht            *bkad.DHT
+	networking 	   networking
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string, kadOptions *KadOptions, routingOptions *RoutingOptions) (*Kademlia, error) {
 	if port == "" {
 		return nil, NodeErr.New("must specify port in request to NewKademlia")
 	}
@@ -51,78 +46,56 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 
 	ip = ips[0].String()
 
-	bnodes, err := convertProtoNodes(bootstrapNodes)
-	if err != nil {
-		return nil, err
-	}
-
-	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		ID:             id.Bytes(),
-		IP:             ip,
-		Port:           port,
-		BootstrapNodes: bnodes,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	rt := RouteTable{
-		ht:  bdht.HT,
-		dht: bdht,
-	}
-
+	localNode = proto.Node{Id: id, Address: *NodeAddress} //TODO: what should node address be?
+	rt := NewRoutingTable(localNode, routingOptions.kpath, routingOptions.npath, routingOptions.idLength, routingOptions.bucketSize)
+	networking := networking{} //TODO
+	
 	return &Kademlia{
+		options:		kadOptions,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		ip:             ip,
 		port:           port,
 		stun:           true,
-		dht:            bdht,
+		networking:     networking,
 	}, nil
 }
 
-// Disconnect safely closes connections to the Kademlia network
-func (k Kademlia) Disconnect() error {
-	return k.dht.Disconnect()
-}
 
 // GetNodes returns all nodes from a starting node up to a maximum limit stored in the local routing table
 func (k Kademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
 	if start == "" {
-		start = k.dht.GetSelfID()
+		start = k.routingTable.Local()
 	}
-
-	nn, err := k.dht.FindNodes(ctx, start, limit)
+ 
+	nn, err := k.FindNodes() //TODO
 	if err != nil {
 		return []*proto.Node{}, err
 	}
-	return convertNetworkNodes(nn), nil
+	return nn, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return RouteTable{
-		ht:  k.dht.HT,
-		dht: k.dht,
-	}, nil
+	return k.routingTable, nil
 
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	return k.dht.Bootstrap()
+	// return k.dht.Bootstrap()
+	return
 }
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	n, err := convertProtoNode(node)
-	if err != nil {
-		return proto.Node{}, err
-	}
+	// n, err := convertProtoNode(node)
+	// if err != nil {
+	// 	return proto.Node{}, err
+	// }
 
-	ok, err := k.dht.Ping(n)
+	// ok, err := k.dht.Ping(n)
 	if err != nil {
 		return proto.Node{}, err
 	}
@@ -132,14 +105,15 @@ func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error
 	return node, nil
 }
 
+
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
-	nodes, err := k.dht.FindNode(ID.Bytes())
-	if err != nil {
-		return proto.Node{}, err
+	// nodes, err := k.dht.FindNode(ID.Bytes())
+	// if err != nil {
+	// 	return proto.Node{}, err
 
-	}
+	// }
 
 	for _, v := range nodes {
 		if string(v.ID) == ID.String() {
@@ -153,91 +127,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 	return proto.Node{}, NodeErr.New("node not found")
 }
 
-// ListenAndServe connects the kademlia node to the network and listens for incoming requests
-func (k *Kademlia) ListenAndServe() error {
-	if err := k.dht.CreateSocket(); err != nil {
-		return err
-	}
-
-	go func() {
-		if err := k.dht.Listen(); err != nil {
-			log.Printf("Failed to listen on the dht: %s\n", err)
-		}
-	}()
-
-	return nil
-}
-
-func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
-	nn := make([]*bkad.NetworkNode, len(n))
-	for i, v := range n {
-		node, err := convertProtoNode(v)
-		if err != nil {
-			return nil, err
-		}
-		nn[i] = node
-	}
-
-	return nn, nil
-}
-
-func convertNetworkNodes(n []*bkad.NetworkNode) []*proto.Node {
-	nn := make([]*proto.Node, len(n))
-	for i, v := range n {
-		nn[i] = convertNetworkNode(v)
-	}
-
-	return nn
-}
-
-func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
-	return &proto.Node{
-		Id:      string(v.ID),
-		Address: &proto.NodeAddress{Transport: defaultTransport, Address: net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port))},
-	}
-}
-
-func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
-	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	nn := bkad.NewNetworkNode(host, port)
-	nn.ID = []byte(v.GetId())
-
-	return nn, nil
-}
-
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID() ([]byte, error) {
-	result := make([]byte, 20)
-	_, err := rand.Read(result)
-	return result, err
-}
-
-// GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(id, ip, port string) (*proto.Node, error) {
-	addr := "bootstrap.storj.io:8080"
-	if ip != "" && port != "" {
-		addr = ip + ":" + port
-	}
-
-	if id == "" {
-		i, err := newID()
-		if err != nil {
-			return nil, err
-		}
-
-		id = string(i)
-	}
-
-	return &proto.Node{
-		Id: id,
-		Address: &proto.NodeAddress{
-			Transport: defaultTransport,
-			Address:   addr,
-		},
-	}, nil
+// Disconnect safely closes connections to the Kademlia network
+func (k Kademlia) Disconnect() error {
+	return k.networking.Disconnect()
 }

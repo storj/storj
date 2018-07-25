@@ -10,28 +10,23 @@ import (
 	"strconv"
 	"time"
 
-	bkad "github.com/coyle/kademlia"
+	// bkad "github.com/coyle/kademlia"
 
 	"storj.io/storj/pkg/dht"
 	proto "storj.io/storj/protos/overlay"
 )
+//Move RoutingTable struct here once merged in
 
-// RouteTable implements the RoutingTable interface
-type RouteTable struct {
-	ht  *bkad.HashTable
-	dht *bkad.DHT
-}
-
-// NewRouteTable returns a newly configured instance of a RouteTable
-func NewRouteTable(dht Kademlia) RouteTable {
-	return RouteTable{
-		ht:  dht.dht.HT,
-		dht: dht.dht,
-	}
+//RoutingOptions for configuring RoutingTable
+type RoutingOptions struct { 
+	kpath 		string
+	npath 		string 
+	idLength 	int 
+	bucketSize 	int
 }
 
 // Local returns the local nodes ID
-func (rt RouteTable) Local() proto.Node {
+func (rt RoutingTable) Local() proto.Node {
 	return proto.Node{
 		Id: string(rt.dht.HT.Self.ID),
 		Address: &proto.NodeAddress{
@@ -43,18 +38,18 @@ func (rt RouteTable) Local() proto.Node {
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
-func (rt RouteTable) K() int {
+func (rt RoutingTable) K() int {
 	return rt.dht.NumNodes()
 }
 
 // CacheSize returns the total current size of the cache
-func (rt RouteTable) CacheSize() int {
+func (rt RoutingTable) CacheSize() int {
 	// TODO: How is this calculated ? size of the routing table ? is it total bytes, mb, kb etc .?
 	return 0
 }
 
 // GetBucket retrieves a bucket from the local node
-func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
+func (rt RoutingTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 	i, err := hex.DecodeString(id)
 	if err != nil {
 		return &KBucket{}, false
@@ -70,7 +65,7 @@ func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 }
 
 // GetBuckets retrieves all buckets from the local node
-func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
+func (rt RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	bs := []dht.Bucket{}
 	b := rt.ht.GetBuckets()
 
@@ -82,26 +77,26 @@ func (rt RouteTable) GetBuckets() (k []dht.Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt RouteTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
+func (rt RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
 	return convertNetworkNodes(rt.ht.GetClosestContacts(id.Bytes(), limit)), nil
 }
 
 // ConnectionSuccess handles the details of what kademlia should do when
 // a successful connection is made to node on the network
-func (rt RouteTable) ConnectionSuccess(id string, address proto.NodeAddress) {
+func (rt RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) {
 	// TODO: What should we do ?
 	return
 }
 
 // ConnectionFailed handles the details of what kademlia should do when
 // a connection fails for a node on the network
-func (rt RouteTable) ConnectionFailed(id string, address proto.NodeAddress) {
+func (rt RoutingTable) ConnectionFailed(id string, address proto.NodeAddress) {
 	// TODO: What should we do ?
 	return
 }
 
 // SetBucketTimestamp updates the last updated time for a bucket
-func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
+func (rt RoutingTable) SetBucketTimestamp(id string, now time.Time) error {
 	i, err := strconv.Atoi(id)
 	if err != nil {
 		return NodeErr.New("unable to convert id to int")
@@ -113,11 +108,11 @@ func (rt RouteTable) SetBucketTimestamp(id string, now time.Time) error {
 }
 
 // GetBucketTimestamp retrieves the last updated time for a bucket
-func (rt RouteTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time, error) {
+func (rt RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.Time, error) {
 	return rt.dht.GetExpirationTime([]byte(id)), nil
 }
 
 // GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
-func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RouteTable, error) {
+func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RoutingTable, error) {
 	return RouteTable{}, nil
 }
