@@ -45,7 +45,7 @@ func TestFindStorageNodes(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, grpc.WithInsecure())
+	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
 	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{})
@@ -65,7 +65,7 @@ func TestOverlayLookup(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, grpc.WithInsecure())
+	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{NodeID: id.String()})

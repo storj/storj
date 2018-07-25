@@ -61,7 +61,7 @@ func TestNewClient_SingleIdentity(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -89,7 +89,7 @@ func TestNewClient_IndependentIdentities(t *testing.T) {
 	assert.NoError(t, err)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsH.DialOption())
+	c, err := NewClient(address, tlsH.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
