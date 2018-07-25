@@ -8,11 +8,6 @@ import fmt "fmt"
 import math "math"
 import duration "github.com/golang/protobuf/ptypes/duration"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
-
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
@@ -42,12 +37,12 @@ func (x NodeTransport) String() string {
 	return proto.EnumName(NodeTransport_name, int32(x))
 }
 func (NodeTransport) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{0}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{0}
 }
 
 // LookupRequest is is request message for the lookup rpc call
 type LookupRequest struct {
-	NodeID               string   `protobuf:"bytes,1,opt,name=nodeID" json:"nodeID,omitempty"`
+	NodeID               string   `protobuf:"bytes,1,opt,name=nodeID,proto3" json:"nodeID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -57,7 +52,7 @@ func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
 func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
 func (*LookupRequest) ProtoMessage()    {}
 func (*LookupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{0}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{0}
 }
 func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupRequest.Unmarshal(m, b)
@@ -86,7 +81,7 @@ func (m *LookupRequest) GetNodeID() string {
 
 // LookupResponse is is response message for the lookup rpc call
 type LookupResponse struct {
-	Node                 *Node    `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *Node    `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -96,7 +91,7 @@ func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
 func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
 func (*LookupResponse) ProtoMessage()    {}
 func (*LookupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{1}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{1}
 }
 func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LookupResponse.Unmarshal(m, b)
@@ -125,7 +120,7 @@ func (m *LookupResponse) GetNode() *Node {
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 type FindStorageNodesResponse struct {
-	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes" json:"nodes,omitempty"`
+	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -135,7 +130,7 @@ func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesRespon
 func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesResponse) ProtoMessage()    {}
 func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{2}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{2}
 }
 func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
@@ -164,9 +159,9 @@ func (m *FindStorageNodesResponse) GetNodes() []*Node {
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
 type FindStorageNodesRequest struct {
-	ObjectSize           int64              `protobuf:"varint,1,opt,name=objectSize" json:"objectSize,omitempty"`
-	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contractLength" json:"contractLength,omitempty"`
-	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts" json:"opts,omitempty"`
+	ObjectSize           int64              `protobuf:"varint,1,opt,name=objectSize,proto3" json:"objectSize,omitempty"`
+	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contractLength,proto3" json:"contractLength,omitempty"`
+	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts,proto3" json:"opts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -176,7 +171,7 @@ func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest
 func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
 func (*FindStorageNodesRequest) ProtoMessage()    {}
 func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{3}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{3}
 }
 func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
@@ -219,8 +214,8 @@ func (m *FindStorageNodesRequest) GetOpts() *OverlayOptions {
 
 // NodeAddress contains the information needed to communicate with a node on the network
 type NodeAddress struct {
-	Transport            NodeTransport `protobuf:"varint,1,opt,name=transport,enum=overlay.NodeTransport" json:"transport,omitempty"`
-	Address              string        `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Transport            NodeTransport `protobuf:"varint,1,opt,name=transport,proto3,enum=overlay.NodeTransport" json:"transport,omitempty"`
+	Address              string        `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -230,7 +225,7 @@ func (m *NodeAddress) Reset()         { *m = NodeAddress{} }
 func (m *NodeAddress) String() string { return proto.CompactTextString(m) }
 func (*NodeAddress) ProtoMessage()    {}
 func (*NodeAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{4}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{4}
 }
 func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeAddress.Unmarshal(m, b)
@@ -266,10 +261,10 @@ func (m *NodeAddress) GetAddress() string {
 
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 type OverlayOptions struct {
-	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=maxLatency" json:"maxLatency,omitempty"`
-	MinReputation        *NodeRep           `protobuf:"bytes,2,opt,name=minReputation" json:"minReputation,omitempty"`
-	MinSpeedKbps         int64              `protobuf:"varint,3,opt,name=minSpeedKbps" json:"minSpeedKbps,omitempty"`
-	Limit                int64              `protobuf:"varint,4,opt,name=limit" json:"limit,omitempty"`
+	MaxLatency           *duration.Duration `protobuf:"bytes,1,opt,name=maxLatency,proto3" json:"maxLatency,omitempty"`
+	MinReputation        *NodeRep           `protobuf:"bytes,2,opt,name=minReputation,proto3" json:"minReputation,omitempty"`
+	MinSpeedKbps         int64              `protobuf:"varint,3,opt,name=minSpeedKbps,proto3" json:"minSpeedKbps,omitempty"`
+	Limit                int64              `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -279,7 +274,7 @@ func (m *OverlayOptions) Reset()         { *m = OverlayOptions{} }
 func (m *OverlayOptions) String() string { return proto.CompactTextString(m) }
 func (*OverlayOptions) ProtoMessage()    {}
 func (*OverlayOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{5}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{5}
 }
 func (m *OverlayOptions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OverlayOptions.Unmarshal(m, b)
@@ -338,7 +333,7 @@ func (m *NodeRep) Reset()         { *m = NodeRep{} }
 func (m *NodeRep) String() string { return proto.CompactTextString(m) }
 func (*NodeRep) ProtoMessage()    {}
 func (*NodeRep) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{6}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{6}
 }
 func (m *NodeRep) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeRep.Unmarshal(m, b)
@@ -360,8 +355,8 @@ var xxx_messageInfo_NodeRep proto.InternalMessageInfo
 
 // Node represents a node in the overlay network
 type Node struct {
-	Id                   string       `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Address              *NodeAddress `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Id                   string       `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address              *NodeAddress `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -371,7 +366,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{7}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{7}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
@@ -406,8 +401,8 @@ func (m *Node) GetAddress() *NodeAddress {
 }
 
 type QueryRequest struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Receiver             *Node    `protobuf:"bytes,2,opt,name=receiver" json:"receiver,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Receiver             *Node    `protobuf:"bytes,2,opt,name=receiver,proto3" json:"receiver,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -417,7 +412,7 @@ func (m *QueryRequest) Reset()         { *m = QueryRequest{} }
 func (m *QueryRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryRequest) ProtoMessage()    {}
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{8}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{8}
 }
 func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
@@ -452,8 +447,8 @@ func (m *QueryRequest) GetReceiver() *Node {
 }
 
 type QueryResponse struct {
-	Sender               *Node    `protobuf:"bytes,1,opt,name=sender" json:"sender,omitempty"`
-	Response             []*Node  `protobuf:"bytes,2,rep,name=response" json:"response,omitempty"`
+	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	Response             []*Node  `protobuf:"bytes,2,rep,name=response,proto3" json:"response,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -463,7 +458,7 @@ func (m *QueryResponse) Reset()         { *m = QueryResponse{} }
 func (m *QueryResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryResponse) ProtoMessage()    {}
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overlay_aafd300da6d5535b, []int{9}
+	return fileDescriptor_overlay_36ad3279423c6237, []int{9}
 }
 func (m *QueryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_QueryResponse.Unmarshal(m, b)
@@ -511,222 +506,43 @@ func init() {
 	proto.RegisterEnum("overlay.NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
-// Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
+func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_36ad3279423c6237) }
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion4
-
-// OverlayClient is the client API for Overlay service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type OverlayClient interface {
-	// Lookup finds a nodes address from the network
-	Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error)
-}
-func (m *Nodes) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Nodes.Unmarshal(m, b)
-}
-func (m *Nodes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Nodes.Marshal(b, m, deterministic)
-}
-
-func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error) {
-	out := new(LookupResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/Lookup", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error) {
-	out := new(FindStorageNodesResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/FindStorageNodes", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// OverlayServer is the server API for Overlay service.
-type OverlayServer interface {
-	// Lookup finds a nodes address from the network
-	Lookup(context.Context, *LookupRequest) (*LookupResponse, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(context.Context, *FindStorageNodesRequest) (*FindStorageNodesResponse, error)
-}
-
-func init() {
-	proto.RegisterType((*LookupRequest)(nil), "LookupRequest")
-	proto.RegisterType((*LookupResponse)(nil), "LookupResponse")
-	proto.RegisterType((*FindStorageNodesResponse)(nil), "FindStorageNodesResponse")
-	proto.RegisterType((*FindStorageNodesRequest)(nil), "FindStorageNodesRequest")
-	proto.RegisterType((*NodeAddress)(nil), "NodeAddress")
-	proto.RegisterType((*OverlayOptions)(nil), "OverlayOptions")
-	proto.RegisterType((*NodeRep)(nil), "NodeRep")
-	proto.RegisterType((*Node)(nil), "Node")
-	proto.RegisterType((*Nodes)(nil), "Nodes")
-	proto.RegisterEnum("NodeTransport", NodeTransport_name, NodeTransport_value)
-}
-
-func _Overlay_Lookup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OverlayServer).Lookup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Overlay/Lookup",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).Lookup(ctx, req.(*LookupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Overlay_FindStorageNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindStorageNodesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OverlayServer).FindStorageNodes(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Overlay/FindStorageNodes",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).FindStorageNodes(ctx, req.(*FindStorageNodesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _Overlay_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "overlay.Overlay",
-	HandlerType: (*OverlayServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Lookup",
-			Handler:    _Overlay_Lookup_Handler,
-		},
-		{
-			MethodName: "FindStorageNodes",
-			Handler:    _Overlay_FindStorageNodes_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "overlay.proto",
-}
-
-// NodesClient is the client API for Nodes service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type NodesClient interface {
-	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
-}
-
-type nodesClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewNodesClient(cc *grpc.ClientConn) NodesClient {
-	return &nodesClient{cc}
-}
-
-func (c *nodesClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
-	out := new(QueryResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Nodes/Query", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// NodesServer is the server API for Nodes service.
-type NodesServer interface {
-	Query(context.Context, *QueryRequest) (*QueryResponse, error)
-}
-
-func RegisterNodesServer(s *grpc.Server, srv NodesServer) {
-	s.RegisterService(&_Nodes_serviceDesc, srv)
-}
-
-func _Nodes_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodesServer).Query(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/overlay.Nodes/Query",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodesServer).Query(ctx, req.(*QueryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _Nodes_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "overlay.Nodes",
-	HandlerType: (*NodesServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Query",
-			Handler:    _Nodes_Query_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "overlay.proto",
-}
-
-func init() { proto.RegisterFile("overlay.proto", fileDescriptor_overlay_aafd300da6d5535b) }
-
-var fileDescriptor_overlay_aafd300da6d5535b = []byte{
-	// 541 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xdd, 0x6e, 0xd3, 0x4c,
-	0x10, 0xfd, 0x9c, 0xdf, 0x2f, 0x93, 0xda, 0x8a, 0x56, 0x25, 0x31, 0xb9, 0x40, 0xa9, 0x11, 0xe2,
-	0x4f, 0xca, 0x45, 0x8a, 0x2a, 0xf5, 0xaa, 0xaa, 0xa8, 0x2a, 0x21, 0x22, 0x0a, 0x9b, 0x4a, 0x5c,
-	0x21, 0xe1, 0xc4, 0x43, 0x30, 0x24, 0xbb, 0xcb, 0xee, 0xba, 0x22, 0xbc, 0x0b, 0x0f, 0xc0, 0x43,
-	0xf0, 0x6e, 0xc8, 0xbb, 0x1b, 0x27, 0x4e, 0x4a, 0x25, 0xae, 0xec, 0xdd, 0x73, 0x66, 0xe6, 0xec,
-	0xcc, 0x19, 0xf0, 0xf9, 0x0d, 0xca, 0x45, 0xbc, 0x1a, 0x0a, 0xc9, 0x35, 0x27, 0x4d, 0x77, 0xec,
-	0x07, 0x49, 0x26, 0x63, 0x9d, 0x72, 0x66, 0x81, 0xe8, 0x31, 0xf8, 0x63, 0xce, 0xbf, 0x66, 0x82,
-	0xe2, 0xb7, 0x0c, 0x95, 0x26, 0x5d, 0x68, 0x30, 0x9e, 0xe0, 0xab, 0x8b, 0xd0, 0x1b, 0x78, 0x4f,
-	0x5a, 0xd4, 0x9d, 0xa2, 0x63, 0x08, 0xd6, 0x44, 0x25, 0x38, 0x53, 0x48, 0x8e, 0xa0, 0x96, 0x63,
-	0x86, 0xd7, 0x1e, 0xf9, 0xc3, 0x75, 0xc5, 0x37, 0x3c, 0x41, 0x6a, 0xa0, 0xe8, 0x0c, 0xc2, 0xcb,
-	0x94, 0x25, 0x13, 0xcd, 0x65, 0x3c, 0xc7, 0x1c, 0x50, 0x45, 0xf8, 0x43, 0xa8, 0xe7, 0x1c, 0x15,
-	0x7a, 0x83, 0xea, 0x7e, 0xbc, 0xc5, 0xa2, 0x5f, 0x1e, 0xf4, 0xf6, 0x33, 0x58, 0xa5, 0x0f, 0x00,
-	0xf8, 0xf4, 0x0b, 0xce, 0xf4, 0x24, 0xfd, 0x61, 0x55, 0x54, 0xe9, 0xd6, 0x0d, 0x39, 0x87, 0x60,
-	0xc6, 0x99, 0x96, 0xf1, 0x4c, 0x8f, 0x91, 0xcd, 0xf5, 0xe7, 0xb0, 0x62, 0x94, 0xde, 0x1f, 0xce,
-	0x39, 0x9f, 0x2f, 0xd0, 0x76, 0x60, 0x9a, 0x7d, 0x1a, 0x5e, 0xb8, 0x9e, 0xd0, 0x9d, 0x00, 0xf2,
-	0x1c, 0x6a, 0x5c, 0x68, 0x15, 0x56, 0x4d, 0x60, 0xaf, 0x90, 0x78, 0x65, 0xbf, 0x57, 0x22, 0x8f,
-	0x52, 0xd4, 0x90, 0xa2, 0x0f, 0xd0, 0xce, 0xf5, 0x9d, 0x27, 0x89, 0x44, 0xa5, 0xc8, 0x0b, 0x68,
-	0x69, 0x19, 0x33, 0x25, 0xb8, 0xd4, 0x46, 0x5d, 0x30, 0xea, 0x96, 0xde, 0x78, 0xbd, 0x46, 0xe9,
-	0x86, 0x48, 0x42, 0x68, 0xc6, 0x36, 0x81, 0x51, 0xdb, 0xa2, 0xeb, 0x63, 0xf4, 0xdb, 0x83, 0xa0,
-	0x5c, 0x97, 0x9c, 0x02, 0x2c, 0xe3, 0xef, 0xe3, 0x58, 0x23, 0x9b, 0xad, 0xdc, 0x1c, 0xee, 0x78,
-	0xdd, 0x16, 0x99, 0x9c, 0x80, 0xbf, 0x4c, 0x19, 0x45, 0x91, 0x69, 0x03, 0xba, 0xde, 0x74, 0xca,
-	0x53, 0x40, 0x41, 0xcb, 0x34, 0x12, 0xc1, 0xc1, 0x32, 0x65, 0x13, 0x81, 0x98, 0xbc, 0x9e, 0x0a,
-	0xdb, 0x99, 0x2a, 0x2d, 0xdd, 0x91, 0x43, 0xa8, 0x2f, 0xd2, 0x65, 0xaa, 0xc3, 0x9a, 0x01, 0xed,
-	0x21, 0x6a, 0x41, 0xd3, 0xe5, 0x8c, 0x2e, 0xa1, 0x96, 0xff, 0x92, 0x00, 0x2a, 0x69, 0xe2, 0x7c,
-	0x56, 0x49, 0x13, 0x32, 0x2c, 0x3f, 0xbe, 0x3d, 0x3a, 0x2c, 0xc9, 0x71, 0x9d, 0xdd, 0xb4, 0xe4,
-	0x23, 0x1c, 0xbc, 0xcb, 0x50, 0xae, 0xd6, 0x8e, 0x78, 0x04, 0x0d, 0x85, 0x2c, 0x41, 0x79, 0xbb,
-	0x27, 0x1d, 0x48, 0x9e, 0xc2, 0xff, 0x12, 0x67, 0x98, 0xde, 0xa0, 0x74, 0x75, 0x76, 0x88, 0x05,
-	0x1c, 0xc5, 0xe0, 0xbb, 0x0a, 0xce, 0xb5, 0xff, 0x52, 0xc2, 0x86, 0x84, 0x95, 0xdb, 0xfc, 0x5d,
-	0xc0, 0xcf, 0x42, 0xf0, 0x4b, 0x6e, 0x20, 0x4d, 0xa8, 0x5e, 0xbf, 0x7c, 0xdb, 0xf9, 0x6f, 0xf4,
-	0xd3, 0x83, 0xa6, 0x9b, 0x38, 0x39, 0x85, 0x86, 0x5d, 0x3f, 0xb2, 0x31, 0x51, 0x69, 0x71, 0xfb,
-	0xbd, 0xbd, 0x7b, 0x27, 0xf9, 0x3d, 0x74, 0x76, 0x57, 0x88, 0x0c, 0x0a, 0xf2, 0x5f, 0xb6, 0xab,
-	0x7f, 0x74, 0x07, 0xc3, 0x26, 0x1e, 0x9d, 0x41, 0xdd, 0x66, 0x3b, 0x81, 0xba, 0xe9, 0x12, 0xb9,
-	0x57, 0x04, 0x6d, 0xcf, 0xa5, 0xdf, 0xdd, 0xbd, 0xb6, 0x09, 0xa6, 0x0d, 0xe3, 0xd1, 0xe3, 0x3f,
-	0x01, 0x00, 0x00, 0xff, 0xff, 0x7d, 0xca, 0x38, 0x87, 0xad, 0x04, 0x00, 0x00,
+var fileDescriptor_overlay_36ad3279423c6237 = []byte{
+	// 546 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xed, 0x6e, 0xd3, 0x30,
+	0x14, 0x25, 0xfd, 0xa4, 0xb7, 0x4b, 0x55, 0x59, 0xa3, 0x0d, 0xfd, 0x31, 0x75, 0x41, 0x88, 0x2f,
+	0x29, 0x93, 0x3a, 0x34, 0x69, 0xbf, 0xa6, 0x89, 0x69, 0x12, 0xa2, 0x62, 0xe0, 0x4e, 0xe2, 0x17,
+	0x12, 0x69, 0x73, 0x29, 0x81, 0xd6, 0x0e, 0xb6, 0x33, 0x51, 0xde, 0x85, 0x07, 0xe0, 0x21, 0x78,
+	0x37, 0x14, 0xdb, 0x49, 0x9b, 0x76, 0x4c, 0xe2, 0x57, 0xe2, 0x7b, 0xce, 0xbd, 0x3e, 0x3e, 0x3e,
+	0x06, 0x97, 0xdf, 0xa0, 0x58, 0x84, 0xab, 0x20, 0x11, 0x5c, 0x71, 0xd2, 0xb4, 0xcb, 0xc1, 0xc1,
+	0x9c, 0xf3, 0xf9, 0x02, 0x8f, 0x74, 0x79, 0x9a, 0x7e, 0x3e, 0x8a, 0x52, 0x11, 0xaa, 0x98, 0x33,
+	0x43, 0xf4, 0x9f, 0x80, 0x3b, 0xe6, 0xfc, 0x5b, 0x9a, 0x50, 0xfc, 0x9e, 0xa2, 0x54, 0xa4, 0x07,
+	0x0d, 0xc6, 0x23, 0x7c, 0x7d, 0xe1, 0x39, 0x43, 0xe7, 0x69, 0x8b, 0xda, 0x95, 0x7f, 0x0c, 0x9d,
+	0x9c, 0x28, 0x13, 0xce, 0x24, 0x92, 0x43, 0xa8, 0x65, 0x98, 0xe6, 0xb5, 0x47, 0x6e, 0x90, 0x2b,
+	0x78, 0xcb, 0x23, 0xa4, 0x1a, 0xf2, 0xcf, 0xc0, 0xbb, 0x8c, 0x59, 0x34, 0x51, 0x5c, 0x84, 0x73,
+	0xcc, 0x00, 0x59, 0xb4, 0x3f, 0x82, 0x7a, 0xc6, 0x91, 0x9e, 0x33, 0xac, 0xee, 0xf6, 0x1b, 0xcc,
+	0xff, 0xed, 0x40, 0x7f, 0x77, 0x82, 0x51, 0x7a, 0x00, 0xc0, 0xa7, 0x5f, 0x71, 0xa6, 0x26, 0xf1,
+	0x4f, 0xa3, 0xa2, 0x4a, 0x37, 0x2a, 0xe4, 0x1c, 0x3a, 0x33, 0xce, 0x94, 0x08, 0x67, 0x6a, 0x8c,
+	0x6c, 0xae, 0xbe, 0x78, 0x15, 0xad, 0xf4, 0x61, 0x60, 0x3c, 0x09, 0x72, 0x4f, 0x82, 0x0b, 0xeb,
+	0x09, 0xdd, 0x6a, 0x20, 0x2f, 0xa0, 0xc6, 0x13, 0x25, 0xbd, 0xaa, 0x6e, 0xec, 0x17, 0x12, 0xaf,
+	0xcc, 0xf7, 0x2a, 0xc9, 0xba, 0x24, 0xd5, 0x24, 0xff, 0x23, 0xb4, 0x33, 0x7d, 0xe7, 0x51, 0x24,
+	0x50, 0x4a, 0xf2, 0x12, 0x5a, 0x4a, 0x84, 0x4c, 0x26, 0x5c, 0x28, 0xad, 0xae, 0x33, 0xea, 0x95,
+	0xce, 0x78, 0x9d, 0xa3, 0x74, 0x4d, 0x24, 0x1e, 0x34, 0x43, 0x33, 0x40, 0xab, 0x6d, 0xd1, 0x7c,
+	0xe9, 0xff, 0x71, 0xa0, 0x53, 0xde, 0x97, 0x9c, 0x02, 0x2c, 0xc3, 0x1f, 0xe3, 0x50, 0x21, 0x9b,
+	0xad, 0xec, 0x3d, 0xdc, 0x71, 0xba, 0x0d, 0x32, 0x39, 0x01, 0x77, 0x19, 0x33, 0x8a, 0x49, 0xaa,
+	0x34, 0x68, 0xbd, 0xe9, 0x96, 0x6f, 0x01, 0x13, 0x5a, 0xa6, 0x11, 0x1f, 0xf6, 0x96, 0x31, 0x9b,
+	0x24, 0x88, 0xd1, 0x9b, 0x69, 0x62, 0x9c, 0xa9, 0xd2, 0x52, 0x8d, 0xec, 0x43, 0x7d, 0x11, 0x2f,
+	0x63, 0xe5, 0xd5, 0x34, 0x68, 0x16, 0x7e, 0x0b, 0x9a, 0x76, 0xa6, 0x7f, 0x09, 0xb5, 0xec, 0x97,
+	0x74, 0xa0, 0x12, 0x47, 0x36, 0x67, 0x95, 0x38, 0x22, 0x41, 0xf9, 0xf0, 0xed, 0xd1, 0x7e, 0x49,
+	0x8e, 0x75, 0x76, 0x6d, 0xc9, 0x27, 0xd8, 0x7b, 0x9f, 0xa2, 0x58, 0xe5, 0x89, 0x78, 0x0c, 0x0d,
+	0x89, 0x2c, 0x42, 0x71, 0x7b, 0x26, 0x2d, 0x48, 0x9e, 0xc1, 0x7d, 0x81, 0x33, 0x8c, 0x6f, 0x50,
+	0xd8, 0x7d, 0xb6, 0x88, 0x05, 0xec, 0x87, 0xe0, 0xda, 0x1d, 0x6c, 0x6a, 0xff, 0x67, 0x0b, 0xd3,
+	0xe2, 0x55, 0x6e, 0xcb, 0x77, 0x01, 0x3f, 0xf7, 0xc0, 0x2d, 0xa5, 0x81, 0x34, 0xa1, 0x7a, 0xfd,
+	0xea, 0x5d, 0xf7, 0xde, 0xe8, 0x97, 0x03, 0x4d, 0x7b, 0xe3, 0xe4, 0x14, 0x1a, 0xe6, 0xf9, 0x91,
+	0x75, 0x88, 0x4a, 0x0f, 0x77, 0xd0, 0xdf, 0xa9, 0x5b, 0xc9, 0x1f, 0xa0, 0xbb, 0xfd, 0x84, 0xc8,
+	0xb0, 0x20, 0xff, 0xe3, 0x75, 0x0d, 0x0e, 0xef, 0x60, 0x98, 0xc1, 0xa3, 0x33, 0xa8, 0x9b, 0x69,
+	0x27, 0x50, 0xd7, 0x2e, 0x91, 0x07, 0x45, 0xd3, 0xe6, 0xbd, 0x0c, 0x7a, 0xdb, 0x65, 0x33, 0x60,
+	0xda, 0xd0, 0x19, 0x3d, 0xfe, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x07, 0x3b, 0x06, 0x74, 0xbd, 0x04,
+	0x00, 0x00,
 }

@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-import "duration.proto";
+import "google/protobuf/duration.proto";
 
 package overlay;
 
