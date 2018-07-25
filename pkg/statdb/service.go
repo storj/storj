@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	addr  = flag.String("addr", ":8080", "listen address")
+	addr   = flag.String("addr", ":8080", "listen address")
 	dbPath = flag.String("statdb", "stats.db", "stats db path")
 )
 

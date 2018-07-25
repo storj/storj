@@ -12,10 +12,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "storj.io/storj/pkg/statdb/proto"
 	dbx "storj.io/storj/pkg/statdb/dbx"
+	pb "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pointerdb/auth"
-
 )
 
 // Server implements the statdb RPC service
@@ -141,7 +140,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	updateFields := dbx.Node_Update_Fields{}
 
 	if node.UpdateAuditSuccess {
-		auditSuccessCount, totalAuditCount, auditSuccessRatio =	updateRatioVars(
+		auditSuccessCount, totalAuditCount, auditSuccessRatio = updateRatioVars(
 			node.AuditSuccess,
 			auditSuccessCount,
 			totalAuditCount,
@@ -152,7 +151,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditSuccessRatio)
 	}
 	if node.UpdateUptime {
-		uptimeSuccessCount, totalUptimeCount, uptimeRatio =	updateRatioVars(
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
 			node.IsUp,
 			uptimeSuccessCount,
 			totalUptimeCount,
@@ -186,7 +185,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
 	for i, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
-			Node: node,
+			Node:   node,
 			ApiKey: apiKeyBytes,
 		}
 
@@ -198,7 +197,6 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 		nodeStatsList[i] = updateRes.Stats
 	}
 
-
 	updateBatchRes := &pb.UpdateBatchResponse{
 		StatsList: nodeStatsList,
 	}
@@ -208,8 +206,8 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
 	var (
 		successCount int64
-		totalCount int64
-		ratio float64
+		totalCount   int64
+		ratio        float64
 	)
 
 	if shouldUpdate {
