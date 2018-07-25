@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/minio/cli"
@@ -170,14 +169,12 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 				ETag:        fi.Meta.Checksum,
 			}
 		}
-		s := (items[len(items)-1].Path).String()
-		sep := (paths.New(bucket, prefix)).String()
-		startAfter = paths.Path(strings.Split(s, sep))
+		startAfter = items[len(items)-1].Path[len(paths.New(bucket, prefix)):]
 		fl = f
 	}
 
 	result = minio.ListObjectsInfo{
-		IsTruncated: true,
+		IsTruncated: more,
 		Objects:     fl,
 	}
 	if more {
