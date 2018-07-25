@@ -110,26 +110,21 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	}
 
 	prefix := paths.New(req.GetPrefix())
-	startAfter := paths.New(req.GetPrefix(), req.GetStartAfter())
-	var endBefore paths.Path
-	if req.GetEndBefore() != "" {
-		endBefore = paths.New(req.GetPrefix(), req.GetEndBefore())
-	}
 
-	// TODO(kaloyan): query the DB without limit. We must optimize it!
-	keys, err := s.DB.List(startAfter.Bytes(), 0)
+	// TODO(kaloyan): here we query the DB without limit. We must optimize it!
+	keys, err := s.DB.List(prefix.Bytes(), 0)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	var more bool
 	var items []*pb.ListResponse_Item
-	if endBefore != nil && req.GetStartAfter() == "" {
-		items, more = s.processKeysBackwards(ctx, keys, prefix, startAfter,
-			endBefore, req.GetRecursive(), limit, req.GetMetaFlags())
+	if req.GetEndBefore() != "" && req.GetStartAfter() == "" {
+		items, more = s.processKeysBackwards(ctx, keys, prefix,
+			req.GetEndBefore(), req.GetRecursive(), limit, req.GetMetaFlags())
 	} else {
-		items, more = s.processKeysForwards(ctx, keys, prefix, endBefore,
-			req.GetRecursive(), limit, req.GetMetaFlags())
+		items, more = s.processKeysForwards(ctx, keys, prefix, req.GetStartAfter(),
+			req.GetEndBefore(), req.GetRecursive(), limit, req.GetMetaFlags())
 	}
 
 	s.logger.Debug("path keys retrieved")
@@ -137,14 +132,27 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 }
 
 func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
-	prefix, endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
-	items []*pb.ListResponse_Item, more bool) {
-	for key := range keys {
+	prefix paths.Path, startAfter, endBefore string, recursive bool, limit int,
+	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
+	skip := startAfter != ""
+	startAfterPath := prefix.Append(startAfter)
+	endBeforePath := prefix.Append(endBefore)
+
+	for _, key := range keys {
 		p := paths.New(string(key))
+
+		if skip {
+			if reflect.DeepEqual(p, startAfterPath) {
+				// TODO(kaloyan): Better check - what if there is no path equal to startAfter?
+				// TODO(kaloyan): Add Equal method in Path type
+				skip = false
+			}
+			continue
+		}
 
 		// TODO(kaloyan): Better check - what if there is no path equal to endBefore?
 		// TODO(kaloyan): Add Equal method in Path type
-		if reflect.DeepEqual(p, endBefore) {
+		if reflect.DeepEqual(p, endBeforePath) {
 			break
 		}
 
@@ -158,7 +166,8 @@ func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 			continue
 		}
 
-		items = s.appendListItem(ctx, items, p, metaFlags)
+		item := s.createListItem(ctx, p, metaFlags)
+		items = append(items, item)
 
 		if len(items) == limit {
 			more = true
@@ -169,26 +178,22 @@ func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 }
 
 func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
-	prefix, startAfter, endBefore paths.Path, recursive bool, limit int,
+	prefix paths.Path, endBefore string, recursive bool, limit int,
 	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
-	skip := true
-	for i := len(keys) - 1; i >= 0; i++ {
+	skip := endBefore != ""
+	endBeforePath := prefix.Append(endBefore)
+
+	for i := len(keys) - 1; i >= 0; i-- {
 		key := keys[i]
 		p := paths.New(string(key))
 
 		if skip {
-			if reflect.DeepEqual(p, endBefore) {
+			if reflect.DeepEqual(p, endBeforePath) {
 				// TODO(kaloyan): Better check - what if there is no path equal to endBefore?
 				// TODO(kaloyan): Add Equal method in Path type
 				skip = false
 			}
 			continue
-		}
-
-		// TODO(kaloyan): Better check - what if there is no path equal to startAfter?
-		// TODO(kaloyan): Add Equal method in Path type
-		if reflect.DeepEqual(p, startAfter) {
-			break
 		}
 
 		// TODO(kaloyan): add HasPrefix method to Path type
@@ -201,7 +206,8 @@ func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 			continue
 		}
 
-		items = s.appendListItem(ctx, items, p, metaFlags)
+		item := s.createListItem(ctx, p, metaFlags)
+		items = append([]*pb.ListResponse_Item{item}, items...)
 
 		if len(items) == limit {
 			more = true
@@ -211,14 +217,14 @@ func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 	return items, more
 }
 
-func (s *Server) appendListItem(ctx context.Context, items []*pb.ListResponse_Item,
-	p paths.Path, metaFlags uint64) []*pb.ListResponse_Item {
+func (s *Server) createListItem(ctx context.Context, p paths.Path,
+	metaFlags uint64) *pb.ListResponse_Item {
 	item := &pb.ListResponse_Item{Path: p.String()}
 	err := s.getMetadata(ctx, item, metaFlags)
 	if err != nil {
 		s.logger.Warn("err retrieving metadata", zap.Error(err))
 	}
-	return append(items, item)
+	return item
 }
 
 func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
