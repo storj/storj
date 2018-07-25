@@ -15,6 +15,7 @@ lint: check-copyrights
 	--enable=deadcode \
 	--enable=goconst \
 	--exclude=".*\.pb\.go" \
+	--exclude=".*\.dbx\.go" \
 	--exclude=".*_test.go" \
 	--exclude="./vendor/*" \
 	--exclude="examples/*" \

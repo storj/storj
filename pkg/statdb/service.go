@@ -42,7 +42,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 		return err
 	}
 	proto.RegisterStatDBServer(grpcServer, ns)
-	s.logger.Debug(fmt.Sprintf("server listening on address %s", addr))
+	s.logger.Debug(fmt.Sprintf("server listening on address %s", *addr))
 
 	defer grpcServer.GracefulStop()
 	return grpcServer.Serve(lis)

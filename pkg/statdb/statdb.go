@@ -61,8 +61,8 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	node := createReq.Node
 
-	auditSuccessCount, totalAuditCount, auditSuccessRatio := InitRatioVars(node.UpdateAuditSuccess, node.AuditSuccess)
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio := InitRatioVars(node.UpdateUptime, node.IsUp)
+	auditSuccessCount, totalAuditCount, auditSuccessRatio := initRatioVars(node.UpdateAuditSuccess, node.AuditSuccess)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := initRatioVars(node.UpdateUptime, node.IsUp)
 
 	dbNode, err := s.DB.Create_Node(
 		ctx,
@@ -141,7 +141,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	updateFields := dbx.Node_Update_Fields{}
 
 	if node.UpdateAuditSuccess {
-		auditSuccessCount, totalAuditCount, auditSuccessRatio =	UpdateRatioVars(
+		auditSuccessCount, totalAuditCount, auditSuccessRatio =	updateRatioVars(
 			node.AuditSuccess,
 			auditSuccessCount,
 			totalAuditCount,
@@ -152,7 +152,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		updateFields.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(auditSuccessRatio)
 	}
 	if node.UpdateUptime {
-		uptimeSuccessCount, totalUptimeCount, uptimeRatio =	UpdateRatioVars(
+		uptimeSuccessCount, totalUptimeCount, uptimeRatio =	updateRatioVars(
 			node.IsUp,
 			uptimeSuccessCount,
 			totalUptimeCount,
@@ -178,7 +178,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
-// Update multiple farmers' stats in the db
+// UpdateBatch for updating  multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 
@@ -205,25 +205,25 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	return updateBatchRes, nil
 }
 
-func InitRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
+func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
 	var (
-		successCount int64 = 0
-		totalCount int64 = 0
-		ratio float64 = 0.0
+		successCount int64
+		totalCount int64
+		ratio float64
 	)
 
 	if shouldUpdate {
-		return UpdateRatioVars(status, successCount, totalCount)
+		return updateRatioVars(status, successCount, totalCount)
 	}
 
 	return successCount, totalCount, ratio
 }
 
-func UpdateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
+func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
 	totalCount++
 	if newStatus {
 		successCount++
 	}
-	var newRatio float64 = float64(successCount) / float64(totalCount)
+	newRatio := float64(successCount) / float64(totalCount)
 	return successCount, totalCount, newRatio
 }
