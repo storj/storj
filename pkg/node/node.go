@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	lenSize = int64(2) // NB: number of bytes required to represent `keyLen` and `hashLen`
+	defaultHashLength = uint16(256) // NB: number of bytes required to represent `keyLen` and `hashLen`
 )
 
 var (
 	// ErrInvalidNodeID is used when a node id can't be parsed
 	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
-	// ErrDifficulty is used when an ID has an incompatible or
+	// ErrDifficulty is used when an PeerIdentity has an incompatible or
 	// insufficient difficulty
 	ErrDifficulty = errs.Class("difficulty error")
 )

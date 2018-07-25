@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// Creds implements dht.nodeID and is used for the private portion of an identity (i.e. tls cert/private key)
-type Creds struct {
+// FullIdentity implements dht.nodeID and is used for the private portion of an identity (i.e. tls cert/private key)
+type FullIdentity struct {
 	hash    []byte
 	hashLen uint16
 	tlsH    *peertls.TLSHelper
@@ -32,7 +32,7 @@ type Creds struct {
 // The "identity file" must contain PEM encoded data. The certificate portion
 // may contain intermediate certificates following the leaf certificate to
 // form a certificate chain.
-func LoadID(path string, hashLen uint16) (*Creds, error) {
+func LoadID(path string, hashLen uint16) (*FullIdentity, error) {
 	baseDir := filepath.Dir(path)
 
 	if _, err := os.Stat(baseDir); err != nil {
@@ -61,7 +61,7 @@ func LoadID(path string, hashLen uint16) (*Creds, error) {
 // given difficulty
 func NewID(difficulty uint16, hashLen uint16, concurrency uint) (dht.NodeID, error) {
 	done := make(chan bool, 0)
-	c := make(chan Creds, 1)
+	c := make(chan FullIdentity, 1)
 	for i := 0; i < int(concurrency); i++ {
 		go generateCreds(difficulty, hashLen, c, done)
 	}
@@ -73,9 +73,9 @@ func NewID(difficulty uint16, hashLen uint16, concurrency uint) (dht.NodeID, err
 }
 
 // Save saves the certificate chain (leaf-first), private key, and
-// hash length (ordered respectively) from `Creds` to a single
+// hash length (ordered respectively) from `FullIdentity` to a single
 // PEM-encoded "identity file".
-func (c *Creds) Save(path string) error {
+func (c *FullIdentity) Save(path string) error {
 	baseDir := filepath.Dir(path)
 
 	if err := os.MkdirAll(baseDir, 600); err != nil {
@@ -102,8 +102,8 @@ func (c *Creds) Save(path string) error {
 	return nil
 }
 
-// CertToCreds takes a tls certificate pointer and a hash length to build a `Creds` struct
-func CertToCreds(cert *tls.Certificate, hashLen uint16) (*Creds, error) {
+// CertToCreds takes a tls certificate pointer and a hash length to build a `FullIdentity` struct
+func CertToCreds(cert *tls.Certificate, hashLen uint16) (*FullIdentity, error) {
 	pubKey, ok := cert.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if pubKey == nil || !ok {
 		return nil, errs.New("unsupported public key type (type assertion to `*ecdsa.PublicKey` failed)")
@@ -124,7 +124,7 @@ func CertToCreds(cert *tls.Certificate, hashLen uint16) (*Creds, error) {
 		return nil, err
 	}
 
-	kadCreds := &Creds{
+	kadCreds := &FullIdentity{
 		tlsH:    tlsH,
 		hash:    hashBytes,
 		hashLen: hashLen,
@@ -136,12 +136,12 @@ func CertToCreds(cert *tls.Certificate, hashLen uint16) (*Creds, error) {
 }
 
 // String serializes the hash, public key, and hash length into a PEM-encoded string
-func (c *Creds) String() string {
+func (c *FullIdentity) String() string {
 	return string(c.Bytes())
 }
 
 // Bytes serializes the hash, public key, and hash length into a PEM-encoded byte-slice
-func (c *Creds) Bytes() []byte {
+func (c *FullIdentity) Bytes() []byte {
 	p := c.tlsH.PubKey()
 	pubKey, err := x509.MarshalPKIXPublicKey(&p)
 	if err != nil {
@@ -152,11 +152,11 @@ func (c *Creds) Bytes() []byte {
 }
 
 // Hash returns the hash the public key to a langth of `k.hashLen`
-func (c *Creds) Hash() []byte {
+func (c *FullIdentity) Hash() []byte {
 	return c.hash
 }
 
 // Difficulty returns the number of trailing zero-value bits in the hash
-func (c *Creds) Difficulty() uint16 {
+func (c *FullIdentity) Difficulty() uint16 {
 	return idDifficulty(c.Hash())
 }

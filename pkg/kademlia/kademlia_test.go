@@ -110,7 +110,7 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 
 		localID := rt.Local().Id
-		n, err := node.ParseID(localID)
+		n, err := node.ParsePeerIdentity(localID)
 		assert.NoError(t, err)
 
 		foundNode, err := v.k.FindNode(ctx, n)
@@ -198,7 +198,7 @@ func TestFindNode(t *testing.T) {
 		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
 
-		id, err := node.ParseID(rt.Local().Id)
+		id, err := node.ParsePeerIdentity(rt.Local().Id)
 		assert.NoError(t, err)
 
 		node, err := v.k.FindNode(ctx, id)

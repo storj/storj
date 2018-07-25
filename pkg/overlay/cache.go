@@ -95,7 +95,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := node.ParseID(v.Id)
+		nodeID, err := node.ParsePeerIdentity(v.Id)
 		if err != nil {
 			zap.Error(errs.New("unable to parse node id \"%s\"", v.Id, err))
 		}
@@ -121,7 +121,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	// loop through nodes in RT and get THEIR route table
 	// keep going forever and ever
 
-	// Other Possibilities: Randomly generate node ID's to ask for?
+	// Other Possibilities: Randomly generate node PeerIdentity's to ask for?
 
 	_, err = o.DHT.GetRoutingTable(ctx)
 
@@ -158,7 +158,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		nodeID, err := node.ParseID(v.Id)
+		nodeID, err := node.ParsePeerIdentity(v.Id)
 		if err != nil {
 			return errs.New("unable to parse node id \"%s\"", v.Id, err)
 		}

@@ -31,7 +31,7 @@ func init() {
 		zap.S().Fatal(err)
 	}
 
-	createCmd.Flags().String("nodeIDPath", "", "Path to grpc node ID PEM file")
+	createCmd.Flags().String("nodeIDPath", "", "Path to grpc node PeerIdentity PEM file")
 	createCmd.Flags().Uint16("nodeIDHashLen", 38, "Hash length to use for own identity")
 	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
 	createCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")

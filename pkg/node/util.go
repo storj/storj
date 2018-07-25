@@ -12,7 +12,6 @@ import (
 
 	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
 	"math/bits"
 	"os"
@@ -29,7 +28,7 @@ func verifyPeerIdentityFunc(difficulty, hashLen uint16) peertls.PeerCertVerifica
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 		for _, certs := range parsedChains {
 			for _, c := range certs {
-				kadID, err := CertToID(c, hashLen)
+				kadID, err := CertToPeerIdentity(c, hashLen)
 				if err != nil {
 					return err
 				}
@@ -50,7 +49,7 @@ func baseConfig(difficulty, hashLen uint16) *tls.Config {
 	}
 }
 
-func generateCreds(difficulty, hashLen uint16, c chan Creds, done chan bool) {
+func generateCreds(difficulty, hashLen uint16, c chan FullIdentity, done chan bool) {
 	for {
 		select {
 		case <-done:
@@ -70,18 +69,22 @@ func generateCreds(difficulty, hashLen uint16, c chan Creds, done chan bool) {
 	}
 }
 
-func idBytes(hash, pubKey []byte, hashLen uint16) []byte {
+func pubKeyToPeerIdentity(pubKey []byte) (*PeerIdentity, error) {
+	hashBytes, err := hash(pubKey, defaultHashLength)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerIdentity{
+		pubKey:  pubKey,
+		hash:    hashBytes,
+	}, nil
+}
+
+func idBytes(pubKey []byte) []byte {
 	b := bytes.NewBuffer([]byte{})
 	encoder := base64.NewEncoder(base64.URLEncoding, b)
-	if _, err := encoder.Write(hash); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
 	if _, err := encoder.Write(pubKey); err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	if err := binary.Write(encoder, binary.BigEndian, hashLen); err != nil {
 		zap.S().Error(errs.Wrap(err))
 	}
 
@@ -112,7 +115,7 @@ func idDifficulty(hash []byte) uint16 {
 	panic(reason)
 }
 
-func (c *Creds) writeRootKey(dir string) error {
+func (c *FullIdentity) writeRootKey(dir string) error {
 	path := filepath.Join(filepath.Dir(dir), "root.pem")
 	rootKey := c.tlsH.RootKey()
 
@@ -143,7 +146,7 @@ func (c *Creds) writeRootKey(dir string) error {
 	return nil
 }
 
-func (c *Creds) write(writer io.Writer) error {
+func (c *FullIdentity) write(writer io.Writer) error {
 	for _, c := range c.tlsH.Certificate().Certificate {
 		certBlock := peertls.NewCertBlock(c)
 

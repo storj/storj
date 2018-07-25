@@ -66,7 +66,7 @@ func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string)
 		},
 	}
 
-	nodeID, err := node.ParseID(id)
+	nodeID, err := node.ParsePeerIdentity(id)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

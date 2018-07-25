@@ -17,7 +17,7 @@ import (
 )
 
 func NewNodeID(t *testing.T) string {
-	// NewNodeID returns the string representation of a dht node ID
+	// NewNodeID returns the string representation of a dht node PeerIdentity
 	id, err := NewID(1, 38, 5)
 	assert.NoError(t, err)
 

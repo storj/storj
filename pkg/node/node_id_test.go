@@ -30,23 +30,22 @@ func Test_certToKadCreds(t *testing.T) {
 }
 
 func TestParseID(t *testing.T) {
-	hashLen := uint16(128)
+	// hashLen := uint16(256)
 	tlsH, err := peertls.NewTLSHelper(nil)
 	assert.NoError(t, err)
 
 	cert := tlsH.Certificate()
-	kadCreds, err := CertToCreds(&cert, hashLen)
+	fullID, err := CertToCreds(&cert)
 	assert.NoError(t, err)
 
-	kadID, err := ParseID(kadCreds.String())
+	peerID, err := ParsePeerIdentity(fullID.String())
 	assert.NoError(t, err)
-	assert.Equal(t, kadID.hashLen, kadCreds.hashLen)
-	assert.Equal(t, kadID.hash, kadCreds.hash)
+	assert.Equal(t, peerID.hash, fullID.hash)
 
-	pubKey := kadCreds.tlsH.PubKey()
+	pubKey := fullID.tlsH.PubKey()
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&pubKey)
 	assert.NoError(t, err)
-	assert.Equal(t, kadID.pubKey, pubKeyBytes)
+	assert.Equal(t, peerID.pubKey, pubKeyBytes)
 }
 
 func TestKadCreds_Bytes(t *testing.T) {
@@ -175,14 +174,14 @@ FFAubpb4SVQztFAKQB/4WSDD0PYb8MADfg==
 func TestKadCreds_Difficulty_SLOW(t *testing.T) {
 	t.SkipNow()
 
-	var creds *Creds
+	var creds *FullIdentity
 	expectedDifficulty := uint16(24)
 	hashLen := uint16(38)
 
 	c, err := NewID(expectedDifficulty, hashLen, 5)
 	assert.NoError(t, err)
 
-	creds = c.(*Creds)
+	creds = c.(*FullIdentity)
 	assert.True(t, creds.Difficulty() >= expectedDifficulty)
 }
 
@@ -191,7 +190,7 @@ func TestNewID(t *testing.T) {
 	expectedDifficulty := uint16(16)
 
 	nodeID, err := NewID(expectedDifficulty, hashLen, 2)
-	kadCreds := nodeID.(*Creds)
+	kadCreds := nodeID.(*FullIdentity)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, kadCreds)
