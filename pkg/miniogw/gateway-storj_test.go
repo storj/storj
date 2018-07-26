@@ -105,3 +105,26 @@ func TestPutObject(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, objInfo)
 }
+
+func TestGetObjectInfo(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockGetObject := NewMockStore(mockCtrl)
+	s := Storj{os: mockGetObject}
+	testUser := storjObjects{storj: &s}
+
+	meta1 := storage.Meta{
+		Modified:   time.Now(),
+		Expiration: time.Now(),
+		Size:       int64(100),
+		Checksum:   "034834890453",
+	}
+
+	mockGetObject.EXPECT().Meta(gomock.Any(), paths.New("mybucket", "myobject1")).Return(meta1, nil).Times(1)
+
+	oi, err := testUser.GetObjectInfo(context.Background(), "mybucket", "myobject1")
+	assert.NoError(t, err)
+	assert.NotNil(t, oi)
+
+}
