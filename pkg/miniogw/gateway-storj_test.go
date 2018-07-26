@@ -9,8 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	time "time"
+
+	"storj.io/storj/protos/meta"
 
 	"github.com/golang/mock/gomock"
+	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
@@ -67,4 +71,37 @@ func TestGetObject(t *testing.T) {
 		err = testUser.GetObject(context.Background(), "mybucket", "myobject1", 0, 0, w, "etag")
 		assert.NoError(t, err)
 	}
+}
+
+func TestPutObject(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockGetObject := NewMockStore(mockCtrl)
+	s := Storj{os: mockGetObject}
+
+	testUser := storjObjects{storj: &s}
+
+	meta1 := storage.Meta{}
+
+	data, err := hash.NewReader(bytes.NewReader([]byte("abcd")), 4, "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata = make(map[string]string)
+	metadata["content-type"] = "foo"
+
+	//metadata serialized
+	serMetaInfo := meta.Serializable{
+		ContentType: "foo",
+		UserDefined: metadata,
+	}
+
+	expTime := time.Time{}
+
+	mockGetObject.EXPECT().Put(gomock.Any(), paths.New("mybucket", "myobject1"), data, serMetaInfo, expTime).Return(meta1, nil).Times(1)
+
+	objInfo, err := testUser.PutObject(context.Background(), "mybucket", "myobject1", data, metadata)
+	assert.NoError(t, err)
+	assert.NotNil(t, objInfo)
 }
