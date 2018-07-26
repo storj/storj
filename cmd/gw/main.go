@@ -54,11 +54,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !strings.HasSuffix(cfg.IdentityConfig.CertPath, ".leaf.cert") {
 		return fmt.Errorf("certificate path should end with .leaf.cert")
 	}
-	certpath := cfg.IdentityConfig.CertPath[:len(cfg.IdentityConfig.CertPath)-len(".leaf.cert")]
+	certpath := strings.TrimSuffix(cfg.IdentityConfig.CertPath, ".leaf.cert")
 	if !strings.HasSuffix(cfg.IdentityConfig.KeyPath, ".leaf.key") {
 		return fmt.Errorf("key path should end with .leaf.key")
 	}
-	keypath := cfg.IdentityConfig.KeyPath[:len(cfg.IdentityConfig.KeyPath)-len(".leaf.key")]
+	keypath := strings.TrimSuffix(cfg.IdentityConfig.KeyPath, ".leaf.key")
 
 	err = os.MkdirAll(filepath.Dir(certpath), 0700)
 	if err != nil {
