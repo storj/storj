@@ -93,7 +93,7 @@ func main() {
 		for _, item := range items {
 			stringList = append(stringList, item.Path.String())
 		}
-		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", more))
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; more: " + fmt.Sprintf("%t", more))
 	}
 
 	// Example Delete
