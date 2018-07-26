@@ -66,6 +66,9 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
+	// In such case we should delete the pieces of the old segment if it was
+	// a remote one.
 	if err = s.DB.Put([]byte(req.GetPath()), pointerBytes); err != nil {
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
