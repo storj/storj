@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -111,11 +112,11 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	for i, itm := range list {
 		modified, err := ptypes.Timestamp(itm.GetCreationDate())
 		if err != nil {
-			// TODO(kaloyan): return, log or ignore?
+			zap.S().Warnf("Failed converting creation date %v: %v", itm.GetCreationDate(), err)
 		}
 		expiration, err := ptypes.Timestamp(itm.GetExpirationDate())
 		if err != nil {
-			// TODO(kaloyan): return, log or ignore?
+			zap.S().Warnf("Failed converting expiration date %v: %v", itm.GetExpirationDate(), err)
 		}
 		items[i] = storage.ListItem{
 			Path: p.New(string(itm.GetPath())),
