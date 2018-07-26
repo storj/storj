@@ -59,7 +59,7 @@ func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 	}, nil
 }
 
-// Get looks up the provided nodeID from the redis cache
+// Get looks up the provided nodeID from the overlay cache
 func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
 	b, err := o.DB.Get([]byte(key))
 	if err != nil {
@@ -126,7 +126,6 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
 func (o *Cache) Refresh(ctx context.Context) error {
-	log.Print("refresh function called")
 	// iterate over all nodes
 	// compare responses to find new nodes
 	// listen for responses from existing nodes
@@ -140,20 +139,15 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	}
 
 	k := table.K()
-
 	nodes, err := o.DHT.GetNodes(ctx, "0", k)
 
-	log.Print("nodes %+v\n", nodes)
-
 	for _, node := range nodes {
-		fmt.Printf("node::: %+v\n", node)
-		fmt.Printf("pointer node %+v\n", *node)
 		pinged, err := o.DHT.Ping(ctx, *node)
 		if err != nil {
 			// penalize node for not being online
 			zap.Error(ErrNodeNotFound)
 		}
-		log.Print("pinged node id %s address: %s", pinged.Id, pinged.Address.Address)
+		log.Print("pinged node with id %s address: %s", pinged.Id, pinged.Address.Address)
 		o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
 	}
 
