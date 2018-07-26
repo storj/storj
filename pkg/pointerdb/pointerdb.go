@@ -131,6 +131,8 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	return &pb.ListResponse{Items: items, More: more}, nil
 }
 
+// processKeysForwards iterates forwards through given keys, and returns them
+// as list items
 func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 	prefix paths.Path, startAfter, endBefore string, recursive bool, limit int,
 	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
@@ -177,6 +179,8 @@ func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 	return items, more
 }
 
+// processKeysBackwards iterates backwards through given keys, and returns them
+// as list items
 func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 	prefix paths.Path, endBefore string, recursive bool, limit int,
 	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
@@ -217,6 +221,8 @@ func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 	return items, more
 }
 
+// createListItem creates a new list item with the given path. It also adds
+// the metadata according to the given metaFlags.
 func (s *Server) createListItem(ctx context.Context, p paths.Path,
 	metaFlags uint64) *pb.ListResponse_Item {
 	item := &pb.ListResponse_Item{Path: p.String()}
@@ -227,6 +233,8 @@ func (s *Server) createListItem(ctx context.Context, p paths.Path,
 	return item
 }
 
+// getMetadata adds the metadata to the given item pointer according to the
+// given metaFlags
 func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
 	metaFlags uint64) (err error) {
 	defer mon.Task()(&ctx)(&err)
