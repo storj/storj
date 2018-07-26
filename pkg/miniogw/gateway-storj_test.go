@@ -128,3 +128,70 @@ func TestGetObjectInfo(t *testing.T) {
 	assert.NotNil(t, oi)
 
 }
+
+func TestListObjects(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// Mock framework initialization
+	mockGetObject := NewMockStore(mockCtrl)
+	s := Storj{os: mockGetObject}
+	testUser := storjObjects{storj: &s}
+
+	type iterationType struct {
+		items []storage.ListItem
+	}
+
+	var iterable = []iterationType{
+		iterationType{
+			items: []storage.ListItem{
+				storage.ListItem{
+					Path: paths.Path{"a0", "b0", "c0"},
+					Meta: storage.Meta{
+						Modified:   time.Now(),
+						Expiration: time.Now(),
+					},
+				},
+				// add more iternationType here...
+				storage.ListItem{
+					Path: paths.Path{"a1", "b1", "c1"},
+					Meta: storage.Meta{
+						Modified:   time.Now(),
+						Expiration: time.Now(),
+					},
+				},
+			},
+		},
+
+		// add more iternationType here...
+		//iterationType{},
+	}
+
+	// function arugment initialization
+	for _, example := range []struct {
+		bucket, prefix    string
+		marker, delimiter string
+		maxKeys           int
+		recursive         bool
+		metaFlags         uint64
+		more              bool
+	}{
+		{"mybucket", "Development", "file1.go", "/", 1000, true, storage.MetaAll, false},
+		// add more combinations here ...
+	} {
+
+		// initialize the necessary mock's argument
+		startAfter := paths.New(example.marker)
+
+		// initialize the necessary mock's return
+		for _, mockRet := range iterable {
+			mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
+				startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(mockRet.items, example.more, nil).Times(1)
+
+			oi, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
+				example.marker, example.delimiter, example.maxKeys)
+			assert.NoError(t, err)
+			assert.NotNil(t, oi)
+		}
+	}
+}
