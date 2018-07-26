@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	apiKey = flag.String("pointerdb.auth.api_key", "", "api key")
+	apiKey = flag.String("pointer-db.auth.api-key", "", "api key")
 )
 
 // ValidateAPIKey : validates the X-API-Key header to an env/flag input

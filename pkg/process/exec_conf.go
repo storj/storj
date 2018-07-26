@@ -23,8 +23,9 @@ import (
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
 func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
+	cfgFile := flag.String("config", os.ExpandEnv(defaultConfig), "config file")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	cleanup(cmd, defaultConfig)
+	cleanup(cmd, cfgFile)
 	_ = cmd.Execute()
 }
 
@@ -81,9 +82,9 @@ func CfgPath(ctx context.Context) string {
 	return ""
 }
 
-func cleanup(cmd *cobra.Command, defaultConfig string) {
+func cleanup(cmd *cobra.Command, cfgFile *string) {
 	for _, ccmd := range cmd.Commands() {
-		cleanup(ccmd, defaultConfig)
+		cleanup(ccmd, cfgFile)
 	}
 	if cmd.Run != nil {
 		panic("Please use cobra's RunE instead of Run")
@@ -92,8 +93,6 @@ func cleanup(cmd *cobra.Command, defaultConfig string) {
 	if internalRun == nil {
 		return
 	}
-	cfgFile := cmd.Flags().String("config", os.ExpandEnv(defaultConfig),
-		"config file")
 	cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
