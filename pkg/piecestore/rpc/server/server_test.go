@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 
@@ -342,23 +343,22 @@ func TestStore(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			rows, err := db.Query(`SELECT payer, renter, size, signature FROM bandwidth_agreements WHERE payer = "payer-id"`)
+			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
 			assert.Nil(err)
 
 			defer rows.Close()
 			for rows.Next() {
 				var (
-					payer     string
-					renter    string
-					size      int64
+					agreement []byte
 					signature []byte
 				)
-				err = rows.Scan(&payer, &renter, &size, &signature)
+				err = rows.Scan(&signature)
 				assert.Nil(err)
 
-				assert.Equal("payer-id", payer)
-				assert.Equal("renter-id", renter)
-				assert.Equal(int64(len(tt.content)), size)
+				decoded := &pb.BandwidthAllocation_Data{}
+
+				err = proto.Unmarshal(agreement, decoded)
+				assert.Equal(msg.Bandwidthallocation.GetData(), decoded)
 				// TODO: assert BLOB signature equal to []byte{'A', 'B'}
 			}
 			err = rows.Err()

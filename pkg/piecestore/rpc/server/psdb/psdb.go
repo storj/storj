@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	_ "github.com/mattn/go-sqlite3" // sqlite is weird and needs underscore
 
 	"storj.io/storj/pkg/piecestore"
@@ -37,7 +39,7 @@ func NewPSDB(DBPath string) (*PSDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`payer` TEXT, `renter` TEXT, `size` INT, `total` INT, `signature` BLOB);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,12 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return nil
 	}
 
-	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (payer, renter, size, total, signature) VALUES ("%s", "%s", "%d", "%d", "%v")`, data.GetPayer(), data.GetRenter(), data.GetSize(), data.GetTotal(), ba.GetSignature()))
+	serialized, err := proto.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	_, err = psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES ("%v", "%v")`, serialized, ba.GetSignature()))
 	if err != nil {
 		return err
 	}
