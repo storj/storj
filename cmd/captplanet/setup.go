@@ -19,7 +19,7 @@ import (
 // Config defines broad Captain Planet configuration
 type Config struct {
 	FarmerCount  int    `help:"number of farmers to run" default:"20"`
-	BasePath     string `help:"base path for captain planet storage" default:"$HOME/.storj/capt"`
+	BasePath     string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost   string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
 	miniogw.RSConfig
@@ -37,7 +37,9 @@ var (
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(setupCmd.Flags(), &setupCfg)
+	cfgstruct.Bind(setupCmd.Flags(), &setupCfg,
+		cfgstruct.ConfDir(defaultConfDir),
+	)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
