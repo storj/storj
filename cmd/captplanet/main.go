@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -19,9 +20,12 @@ var (
 		Use:   "captplanet",
 		Short: "Captain Planet! With our powers combined!",
 	}
+
+	defaultConfDir = "$HOME/.storj/capt"
 )
 
 func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	process.ExecuteWithConfig(rootCmd, "$HOME/.storj/capt/config.yaml")
+	process.ExecuteWithConfig(rootCmd,
+		filepath.Join(defaultConfDir, "config.yaml"))
 }

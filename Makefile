@@ -2,6 +2,9 @@
 
 TAG    	:= $$(git rev-parse --short HEAD)
 GO_VERSION := 1.10
+COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
+GO_DIRS := $(shell go list ./... | grep -v storj.io/storj/examples)
+
 
 lint: check-copyrights
 	@echo "Running ${@}"
@@ -17,9 +20,8 @@ lint: check-copyrights
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
 	--exclude=".*_test.go" \
-	--exclude="./vendor/*" \
 	--exclude="examples/*" \
-	./...
+  ${GO_DIRS}
 
 check-copyrights:
 	@echo "Running ${@}"
@@ -78,6 +80,13 @@ clean-local:
 	docker rm redis || true
 	# cleanup docker network
 	docker network rm test-net || true
+
+test-docker:
+	docker-compose up -d --remove-orphans test
+	docker-compose run test make test
+
+test-docker-clean:
+	-docker-compose down --rmi all
 
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} -f cmd/overlay/Dockerfile .

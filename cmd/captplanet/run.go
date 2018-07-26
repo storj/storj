@@ -31,7 +31,9 @@ var (
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg,
+		cfgstruct.ConfDir(defaultConfDir),
+	)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -72,6 +74,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// start heavy client
 	go func() {
+		_, _ = fmt.Printf("starting heavy client on %s\n", hc.Identity.Address)
 		errch <- hc.Identity.Run(ctx, hc.Kademlia, hc.PointerDB, hc.Overlay)
 	}()
 
@@ -98,9 +101,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				Path: filepath.Join(basepath, "data"),
 			},
 		}
-		go func() {
+		go func(i int) {
+			_, _ = fmt.Printf("starting farmer %d grpc on %s, kad on %s\n",
+				i, farmer.Identity.Address, farmer.Kademlia.TODOListenAddr)
 			errch <- farmer.Identity.Run(ctx, farmer.Kademlia, farmer.Storage)
-		}()
+		}(i)
 	}
 
 	// start s3 gateway
@@ -123,6 +128,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// start s3 gateway
 	go func() {
+		_, _ = fmt.Printf("starting minio gateway on %s\n",
+			gw.IdentityConfig.Address)
 		errch <- gw.Run(ctx)
 	}()
 
