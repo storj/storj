@@ -102,11 +102,7 @@ func CtxService(s Service) func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := logger.Sync(); err != nil {
-				logger.Error("failed to sync logger", zap.Error(err))
-			}
-		}()
+		defer func() { _ = logger.Sync() }()
 
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
@@ -124,7 +120,7 @@ func CtxService(s Service) func(cmd *cobra.Command, args []string) error {
 			logger.Error("failed to configure telemetry", zap.Error(err))
 		}
 
-		err = initDebug(ctx, logger, registry)
+		err = initDebug(logger, registry)
 		if err != nil {
 			logger.Error("failed to start debug endpoints", zap.Error(err))
 		}
