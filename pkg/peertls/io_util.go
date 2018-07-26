@@ -7,10 +7,10 @@ import (
 	"crypto/ecdsa"
 	"encoding/pem"
 	"io"
-	"log"
 	"os"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/utils"
 )
 
 func writePem(block *pem.Block, file io.WriteCloser) error {
@@ -28,11 +28,7 @@ func writeCerts(certs [][]byte, path string) error {
 		return errs.New("unable to open file \"%s\" for writing", path, err)
 	}
 
-	defer func() {
-		if err := file.Close(); err != nil && err != os.ErrClosed {
-			log.Printf("Failed to close file: %s\n", err)
-		}
-	}()
+	defer utils.LogClose(file)
 
 	for _, cert := range certs {
 		if err := writePem(newCertBlock(cert), file); err != nil {
@@ -54,11 +50,7 @@ func writeKey(key *ecdsa.PrivateKey, path string) error {
 		return errs.New("unable to open \"%s\" for writing", path, err)
 	}
 
-	defer func() {
-		if err := file.Close(); err != nil && err != os.ErrClosed {
-			log.Printf("Failed to close file: %s\n", err)
-		}
-	}()
+	defer utils.LogClose(file)
 
 	block, err := keyToBlock(key)
 	if err != nil {

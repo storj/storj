@@ -3,6 +3,13 @@
 
 package utils
 
+import (
+	"io"
+	"os"
+
+	"go.uber.org/zap"
+)
+
 // ReaderSource takes a src func and turns it into an io.Reader
 type ReaderSource struct {
 	src func() ([]byte, error)
@@ -27,4 +34,17 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 	n = copy(p, rs.buf)
 	rs.buf = rs.buf[n:]
 	return n, rs.err
+}
+
+// LogClose closes an io.Closer, logging the error if there is one that isn't
+// os.ErrClosed
+func LogClose(fh io.Closer) {
+	err := fh.Close()
+	if err == nil || err == os.ErrClosed {
+		return
+	}
+	if perr, ok := err.(*os.PathError); ok && perr.Err == os.ErrClosed {
+		return
+	}
+	zap.S().Errorf("Failed to close file: %s", err)
 }
