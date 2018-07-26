@@ -36,6 +36,7 @@ type MockKeyValueStore struct {
 	GetCalled    int
 	PutCalled    int
 	ListCalled   int
+	ReverseListCalled int
 	DeleteCalled int
 	CloseCalled  int
 	PingCalled   int
@@ -118,6 +119,12 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error){
+	//TODO - JJ
+	return storage.Keys{}, nil
+}
+
 func mapIntoSlice(data KvStore) []string {
 	keySlice := make([]string, len(data))
 	i := 0
@@ -148,6 +155,7 @@ func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 		GetCalled:    0,
 		PutCalled:    0,
 		ListCalled:   0,
+		ReverseListCalled: 0,
 		DeleteCalled: 0,
 		CloseCalled:  0,
 		PingCalled:   0,
