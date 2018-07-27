@@ -18,7 +18,7 @@ import (
 
 var (
 	port   string
-	apiKey = []byte("abc123")
+	APIKey = []byte("abc123")
 )
 
 func initializeFlags() {
@@ -67,12 +67,12 @@ func main() {
 	// Example Creates
 	createReq1 := proto.CreateRequest{
 		Node:   &farmer1,
-		ApiKey: apiKey,
+		APIKey: APIKey,
 	}
 
 	createReq2 := proto.CreateRequest{
 		Node:   &farmer2,
-		ApiKey: apiKey,
+		APIKey: APIKey,
 	}
 
 	createRes1, err := client.Create(ctx, &createReq1)
@@ -97,7 +97,7 @@ func main() {
 
 	updateReq := proto.UpdateRequest{
 		Node:   &farmer1,
-		ApiKey: apiKey,
+		APIKey: APIKey,
 	}
 
 	updateRes, err := client.Update(ctx, &updateReq)
@@ -119,7 +119,7 @@ func main() {
 	nodeList := []*proto.Node{&farmer1, &farmer2}
 	updateBatchReq := proto.UpdateBatchRequest{
 		NodeList: nodeList,
-		ApiKey:   apiKey,
+		APIKey:   APIKey,
 	}
 
 	updateBatchRes, err := client.UpdateBatch(ctx, &updateBatchReq)
@@ -135,12 +135,12 @@ func main() {
 	// Example Get
 	getReq1 := proto.GetRequest{
 		NodeId: farmer1.NodeId,
-		ApiKey: apiKey,
+		APIKey: APIKey,
 	}
 
 	getReq2 := proto.GetRequest{
 		NodeId: farmer2.NodeId,
-		ApiKey: apiKey,
+		APIKey: APIKey,
 	}
 
 	getRes1, err := client.Get(ctx, &getReq1)

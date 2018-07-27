@@ -30,10 +30,11 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	/*_, err = db.Exec(db.Schema())
+
+	_, err = db.Exec(db.Schema())
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return nil, err
-	}*/
+	}
 
 	return &Server{
 		DB:     db,
