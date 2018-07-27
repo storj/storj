@@ -60,84 +60,6 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 
-// PeekThresholdReader allows a check to see if the size of a given reader
-// exceeds the maximum inline segment size or not.
-type PeekThresholdReader struct {
-	r              io.Reader
-	n              int // number of bytes read into thresholdBuf
-	thresholdBuf   []byte
-	totalReadBytes int
-}
-
-// NewPeekThresholdReader creates a new instance of PeekThresholdReader
-func NewPeekThresholdReader(r io.Reader) (pt *PeekThresholdReader) {
-	return &PeekThresholdReader{r: r, n: 0, thresholdBuf: nil, totalReadBytes: 0}
-}
-
-// Read initially reads bytes from the internal buffer, then continues
-// reading from the wrapped data reader. The number of bytes read `n`
-// is returned.
-func (pt *PeekThresholdReader) Read(p []byte) (n int, err error) {
-
-	// Case 1: if the total number of bytes read is greater than the number
-	// of bytes read into the thresholdBuf, then Read is called on the given
-	// byte slice.
-	if pt.totalReadBytes > pt.n {
-		return pt.r.Read(p)
-	}
-
-	thresholdBytesRemaining := pt.n - pt.totalReadBytes
-
-	// Case 2: if the length of the given byte slice p is less than or equal
-	// to the number of threshold bytes remaining to be read, then the slice
-	// of the threshold buffer from the end of totalReadBytes to the length
-	// of p is copied to p.
-	if len(p) <= thresholdBytesRemaining {
-		tmp := pt.thresholdBuf[pt.totalReadBytes : pt.totalReadBytes+len(p)]
-		copy(p, tmp)
-		pt.totalReadBytes += len(p)
-		return len(p), nil
-	}
-
-	// Case 3: The buffer tail slice is created then read.
-	// A slice of read bytes is copied to the given byte slice p.
-	tmp := pt.thresholdBuf[pt.totalReadBytes : pt.totalReadBytes+thresholdBytesRemaining]
-	bufTail := make([]byte, len(p)-thresholdBytesRemaining)
-	numTailBytes, err := pt.r.Read(bufTail)
-	if err != nil {
-		return 0, err
-	}
-	tmp = append(tmp, bufTail...)
-	copy(p, tmp)
-	n = thresholdBytesRemaining + numTailBytes
-	pt.totalReadBytes += n
-	return n, nil
-}
-
-// checkSize returns a bool to determine whether a reader's size
-// is inline-sized or not.
-func (pt *PeekThresholdReader) isInline(thresholdSize int) (inline bool, err error) {
-	err = pt.makeThresholdBuffer(thresholdSize)
-	if err != nil {
-		return false, err
-	}
-	if pt.n < thresholdSize {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (pt *PeekThresholdReader) makeThresholdBuffer(thresholdSize int) (err error) {
-	buf := make([]byte, thresholdSize)
-	n, err := pt.r.Read(buf)
-	if err != nil {
-		return err
-	}
-	pt.n = n
-	pt.thresholdBuf = buf
-	return nil
-}
-
 // Meta retrieves the metadata of the segment
 func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
@@ -159,14 +81,15 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var p *ppb.Pointer
 
 	peekReader := NewPeekThresholdReader(data)
-	remoteSized, err := peekReader.isInline(s.thresholdSize)
+	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
 	if err != nil {
 		return Meta{}, err
 	}
 	if !remoteSized {
 		p = &ppb.Pointer{
-			Type:     ppb.Pointer_INLINE,
-			Metadata: metadata,
+			Type:          ppb.Pointer_INLINE,
+			Metadata:      metadata,
+			InlineSegment: peekReader.thresholdBuf,
 		}
 	} else {
 		// uses overlay client to request a list of nodes
@@ -177,11 +100,14 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		pieceID := client.NewPieceID()
 
 		// puts file to ecclient
-		err = s.ec.Put(ctx, nodes, s.rs, pieceID, data, expiration)
+		err = s.ec.Put(ctx, nodes, s.rs, pieceID, peekReader, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		p = s.makeRemotePointer(nodes, pieceID, metadata)
+		p, err = s.makeRemotePointer(nodes, pieceID, expiration, metadata)
+		if err != nil {
+			return Meta{}, err
+		}
 	}
 
 	// puts pointer to pointerDB
@@ -200,7 +126,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 // makeRemotePointer creates a pointer of type remote
 func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID,
-	metadata []byte) (pointer *ppb.Pointer) {
+	expiration time.Time, metadata []byte) (pointer *ppb.Pointer, err error) {
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodes {
 		remotePieces = append(remotePieces, &ppb.RemotePiece{
@@ -208,12 +134,10 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 			NodeId:   nodes[i].Id,
 		})
 	}
-
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
-		return Meta{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-
 	pointer = &ppb.Pointer{
 		Type: ppb.Pointer_REMOTE,
 		Remote: &ppb.RemoteSegment{
@@ -230,7 +154,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
-	return pointer
+	return pointer, nil
 }
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
@@ -271,21 +195,19 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 		return Error.Wrap(err)
 	}
 
-	if pr.GetType() != ppb.Pointer_REMOTE {
-		return Error.New("TODO: only getting remote pointers supported")
-	}
+	if pr.GetType() == ppb.Pointer_REMOTE {
+		seg := pr.GetRemote()
+		pid := client.PieceID(seg.PieceId)
+		nodes, err := s.lookupNodes(ctx, seg)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-	seg := pr.GetRemote()
-	pid := client.PieceID(seg.PieceId)
-	nodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// ecclient sends delete request
-	err = s.ec.Delete(ctx, nodes, pid)
-	if err != nil {
-		return Error.Wrap(err)
+		// ecclient sends delete request
+		err = s.ec.Delete(ctx, nodes, pid)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	// deletes pointer from pointerdb
