@@ -12,11 +12,11 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/transport"
 )
@@ -137,6 +137,6 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	//		NewStorjGateway(objects.NewStore(streams.NewStore(segments)))
 	_ = segments
 
-	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewObjectStore()))
+	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(nil)))
 	return Error.New("unexpected minio exit")
 }
