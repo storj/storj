@@ -30,10 +30,10 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(db.Schema())
+	/*_, err = db.Exec(db.Schema())
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return nil, err
-	}
+	}*/
 
 	return &Server{
 		DB:     db,
@@ -41,8 +41,8 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) validateAuth(apiKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(apiKeyBytes)) {
+func (s *Server) validateAuth(APIKeyBytes []byte) error {
+	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
 		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
@@ -53,8 +53,8 @@ func (s *Server) validateAuth(apiKeyBytes []byte) error {
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	s.logger.Debug("entering statdb Create")
 
-	apiKeyBytes := []byte(createReq.ApiKey)
-	if err := s.validateAuth(apiKeyBytes); err != nil {
+	APIKeyBytes := []byte(createReq.APIKey)
+	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
 
@@ -92,8 +92,8 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	s.logger.Debug("entering statdb Get")
 
-	apiKeyBytes := []byte(getReq.ApiKey)
-	err = s.validateAuth(apiKeyBytes)
+	APIKeyBytes := []byte(getReq.APIKey)
+	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +117,8 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	s.logger.Debug("entering statdb Update")
 
-	apiKeyBytes := []byte(updateReq.ApiKey)
-	err = s.validateAuth(apiKeyBytes)
+	APIKeyBytes := []byte(updateReq.APIKey)
+	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -181,12 +181,12 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	apiKeyBytes := []byte(updateBatchReq.ApiKey)
+	APIKeyBytes := []byte(updateBatchReq.APIKey)
 	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
 	for i, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
 			Node:   node,
-			ApiKey: apiKeyBytes,
+			APIKey: APIKeyBytes,
 		}
 
 		updateRes, err := s.Update(ctx, updateReq)

@@ -38,7 +38,7 @@ message NodeStats {
 // CreateRequest is a request message for the Create rpc call
 message CreateRequest {
   Node node = 1;
-  bytes api_key = 2;
+  bytes APIKey = 2;
 }
 
 // CreateResponse is a response message for the Create rpc call
@@ -49,7 +49,7 @@ message CreateResponse {
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
   bytes node_id = 1;
-  bytes api_key = 2;
+  bytes APIKey = 2;
 }
 
 // GetResponse is a response message for the Get rpc call
@@ -60,7 +60,7 @@ message GetResponse {
 // UpdateRequest is a request message for the Update rpc call
 message UpdateRequest {
   Node node = 1;
-  bytes api_key = 2;
+  bytes APIKey = 2;
 }
 
 // UpdateRequest is a response message for the Update rpc call
@@ -71,7 +71,7 @@ message UpdateResponse {
 // UpdateBatchRequest is a request message for the UpdateBatch rpc call
 message UpdateBatchRequest {
   repeated Node node_list = 1;
-  bytes api_key = 2;
+  bytes APIKey = 2;
 }
 
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
