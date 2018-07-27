@@ -4,7 +4,7 @@
 // Source: storj.io/storj/pkg/storage/objects (interfaces: Store)
 
 // Package storj is a generated GoMock package.
-package storj
+package miniogw
 
 import (
 	context "context"
