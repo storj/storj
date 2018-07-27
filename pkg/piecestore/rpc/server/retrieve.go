@@ -73,12 +73,13 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager(length)
+	var latestBA *pb.BandwidthAllocation
 
 	for am.Used < am.MaxToUse {
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
-			return am.Used, am.Allocated, err
+			break
 		}
 
 		ba := recv.GetBandwidthallocation()
@@ -88,30 +89,33 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 		if baData != nil {
 			if err = s.verifySignature(ba); err != nil {
-				return am.Used, am.Allocated, err
-			}
-
-			if err = s.DB.WriteBandwidthAllocToDB(ba); err != nil {
-				return am.Used, am.Allocated, err
+				break
 			}
 
 			am.AddAllocation(baData.GetSize())
+		}
+
+		if ba.GetData().GetTotal() > latestBA.GetData().GetTotal() {
+			latestBA = ba
 		}
 
 		sizeToRead := am.NextReadSize()
 
 		// Write the buffer to the stream we opened earlier
 		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		if err == io.EOF {
+		if err != nil {
 			break
-		} else if err != nil {
-			return am.Used, am.Allocated, err
 		}
 
 		if err = am.UseAllocation(n); err != nil {
-			return am.Used, am.Allocated, err
+			break
 		}
 	}
 
-	return am.Used, am.Allocated, nil
+	// DBError := s.DB.WriteBandwidthAllocToDB(latestBA)
+	// if latestBA != nil && DBError != nil {
+	// 	log.Println("WriteBandwidthAllocToDB Error:", DBError)
+	// }
+
+	return am.Used, am.Allocated, err
 }

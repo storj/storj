@@ -108,9 +108,9 @@ func TestPiece(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
+
+			assert.Nil(err)
 
 			assert.Equal(tt.id, resp.Id)
 			assert.Equal(tt.size, resp.Size)
@@ -233,25 +233,24 @@ func TestRetrieve(t *testing.T) {
 			stream, err := c.Retrieve(ctx)
 
 			// send piece database
-			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
+			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
 			assert.Nil(err)
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
+			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
 			assert.Nil(err)
 
 			resp, err := stream.Recv()
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
+			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 64000 - tt.allocSize, Total: 64000}}})
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
 
+			assert.Nil(err)
 			assert.Equal(tt.respSize, resp.Size)
 			assert.Equal(tt.content, resp.Content)
 		})
@@ -283,7 +282,7 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			id:            "11111111111111111111",
+			id:            "99999999999999999999",
 			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "OK",
@@ -337,9 +336,9 @@ func TestStore(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
+
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -444,10 +443,9 @@ func TestDelete(t *testing.T) {
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
 				return
-			} else {
-				assert.Nil(err)
 			}
 
+			assert.Nil(err)
 			assert.Equal(tt.message, resp.Message)
 
 			// if test passes, check if file was indeed deleted
