@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"sync"
 	"time"
+	"math/rand"
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -29,7 +30,6 @@ type RoutingTable struct {
 	mutex         *sync.Mutex
 	idLength      int // kbucket and node id bit length (SHA256) = 256
 	bucketSize    int // max number of nodes stored in a kbucket = 20 (k)
-	nearestKNodes map[string][]byte
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -52,7 +52,6 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength
 		mutex:         &sync.Mutex{},
 		idLength:      idLength,
 		bucketSize:    bucketSize,
-		nearestKNodes: nearestNodes,
 	}, nil
 }
 
@@ -90,11 +89,9 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	if err != nil {
 		return err
 	}
-	withinK, xor, furthestCloseNode := rt.nodeIsWithinNearestK(nodeKey)
-	err = rt.updateNearestK(nodeKey, xor, furthestCloseNode)
-	for err != nil {
-		return RoutingErr.New("could not update nearest k", err)
-	}
+	
+	withinK := rt.nodeIsWithinNearestK(nodeKey)
+
 	for !hasRoom {
 		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)
@@ -213,6 +210,38 @@ func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	return nil, RoutingErr.New("could not find k bucket")
 }
 
+// sortByXOR: helper, quick sorts node IDs by xor from local node, smallest xor to largest
+func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
+	if len(nodeIDs) < 2 {
+		return nodeIDs
+	}
+	left, right := 0, len(nodeIDs) - 1
+	pivot := rand.Int() % len(nodeIDs)
+	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
+	for i := range nodeIDs {
+		xorI := xorTwoIds(nodeIDs[i], []byte(rt.self.Id))
+		xorR := xorTwoIds(nodeIDs[right], []byte(rt.self.Id))
+		if bytes.Compare(xorI, xorR) < 0 {
+			nodeIDs[left], nodeIDs[i] = nodeIDs[i], nodeIDs[left]
+			left ++
+		}
+	}
+	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
+	rt.sortByXOR(nodeIDs[:left])
+	rt.sortByXOR(nodeIDs[left+1:])
+	return nodeIDs
+}
+
+// determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
+func (rt RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
+	sortedNodes := rt.sortByXOR(nodeIDs)
+	if len(sortedNodes) < rt.bucketSize + 1 { //adding 1 since we're not including local node in closest k
+		return sortedNodes[len(sortedNodes)-1], nil
+	}
+	return sortedNodes[rt.bucketSize], nil
+}
+
+
 // xorTwoIds: helper, finds the xor distance between two byte slices
 func xorTwoIds(id []byte, comparisonID []byte) []byte {
 	var xorArr []byte
@@ -223,42 +252,25 @@ func xorTwoIds(id []byte, comparisonID []byte) []byte {
 	return xorArr
 }
 
-// updateNearestK: helper, updates the nearest k nodes (by xor distance)
-func (rt RoutingTable) updateNearestK(nodeID storage.Key, xor []byte, furthestNode string) error {
-	if len(rt.nearestKNodes) < rt.bucketSize {
-		rt.nearestKNodes[string(nodeID)] = xor
-	} else {
-		delete(rt.nearestKNodes, furthestNode)
-		rt.nearestKNodes[string(nodeID)] = xor
-	}
-	return nil
-}
-
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
-// Returns false for self
-// Returns bool, xor, furthest node id
-func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, []byte, string) {
-	localNodeID := rt.self.Id
-	xor := xorTwoIds(nodeID, []byte(localNodeID))
-	if bytes.Equal(nodeID, []byte(localNodeID)) {
-		return false, xor, localNodeID
+func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
+	nodes, err := rt.nodeBucketDB.List(nil, 0)
+	if err != nil {
+		return false, RoutingErr.New("could not get nodes: %s", err)
 	}
-	if len(rt.nearestKNodes) == 0 {
-		return true, xor, string(nodeID)
+	nodeCount := len(nodes)
+	if nodeCount < rt.bucketSize + 1 { //adding 1 since we're not including local node in closest k
+		return true, nil
 	}
-	furthestNode := localNodeID
-	largestXor := rt.createZeroAsStorageKey()
-	for k, v := range rt.nearestKNodes {
-		if bytes.Compare(v, largestXor) >= 0 {
-			furthestNode = k
-			largestXor = v
-		}
-	}
+	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodes)
 
-	if len(rt.nearestKNodes) == rt.bucketSize && bytes.Compare(xor, largestXor) >= 0 {
-		return false, xor, furthestNode
+	localNodeID := rt.self.Id
+	existingXor := xorTwoIds(furthestIDWithinK, []byte(localNodeID))
+	newXor := xorTwoIds(nodeID, []byte(localNodeID))
+	if bytes.Compare(newXor, existingXor) < 0 {
+		return true, nil
 	}
-	return true, xor, furthestNode
+	return false, nil
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
