@@ -5,7 +5,11 @@ package transport
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"time"
 
+	"github.com/gortc/stun"
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay"
@@ -40,4 +44,32 @@ func (o *Transport) DialUnauthenticated(ctx context.Context, addr proto.NodeAddr
 	}
 
 	return grpc.Dial(addr.Address, grpc.WithInsecure())
+}
+
+// Traversal finds a clients publicly expose address and port
+func (o *Transport) Traversal(ctx context.Context) {
+	// stun.l.google.com:19302
+	c, err := stun.Dial("udp", "0.0.0.0:57508")
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+
+	deadline := time.Now().Add(time.Second * 5)
+
+	if err := c.Do(stun.MustBuild(stun.TransactionID, stun.BindingRequest), deadline, func(res stun.Event) {
+		if res.Error != nil {
+			log.Fatalln(err)
+		}
+		var xorAddr stun.XORMappedAddress
+		if err := xorAddr.GetFrom(res.Message); err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Println(xorAddr)
+	}); err != nil {
+		log.Fatal("do:", err)
+	}
+	if err := c.Close(); err != nil {
+		log.Fatalln(err)
+	}
+
 }

@@ -47,3 +47,15 @@ func TestDialNode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 }
+
+func TestTraversal(t *testing.T) {
+	cases := []struct {
+		t *Transport
+	}{
+		{t: &Transport{}},
+	}
+
+	for _, v := range cases {
+		v.t.Traversal(context.Background())
+	}
+}
