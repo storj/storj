@@ -67,18 +67,19 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 	reader := NewStreamReader(s, stream)
 	total, err = io.Copy(storeFile, reader)
 
+	DBError := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+	if DBError != nil {
+		log.Println("WriteBandwidthAllocToDB Error: ", err)
+	}
+
 	if err != nil && err != io.EOF {
-		log.Println(err)
+		log.Println("ioCopy Error: ", err)
 
 		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())
 		}
 
 		return 0, err
-	}
-
-	if err = s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation); err != nil {
-		return total, err
 	}
 
 	return total, nil

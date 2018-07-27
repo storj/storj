@@ -242,7 +242,7 @@ func TestRetrieve(t *testing.T) {
 			resp, err := stream.Recv()
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.reqSize}}})
+			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 64000 - tt.allocSize, Total: 64000}}})
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
@@ -281,7 +281,7 @@ func TestStore(t *testing.T) {
 		err           string
 	}{
 		{ // should successfully store data
-			id:            "11111111111111111111",
+			id:            "99999999999999999999",
 			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "OK",
