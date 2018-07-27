@@ -219,7 +219,7 @@ func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
 	left, right := 0, len(nodeIDs) - 1
 	pivot := rand.Int() % len(nodeIDs)
 	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
-	for i := range nodeIDs {
+	for i := range(nodeIDs) {
 		xorI := xorTwoIds(nodeIDs[i], []byte(rt.self.Id))
 		xorR := xorTwoIds(nodeIDs[right], []byte(rt.self.Id))
 		if bytes.Compare(xorI, xorR) < 0 {

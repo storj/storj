@@ -253,7 +253,28 @@ func TestXorTwoIds(t *testing.T) {
 }
 
 func TestSortByXOR(t *testing.T) {
-	rt.createRT()
+	rt := createRT()
+	node1 := []byte{127, 255} //xor 0
+	rt.self.Id = string(node1)
+	rt.nodeBucketDB.Put(node1, []byte(""))
+	node2 := []byte{143, 255} //xor 240
+	rt.nodeBucketDB.Put(node2, []byte(""))
+	node3 := []byte{255, 255} //xor 128
+	rt.nodeBucketDB.Put(node3, []byte(""))
+	node4 := []byte{191, 255} //xor 192
+	rt.nodeBucketDB.Put(node4, []byte(""))
+	node5 := []byte{133, 255} //xor 250
+	rt.nodeBucketDB.Put(node5, []byte(""))
+	nodes, err := rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
+	assert.Equal(t, expectedNodes, nodes)
+	sortedNodes := rt.sortByXOR(nodes)
+	expectedSorted := storage.Keys{node1, node3, node4, node2, node5}
+	assert.Equal(t, expectedSorted, sortedNodes)
+	nodes, err = rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedNodes, nodes)
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
@@ -398,12 +419,8 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	rt.nodeBucketDB.Put(nodeIDB, []byte(""))
 	rt.nodeBucketDB.Put(nodeIDC, []byte(""))
 
-	var expectedA storage.Keys
-	var expectedB storage.Keys
-
-	expectedA = append(expectedA, nodeIDA)
-	expectedB = append(expectedB, nodeIDC)
-	expectedB = append(expectedB, nodeIDB)
+	expectedA := storage.Keys{nodeIDA}
+	expectedB := storage.Keys{nodeIDC, nodeIDB}
 
 	A, err := rt.getNodeIDsWithinKBucket(kadIDA)
 	assert.NoError(t, err)
@@ -422,17 +439,9 @@ func TestGetKBucketRange(t *testing.T) {
 	rt.kadBucketDB.Put(idA, []byte(""))
 	rt.kadBucketDB.Put(idB, []byte(""))
 	rt.kadBucketDB.Put(idC, []byte(""))
-	var expectedA storage.Keys
-	expectedA = append(expectedA, idB)
-	expectedA = append(expectedA, idA)
-
-	var expectedB storage.Keys
-	expectedB = append(expectedB, idC)
-	expectedB = append(expectedB, idB)
-
-	var expectedC storage.Keys
-	expectedC = append(expectedC, rt.createZeroAsStorageKey())
-	expectedC = append(expectedC, idC)
+	expectedA := storage.Keys{idB, idA}
+	expectedB := storage.Keys{idC, idB}
+	expectedC := storage.Keys{rt.createZeroAsStorageKey(), idC}
 
 	endpointsA, err := rt.getKBucketRange(idA)
 	assert.NoError(t, err)
@@ -448,18 +457,14 @@ func TestGetKBucketRange(t *testing.T) {
 func TestCreateFirstBucketID(t *testing.T) {
 	rt := createRT()
 	x := rt.createFirstBucketID()
-	var expected []byte
-	expected = append(expected, byte(255))
-	expected = append(expected, byte(255))
+	expected := []byte{255, 255}
 	assert.Equal(t, x, expected)
 }
 
 func TestCreateZeroAsStorageKey(t *testing.T) {
 	rt := createRT()
 	zero := rt.createZeroAsStorageKey()
-	var expected []byte
-	expected = append(expected, byte(0))
-	expected = append(expected, byte(0))
+	expected := []byte{0, 0}
 	assert.Equal(t, zero, storage.Key(expected))
 }
 
