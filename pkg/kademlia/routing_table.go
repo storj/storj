@@ -43,7 +43,6 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
-	nearestNodes := make(map[string][]byte)
 	return &RoutingTable{
 		self:          localNode,
 		kadBucketDB:   kdb,
@@ -90,8 +89,10 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 		return err
 	}
 	
-	withinK := rt.nodeIsWithinNearestK(nodeKey)
-
+	withinK, err := rt.nodeIsWithinNearestK(nodeKey)
+	if err != nil {
+		return RoutingErr.New("could not determine if node is within k: %s", err)
+	}
 	for !hasRoom {
 		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)

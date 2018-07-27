@@ -252,70 +252,87 @@ func TestXorTwoIds(t *testing.T) {
 	assert.Equal(t, []byte{32}, x) //00100000
 }
 
-func TestUpdateNearestK(t *testing.T) {
-	rt := createRT()
-	nodeID := []byte{127, 255}
-	xor := []byte{0, 0}
-	furthestNode := []byte{255, 255}
+func TestSortByXOR(t *testing.T) {
+	rt.createRT()
+}
 
-	err := rt.updateNearestK(furthestNode, xor, string(furthestNode))
+func TestDetermineFurthestIDWithinK(t *testing.T) {
+	rt := createRT()	
+	node1 := []byte{127, 255} //xor 0
+	rt.self.Id = string(node1)
+	rt.nodeBucketDB.Put(node1, []byte(""))
+	expectedFurthest := node1
+	nodes, err := rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(rt.nearestKNodes))
+	furthest, err := rt.determineFurthestIDWithinK(nodes)
+	assert.Equal(t, expectedFurthest, furthest)
 
-	err = rt.updateNearestK(nodeID, xor, string(furthestNode))
+	node2 := []byte{143, 255} //xor 240
+	rt.nodeBucketDB.Put(node2, []byte(""))
+	expectedFurthest = node2
+	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
-	assert.NotNil(t, rt.nearestKNodes[string(nodeID)])
-	assert.Equal(t, 2, len(rt.nearestKNodes))
-	rt.bucketSize = 2
-	nodeID = []byte{63, 255}
+	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.Equal(t, expectedFurthest, furthest)
 
-	err = rt.updateNearestK(nodeID, xor, string(furthestNode))
+	node3 := []byte{255, 255} //xor 128
+	rt.nodeBucketDB.Put(node3, []byte(""))
+	expectedFurthest = node2
+	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
-	assert.NotNil(t, rt.nearestKNodes[string(nodeID)])
-	assert.Equal(t, 2, len(rt.nearestKNodes))
+	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.Equal(t, expectedFurthest, furthest)
+
+	node4 := []byte{191, 255} //xor 192
+	rt.nodeBucketDB.Put(node4, []byte(""))
+	expectedFurthest = node2
+	nodes, err = rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.Equal(t, expectedFurthest, furthest)
+
+	node5 := []byte{133, 255} //xor 250
+	rt.nodeBucketDB.Put(node5, []byte(""))
+	expectedFurthest = node5
+	nodes, err = rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.Equal(t, expectedFurthest, furthest)
 }
 
 func TestNodeIsWithinNearestK(t *testing.T) {
 	rt := createRT()
 	rt.bucketSize = 2
+	
 	selfNode := []byte{127, 255}
 	rt.self.Id = string(selfNode)
-	expectFalse, xor1, furthest1 := rt.nodeIsWithinNearestK(selfNode)
-	assert.False(t, expectFalse)
-	assert.Equal(t, xorTwoIds(selfNode, selfNode), xor1)
-	assert.Equal(t, selfNode, []byte(furthest1))
-	assert.Equal(t, 0, len(rt.nearestKNodes))
+	rt.nodeBucketDB.Put(selfNode, []byte(""))
+	expectTrue, err := rt.nodeIsWithinNearestK(selfNode)
+	assert.NoError(t, err)
+	assert.True(t, expectTrue)
 
 	furthestNode := []byte{143, 255}
-	expectTrue, xor2, furthest2 := rt.nodeIsWithinNearestK(furthestNode)
-	assert.True(t, expectTrue)
-	assert.Equal(t, xorTwoIds(furthestNode, selfNode), xor2)
-	assert.Equal(t, furthestNode, []byte(furthest2))
-	err := rt.updateNearestK(furthestNode, xor2, furthest2)
+	expectTrue, err = rt.nodeIsWithinNearestK(furthestNode)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(rt.nearestKNodes))
-
-	node1 := []byte{191, 255}
-	expectTrue, xor3, furthest3 := rt.nodeIsWithinNearestK(node1)
 	assert.True(t, expectTrue)
-	assert.Equal(t, xorTwoIds(node1, selfNode), xor3)
-	assert.Equal(t, furthestNode, []byte(furthest3))
+	rt.nodeBucketDB.Put(furthestNode, []byte(""))
 
-	err = rt.updateNearestK(node1, xor3, furthest3)
+	node1 := []byte{255, 255}
+	expectTrue, err = rt.nodeIsWithinNearestK(node1)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(rt.nearestKNodes))
-
-	node2 := []byte{255, 255}
-	expectTrue, xor4, furthest4 := rt.nodeIsWithinNearestK(node2)
 	assert.True(t, expectTrue)
-	assert.Equal(t, xorTwoIds(node2, selfNode), xor4)
-	assert.Equal(t, furthestNode, []byte(furthest4))
+	rt.nodeBucketDB.Put(node1, []byte(""))
 
-	err = rt.updateNearestK(node2, xor4, furthest4)
+	node2 := []byte{191, 255}
+	expectTrue, err = rt.nodeIsWithinNearestK(node2)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(rt.nearestKNodes))
-	assert.NotNil(t, rt.nearestKNodes[string(node2)])
-	assert.Nil(t, rt.nearestKNodes[string(furthestNode)])
+	assert.True(t, expectTrue)
+	rt.nodeBucketDB.Put(node1, []byte(""))
+
+	node3 := []byte{133, 255}
+	expectFalse, err := rt.nodeIsWithinNearestK(node3)
+	assert.NoError(t, err)
+	assert.False(t, expectFalse)
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
