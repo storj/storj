@@ -18,6 +18,7 @@ import (
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -131,12 +132,10 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs)
 
-	// TODO(jt): wrap segments and turn segments into streams
-	// TODO(jt): hook streams into object store
-	// TODO(jt): this should work:
-	//		NewStorjGateway(objects.NewStore(streams.NewStore(segments)))
-	_ = segments
+	// TODO(jt): wrap segments and turn segments into streams actually
+	// TODO: passthrough is bad
+	stream := streams.NewPassthrough(segments)
 
-	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(nil)))
+	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(stream)))
 	return Error.New("unexpected minio exit")
 }

@@ -201,7 +201,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	return nil
 }
 
 func (s *storjObjects) StorageInfo(context.Context) minio.StorageInfo {
