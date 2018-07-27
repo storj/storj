@@ -60,8 +60,10 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	identityMeta := storage.Meta{}
 	var totalSegments int64
 	var totalSize int64
+	var lastSegmentSize int64
 	totalSegments = 0
 	totalSize = 0
+	lastSegmentSize = 0
 
 	awareLimitReader := EOFAwareReader(data)
 
@@ -74,6 +76,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		if err != nil {
 			return identityMeta, err
 		}
+		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
 	}
 
@@ -83,6 +86,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	md := streamspb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
+		SegmentsSize:     s.segmentSize,
+		LastSegmentSize:  lastSegmentSize,
 		MetaData:         metadata,
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
