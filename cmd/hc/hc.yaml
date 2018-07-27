@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: overlay
+  name: hc
   labels:
-    app: overlay
+    app: hc
 spec:
   ports:
   - name: grpc
@@ -17,14 +17,14 @@ spec:
     port: 8080
     target: 8080
   selector:
-    app: overlay
+    app: hc
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: overlay
+  name: hc
   labels:
-    app: overlay
+    app: hc
 spec:
   minReadySeconds: 10
   revisionHistoryLimit: 3
@@ -35,13 +35,13 @@ spec:
   template:
     metadata:
       labels:
-        app: overlay
+        app: hc
     spec:
       terminationGracePeriodSeconds: 60
       containers:
-      - image: "docker.io/storjlabs/overlay"
+      - image: "docker.io/storjlabs/hc"
         imagePullPolicy: Always
-        name: overlay
+        name: hc
         livenessProbe:
           httpGet:
             path: /health
@@ -75,4 +75,3 @@ spec:
           limits:
             cpu: 300m
             memory: 128Mi
-        

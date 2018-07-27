@@ -3,6 +3,9 @@ language: go
 go:
   - 1.10.x
 
+services:
+  - redis
+
 before_install:
   - source scripts/travis-deps.sh
 

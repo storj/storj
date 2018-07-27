@@ -26,7 +26,7 @@ var (
 // Config is a configuration struct that implements all the configuration
 // needed for the piece store responsibility
 type Config struct {
-	Path string `help:"path to store data in" default:"$HOME/.storj"`
+	Path string `help:"path to store data in" default:"$CONFDIR"`
 }
 
 // Run implements provider.Responsibility

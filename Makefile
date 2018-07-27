@@ -2,6 +2,9 @@
 
 TAG    	:= $$(git rev-parse --short HEAD)
 GO_VERSION := 1.10
+COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
+GO_DIRS := $(shell go list ./... | grep -v storj.io/storj/examples)
+
 
 lint: check-copyrights
 	@echo "Running ${@}"
@@ -16,9 +19,8 @@ lint: check-copyrights
 	--enable=goconst \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*_test.go" \
-	--exclude="./vendor/*" \
 	--exclude="examples/*" \
-	./...
+  ${GO_DIRS}
 
 check-copyrights:
 	@echo "Running ${@}"
@@ -47,9 +49,9 @@ test: lint
 	@echo done
 
 build-binaries:
-	docker build -t overlay .
+	docker build -t hc .
 
-run-overlay:
+run-hc:
 	docker network create test-net
 
 	docker run -d \
@@ -59,39 +61,46 @@ run-overlay:
 		redis
 
 	docker run -d \
-		--name=overlay \
+		--name=hc \
 		--network test-net \
 		-p 127.0.0.1:8080:8080 \
 		-e REDIS_ADDRESS=redis:6379 \
 		-e REDIS_PASSWORD="" \
 		-e REDIS_DB=1 \
 		-e OVERLAY_PORT=7070 \
-		overlay
+		hc
 
 clean-local:
-	# cleanup overlay
-	docker stop overlay || true
-	docker rm overlay || true
+	# cleanup heavy client
+	docker stop hc || true
+	docker rm hc || true
 	# cleanup redis
 	docker stop redis || true
 	docker rm redis || true
 	# cleanup docker network
 	docker network rm test-net || true
 
+test-docker:
+	docker-compose up -d --remove-orphans test
+	docker-compose run test make test
+
+test-docker-clean:
+	-docker-compose down --rmi all
+
 images:
-	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/overlay:${TAG}-${GO_VERSION} -f cmd/overlay/Dockerfile .
-	docker tag storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
+	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/hc:${TAG}-${GO_VERSION} -f cmd/hc/Dockerfile .
+	docker tag storjlabs/hc:${TAG}-${GO_VERSION} storjlabs/hc:latest
 	docker build -t storjlabs/piecestore-farmer:${TAG} -f cmd/piecestore-farmer/Dockerfile .
 	docker tag storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
 
 push-images:
-	docker push storjlabs/overlay:${TAG}-${GO_VERSION}
-	docker push storjlabs/overlay:latest
+	docker push storjlabs/hc:${TAG}-${GO_VERSION}
+	docker push storjlabs/hc:latest
 	docker push storjlabs/piecestore-farmer:${TAG}
 	docker push storjlabs/piecestore-farmer:latest
 
 clean-images:
-	-docker rmi storjlabs/overlay:${TAG}-${GO_VERSION} storjlabs/overlay:latest
+	-docker rmi storjlabs/hc:${TAG}-${GO_VERSION} storjlabs/hc:latest
 	-docker rmi storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
 
 install-deps:
