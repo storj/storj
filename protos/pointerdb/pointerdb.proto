@@ -4,7 +4,7 @@
 syntax = "proto3";
 package pointerdb;
 
-import "timestamp.proto";
+import "google/protobuf/timestamp.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {

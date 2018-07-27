@@ -1,0 +1,9 @@
+version: '3'
+services:
+  test:
+    build:
+      context: .
+      dockerfile: test/Dockerfile
+    network_mode: service:test-redis
+  test-redis:
+    image: redis

@@ -4,7 +4,8 @@
 package process
 
 import (
-	"context"
+	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -14,13 +15,18 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 )
 
+var (
+	debugAddr = flag.String("debug.addr", "localhost:0",
+		"address to listen on for debug endpoints")
+)
+
 func init() {
 	// zero out the http.DefaultServeMux net/http/pprof so unhelpfully
 	// side-effected.
 	*http.DefaultServeMux = http.ServeMux{}
 }
 
-func initDebug(ctx context.Context, logger *zap.Logger, r *monkit.Registry) (
+func initDebug(logger *zap.Logger, r *monkit.Registry) (
 	err error) {
 	var mux http.ServeMux
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -29,7 +35,10 @@ func initDebug(ctx context.Context, logger *zap.Logger, r *monkit.Registry) (
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
-	ln, err := net.Listen("tcp", "localhost:0")
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprintln(w, "OK")
+	})
+	ln, err := net.Listen("tcp", *debugAddr)
 	if err != nil {
 		return err
 	}
