@@ -8,6 +8,7 @@ import (
 	"context"
 	"io/ioutil"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestByteRanger(t *testing.T) {
@@ -132,5 +133,24 @@ func TestSubranger(t *testing.T) {
 		if !bytes.Equal(data, []byte(example.substr)) {
 			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}
+	}
+}
+
+func TestSubrangerError(t *testing.T) {
+	for _, tt := range []struct {
+		name           string
+		data           string
+		offset, length int64
+	}{
+		{name: "Negative offset", data: "abcd", offset: -1},
+		{name: "Offset is bigger than DataSize", data: "abcd", offset: 5},
+		{name: "Length and offset is bigger than DataSize", data: "abcd", offset: 4, length: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rr, err := Subrange(ByteRanger([]byte(tt.data)), tt.offset, tt.length)
+			assert.Nil(t, rr)
+			assert.NotNil(t, err)
+		})
+
 	}
 }
