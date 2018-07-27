@@ -5,6 +5,7 @@ package miniogw
 
 import (
 	"context"
+	"flag"
 	"os"
 
 	"github.com/minio/cli"
@@ -21,6 +22,15 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
+
+var (
+	maxInlineSize int
+)
+
+func init() {
+	// maxInlineSize is the maximum size for an inline segment in bytes
+	flag.IntVar(&maxInlineSize, "segments.max_inline_size", 4*1024, "max inline segment size in bytes")
+}
 
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
@@ -130,7 +140,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 		return err
 	}
 
-	segments := segment.NewSegmentStore(oc, ec, pdb, rs, 0)
+	segments := segment.NewSegmentStore(oc, ec, pdb, rs, maxInlineSize)
 
 	// TODO(jt): wrap segments and turn segments into streams actually
 	// TODO: passthrough is bad
