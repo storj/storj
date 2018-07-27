@@ -117,7 +117,28 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return err
 	}
 
-	_, err = psdb.DB.Exec(fmt.Sprintf(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES ("%v", "%v")`, serialized, ba.GetSignature()))
+	stmt, err := psdb.DB.Prepare(fmt.Sprintf(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`))
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	tx, err := psdb.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Stmt(stmt).Exec(serialized, ba.GetSignature())
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			log.Printf("%s\n", rollbackErr)
+		}
+		return err
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}

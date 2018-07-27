@@ -343,6 +343,7 @@ func TestStore(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
+			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
 			assert.Nil(err)
 
@@ -352,24 +353,23 @@ func TestStore(t *testing.T) {
 					agreement []byte
 					signature []byte
 				)
-				err = rows.Scan(&signature)
+
+				err = rows.Scan(&agreement, &signature)
 				assert.Nil(err)
 
 				decoded := &pb.BandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
-				assert.Equal(msg.Bandwidthallocation.GetData(), decoded)
-				// TODO: assert BLOB signature equal to []byte{'A', 'B'}
+
+				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
+				assert.Equal(msg.Bandwidthallocation.Data.GetPayer(), decoded.GetPayer())
+				assert.Equal(msg.Bandwidthallocation.Data.GetRenter(), decoded.GetRenter())
+				assert.Equal(msg.Bandwidthallocation.Data.GetSize(), decoded.GetSize())
+				assert.Equal(msg.Bandwidthallocation.Data.GetTotal(), decoded.GetTotal())
+
 			}
 			err = rows.Err()
 			assert.Nil(err)
-
-			if tt.err != "" {
-				assert.Equal(tt.err, err.Error())
-				return
-			} else {
-				assert.Nil(err)
-			}
 
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
