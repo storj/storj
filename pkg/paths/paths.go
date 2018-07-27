@@ -20,7 +20,12 @@ type Path []string
 func New(segs ...string) Path {
 	s := path.Join(segs...)
 	s = strings.Trim(s, "/")
-	return strings.Split(s, "/")
+	p := strings.Split(s, "/")
+	if len(p) == 1 && p[0] == "" {
+		// Avoid building a path with a single empty segment
+		return []string{}
+	}
+	return p
 }
 
 // String returns the string representation of the path
