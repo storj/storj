@@ -183,32 +183,6 @@ func TestNewTLSClient_Fails(t *testing.T) {
 	assert.Nil(t, client)
 }
 
-func TestSetLogger(t *testing.T) {
-	service := Service{}
-
-	result := service.SetLogger(&(zap.Logger{}))
-
-	assert.Nil(t, result)
-	assert.NotNil(t, service.logger)
-}
-
-func TestSetMetricHandler(t *testing.T) {
-	service := Service{}
-
-	result := service.SetMetricHandler(&monkit.Registry{})
-
-	assert.Nil(t, result)
-	assert.NotNil(t, service.metrics)
-}
-
-func TestInstanceID(t *testing.T) {
-	service := Service{}
-
-	result := service.InstanceID()
-
-	assert.NotNil(t, result)
-}
-
 func newTLSFileOptions(t *testing.T) (*peertls.TLSFileOptions, string) {
 	tempPath, err := ioutil.TempDir("", "TestNewPeerTLS")
 	assert.NoError(t, err)
@@ -225,4 +199,11 @@ func newTLSFileOptions(t *testing.T) (*peertls.TLSFileOptions, string) {
 	assert.NoError(t, err)
 
 	return opts, tempPath
+}
+
+func TestNewServerNilArgs(t *testing.T) {
+
+	server := NewServer(nil, nil, nil, nil)
+
+	assert.NotNil(t, server)
 }

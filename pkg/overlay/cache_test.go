@@ -5,7 +5,9 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -308,4 +310,50 @@ func TestMockPut(t *testing.T) {
 			assert.Equal(t, na, &c.value)
 		})
 	}
+}
+
+func TestNewRedisOverlayCache(t *testing.T) {
+	cmd := exec.Command("redis-server")
+
+	cmd.Run()
+
+	defer func() {
+		err := cmd.Process.Kill()
+		if err != nil {
+			fmt.Print(err)
+		}
+	}()
+
+	cases := []struct {
+		testName, address string
+		testFunc          func(string)
+	}{
+		{
+			testName: "NewRedisOverlayCache valid",
+			address:  "127.0.0.1:6379",
+			testFunc: func(address string) {
+				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+
+				assert.NoError(t, err)
+				assert.NotNil(t, cache)
+			},
+		},
+		{
+			testName: "NewRedisOverlayCache fail",
+			address:  "",
+			testFunc: func(address string) {
+				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+
+				assert.Error(t, err)
+				assert.Nil(t, cache)
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testName, func(t *testing.T) {
+			c.testFunc(c.address)
+		})
+	}
+
 }
