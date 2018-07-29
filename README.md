@@ -6,13 +6,11 @@
 
 <img src="https://github.com/Storj/storj/blob/wip/logo/logo.png" width="100">
 
+Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
+
 ----
 
 Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces and stored in a global decentralized network of computers. Luckily, we also support allowing you (and only you) to recover them!
-
-----
-
-Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
 
 ## To start developing
 
