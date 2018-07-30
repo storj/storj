@@ -73,6 +73,10 @@ func deleteEntries(dir string, rows *sql.Rows) error {
 	return nil
 }
 
+func (psdb *PSDB) Close() error {
+	return psdb.DB.Close()
+}
+
 // CheckEntries -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
 func (psdb *PSDB) CheckEntries(dir string) error {

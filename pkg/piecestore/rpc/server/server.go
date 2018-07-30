@@ -125,6 +125,11 @@ func (s *Server) Start(ctx context.Context) (err error) {
 	return grpcServer.Serve(lis)
 }
 
+// Stop the piececstore node
+func (s *Server) Stop(ctx context.Context) (err error) {
+	return s.DB.Close()
+}
+
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Println("Getting Meta data...")
