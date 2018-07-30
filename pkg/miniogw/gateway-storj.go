@@ -8,16 +8,16 @@ import (
 	"io"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
-	mpb "storj.io/storj/protos/objects"
+	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/protos/meta"
 )
 
 var (
@@ -27,13 +27,13 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(os objects.ObjectStore) *Storj {
+func NewStorjGateway(os objects.Store) *Storj {
 	return &Storj{os: os}
 }
 
-// Storj is the implementation of a minio cmd.Gateway
+//Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	os objects.ObjectStore
+	os objects.Store
 }
 
 // Name implements cmd.Gateway
@@ -65,7 +65,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	return s.storj.os.DeleteObject(ctx, objpath)
+	return s.storj.os.Delete(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -78,7 +78,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	}
 
 	defer func() {
-		if err := r.Close(); err != nil {
+		if err = r.Close(); err != nil {
 			// ignore for now
 		}
 	}()
@@ -106,27 +106,18 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objPath)
-	if err != nil {
-		return objInfo, err
-	}
-
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
-	newmetainfo := &mpb.StorjMetaInfo{}
-	err = proto.Unmarshal(m.Data, newmetainfo)
+	m, err := s.storj.os.Meta(ctx, objPath)
 	if err != nil {
 		return objInfo, err
 	}
 	return minio.ObjectInfo{
-		Name:    newmetainfo.GetName(),
-		Bucket:  newmetainfo.GetBucket(),
-		ModTime: m.Modified,
-		Size:    newmetainfo.GetSize(),
-		ETag:    newmetainfo.GetETag(),
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        m.Checksum,
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
 	}, err
 }
 
@@ -141,8 +132,38 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	result = minio.ListObjectsInfo{}
-	err = nil
+	startAfter := paths.New(marker)
+	var fl []minio.ObjectInfo
+	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, storage.MetaAll)
+	if err != nil {
+		return result, err
+	}
+	if len(items) > 0 {
+		//Populate the objectlist (aka filelist)
+		f := make([]minio.ObjectInfo, len(items))
+		for i, fi := range items {
+			f[i] = minio.ObjectInfo{
+				Bucket:      fi.Path[0],
+				Name:        fi.Path[1:].String(),
+				ModTime:     fi.Meta.Modified,
+				Size:        fi.Meta.Size,
+				ContentType: fi.Meta.ContentType,
+				UserDefined: fi.Meta.UserDefined,
+				ETag:        fi.Meta.Checksum,
+			}
+		}
+		startAfter = items[len(items)-1].Path[len(paths.New(bucket, prefix)):]
+		fl = f
+	}
+
+	result = minio.ListObjectsInfo{
+		IsTruncated: more,
+		Objects:     fl,
+	}
+	if more {
+		result.NextMarker = startAfter.String()
+	}
+
 	return result, err
 }
 
@@ -156,33 +177,31 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+	tempContType := metadata["content-type"]
+	delete(metadata, "content-type")
 	//metadata serialized
-	serMetaInfo := &mpb.StorjMetaInfo{
-		ContentType: metadata["content-type"],
-		Bucket:      bucket,
-		Name:        object,
-	}
-	metainfo, err := proto.Marshal(serMetaInfo)
-	if err != nil {
-		return objInfo, err
+	serMetaInfo := meta.Serializable{
+		ContentType: tempContType,
+		UserDefined: metadata,
 	}
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
 	expTime := time.Time{}
-	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
+	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
-		Name:   object,
-		Bucket: bucket,
-		// TODO create a followup ticket in JIRA to fix ModTime
-		ModTime: time.Now(),
-		Size:    data.Size(),
-		ETag:    minio.GenETag(),
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        m.Checksum,
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
 	}, err
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	return nil
 }
 
 func (s *storjObjects) StorageInfo(context.Context) minio.StorageInfo {

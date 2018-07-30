@@ -15,8 +15,8 @@ func TestNew(t *testing.T) {
 		path     string
 		expected Path
 	}{
-		{"", []string{""}},
-		{"/", []string{""}},
+		{"", []string{}},
+		{"/", []string{}},
 		{"a", []string{"a"}},
 		{"/a/", []string{"a"}},
 		{"a/b/c/d", []string{"a", "b", "c", "d"}},
@@ -33,9 +33,10 @@ func TestNewWithSegments(t *testing.T) {
 		segs     []string
 		expected Path
 	}{
-		{[]string{""}, []string{""}},
-		{[]string{"", ""}, []string{""}},
-		{[]string{"/"}, []string{""}},
+		{nil, []string{}},
+		{[]string{""}, []string{}},
+		{[]string{"", ""}, []string{}},
+		{[]string{"/"}, []string{}},
 		{[]string{"a"}, []string{"a"}},
 		{[]string{"/a/"}, []string{"a"}},
 		{[]string{"", "a", "", "b", "c", "d", ""}, []string{"a", "b", "c", "d"}},
@@ -57,6 +58,7 @@ func TestString(t *testing.T) {
 		path     Path
 		expected string
 	}{
+		{nil, ""},
 		{[]string{}, ""},
 		{[]string{""}, ""},
 		{[]string{"a"}, "a"},
@@ -74,6 +76,8 @@ func TestBytes(t *testing.T) {
 		path     Path
 		expected []byte
 	}{
+		{nil, []byte{}},
+		{[]string{}, []byte{}},
 		{[]string{""}, []byte{}},
 		{[]string{"a/b"}, []byte{97, 47, 98}},
 		{[]string{"a/b/c"}, []byte{97, 47, 98, 47, 99}},
@@ -91,7 +95,7 @@ func TestPrepend(t *testing.T) {
 		path     string
 		expected Path
 	}{
-		{"", "", []string{""}},
+		{"", "", []string{}},
 		{"prefix", "", []string{"prefix"}},
 		{"", "my/path", []string{"my", "path"}},
 		{"prefix", "my/path", []string{"prefix", "my", "path"}},
@@ -109,7 +113,8 @@ func TestPrependWithSegments(t *testing.T) {
 		path     string
 		expected Path
 	}{
-		{[]string{""}, "", []string{""}},
+		{nil, "", []string{}},
+		{[]string{""}, "", []string{}},
 		{[]string{"prefix"}, "", []string{"prefix"}},
 		{[]string{""}, "my/path", []string{"my", "path"}},
 		{[]string{"prefix"}, "my/path", []string{"prefix", "my", "path"}},
@@ -130,7 +135,7 @@ func TestAppend(t *testing.T) {
 		suffix   string
 		expected Path
 	}{
-		{"", "", []string{""}},
+		{"", "", []string{}},
 		{"", "suffix", []string{"suffix"}},
 		{"my/path", "", []string{"my", "path"}},
 		{"my/path", "suffix", []string{"my", "path", "suffix"}},
@@ -148,7 +153,8 @@ func TestAppendWithSegments(t *testing.T) {
 		segs     []string
 		expected Path
 	}{
-		{"", []string{""}, []string{""}},
+		{"", nil, []string{}},
+		{"", []string{""}, []string{}},
 		{"", []string{"suffix"}, []string{"suffix"}},
 		{"my/path", []string{""}, []string{"my", "path"}},
 		{"my/path", []string{"suffix"}, []string{"my", "path", "suffix"}},
@@ -164,7 +170,8 @@ func TestAppendWithSegments(t *testing.T) {
 }
 
 func TestEncryption(t *testing.T) {
-	for i, path := range []Path{
+	for i, segs := range []Path{
+		nil,          // empty path
 		[]string{},   // empty path
 		[]string{""}, // empty path segment
 		[]string{"file.txt"},
@@ -173,6 +180,7 @@ func TestEncryption(t *testing.T) {
 		[]string{"fold1", "fold2", "fold3", "file.txt"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
+		path := New(segs...)
 		key := []byte("my secret")
 		encrypted, err := path.Encrypt(key)
 		if !assert.NoError(t, err, errTag) {
