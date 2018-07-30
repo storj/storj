@@ -35,11 +35,11 @@ func NewPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err = db.Exec("CREATE TABLE `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	_, err = db.Exec("CREATE TABLE `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
 	if err != nil {
 		return nil, err
 	}
