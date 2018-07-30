@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 
@@ -232,17 +233,17 @@ func TestRetrieve(t *testing.T) {
 			stream, err := c.Retrieve(ctx)
 
 			// send piece database
-			stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
+			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
 			assert.Nil(err)
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
+			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
 			assert.Nil(err)
 
 			resp, err := stream.Recv()
 
 			// Send bandwidth bandwidthAllocation
-			stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 64000 - tt.allocSize, Total: 64000}}})
+			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 64000 - tt.allocSize, Total: 64000}}})
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
@@ -341,34 +342,34 @@ func TestStore(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			rows, err := db.Query(`SELECT payer, renter, size, signature FROM bandwidth_agreements WHERE payer = "payer-id"`)
+			// check db to make sure agreement and signature were stored correctly
+			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
 			assert.Nil(err)
 
 			defer rows.Close()
 			for rows.Next() {
 				var (
-					payer     string
-					renter    string
-					size      int64
+					agreement []byte
 					signature []byte
 				)
-				err = rows.Scan(&payer, &renter, &size, &signature)
+
+				err = rows.Scan(&agreement, &signature)
 				assert.Nil(err)
 
-				assert.Equal("payer-id", payer)
-				assert.Equal("renter-id", renter)
-				assert.Equal(int64(len(tt.content)), size)
-				// TODO: assert BLOB signature equal to []byte{'A', 'B'}
+				decoded := &pb.BandwidthAllocation_Data{}
+
+				err = proto.Unmarshal(agreement, decoded)
+
+				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
+				assert.Equal(msg.Bandwidthallocation.Data.GetPayer(), decoded.GetPayer())
+				assert.Equal(msg.Bandwidthallocation.Data.GetRenter(), decoded.GetRenter())
+				assert.Equal(msg.Bandwidthallocation.Data.GetSize(), decoded.GetSize())
+				assert.Equal(msg.Bandwidthallocation.Data.GetTotal(), decoded.GetTotal())
+
 			}
 			err = rows.Err()
 			assert.Nil(err)
 
-			if tt.err != "" {
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-
-			assert.Nil(err)
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
 		})
