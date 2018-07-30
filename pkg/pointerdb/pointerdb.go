@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/paths"
-	meta "storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pointerdb/auth"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
@@ -139,7 +139,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 // as list items
 func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 	prefix paths.Path, startAfter, endBefore string, recursive bool, limit int,
-	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
+	metaFlags uint32) (items []*pb.ListResponse_Item, more bool) {
 	skip := startAfter != ""
 	startAfterPath := prefix.Append(startAfter)
 	endBeforePath := prefix.Append(endBefore)
@@ -187,7 +187,7 @@ func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 // as list items
 func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 	prefix paths.Path, endBefore string, recursive bool, limit int,
-	metaFlags uint64) (items []*pb.ListResponse_Item, more bool) {
+	metaFlags uint32) (items []*pb.ListResponse_Item, more bool) {
 	skip := endBefore != ""
 	endBeforePath := prefix.Append(endBefore)
 
@@ -228,7 +228,7 @@ func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
 func (s *Server) createListItem(ctx context.Context, p paths.Path,
-	metaFlags uint64) *pb.ListResponse_Item {
+	metaFlags uint32) *pb.ListResponse_Item {
 	item := &pb.ListResponse_Item{Path: p.String()}
 	err := s.getMetadata(ctx, item, metaFlags)
 	if err != nil {
@@ -240,10 +240,10 @@ func (s *Server) createListItem(ctx context.Context, p paths.Path,
 // getMetadata adds the metadata to the given item pointer according to the
 // given metaFlags
 func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
-	metaFlags uint64) (err error) {
+	metaFlags uint32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if metaFlags == meta.MetaNone {
+	if metaFlags == meta.None {
 		return nil
 	}
 
@@ -258,15 +258,20 @@ func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
 		return err
 	}
 
-	// TODO(kaloyan): revisit after clarifying how to store and serialize metadata
-	if metaFlags&meta.MetaModified != 0 {
-		item.CreationDate = pr.GetCreationDate()
+	// Start with an empty pointer to and add only what's requested in
+	// metaFlags to safe to transfer payload
+	item.Pointer = &pb.Pointer{}
+	if metaFlags&meta.Modified != 0 {
+		item.Pointer.CreationDate = pr.GetCreationDate()
 	}
-	if metaFlags&meta.MetaExpiration != 0 {
-		item.ExpirationDate = pr.GetExpirationDate()
+	if metaFlags&meta.Expiration != 0 {
+		item.Pointer.ExpirationDate = pr.GetExpirationDate()
 	}
-	if metaFlags&meta.MetaUserDefined != 0 {
-		item.Metadata = pr.GetMetadata()
+	if metaFlags&meta.Size != 0 {
+		item.Pointer.Size = pr.GetSize()
+	}
+	if metaFlags&meta.UserDefined != 0 {
+		item.Pointer.Metadata = pr.GetMetadata()
 	}
 
 	return nil
