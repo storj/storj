@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
@@ -29,6 +30,20 @@ import (
 )
 
 var ctx = context.Background()
+
+func writeFileToDir(name, dir string) error {
+	file, err := pstore.StoreWriter(name, dir)
+	if err != nil {
+		return err
+	}
+
+	// Close when finished
+	defer file.Close()
+
+	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
+
+	return err
+}
 
 func TestPiece(t *testing.T) {
 	s := newTestServerStruct()
@@ -46,19 +61,7 @@ func TestPiece(t *testing.T) {
 
 	defer cleanup(db)
 
-	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
-	if err != nil {
-		t.Errorf("Error: %v\nCould not create test piece", err)
-		return
-	}
-
-	// Close when finished
-	defer file.Close()
-
-	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-
-	if err != nil {
+	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
@@ -97,7 +100,7 @@ func TestPiece(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
+			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
 			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
@@ -106,6 +109,7 @@ func TestPiece(t *testing.T) {
 			resp, err := c.Piece(ctx, req)
 
 			if tt.err != "" {
+				assert.NotNil(err)
 				assert.Equal(tt.err, err.Error())
 				return
 			}
@@ -136,20 +140,11 @@ func TestRetrieve(t *testing.T) {
 	defer cleanup(db)
 
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
-	if err != nil {
+	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	// Close when finished
-	defer file.Close()
-
-	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-	if err != nil {
-		t.Errorf("Error: %v\nCould not create test piece", err)
-		return
-	}
 	defer pstore.Delete("11111111111111111111", s.DataDir)
 
 	// set up test cases
@@ -236,18 +231,21 @@ func TestRetrieve(t *testing.T) {
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
 			assert.Nil(err)
 
-			// Send bandwidth bandwidthAllocation
-			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: tt.allocSize}}})
-			assert.Nil(err)
+			totalAllocated := int64(0)
+			var resp *pb.PieceRetrievalStream
+			for totalAllocated < tt.respSize {
+				// Send bandwidth bandwidthAllocation
+				totalAllocated += tt.allocSize
+				err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: totalAllocated}}})
+				assert.Nil(err)
 
-			resp, err := stream.Recv()
+				resp, err = stream.Recv()
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
 
-			// Send bandwidth bandwidthAllocation
-			err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: 64000 - tt.allocSize, Total: 64000}}})
-
-			if tt.err != "" {
-				assert.Equal(tt.err, err.Error())
-				return
 			}
 
 			assert.Nil(err)
@@ -420,17 +418,13 @@ func TestDelete(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter("11111111111111111111", s.DataDir)
-			assert.Nil(err)
-
-			// Close when finished
-			defer file.Close()
-
-			_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-			assert.Nil(err)
+			if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
+				t.Errorf("Error: %v\nCould not create test piece", err)
+				return
+			}
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
+			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
 			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
@@ -459,7 +453,7 @@ func TestDelete(t *testing.T) {
 }
 
 func newTestServerStruct() *Server {
-	tempDBPath := filepath.Join(os.TempDir(), "test.db")
+	tempDBPath := filepath.Join(os.TempDir(), fmt.Sprintf("%s-test.db", time.Now().String()))
 
 	psDB, err := psdb.NewPSDB(tempDBPath)
 	if err != nil {
