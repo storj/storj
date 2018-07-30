@@ -28,6 +28,10 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	}
 
 	pd := recv.GetPieceData()
+	if pd == nil {
+		return RetrieveError.New("PieceStore message is nil")
+	}
+
 	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.GetId(), pd.GetSize(), pd.GetOffset())
 
 	// Get path to data being retrieved

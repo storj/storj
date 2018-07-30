@@ -31,6 +31,10 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	pd := recv.GetPiecedata()
+	if pd == nil {
+		return StoreError.New("PieceStore message is nil")
+	}
+
 	log.Printf("ID: %s, TTL: %v\n", pd.GetId(), pd.GetTtl())
 	if pd.GetId() == "" {
 		return StoreError.New("Piece ID not specified")
