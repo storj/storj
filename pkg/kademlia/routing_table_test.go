@@ -278,7 +278,7 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
-	rt := createRT()	
+	rt := createRT()
 	node1 := []byte{127, 255} //xor 0
 	rt.self.Id = string(node1)
 	rt.nodeBucketDB.Put(node1, []byte(""))
@@ -324,7 +324,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 func TestNodeIsWithinNearestK(t *testing.T) {
 	rt := createRT()
 	rt.bucketSize = 2
-	
+
 	selfNode := []byte{127, 255}
 	rt.self.Id = string(selfNode)
 	rt.nodeBucketDB.Put(selfNode, []byte(""))

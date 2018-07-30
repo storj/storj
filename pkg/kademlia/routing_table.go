@@ -5,9 +5,9 @@ package kademlia
 
 import (
 	"bytes"
+	"math/rand"
 	"sync"
 	"time"
-	"math/rand"
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -23,13 +23,13 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self          *proto.Node
-	kadBucketDB   storage.KeyValueStore
-	nodeBucketDB  storage.KeyValueStore
-	transport     *proto.NodeTransport
-	mutex         *sync.Mutex
-	idLength      int // kbucket and node id bit length (SHA256) = 256
-	bucketSize    int // max number of nodes stored in a kbucket = 20 (k)
+	self         *proto.Node
+	kadBucketDB  storage.KeyValueStore
+	nodeBucketDB storage.KeyValueStore
+	transport    *proto.NodeTransport
+	mutex        *sync.Mutex
+	idLength     int // kbucket and node id bit length (SHA256) = 256
+	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -44,13 +44,13 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
 	return &RoutingTable{
-		self:          localNode,
-		kadBucketDB:   kdb,
-		nodeBucketDB:  ndb,
-		transport:     &defaultTransport,
-		mutex:         &sync.Mutex{},
-		idLength:      idLength,
-		bucketSize:    bucketSize,
+		self:         localNode,
+		kadBucketDB:  kdb,
+		nodeBucketDB: ndb,
+		transport:    &defaultTransport,
+		mutex:        &sync.Mutex{},
+		idLength:     idLength,
+		bucketSize:   bucketSize,
 	}, nil
 }
 
@@ -88,7 +88,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	if err != nil {
 		return err
 	}
-	
+
 	withinK, err := rt.nodeIsWithinNearestK(nodeKey)
 	if err != nil {
 		return RoutingErr.New("could not determine if node is within k: %s", err)
@@ -216,15 +216,15 @@ func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
 	if len(nodeIDs) < 2 {
 		return nodeIDs
 	}
-	left, right := 0, len(nodeIDs) - 1
+	left, right := 0, len(nodeIDs)-1
 	pivot := rand.Int() % len(nodeIDs)
 	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
-	for i := range(nodeIDs) {
+	for i := range nodeIDs {
 		xorI := xorTwoIds(nodeIDs[i], []byte(rt.self.Id))
 		xorR := xorTwoIds(nodeIDs[right], []byte(rt.self.Id))
 		if bytes.Compare(xorI, xorR) < 0 {
 			nodeIDs[left], nodeIDs[i] = nodeIDs[i], nodeIDs[left]
-			left ++
+			left++
 		}
 	}
 	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
@@ -236,12 +236,11 @@ func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
 func (rt RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
 	sortedNodes := rt.sortByXOR(nodeIDs)
-	if len(sortedNodes) < rt.bucketSize + 1 { //adding 1 since we're not including local node in closest k
+	if len(sortedNodes) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
 		return sortedNodes[len(sortedNodes)-1], nil
 	}
 	return sortedNodes[rt.bucketSize], nil
 }
-
 
 // xorTwoIds: helper, finds the xor distance between two byte slices
 func xorTwoIds(id []byte, comparisonID []byte) []byte {
@@ -260,7 +259,7 @@ func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 		return false, RoutingErr.New("could not get nodes: %s", err)
 	}
 	nodeCount := len(nodes)
-	if nodeCount < rt.bucketSize + 1 { //adding 1 since we're not including local node in closest k
+	if nodeCount < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
 		return true, nil
 	}
 	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodes)
