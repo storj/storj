@@ -4,9 +4,10 @@
 package ranger
 
 import (
-	"testing"
-	"github.com/stretchr/testify/assert"
 	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRange(t *testing.T) {
@@ -37,6 +38,6 @@ func TestRange(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	rr := readerAtReader{length:0}
+	rr := readerAtReader{length: 0}
 	assert.Nil(t, rr.Close())
 }

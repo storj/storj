@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestServeContent(t *testing.T) {
@@ -67,7 +68,7 @@ func TestServeContentParseRange(t *testing.T) {
 	for k, v := range map[string]string{"Etag": "\"abcde\""} {
 		writer.Header().Add(k, v)
 	}
-	ranger := ByteRanger([]byte("bytes=1-5/0,bytes=1-5/8",))
+	ranger := ByteRanger([]byte("bytes=1-5/0,bytes=1-5/8"))
 
 	ServeContent(context.Background(), writer, req, "", time.Now().UTC(), ranger)
 
@@ -616,13 +617,13 @@ func Test_scanETag(t *testing.T) {
 		expectedRemain string
 	}{
 		{
-			name:           "Empty ETag", s: "",
+			name: "Empty ETag", s: "",
 			expectedEtag:   "",
 			expectedRemain: "",
 		},
 
 		{
-			name:           "Empty ETag with W", s: "W/",
+			name: "Empty ETag with W", s: "W/",
 			expectedEtag:   "",
 			expectedRemain: "",
 		},

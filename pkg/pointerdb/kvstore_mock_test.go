@@ -88,6 +88,16 @@ func (mr *MockKeyValueStoreMockRecorder) List(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockKeyValueStore)(nil).List), arg0, arg1)
 }
 
+// ReverseList mocks base method
+func (m *MockKeyValueStore) ReverseList(arg0 storage.Key, arg1 storage.Limit) (storage.Keys, error) {
+	return m.List(arg0, arg1)
+}
+	
+// ReverseList indicates an expected call of ReverseList
+func (mr *MockKeyValueStoreMockRecorder) ReverseList(arg0, arg1 interface{}) *gomock.Call {
+	return mr.List(arg0, arg1)
+}
+		
 // Put mocks base method
 func (m *MockKeyValueStore) Put(arg0 storage.Key, arg1 storage.Value) error {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1)
