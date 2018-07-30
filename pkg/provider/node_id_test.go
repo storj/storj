@@ -131,6 +131,12 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	err = ic.SaveIdentity(fi)
 	assert.NoError(t, err)
 
+	for _, path := range []string{ic.CertPath, ic.KeyPath} {
+		fileInfo, err := os.Stat(path)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0600), fileInfo.Mode())
+	}
+
 	savedChainPEM, err := ioutil.ReadFile(ic.CertPath)
 	assert.NoError(t, err)
 
