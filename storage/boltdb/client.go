@@ -8,10 +8,10 @@ import (
 
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
-
 	"storj.io/storj/storage"
 )
 
+// boltClient implements the KeyValueStore interface
 type boltClient struct {
 	logger *zap.Logger
 	db     *bolt.DB
@@ -26,6 +26,10 @@ const (
 	PointerBucket = "pointers"
 	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
 	OverlayBucket = "overlay"
+	// KBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
+	KBucket = "kbuckets"
+	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
+	NodeBucket = "nodes"
 )
 
 var (
@@ -82,16 +86,29 @@ func (c *boltClient) Get(pathKey storage.Key) (storage.Value, error) {
 // List returns either a list of keys for which boltdb has values or an error.
 func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	c.logger.Debug("entering bolt list")
+	return c.listHelper(false, startingKey, limit)
+}
+
+// ReverseList returns either a list of keys for which boltdb has values or an error.
+// Starts from startingKey and iterates backwards
+func (c *boltClient) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	c.logger.Debug("entering bolt reverse list")
+	return c.listHelper(true, startingKey, limit)
+}
+
+func (c *boltClient) listHelper(reverseList bool, startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	var paths storage.Keys
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		cur := tx.Bucket(c.Bucket).Cursor()
 		var k []byte
+		start := firstOrLast(reverseList, cur)
+		iterate := prevOrNext(reverseList, cur)
 		if startingKey == nil {
-			k, _ = cur.First()
+			k, _ = start()
 		} else {
 			k, _ = cur.Seek(startingKey)
 		}
-		for ; k != nil; k, _ = cur.Next() {
+		for ; k != nil; k, _ = iterate() {
 			paths = append(paths, k)
 			if limit > 0 && int(limit) == int(len(paths)) {
 				break
@@ -100,6 +117,20 @@ func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage
 		return nil
 	})
 	return paths, err
+}
+
+func firstOrLast(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
+	if reverseList {
+		return cur.Last
+	}
+	return cur.First
+}
+
+func prevOrNext(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
+	if reverseList {
+		return cur.Prev
+	}
+	return cur.Next
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key

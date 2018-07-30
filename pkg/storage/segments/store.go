@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -18,7 +20,6 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage"
 	"storj.io/storj/pkg/storage/ec"
 	opb "storj.io/storj/protos/overlay"
 	ppb "storj.io/storj/protos/pointerdb"
@@ -28,9 +29,18 @@ var (
 	mon = monkit.Package()
 )
 
-// Meta will contain encryption and stream information
+// Meta info about a segment
 type Meta struct {
-	Data []byte
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
+}
+
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path paths.Path
+	Meta Meta
 }
 
 // Store for segments
@@ -42,7 +52,7 @@ type Store interface {
 		expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
+		recursive bool, limit int, metaFlags uint32) (items []ListItem,
 		more bool, err error)
 }
 
@@ -69,7 +79,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return Meta{Data: pr.GetMetadata()}, nil
+	return convertMeta(pr), nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -118,6 +128,9 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
 		},
+		// TODO(kaloyan): We need to wrap the data reader in a SizeAwareReader
+		// wrapper and take the size from it.
+		Size:           0,
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
@@ -162,7 +175,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	return rr, Meta{Data: pr.GetMetadata()}, nil
+	return rr, convertMeta(pr), nil
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
@@ -202,8 +215,8 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) 
 	for i, p := range seg.GetRemotePieces() {
 		node, err := s.oc.Lookup(ctx, kademlia.StringToNodeID(p.GetNodeId()))
 		if err != nil {
-			// TODO better error handling: failing to lookup a few nodes should
-			// not fail the request
+			// TODO(kaloyan): better error handling: failing to lookup a few
+			// nodes should not fail the request
 			return nil, Error.Wrap(err)
 		}
 		nodes[i] = node
@@ -213,9 +226,42 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) 
 
 // List retrieves paths to segments and their metadata stored in the pointerdb
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
-	endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
-	items []storage.ListItem, more bool, err error) {
+	endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (
+	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags, nil)
+	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore,
+		recursive, limit, metaFlags, nil)
+	if err != nil {
+		return nil, false, err
+	}
+
+	items = make([]ListItem, len(pdbItems))
+	for i, itm := range pdbItems {
+		items[i] = ListItem{
+			Path: itm.Path,
+			Meta: convertMeta(itm.Pointer),
+		}
+	}
+
+	return items, more, nil
+}
+
+// convertMeta converts pointer to segment metadata
+func convertMeta(pr *ppb.Pointer) Meta {
+	return Meta{
+		Modified:   convertTime(pr.GetCreationDate()),
+		Expiration: convertTime(pr.GetExpirationDate()),
+		Size:       pr.GetSize(),
+		Data:       pr.GetMetadata(),
+	}
+}
+
+// convertTime converts gRPC timestamp to Go time
+func convertTime(ts *timestamp.Timestamp) time.Time {
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
+	}
+	return t
 }

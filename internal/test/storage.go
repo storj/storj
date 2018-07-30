@@ -32,13 +32,14 @@ func (k *KvStore) Empty() bool {
 
 // MockKeyValueStore is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
 type MockKeyValueStore struct {
-	Data         KvStore
-	GetCalled    int
-	PutCalled    int
-	ListCalled   int
-	DeleteCalled int
-	CloseCalled  int
-	PingCalled   int
+	Data              KvStore
+	GetCalled         int
+	PutCalled         int
+	ListCalled        int
+	ReverseListCalled int
+	DeleteCalled      int
+	CloseCalled       int
+	PingCalled        int
 }
 
 // RedisDone is a function type that describes the callback returned by `EnsureRedis`
@@ -118,6 +119,12 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	//TODO - JJ
+	return storage.Keys{}, nil
+}
+
 func mapIntoSlice(data KvStore) []string {
 	keySlice := make([]string, len(data))
 	i := 0
@@ -144,13 +151,14 @@ func (m *MockKeyValueStore) Ping() error {
 // NewMockKeyValueStore returns a mocked `KeyValueStore` implementation for testing
 func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 	return &MockKeyValueStore{
-		Data:         d,
-		GetCalled:    0,
-		PutCalled:    0,
-		ListCalled:   0,
-		DeleteCalled: 0,
-		CloseCalled:  0,
-		PingCalled:   0,
+		Data:              d,
+		GetCalled:         0,
+		PutCalled:         0,
+		ListCalled:        0,
+		ReverseListCalled: 0,
+		DeleteCalled:      0,
+		CloseCalled:       0,
+		PingCalled:        0,
 	}
 }
 

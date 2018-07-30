@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	p "storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 )
 
@@ -168,34 +168,37 @@ func TestList(t *testing.T) {
 		endBefore  string
 		recursive  bool
 		limit      int
-		metaFlags  uint64
+		metaFlags  uint32
 		apiKey     string
 		items      []*pb.ListResponse_Item
 		more       bool
 		err        error
 		errString  string
 	}{
-		{"", "", "", false, 0, storage.MetaNone, "",
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, nil, ""},
-		{"", "", "", false, 0, storage.MetaNone, "",
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{&pb.ListResponse_Item{}}, false, nil, ""},
-		{"", "", "", false, -1, storage.MetaNone, "",
+		{"", "", "", false, -1, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
-		{"prefix", "after", "before", false, 1, storage.MetaNone, "some key",
+		{"prefix", "after", "before", false, 1, meta.None, "some key",
 			[]*pb.ListResponse_Item{
 				&pb.ListResponse_Item{Path: "a/b/c"},
 			},
 			true, nil, ""},
-		{"prefix", "after", "before", false, 1, storage.MetaAll, "some key",
+		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c", Size: 1234,
-					CreationDate: ptypes.TimestampNow(), ExpirationDate: ptypes.TimestampNow()},
+				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{
+					Size:           1234,
+					CreationDate:   ptypes.TimestampNow(),
+					ExpirationDate: ptypes.TimestampNow(),
+				}},
 			},
 			true, nil, ""},
-		{"some/prefix", "start/after", "end/before", true, 123, storage.MetaSize, "some key",
+		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c", Size: 1234},
-				&pb.ListResponse_Item{Path: "x/y", Size: 789},
+				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
+				&pb.ListResponse_Item{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
 			},
 			true, nil, ""},
 	} {
@@ -233,13 +236,12 @@ func TestList(t *testing.T) {
 
 			for i := 0; i < len(items); i++ {
 				assert.Equal(t, tt.items[i].GetPath(), items[i].Path.String())
-				assert.Equal(t, tt.items[i].GetSize(), items[i].Meta.Size)
-
-				modified, _ := ptypes.Timestamp(tt.items[i].GetCreationDate())
-				assert.Equal(t, modified, items[i].Meta.Modified)
-
-				expiration, _ := ptypes.Timestamp(tt.items[i].GetExpirationDate())
-				assert.Equal(t, expiration, items[i].Meta.Expiration)
+				assert.Equal(t, tt.items[i].GetPointer().GetSize(),
+					items[i].Pointer.GetSize())
+				assert.Equal(t, tt.items[i].GetPointer().GetCreationDate(),
+					items[i].Pointer.GetCreationDate())
+				assert.Equal(t, tt.items[i].GetPointer().GetExpirationDate(),
+					items[i].Pointer.GetExpirationDate())
 			}
 		}
 	}
