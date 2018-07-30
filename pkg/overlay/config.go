@@ -26,7 +26,7 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$HOME/.storj/overlay.db"`
+	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 }
 
 // Run implements the provider.Responsibility interface. Run assumes a
