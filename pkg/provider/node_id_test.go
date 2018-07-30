@@ -33,39 +33,6 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	assert.NotEmpty(t, pi.ID)
 }
 
-// func TestParseID(t *testing.T) {
-// 	// hashLen := uint16(256)
-// 	tlsH, err := peertls.NewTLSHelper(nil)
-// 	assert.NoError(t, err)
-//
-// 	cert := tlsH.Certificate()
-// 	fullID, err := CertToCreds(&cert)
-// 	assert.NoError(t, err)
-//
-// 	peerID, err := provider.ParsePeerIdentity(fullID.String())
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, peerID.hash, fullID.hash)
-//
-// 	pubKey := fullID.tlsH.PubKey()
-// 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&pubKey)
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, peerID.pubKey, pubKeyBytes)
-// }
-//
-// func TestKadCreds_Bytes(t *testing.T) {
-// 	hashLen := uint16(36)
-// 	tlsH, err := peertls.NewTLSHelper(nil)
-// 	assert.NoError(t, err)
-//
-// 	cert := tlsH.Certificate()
-// 	kadCreds, err := CertToCreds(&cert, hashLen)
-// 	assert.NoError(t, err)
-//
-// 	kadCredBytes := kadCreds.Bytes()
-// 	assert.NotNil(t, kadCredBytes)
-// }
-//
-
 func TestFullIdentityFromPEM(t *testing.T) {
 	tlsH, err := peertls.NewTLSHelper(nil)
 	assert.NoError(t, err)
@@ -98,7 +65,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	// defer os.RemoveAll(tmpDir)
 
 	ic := IdentityConfig{
 		CertPath: filepath.Join(tmpDir, "cert.pem"),
@@ -146,65 +113,83 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	assert.Equal(t, chainPEM.Bytes(), savedChainPEM)
 	assert.Equal(t, keyPEM.Bytes(), savedKeyPEM)
 }
-//
-// idPath := filepath.Join(tmpDir, "id.pem")
-// err = fi.Save(idPath)
-// assert.NoError(t, err)
-//
-// idBytes, err := ioutil.ReadFile(idPath)
-// assert.NoError(t, err)
-// assert.NotNil(t, idBytes)
-//
-// kadCredBytes := bytes.NewBuffer([]byte{})
-// err = fi.write(kadCredBytes)
-// assert.NoError(t, err)
-//
-// bytesEqual := bytes.Compare(idBytes, kadCredBytes.Bytes()) == 0
-// assert.True(t, bytesEqual)
-//
-// fileInfo, err := os.Stat(idPath)
-// assert.NoError(t, err)
-// assert.Equal(t, os.FileMode(0600), fileInfo.Mode())
 
-// func TestIdentityConfig_LoadIdentity(t *testing.T) {
-// 	tmpDir, err := ioutil.TempDir("", "TestLoadID")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer os.RemoveAll(tmpDir)
-//
-// 	ic := IdentityConfig{
-// 		CertPath: filepath.Join(tmpDir, "cert.pem"),
-// 		KeyPath: filepath.Join(tmpDir, "key.pem"),
-// 	}
-//
-//
-//
-// 	fi, err := ic.LoadIdentity()
-// 	assert.NoError(t, err)
-// 	assert.NotEmpty(t, fi)
-//
-// 	tlsH, err := peertls.NewTLSHelper(nil)
-// 	assert.NoError(t, err)
-//
-// 	cert := tlsH.Certificate()
-// 	assert.NoError(t, err)
-//
-// 	// savedKadCreds, err := CertToCreds(&cert, hashLen)
-// 	// assert.NoError(t, err)
-// 	//
-// 	// idPath := filepath.Join(tmpDir, "id.pem")
-// 	// err = savedKadCreds.Save(idPath)
-// 	// assert.NoError(t, err)
-// 	//
-// 	// loadedKadCreds, err := LoadID(idPath, hashLen)
-// 	// assert.NoError(t, err)
-// 	// assert.NotNil(t, loadedKadCreds)
-// 	//
-// 	// assert.Equal(t, savedKadCreds.hashLen, loadedKadCreds.hashLen)
-// 	// assert.Equal(t, savedKadCreds.hash, loadedKadCreds.hash)
-// 	// assert.Equal(t, savedKadCreds.tlsH.Certificate(), loadedKadCreds.tlsH.Certificate())
-// }
+func tempIdentity(t *testing.T) (IdentityConfig, string, string, func()) {
+	chain := `-----BEGIN CERTIFICATE-----
+MIIBPzCB56ADAgECAhAOX4Ws9yWl4rbnrMh82ckQMAoGCCqGSM49BAMCMAAwIhgP
+MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
+CCqGSM49AwEHA0IABNPPTDZZ3A7ECVxeqVctqFqa6Lp2wfdRbxx1pef3vcps3sLa
+1eoUR5m7G2MDftD9Kti7BnywakoX5jtHFRunY1mjPzA9MA4GA1UdDwEB/wQEAwIF
+oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAK
+BggqhkjOPQQDAgNHADBEAiByKBZ6ISrVN3RFOLi7VfyqwvB8lraNAMaeN1Cp+/3D
++gIgaAl73Aho0ktNpugBargOgDN81vqy236262gJJxVrA3Y=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIBOTCB4KADAgECAhANj6roOG+0AMNNN/Hm2PSyMAoGCCqGSM49BAMCMAAwIhgP
+MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
+CCqGSM49AwEHA0IABEUPjkjl9MoIIJ+nCtLT59IgWXYpzq6OcakCYsC4pg2OgthF
+RsvrUAMbY26B7Zc06dEjEqiRPv3H2utRhRAWCTmjODA2MA4GA1UdDwEB/wQEAwIC
+BDATBgNVHSUEDDAKBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49
+BAMCA0gAMEUCIEe0bBuNVZKS/1xCUwQr+P/HPswRlynKgTCr25mASE7cAiEAlz/U
+YD4+JuO1Od5AmYEB/TlKgdoDREyoInkGzyD+N90=
+-----END CERTIFICATE-----
+`
+
+	key := `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIGbyOBPpVngcSWa/oammpV4ZAYEuhwrfPYlI6VwvzEHLoAoGCCqGSM49
+AwEHoUQDQgAE089MNlncDsQJXF6pVy2oWprounbB91FvHHWl5/e9ymzewtrV6hRH
+mbsbYwN+0P0q2LsGfLBqShfmO0cVG6djWQ==
+-----END EC PRIVATE KEY-----
+`
+
+	tmpDir, err := ioutil.TempDir("", "TestIdentityConfig_LoadIdentity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup := func() { os.RemoveAll(tmpDir) }
+
+	ic := IdentityConfig{
+		CertPath: filepath.Join(tmpDir, "chain.pem"),
+		KeyPath: filepath.Join(tmpDir, "key.pem"),
+	}
+
+	err = ioutil.WriteFile(ic.CertPath, []byte(chain), 0600)
+	if !assert.NoError(t, err) {
+		cleanup()
+		t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(ic.KeyPath, []byte(key), 0600)
+	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		cleanup()
+		t.Fatal(err)
+	}
+
+	return ic, chain, key, cleanup
+}
+
+func TestIdentityConfig_LoadIdentity(t *testing.T) {
+	ic, chainPEM, keyPEM, done := tempIdentity(t)
+	defer done()
+
+	fi, err := ic.LoadIdentity()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, fi)
+	assert.NotEmpty(t, fi.PrivateKey)
+	assert.NotEmpty(t, fi.PeerIdentity.Leaf)
+	assert.NotEmpty(t, fi.PeerIdentity.CA)
+	assert.NotEmpty(t, fi.PeerIdentity.ID)
+
+	expectedFI, err := FullIdentityFromPEM([]byte(chainPEM), []byte(keyPEM))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, expectedFI)
+
+	assert.Equal(t, expectedFI.PrivateKey, fi.PrivateKey)
+	assert.Equal(t, expectedFI.PeerIdentity.Leaf, fi.PeerIdentity.Leaf)
+	assert.Equal(t, expectedFI.PeerIdentity.CA, fi.PeerIdentity.CA)
+	assert.Equal(t, expectedFI.PeerIdentity.ID, fi.PeerIdentity.ID)
+}
 
 
 
