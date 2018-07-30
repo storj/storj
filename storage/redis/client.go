@@ -105,6 +105,7 @@ func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storag
 
 	return listKeys, nil
 }
+
 // ReverseList returns either a list of keys for which redis has values or an error.
 // Starts from startingKey and iterates backwards
 func (c *redisClient) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
