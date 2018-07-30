@@ -126,7 +126,7 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 		pr, pw := io.Pipe()
 		mw := multipart.NewWriter(pw)
 		w.Header().Set("Content-Type",
-			"multipart/byteranges; boundary="+mw.Boundary())
+			"multipart/byteranges; boundary=" + mw.Boundary())
 		sendContent = func() (io.ReadCloser, error) { return ioutil.NopCloser(pr), nil }
 		// cause writing goroutine to fail and exit if CopyN doesn't finish.
 		defer func() {
@@ -319,6 +319,7 @@ func checkIfNoneMatch(w http.ResponseWriter, r *http.Request) condResult {
 		}
 		if buf[0] == ',' {
 			buf = buf[1:]
+			continue
 		}
 		if buf[0] == '*' {
 			return condFalse

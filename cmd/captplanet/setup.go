@@ -5,25 +5,22 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
 )
 
 // Config defines broad Captain Planet configuration
 type Config struct {
-	FarmerCount  int    `help:"number of farmers to run" default:"20"`
 	BasePath     string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost   string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
-	miniogw.RSConfig
-	miniogw.MinioConfig
 }
 
 var (
@@ -54,7 +51,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	for i := 0; i < setupCfg.FarmerCount; i++ {
+	for i := 0; i < len(runCfg.Farmers); i++ {
 		farmerPath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
 		err = os.MkdirAll(farmerPath, 0700)
 		if err != nil {
@@ -78,5 +75,58 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfig(cmd)
+	startingPort := setupCfg.StartingPort
+
+	overrides := map[string]interface{}{
+		"heavy-client.identity.cert-path": filepath.Join(
+			setupCfg.BasePath, "hc", "ident.leaf.cert"),
+		"heavy-client.identity.key-path": filepath.Join(
+			setupCfg.BasePath, "hc", "ident.leaf.key"),
+		"heavy-client.identity.address": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"heavy-client.kademlia.todo-listen-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+2),
+		"heavy-client.kademlia.bootstrap-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+4),
+		"heavy-client.pointer-db.database-url": "bolt://" + filepath.Join(
+			setupCfg.BasePath, "hc", "pointerdb.db"),
+		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
+			setupCfg.BasePath, "hc", "overlay.db"),
+		"gateway.cert-path": filepath.Join(
+			setupCfg.BasePath, "gw", "ident.leaf.cert"),
+		"gateway.key-path": filepath.Join(
+			setupCfg.BasePath, "gw", "ident.leaf.key"),
+		"gateway.address": joinHostPort(
+			setupCfg.ListenHost, startingPort),
+		"gateway.overlay-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"gateway.pointer-db-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"gateway.minio-dir": filepath.Join(
+			setupCfg.BasePath, "gw", "minio"),
+		"pointer-db.auth.api-key": "abc123",
+	}
+
+	for i := 0; i < len(runCfg.Farmers); i++ {
+		basepath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		farmer := fmt.Sprintf("farmers.%02d.", i)
+		overrides[farmer+"identity.cert-path"] = filepath.Join(
+			basepath, "ident.leaf.cert")
+		overrides[farmer+"identity.key-path"] = filepath.Join(
+			basepath, "ident.leaf.key")
+		overrides[farmer+"identity.address"] = joinHostPort(
+			setupCfg.ListenHost, startingPort+i*2+3)
+		overrides[farmer+"kademlia.todo-listen-addr"] = joinHostPort(
+			setupCfg.ListenHost, startingPort+i*2+4)
+		overrides[farmer+"kademlia.bootstrap-addr"] = joinHostPort(
+			setupCfg.ListenHost, startingPort+1)
+		overrides[farmer+"storage.path"] = filepath.Join(basepath, "data")
+	}
+
+	return process.SaveConfig(runCmd.Flags(),
+		filepath.Join(setupCfg.BasePath, "config.yaml"), overrides)
+}
+
+func joinHostPort(host string, port int) string {
+	return net.JoinHostPort(host, fmt.Sprint(port))
 }

@@ -1,0 +1,80 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+package statdb;
+
+// StatDB defines the interface for retrieving and updating farmer stats
+service StatDB {
+  // Create a db entry for the provided farmer ID
+  rpc Create(CreateRequest) returns (CreateResponse);
+  // Get uses a farmer ID to get that farmer's stats
+  rpc Get(GetRequest) returns (GetResponse);
+  // Update updates farmer stats for a single farmer
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  // UpdateBatch updates farmer stats for multiple farmers at a time
+  rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
+}
+
+// Node is info for a updating a single farmer, used in the Update rpc calls
+message Node {
+  bytes node_id = 1;
+  repeated int64 latency_list = 2;
+  bool audit_success = 3;
+  bool is_up = 4;
+  bool update_latency = 5;
+  bool update_audit_success = 6;
+  bool update_uptime = 7;
+}
+
+// NodeStats is info about a single farmer stored in the stats db
+message NodeStats {
+  bytes node_id = 1;
+  int64 latency_90 = 2; // 90th percentile measure of farmer latency
+  double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
+  double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
+}
+
+// CreateRequest is a request message for the Create rpc call
+message CreateRequest {
+  Node node = 1;
+  bytes APIKey = 2;
+}
+
+// CreateResponse is a response message for the Create rpc call
+message CreateResponse {
+  NodeStats stats = 1;
+}
+
+// GetRequest is a request message for the Get rpc call
+message GetRequest {
+  bytes node_id = 1;
+  bytes APIKey = 2;
+}
+
+// GetResponse is a response message for the Get rpc call
+message GetResponse {
+  NodeStats stats = 1;
+}
+
+// UpdateRequest is a request message for the Update rpc call
+message UpdateRequest {
+  Node node = 1;
+  bytes APIKey = 2;
+}
+
+// UpdateRequest is a response message for the Update rpc call
+message UpdateResponse {
+  NodeStats stats = 1;
+}
+
+// UpdateBatchRequest is a request message for the UpdateBatch rpc call
+message UpdateBatchRequest {
+  repeated Node node_list = 1;
+  bytes APIKey = 2;
+}
+
+// UpdateBatchResponse is a response message for the UpdateBatch rpc call
+message UpdateBatchResponse {
+  repeated NodeStats stats_list = 1;
+}
