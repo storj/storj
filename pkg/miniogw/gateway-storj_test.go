@@ -6,8 +6,8 @@ package miniogw
 import (
 	"bytes"
 	"context"
-	"io"
-	"io/ioutil"
+	"errors"
+	io "io"
 	"testing"
 	time "time"
 
@@ -36,39 +36,37 @@ func TestGetObject(t *testing.T) {
 		data                 string
 		size, offset, length int64
 		substr               string
-		fail                 bool
+		err                  string
 	}{
-		{"abcdef", 6, 0, 0, "", false},
+		{"", 0, 0, 0, "", ""},
+		{"abcdef", 6, 0, 0, "", ""},
+		{"abcdef", 6, 3, 0, "", ""},
+		{"abcdef", 6, 0, 6, "abcdef", ""},
+		{"abcdef", 6, 0, 5, "abcde", ""},
+		{"abcdef", 6, 0, 4, "abcd", ""},
+		{"abcdef", 6, 1, 4, "bcde", ""},
+		{"abcdef", 6, 2, 4, "cdef", ""},
+		{"abcdefg", 7, 1, 4, "bcde", ""},
+		{"abcdef", 6, 0, 7, "", ""},
+		{"abcdef", 6, -1, 7, "abcde", "negative offset"},
+		{"abcdef", 6, 0, -1, "abcde", "negative length"},
+		{"abcdef", 6, 1, 7, "bcde", "buffer runoff"},
+		{"abcdef", 6, 1, 7, "", "buffer runoff"},
 	} {
-		fh, err := ioutil.TempFile("", "test")
-		if err != nil {
-			t.Fatalf("failed making tempfile")
-		}
-		_, err = fh.Write([]byte(example.data))
-		if err != nil {
-			t.Fatalf("failed writing data")
-		}
-		name := fh.Name()
-		err = fh.Close()
-		if err != nil {
-			t.Fatalf("failed closing data")
-		}
-		rr, err := ranger.FileRanger(name)
-		if err != nil {
-			t.Fatalf("failed opening tempfile")
-		}
-		defer rr.Close()
-		if rr.Size() != example.size {
-			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
+		r := ranger.ByteRanger([]byte(example.data))
+		if r.Size() != example.size {
+			t.Fatalf("invalid size: %v != %v", r.Size(), example.size)
 		}
 
-		mockGetObject.EXPECT().Get(gomock.Any(), paths.New("mybucket", "myobject1")).Return(rr, meta, err).Times(1)
+		rr := ranger.NopCloser(r)
+
+		mockGetObject.EXPECT().Get(gomock.Any(), paths.New("mybucket", "myobject1")).Return(rr, meta, errors.New(example.err)).Times(1)
 
 		var buf1 bytes.Buffer
 		w := io.Writer(&buf1)
 
-		err = testUser.GetObject(context.Background(), "mybucket", "myobject1", 0, 0, w, "etag")
-		assert.NoError(t, err)
+		err := testUser.GetObject(context.Background(), "mybucket", "myobject1", example.offset, example.length, w, "etag")
+		assert.EqualError(t, err, (example.err))
 	}
 }
 
