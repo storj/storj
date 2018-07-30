@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"crypto/tls"
 	"encoding/pem"
 	"crypto/x509"
 	"github.com/zeebo/errs"
@@ -10,6 +9,7 @@ import (
 	"math/bits"
 	"fmt"
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/node"
 )
 
 var (
@@ -37,28 +37,6 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {
-	var (
-		err  error
-		cert = new(tls.Certificate)
-	)
-
-	cert.Certificate = certDERBytes
-	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
-	if err != nil {
-		return nil, errs.New("unable to parse EC private key", err)
-	}
-
-	parsedLeaf, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	cert.Leaf = parsedLeaf
-
-	return cert, nil
-}
-
 func idDifficulty(id nodeID) uint16 {
 	hash, err := base64.URLEncoding.DecodeString(id.String())
 	if err!= nil {
@@ -84,6 +62,8 @@ func idDifficulty(id nodeID) uint16 {
 	panic(reason)
 }
 
+// TODO: resume here; change `fiC` channel to a struct that consists of
+// `FullIdentity` and root private key
 func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
 	for {
 		select {
@@ -104,9 +84,6 @@ func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
 				PrivateKey: cert.PrivateKey,
 			}
 
-			// TODO: connect peer verification function
-			// kadCreds.tlsH.BaseConfig = baseConfig(kadCreds.Difficulty(), hashLen)
-
 			if fi.Difficulty() >= difficulty {
 				fiC <- fi
 			}
@@ -114,24 +91,17 @@ func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
 	}
 }
 
-// func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
-// 	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
-// 		for _, certs := range parsedChains {
-// 			for _, c := range certs {
-// 				tc := &tls.Certificate{
-// 					Certificate: rawChain,
-// 				}
-// 				pi, err := PeerIdentityFromCertChain(tc)
-// 				if err != nil {
-// 					return err
-// 				}
-//
-// 				if pi.Difficulty() < difficulty {
-// 					return ErrDifficulty.New("expected: %d; got: %d", difficulty, pi.Difficulty())
-// 				}
-// 			}
-// 		}
-//
-// 		return nil
-// 	}
-// }
+func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
+	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
+		pi, err := PeerIdentityFromCertChain(rawChain)
+		if err != nil {
+			return err
+		}
+
+		if pi.Difficulty() < difficulty {
+			return node.ErrDifficulty.New("expected: %d; got: %d", difficulty, pi.Difficulty())
+		}
+
+		return nil
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"net"
 	"encoding/base64"
 	"io/ioutil"
+	"crypto/tls"
 	"os"
 	"encoding/pem"
 	"io"
@@ -20,7 +21,10 @@ import (
 	"golang.org/x/crypto/sha3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/credentials"
+
 	"storj.io/storj/pkg/peertls"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -264,30 +268,59 @@ func (pi *PeerIdentity) Difficulty() uint16 {
 	return idDifficulty(pi.ID)
 }
 
+func (pi *PeerIdentity) DailOption(difficulty uint16) grpc.DialOption {
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*pi.Certificate()},
+		InsecureSkipVerify: true,
+		ClientAuth: tls.RequireAnyClientCert,
+		VerifyPeerCertificate: peertls.VerifyPeerFunc(
+			peertls.VerifyPeerCertChains,
+			VerifyPeerIdentityFunc(difficulty),
+		),
+	}
+
+	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
+}
+
 // Difficulty returns the number of trailing zero-value bits in the hash
 func (fi *FullIdentity) Difficulty() uint16 {
 	return idDifficulty(fi.PeerIdentity.ID)
 }
 
-// func (fi *FullIdentity) ServerOption(difficulty uint16) grpc.ServerOption {
-// 	tlsConfig := &tls.Config{
-// 		Certificates: []tls.Certificate{fi.Certificate()},
-// 		InsecureSkipVerify: true,
-// 		ClientAuth: tls.RequireAnyClientCert,
-// 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-// 			peertls.VerifyPeerCertChains,
-// 			VerifyPeerIdentityFunc(difficulty),
-// 		),
-// 	}
-//
-// 	return grpc.Creds(credentials.NewTLS(tlsConfig))
-// }
-//
-// func (fi *FullIdentity) Certificate() *tls.Certificate {
-// 	cert := &tls.Certificate{
-// 		Certificate:
-// 	}
-// }
+func (fi *FullIdentity) ServerOption(difficulty uint16) grpc.ServerOption {
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{*fi.Certificate()},
+		InsecureSkipVerify: true,
+		ClientAuth: tls.RequireAnyClientCert,
+		VerifyPeerCertificate: peertls.VerifyPeerFunc(
+			peertls.VerifyPeerCertChains,
+			VerifyPeerIdentityFunc(difficulty),
+		),
+	}
+
+	return grpc.Creds(credentials.NewTLS(tlsConfig))
+}
+
+func (pi *PeerIdentity) Certificate() *tls.Certificate {
+	chain := [][]byte{}
+	chain = append(chain, pi.Leaf.Raw, pi.CA.Raw)
+
+	return &tls.Certificate{
+		Leaf:        pi.Leaf,
+		Certificate: chain,
+	}
+}
+
+func (fi *FullIdentity) Certificate() *tls.Certificate {
+	chain := [][]byte{}
+	chain = append(chain, fi.PeerIdentity.Leaf.Raw, fi.PeerIdentity.CA.Raw)
+
+	return &tls.Certificate{
+		Leaf: fi.PeerIdentity.Leaf,
+		Certificate: chain,
+		PrivateKey: fi.PrivateKey,
+	}
+}
 
 type nodeID string
 
