@@ -17,23 +17,35 @@ import (
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage"
 	streamspb "storj.io/storj/protos/streams"
 )
 
 var mon = monkit.Package()
 
+// Meta info about a segment
+type Meta struct {
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
+}
+
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path paths.Path
+	Meta Meta
+}
+
 // Store for streams
 type Store interface {
+	Meta(ctx context.Context, path paths.Path) (Meta, error)
+	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser, Meta, error)
 	Put(ctx context.Context, path paths.Path, data io.Reader,
-		metadata []byte, expiration time.Time) (storage.Meta, error)
-	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
-		storage.Meta, error)
-	// Delete(ctx context.Context, path paths.Path) error
-	// List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-	// 	recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
-	// 	more bool, err error)
-	// Meta(ctx context.Context, path paths.Path) (storage.Meta, error)
+		metadata []byte, expiration time.Time) (Meta, error)
+	Delete(ctx context.Context, path paths.Path) error
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
+		recursive bool, limit int, metaFlags uint32) (items []ListItem,
+		more bool, err error)
 }
 
 type streamStore struct {
@@ -50,7 +62,7 @@ func NewStreams(segments segment.Store, segmentSize int64) (Store, error) {
 }
 
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (m storage.Meta, err error) {
+	metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: break up data as it comes in into s.segmentSize length pieces, then
@@ -59,7 +71,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	// of segments, in a new protobuf, in the metadata of l/<path>.
 
 	identitySlice := make([]byte, 0)
-	identityMeta := storage.Meta{}
+	identityMeta := Meta{}
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
@@ -104,11 +116,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 	totalSize = totalSize + putMeta.Size
 
-	resultMeta := storage.Meta{
+	resultMeta := Meta{
 		Modified:   time.Now(),
 		Expiration: expiration,
 		Size:       totalSize,
-		Checksum:   "",
+		Data:       lastSegmentMetadata,
 	}
 
 	return resultMeta, nil
@@ -160,7 +172,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, 
 }
 
 /*
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (storage.Meta, error) {
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 
 }
 

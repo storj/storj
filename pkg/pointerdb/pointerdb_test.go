@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
-	meta "storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 )
@@ -155,7 +155,7 @@ func TestServiceList(t *testing.T) {
 		endBefore    string
 		recursive    bool
 		limit        int
-		metaFlags    uint64
+		metaFlags    uint32
 		apiKey       []byte
 		returnedKeys storage.Keys
 		expectedKeys storage.Keys
@@ -163,22 +163,22 @@ func TestServiceList(t *testing.T) {
 		err          error
 		errString    string
 	}{
-		{"", "", "", true, 0, meta.MetaNone, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.MetaAll, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.MetaNone, []byte("wrong key"), keys, keys, false,
+		{"", "", "", true, 0, meta.None, nil, keys, keys, false, nil, ""},
+		{"", "", "", true, 0, meta.All, nil, keys, keys, false, nil, ""},
+		{"", "", "", true, 0, meta.None, []byte("wrong key"), keys, keys, false,
 			nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{"", "", "", true, 0, meta.MetaNone, nil, keys, keys, false,
+		{"", "", "", true, 0, meta.None, nil, keys, keys, false,
 			errors.New("list error"), status.Errorf(codes.Internal, "list error").Error()},
-		{"", "", "", true, 2, meta.MetaNone, nil, keys, keys[:2], true, nil, ""},
-		{"", "", "", false, 0, meta.MetaNone, nil, keys, keys[:1], false, nil, ""},
-		{"music", "", "", false, 0, meta.MetaNone, nil, keys[1:], storage.Keys{keys[1], keys[2], keys[4]}, false, nil, ""},
-		{"music", "", "", true, 0, meta.MetaNone, nil, keys[1:], keys[1:5], false, nil, ""},
-		{"music", "song1.mp3", "", true, 0, meta.MetaNone, nil, keys, keys[2:5], false, nil, ""},
-		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.MetaNone, nil, keys, keys[2:3], false, nil, ""},
-		{"music", "", "song4.mp3", true, 0, meta.MetaNone, nil, keys, keys[1:4], false, nil, ""},
-		{"music", "", "song4.mp3", true, 1, meta.MetaNone, nil, keys, keys[3:4], true, nil, ""},
-		{"music", "", "song4.mp3", false, 0, meta.MetaNone, nil, keys, keys[1:3], false, nil, ""},
-		{"music", "song2.mp3", "song4.mp3", true, 0, meta.MetaNone, nil, keys, keys[3:4], false, nil, ""},
+		{"", "", "", true, 2, meta.None, nil, keys, keys[:2], true, nil, ""},
+		{"", "", "", false, 0, meta.None, nil, keys, keys[:1], false, nil, ""},
+		{"music", "", "", false, 0, meta.None, nil, keys[1:], storage.Keys{keys[1], keys[2], keys[4]}, false, nil, ""},
+		{"music", "", "", true, 0, meta.None, nil, keys[1:], keys[1:5], false, nil, ""},
+		{"music", "song1.mp3", "", true, 0, meta.None, nil, keys, keys[2:5], false, nil, ""},
+		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, keys, keys[2:3], false, nil, ""},
+		{"music", "", "song4.mp3", true, 0, meta.None, nil, keys, keys[1:4], false, nil, ""},
+		{"music", "", "song4.mp3", true, 1, meta.None, nil, keys, keys[3:4], true, nil, ""},
+		{"music", "", "song4.mp3", false, 0, meta.None, nil, keys, keys[1:3], false, nil, ""},
+		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, keys, keys[3:4], false, nil, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -189,7 +189,7 @@ func TestServiceList(t *testing.T) {
 			prefix := storage.Key(paths.New(tt.prefix).Bytes())
 			db.EXPECT().List(prefix, storage.Limit(0)).Return(tt.returnedKeys, tt.err)
 
-			if tt.metaFlags != meta.MetaNone {
+			if tt.metaFlags != meta.None {
 				pr := pb.Pointer{}
 				b, err := proto.Marshal(&pr)
 				assert.NoError(t, err, errTag)

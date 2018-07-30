@@ -93,7 +93,7 @@ message ListRequest {
   string end_before = 3;
   bool recursive = 4;
   int32 limit = 5;
-  fixed64 meta_flags = 6;
+  fixed32 meta_flags = 6;
   bytes API_key = 7;
 }
 
@@ -110,10 +110,7 @@ message GetResponse {
 message ListResponse {
   message Item {
     string path = 1;
-    google.protobuf.Timestamp creation_date = 2;
-    google.protobuf.Timestamp expiration_date = 3;
-    int64 size = 4;
-    bytes metadata = 5;
+    Pointer pointer = 2;
   }
   
   repeated Item items = 1;
