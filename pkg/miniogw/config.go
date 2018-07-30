@@ -136,6 +136,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	// TODO: passthrough is bad
 	stream := streams.NewPassthrough(segments)
 
-	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(stream)))
+	minio.StartGateway(cliCtx, LoggingGateway(
+		NewStorjGateway(objects.NewStore(stream))))
 	return Error.New("unexpected minio exit")
 }
