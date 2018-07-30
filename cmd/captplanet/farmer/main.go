@@ -4,6 +4,8 @@
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -24,6 +26,8 @@ var (
 		Kademlia kademlia.Config
 		Storage  psservice.Config
 	}
+
+	defaultConfDir = "$HOME/.storj/farmer"
 )
 
 func init() {
@@ -32,7 +36,9 @@ func init() {
 		Short: "Run the farmer",
 		RunE:  cmdRun,
 	})
-	cfgstruct.Bind(rootCmd.PersistentFlags(), &cfg)
+	cfgstruct.Bind(rootCmd.PersistentFlags(), &cfg,
+		cfgstruct.ConfDir(defaultConfDir),
+	)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -40,5 +46,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	process.ExecuteWithConfig(rootCmd, "$HOME/.storj/farmer/config.yaml")
+	process.ExecuteWithConfig(rootCmd,
+		filepath.Join(defaultConfDir, "config.yaml"))
 }

@@ -23,7 +23,7 @@ func TestNewClient_IntervalIsZero(t *testing.T) {
 	})
 
 	assert.NotNil(t, client)
-
+	assert.NoError(t, err)
 	assert.Equal(t, client.interval, DefaultInterval)
 }
 
@@ -46,7 +46,7 @@ func TestNewClient_ApplicationAndArgsAreEmpty(t *testing.T) {
 	})
 
 	assert.NotNil(t, client)
-
+	assert.NoError(t, err)
 	assert.Equal(t, DefaultApplication, client.opts.Application)
 }
 
@@ -62,7 +62,7 @@ func TestNewClient_ApplicationIsEmpty(t *testing.T) {
 	})
 
 	assert.NotNil(t, client)
-
+	assert.NoError(t, err)
 	assert.Equal(t, client.opts.Application, os.Args[0])
 }
 
@@ -78,6 +78,7 @@ func TestNewClient_InstanceIsEmpty(t *testing.T) {
 	})
 
 	assert.NotNil(t, client)
+	assert.NoError(t, err)
 
 	assert.Equal(t, client.opts.InstanceId, []byte(DefaultInstanceID()))
 	assert.Equal(t, client.opts.Application, "qwe")
@@ -96,7 +97,7 @@ func TestNewClient_RegistryIsNil(t *testing.T) {
 	})
 
 	assert.NotNil(t, client)
-
+	assert.NoError(t, err)
 	assert.Equal(t, client.opts.InstanceId, []byte(DefaultInstanceID()))
 	assert.Equal(t, client.opts.Application, "qwe")
 	assert.Equal(t, client.interval, DefaultInterval)
@@ -118,6 +119,7 @@ func TestNewClient_PacketSizeIsZero(t *testing.T) {
 	assert.NotNil(t, client)
 
 	assert.Equal(t, client.opts.InstanceId, []byte(DefaultInstanceID()))
+	assert.NoError(t, err)
 	assert.Equal(t, client.opts.Application, "qwe")
 	assert.Equal(t, client.interval, DefaultInterval)
 	assert.Equal(t, client.opts.Registry, monkit.Default)

@@ -17,7 +17,7 @@ import (
 // Config is a configuration struct that is everything you need to start a
 // PointerDB responsibility
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$HOME/.storj/pointerdb.db"`
+	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
 }
 
 // Run implements the provider.Responsibility interface
