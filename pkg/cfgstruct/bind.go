@@ -13,23 +13,38 @@ import (
 	"time"
 )
 
+// BindOpt is an option for the Bind method
+type BindOpt func(vars map[string]string)
+
+// ConfDir sets a variable for default options called $CONFDIR
+func ConfDir(confdir string) BindOpt {
+	return BindOpt(func(vars map[string]string) {
+		vars["CONFDIR"] = os.ExpandEnv(confdir)
+	})
+}
+
 // Bind sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
 // package.
-func Bind(flags FlagSet, config interface{}) {
+func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("invalid config type: %#v. "+
 			"Expecting pointer to struct.", config))
 	}
-	bindConfig(flags, "", reflect.ValueOf(config).Elem())
+	vars := map[string]string{}
+	for _, opt := range opts {
+		opt(vars)
+	}
+	bindConfig(flags, "", reflect.ValueOf(config).Elem(), vars)
 }
 
 var (
 	whitespace = regexp.MustCompile(`\s+`)
 )
 
-func bindConfig(flags FlagSet, prefix string, val reflect.Value) {
+func bindConfig(flags FlagSet, prefix string, val reflect.Value,
+	vars map[string]string) {
 	if val.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.",
 			val.Interface()))
@@ -44,16 +59,16 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value) {
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
-				bindConfig(flags, prefix, fieldval)
+				bindConfig(flags, prefix, fieldval, vars)
 			} else {
-				bindConfig(flags, flagname+".", fieldval)
+				bindConfig(flags, flagname+".", fieldval, vars)
 			}
 		case reflect.Array, reflect.Slice:
 			digits := len(fmt.Sprint(fieldval.Len()))
 			for j := 0; j < fieldval.Len(); j++ {
 				padding := strings.Repeat("0", digits-len(fmt.Sprint(j)))
 				bindConfig(flags, fmt.Sprintf("%s.%s%d.", flagname, padding, j),
-					fieldval.Index(j))
+					fieldval.Index(j), vars)
 			}
 		default:
 			tag := reflect.StructTag(
@@ -92,7 +107,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value) {
 				check(err)
 				flags.Float64Var(fieldaddr.(*float64), flagname, val, help)
 			case reflect.TypeOf(string("")):
-				flags.StringVar(fieldaddr.(*string), flagname, os.ExpandEnv(def), help)
+				flags.StringVar(fieldaddr.(*string), flagname, expand(vars, def), help)
 			case reflect.TypeOf(bool(false)):
 				val, err := strconv.ParseBool(def)
 				check(err)
@@ -102,4 +117,8 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value) {
 			}
 		}
 	}
+}
+
+func expand(vars map[string]string, val string) string {
+	return os.Expand(val, func(key string) string { return vars[key] })
 }

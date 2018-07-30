@@ -12,12 +12,13 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -37,7 +38,7 @@ type RSConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	MinioDir  string `help:"Minio generic server config path" default:"$HOME/.storj/miniogw"`
+	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/miniogw"`
 }
 
 // ClientConfig is a configuration struct for the miniogw that controls how
@@ -131,12 +132,10 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs)
 
-	// TODO(jt): wrap segments and turn segments into streams
-	// TODO(jt): hook streams into object store
-	// TODO(jt): this should work:
-	//		NewStorjGateway(objects.NewStore(streams.NewStore(segments)))
-	_ = segments
+	// TODO(jt): wrap segments and turn segments into streams actually
+	// TODO: passthrough is bad
+	stream := streams.NewPassthrough(segments)
 
-	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewObjectStore()))
+	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(stream)))
 	return Error.New("unexpected minio exit")
 }
