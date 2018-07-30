@@ -16,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/peertls"
 	"os"
 	"encoding/pem"
@@ -38,7 +37,7 @@ type PeerIdentity struct {
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
 	// The ID is calculated from the CA cert.
-	ID dht.NodeID
+	ID nodeID
 }
 
 // FullIdentity represents you on the network. In addition to a PeerIdentity,
@@ -159,6 +158,19 @@ func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
 	return nil
 }
 
+func (ic IdentityConfig) Generate(difficulty uint16, concurrency uint) FullIdentity {
+		fiC := make(chan FullIdentity, 1)
+		done := make(chan bool, 0)
+		for i := 0; i < int(concurrency); i++ {
+			go generateCreds(difficulty, fiC, done)
+		}
+
+		fi := <-fiC
+		close(done)
+
+		return fi
+}
+
 // Run will run the given responsibilities with the configured identity.
 func (ic IdentityConfig) Run(ctx context.Context,
 		responsibilities ...Responsibility) (
@@ -202,8 +214,13 @@ func PeerIdentityFromCertChain(cert *tls.Certificate) (*PeerIdentity, error) {
 		}
 	}
 
-	hash := make([]byte, IdentityLength)
-	sha3.ShakeSum256(hash, ca.RawTBSCertificate)
+	caPublicKey, err := x509.MarshalPKIXPublicKey(ca.PublicKey)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	hash := make([]byte, 38)
+	sha3.ShakeSum256(hash, caPublicKey)
 
 	return &PeerIdentity{
 		CA:   ca,
@@ -214,8 +231,8 @@ func PeerIdentityFromCertChain(cert *tls.Certificate) (*PeerIdentity, error) {
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key file
-func FullIdentityFromPEM(certPEM, keyPEM []byte) (*FullIdentity, error) {
-	chainBytes, err := decodePEM(certPEM)
+func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
+	chainBytes, err := decodePEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -245,12 +262,12 @@ func FullIdentityFromPEM(certPEM, keyPEM []byte) (*FullIdentity, error) {
 
 // Difficulty returns the number of trailing zero-value bits in the hash
 func (pi *PeerIdentity) Difficulty() uint16 {
-	return idDifficulty(pi.ID.Bytes())
+	return idDifficulty(pi.ID)
 }
 
 // Difficulty returns the number of trailing zero-value bits in the hash
 func (fi *FullIdentity) Difficulty() uint16 {
-	return idDifficulty(fi.PeerIdentity.ID.Bytes())
+	return idDifficulty(fi.PeerIdentity.ID)
 }
 
 type nodeID string

@@ -5,10 +5,12 @@ package provider
 
 import (
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 	"math/bits"
 	"fmt"
 	"go.uber.org/zap"
+	"encoding/base64"
+	"storj.io/storj/pkg/peertls"
 )
 
 var (
@@ -18,7 +20,12 @@ var (
 	Error = errs.Class("provider error")
 )
 
-func idDifficulty(hash []byte) uint16 {
+func idDifficulty(id nodeID) uint16 {
+	hash, err := base64.URLEncoding.DecodeString(id.String())
+	if err!= nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
 	for i := 1; i < len(hash); i++ {
 		b := hash[len(hash)-i]
 
@@ -36,4 +43,34 @@ func idDifficulty(hash []byte) uint16 {
 	reason := fmt.Sprintf("difficulty matches hash length! hash: %s", hash)
 	zap.S().Error(reason)
 	panic(reason)
+}
+
+func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			tlsH, _ := peertls.NewTLSHelper(nil)
+
+			cert := tlsH.Certificate()
+			pi, err := PeerIdentityFromCertChain(&cert)
+			if err != nil {
+				zap.S().Error(errs.Wrap(err))
+				continue
+			}
+
+			fi := FullIdentity{
+				PeerIdentity: *pi,
+				PrivateKey: cert.PrivateKey,
+			}
+
+			// TODO: connect peer verification function
+			// kadCreds.tlsH.BaseConfig = baseConfig(kadCreds.Difficulty(), hashLen)
+
+			if fi.Difficulty() >= difficulty {
+				fiC <- fi
+			}
+		}
+	}
 }
