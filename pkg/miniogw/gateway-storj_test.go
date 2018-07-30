@@ -11,15 +11,14 @@ import (
 	"testing"
 	time "time"
 
-	"storj.io/storj/protos/meta"
-
 	"github.com/golang/mock/gomock"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storage/objects"
 )
 
 func TestGetObject(t *testing.T) {
@@ -31,7 +30,7 @@ func TestGetObject(t *testing.T) {
 
 	testUser := storjObjects{storj: &s}
 
-	meta := storage.Meta{}
+	meta := objects.Meta{}
 
 	for _, example := range []struct {
 		data                 string
@@ -82,7 +81,7 @@ func TestPutObject(t *testing.T) {
 
 	testUser := storjObjects{storj: &s}
 
-	meta1 := storage.Meta{}
+	meta1 := objects.Meta{}
 
 	data, err := hash.NewReader(bytes.NewReader([]byte("abcd")), 4, "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
 	if err != nil {
@@ -92,7 +91,7 @@ func TestPutObject(t *testing.T) {
 	metadata["content-type"] = "foo"
 
 	//metadata serialized
-	serMetaInfo := meta.Serializable{
+	serMetaInfo := objects.SerializableMeta{
 		ContentType: "foo",
 		UserDefined: metadata,
 	}
@@ -114,7 +113,7 @@ func TestGetObjectInfo(t *testing.T) {
 	s := Storj{os: mockGetObject}
 	testUser := storjObjects{storj: &s}
 
-	meta1 := storage.Meta{
+	meta1 := objects.Meta{
 		Modified:   time.Now(),
 		Expiration: time.Now(),
 		Size:       int64(100),
@@ -139,23 +138,23 @@ func TestListObjects(t *testing.T) {
 	testUser := storjObjects{storj: &s}
 
 	type iterationType struct {
-		items []storage.ListItem
+		items []objects.ListItem
 	}
 
 	var iterable = []iterationType{
 		iterationType{
-			items: []storage.ListItem{
-				storage.ListItem{
+			items: []objects.ListItem{
+				objects.ListItem{
 					Path: paths.Path{"a0", "b0", "c0"},
-					Meta: storage.Meta{
+					Meta: objects.Meta{
 						Modified:   time.Now(),
 						Expiration: time.Now(),
 					},
 				},
 				// add more iternationType here...
-				storage.ListItem{
+				objects.ListItem{
 					Path: paths.Path{"a1", "b1", "c1"},
-					Meta: storage.Meta{
+					Meta: objects.Meta{
 						Modified:   time.Now(),
 						Expiration: time.Now(),
 					},
@@ -173,10 +172,10 @@ func TestListObjects(t *testing.T) {
 		marker, delimiter string
 		maxKeys           int
 		recursive         bool
-		metaFlags         uint64
+		metaFlags         uint32
 		more              bool
 	}{
-		{"mybucket", "Development", "file1.go", "/", 1000, true, storage.MetaAll, false},
+		{"mybucket", "Development", "file1.go", "/", 1000, true, meta.All, false},
 		// add more combinations here ...
 	} {
 

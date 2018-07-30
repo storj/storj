@@ -16,7 +16,7 @@ import (
 
 	p "storj.io/storj/pkg/paths"
 	client "storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
 	proto "storj.io/storj/protos/pointerdb"
 )
 
@@ -84,7 +84,7 @@ func main() {
 
 	// Example List with pagination
 	prefix := p.New("fold1")
-	items, more, err := pdbclient.List(ctx, prefix, nil, nil, true, 1, storage.MetaNone, APIKey)
+	items, more, err := pdbclient.List(ctx, prefix, nil, nil, true, 1, meta.None, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths", zap.Error(err))

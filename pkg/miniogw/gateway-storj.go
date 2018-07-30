@@ -15,9 +15,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storage"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
-	"storj.io/storj/protos/meta"
 )
 
 var (
@@ -134,7 +133,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	defer mon.Task()(&ctx)(&err)
 	startAfter := paths.New(marker)
 	var fl []minio.ObjectInfo
-	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, storage.MetaAll)
+	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
@@ -180,7 +179,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 	//metadata serialized
-	serMetaInfo := meta.Serializable{
+	serMetaInfo := objects.SerializableMeta{
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
