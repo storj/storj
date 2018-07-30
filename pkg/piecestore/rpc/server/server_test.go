@@ -455,7 +455,7 @@ func TestDelete(t *testing.T) {
 func newTestServerStruct() *Server {
 	tempDBPath := filepath.Join(os.TempDir(), fmt.Sprintf("%s-test.db", time.Now().String()))
 
-	psDB, err := psdb.NewPSDB(tempDBPath)
+	psDB, err := psdb.OpenPSDB(tempDBPath)
 	if err != nil {
 		log.Fatal(err)
 	}

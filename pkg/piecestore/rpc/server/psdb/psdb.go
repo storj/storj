@@ -24,8 +24,8 @@ type PSDB struct {
 	DB *sql.DB
 }
 
-// NewPSDB -- creates
-func NewPSDB(DBPath string) (*PSDB, error) {
+// OpenPSDB -- opens PSDB at DBPath
+func OpenPSDB(DBPath string) (*PSDB, error) {
 	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
@@ -35,11 +35,11 @@ func NewPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("CREATE TABLE `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE TABLE `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
 	if err != nil {
 		return nil, err
 	}

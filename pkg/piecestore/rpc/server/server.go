@@ -46,12 +46,12 @@ type Config struct {
 	PieceStoreDir string
 }
 
-// New -- creates a new server struct
-func New(config Config) (*Server, error) {
+// Initialize -- initializes a server struct
+func Initialize(config Config) (*Server, error) {
 	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piecestore.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
-	psDB, err := psdb.NewPSDB(dbPath)
+	psDB, err := psdb.OpenPSDB(dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func connectToKad(ctx context.Context, config Config) (*kademlia.Kademlia, error
 	return kad, nil
 }
 
-// Start the piececstore node
+// Start the piecestore node
 func (s *Server) Start(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
