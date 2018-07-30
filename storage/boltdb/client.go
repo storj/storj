@@ -5,6 +5,7 @@ package boltdb
 
 import (
 	"time"
+
 	"github.com/boltdb/bolt"
 	"go.uber.org/zap"
 	"storj.io/storj/storage"
@@ -87,6 +88,7 @@ func (c *boltClient) List(startingKey storage.Key, limit storage.Limit) (storage
 	c.logger.Debug("entering bolt list")
 	return c.listHelper(false, startingKey, limit)
 }
+
 // ReverseList returns either a list of keys for which boltdb has values or an error.
 // Starts from startingKey and iterates backwards
 func (c *boltClient) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
@@ -100,7 +102,7 @@ func (c *boltClient) listHelper(reverseList bool, startingKey storage.Key, limit
 		cur := tx.Bucket(c.Bucket).Cursor()
 		var k []byte
 		start := firstOrLast(reverseList, cur)
-		iterate := prevOrNext(reverseList, cur) 
+		iterate := prevOrNext(reverseList, cur)
 		if startingKey == nil {
 			k, _ = start()
 		} else {
@@ -117,18 +119,18 @@ func (c *boltClient) listHelper(reverseList bool, startingKey storage.Key, limit
 	return paths, err
 }
 
-func firstOrLast(reverseList bool, cur *bolt.Cursor) func()([]byte, []byte) {
+func firstOrLast(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
 	if reverseList {
 		return cur.Last
 	}
- 	return cur.First
+	return cur.First
 }
 
-func prevOrNext(reverseList bool, cur *bolt.Cursor) func()([]byte,[]byte) {
+func prevOrNext(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
 	if reverseList {
 		return cur.Prev
 	}
- 	return cur.Next
+	return cur.Next
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key
