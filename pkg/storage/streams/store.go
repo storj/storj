@@ -16,7 +16,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/ranger"
+	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storage/segments"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -49,12 +50,12 @@ type Store interface {
 }
 
 type streamStore struct {
-	segments    segment.Store
+	segments    segments.Store
 	segmentSize int64
 }
 
 // NewStreams stuff
-func NewStreams(segments segment.Store, segmentSize int64) (Store, error) {
+func NewStreams(segments segments.Store, segmentSize int64) (Store, error) {
 	if segmentSize < 0 {
 		return nil, errors.New("Segment size must be larger than 0")
 	}
@@ -149,46 +150,71 @@ func (r *EOFAwareLimitReader) isEOF() bool {
 	return r.eof
 }
 
-func (s *streamStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
+func (s *streamStore) Get(ctx context.Context, path paths.Path) (
+	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: return a ranger that knows what the overall size is (from l/<path>)
 	// and then returns the appropriate data from segments s0/<path>, s1/<path>,
 	// ..., l/<path>.
 
-	lastRanger, lastMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	_, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
-		return nil, m, err
+		return nil, Meta{}, err
 	}
-	totalSize = lastMeta.Size
-	sizePerSegment = float64(totalSize) / float64(s.segmentSize)
-	stringSegmentsSize = fmt.Sprintf("%f", sizePerSegment)
-	segmentSizeSlice = strings.Split(stringSegmentsSize, ".")
-	perfectSizedSegments, err = strconv.ParseInt(segmentSizeSlice[0], 10, 64)
-	lastSegmentSize, err = strconv.ParseInt(segmentSizeSlice[1], 10, 64)
+	totalSize := lastSegmentMeta.Size
+	sizePerSegment := float64(totalSize) / float64(s.segmentSize)
+	stringSegmentsSize := fmt.Sprintf("%f", sizePerSegment)
+	segmentSizeSlice := strings.Split(stringSegmentsSize, ".")
+	perfectSizedSegments, err := strconv.ParseInt(segmentSizeSlice[0], 10, 64)
+	if err != nil || perfectSizedSegments == 0 {
 
-	rv, meta, err := s.segments.Get(ctx, path)
-	return rv, meta.Meta, nil
+	}
+	lastSegmentSize, err := strconv.ParseInt(segmentSizeSlice[1], 10, 64)
+	if err != nil || lastSegmentSize == 0 {
+
+	}
+
+	var resRanger ranger.Ranger
+
+	for i := 0; i < int(perfectSizedSegments); i++ {
+		currentPath := fmt.Sprintf("s%d", i)
+		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		resRanger = ranger.Concat(resRanger, rangeCloser)
+	}
+
+	newMeta := Meta{
+		Modified:   lastSegmentMeta.Modified,
+		Expiration: lastSegmentMeta.Expiration,
+		Size:       lastSegmentMeta.Size,
+		Data:       lastSegmentMeta.Data,
+	}
+
+	return ranger.NopCloser(resRanger), newMeta, nil
 }
 
-/*
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-
+	return Meta{}, nil
 }
 
-func (s *streamStore) Delete(ctx context.Context, path dtypes.Path) (err error) {
+func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: delete all the segments, with the last one last
 
-	return s.store.Delete(ctx, path)
+	return s.segments.Delete(ctx, path)
 }
 
-func (s *streamStore) List(ctx context.Context, startingPath, endingPath dtypes.Path) (paths []dtypes.Path, truncated bool, err error) {
+func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
+	recursive bool, limit int, metaFlags uint32) (items []ListItem,
+	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: list all the paths inside l/, stripping off the l/ prefix
 
-	return s.store.List(ctx, startingPath, endingPath)
+	return nil, false, nil //s.segments.List(ctx, startingPath, endingPath)
 }
-*/

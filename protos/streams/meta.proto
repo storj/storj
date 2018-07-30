@@ -7,7 +7,7 @@ package streams;
 
 message MetaStreamInfo {
     int64 NumberOfSegments = 1;
-    int64 SegmengsSize = 2;
+    int64 SegmentsSize = 2;
     int64 LastSegmentSize = 3;
     bytes MetaData = 4;
 }
