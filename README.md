@@ -2,18 +2,15 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/storj/storj)](https://goreportcard.com/report/github.com/storj/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
-<!-- [![Release](https://img.shields.io/github/release/golang-standards/project-layout.svg?style=flat-square)](https://github.com/storj/storj/releases/latest) -->
 [![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
 
 <img src="https://github.com/Storj/storj/blob/wip/logo/logo.png" width="100">
 
+Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
+
 ----
 
 Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces and stored in a global decentralized network of computers. Luckily, we also support allowing you (and only you) to recover them!
-
-----
-
-Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
 
 ## To start developing
 

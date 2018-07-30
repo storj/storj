@@ -8,7 +8,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -23,9 +22,15 @@ import (
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
 func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
-	cfgFile := flag.String("config", os.ExpandEnv(defaultConfig), "config file")
+	flag.String("config", os.ExpandEnv(defaultConfig), "config file")
+	Exec(cmd)
+}
+
+// Exec runs a Cobra command. If a "config" flag is defined it will be parsed
+// and loaded using viper.
+func Exec(cmd *cobra.Command) {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	cleanup(cmd, cfgFile)
+	cleanup(cmd)
 	_ = cmd.Execute()
 }
 
@@ -35,6 +40,39 @@ var (
 	contextMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
 )
+
+// SaveConfig will save all flags with default values to outfilewith specific
+// values specified in 'overrides' overridden.
+func SaveConfig(flagset *pflag.FlagSet, outfile string,
+	overrides map[string]interface{}) error {
+
+	vip := viper.New()
+	err := vip.BindPFlags(pflag.CommandLine)
+	if err != nil {
+		return err
+	}
+	flagset.VisitAll(func(f *pflag.Flag) {
+		// stop processing if we hit an error on a BindPFlag call
+		if err != nil {
+			return
+		}
+		if f.Name == "config" {
+			return
+		}
+		err = vip.BindPFlag(f.Name, f)
+	})
+	if err != nil {
+		return err
+	}
+
+	if overrides != nil {
+		for key, val := range overrides {
+			vip.Set(key, val)
+		}
+	}
+
+	return vip.WriteConfigAs(os.ExpandEnv(outfile))
+}
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
 func Ctx(cmd *cobra.Command) context.Context {
@@ -47,44 +85,9 @@ func Ctx(cmd *cobra.Command) context.Context {
 	return ctx
 }
 
-type ctxKey int
-
-const (
-	ctxKeyVip ctxKey = iota
-	ctxKeyCfg
-)
-
-// SaveConfig outputs the configuration to the configured (or default) config
-// file given to ExecuteWithConfig
-func SaveConfig(cmd *cobra.Command) error {
-	ctx := Ctx(cmd)
-	return getViper(ctx).WriteConfigAs(CfgPath(ctx))
-}
-
-// SaveConfigAs outputs the configuration to the provided path assuming the
-// command was executed with ExecuteWithConfig
-func SaveConfigAs(cmd *cobra.Command, path string) error {
-	return getViper(Ctx(cmd)).WriteConfigAs(path)
-}
-
-func getViper(ctx context.Context) *viper.Viper {
-	if v, ok := ctx.Value(ctxKeyVip).(*viper.Viper); ok {
-		return v
-	}
-	return nil
-}
-
-// CfgPath returns the configuration path used with ExecuteWithConfig
-func CfgPath(ctx context.Context) string {
-	if v, ok := ctx.Value(ctxKeyCfg).(string); ok {
-		return v
-	}
-	return ""
-}
-
-func cleanup(cmd *cobra.Command, cfgFile *string) {
+func cleanup(cmd *cobra.Command) {
 	for _, ccmd := range cmd.Commands() {
-		cleanup(ccmd, cfgFile)
+		cleanup(ccmd)
 	}
 	if cmd.Run != nil {
 		panic("Please use cobra's RunE instead of Run")
@@ -104,16 +107,22 @@ func cleanup(cmd *cobra.Command, cfgFile *string) {
 		}
 		vip.SetEnvPrefix("storj")
 		vip.AutomaticEnv()
-		if *cfgFile != "" && fileExists(*cfgFile) {
-			vip.SetConfigFile(*cfgFile)
-			err = vip.ReadInConfig()
-			if err != nil {
-				return err
+
+		cfgFlag := cmd.Flags().Lookup("config")
+		if cfgFlag != nil && cfgFlag.Value.String() != "" {
+			path := os.ExpandEnv(cfgFlag.Value.String())
+			if cfgFlag.Changed || fileExists(path) {
+				vip.SetConfigFile(path)
+				err = vip.ReadInConfig()
+				if err != nil {
+					return err
+				}
 			}
 		}
 
 		// go back and propagate changed config values to appropriate flags
 		var brokenKeys []string
+		var brokenVals []string
 		for _, key := range vip.AllKeys() {
 			if cmd.Flags().Lookup(key) == nil {
 				// flag couldn't be found
@@ -122,13 +131,10 @@ func cleanup(cmd *cobra.Command, cfgFile *string) {
 				err := cmd.Flags().Set(key, vip.GetString(key))
 				if err != nil {
 					// flag couldn't be set
-					brokenKeys = append(brokenKeys, key)
+					brokenVals = append(brokenVals, key)
 				}
 			}
 		}
-
-		ctx = context.WithValue(ctx, ctxKeyVip, vip)
-		ctx = context.WithValue(ctx, ctxKeyCfg, *cfgFile)
 
 		logger, err := utils.NewLogger(*logDisposition)
 		if err != nil {
@@ -139,12 +145,11 @@ func cleanup(cmd *cobra.Command, cfgFile *string) {
 		defer zap.RedirectStdLog(logger)()
 
 		// okay now that logging is working, inform about the broken keys
-		// these keys are almost certainly broken because they have capital
-		// letters
-		if len(brokenKeys) > 0 {
-			logger.Sugar().Infof("TODO: these flags are not configurable via "+
-				"config file, probably due to having uppercase letters: %s",
-				strings.Join(brokenKeys, ", "))
+		for _, key := range brokenKeys {
+			logger.Sugar().Infof("Invalid configuration file key: %s", key)
+		}
+		for _, key := range brokenVals {
+			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
 		err = initMetrics(ctx, monkit.Default,
