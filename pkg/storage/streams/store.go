@@ -8,14 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage"
-	"storj.io/storj/pkg/storage/segments"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -25,8 +27,8 @@ var mon = monkit.Package()
 type Store interface {
 	Put(ctx context.Context, path paths.Path, data io.Reader,
 		metadata []byte, expiration time.Time) (storage.Meta, error)
-	// Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
-	// 	storage.Meta, error)
+	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser,
+		storage.Meta, error)
 	// Delete(ctx context.Context, path paths.Path) error
 	// List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 	// 	recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
@@ -135,11 +137,6 @@ func (r *EOFAwareLimitReader) isEOF() bool {
 	return r.eof
 }
 
-/*
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (storage.Meta, error) {
-
-}
-
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -147,11 +144,24 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (ranger.Ranger, 
 	// and then returns the appropriate data from segments s0/<path>, s1/<path>,
 	// ..., l/<path>.
 
-	rv, meta, err := s.store.Get(ctx, path)
+	lastRanger, lastMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, m, err
 	}
+	totalSize = lastMeta.Size
+	sizePerSegment = float64(totalSize) / float64(s.segmentSize)
+	stringSegmentsSize = fmt.Sprintf("%f", sizePerSegment)
+	segmentSizeSlice = strings.Split(stringSegmentsSize, ".")
+	perfectSizedSegments, err = strconv.ParseInt(segmentSizeSlice[0], 10, 64)
+	lastSegmentSize, err = strconv.ParseInt(segmentSizeSlice[1], 10, 64)
+
+	rv, meta, err := s.segments.Get(ctx, path)
 	return rv, meta.Meta, nil
+}
+
+/*
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (storage.Meta, error) {
+
 }
 
 func (s *streamStore) Delete(ctx context.Context, path dtypes.Path) (err error) {
