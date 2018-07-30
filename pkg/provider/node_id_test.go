@@ -65,7 +65,6 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// defer os.RemoveAll(tmpDir)
 
 	ic := IdentityConfig{
 		CertPath: filepath.Join(tmpDir, "cert.pem"),
