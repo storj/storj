@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	p "storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 )
 
@@ -174,18 +175,18 @@ func TestList(t *testing.T) {
 		err        error
 		errString  string
 	}{
-		{"", "", "", false, 0, MetaNone, "",
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, nil, ""},
-		{"", "", "", false, 0, MetaNone, "",
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{&pb.ListResponse_Item{}}, false, nil, ""},
-		{"", "", "", false, -1, MetaNone, "",
+		{"", "", "", false, -1, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
-		{"prefix", "after", "before", false, 1, MetaNone, "some key",
+		{"prefix", "after", "before", false, 1, meta.None, "some key",
 			[]*pb.ListResponse_Item{
 				&pb.ListResponse_Item{Path: "a/b/c"},
 			},
 			true, nil, ""},
-		{"prefix", "after", "before", false, 1, MetaAll, "some key",
+		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
 				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{
 					Size:           1234,
@@ -194,7 +195,7 @@ func TestList(t *testing.T) {
 				}},
 			},
 			true, nil, ""},
-		{"some/prefix", "start/after", "end/before", true, 123, MetaSize, "some key",
+		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
 				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
 				&pb.ListResponse_Item{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
