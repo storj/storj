@@ -1,13 +1,14 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segment
+package segments
 
 import (
 	"context"
 	"io"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -93,9 +94,14 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodes {
 		remotePieces = append(remotePieces, &ppb.RemotePiece{
-			PieceNum: int64(i),
+			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
 		})
+	}
+
+	exp, err := ptypes.TimestampProto(expiration)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
 	}
 
 	// creates pointer
@@ -104,15 +110,16 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		Remote: &ppb.RemoteSegment{
 			Redundancy: &ppb.RedundancyScheme{
 				Type:             ppb.RedundancyScheme_RS,
-				MinReq:           int64(s.rs.RequiredCount()),
-				Total:            int64(s.rs.TotalCount()),
-				RepairThreshold:  int64(s.rs.Min),
-				SuccessThreshold: int64(s.rs.Opt),
+				MinReq:           int32(s.rs.RequiredCount()),
+				Total:            int32(s.rs.TotalCount()),
+				RepairThreshold:  int32(s.rs.Min),
+				SuccessThreshold: int32(s.rs.Opt),
 			},
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
 		},
-		Metadata: metadata,
+		ExpirationDate: exp,
+		Metadata:       metadata,
 	}
 
 	// puts pointer to pointerDB
@@ -210,17 +217,5 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items []storage.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, more, err := s.pdb.List(ctx, startAfter, int64(limit), nil)
-	if err != nil {
-		return nil, false, Error.Wrap(err)
-	}
-
-	items = make([]storage.ListItem, len(res))
-
-	for i, path := range res {
-		items[i].Path = paths.New(string(path))
-		// TODO items[i].Meta =
-	}
-
-	return items, more, nil
+	return s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags, nil)
 }

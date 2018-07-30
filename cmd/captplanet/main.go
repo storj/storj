@@ -4,10 +4,9 @@
 package main
 
 import (
-	"flag"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/process"
 )
@@ -19,9 +18,15 @@ var (
 		Use:   "captplanet",
 		Short: "Captain Planet! With our powers combined!",
 	}
+
+	defaultConfDir = "$HOME/.storj/capt"
 )
 
 func main() {
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	process.ExecuteWithConfig(rootCmd, "$HOME/.storj/capt/config.yaml")
+	// process.Exec will load this for this command.
+	runCmd.Flags().String("config",
+		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	setupCmd.Flags().String("config",
+		filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
+	process.Exec(rootCmd)
 }

@@ -16,6 +16,7 @@ import (
 
 	p "storj.io/storj/pkg/paths"
 	client "storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/storage"
 	proto "storj.io/storj/protos/pointerdb"
 )
 
@@ -82,19 +83,17 @@ func main() {
 	}
 
 	// Example List with pagination
-	startingPathKey := p.New("fold1/")
-	var limit int64 = 1
-
-	paths, trunc, err := pdbclient.List(ctx, startingPathKey, limit, APIKey)
+	prefix := p.New("fold1")
+	items, more, err := pdbclient.List(ctx, prefix, nil, nil, true, 1, storage.MetaNone, APIKey)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths", zap.Error(err))
 	} else {
 		var stringList []string
-		for _, pathByte := range paths {
-			stringList = append(stringList, string(pathByte))
+		for _, item := range items {
+			stringList = append(stringList, item.Path.String())
 		}
-		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; truncated: " + fmt.Sprintf("%t", trunc))
+		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; more: " + fmt.Sprintf("%t", more))
 	}
 
 	// Example Delete

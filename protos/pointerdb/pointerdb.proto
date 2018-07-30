@@ -4,7 +4,7 @@
 syntax = "proto3";
 package pointerdb;
 
-import "timestamp.proto";
+import "google/protobuf/timestamp.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {
@@ -25,10 +25,10 @@ message RedundancyScheme {
   SchemeType type = 1;
 
   // these values apply to RS encoding
-  int64 min_req = 2; // minimum required for reconstruction
-  int64 total = 3;   // total amount of pieces we generated
-  int64 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair
-  int64 success_threshold = 5; // amount of pieces we need to store to call it a success
+  int32 min_req = 2; // minimum required for reconstruction
+  int32 total = 3;   // total amount of pieces we generated
+  int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair
+  int32 success_threshold = 5; // amount of pieces we need to store to call it a success
 }
 
 message EncryptionScheme {
@@ -43,7 +43,7 @@ message EncryptionScheme {
 }
 
 message RemotePiece {
-  int64 piece_num = 1;
+  int32 piece_num = 1;
   string node_id = 2;
 }
 
@@ -75,22 +75,26 @@ message Pointer {
 
 // PutRequest is a request message for the Put rpc call
 message PutRequest {
-  bytes path = 1;
+  string path = 1;
   Pointer pointer = 2;
-  bytes APIKey = 3;
+  bytes API_key = 3;
 }
 
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
-  bytes path = 1;
-  bytes APIKey = 2;
+  string path = 1;
+  bytes API_key = 2;
 }
 
 // ListRequest is a request message for the List rpc call
 message ListRequest {
-  bytes starting_path_key = 1; // the Path key in the bucket to start listing
-  int64 limit = 2; // how many keys to list
-  bytes APIKey = 3;
+  string prefix = 1;
+  string start_after = 2;
+  string end_before = 3;
+  bool recursive = 4;
+  int32 limit = 5;
+  fixed64 meta_flags = 6;
+  bytes API_key = 7;
 }
 
 // PutResponse is a response message for the Put rpc call
@@ -104,13 +108,21 @@ message GetResponse {
 
 // ListResponse is a response message for the List rpc call
 message ListResponse {
-  repeated bytes paths = 1;
-  bool truncated = 2;
+  message Item {
+    string path = 1;
+    google.protobuf.Timestamp creation_date = 2;
+    google.protobuf.Timestamp expiration_date = 3;
+    int64 size = 4;
+    bytes metadata = 5;
+  }
+  
+  repeated Item items = 1;
+  bool more = 2;
 }
 
 message DeleteRequest {
-  bytes path = 1;
-  bytes APIKey = 2;
+  string path = 1;
+  bytes API_key = 2;
 }
 
 // DeleteResponse is a response message for the Delete rpc call
