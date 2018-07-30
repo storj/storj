@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"testing"
 
+	"errors"
+	"fmt"
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -15,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
