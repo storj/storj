@@ -26,7 +26,7 @@ var (
 	// ErrGenerate is used when an error occured during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
 	// ErrTLSOptions is used inconsistently and should probably just be removed
-	ErrTLSOptions = errs.Class("tls options error")
+	ErrUnsupportedKey = errs.Class("unsupported key type")
 	// ErrTLSTemplate is used when an error occurs during tls template generation
 	ErrTLSTemplate = errs.Class("tls template error")
 	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`

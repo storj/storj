@@ -9,9 +9,8 @@ import (
 	"crypto/x509"
 	"net"
 	"encoding/base64"
-	"path/filepath"
-	"os"
 	"io/ioutil"
+	"crypto/tls"
 
 	"golang.org/x/crypto/sha3"
 	"github.com/zeebo/errs"
@@ -19,11 +18,16 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/peertls"
-	"crypto/tls"
+	"os"
+	"encoding/pem"
+	"io"
+	"path/filepath"
+	"crypto/ecdsa"
+	"reflect"
 )
 
 const (
-	DefaultHashLength = uint16(256)
+	IdentityLength = uint16(256)
 )
 
 // PeerIdentity represents another peer on the network.
@@ -48,17 +52,111 @@ type FullIdentity struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	Path    string `help:"path to the dentity file (PEM-encoded certificate chain & leaf private key)" default:"$HOME/.storj/identity.pem"`
-	Address string `help:"address to listen on" default:":7777"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$HOME/.storj/identity.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$HOME/.storj/identity.key"`
+	Address  string `help:"address to listen on" default:":7777"`
 }
 
 // LoadIdentity loads a FullIdentity from the given configuration
 func (ic IdentityConfig) LoadIdentity() (*FullIdentity, error) {
-	id, err := FullIdentityFromFile(ic.Path)
+	certPEM, err := ioutil.ReadFile(ic.CertPath)
 	if err != nil {
-		return nil, Error.New("failed to load identity %#v, %#v: %v", ic.Path, err)
+		return nil, peertls.ErrNotExist.Wrap(err)
 	}
-	return id, nil
+
+	keyPEM, err := ioutil.ReadFile(ic.KeyPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+
+	pi, err := FullIdentityFromPEM(certPEM, keyPEM)
+	if err != nil {
+		return nil, errs.New("failed to load identity %#v, %#v: %v",
+			ic.CertPath, ic.KeyPath, err)
+	}
+	return pi, nil
+}
+
+// SaveIdentity saves a FullIdentity with the given configuration
+func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
+	if err := os.MkdirAll(filepath.Dir(ic.KeyPath), 600); err != nil {
+		return errs.Wrap(err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(ic.CertPath), 600); err != nil {
+		return errs.Wrap(err)
+	}
+
+	certFile, err := os.OpenFile(ic.CertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return errs.New("unable to open cert file for writing \"%s\"", ic.CertPath, err)
+	}
+
+	defer func() {
+		if err := certFile.Close(); err != nil {
+			zap.S().Error(errs.Wrap(err))
+		}
+	}()
+
+	keyFile, err := os.OpenFile(ic.KeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return errs.New("unable to open key file for writing \"%s\"", ic.KeyPath, err)
+	}
+
+	defer func() {
+		if err := certFile.Close(); err != nil {
+			zap.S().Error(errs.Wrap(err))
+		}
+	}()
+
+	if err = fi.WriteCertChain(certFile); err != nil {
+		return err
+	}
+
+	if err = fi.WritePrivateKey(keyFile); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// WriteCertChain writes the certificate chain (leaf-first) from `FullIdentity` to
+// a passed writer, PEM-encoded.
+func (fi *FullIdentity) WriteCertChain(w io.Writer) error {
+	if err := pem.Encode(w, peertls.NewCertBlock(fi.Leaf.Raw)); err != nil {
+		return errs.Wrap(err)
+	}
+
+	if err := pem.Encode(w, peertls.NewCertBlock(fi.CA.Raw)); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
+// WriteCertChain writes the certificate chain (leaf-first) from `FullIdentity` to
+// a passed writer, PEM-encoded.
+func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
+	var (
+		keyBytes []byte
+		err error
+	)
+
+	switch privateKey := fi.PrivateKey.(type) {
+	case *ecdsa.PrivateKey:
+		keyBytes, err = x509.MarshalECPrivateKey(privateKey)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	default:
+		return peertls.ErrUnsupportedKey.New("%s", reflect.TypeOf(privateKey))
+	}
+
+	if err := pem.Encode(w, peertls.NewKeyBlock(keyBytes)); err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
 
 // Run will run the given responsibilities with the configured identity.
@@ -91,53 +189,68 @@ func (ic IdentityConfig) Run(ctx context.Context,
 
 // PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
 func PeerIdentityFromCertChain(cert *tls.Certificate) (*PeerIdentity, error) {
-	ca, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)])
+	ca, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate) - 1])
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	hash := make([]byte, DefaultHashLength)
+	leaf := cert.Leaf
+	if leaf == nil {
+		leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
+	hash := make([]byte, IdentityLength)
 	sha3.ShakeSum256(hash, ca.RawTBSCertificate)
 
 	return &PeerIdentity{
 		CA:   ca,
-		Leaf: cert.Leaf,
+		Leaf: leaf,
 		ID:   nodeID(base64.URLEncoding.EncodeToString(hash)),
 	}, nil
 }
 
-// FullIdentityFromFile loads a FullIdentity from a certificate chain and
+// FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key file
-func FullIdentityFromFile(path string) (*FullIdentity, error) {
-	baseDir := filepath.Dir(path)
-
-	if _, err := os.Stat(baseDir); err != nil {
-		if err == os.ErrNotExist {
-			return nil, peertls.ErrNotExist.Wrap(err)
-		}
-
+func FullIdentityFromPEM(certPEM, keyPEM []byte) (*FullIdentity, error) {
+	chainBytes, err := decodePEM(certPEM)
+	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	IDBytes, err := ioutil.ReadFile(path)
+	keysBytes, err := decodePEM(keyPEM)
 	if err != nil {
-		return nil, peertls.ErrNotExist.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	cert, err := parseIDBytes(IDBytes)
+	// NB: there shouldn't be multiple keys in the key file but if there
+	// are, this uses the first one
+	cert, err := certFromDERs(chainBytes, keysBytes[0])
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	peer, err := PeerIdentityFromCertChain(cert)
+	pi, err := PeerIdentityFromCertChain(cert)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
 	return &FullIdentity{
-		PeerIdentity: *peer,
+		PeerIdentity: *pi,
 		PrivateKey:   cert.PrivateKey,
 	}, nil
+}
+
+// Difficulty returns the number of trailing zero-value bits in the hash
+func (pi *PeerIdentity) Difficulty() uint16 {
+	return idDifficulty(pi.ID.Bytes())
+}
+
+// Difficulty returns the number of trailing zero-value bits in the hash
+func (fi *FullIdentity) Difficulty() uint16 {
+	return idDifficulty(fi.PeerIdentity.ID.Bytes())
 }
 
 type nodeID string

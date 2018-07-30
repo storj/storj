@@ -9,10 +9,12 @@ import (
 	"google.golang.org/grpc"
 
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/peertls"
 )
 
 // Transport interface structure
 type Transport struct {
+	tlsH peertls.TLSHelper
 }
 
 // NewClient returns a newly instantiated Transport Client
@@ -29,6 +31,7 @@ func (o *Transport) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.
 	}
 	/* TODO@ASK security feature under development */
 	return o.DialUnauthenticated(ctx, *node.Address)
+	// grpc.Dial(node.Address.Address, node.DialOption())
 }
 
 // DialUnauthenticated using unauthenticated mode

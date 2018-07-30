@@ -5,12 +5,10 @@ package provider
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/peertls"
 )
 
 // Responsibility represents a specific gRPC method collection to be registered
@@ -67,12 +65,4 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 	}
 
 	return p.g.Serve(p.lis)
-}
-
-// TLSConfig returns the provider's identity as a TLS Config
-func (p *Provider) TLSConfig() *tls.Config {
-	// TODO(jt): get rid of tls.Certificate
-	return (&peertls.TLSFileOptions{
-		LeafCertificate: p.identity.todoCert,
-	}).NewTLSConfig(nil)
 }

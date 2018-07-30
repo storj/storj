@@ -3,14 +3,16 @@ package provider
 import (
 	"crypto/tls"
 	"encoding/pem"
-	"storj.io/storj/pkg/peertls"
 	"crypto/x509"
 	"github.com/zeebo/errs"
 )
 
-func parseIDBytes(PEMBytes []byte) (*tls.Certificate, error) {
-	certDERs := [][]byte{}
-	keyDER := []byte{}
+var (
+	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
+)
+
+func decodePEM(PEMBytes []byte) ([][]byte, error) {
+	DERBytes := [][]byte{}
 
 	for {
 		var DERBlock *pem.Block
@@ -20,31 +22,14 @@ func parseIDBytes(PEMBytes []byte) (*tls.Certificate, error) {
 			break
 		}
 
-		switch DERBlock.Type {
-		case peertls.BlockTypeCertificate:
-			certDERs = append(certDERs, DERBlock.Bytes)
-			continue
-
-		case peertls.BlockTypeEcPrivateKey:
-			keyDER = DERBlock.Bytes
-			continue
-		}
+		DERBytes = append(DERBytes, DERBlock.Bytes)
 	}
 
-	if len(certDERs) == 0 || len(certDERs[0]) == 0 {
-		return nil, errs.New("no certificates found in identity file")
+	if len(DERBytes) == 0 || len(DERBytes[0]) == 0 {
+		return nil, ErrZeroBytes
 	}
 
-	if len(keyDER) == 0 {
-		return nil, errs.New("no private key found in identity file")
-	}
-
-	cert, err := certFromDERs(certDERs, keyDER)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	return cert, nil
+	return DERBytes, nil
 }
 
 func certFromDERs(certDERBytes [][]byte, keyDERBytes []byte) (*tls.Certificate, error) {

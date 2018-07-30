@@ -59,3 +59,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 
 	return resp.Response, nil
 }
+
+// func (n *Node) DialOption() (*grpc.DialOption) {
+//
+// }
