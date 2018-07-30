@@ -6,7 +6,7 @@ node('node') {
     }
 
     stage('Build Images') {
-      sh 'make images push-images'
+      sh 'make test-docker images'
     }
 
     stage('Deploy') {
@@ -14,7 +14,7 @@ node('node') {
 		echo 'Skipping deploy stage'
         return
       }
-      sh 'make deploy-images'
+      sh 'make push-images'
     }
 
   }
@@ -35,7 +35,7 @@ node('node') {
   finally {
 
     stage('Cleanup') {
-      sh 'make clean-images'
+      sh 'make test-docker-clean clean-images'
       deleteDir()
     }
 

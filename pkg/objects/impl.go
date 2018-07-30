@@ -16,6 +16,9 @@ import (
 type Objects struct {
 }
 
+// NewObjectStore creates an *Objects struct
+func NewObjectStore() *Objects { return &Objects{} }
+
 //Meta structure
 type Meta struct {
 	Modified   time.Time
