@@ -38,8 +38,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// If we put in the database first then that checks if the data already exists
 	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetTtl()); err != nil {
-		log.Println(err)
-		return err
+		log.Printf("AddTTLToDB error: %s\n", err.Error())
+		return StoreError.New("Failed to write expiration data to database")
 	}
 
 	total, err := s.storeData(reqStream, pd.GetId())
@@ -69,11 +69,11 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 
 	DBError := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 	if DBError != nil {
-		log.Println("WriteBandwidthAllocToDB Error: ", err)
+		log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
 	}
 
 	if err != nil && err != io.EOF {
-		log.Println("ioCopy Error: ", err)
+		log.Printf("ioCopy Error: %s\n", err.Error())
 
 		if err = s.deleteByID(id); err != nil {
 			log.Printf("Failed on deleteByID in Store: %s", err.Error())

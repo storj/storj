@@ -112,10 +112,10 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		}
 	}
 
-	// DBError := s.DB.WriteBandwidthAllocToDB(latestBA)
-	// if latestBA != nil && DBError != nil {
-	// 	log.Println("WriteBandwidthAllocToDB Error:", DBError)
-	// }
+	DBError := s.DB.WriteBandwidthAllocToDB(latestBA)
+	if latestBA != nil && DBError != nil {
+		log.Println("WriteBandwidthAllocToDB Error:", DBError)
+	}
 
 	return am.Used, am.Allocated, err
 }
