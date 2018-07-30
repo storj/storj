@@ -48,7 +48,6 @@ func ConfigEnvironment() (*viper.Viper, error) {
 	viper.SetEnvPrefix("storj")
 	viper.AutomaticEnv()
 	viper.SetConfigName("main")
-	viper.SetConfigType("json")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath(configPath())
 
