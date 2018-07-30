@@ -85,7 +85,7 @@ func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
 	return parsedCerts, nil
 }
 
-func verifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }
 
@@ -175,7 +175,7 @@ func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
 	config.ClientAuth = tls.RequireAnyClientCert
 	// Custom verification logic for *both* client and server
 	config.VerifyPeerCertificate = VerifyPeerFunc(
-		verifyPeerCertChains,
+		VerifyPeerCertChains,
 		config.VerifyPeerCertificate,
 	)
 

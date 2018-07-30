@@ -10,19 +10,17 @@ import (
 	"net"
 	"encoding/base64"
 	"io/ioutil"
-	"crypto/tls"
-
-	"golang.org/x/crypto/sha3"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-
-	"storj.io/storj/pkg/peertls"
 	"os"
 	"encoding/pem"
 	"io"
 	"path/filepath"
 	"crypto/ecdsa"
 	"reflect"
+
+	"golang.org/x/crypto/sha3"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"storj.io/storj/pkg/peertls"
 )
 
 const (
@@ -200,18 +198,15 @@ func (ic IdentityConfig) Run(ctx context.Context,
 }
 
 // PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
-func PeerIdentityFromCertChain(cert *tls.Certificate) (*PeerIdentity, error) {
-	ca, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate) - 1])
+func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
+	ca, err := x509.ParseCertificate(chain[1])
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	leaf := cert.Leaf
-	if leaf == nil {
-		leaf, err = x509.ParseCertificate(cert.Certificate[0])
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
+	leaf, err := x509.ParseCertificate(chain[0])
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
 	caPublicKey, err := x509.MarshalPKIXPublicKey(ca.PublicKey)
@@ -219,7 +214,7 @@ func PeerIdentityFromCertChain(cert *tls.Certificate) (*PeerIdentity, error) {
 		return nil, errs.Wrap(err)
 	}
 
-	hash := make([]byte, 38)
+	hash := make([]byte, IdentityLength)
 	sha3.ShakeSum256(hash, caPublicKey)
 
 	return &PeerIdentity{
@@ -244,19 +239,23 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 
 	// NB: there shouldn't be multiple keys in the key file but if there
 	// are, this uses the first one
-	cert, err := certFromDERs(chainBytes, keysBytes[0])
+	privateKey, err := x509.ParseECPrivateKey(keysBytes[0])
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, errs.New("unable to parse EC private key", err)
 	}
+	// cert, err := certFromDERs(chainBytes, keysBytes[0])
+	// if err != nil {
+	// 	return nil, errs.Wrap(err)
+	// }
 
-	pi, err := PeerIdentityFromCertChain(cert)
+	pi, err := PeerIdentityFromCertChain(chainBytes)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	return &FullIdentity{
 		PeerIdentity: *pi,
-		PrivateKey:   cert.PrivateKey,
+		PrivateKey:   privateKey,
 	}, nil
 }
 
@@ -269,6 +268,26 @@ func (pi *PeerIdentity) Difficulty() uint16 {
 func (fi *FullIdentity) Difficulty() uint16 {
 	return idDifficulty(fi.PeerIdentity.ID)
 }
+
+// func (fi *FullIdentity) ServerOption(difficulty uint16) grpc.ServerOption {
+// 	tlsConfig := &tls.Config{
+// 		Certificates: []tls.Certificate{fi.Certificate()},
+// 		InsecureSkipVerify: true,
+// 		ClientAuth: tls.RequireAnyClientCert,
+// 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
+// 			peertls.VerifyPeerCertChains,
+// 			VerifyPeerIdentityFunc(difficulty),
+// 		),
+// 	}
+//
+// 	return grpc.Creds(credentials.NewTLS(tlsConfig))
+// }
+//
+// func (fi *FullIdentity) Certificate() *tls.Certificate {
+// 	cert := &tls.Certificate{
+// 		Certificate:
+// 	}
+// }
 
 type nodeID string
 

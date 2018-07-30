@@ -26,7 +26,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	ca, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate) - 1])
 	assert.NoError(t, err)
 
-	pi, err := PeerIdentityFromCertChain(&cert)
+	pi, err := PeerIdentityFromCertChain(cert.Certificate)
 	assert.NoError(t, err)
 	assert.Equal(t, ca, pi.CA)
 	assert.Equal(t, cert.Leaf, pi.Leaf)
@@ -128,31 +128,31 @@ func tempIdentityConfig() (*IdentityConfig, func(), error) {
 
 func tempIdentity(t *testing.T) (func(), *IdentityConfig, string, string, uint16, error) {
 	// NB: known difficulty
-	difficulty := uint16(15)
+	difficulty := uint16(12)
 
 	chain := `-----BEGIN CERTIFICATE-----
-MIIBQDCB56ADAgECAhBvqEtJvK4142wkszbEn83aMAoGCCqGSM49BAMCMAAwIhgP
-MDAwMTAxMDEwMDAwMDBaGA8wMDAxMDEwMTAwMDAwMFowADBZMBMGByqGSM49AgEG
-CCqGSM49AwEHA0IABLfxhMJRvl55lf0DgBV/Hb9njJ8LFtC3u2dO+wx82U1aircD
-yF0G4ij8z//iPi9mYmzzCeDaW6Vw6QqpKBK74tmjPzA9MA4GA1UdDwEB/wQEAwIF
-oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAK
-BggqhkjOPQQDAgNIADBFAiAay1qSfFz/C0Xjx36aq3mywm2x8p1VFDv770lnHrIl
-5wIhAIqBxbYBGB0GnNLJruTVce3Mph8Otpj/F8J0kGv7Lqyo
+MIIBQTCB6KADAgECAhEA7iLmNy8uop2bC4Yv1uXvwjAKBggqhkjOPQQDAjAAMCIY
+DzAwMDEwMTAxMDAwMDAwWhgPMDAwMTAxMDEwMDAwMDBaMAAwWTATBgcqhkjOPQIB
+BggqhkjOPQMBBwNCAATD84AzWKMs7rSuQ0pGbtQE5X6EvKe74ORUgayxLimvs0dX
+1KOLg5XmbUF4bwHPvkbDLUlSCWx5qgFmL+XhuR5doz8wPTAOBgNVHQ8BAf8EBAMC
+BaAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAw
+CgYIKoZIzj0EAwIDSAAwRQIgQkJgjRar0nIOQbEAin5bQe4+9BUjSIQzrlkJgXsC
+liICIQDz6LeN9nRKCuRcqiK8tnaKbOJ+/Q3PQNHuK7coFFuB1g==
 -----END CERTIFICATE-----
 -----BEGIN CERTIFICATE-----
-MIIBOjCB4aADAgECAhEA6DWDDVdX0iwLZamPjH0BhTAKBggqhkjOPQQDAjAAMCIY
+MIIBOjCB4aADAgECAhEA4A+Fdf1cyylCp0GCWMtpJDAKBggqhkjOPQQDAjAAMCIY
 DzAwMDEwMTAxMDAwMDAwWhgPMDAwMTAxMDEwMDAwMDBaMAAwWTATBgcqhkjOPQIB
-BggqhkjOPQMBBwNCAATS2o30ZpQgrBeiQLmTW9bVLjM1erHXnBd7Iosg+0qbDJQX
-1HtExf0jCjMVB+szUmh/k0bS5MgRLIJchrWQrHjHozgwNjAOBgNVHQ8BAf8EBAMC
+BggqhkjOPQMBBwNCAAQz10hua+xRFmIRKJLMZh9os3PM3mWtElD3WyoR2U6m6U1B
+zRJ7cXS0CaPsbilglXjnWHOSV6QKmgcHYTroWkgvozgwNjAOBgNVHQ8BAf8EBAMC
 AgQwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjO
-PQQDAgNIADBFAiEAgU0NrvC54iSDLDVdenFpjRLrF5OjGkArierZrPSZF3ACIDJY
-g87i3C2ojCbWEWDqOIhJEs6lT5xRnVlZhcyUEJg2
+PQQDAgNIADBFAiEAnvRK+MtT7hWt9CeQvKID40CcPJDhYIEQjN91W1sseNICICgL
+y9HDctQtMjRMG3UHifkDl7kPINkiP7w068I5RWvx
 -----END CERTIFICATE-----`
 
 	key := `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIPKyB2RCdmxW24CCnLqPIV7/iKVTMIxxRkq4WM+wJY42oAoGCCqGSM49
-AwEHoUQDQgAEt/GEwlG+XnmV/QOAFX8dv2eMnwsW0Le7Z077DHzZTVqKtwPIXQbi
-KPzP/+I+L2ZibPMJ4NpbpXDpCqkoErvi2Q==
+MHcCAQEEILQar8Z01NkX/czx8yGevdBATINSW1+U6AQS0Sl5WbdVoAoGCCqGSM49
+AwEHoUQDQgAEw/OAM1ijLO60rkNKRm7UBOV+hLynu+DkVIGssS4pr7NHV9Sji4OV
+5m1BeG8Bz75Gwy1JUglseaoBZi/l4bkeXQ==
 -----END EC PRIVATE KEY-----`
 
 	ic, cleanup, err := tempIdentityConfig()
