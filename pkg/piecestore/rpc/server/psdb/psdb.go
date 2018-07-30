@@ -47,8 +47,8 @@ func NewPSDB(DBPath string) (*PSDB, error) {
 	return &PSDB{db}, nil
 }
 
-// checkEntries -- checks for and deletes expired TTL entries
-func checkEntries(dir string, rows *sql.Rows) error {
+// deleteEntries -- checks for and deletes expired TTL entries
+func deleteEntries(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
 		var expID string
@@ -73,9 +73,9 @@ func checkEntries(dir string, rows *sql.Rows) error {
 	return nil
 }
 
-// DeleteExpiredEntries -- go routine to check ttl database for expired entries
+// CheckEntries -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
-func (psdb *PSDB) DeleteExpiredEntries(dir string) error {
+func (psdb *PSDB) CheckEntries(dir string) error {
 
 	tickChan := time.NewTicker(time.Second * 5).C
 	for {
@@ -93,7 +93,7 @@ func (psdb *PSDB) DeleteExpiredEntries(dir string) error {
 				}
 			}()
 
-			if err := checkEntries(dir, rows); err != nil {
+			if err := deleteEntries(dir, rows); err != nil {
 				return err
 			}
 
