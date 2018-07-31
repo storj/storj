@@ -90,6 +90,11 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	var p *ppb.Pointer
 
+	exp, err := ptypes.TimestampProto(expiration)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	peekReader := NewPeekThresholdReader(data)
 	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
 	if err != nil {
@@ -97,10 +102,11 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 	if !remoteSized {
 		p = &ppb.Pointer{
-			Type:          ppb.Pointer_INLINE,
-			Metadata:      metadata,
-			InlineSegment: peekReader.thresholdBuf,
-			Size:          len(peekReader.thresholdBuf),
+			Type:           ppb.Pointer_INLINE,
+			InlineSegment:  peekReader.thresholdBuf,
+			Size:           int64(len(peekReader.thresholdBuf)),
+			ExpirationDate: exp,
+			Metadata:       metadata,
 		}
 	} else {
 		// uses overlay client to request a list of nodes
