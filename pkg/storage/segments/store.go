@@ -92,7 +92,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Meta{}, Error.Wrap(err)
 	}
 
 	peekReader := NewPeekThresholdReader(data)
