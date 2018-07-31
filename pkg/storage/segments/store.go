@@ -94,9 +94,10 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	pieceID := client.NewPieceID()
+	sizedReader := SizeReader(data)
 
 	// puts file to ecclient
-	err = s.ec.Put(ctx, nodes, s.rs, pieceID, data, expiration)
+	err = s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -128,9 +129,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
 		},
-		// TODO(kaloyan): We need to wrap the data reader in a SizeAwareReader
-		// wrapper and take the size from it.
-		Size:           0,
+		Size:           sizedReader.Size(),
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
