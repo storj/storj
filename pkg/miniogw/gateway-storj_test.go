@@ -109,7 +109,7 @@ func TestPutObject(t *testing.T) {
 		Checksum   string
 		err        string
 	}{
-		{"abcdefghti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), ""},
+		{"abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), ""},
 		{"abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), "some non nil error"},
 	} {
 		var metadata = make(map[string]string)
@@ -124,10 +124,7 @@ func TestPutObject(t *testing.T) {
 		}
 
 		meta1 := objects.Meta{
-			objects.SerializableMeta{
-				ContentType: metadata[example.MetaKey[0]],
-				UserDefined: metadata,
-			},
+			serMetaInfo,
 			example.Modified,
 			example.Expiration,
 			example.Size,
@@ -154,21 +151,48 @@ func TestGetObjectInfo(t *testing.T) {
 
 	mockGetObject := NewMockStore(mockCtrl)
 	s := Storj{os: mockGetObject}
+
 	testUser := storjObjects{storj: &s}
 
-	meta1 := objects.Meta{
-		Modified:   time.Now(),
-		Expiration: time.Now(),
-		Size:       int64(100),
-		Checksum:   "034834890453",
+	for _, example := range []struct {
+		DataStream string
+		MetaKey    []string
+		MetaVal    []string
+		Modified   time.Time
+		Expiration time.Time
+		Size       int64
+		Checksum   string
+		err        string
+	}{
+		{"abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), ""},
+		{"abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), "some non nil error"},
+	} {
+		var metadata = make(map[string]string)
+		for i := 0x00; i < len(example.MetaKey); i++ {
+			metadata[example.MetaKey[i]] = example.MetaVal[i]
+		}
+
+		//metadata serialized
+		serMetaInfo := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: metadata,
+		}
+
+		meta1 := objects.Meta{
+			serMetaInfo,
+			example.Modified,
+			example.Expiration,
+			example.Size,
+			example.Checksum,
+		}
+		fmt.Println(example.Size, example.Checksum, meta1.Size, len(example.DataStream))
+
+		mockGetObject.EXPECT().Meta(gomock.Any(), paths.New("mybucket", "myobject1")).Return(meta1, errors.New(example.err)).Times(1)
+
+		oi, err := testUser.GetObjectInfo(context.Background(), "mybucket", "myobject1")
+		assert.EqualError(t, err, (example.err))
+		assert.NotNil(t, oi)
 	}
-
-	mockGetObject.EXPECT().Meta(gomock.Any(), paths.New("mybucket", "myobject1")).Return(meta1, nil).Times(1)
-
-	oi, err := testUser.GetObjectInfo(context.Background(), "mybucket", "myobject1")
-	assert.NoError(t, err)
-	assert.NotNil(t, oi)
-
 }
 
 func TestListObjects(t *testing.T) {
