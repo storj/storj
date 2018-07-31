@@ -100,6 +100,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			Type:          ppb.Pointer_INLINE,
 			Metadata:      metadata,
 			InlineSegment: peekReader.thresholdBuf,
+			Size:          len(peekReader.thresholdBuf),
 		}
 	} else {
 		// uses overlay client to request a list of nodes
@@ -180,20 +181,20 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	if pr.GetType() != ppb.Pointer_REMOTE {
-		return nil, Meta{}, Error.New("TODO: only getting remote pointers supported")
-	}
+	if pr.GetType() == ppb.Pointer_REMOTE {
+		seg := pr.GetRemote()
+		pid := client.PieceID(seg.PieceId)
+		nodes, err := s.lookupNodes(ctx, seg)
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
 
-	seg := pr.GetRemote()
-	pid := client.PieceID(seg.PieceId)
-	nodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return nil, Meta{}, Error.Wrap(err)
-	}
-
-	rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
-	if err != nil {
-		return nil, Meta{}, Error.Wrap(err)
+		rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
+	} else {
+		rr = ranger.NopCloser(ranger.ByteRanger(pr.InlineSegment))
 	}
 
 	return rr, convertMeta(pr), nil
