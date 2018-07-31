@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	io "io"
+	"math/rand"
 	"testing"
 	time "time"
 
@@ -70,6 +72,24 @@ func TestGetObject(t *testing.T) {
 	}
 }
 
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "01234567890~!@#$%^&*()_+"
+
+var seededRand *rand.Rand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+func stringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
+func checksumGen(length int) string {
+	return stringWithCharset(length, charset)
+}
+
 func TestPutObject(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -79,28 +99,53 @@ func TestPutObject(t *testing.T) {
 
 	testUser := storjObjects{storj: &s}
 
-	meta1 := objects.Meta{}
+	for _, example := range []struct {
+		DataStream string
+		MetaKey    []string
+		MetaVal    []string
+		Modified   time.Time
+		Expiration time.Time
+		Size       int64
+		Checksum   string
+		err        string
+	}{
+		{"abcdefghti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), ""},
+		{"abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), "some non nil error"},
+	} {
+		var metadata = make(map[string]string)
+		for i := 0x00; i < len(example.MetaKey); i++ {
+			metadata[example.MetaKey[i]] = example.MetaVal[i]
+		}
 
-	data, err := hash.NewReader(bytes.NewReader([]byte("abcd")), 4, "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
-	if err != nil {
-		t.Fatal(err)
+		//metadata serialized
+		serMetaInfo := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: metadata,
+		}
+
+		meta1 := objects.Meta{
+			objects.SerializableMeta{
+				ContentType: metadata[example.MetaKey[0]],
+				UserDefined: metadata,
+			},
+			example.Modified,
+			example.Expiration,
+			example.Size,
+			example.Checksum,
+		}
+		fmt.Println(example.Size, example.Checksum, meta1.Size, len(example.DataStream))
+
+		data, err := hash.NewReader(bytes.NewReader([]byte(example.DataStream)), int64(len(example.DataStream)), "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mockGetObject.EXPECT().Put(gomock.Any(), paths.New("mybucket", "myobject1"), data, serMetaInfo, example.Expiration).Return(meta1, errors.New(example.err)).Times(1)
+
+		objInfo, err := testUser.PutObject(context.Background(), "mybucket", "myobject1", data, metadata)
+		assert.EqualError(t, err, (example.err))
+		assert.NotNil(t, objInfo)
 	}
-	var metadata = make(map[string]string)
-	metadata["content-type"] = "foo"
-
-	//metadata serialized
-	serMetaInfo := objects.SerializableMeta{
-		ContentType: "foo",
-		UserDefined: metadata,
-	}
-
-	expTime := time.Time{}
-
-	mockGetObject.EXPECT().Put(gomock.Any(), paths.New("mybucket", "myobject1"), data, serMetaInfo, expTime).Return(meta1, nil).Times(1)
-
-	objInfo, err := testUser.PutObject(context.Background(), "mybucket", "myobject1", data, metadata)
-	assert.NoError(t, err)
-	assert.NotNil(t, objInfo)
 }
 
 func TestGetObjectInfo(t *testing.T) {
