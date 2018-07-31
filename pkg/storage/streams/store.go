@@ -150,6 +150,16 @@ func (r *EOFAwareLimitReader) isEOF() bool {
 	return r.eof
 }
 
+func sizeTuple(totalSegments int64, sizeOfSegments int64) (int64, error, int64, error) {
+	sizePerSegment := float64(totalSegments) / float64(sizeOfSegments)
+	stringSegmentsSize := fmt.Sprintf("%f", sizePerSegment)
+	segmentSizeSlice := strings.Split(stringSegmentsSize, ".")
+	perfectSizedSegments, pErr := strconv.ParseInt(segmentSizeSlice[0], 10, 64)
+	lastSegmentSize, lErr := strconv.ParseInt(segmentSizeSlice[1], 10, 64)
+
+	return perfectSizedSegments, pErr, lastSegmentSize, lErr
+}
+
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -163,6 +173,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 	totalSize := lastSegmentMeta.Size
+
 	newMeta := Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
@@ -170,16 +181,12 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		Data:       lastSegmentMeta.Data,
 	}
 
-	sizePerSegment := float64(totalSize) / float64(s.segmentSize)
-	stringSegmentsSize := fmt.Sprintf("%f", sizePerSegment)
-	segmentSizeSlice := strings.Split(stringSegmentsSize, ".")
-	perfectSizedSegments, err := strconv.ParseInt(segmentSizeSlice[0], 10, 64)
-	if err != nil {
-		return nil, Meta{}, err
+	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
+	if pErr == nil {
+		return nil, Meta{}, pErr
 	}
-	lastSegmentSize, err := strconv.ParseInt(segmentSizeSlice[1], 10, 64)
-	if err != nil {
-		return nil, Meta{}, err
+	if lErr == nil {
+		return nil, Meta{}, lErr
 	}
 
 	if perfectSizedSegments == 0 {
@@ -221,7 +228,29 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 	// TODO: delete all the segments, with the last one last
 
-	return s.segments.Delete(ctx, path)
+	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	if err != nil {
+		return err
+	}
+	totalSize := lastSegmentMeta.Size
+
+	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
+	if pErr == nil {
+		return pErr
+	}
+	if lErr == nil {
+		return lErr
+	}
+
+	for i := 0; i < int(perfectSizedSegments); i++ {
+		currentPath := fmt.Sprintf("s%d", i)
+		worked := s.segments.Delete(ctx, path.Prepend(currentPath))
+		if worked != nil {
+			return worked
+		}
+	}
+
+	return s.segments.Delete(ctx, path.Prepend("l"))
 }
 
 func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
@@ -230,6 +259,20 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: list all the paths inside l/, stripping off the l/ prefix
+
+	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	if err != nil {
+		return nil, false, err
+	}
+	totalSize := lastSegmentMeta.Size
+
+	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
+	if pErr == nil {
+		return nil, false, pErr
+	}
+	if lErr == nil {
+		return nil, false, lErr
+	}
 
 	return nil, false, nil //s.segments.List(ctx, startingPath, endingPath)
 }
