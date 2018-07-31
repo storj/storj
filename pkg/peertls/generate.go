@@ -24,57 +24,57 @@ import (
 
 var authECCurve = elliptic.P256()
 
-func generateTLS() (tls.Certificate, *ecdsa.PrivateKey, error) {
-	var fail = func(err error) (tls.Certificate, *ecdsa.PrivateKey, error) {
-		return tls.Certificate{}, nil, err
+func Generate() (leaf, ca *tls.Certificate, _ error) {
+	var fail = func(err error) (_, _ *tls.Certificate, _ error) {
+		return nil, nil, err
 	}
 
-	rootKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
+	caKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
 		return fail(ErrGenerate.New("failed to generateServerTLS root private key", err))
 	}
 
-	rootT, err := rootTemplate()
+	caTemplate, err := rootTemplate()
 	if err != nil {
 		return fail(ErrGenerate.Wrap(err))
 	}
 
-	rootC, err := createCert(
-		rootT,
-		rootT,
+	caCert, err := createCert(
+		caTemplate,
+		caTemplate,
 		nil,
-		&rootKey.PublicKey,
-		rootKey,
-		rootKey,
+		&caKey.PublicKey,
+		caKey,
+		caKey,
 	)
 	if err != nil {
 		return fail(ErrGenerate.Wrap(err))
 	}
 
-	newKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
+	leafKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
 		return fail(ErrGenerate.New("failed to generateTLS client private key", err))
 	}
 
-	leafT, err := leafTemplate()
+	leafTemplate, err := leafTemplate()
 	if err != nil {
 		return fail(ErrGenerate.Wrap(err))
 	}
 
-	leafC, err := createCert(
-		leafT,
-		rootT,
-		rootC.Certificate,
-		&newKey.PublicKey,
-		rootKey,
-		newKey,
+	leafCert, err := createCert(
+		leafTemplate,
+		caTemplate,
+		caCert.Certificate,
+		&leafKey.PublicKey,
+		caKey,
+		leafKey,
 	)
 
 	if err != nil {
 		return fail(ErrGenerate.Wrap(err))
 	}
 
-	return leafC, rootKey, nil
+	return leafCert, caCert, nil
 }
 
 func createCert(
@@ -82,13 +82,19 @@ func createCert(
 	parentTemplate *x509.Certificate,
 	parentDERCerts [][]byte,
 	pubKey *ecdsa.PublicKey,
-	rootKey,
-	privKey *ecdsa.PrivateKey) (tls.Certificate, error) {
-	var fail = func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
+	signingKey,
+	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
 
-	certDERBytes, err := x509.CreateCertificate(rand.Reader, template, parentTemplate, pubKey, rootKey)
+	certDERBytes, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		parentTemplate,
+		pubKey,
+		signingKey,
+	)
+
 	if err != nil {
-		return fail(errs.Wrap(err))
+		return nil, errs.Wrap(err)
 	}
 
 	parsedLeaf, _ := x509.ParseCertificate(certDERBytes)
@@ -97,20 +103,12 @@ func createCert(
 	DERCerts = append(DERCerts, certDERBytes)
 	DERCerts = append(DERCerts, parentDERCerts...)
 
-	keyDERBytes, err := KeyToDERBytes(privKey)
-	if err != nil {
-		return fail(err)
-	}
-
 	cert := tls.Certificate{}
 	cert.Leaf = parsedLeaf
 	cert.Certificate = DERCerts
-	cert.PrivateKey, err = x509.ParseECPrivateKey(keyDERBytes)
-	if err != nil {
-		return fail(errs.New("unable to parse EC private key", err))
-	}
+	cert.PrivateKey = privKey
 
-	return cert, nil
+	return &cert, nil
 }
 
 func newSerialNumber() (*big.Int, error) {

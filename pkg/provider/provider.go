@@ -8,7 +8,6 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-
 )
 
 // Responsibility represents a specific gRPC method collection to be registered

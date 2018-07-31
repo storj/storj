@@ -6,25 +6,25 @@ package provider
 import (
 	"context"
 	"crypto"
-	"crypto/x509"
-	"net"
-	"encoding/base64"
-	"io/ioutil"
+	"crypto/ecdsa"
 	"crypto/tls"
-	"os"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"io"
+	"io/ioutil"
+	"net"
+	"os"
 	"path/filepath"
-	"crypto/ecdsa"
 	"reflect"
 
-	"golang.org/x/crypto/sha3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/sha3"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"storj.io/storj/pkg/peertls"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -56,6 +56,8 @@ type IdentityConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$HOME/.storj/identity.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$HOME/.storj/identity.key"`
 	Address  string `help:"address to listen on" default:":7777"`
+	// TODO(branchriswhite): save caKey
+	// caKeyPath  string `help:"path to save the certificate authority (root) private key if generating an identity" default:"$HOME/.storj/identity.root.key"`
 }
 
 // LoadIdentity loads a FullIdentity from the given configuration
@@ -140,7 +142,7 @@ func (fi *FullIdentity) WriteCertChain(w io.Writer) error {
 func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
 	var (
 		keyBytes []byte
-		err error
+		err      error
 	)
 
 	switch privateKey := fi.PrivateKey.(type) {
@@ -160,23 +162,10 @@ func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
 	return nil
 }
 
-func (ic IdentityConfig) Generate(difficulty uint16, concurrency uint) FullIdentity {
-		fiC := make(chan FullIdentity, 1)
-		done := make(chan bool, 0)
-		for i := 0; i < int(concurrency); i++ {
-			go generateCreds(difficulty, fiC, done)
-		}
-
-		fi := <-fiC
-		close(done)
-
-		return fi
-}
-
 // Run will run the given responsibilities with the configured identity.
 func (ic IdentityConfig) Run(ctx context.Context,
-		responsibilities ...Responsibility) (
-		err error) {
+	responsibilities ...Responsibility) (
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pi, err := ic.LoadIdentity()
@@ -201,6 +190,20 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	return s.Run(ctx)
 }
 
+// Generate creates a new full identity with the given difficulty
+func Generate(difficulty uint16, concurrency uint) (FullIdentity, crypto.PrivateKey) {
+	siC := make(chan secretIdentity, 1)
+	done := make(chan bool, 0)
+	for i := 0; i < int(concurrency); i++ {
+		go generateCreds(difficulty, siC, done)
+	}
+
+	si := <-siC
+	close(done)
+
+	return si.FullIdentity, si.PrivateKey
+}
+
 // PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
 func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
 	ca, err := x509.ParseCertificate(chain[1])
@@ -213,6 +216,11 @@ func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
 		return nil, errs.Wrap(err)
 	}
 
+	return PeerIdentityFromCerts(ca, leaf)
+}
+
+// PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
+func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	caPublicKey, err := x509.MarshalPKIXPublicKey(ca.PublicKey)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -247,10 +255,6 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key", err)
 	}
-	// cert, err := certFromDERs(chainBytes, keysBytes[0])
-	// if err != nil {
-	// 	return nil, errs.Wrap(err)
-	// }
 
 	pi, err := PeerIdentityFromCertChain(chainBytes)
 	if err != nil {
@@ -268,11 +272,12 @@ func (pi *PeerIdentity) Difficulty() uint16 {
 	return idDifficulty(pi.ID)
 }
 
+// DialOption returns a grpc `DialOption` for making outgoing connections
+// to the node with this peer identity
 func (pi *PeerIdentity) DailOption(difficulty uint16) grpc.DialOption {
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*pi.Certificate()},
+		Certificates:       []tls.Certificate{*pi.Certificate()},
 		InsecureSkipVerify: true,
-		ClientAuth: tls.RequireAnyClientCert,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
 			VerifyPeerIdentityFunc(difficulty),
@@ -287,11 +292,13 @@ func (fi *FullIdentity) Difficulty() uint16 {
 	return idDifficulty(fi.PeerIdentity.ID)
 }
 
+// ServerOption returns a grpc `ServerOption` for incoming connections
+// to the node with this full identity
 func (fi *FullIdentity) ServerOption(difficulty uint16) grpc.ServerOption {
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{*fi.Certificate()},
+		Certificates:       []tls.Certificate{*fi.Certificate()},
 		InsecureSkipVerify: true,
-		ClientAuth: tls.RequireAnyClientCert,
+		ClientAuth:         tls.RequireAnyClientCert,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
 			VerifyPeerIdentityFunc(difficulty),
@@ -301,6 +308,8 @@ func (fi *FullIdentity) ServerOption(difficulty uint16) grpc.ServerOption {
 	return grpc.Creds(credentials.NewTLS(tlsConfig))
 }
 
+// Certificate converts the peer identity `*tls.Certificate` into a
+// `*tlsCertificate` (without a private key)
 func (pi *PeerIdentity) Certificate() *tls.Certificate {
 	chain := [][]byte{}
 	chain = append(chain, pi.Leaf.Raw, pi.CA.Raw)
@@ -311,14 +320,16 @@ func (pi *PeerIdentity) Certificate() *tls.Certificate {
 	}
 }
 
+// Certificate converts the full identity `*tls.Certificate` into a
+// `*tlsCertificate`
 func (fi *FullIdentity) Certificate() *tls.Certificate {
 	chain := [][]byte{}
 	chain = append(chain, fi.PeerIdentity.Leaf.Raw, fi.PeerIdentity.CA.Raw)
 
 	return &tls.Certificate{
-		Leaf: fi.PeerIdentity.Leaf,
+		Leaf:        fi.PeerIdentity.Leaf,
 		Certificate: chain,
-		PrivateKey: fi.PrivateKey,
+		PrivateKey:  fi.PrivateKey,
 	}
 }
 

@@ -8,8 +8,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/peertls"
+	proto "storj.io/storj/protos/overlay"
 )
 
 // Transport interface structure

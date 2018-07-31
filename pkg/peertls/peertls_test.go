@@ -29,7 +29,7 @@ func TestNewTLSHelper(t *testing.T) {
 func TestGenerate(t *testing.T) {
 	tlsH := &TLSHelper{}
 
-	cert, rootKey, err := generateTLS()
+	cert, rootKey, err := Generate()
 	assert.NoError(t, err)
 
 	tlsH.cert = cert

@@ -1,16 +1,24 @@
 package provider
 
 import (
-	"encoding/pem"
+	"crypto"
 	"crypto/x509"
-	"github.com/zeebo/errs"
 	"encoding/base64"
-	"go.uber.org/zap"
-	"math/bits"
+	"encoding/pem"
 	"fmt"
-	"storj.io/storj/pkg/peertls"
+	"math/bits"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/peertls"
 )
+
+type secretIdentity struct {
+	FullIdentity
+	crypto.PrivateKey
+}
 
 var (
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
@@ -32,14 +40,14 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 
 	if len(DERBytes) == 0 || len(DERBytes[0]) == 0 {
 		return nil, ErrZeroBytes
-}
+	}
 
 	return DERBytes, nil
 }
 
 func idDifficulty(id nodeID) uint16 {
 	hash, err := base64.URLEncoding.DecodeString(id.String())
-	if err!= nil {
+	if err != nil {
 		zap.S().Error(errs.Wrap(err))
 	}
 
@@ -64,28 +72,34 @@ func idDifficulty(id nodeID) uint16 {
 
 // TODO: resume here; change `fiC` channel to a struct that consists of
 // `FullIdentity` and root private key
-func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
+func generateCreds(difficulty uint16, siC chan secretIdentity, done chan bool) {
 	for {
 		select {
 		case <-done:
 			return
 		default:
-			tlsH, _ := peertls.NewTLSHelper(nil)
-
-			cert := tlsH.Certificate()
-			pi, err := PeerIdentityFromCertChain(cert.Certificate)
+			leafCert, caCert, err := peertls.Generate()
 			if err != nil {
 				zap.S().Error(errs.Wrap(err))
 				continue
 			}
 
-			fi := FullIdentity{
-				PeerIdentity: *pi,
-				PrivateKey: cert.PrivateKey,
+			pi, err := PeerIdentityFromCerts(leafCert.Leaf, caCert.Leaf)
+			if err != nil {
+				zap.S().Error(errs.Wrap(err))
+				continue
 			}
 
-			if fi.Difficulty() >= difficulty {
-				fiC <- fi
+			si := secretIdentity{
+				FullIdentity{
+					*pi,
+					leafCert.PrivateKey,
+				},
+				caCert.PrivateKey,
+			}
+
+			if si.FullIdentity.Difficulty() >= difficulty {
+				siC <- si
 			}
 		}
 	}
@@ -93,7 +107,8 @@ func generateCreds(difficulty uint16, fiC chan FullIdentity, done chan bool) {
 
 func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
 	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
-		pi, err := PeerIdentityFromCertChain(rawChain)
+		// NB: use the first chain; leaf should be first, followed by the ca
+		pi, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1])
 		if err != nil {
 			return err
 		}

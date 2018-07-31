@@ -135,19 +135,19 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 // NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
 func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
 	var (
-		c       tls.Certificate
-		err     error
+		c tls.Certificate
+		// err     error
 		rootKey *ecdsa.PrivateKey
 	)
 
-	if cert == nil {
-		c, rootKey, err = generateTLS()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		c = *cert
-	}
+	// if cert == nil {
+	// 	c, rootKey, err = Generate()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// } else {
+	// 	c = *cert
+	// }
 
 	t := &TLSHelper{
 		cert:    c,
@@ -206,6 +206,15 @@ func (t *TLSHelper) PubKey() ecdsa.PublicKey {
 // Certificate returns a copy of the value of the certificate (`tls.Certificate`)
 func (t *TLSHelper) Certificate() tls.Certificate {
 	return t.cert
+}
+
+func (t *TLSHelper) X509Certs() (_, _ *x509.Certificate, _ error) {
+	ca, err := x509.ParseCertificate(t.cert.Certificate[1])
+	if err != nil {
+		return nil, nil, errs.Wrap(err)
+	}
+
+	return t.cert.Leaf, ca, nil
 }
 
 // RootKey returns a copy of the value of the root key (if there is one)
