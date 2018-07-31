@@ -319,6 +319,7 @@ func checkIfNoneMatch(w http.ResponseWriter, r *http.Request) condResult {
 		}
 		if buf[0] == ',' {
 			buf = buf[1:]
+			continue
 		}
 		if buf[0] == '*' {
 			return condFalse

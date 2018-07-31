@@ -77,7 +77,7 @@ func (c *redisClient) Put(key storage.Key, value storage.Value) error {
 	return nil
 }
 
-// List returns either a list of keys for which boltdb has values or an error.
+// List returns either a list of keys for which redis has values or an error.
 func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	var noOrderKeys []string
 	if startingKey != nil {
@@ -104,6 +104,13 @@ func (c *redisClient) List(startingKey storage.Key, limit storage.Limit) (storag
 	}
 
 	return listKeys, nil
+}
+
+// ReverseList returns either a list of keys for which redis has values or an error.
+// Starts from startingKey and iterates backwards
+func (c *redisClient) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	//TODO
+	return storage.Keys{}, nil
 }
 
 // Delete deletes a key/value pair from redis, for a given the key

@@ -53,11 +53,11 @@ type FullIdentity struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$HOME/.storj/identity.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$HOME/.storj/identity.key"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.leaf.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.leaf.key"`
 	Address  string `help:"address to listen on" default:":7777"`
 	// TODO(branchriswhite): save caKey
-	// caKeyPath  string `help:"path to save the certificate authority (root) private key if generating an identity" default:"$HOME/.storj/identity.root.key"`
+	// caKeyPath  string `help:"path to save the certificate authority (root) private key if generating an identity" default:"$CONFDIR/identity.root.key"`
 }
 
 // LoadIdentity loads a FullIdentity from the given configuration

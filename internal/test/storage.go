@@ -4,10 +4,11 @@
 package test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"flag"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
@@ -32,13 +32,14 @@ func (k *KvStore) Empty() bool {
 
 // MockKeyValueStore is a `KeyValueStore` type used for testing (see storj.io/storj/storage/common.go)
 type MockKeyValueStore struct {
-	Data         KvStore
-	GetCalled    int
-	PutCalled    int
-	ListCalled   int
-	DeleteCalled int
-	CloseCalled  int
-	PingCalled   int
+	Data              KvStore
+	GetCalled         int
+	PutCalled         int
+	ListCalled        int
+	ReverseListCalled int
+	DeleteCalled      int
+	CloseCalled       int
+	PingCalled        int
 }
 
 // RedisDone is a function type that describes the callback returned by `EnsureRedis`
@@ -118,6 +119,12 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+	//TODO - JJ
+	return storage.Keys{}, nil
+}
+
 func mapIntoSlice(data KvStore) []string {
 	keySlice := make([]string, len(data))
 	i := 0
@@ -144,28 +151,47 @@ func (m *MockKeyValueStore) Ping() error {
 // NewMockKeyValueStore returns a mocked `KeyValueStore` implementation for testing
 func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 	return &MockKeyValueStore{
-		Data:         d,
-		GetCalled:    0,
-		PutCalled:    0,
-		ListCalled:   0,
-		DeleteCalled: 0,
-		CloseCalled:  0,
-		PingCalled:   0,
+		Data:              d,
+		GetCalled:         0,
+		PutCalled:         0,
+		ListCalled:        0,
+		ReverseListCalled: 0,
+		DeleteCalled:      0,
+		CloseCalled:       0,
+		PingCalled:        0,
 	}
 }
 
-// EnsureRedis attempts to start the `redis-server` binary
-func EnsureRedis(t *testing.T) (_ RedisDone) {
-	viper.Set("redisaddress", "127.0.0.1:6379")
-	if err := flag.Set("redisAddress", "127.0.0.1:6379"); err != nil {
-		log.Fatalf("Failed to set flag 'redisAddress': %s\n", err)
-	}
+// RedisAddress is the address used by redis for tests
+const RedisAddress = "127.0.0.1:6379"
 
+// EnsureRedis attempts to start the `redis-server` binary
+// Tests that want to use Redis should configure the application to use
+// the RedisAddress variable
+func EnsureRedis(t *testing.T) (_ RedisDone) {
 	index, _ := randomHex(5)
 	redisRefs[index] = true
 
 	if testRedis.started != true {
-		testRedis.start(t)
+		conn, err := net.Dial("tcp", "127.0.0.1:6379")
+		if err != nil {
+			testRedis.start(t)
+		} else {
+			testRedis.started = true
+			n, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			if err != nil {
+				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
+			}
+			b := make([]byte, 5)
+			n, err = conn.Read(b)
+			if err != nil {
+				log.Fatalf("Failed to flush existing redis keys: error %s\n", err)
+			}
+			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
+				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
+			}
+			conn.Close()
+		}
 	}
 
 	return func() {
@@ -222,6 +248,9 @@ func (r *RedisServer) start(t *testing.T) {
 
 func (r *RedisServer) stop() {
 	r.started = false
+	if r.cmd == nil {
+		return
+	}
 	if err := r.cmd.Process.Kill(); err != nil {
 		log.Printf("Failed to kill process: %s\n", err)
 	}
