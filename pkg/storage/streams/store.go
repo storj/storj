@@ -158,21 +158,32 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	// and then returns the appropriate data from segments s0/<path>, s1/<path>,
 	// ..., l/<path>.
 
-	_, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
 	totalSize := lastSegmentMeta.Size
+	newMeta := Meta{
+		Modified:   lastSegmentMeta.Modified,
+		Expiration: lastSegmentMeta.Expiration,
+		Size:       lastSegmentMeta.Size,
+		Data:       lastSegmentMeta.Data,
+	}
+
 	sizePerSegment := float64(totalSize) / float64(s.segmentSize)
 	stringSegmentsSize := fmt.Sprintf("%f", sizePerSegment)
 	segmentSizeSlice := strings.Split(stringSegmentsSize, ".")
 	perfectSizedSegments, err := strconv.ParseInt(segmentSizeSlice[0], 10, 64)
-	if err != nil || perfectSizedSegments == 0 {
-
+	if err != nil {
+		return nil, Meta{}, err
 	}
 	lastSegmentSize, err := strconv.ParseInt(segmentSizeSlice[1], 10, 64)
-	if err != nil || lastSegmentSize == 0 {
+	if err != nil {
+		return nil, Meta{}, err
+	}
 
+	if perfectSizedSegments == 0 {
+		return ranger.NopCloser(lastRangerCloser), newMeta, nil
 	}
 
 	var resRanger ranger.Ranger
@@ -187,14 +198,18 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		resRanger = ranger.Concat(resRanger, rangeCloser)
 	}
 
-	newMeta := Meta{
-		Modified:   lastSegmentMeta.Modified,
-		Expiration: lastSegmentMeta.Expiration,
-		Size:       lastSegmentMeta.Size,
-		Data:       lastSegmentMeta.Data,
+	if lastSegmentSize == 0 {
+		return ranger.NopCloser(resRanger), newMeta, nil
 	}
+	currentPath := fmt.Sprintf("s%d", perfectSizedSegments+1)
+	lastRangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	resRanger = ranger.Concat(resRanger, lastRangeCloser)
 
 	return ranger.NopCloser(resRanger), newMeta, nil
+
 }
 
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {

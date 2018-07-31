@@ -4,19 +4,15 @@
 package streams
 
 import (
-	"context"
 	"testing"
-	"time"
-
-	"storj.io/storj/pkg/paths"
 )
 
 func TestStreamPut(t *testing.T) {
-	ctx := context.Background()
-	path := paths.New("test")
-	data := trings.NewReader("Test Str")
-	var metadata []byte
-	expiration := time.Now()
+	// ctx := context.Background()
+	// path := paths.New("test")
+	// data := strings.NewReader("Test Str")
+	// var metadata []byte
+	// expiration := time.Now()
 
-	segment := NewSegmentStore()
+	// segment := NewSegmentStore()
 }
