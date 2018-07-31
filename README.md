@@ -59,10 +59,11 @@ git clone https://github.com/storj/storj $GOPATH/src/storj.io/storj
 go get -t storj.io/storj/...
 ```
 
-Fix error message `cannot use "github.com/minio/cli"` See https://github.com/minio/minio/issues/5974 for more details.
+Fix error message `cannot use "github.com/minio/cli"` and `panic: http: multiple registrations for /debug/requests` See https://github.com/minio/minio/issues/5974 for more details.
 
 ```bash
-go get -t github.com/minio/cli && rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
+rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
+rm -rf $GOPATH/src/github.com/minio/minio/vendor/golang.org/x/net/trace
 go get -t storj.io/storj/...
 ```
 
@@ -78,9 +79,26 @@ You can execute only a single test package. For example: `go test storj.io/storj
 ### Start the network
 
 ```bash
-go install -v storj.io/storj/cmd/captplanet
-captplanet setup
-captplanet run
+$ go install -v storj.io/storj/cmd/captplanet
+$ captplanet setup
+$ captplanet run
+```
+
+### Configure AWS CLI
+
+```bash
+$ aws configure
+AWS Access Key ID [None]: insecure-dev-access-key
+AWS Secret Access Key [None]: insecure-dev-secret-key
+Default region name [None]: us-east-1
+Default output format [None]: 
+$ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
+```
+
+### Do an upload
+
+```bash
+$ aws s3 --endpoint=http://localhost:7777/ cp large-file s3://bucket/large-file
 ```
 
 ## Support
