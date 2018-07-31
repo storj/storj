@@ -111,25 +111,29 @@ TestLoop:
 		nodes     []*proto.Node
 		min       int
 		mbm       int
+		badInput  bool
 		errs      []error
 		errString string
 	}{
-		{[]*proto.Node{}, 0, 0, []error{}, "ecclient error: " +
+		{[]*proto.Node{}, 0, 0, true, []error{}, "ecclient error: " +
 			"number of nodes do not match total count of erasure scheme"},
-		{[]*proto.Node{node0, node1, node2, node3}, 0, -1,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, -1, true,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node0, node3}, 0, 0, true,
+			[]error{nil, nil, nil, nil},
+			"ecclient error: duplicated nodes are not allowed"},
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]*proto.Node{node0, node1, node2, node3}, 0, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrOpFailed, nil, nil},
 			"ecclient error: successful puts (3) less than minimum threshold (4)"},
-		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]*proto.Node{node0, node1, node2, node3}, 2, 0,
+		{[]*proto.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than minimum threshold (2)"},
 	} {
@@ -146,7 +150,7 @@ TestLoop:
 
 		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if errs[n] != ErrDialFailed && tt.mbm >= 0 {
+			if !tt.badInput {
 				derivedID, err := id.Derive([]byte(n.GetId()))
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
@@ -306,5 +310,28 @@ TestLoop:
 		} else {
 			assert.NoError(t, err, errTag)
 		}
+	}
+}
+
+func TestUnique(t *testing.T) {
+	for i, tt := range []struct {
+		nodes  []*proto.Node
+		unique bool
+	}{
+		{nil, true},
+		{[]*proto.Node{}, true},
+		{[]*proto.Node{node0}, true},
+		{[]*proto.Node{node0, node1}, true},
+		{[]*proto.Node{node0, node0}, false},
+		{[]*proto.Node{node0, node1, node0}, false},
+		{[]*proto.Node{node1, node0, node0}, false},
+		{[]*proto.Node{node0, node0, node1}, false},
+		{[]*proto.Node{node2, node0, node1}, true},
+		{[]*proto.Node{node2, node0, node3, node1}, true},
+		{[]*proto.Node{node2, node0, node2, node1}, false},
+		{[]*proto.Node{node1, node0, node3, node1}, false},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		assert.Equal(t, tt.unique, unique(tt.nodes), errTag)
 	}
 }
