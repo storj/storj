@@ -94,6 +94,16 @@ func (mr *MockPointerDBClientMockRecorder) List(arg0, arg1 interface{}, arg2 ...
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockPointerDBClient)(nil).List), varargs...)
 }
 
+// ReverseList mocks base method
+func (m *MockPointerDBClient) ReverseList(arg0 context.Context, arg1 *pointerdb.ListRequest, arg2 ...grpc.CallOption) (*pointerdb.ListResponse, error) {
+	return m.List(arg0, arg1, arg2...)
+}
+
+// ReverseList indicates an expected call of ReverseList
+func (mr *MockPointerDBClientMockRecorder) ReverseList(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	return mr.List(arg0, arg1, arg2...)
+}
+
 // Put mocks base method
 func (m *MockPointerDBClient) Put(arg0 context.Context, arg1 *pointerdb.PutRequest, arg2 ...grpc.CallOption) (*pointerdb.PutResponse, error) {
 	varargs := []interface{}{arg0, arg1}

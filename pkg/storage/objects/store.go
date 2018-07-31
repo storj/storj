@@ -9,28 +9,41 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage"
 	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/protos/meta"
 )
 
 var mon = monkit.Package()
 
+// Meta is the full object metadata
+type Meta struct {
+	SerializableMeta
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Checksum   string
+}
+
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path paths.Path
+	Meta Meta
+}
+
 // Store for objects
 type Store interface {
-	Meta(ctx context.Context, path paths.Path) (meta storage.Meta, err error)
+	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
 	Get(ctx context.Context, path paths.Path) (rr ranger.RangeCloser,
-		meta storage.Meta, err error)
+		meta Meta, err error)
 	Put(ctx context.Context, path paths.Path, data io.Reader,
-		metadata meta.Serializable, expiration time.Time) (meta storage.Meta,
-		err error)
+		metadata SerializableMeta, expiration time.Time) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint64) (items []storage.ListItem,
+		recursive bool, limit int, metaFlags uint32) (items []ListItem,
 		more bool, err error)
 }
 
@@ -43,31 +56,33 @@ func NewStore(store streams.Store) Store {
 	return &objStore{s: store}
 }
 
-func (o *objStore) Meta(ctx context.Context, path paths.Path) (
-	meta storage.Meta, err error) {
+func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
+	err error) {
 	defer mon.Task()(&ctx)(&err)
-	return o.s.Meta(ctx, path)
+	m, err := o.s.Meta(ctx, path)
+	return convertMeta(m), err
 }
 
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta storage.Meta, err error) {
+	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return o.s.Get(ctx, path)
+	rr, m, err := o.s.Get(ctx, path)
+	return rr, convertMeta(m), err
 }
 
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata meta.Serializable, expiration time.Time) (meta storage.Meta,
-	err error) {
+	metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if metadata.GetContentType() == "" {
-		// TODO autodetect content type
+		// TODO(kaloyan): autodetect content type
 	}
-	// TODO encrypt metadata.UserDefined before serializing
+	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
 	b, err := proto.Marshal(&metadata)
 	if err != nil {
-		return storage.Meta{}, err
+		return Meta{}, err
 	}
-	return o.s.Put(ctx, path, data, b, expiration)
+	m, err := o.s.Put(ctx, path, data, b, expiration)
+	return convertMeta(m), err
 }
 
 func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
@@ -76,9 +91,38 @@ func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 }
 
 func (o *objStore) List(ctx context.Context, prefix, startAfter,
-	endBefore paths.Path, recursive bool, limit int, metaFlags uint64) (
-	items []storage.ListItem, more bool, err error) {
+	endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (
+	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return o.s.List(ctx, prefix, startAfter, endBefore, recursive, limit,
-		metaFlags)
+
+	strItems, more, err := o.s.List(ctx, prefix, startAfter, endBefore,
+		recursive, limit, metaFlags)
+	if err != nil {
+		return nil, false, err
+	}
+
+	items = make([]ListItem, len(strItems))
+	for i, itm := range strItems {
+		items[i] = ListItem{
+			Path: itm.Path,
+			Meta: convertMeta(itm.Meta),
+		}
+	}
+
+	return items, more, nil
+}
+
+// convertMeta converts stream metadata to object metadata
+func convertMeta(m streams.Meta) Meta {
+	ser := SerializableMeta{}
+	err := proto.Unmarshal(m.Data, &ser)
+	if err != nil {
+		zap.S().Warnf("Failed deserializing metadata: %v", err)
+	}
+	return Meta{
+		Modified:         m.Modified,
+		Expiration:       m.Expiration,
+		Size:             m.Size,
+		SerializableMeta: ser,
+	}
 }

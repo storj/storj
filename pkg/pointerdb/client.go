@@ -7,13 +7,10 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	p "storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storage"
 	pb "storj.io/storj/protos/pointerdb"
 )
 
@@ -29,13 +26,19 @@ type PointerDB struct {
 // a compiler trick to make sure *Overlay implements Client
 var _ Client = (*PointerDB)(nil)
 
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path    p.Path
+	Pointer *pb.Pointer
+}
+
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error)
 	List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-		recursive bool, limit int, metaFlags uint64, APIKey []byte) (
-		items []storage.ListItem, more bool, err error)
+		recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+		items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path p.Path, APIKey []byte) error
 }
 
@@ -90,8 +93,8 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (poin
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
 func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-	recursive bool, limit int, metaFlags uint64, APIKey []byte) (
-	items []storage.ListItem, more bool, err error) {
+	recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
@@ -108,25 +111,11 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	}
 
 	list := res.GetItems()
-	items = make([]storage.ListItem, len(list))
+	items = make([]ListItem, len(list))
 	for i, itm := range list {
-		modified, err := ptypes.Timestamp(itm.GetCreationDate())
-		if err != nil {
-			zap.S().Warnf("Failed converting creation date %v: %v", itm.GetCreationDate(), err)
-		}
-		expiration, err := ptypes.Timestamp(itm.GetExpirationDate())
-		if err != nil {
-			zap.S().Warnf("Failed converting expiration date %v: %v", itm.GetExpirationDate(), err)
-		}
-		items[i] = storage.ListItem{
-			Path: p.New(string(itm.GetPath())),
-			// TODO(kaloyan): we need to rethink how we return metadata through the layers
-			Meta: storage.Meta{
-				Modified:   modified,
-				Expiration: expiration,
-				Size:       itm.GetSize(),
-				// TODO UserDefined: itm.GetMetadata(),
-			},
+		items[i] = ListItem{
+			Path:    p.New(itm.GetPath()),
+			Pointer: itm.GetPointer(),
 		}
 	}
 
