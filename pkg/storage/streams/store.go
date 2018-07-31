@@ -228,7 +228,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 	// TODO: delete all the segments, with the last one last
 
-	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	_, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return err
 	}
@@ -250,6 +250,14 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		}
 	}
 
+	if lastSegmentSize > 0 {
+		currentPath := fmt.Sprintf("s%d", perfectSizedSegments+1)
+		worked := s.segments.Delete(ctx, path.Prepend(currentPath))
+		if worked != nil {
+			return worked
+		}
+	}
+
 	return s.segments.Delete(ctx, path.Prepend("l"))
 }
 
@@ -260,7 +268,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 
 	// TODO: list all the paths inside l/, stripping off the l/ prefix
 
-	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	_, lastSegmentMeta, err := s.segments.Get(ctx, prefix.Prepend("l"))
 	if err != nil {
 		return nil, false, err
 	}
