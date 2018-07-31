@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -313,17 +314,6 @@ func TestMockPut(t *testing.T) {
 }
 
 func TestNewRedisOverlayCache(t *testing.T) {
-	cmd := exec.Command("redis-server")
-
-	cmd.Run()
-
-	defer func() {
-		err := cmd.Process.Kill()
-		if err != nil {
-			fmt.Print(err)
-		}
-	}()
-
 	cases := []struct {
 		testName, address string
 		testFunc          func(string)
@@ -355,5 +345,25 @@ func TestNewRedisOverlayCache(t *testing.T) {
 			c.testFunc(c.address)
 		})
 	}
+}
+func TestMain(m *testing.M) {
+	cmd := exec.Command("redis-server")
 
+	err := cmd.Start()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//waiting for "redis-server command" to start
+	time.Sleep(time.Second)
+
+	retCode := m.Run()
+
+	err = cmd.Process.Kill()
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	os.Exit(retCode)
 }
