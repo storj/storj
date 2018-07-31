@@ -22,4 +22,4 @@ EXPOSE 8081/udp \
     8080 \
     7070
 
-ENTRYPOINT ./hc --pointer-db.database-url redis://:${REDIS_PASSWORD}@${REDIS_ADDRESS}/?db=${REDIS_DB} --debug.addr=${HTTP_PORT} --identity.address=${OVERLAY_PORT}
+ENTRYPOINT ./hc --overlay.database-url redis://:${REDIS_PASSWORD}@${REDIS_ADDRESS}/?db=${REDIS_DB} --debug.addr=${HTTP_PORT} --identity.address=${OVERLAY_PORT}

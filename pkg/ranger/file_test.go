@@ -67,3 +67,23 @@ func TestFileRanger(t *testing.T) {
 		}
 	}
 }
+
+func TestFileRangerOpenFileError(t *testing.T) {
+	rr, err := FileRanger("")
+	if rr != nil {
+		t.Fatal("Ranger expected to be nil")
+	}
+	if err == nil {
+		t.Fatal("Error expected")
+	}
+}
+
+func TestFileRangerHandlerFileStatError(t *testing.T) {
+	rr, err := FileHandleRanger(nil)
+	if rr != nil {
+		t.Fatal("Ranger expected to be nil")
+	}
+	if err == nil {
+		t.Fatal("Error expected")
+	}
+}

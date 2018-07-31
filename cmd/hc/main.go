@@ -4,10 +4,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -20,80 +18,65 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-const (
-	defaultConfFolder = "$HOME/.storj/hc"
-)
-
 var (
 	rootCmd = &cobra.Command{
 		Use:   "hc",
 		Short: "Heavy client",
 	}
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run the heavy client",
+		RunE:  cmdRun,
+	}
+	setupCmd = &cobra.Command{
+		Use:   "setup",
+		Short: "Create config files",
+		RunE:  cmdSetup,
+	}
 
-	cfg struct {
+	runCfg struct {
 		Identity  provider.IdentityConfig
 		Kademlia  kademlia.Config
 		PointerDB pointerdb.Config
 		Overlay   overlay.Config
 	}
+	setupCfg struct {
+		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+	}
+
+	defaultConfDir = "$HOME/.storj/hc"
 )
 
 func init() {
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "run",
-		Short: "Run the heavy client",
-		RunE:  cmdRun,
-	})
-	rootCmd.AddCommand(&cobra.Command{
-		Use:   "setup",
-		Short: "Create config files",
-		RunE:  cmdSetup,
-	})
-	cfgstruct.Bind(rootCmd.PersistentFlags(), &cfg,
-		cfgstruct.ConfDir(defaultConfFolder))
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(setupCmd)
+	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return cfg.Identity.Run(process.Ctx(cmd),
-		cfg.Kademlia, cfg.PointerDB, cfg.Overlay)
+	return runCfg.Identity.Run(process.Ctx(cmd),
+		runCfg.Kademlia, runCfg.PointerDB, runCfg.Overlay)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
-
-	// TODO: clean this up somehow?
-	if !strings.HasSuffix(cfg.Identity.CertPath, ".leaf.cert") {
-		return fmt.Errorf("certificate path should end with .leaf.cert")
-	}
-	certpath := strings.TrimSuffix(cfg.Identity.CertPath, ".leaf.cert")
-	if !strings.HasSuffix(cfg.Identity.KeyPath, ".leaf.key") {
-		return fmt.Errorf("key path should end with .leaf.key")
-	}
-	keypath := strings.TrimSuffix(cfg.Identity.KeyPath, ".leaf.key")
-
-	err = os.MkdirAll(filepath.Dir(certpath), 0700)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Dir(keypath), 0700)
+	err = os.MkdirAll(setupCfg.BasePath, 0700)
 	if err != nil {
 		return err
 	}
 
-	_, err = peertls.NewTLSFileOptions(certpath, keypath, true, false)
+	identityPath := filepath.Join(setupCfg.BasePath, "identity")
+	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, false)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(filepath.Dir(process.CfgPath(ctx)), 0700)
-	if err != nil {
-		return err
-	}
-
-	return process.SaveConfigAs(cmd, process.CfgPath(ctx))
+	return process.SaveConfig(runCmd.Flags(),
+		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
 }
 
 func main() {
-	process.ExecuteWithConfig(rootCmd,
-		filepath.Join(defaultConfFolder, "config.yaml"))
+	runCmd.Flags().String("config",
+		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	process.Exec(rootCmd)
 }
