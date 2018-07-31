@@ -29,7 +29,7 @@ func tempfile(fileName string) string {
 }
 
 func createRT() *RoutingTable {
-	localNodeID, _ := newID()
+	localNodeID := []byte{0x52, 0xfd, 0xfc, 0x7, 0x21, 0x82, 0x65, 0x4f, 0x16, 0x3f, 0x5f, 0xf, 0x9a, 0x62, 0x1d, 0x72, 0x95, 0x66, 0xc7, 0x4d}
 	localNode := proto.Node{Id: string(localNodeID)}
 	rt, _ := NewRoutingTable(&localNode, tempfile("Kadbucket"), tempfile("Nodebucket"), 16, 6)
 	return rt
