@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	io "io"
 	"math/rand"
 	"testing"
@@ -73,7 +72,7 @@ func TestGetObject(t *testing.T) {
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyz" +
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "01234567890~!@#$%^&*()_+"
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "0123456789"
 
 var seededRand *rand.Rand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
@@ -130,7 +129,6 @@ func TestPutObject(t *testing.T) {
 			example.Size,
 			example.Checksum,
 		}
-		fmt.Println(example.Size, example.Checksum, meta1.Size, len(example.DataStream))
 
 		data, err := hash.NewReader(bytes.NewReader([]byte(example.DataStream)), int64(len(example.DataStream)), "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
 		if err != nil {
@@ -185,8 +183,6 @@ func TestGetObjectInfo(t *testing.T) {
 			example.Size,
 			example.Checksum,
 		}
-		fmt.Println(example.Size, example.Checksum, meta1.Size, len(example.DataStream))
-
 		mockGetObject.EXPECT().Meta(gomock.Any(), paths.New("mybucket", "myobject1")).Return(meta1, errors.New(example.err)).Times(1)
 
 		oi, err := testUser.GetObjectInfo(context.Background(), "mybucket", "myobject1")
@@ -204,36 +200,6 @@ func TestListObjects(t *testing.T) {
 	s := Storj{os: mockGetObject}
 	testUser := storjObjects{storj: &s}
 
-	type iterationType struct {
-		items []objects.ListItem
-	}
-
-	var iterable = []iterationType{
-		iterationType{
-			items: []objects.ListItem{
-				objects.ListItem{
-					Path: paths.Path{"a0", "b0", "c0"},
-					Meta: objects.Meta{
-						Modified:   time.Now(),
-						Expiration: time.Now(),
-					},
-				},
-				// add more iternationType here...
-				objects.ListItem{
-					Path: paths.Path{"a1", "b1", "c1"},
-					Meta: objects.Meta{
-						Modified:   time.Now(),
-						Expiration: time.Now(),
-					},
-				},
-			},
-		},
-
-		// add more iternationType here...
-		//iterationType{},
-	}
-
-	// function arugment initialization
 	for _, example := range []struct {
 		bucket, prefix    string
 		marker, delimiter string
@@ -241,23 +207,60 @@ func TestListObjects(t *testing.T) {
 		recursive         bool
 		metaFlags         uint32
 		more              bool
+		MetaKey           []string
+		MetaVal           []string
+		Modified          time.Time
+		Expiration        time.Time
+		Size              int64
+		Checksum          string
+		NumOfListItems    int
+		err               error
 	}{
-		{"mybucket", "Development", "file1.go", "/", 1000, true, meta.All, false},
-		// add more combinations here ...
+		/* initialize the structure */
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1, nil},
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2, nil},
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2, errors.New("some error")},
 	} {
 
+		/* add test code here ... */
+		var metadata = make(map[string]string)
+		for i := 0x00; i < len(example.MetaKey); i++ {
+			metadata[example.MetaKey[i]] = example.MetaVal[i]
+		}
+
+		//metadata serialized
+		serMetaInfo := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: metadata,
+		}
+
+		meta1 := objects.Meta{
+			serMetaInfo,
+			example.Modified,
+			example.Expiration,
+			example.Size,
+			example.Checksum,
+		}
+		items := make([]objects.ListItem, example.NumOfListItems)
+
+		for i := 0x00; i < example.NumOfListItems; i++ {
+			items[i].Path = paths.Path{example.bucket, example.prefix}
+			items[i].Meta = meta1
+		}
 		// initialize the necessary mock's argument
 		startAfter := paths.New(example.marker)
 
-		// initialize the necessary mock's return
-		for _, mockRet := range iterable {
-			mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
-				startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(mockRet.items, example.more, nil).Times(1)
+		mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
+			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
 
-			oi, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
-				example.marker, example.delimiter, example.maxKeys)
-			assert.NoError(t, err)
-			assert.NotNil(t, oi)
+		oi, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
+			example.marker, example.delimiter, example.maxKeys)
+
+		if example.err != nil {
+			assert.NotNil(t, err)
+		} else {
+			assert.Nil(t, err)
 		}
+		assert.NotNil(t, oi)
 	}
 }
