@@ -5,33 +5,40 @@ package kademlia
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
 var NodeErr = errs.Class("node error")
+
+// BootstrapErr is the class for all errors pertaining to bootstrapping a node
+var BootstrapErr = errs.Class("bootstrap node error")
 
 //TODO: shouldn't default to TCP but not sure what to do yet
 var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	routingTable   dht.RoutingTable
+	routingTable   RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
 	stun           bool
 	dht            *bkad.DHT
+	nodeClient     node.Client
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -67,10 +74,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 		return nil, err
 	}
 
-	rt := RouteTable{
-		ht:  bdht.HT,
-		dht: bdht,
-	}
+	rt := RoutingTable{}
 
 	return &Kademlia{
 		routingTable:   rt,
@@ -112,7 +116,119 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
-	return k.dht.Bootstrap()
+	if len(k.bootstrapNodes) == 0 {
+		return BootstrapErr.New("no bootstrap nodes provided")
+	}
+	// psuedo randomly select a node from the slice of bootstrap nodes
+	// TODO(coyle): should we instead bootstrap against all the nodes ?
+	bn := k.bootstrapNodes[rand.Intn(len(k.bootstrapNodes))]
+
+	nodes, err := k.nodeClient.Lookup(ctx, bn, k.routingTable.Local())
+	if err != nil {
+		return BootstrapErr.Wrap(err)
+	}
+
+	if len(nodes) <= 0 {
+		return BootstrapErr.New("Bootstrap node provided no known nodes")
+	}
+
+	return k.boostrap(ctx, nodes, nil)
+}
+
+func (k *Kademlia) boostrap(ctx context.Context, nodes []*proto.Node, closestNode *proto.Node) error {
+	results, err := k.lookup(ctx, nodes)
+	if err != nil {
+		return err
+	}
+
+	closest := k.getClosest(results)
+	if cl := k.closer(&closest, closestNode); cl && closest.GetId() != closestNode.GetId() {
+		return k.boostrap(ctx, results, &closest)
+	}
+
+	_, err = k.lookup(ctx, results)
+
+	return err
+}
+
+func (k *Kademlia) lookup(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {
+	if len(nodes) <= 0 {
+		return nil, NodeErr.New("no nodes provided for lookup")
+	}
+
+	self := k.routingTable.Local()
+	wg := sync.WaitGroup{}
+	n := len(nodes)
+
+	wg.Add(n)
+	c := make(chan []*proto.Node, n)
+	e := make(chan error, n)
+
+	for _, v := range nodes {
+		go func(v *proto.Node, wg *sync.WaitGroup, c chan []*proto.Node, e chan error) {
+			//TODO() ctx with timeout
+			defer wg.Done()
+			nodes, err := k.nodeClient.Lookup(ctx, *v, self)
+			if err != nil {
+				e <- err
+			}
+			c <- nodes
+		}(v, &wg, c, e)
+
+	}
+	wg.Wait()
+	close(e)
+	close(c)
+
+	var err error
+	if len(e) > 0 {
+		for err = range e {
+			err = BootstrapErr.Wrap(err)
+		}
+		return nil, err
+	}
+
+	results := []*proto.Node{}
+	for ns := range c {
+		results = append(results, ns...)
+	}
+
+	return results, nil
+}
+
+func (k *Kademlia) getClosest(nodes []*proto.Node) proto.Node {
+	if len(nodes) <= 0 {
+		return proto.Node{}
+	}
+	m := map[string]proto.Node{}
+	keys := storage.Keys{}
+	for _, v := range nodes {
+		m[v.GetId()] = *v
+		keys = append(keys, storage.Key(v.GetId()))
+	}
+
+	keys = k.routingTable.sortByXOR(keys)
+
+	return m[string(keys[0])]
+}
+
+// closer returns true if a is closer than b, false otherwise
+func (k *Kademlia) closer(a, b *proto.Node) bool {
+	if b == nil || a == nil {
+		return true
+	}
+
+	if a.GetId() == "" || b.GetId() == "" {
+		return false
+	}
+
+	keys := storage.Keys{storage.Key(a.GetId()), storage.Key(b.GetId())}
+	r := k.routingTable.sortByXOR(keys)
+	if string(r[0]) == a.GetId() {
+		return true
+	}
+
+	return false
 }
 
 // Ping checks that the provided node is still accessible on the network

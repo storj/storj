@@ -54,6 +54,11 @@ func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength
 	}, nil
 }
 
+// Local returns the node that the routing table belongs to
+func (rt RoutingTable) Local() proto.Node {
+	return *rt.self
+}
+
 // addNode attempts to add a new contact to the routing table
 // Note: Local Node must be added to the routing table first
 // Requires node not already in table

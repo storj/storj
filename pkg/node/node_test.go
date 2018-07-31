@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -25,9 +24,9 @@ func TestLookup(t *testing.T) {
 		expectedNumNodes int
 	}{
 		{
-			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
-			to:          proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
-			find:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
+			self:        proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":7070"}},
+			to:          proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":8080"}},
+			find:        proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
