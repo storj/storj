@@ -82,15 +82,15 @@ func (ic IdentityConfig) LoadIdentity() (*FullIdentity, error) {
 
 // SaveIdentity saves a FullIdentity with the given configuration
 func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
+	if err := os.MkdirAll(filepath.Dir(ic.CertPath), 644); err != nil {
+		return errs.Wrap(err)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(ic.KeyPath), 600); err != nil {
 		return errs.Wrap(err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(ic.CertPath), 600); err != nil {
-		return errs.Wrap(err)
-	}
-
-	certFile, err := os.OpenFile(ic.CertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	certFile, err := os.OpenFile(ic.CertPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return errs.New("unable to open cert file for writing \"%s\"", ic.CertPath, err)
 	}
@@ -107,7 +107,7 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	}
 
 	defer func() {
-		if err := certFile.Close(); err != nil {
+		if err := keyFile.Close(); err != nil {
 			zap.S().Error(errs.Wrap(err))
 		}
 	}()
@@ -216,7 +216,7 @@ func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
 		return nil, errs.Wrap(err)
 	}
 
-	return PeerIdentityFromCerts(ca, leaf)
+	return PeerIdentityFromCerts(leaf, ca)
 }
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates

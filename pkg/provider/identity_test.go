@@ -54,6 +54,8 @@ func TestFullIdentityFromPEM(t *testing.T) {
 
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
+	assert.Equal(t, leafCert.Certificate[0], fi.PeerIdentity.Leaf.Raw)
+	assert.Equal(t, leafCert.Certificate[1], fi.PeerIdentity.CA.Raw)
 	assert.Equal(t, leafCert.PrivateKey, fi.PrivateKey)
 }
 
@@ -79,11 +81,13 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	err = ic.SaveIdentity(fi)
 	assert.NoError(t, err)
 
-	for _, path := range []string{ic.CertPath, ic.KeyPath} {
-		fileInfo, err := os.Stat(path)
-		assert.NoError(t, err)
-		assert.Equal(t, os.FileMode(0600), fileInfo.Mode())
-	}
+	certInfo, err := os.Stat(ic.CertPath)
+	assert.NoError(t, err)
+	assert.Equal(t, os.FileMode(0644), certInfo.Mode())
+
+	keyInfo, err := os.Stat(ic.KeyPath)
+	assert.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
 
 	savedChainPEM, err := ioutil.ReadFile(ic.CertPath)
 	assert.NoError(t, err)
@@ -140,19 +144,6 @@ AwEHoUQDQgAEw/OAM1ijLO60rkNKRm7UBOV+hLynu+DkVIGssS4pr7NHV9Sji4OV
 
 	ic, cleanup, err := tempIdentityConfig()
 
-	err = ioutil.WriteFile(ic.CertPath, []byte(chain), 0600)
-	if err != nil {
-		cleanup()
-		t.Fatal(err)
-	}
-
-	err = ioutil.WriteFile(ic.KeyPath, []byte(key), 0600)
-	assert.NoError(t, err)
-	if !assert.NoError(t, err) {
-		cleanup()
-		t.Fatal(err)
-	}
-
 	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key))
 	assert.NoError(t, err)
 
@@ -163,18 +154,21 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	done, ic, expectedFI, _ := tempIdentity(t)
 	defer done()
 
+	err := ic.SaveIdentity(expectedFI)
+	assert.NoError(t, err)
+
 	fi, err := ic.LoadIdentity()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.PrivateKey)
 	assert.NotEmpty(t, fi.PeerIdentity.Leaf)
 	assert.NotEmpty(t, fi.PeerIdentity.CA)
-	assert.NotEmpty(t, fi.PeerIdentity.ID)
+	assert.NotEmpty(t, fi.PeerIdentity.ID.Bytes())
 
 	assert.Equal(t, expectedFI.PrivateKey, fi.PrivateKey)
 	assert.Equal(t, expectedFI.PeerIdentity.Leaf, fi.PeerIdentity.Leaf)
 	assert.Equal(t, expectedFI.PeerIdentity.CA, fi.PeerIdentity.CA)
-	assert.Equal(t, expectedFI.PeerIdentity.ID, fi.PeerIdentity.ID)
+	assert.Equal(t, expectedFI.PeerIdentity.ID.Bytes(), fi.PeerIdentity.ID.Bytes())
 }
 
 func TestFullIdentity_Difficulty(t *testing.T) {
