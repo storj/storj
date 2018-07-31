@@ -138,6 +138,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 	nodes, err := k.dht.FindNode(ID.Bytes())
 	if err != nil {
 		return proto.Node{}, err
+
 	}
 
 	for _, v := range nodes {

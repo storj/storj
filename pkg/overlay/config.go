@@ -76,7 +76,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		// TODO(jt): should there be a for loop here?
 		err := cache.Refresh(ctx)
 		if err != nil {
-			zap.S().Fatal("cache refreshes stopped", zap.Error(err))
+			zap.S().Fatal("cache refresh failed", zap.Error(err))
 		}
 	}()
 

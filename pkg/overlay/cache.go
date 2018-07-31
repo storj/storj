@@ -5,8 +5,6 @@ package overlay
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -110,29 +108,42 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			return err
 		}
 	}
-	// called after kademlia is bootstrapped
-	// needs to take RoutingTable and start to persist it into the cache
-	// take bootstrap node
-	// get their route table
-	// loop through nodes in RT and get THEIR route table
-	// keep going forever and ever
-
-	// Other Possibilities: Randomly generate node ID's to ask for?
-
-	_, err = o.DHT.GetRoutingTable(ctx)
 
 	return err
 }
 
 // Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
-func (o *Cache) Refresh(ctx context.Context) error {
-	// iterate over all nodes
-	// compare responses to find new nodes
-	// listen for responses from existing nodes
-	// if no response from existing, then do nothing
-	// if responds, it refreshes in cache
-	table, err := o.DHT.GetRoutingTable(ctx)
+// func (o *Cache) Refresh(ctx context.Context) chan error {
+// 	// iterate over all nodes
+// 	// compare responses to find new nodes
+// 	// listen for responses from existing nodes
+// 	// if no response from existing, then do nothing
+// 	// if responds, it refreshes in cache
+// 	table, err := o.DHT.GetRoutingTable(ctx)
+// 	errors := make(chan error)
+//
+// 	if err != nil {
+// 		zap.Error(OverlayError.New("Error getting routing table", err))
+// 		errors <- err
+// 	}
+//
+// 	k := table.K()
+// 	nodes, err := o.DHT.GetNodes(ctx, "0", k)
+//
+// 	for _, node := range nodes {
+// 		pinged, err := o.DHT.Ping(ctx, *node)
+// 		if err != nil {
+// 			zap.Error(ErrNodeNotFound)
+// 		}
+// 		o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+// 	}
+//
+// 	log.Print("finished refreshing cache")
+// 	return errors
+// }
 
+func (o *Cache) Refresh(ctx context.Context) error {
+	table, err := o.DHT.GetRoutingTable(ctx)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting routing table", err))
 		return err
@@ -144,15 +155,13 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	for _, node := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *node)
 		if err != nil {
-			// penalize node for not being online
 			zap.Error(ErrNodeNotFound)
+		} else {
+			o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
 		}
-		log.Print("pinged node with id %s address: %s", pinged.Id, pinged.Address.Address)
-		o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
 	}
 
-	log.Print("finished refreshing cache")
-	return nil
+	return err
 }
 
 // Walk iterates over each node in each bucket to traverse the network
@@ -166,7 +175,6 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, node := range nodes {
-		fmt.Printf("node::: %+v\n", node)
 		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(node.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
