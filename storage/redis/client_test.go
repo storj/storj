@@ -4,7 +4,11 @@
 package redis
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
@@ -229,6 +233,7 @@ func TestCrudValidConnection(t *testing.T) {
 				}
 
 				keys, err := st.List(list[0], storage.Limit(len(keysList)))
+
 				assert.NoError(t, err)
 				assert.ElementsMatch(t, list, keys)
 				assert.Equal(t, len(list), len(keys))
@@ -305,4 +310,26 @@ func TestCrudInvalidConnection(t *testing.T) {
 			testWithInvalidConnection(t, c.testFunc)
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	cmd := exec.Command("redis-server")
+
+	err := cmd.Start()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//waiting for "redis-server command" to start
+	time.Sleep(time.Second)
+
+	retCode := m.Run()
+
+	err = cmd.Process.Kill()
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	os.Exit(retCode)
 }
