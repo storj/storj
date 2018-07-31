@@ -25,20 +25,12 @@ func NewPeekThresholdReader(r io.Reader) (pt *PeekThresholdReader) {
 func (pt *PeekThresholdReader) Read(p []byte) (n int, err error) {
 	pt.readCalled = true
 
+	if len(pt.thresholdBuf) == 0 {
+		return pt.r.Read(p)
+	}
+
 	n = copy(p, pt.thresholdBuf)
 	pt.thresholdBuf = pt.thresholdBuf[n:]
-
-	if len(pt.thresholdBuf) == 0 {
-		buf := make([]byte, len(p)-n)
-		k, err := io.ReadFull(pt.r, buf)
-		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			return 0, err
-		}
-		for i := range buf[:k] {
-			p[n+i] = buf[i]
-		}
-		return k + n, nil
-	}
 	return n, nil
 }
 
