@@ -83,7 +83,7 @@ $ captplanet setup
 $ captplanet run
 ```
 
-### Configure AWS
+### Configure AWS CLI
 
 ```bash
 $ aws configure
