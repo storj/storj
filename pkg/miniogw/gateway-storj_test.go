@@ -247,6 +247,7 @@ func TestListObjects(t *testing.T) {
 			items[i].Path = paths.Path{example.bucket, example.prefix}
 			items[i].Meta = meta1
 		}
+
 		// initialize the necessary mock's argument
 		startAfter := paths.New(example.marker)
 
