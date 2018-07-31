@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package logging
 
 import (
 	context "context"
@@ -16,11 +16,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var errTemplate = "gateway error: %+v"
+
 type gwLogWrap struct {
 	gw minio.Gateway
 }
 
-func LoggingGateway(gw minio.Gateway) minio.Gateway {
+// Gateway is a wrapper of minio.Gateway that logs errors before
+// returning them.
+func Gateway(gw minio.Gateway) minio.Gateway {
 	return &gwLogWrap{gw: gw}
 }
 
@@ -29,16 +33,21 @@ func (lg *gwLogWrap) Production() bool { return lg.gw.Production() }
 func (lg *gwLogWrap) NewGatewayLayer(creds auth.Credentials) (
 	minio.ObjectLayer, error) {
 	ol, err := lg.gw.NewGatewayLayer(creds)
-	return &olLogWrap{ol: ol}, err
+	return &olLogWrap{ol: ol, logger: zap.S()}, err
 }
 
 type olLogWrap struct {
-	ol minio.ObjectLayer
+	ol     minio.ObjectLayer
+	logger ErrorLogger
+}
+
+type ErrorLogger interface {
+	Errorf(template string, args ...interface{})
 }
 
 func (ol *olLogWrap) wrap(err error) error {
 	if err != nil {
-		zap.S().Errorf("gateway error: %+v", err)
+		ol.logger.Errorf(errTemplate, err)
 	}
 	return err
 }
