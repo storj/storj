@@ -5,6 +5,7 @@ package segments
 
 import (
 	"bytes"
+	"io"
 	"testing"
 )
 
@@ -22,7 +23,10 @@ func TestStrictlyLessThanThresh(t *testing.T) {
 	}
 
 	outputBuf := make([]byte, 30)
-	n, err := p.Read(outputBuf)
+	n, err := io.ReadFull(p, outputBuf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		t.Fatal("unexpected err from ReadFull:\n", err)
+	}
 	if n != len(file) {
 		t.Fatal("expected size of n to equal length of file")
 	}
@@ -44,7 +48,10 @@ func TestStrictlyGreaterThanThresh(t *testing.T) {
 	}
 
 	outputBuf := make([]byte, 30)
-	n, err := p.Read(outputBuf)
+	n, err := io.ReadFull(p, outputBuf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		t.Fatal("unexpected err from ReadFull:\n", err)
+	}
 	if n != len(file) {
 		t.Fatal("expected size of n to equal length of file")
 	}
@@ -67,7 +74,10 @@ func TestReadLessThanThresholdBuf(t *testing.T) {
 	}
 
 	outputBuf := make([]byte, 10)
-	n, err := p.Read(outputBuf)
+	n, err := io.ReadFull(p, outputBuf)
+	if err != nil {
+		t.Fatal("unexpected err from ReadFull:\n", err)
+	}
 	if n != len(outputBuf) {
 		t.Fatal("expected size of n to equal length of outputBuf")
 	}
