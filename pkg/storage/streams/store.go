@@ -31,12 +31,6 @@ type Meta struct {
 	Data       []byte
 }
 
-// ListItem is a single item in a listing
-type ListItem struct {
-	Path paths.Path
-	Meta Meta
-}
-
 // Store for streams
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
@@ -261,6 +255,12 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	return s.segments.Delete(ctx, path.Prepend("l"))
 }
 
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path paths.Path
+	Meta Meta
+}
+
 func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 	recursive bool, limit int, metaFlags uint32) (items []ListItem,
 	more bool, err error) {
@@ -282,5 +282,44 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		return nil, false, lErr
 	}
 
-	return nil, false, nil //s.segments.List(ctx, startingPath, endingPath)
+	var resItems []ListItem
+	var resMoore bool
+
+	for i := 0; i < int(perfectSizedSegments); i++ {
+		items, more, err := s.segments.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+		if err != nil {
+			return nil, false, err
+		}
+		for _, item := range items {
+			newPath := strings.Split(item.Path.String(), fmt.Sprintf("s%d", i))
+			newMeta := Meta{
+				Modified:   item.Meta.Modified,
+				Expiration: item.Meta.Expiration,
+				Size:       item.Meta.Size,
+				Data:       item.Meta.Data,
+			}
+			resItems = append(resItems, ListItem{Path: newPath, Meta: newMeta})
+			resMoore = more
+		}
+	}
+
+	if lastSegmentSize > 0 {
+		items, more, err := s.segments.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+		if err != nil {
+			return nil, false, err
+		}
+		for _, item := range items {
+			newPath := strings.Split(item.Path.String(), fmt.Sprintf("s%d", perfectSizedSegments+1))
+			newMeta := Meta{
+				Modified:   item.Meta.Modified,
+				Expiration: item.Meta.Expiration,
+				Size:       item.Meta.Size,
+				Data:       item.Meta.Data,
+			}
+			resItems = append(resItems, ListItem{Path: newPath, Meta: newMeta})
+		}
+		return resItems, more, nil
+	}
+
+	return resItems, resMoore, nil
 }
