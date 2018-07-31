@@ -25,36 +25,41 @@ func NewPeekThresholdReader(r io.Reader) (pt *PeekThresholdReader) {
 func (pt *PeekThresholdReader) Read(p []byte) (n int, err error) {
 	pt.readCalled = true
 
-	if len(pt.thresholdBuf) == 0 {
-		return pt.r.Read(p)
-	}
-
 	n = copy(p, pt.thresholdBuf)
 	pt.thresholdBuf = pt.thresholdBuf[n:]
+
+	if len(pt.thresholdBuf) == 0 {
+		buf := make([]byte, len(p)-n)
+		k, err := io.ReadFull(pt.r, buf)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			return 0, err
+		}
+		for i := range buf[:k] {
+			p[n+i] = buf[i]
+		}
+		return k + n, nil
+	}
 	return n, nil
 }
 
 // IsLargerThan returns a bool to determine whether a reader's size
 // is larger than the given threshold or not.
-func (pt *PeekThresholdReader) IsLargerThan(thresholdSize int) (inline bool, err error) {
+func (pt *PeekThresholdReader) IsLargerThan(thresholdSize int) (bool, error) {
 	if pt.isLargerCalled {
 		return false, Error.New("IsLargerThan can't be called more than once")
 	}
 	if pt.readCalled {
 		return false, Error.New("IsLargerThan can't be called after Read has been called")
 	}
+	pt.isLargerCalled = true
 	buf := make([]byte, thresholdSize+1)
 	n, err := io.ReadFull(pt.r, buf)
+	pt.thresholdBuf = buf[:n]
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return false, nil
+	}
 	if err != nil {
-		// in this case, reader size is equal or less than the threshold
-		if err == io.ErrUnexpectedEOF {
-			return true, err
-		}
 		return false, err
 	}
-	pt.thresholdBuf = buf[0:n]
-	if len(pt.thresholdBuf) <= thresholdSize {
-		return true, nil
-	}
-	return false, nil
+	return true, nil
 }
