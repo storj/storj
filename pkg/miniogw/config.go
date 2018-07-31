@@ -12,6 +12,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -136,6 +137,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	// TODO: passthrough is bad
 	stream := streams.NewPassthrough(segments)
 
-	minio.StartGateway(cliCtx, NewStorjGateway(objects.NewStore(stream)))
+	minio.StartGateway(cliCtx, logging.Gateway(
+		NewStorjGateway(objects.NewStore(stream))))
 	return Error.New("unexpected minio exit")
 }

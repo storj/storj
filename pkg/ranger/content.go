@@ -126,7 +126,7 @@ func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
 		pr, pw := io.Pipe()
 		mw := multipart.NewWriter(pw)
 		w.Header().Set("Content-Type",
-			"multipart/byteranges; boundary="+mw.Boundary())
+			"multipart/byteranges; boundary=" + mw.Boundary())
 		sendContent = func() (io.ReadCloser, error) { return ioutil.NopCloser(pr), nil }
 		// cause writing goroutine to fail and exit if CopyN doesn't finish.
 		defer func() {
@@ -209,6 +209,10 @@ func isZeroTime(t time.Time) bool {
 }
 
 func setLastModified(w http.ResponseWriter, modtime time.Time) {
+	if w == nil {
+		return
+	}
+
 	if !isZeroTime(modtime) {
 		w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
 	}
@@ -255,7 +259,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request,
 type condResult int
 
 const (
-	condNone condResult = iota
+	condNone  condResult = iota
 	condTrue
 	condFalse
 )
@@ -374,7 +378,7 @@ func checkIfRange(w http.ResponseWriter, r *http.Request, modtime time.Time) (
 	}
 	// The If-Range value is typically the ETag value, but it may also be
 	// the modtime date. See golang.org/issue/8367.
-	if modtime.IsZero() {
+	if isZeroTime(modtime) {
 		return condFalse
 	}
 	t, err := http.ParseTime(ir)
@@ -420,7 +424,7 @@ func scanETag(s string) (etag string, remain string) {
 		c := s[i]
 		switch {
 		// Character values allowed in ETags.
-		case c == 0x21 || c >= 0x23 && c <= 0x7E || c >= 0x80:
+		case c == 0x21 || c >= 0x23 && c <= 0x7A || c >= 0x80:
 		case c == '"':
 			return s[:i+1], s[i+1:]
 		default:
