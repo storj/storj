@@ -123,7 +123,7 @@ func TestStorageInfo(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	_, mol, ol := initMocks(mockCtrl)
-	storageInfo := minio.StorageInfo{Used: 123}
+	storageInfo := minio.StorageInfo{}
 
 	mol.EXPECT().StorageInfo(ctx).Return(storageInfo)
 	info := ol.StorageInfo(ctx)
