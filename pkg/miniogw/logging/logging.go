@@ -41,6 +41,7 @@ type olLogWrap struct {
 	logger ErrorLogger
 }
 
+// ErrorLogger logs a templated error message
 type ErrorLogger interface {
 	Errorf(template string, args ...interface{})
 }
