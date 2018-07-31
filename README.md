@@ -59,10 +59,11 @@ git clone https://github.com/storj/storj $GOPATH/src/storj.io/storj
 go get -t storj.io/storj/...
 ```
 
-Fix error message `cannot use "github.com/minio/cli"` See https://github.com/minio/minio/issues/5974 for more details.
+Fix error message `cannot use "github.com/minio/cli"` and `panic: http: multiple registrations for /debug/requests` See https://github.com/minio/minio/issues/5974 for more details.
 
 ```bash
-go get -t github.com/minio/cli && rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
+rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
+rm -rf $GOPATH/src/github.com/minio/minio/vendor/golang.org/x/net/trace
 go get -t storj.io/storj/...
 ```
 
