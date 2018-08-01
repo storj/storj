@@ -5,18 +5,14 @@ package overlay
 
 import (
 	"context"
-	"sync"
 
+	protob "github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/dht"
 
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/storage"
-)
-
-const (
-	maxNodes = 40
 )
 
 // Server implements our overlay RPC service
@@ -37,59 +33,100 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 	}
 
 	return &proto.LookupResponse{
-		Node: &proto.Node{
-			Id:      req.GetNodeID(),
-			Address: na,
-		},
+		Node: na,
 	}, nil
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
-	// NB:  call FilterNodeReputation from node_reputation package to find nodes for storage
-	keys, err := o.cache.DB.List(nil, storage.Limit(10))
-	if err != nil {
-		o.logger.Error("Error listing nodes", zap.Error(err))
-		return nil, err
+func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
+	opts := req.GetOpts()
+	maxNodes := opts.GetLimit()
+	restrictions := opts.GetRestrictions()
+	restrictedBandwidth := restrictions.GetFreeBandwidth()
+	restrictedSpace := restrictions.GetFreeDisk()
+
+	var start storage.Key
+	result := []*proto.Node{}
+	for {
+		var nodes []*proto.Node
+		nodes, start, err = o.populate(ctx, start, maxNodes, restrictedBandwidth, restrictedSpace)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(nodes) <= 0 {
+			break
+		}
+
+		result = append(result, nodes...)
+
+		if len(result) >= int(maxNodes) || start == nil {
+			break
+		}
+
 	}
 
-	if len(keys) > maxNodes {
-		// TODO(coyle): determine if this is a set value or they user of the api will specify
-		keys = keys[:maxNodes]
+	if len(result) > int(maxNodes) {
+		result = result[:maxNodes]
 	}
-
-	nodes := o.getNodes(ctx, keys)
 
 	return &proto.FindStorageNodesResponse{
-		Nodes: nodes,
+		Nodes: result,
 	}, nil
 }
 
-func (o *Server) getNodes(ctx context.Context, keys storage.Keys) []*proto.Node {
-	wg := &sync.WaitGroup{}
-	ch := make(chan *proto.Node, len(keys))
-
-	wg.Add(len(keys))
-	for _, v := range keys {
-		go func(ch chan *proto.Node, id string) {
-
-			defer wg.Done()
-			na, err := o.cache.Get(ctx, id)
-			if err != nil {
-				o.logger.Error("failed to get key from cache", zap.Error(err))
-				return
-			}
-
-			ch <- &proto.Node{Id: id, Address: na}
-		}(ch, v.String())
+func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node, error) {
+	values, err := o.cache.DB.GetAll(keys)
+	if err != nil {
+		return nil, err
 	}
 
-	wg.Wait()
-	close(ch)
 	nodes := []*proto.Node{}
-	for node := range ch {
-		nodes = append(nodes, node)
+	for _, v := range values {
+		n := &proto.Node{}
+		if err := protob.Unmarshal(v, n); err != nil {
+			return nil, err
+		}
+
+		nodes = append(nodes, n)
 	}
 
-	return nodes
+	return nodes, nil
+
+}
+
+func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64) ([]*proto.Node, storage.Key, error) {
+	limit := storage.Limit(maxNodes) * 2
+	keys, err := o.cache.DB.List(nil, limit)
+	if err != nil {
+		o.logger.Error("Error listing nodes", zap.Error(err))
+		return nil, nil, err
+	}
+
+	if len(keys) <= 0 {
+		o.logger.Info("No Keys returned from List operation")
+		return []*proto.Node{}, starting, nil
+	}
+
+	result := []*proto.Node{}
+	nodes, err := o.getNodes(ctx, keys)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, v := range nodes {
+		rest := v.GetRestrictions()
+		if rest.GetFreeBandwidth() < restrictedBandwidth || rest.GetFreeDisk() < restrictedSpace {
+			continue
+		}
+
+		result = append(result, v)
+	}
+
+	nextStart := keys[len(keys)-1]
+	if len(keys) < int(limit) {
+		nextStart = nil
+	}
+
+	return result, nextStart, nil
 }

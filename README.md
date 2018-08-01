@@ -22,8 +22,9 @@ First of all, install `git` and `golang`.
 
 ```bash
 apt-get install git golang
-echo 'export GOPATH="$HOME/go"' >> $HOME/.bashrc
-echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bashrc
+echo 'export STORJDEV="$HOME/storj"' >> $HOME/.bashrc
+echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.bashrc
+echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.bashrc
 source $HOME/.bashrc
 ```
 
@@ -33,12 +34,14 @@ source $HOME/.bashrc
 brew install git go
 if test -e $HOME/.bash_profile
 then
-	echo 'export GOPATH="$HOME/go"' >> $HOME/.bash_profile
-	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.bash_profile
+	echo 'export STORJDEV="$HOME/storj"' >> $HOME/.bash_profile
+	echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.bash_profile
+	echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.bash_profile
 	source $HOME/.bash_profile
 else
-	echo 'export GOPATH="$HOME/go"' >> $HOME/.profile
-	echo 'export PATH="$PATH:${GOPATH//://bin:}/bin"' >> $HOME/.profile
+	echo 'export STORJDEV="$HOME/storj"' >> $HOME/.profile
+	echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.profile
+	echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.profile
 	source $HOME/.profile
 fi
 ```
@@ -48,23 +51,16 @@ fi
 Clone the storj repository. You may want to clone your own fork and branch.
 
 ```bash
-git clone https://github.com/storj/storj $GOPATH/src/storj.io/storj
+mkdir -p $STORJDEV/src/storj.io
+git clone https://github.com/storj/storj $STORJDEV/src/storj.io/storj
 ```
 
 #### Install all dependencies
 
-`go get` can be used to install all dependencies. The execution will take some time. You can add -v if you want to get more feedback.
-
 ```bash
-go get -t storj.io/storj/...
-```
-
-Fix error message `cannot use "github.com/minio/cli"` and `panic: http: multiple registrations for /debug/requests` See https://github.com/minio/minio/issues/5974 for more details.
-
-```bash
-rm -rf $GOPATH/src/github.com/minio/minio/vendor/github.com/minio/cli
-rm -rf $GOPATH/src/github.com/minio/minio/vendor/golang.org/x/net/trace
-go get -t storj.io/storj/...
+git clone --recursive https://github.com/storj/storj-vendor $STORJDEV/vendor
+rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/github.com/minio/cli
+rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/golang.org/x/net
 ```
 
 ### Run unit tests
@@ -86,6 +82,8 @@ $ captplanet run
 
 ### Configure AWS CLI
 
+Download and install the AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
+
 ```bash
 $ aws configure
 AWS Access Key ID [None]: insecure-dev-access-key
@@ -103,6 +101,4 @@ $ aws s3 --endpoint=http://localhost:7777/ cp large-file s3://bucket/large-file
 
 ## Support
 
-If you need support, start with the [troubleshooting guide], and work your way through the process that we've outlined.
-
-That said, if you have any questions or suggestions please reach out to us on [rocketchat](https://storj.io/community.html) or [twitter](https://twitter.com/storjproject).
+If you have any questions or suggestions please reach out to us on [Rocketchat](https://community.storj.io/) or [Twitter](https://twitter.com/storjproject).

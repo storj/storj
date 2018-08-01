@@ -27,6 +27,7 @@ debug
 
 # vendor
 vendor
+protos/google/*
 
 # Test redis log and snapshot files
 *test_redis-server.log
