@@ -20,7 +20,7 @@ var (
 
 const (
 	defaultNodeExpiration = 61 * time.Minute
-	maxKeyLookup = 100
+	maxKeyLookup          = 100
 )
 
 // Client is the entrypoint into Redis
@@ -136,10 +136,10 @@ func (c *Client) Close() error {
 func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	lk := len(keys)
 	if lk > maxKeyLookup {
-		return Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup)))
+		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup))
 	}
 
-	ks := make([]string, )
+	ks := make([]string, lk)
 	for i, v := range keys {
 		ks[i] = v.String()
 	}
@@ -148,7 +148,6 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	if err != nil {
 		return []storage.Value{}, err
 	}
-
 
 	values := []storage.Value{}
 	for _, v := range vs {
