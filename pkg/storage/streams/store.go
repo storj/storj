@@ -214,7 +214,18 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 }
 
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	return Meta{}, nil
+	segmentMeta, err := s.segments.Meta(ctx, path)
+	if err != nil {
+		return Meta{}, err
+	}
+	meta := Meta{
+		Modified:   segmentMeta.Modified,
+		Expiration: segmentMeta.Expiration,
+		Size:       segmentMeta.Size,
+		Data:       segmentMeta.Data,
+	}
+
+	return meta, nil
 }
 
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
