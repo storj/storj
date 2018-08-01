@@ -136,7 +136,7 @@ func (c *Client) Close() error {
 func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	lk := len(keys)
 	if lk > maxKeyLookup {
-		return Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup)
+		return Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup)))
 	}
 
 	ks := make([]string, )
