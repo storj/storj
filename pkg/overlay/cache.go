@@ -112,36 +112,9 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	return err
 }
 
-// Refresh walks the network looking for new nodes and pings existing nodes to eliminate stale addresses
-// func (o *Cache) Refresh(ctx context.Context) chan error {
-// 	// iterate over all nodes
-// 	// compare responses to find new nodes
-// 	// listen for responses from existing nodes
-// 	// if no response from existing, then do nothing
-// 	// if responds, it refreshes in cache
-// 	table, err := o.DHT.GetRoutingTable(ctx)
-// 	errors := make(chan error)
-//
-// 	if err != nil {
-// 		zap.Error(OverlayError.New("Error getting routing table", err))
-// 		errors <- err
-// 	}
-//
-// 	k := table.K()
-// 	nodes, err := o.DHT.GetNodes(ctx, "0", k)
-//
-// 	for _, node := range nodes {
-// 		pinged, err := o.DHT.Ping(ctx, *node)
-// 		if err != nil {
-// 			zap.Error(ErrNodeNotFound)
-// 		}
-// 		o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
-// 	}
-//
-// 	log.Print("finished refreshing cache")
-// 	return errors
-// }
-
+// Refresh will run as often as configured and updates the cache db
+// with the current DHT. We currently do not penalize nodes that are
+// unresponsive, but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
 	table, err := o.DHT.GetRoutingTable(ctx)
 	if err != nil {
@@ -171,6 +144,7 @@ func (o *Cache) Walk(ctx context.Context) error {
 
 	nodes, err := o.DHT.GetNodes(ctx, "0", k)
 	if err != nil {
+		zap.Error(OverlayError.New("Error getting routing table", err))
 		return err
 	}
 
@@ -185,7 +159,8 @@ func (o *Cache) Walk(ctx context.Context) error {
 	return nil
 }
 
-func schedule(fn func() error, interval time.Duration) chan error {
+// Runs function `fn` at interval. For use with the
+func Schedule(fn func() error, interval time.Duration) chan error {
 	ticker := time.NewTicker(interval * time.Second)
 	quit := make(chan struct{})
 	errors := make(chan error)

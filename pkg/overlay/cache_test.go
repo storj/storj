@@ -209,7 +209,7 @@ var (
 	refreshCases = []struct {
 		testID              string
 		expectedTimesCalled int
-		expectedErr         errors
+		expectedErr         error
 		data                test.KvStore
 	}{
 		{
@@ -400,7 +400,7 @@ func TestRefresh(t *testing.T) {
 			}
 
 			err := _cache.Refresh(ctx)
-			assert.NoError(t, err)
+			assert.Equal(t, err, c.expectedErr)
 		})
 	}
 }
