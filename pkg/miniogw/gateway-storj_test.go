@@ -47,6 +47,7 @@ func TestGetObject(t *testing.T) {
 		errString            string
 		iowriter             io.Writer
 	}{
+		// most obnoxious case - happy scenario
 		{"mybucket", "myobject1", "", 0, 0, 0, "", nil, "", w},
 		{"x", "y", "abcdef", 6, 0, 6, "abcdef", nil, "", w},
 		{"mybucket", "myobject1", "abcdef", 6, 0, 5, "abcde", nil, "", w},
@@ -135,7 +136,7 @@ func TestPutObject(t *testing.T) {
 		Expiration     time.Time
 		Size           int64
 		Checksum       string
-		err            error
+		err            error // used by mock function
 		errString      string
 	}{
 		// most obnoxious case - happy scenario
@@ -197,10 +198,6 @@ func TestPutObject(t *testing.T) {
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
 			if example.err != nil {
-				assert.NotNil(t, objInfo, errTag)
-				assert.Equal(t, example.bucket, objInfo.Bucket, errTag)
-				assert.Equal(t, example.object, objInfo.Name, errTag)
-			} else {
 				assert.Empty(t, objInfo, errTag)
 			}
 		} else {
@@ -219,19 +216,35 @@ func TestGetObjectInfo(t *testing.T) {
 
 	testUser := storjObjects{storj: &s}
 
-	for _, example := range []struct {
-		DataStream string
-		MetaKey    []string
-		MetaVal    []string
-		Modified   time.Time
-		Expiration time.Time
-		Size       int64
-		Checksum   string
-		err        string
+	for i, example := range []struct {
+		bucket, object string
+		DataStream     string
+		MetaKey        []string
+		MetaVal        []string
+		Modified       time.Time
+		Expiration     time.Time
+		Size           int64
+		Checksum       string
+		err            error
+		errString      string
 	}{
-		{"abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), ""},
-		{"abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), "some non nil error"},
+		// most obnoxious case - happy scenario
+		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
+
+		// various combination of arguments (in obnoxious mode)
+		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
+		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
+
+		// invalid bucket and/or object
+		{"", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
+		{"mybucket", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
+		{"", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
+
+		// mock function to return error
+		{"mybucket", "myobject1", "abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("error"), "Storj Gateway error: error"},
 	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
 		var metadata = make(map[string]string)
 		for i := 0x00; i < len(example.MetaKey); i++ {
 			metadata[example.MetaKey[i]] = example.MetaVal[i]
@@ -250,11 +263,22 @@ func TestGetObjectInfo(t *testing.T) {
 			example.Size,
 			example.Checksum,
 		}
-		mockGetObject.EXPECT().Meta(gomock.Any(), paths.New("mybucket", "myobject1")).Return(meta1, errors.New(example.err)).Times(1)
+		if (example.bucket == "") || (example.object == "") {
+			/* dont execute the mock's EXPECT() if any of the above 3 conditions are true */
+		} else {
+			mockGetObject.EXPECT().Meta(gomock.Any(), paths.New(example.bucket, example.object)).Return(meta1, example.err).Times(1)
+		}
 
-		oi, err := testUser.GetObjectInfo(context.Background(), "mybucket", "myobject1")
-		assert.EqualError(t, err, (example.err))
-		assert.NotNil(t, oi)
+		objInfo, err := testUser.GetObjectInfo(context.Background(), example.bucket, example.object)
+		if err != nil {
+			assert.EqualError(t, err, example.errString)
+			if example.err != nil {
+				assert.Empty(t, objInfo, errTag)
+			}
+		} else {
+			assert.NoError(t, err, errTag)
+			assert.NotNil(t, objInfo, errTag)
+		}
 	}
 }
 
