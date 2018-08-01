@@ -20,10 +20,11 @@ var (
 	mon   = monkit.Package()
 )
 
-type ctxKey int
+//Used as kademlia key
+type CtxKey int
 
 const (
-	ctxKeyKad ctxKey = iota
+	ctxKeyKad CtxKey = iota
 )
 
 // Config defines all of the things that are needed to start up Kademlia
