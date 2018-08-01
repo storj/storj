@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -91,7 +92,7 @@ func TestPiece(t *testing.T) {
 			id:         "22222222222222222222",
 			size:       5,
 			expiration: 9999999999,
-			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
+			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
 		},
 	}
 
@@ -200,7 +201,7 @@ func TestRetrieve(t *testing.T) {
 			allocSize: 5,
 			offset:    0,
 			content:   []byte("butts"),
-			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
+			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
 			id:        "11111111111111111111",
@@ -454,14 +455,19 @@ func TestDelete(t *testing.T) {
 }
 
 func newTestServerStruct() *Server {
-	tempDBPath := filepath.Join(os.TempDir(), fmt.Sprintf("%s-test.db", time.Now().String()))
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().String()))
 
 	psDB, err := psdb.OpenPSDB(tempDBPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	tempDir := filepath.Join(os.TempDir(), "test-data", "3000")
+	tempDir := filepath.Join(tmp, "test-data", "3000")
 
 	return &Server{DataDir: tempDir, DB: psDB}
 }
