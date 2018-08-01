@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	pb "storj.io/storj/protos/piecestore"
 
 	"golang.org/x/net/context"
 )
@@ -186,6 +188,81 @@ func TestAddTTLToDB(t *testing.T) {
 			assert.Equal(tt.id, id)
 			assert.True(time > 0)
 			assert.Equal(tt.expiration, expiration)
+		})
+	}
+}
+
+func TestWriteBandwidthAllocToDB(t *testing.T) {
+	tests := []struct {
+		it            string
+		id            string
+		payer, renter string
+		size, total   int64
+		err           string
+	}{
+		{
+			it:     "should successfully Put Bandwidth Allocation",
+			payer:  "payer-id",
+			renter: "renter-id",
+			size:   5,
+			total:  5,
+			err:    "",
+		},
+	}
+
+	tmp := os.TempDir()
+	dbpath := filepath.Join(tmp, "test.db")
+	db, err := OpenPSDB(dbpath)
+	if err != nil {
+		t.Errorf("Failed to create database")
+		return
+	}
+	defer os.Remove(dbpath)
+
+	for _, tt := range tests {
+		t.Run(tt.it, func(t *testing.T) {
+			assert := assert.New(t)
+			ba := &pb.BandwidthAllocation{
+				Signature: []byte{'A', 'B'},
+				Data: &pb.BandwidthAllocation_Data{
+					Payer: tt.payer, Renter: tt.renter, Size: tt.size, Total: tt.total,
+				},
+			}
+			err = db.WriteBandwidthAllocToDB(ba)
+			if tt.err != "" {
+				assert.NotNil(err)
+				assert.Equal(tt.err, err.Error())
+				return
+			}
+			assert.Nil(err)
+			// check db to make sure agreement and signature were stored correctly
+			rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
+			assert.Nil(err)
+
+			defer rows.Close()
+			for rows.Next() {
+				var (
+					agreement []byte
+					signature []byte
+				)
+
+				err = rows.Scan(&agreement, &signature)
+				assert.Nil(err)
+
+				decoded := &pb.BandwidthAllocation_Data{}
+
+				err = proto.Unmarshal(agreement, decoded)
+				assert.Nil(err)
+
+				assert.Equal(ba.GetSignature(), signature)
+				assert.Equal(ba.Data.GetPayer(), decoded.GetPayer())
+				assert.Equal(ba.Data.GetRenter(), decoded.GetRenter())
+				assert.Equal(ba.Data.GetSize(), decoded.GetSize())
+				assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
+
+			}
+			err = rows.Err()
+			assert.Nil(err)
 		})
 	}
 }
