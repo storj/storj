@@ -131,9 +131,9 @@ func (c *Client) Close() error {
 
 // GetAll is the bulk method for gets from the redis data store
 func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	ks := []string{}
-	for _, v := range keys {
-		ks = append(ks, v.String())
+	ks := make([]string, len(keys))
+	for i, v := range keys {
+		ks[i] = v.String()
 	}
 
 	vs, err := c.db.MGet(ks...).Result()

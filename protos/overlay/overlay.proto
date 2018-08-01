@@ -58,7 +58,7 @@ message OverlayOptions {
     NodeRep minReputation = 2; // Not sure what NodeRep is yet.
     int64 minSpeedKbps = 3;
     int64 limit = 4;
-    NodeRestrictions restictions = 5;
+    NodeRestrictions restrictions = 5;
 }
 
 // NodeRep is the reputation characteristics of a node

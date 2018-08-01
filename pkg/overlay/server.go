@@ -41,7 +41,7 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
 	maxNodes := opts.GetLimit()
-	restrictions := opts.GetRestictions()
+	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
 
