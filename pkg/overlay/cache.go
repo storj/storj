@@ -45,7 +45,7 @@ func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initalized connection to a Bolt db.
 func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
-	bc, err := boltdb.NewClient(nil, dbPath, boltdb.OverlayBucket)
+	bc, err := boltdb.NewClient(zap.L(), dbPath, boltdb.OverlayBucket)
 	if err != nil {
 		return nil, err
 	}

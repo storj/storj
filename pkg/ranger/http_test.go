@@ -61,6 +61,24 @@ func TestHTTPRanger(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPRangerURLError(t *testing.T) {
+	rr, err := HTTPRanger("")
+	assert.Nil(t, rr)
+	assert.NotNil(t, err)
+}
+
+func TestHTTPRangeStatusCodeOk(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			http.ServeContent(w, r, "test", time.Now(), strings.NewReader(""))
+		}))
+	rr, err := HTTPRanger(ts.URL)
+	assert.Nil(t, rr)
+	assert.NotNil(t, err)
+}
+
 func TestHTTPRangerSize(t *testing.T) {
 	var content string
 	ts := httptest.NewServer(http.HandlerFunc(

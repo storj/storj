@@ -23,12 +23,22 @@ type PointerDB struct {
 	grpcClient pb.PointerDBClient
 }
 
+// a compiler trick to make sure *Overlay implements Client
+var _ Client = (*PointerDB)(nil)
+
+// ListItem is a single item in a listing
+type ListItem struct {
+	Path    p.Path
+	Pointer *pb.Pointer
+}
+
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error
 	Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error)
-	List(ctx context.Context, startingPathKey []byte, limit int64, APIKey []byte) (
-		paths []byte, truncated bool, err error)
+	List(ctx context.Context, prefix, startAfter, endBefore p.Path,
+		recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+		items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path p.Path, APIKey []byte) error
 }
 
@@ -44,6 +54,9 @@ func NewClient(address string) (*PointerDB, error) {
 	}, nil
 }
 
+// a compiler trick to make sure *PointerDB implements Client
+var _ Client = (*PointerDB)(nil)
+
 // ClientConnection makes a server connection
 func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
 	conn, err := grpc.Dial(serverAddr, opts...)
@@ -58,7 +71,7 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.Bytes(), Pointer: pointer, APIKey: APIKey})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: APIKey})
 
 	return err
 }
@@ -67,7 +80,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer,
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.Bytes(), APIKey: APIKey})
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: APIKey})
 	if err != nil {
 		return nil, err
 	}
@@ -79,22 +92,41 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (poin
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
-func (pdb *PointerDB) List(ctx context.Context, startingPathKey p.Path, limit int64, APIKey []byte) (paths [][]byte, truncated bool, err error) {
+func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.Path,
+	recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{StartingPathKey: startingPathKey.Bytes(), Limit: limit, APIKey: APIKey})
 
+	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
+		Prefix:     prefix.String(),
+		StartAfter: startAfter.String(),
+		EndBefore:  endBefore.String(),
+		Recursive:  recursive,
+		Limit:      int32(limit),
+		MetaFlags:  metaFlags,
+		APIKey:     APIKey,
+	})
 	if err != nil {
 		return nil, false, err
 	}
 
-	return res.Paths, res.Truncated, nil
+	list := res.GetItems()
+	items = make([]ListItem, len(list))
+	for i, itm := range list {
+		items[i] = ListItem{
+			Path:    p.New(itm.GetPath()),
+			Pointer: itm.GetPointer(),
+		}
+	}
+
+	return items, res.GetMore(), nil
 }
 
 // Delete is the interface to make a Delete request, needs Path and APIKey
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path, APIKey []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.Bytes(), APIKey: APIKey})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: APIKey})
 
 	return err
 }

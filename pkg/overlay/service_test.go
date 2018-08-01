@@ -7,32 +7,17 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
-
-func newTestService(t *testing.T) Service {
-	return Service{
-		logger:  zap.NewNop(),
-		metrics: monkit.Default,
-	}
-}
 
 func TestNewServer(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
@@ -61,7 +46,7 @@ func TestNewClient_CreateTLS(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -95,7 +80,7 @@ func TestNewClient_LoadTLS(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, tlsOpts.DialOption())
+	c, err := NewClient(address, tlsOpts.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
@@ -130,75 +115,12 @@ func TestNewClient_IndependentTLS(t *testing.T) {
 	assert.NoError(t, err)
 
 	address := lis.Addr().String()
-	c, err := NewClient(&address, clientTLSOps.DialOption())
+	c, err := NewClient(address, clientTLSOps.DialOption())
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-}
-
-func TestProcess_redis(t *testing.T) {
-	tempPath, err := ioutil.TempDir("", "TestProcess_redis")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempPath)
-
-	viper.Set("localPort", "0")
-	viper.Set("redisaddress", "127.0.0.1:6379")
-	defer viper.Set("redisaddress", "")
-
-	done := test.EnsureRedis(t)
-	defer done()
-
-	o := newTestService(t)
-	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-
-	err = o.Process(ctx, nil, nil)
-	assert.NoError(t, err)
-}
-
-func TestProcess_bolt(t *testing.T) {
-	tempPath, err := ioutil.TempDir("", "TestProcess_bolt")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempPath)
-
-	boltdbPath, err := filepath.Abs("test_bolt.db")
-	viper.Set("localport", "0")
-	viper.Set("boltdbpath", boltdbPath)
-	defer viper.Set("boltdbpath", "")
-	defer viper.Set("redisaddress", "")
-
-	assert.NoError(t, err)
-
-	if err != nil {
-		defer func() {
-			if err := os.Remove(boltdbPath); err != nil {
-				log.Printf("%s\n", errs.New("error while removing test bolt db: %s", err))
-			}
-		}()
-	}
-
-	o := newTestService(t)
-	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	process.ConfigEnvironment()
-	err = o.Process(ctx, nil, nil)
-	assert.NoError(t, err)
-}
-
-func TestProcess_default(t *testing.T) {
-	tempPath, err := ioutil.TempDir("", "TestProcess_error")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tempPath)
-
-	viper.Set("localPort", "0")
-	viper.Set("boltdbpath", defaultBoltDBPath())
-	defer viper.Set("boltdbpath", "")
-	defer viper.Set("redisaddress", "")
-
-	o := newTestService(t)
-	ctx, _ := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	err = o.Process(ctx, nil, nil)
-	assert.Nil(t, err)
 }
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
