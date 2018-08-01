@@ -30,7 +30,7 @@ func OpenPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=memory&_mutex=full", DBPath))
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=memory&mutex=full", DBPath))
 	if err != nil {
 		return nil, err
 	}

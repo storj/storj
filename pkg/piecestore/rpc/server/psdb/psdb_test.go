@@ -19,7 +19,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 1000
+var parallelCount = 2
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -77,6 +77,7 @@ func TestDeleteTTLByID(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
+				t.Parallel()
 				assert := assert.New(t)
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), 0))
 
@@ -120,6 +121,7 @@ func TestGetTTLByID(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
+				t.Parallel()
 				assert := assert.New(t)
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
 
@@ -136,6 +138,7 @@ func TestGetTTLByID(t *testing.T) {
 	}
 
 	t.Run("should return 0 if ttl doesn't exist", func(t *testing.T) {
+		t.Parallel()
 		assert := assert.New(t)
 		expiration, err := db.GetTTLByID("fake-id")
 		assert.Nil(err)
@@ -171,6 +174,7 @@ func TestAddTTLToDB(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
+				t.Parallel()
 				assert := assert.New(t)
 
 				err := db.AddTTLToDB(tt.id, tt.expiration)
@@ -230,6 +234,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
+				t.Parallel()
 				assert := assert.New(t)
 				ba := &pb.BandwidthAllocation{
 					Signature: []byte{'A', 'B'},
