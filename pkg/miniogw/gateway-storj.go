@@ -88,9 +88,12 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// handle invalid parameters
 	if writer == nil || bucket == "" || object == "" {
 		return Error.New("Invalid argument(s)")
 	}
+
 	objpath := paths.New(bucket, object)
 	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
@@ -111,11 +114,18 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// handle invalid parameters
+	if (bucket == "") || (object == "") {
+		return objInfo, Error.New("Invalid argument(s)")
+	}
+
 	objPath := paths.New(bucket, object)
 	m, err := s.storj.os.Meta(ctx, objPath)
 	if err != nil {
 		return objInfo, err
 	}
+
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
@@ -184,21 +194,28 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// handle invalid parameters
 	if data == nil || bucket == "" || object == "" {
 		return objInfo, Error.New("Invalid argument(s)")
 	}
 
+	objPath := paths.New(bucket, object)
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
+
 	//metadata serialized
 	serMetaInfo := objects.SerializableMeta{
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
-	objPath := paths.New(bucket, object)
-	// setting zero value means the object never expires
+
+	// [TODO @ASK] setting zero value means the object never expires
 	expTime := time.Time{}
+
 	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
+	if err != nil {
+		return objInfo, err
+	}
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
