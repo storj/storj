@@ -4,17 +4,22 @@
 package peertls
 
 import (
-	"crypto"
 	"crypto/ecdsa"
-	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
-	"math/big"
-	"os"
-
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"crypto/tls"
+	"crypto/rand"
+	"encoding/pem"
+)
+
+const (
+	// BlockTypeEcPrivateKey is the value to define a block type of private key
+	BlockTypeEcPrivateKey = "EC PRIVATE KEY"
+	// BlockTypeCertificate is the value to define a block type of certificate
+	BlockTypeCertificate = "CERTIFICATE"
+	// BlockTypeIDOptions is the value to define a block type of id options
+	// (e.g. `version`)
+	// BlockTypeIDOptions = "ID OPTIONS"
 )
 
 var (
@@ -35,25 +40,62 @@ var (
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
 )
 
-// IsNotExist checks that a file or directory does not exist
-func IsNotExist(err error) bool {
-	return os.IsNotExist(err) || ErrNotExist.Has(err)
-}
-
-// TLSHelper stores information about a tls certificate and key, and options for use with tls helper functions/methods
-type TLSHelper struct {
-	cert       tls.Certificate
-	rootKey    *ecdsa.PrivateKey
-	BaseConfig *tls.Config
-}
-
-type ecdsaSignature struct {
-	R, S *big.Int
-}
-
 // PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
+
+func Generate() (leaf, ca *tls.Certificate, _ error) {
+	var fail = func(err error) (_, _ *tls.Certificate, _ error) {
+		return nil, nil, err
+	}
+
+	caKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
+	if err != nil {
+		return fail(ErrGenerate.New("failed to generateServerTLS root private key", err))
+	}
+
+	caTemplate, err := rootTemplate()
+	if err != nil {
+		return fail(ErrGenerate.Wrap(err))
+	}
+
+	caCert, err := createCert(
+		caTemplate,
+		caTemplate,
+		nil,
+		&caKey.PublicKey,
+		caKey,
+		caKey,
+	)
+	if err != nil {
+		return fail(ErrGenerate.Wrap(err))
+	}
+
+	leafKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
+	if err != nil {
+		return fail(ErrGenerate.New("failed to generateTLS client private key", err))
+	}
+
+	leafTemplate, err := leafTemplate()
+	if err != nil {
+		return fail(ErrGenerate.Wrap(err))
+	}
+
+	leafCert, err := createCert(
+		leafTemplate,
+		caTemplate,
+		caCert.Certificate,
+		&leafKey.PublicKey,
+		caKey,
+		leafKey,
+	)
+
+	if err != nil {
+		return fail(ErrGenerate.Wrap(err))
+	}
+
+	return leafCert, caCert, nil
+}
 
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
 // functions and adds certificate parsing.
@@ -76,194 +118,18 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	}
 }
 
-func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
-	parsedCerts, err := parseCerts(rawCerts)
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedCerts, nil
-}
-
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }
 
-func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
-	certs := []*x509.Certificate{}
-
-	for _, c := range rawCerts {
-		parsedCert, err := x509.ParseCertificate(c)
-		if err != nil {
-			return nil, ErrVerifyPeerCert.New("unable to parse certificate", err)
-		}
-
-		certs = append(certs, parsedCert)
-	}
-
-	return certs, nil
+// NewKeyBlock converts an ASN1/DER-encoded byte-slice of a private key into
+// a `pem.Block` pointer
+func NewKeyBlock(b []byte) *pem.Block {
+	return &pem.Block{Type: BlockTypeEcPrivateKey, Bytes: b}
 }
 
-func verifyChainSignatures(certs []*x509.Certificate) error {
-	for i, cert := range certs {
-		if i < len(certs)-1 {
-			isValid, err := verifyCertSignature(certs[i+1], cert)
-			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
-
-			if !isValid {
-				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
-			}
-
-			continue
-		}
-
-		rootIsValid, err := verifyCertSignature(cert, cert)
-		if err != nil {
-			return ErrVerifyPeerCert.Wrap(err)
-		}
-
-		if !rootIsValid {
-			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
-		}
-	}
-
-	return nil
-}
-
-// NewTLSHelper initializes a new `TLSHelper` struct with a new certificate
-func NewTLSHelper(cert *tls.Certificate) (*TLSHelper, error) {
-	var (
-		c tls.Certificate
-		// err     error
-		rootKey *ecdsa.PrivateKey
-	)
-
-	// if cert == nil {
-	// 	c, rootKey, err = Generate()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// } else {
-	// 	c = *cert
-	// }
-
-	t := &TLSHelper{
-		cert:    c,
-		rootKey: rootKey,
-	}
-
-	return t, nil
-}
-
-// NewTLSConfig returns a tls config (based on the given config, if any)
-// which skips normal tls verification, requires a client certificate,
-// the certificate-chain from `t`, and a peer certificate verifixation
-// function compatible with our "peertls" protocol.
-func (t *TLSHelper) NewTLSConfig(c *tls.Config) *tls.Config {
-	if c == nil {
-		c = t.BaseConfig
-	}
-
-	config := cloneTLSConfig(c)
-
-	config.Certificates = []tls.Certificate{t.cert}
-	// Skip normal verification
-	config.InsecureSkipVerify = true
-	// Required client certificate
-	config.ClientAuth = tls.RequireAnyClientCert
-	// Custom verification logic for *both* client and server
-	config.VerifyPeerCertificate = VerifyPeerFunc(
-		VerifyPeerCertChains,
-		config.VerifyPeerCertificate,
-	)
-
-	return config
-}
-
-// NewPeerTLS returns grpc transport credentials from `t` and the given
-// tls config, if any
-func (t *TLSHelper) NewPeerTLS(config *tls.Config) credentials.TransportCredentials {
-	return credentials.NewTLS(t.NewTLSConfig(config))
-}
-
-// DialOption returns a grpc `DialOption` from `t` for outgoing connections
-func (t *TLSHelper) DialOption() grpc.DialOption {
-	return grpc.WithTransportCredentials(t.NewPeerTLS(t.BaseConfig))
-}
-
-// ServerOption returns a grpc `ServerOption` from `t` for incoming connections
-func (t *TLSHelper) ServerOption() grpc.ServerOption {
-	return grpc.Creds(t.NewPeerTLS(t.BaseConfig))
-}
-
-// PubKey returns a copy of the value of the public key
-func (t *TLSHelper) PubKey() ecdsa.PublicKey {
-	return t.cert.PrivateKey.(*ecdsa.PrivateKey).PublicKey
-}
-
-// Certificate returns a copy of the value of the certificate (`tls.Certificate`)
-func (t *TLSHelper) Certificate() tls.Certificate {
-	return t.cert
-}
-
-func (t *TLSHelper) X509Certs() (_, _ *x509.Certificate, _ error) {
-	ca, err := x509.ParseCertificate(t.cert.Certificate[1])
-	if err != nil {
-		return nil, nil, errs.Wrap(err)
-	}
-
-	return t.cert.Leaf, ca, nil
-}
-
-// RootKey returns a copy of the value of the root key (if there is one)
-func (t *TLSHelper) RootKey() ecdsa.PrivateKey {
-	if t.rootKey == nil {
-		return ecdsa.PrivateKey{}
-	}
-
-	return *t.rootKey
-}
-
-// DeleteRootKey deletes the root key from memory
-func (t *TLSHelper) DeleteRootKey() {
-	*t.rootKey = ecdsa.PrivateKey{}
-	t.rootKey = nil
-}
-
-func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
-	pubKey := parentCert.PublicKey.(*ecdsa.PublicKey)
-	signature := new(ecdsaSignature)
-
-	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
-		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature", err)
-	}
-
-	h := crypto.SHA256.New()
-	_, err := h.Write(childCert.RawTBSCertificate)
-	if err != nil {
-		return false, err
-	}
-	digest := h.Sum(nil)
-
-	isValid := ecdsa.Verify(pubKey, digest, signature.R, signature.S)
-
-	return isValid, nil
-}
-
-// * Copyright 2017 gRPC authors.
-// * Licensed under the Apache License, Version 2.0 (the "License");
-// * (see https://github.com/grpc/grpc-go/blob/v1.13.0/credentials/credentials_util_go18.go)
-// cloneTLSConfig returns a shallow clone of the exported
-// fields of cfg, ignoring the unexported sync.Once, which
-// contains a mutex and must not be copied.
-//
-// If cfg is nil, a new zero tls.Config is returned.
-func cloneTLSConfig(cfg *tls.Config) *tls.Config {
-	if cfg == nil {
-		return &tls.Config{}
-	}
-
-	return cfg.Clone()
+// NewCertBlock converts an ASN1/DER-encoded byte-slice of a tls certificate
+// into a `pem.Block` pointer
+func NewCertBlock(b []byte) *pem.Block {
+	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }

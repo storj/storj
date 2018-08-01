@@ -11,45 +11,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type tlsFileOptionsTestCase struct {
-	tlsFileOptions *TLSHelper
-	before         func(*tlsFileOptionsTestCase) error
-	after          func(*tlsFileOptionsTestCase) error
-}
-
-func TestNewTLSHelper(t *testing.T) {
-	tlsH, err := NewTLSHelper(nil)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, tlsH.cert)
-	assert.NotEmpty(t, tlsH.cert.PrivateKey)
-	assert.NotNil(t, tlsH.cert.Leaf)
-	assert.NotNil(t, tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
-}
-
 func TestGenerate(t *testing.T) {
-	tlsH := &TLSHelper{}
-
-	cert, rootKey, err := Generate()
+	leaf, ca, err := Generate()
 	assert.NoError(t, err)
 
-	tlsH.cert = cert
+	assert.NotEmpty(t, leaf)
+	assert.NotEmpty(t, leaf.PrivateKey.(*ecdsa.PrivateKey))
+	assert.NotEmpty(t, leaf.Leaf)
+	assert.NotEmpty(t, leaf.Leaf.PublicKey.(*ecdsa.PublicKey))
 
-	assert.NotNil(t, rootKey)
-	assert.NotEmpty(t, *rootKey)
-	assert.NotNil(t, tlsH.cert)
-	assert.NotNil(t, tlsH.cert.PrivateKey)
-	assert.NotNil(t, tlsH.cert.Leaf)
-	assert.NotNil(t, tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
-	assert.NotEmpty(t, *tlsH.cert.Leaf.PublicKey.(*ecdsa.PublicKey))
+	assert.NotEmpty(t, ca)
+	assert.NotEmpty(t, ca.PrivateKey.(*ecdsa.PrivateKey))
+	assert.NotEmpty(t, ca.Leaf)
+	assert.NotEmpty(t, ca.Leaf.PublicKey.(*ecdsa.PublicKey))
 
-	err = VerifyPeerFunc(nil)(tlsH.cert.Certificate, nil)
+	err = VerifyPeerFunc(nil)(leaf.Certificate, nil)
 	assert.NoError(t, err)
-}
-
-func TestNewTLSConfig(t *testing.T) {
-	opts, err := NewTLSHelper(nil)
-	assert.NoError(t, err)
-
-	config := opts.NewTLSConfig(nil)
-	assert.Equal(t, opts.cert, config.Certificates[0])
 }

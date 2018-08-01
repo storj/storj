@@ -10,52 +10,53 @@ import (
 
 	// "storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay"
+	"testing"
+	"net"
+	"fmt"
+	"storj.io/storj/pkg/provider"
+	"github.com/stretchr/testify/assert"
 )
 
-// func NewNodeID(t *testing.T) string {
-// 	// NewNodeID returns the string representation of a dht node PeerIdentity
-// 	id, err := NewID(1, 38, 5)
-// 	assert.NoError(t, err)
-//
-// 	return id.String()
-// }
+func NewNodeID(t *testing.T) string {
+	// NewNodeID returns the string representation of a dht node PeerIdentity
+	fi, _ := provider.Generate(12, 5)
+	assert.NotEmpty(t, fi)
 
-// func TestLookup(t *testing.T) {
-// 	cases := []struct {
-// 		self             proto.Node
-// 		to               proto.Node
-// 		find             proto.Node
-// 		expectedErr      error
-// 		expectedNumNodes int
-// 	}{
-// 		{
-// 			self:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
-// 			to:          proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
-// 			find:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
-// 			expectedErr: nil,
-// 		},
-// 	}
-//
-// 	// take writers
-// 	certPath, keyPath := NewID(8)
-//
-// 	for _, v := range cases {
-// 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
-// 		assert.NoError(t, err)
-//
-// 		srv, mock := newTestServer()
-// 		go srv.Serve(lis)
-// 		defer srv.Stop()
-//
-// 		// take readers
-// 		nc, err := NewNodeClient(v.self, certPath, keyPath)
-// 		assert.NoError(t, err)
-//
-// 		_, err = nc.Lookup(context.Background(), v.to, v.find)
-// 		assert.Equal(t, v.expectedErr, err)
-// 		assert.Equal(t, 1, mock.queryCalled)
-// 	}
-// }
+	return fi.PeerIdentity.ID.String()
+}
+
+func TestLookup(t *testing.T) {
+	cases := []struct {
+		self             proto.Node
+		to               proto.Node
+		find             proto.Node
+		expectedErr      error
+		expectedNumNodes int
+	}{
+		{
+			self:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
+			to:          proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
+			find:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
+			expectedErr: nil,
+		},
+	}
+
+	for _, v := range cases {
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
+		assert.NoError(t, err)
+
+		srv, mock := newTestServer()
+		go srv.Serve(lis)
+		defer srv.Stop()
+
+		nc, err := NewNodeClient(v.self)
+		assert.NoError(t, err)
+
+		_, err = nc.Lookup(context.Background(), v.to, v.find)
+		assert.Equal(t, v.expectedErr, err)
+		assert.Equal(t, 1, mock.queryCalled)
+	}
+}
 
 func newTestServer() (*grpc.Server, *mockNodeServer) {
 	grpcServer := grpc.NewServer()

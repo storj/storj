@@ -33,7 +33,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 
 	return &Provider{
 		lis:      lis,
-		g:        grpc.NewServer(),
+		g:        grpc.NewServer(identity.ServerOption()),
 		next:     responsibilities,
 		identity: identity,
 	}, nil
