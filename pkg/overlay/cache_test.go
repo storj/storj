@@ -5,9 +5,12 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -308,4 +311,59 @@ func TestMockPut(t *testing.T) {
 			assert.Equal(t, na, &c.value)
 		})
 	}
+}
+
+func TestNewRedisOverlayCache(t *testing.T) {
+	cases := []struct {
+		testName, address string
+		testFunc          func(string)
+	}{
+		{
+			testName: "NewRedisOverlayCache valid",
+			address:  "127.0.0.1:6379",
+			testFunc: func(address string) {
+				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+
+				assert.NoError(t, err)
+				assert.NotNil(t, cache)
+			},
+		},
+		{
+			testName: "NewRedisOverlayCache fail",
+			address:  "",
+			testFunc: func(address string) {
+				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+
+				assert.Error(t, err)
+				assert.Nil(t, cache)
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testName, func(t *testing.T) {
+			c.testFunc(c.address)
+		})
+	}
+}
+func TestMain(m *testing.M) {
+	cmd := exec.Command("redis-server")
+
+	err := cmd.Start()
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//waiting for "redis-server command" to start
+	time.Sleep(time.Second)
+
+	retCode := m.Run()
+
+	err = cmd.Process.Kill()
+	if err != nil {
+		fmt.Print(err)
+	}
+
+	os.Exit(retCode)
 }
