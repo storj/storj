@@ -12,6 +12,7 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
@@ -24,6 +25,17 @@ var (
 	//Error is the errs class of standard End User Client errors
 	Error = errs.Class("Storj Gateway error")
 )
+
+func closeHelper(c io.Closer, errptr *error) {
+	err := c.Close()
+	if err != nil {
+		if *errptr == nil {
+			*errptr = err
+			return
+		}
+		zap.S().Errorf("error closing: %s", err)
+	}
+}
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
 func NewStorjGateway(os objects.Store) *Storj {
@@ -84,21 +96,13 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer closeHelper(rr, &err)
+
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer closeHelper(r, &err)
 
 	_, err = io.Copy(writer, r)
 	return err
@@ -179,6 +183,11 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if data == nil || bucket == "" || object == "" {
+		return objInfo, Error.New("Invalid argument(s)")
+	}
+
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 	//metadata serialized
