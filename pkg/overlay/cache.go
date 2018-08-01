@@ -57,7 +57,7 @@ func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 }
 
 // Get looks up the provided nodeID from the redis cache
-func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, error) {
+func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 	b, err := o.DB.Get([]byte(key))
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, erro
 		return nil, nil
 	}
 
-	na := &overlay.NodeAddress{}
+	na := &overlay.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
 	}
@@ -75,8 +75,8 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.NodeAddress, erro
 	return na, nil
 }
 
-// Put adds a nodeID to the redis cache with a binary representation of proto defined NodeAddress
-func (o *Cache) Put(nodeID string, value overlay.NodeAddress) error {
+// Put adds a nodeID to the redis cache with a binary representation of proto defined Node
+func (o *Cache) Put(nodeID string, value overlay.Node) error {
 	data, err := proto.Marshal(&value)
 	if err != nil {
 		return err

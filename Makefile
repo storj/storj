@@ -38,7 +38,7 @@ proto:
 build-dev-deps:
 	go get github.com/golang/protobuf/protoc-gen-go
 	go get github.com/mattn/goveralls
-	go get golang.org/x/tools/cmd/cover
+	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
 	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force

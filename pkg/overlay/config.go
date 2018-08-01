@@ -102,7 +102,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 }
 
 func urlPwd(u *url.URL) string {
-	if u.User == nil {
+	if u == nil || u.User == nil {
 		return ""
 	}
 	if pw, ok := u.User.Password(); ok {

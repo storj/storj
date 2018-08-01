@@ -112,7 +112,7 @@ func testWithRedis(t *testing.T, testFunc TestFunc) {
 }
 
 func testWithInvalidConnection(t *testing.T, testFunc TestFunc) {
-	st := &redisClient{
+	st := &Client{
 		db: redis.NewClient(&redis.Options{
 			Addr:     "",
 			Password: "",
