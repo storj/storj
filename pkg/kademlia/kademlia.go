@@ -5,11 +5,9 @@ package kademlia
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
-	"strconv"
 
 	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
@@ -67,8 +65,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 		return nil, err
 	}
 
-	rt := RoutingTable{
-	}
+	rt := RoutingTable{}
 
 	return &Kademlia{
 		routingTable:   rt,
@@ -108,8 +105,7 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return &RoutingTable {
-	}, nil
+	return &RoutingTable{}, nil
 
 }
 
