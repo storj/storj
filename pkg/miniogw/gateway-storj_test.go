@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	io "io"
 	"math/rand"
 	"testing"
@@ -33,41 +34,59 @@ func TestGetObject(t *testing.T) {
 
 	meta := objects.Meta{}
 
-	for _, example := range []struct {
+	var buf1 bytes.Buffer
+	w := io.Writer(&buf1)
+	iowriter := w
+
+	for i, example := range []struct {
+		bucket, object       string
 		data                 string
 		size, offset, length int64
 		substr               string
-		err                  string
+		err                  error
+		errString            string
+		iowriter             io.Writer
 	}{
-		{"", 0, 0, 0, "", ""},
-		{"abcdef", 6, 0, 0, "", ""},
-		{"abcdef", 6, 3, 0, "", ""},
-		{"abcdef", 6, 0, 6, "abcdef", ""},
-		{"abcdef", 6, 0, 5, "abcde", ""},
-		{"abcdef", 6, 0, 4, "abcd", ""},
-		{"abcdef", 6, 1, 4, "bcde", ""},
-		{"abcdef", 6, 2, 4, "cdef", ""},
-		{"abcdefg", 7, 1, 4, "bcde", ""},
-		{"abcdef", 6, 0, 7, "", ""},
-		{"abcdef", 6, -1, 7, "abcde", "negative offset"},
-		{"abcdef", 6, 0, -1, "abcde", "negative length"},
-		{"abcdef", 6, 1, 7, "bcde", "buffer runoff"},
-		{"abcdef", 6, 1, 7, "", "buffer runoff"},
+		{"mybucket", "myobject1", "", 0, 0, 0, "", nil, "", w},
+		{"mybucket", "", "abcdef", 6, 0, 0, "", nil, "Storj Gateway error: Invalid argument(s)", w},
+		{"", "myobject1", "abcdef", 6, 3, 0, "", nil, "Storj Gateway error: Invalid argument(s)", w},
+		{"x", "y", "abcdef", 6, 0, 6, "abcdef", nil, "", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", errors.New("some err"), "some err", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, 5, "abcde", nil, "", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, 4, "abcd", nil, "", w},
+		{"mybucket", "myobject1", "abcdef", 6, 1, 4, "bcde", nil, "", w},
+		{"mybucket", "myobject1", "abcdef", 6, 2, 4, "cdef", nil, "", w},
+		{"mybucket", "myobject1", "abcdefg", 7, 1, 4, "bcde", nil, "", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, 7, "", nil, "ranger error: buffer runoff", w},
+		{"mybucket", "myobject1", "abcdef", 6, -1, 7, "abcde", nil, "ranger error: negative offset", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, -1, "abcde", nil, "ranger error: negative length", w},
+		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "bcde", nil, "ranger error: buffer runoff", w},
+		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "", nil, "ranger error: buffer runoff", w},
+		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", nil},
+		{"", "", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", nil},
 	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
 		r := ranger.ByteRanger([]byte(example.data))
 		if r.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", r.Size(), example.size)
 		}
 
+		iowriter = example.iowriter
+
 		rr := ranger.NopCloser(r)
 
-		mockGetObject.EXPECT().Get(gomock.Any(), paths.New("mybucket", "myobject1")).Return(rr, meta, errors.New(example.err)).Times(1)
+		if iowriter == nil || example.bucket == "" || example.object == "" {
+			/* dont execute the mock's EXPECT() if any of the above 3 conditions are true */
+		} else {
+			mockGetObject.EXPECT().Get(gomock.Any(), paths.New(example.bucket, example.object)).Return(rr, meta, example.err).Times(1)
+		}
+		err := testUser.GetObject(context.Background(), example.bucket, example.object, example.offset, example.length, iowriter, "etag")
 
-		var buf1 bytes.Buffer
-		w := io.Writer(&buf1)
-
-		err := testUser.GetObject(context.Background(), "mybucket", "myobject1", example.offset, example.length, w, "etag")
-		assert.EqualError(t, err, (example.err))
+		if err != nil {
+			assert.EqualError(t, err, example.errString)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
 	}
 }
 
