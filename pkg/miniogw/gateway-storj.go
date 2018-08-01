@@ -76,6 +76,9 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if writer == nil || bucket == "" || object == "" {
+		return Error.New("Invalid argument(s)")
+	}
 	objpath := paths.New(bucket, object)
 	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
