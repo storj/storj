@@ -79,7 +79,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return Meta{Data: pr.GetMetadata()}, nil
+	return convertMeta(pr), nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -174,7 +174,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	return rr, Meta{Data: pr.GetMetadata()}, nil
+	return rr, convertMeta(pr), nil
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb

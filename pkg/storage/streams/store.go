@@ -50,8 +50,8 @@ type streamStore struct {
 
 // NewStreams stuff
 func NewStreams(segments segments.Store, segmentSize int64) (Store, error) {
-	if segmentSize < 0 {
-		return nil, errors.New("Segment size must be larger than 0")
+	if segmentSize <= 0 {
+		return nil, errors.New("segment size must be larger than 0")
 	}
 	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
@@ -70,9 +70,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
-	totalSegments = 0
-	totalSize = 0
-	lastSegmentSize = 0
 
 	awareLimitReader := EOFAwareReader(data)
 
@@ -87,9 +84,9 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		}
 		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
+		totalSegments = totalSegments + 1
 	}
 
-	totalSegments = totalSegments + 1
 	identitySegmentData := data
 	lastSegmentPath := path.Prepend("l")
 
@@ -112,7 +109,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	totalSize = totalSize + putMeta.Size
 
 	resultMeta := Meta{
-		Modified:   time.Now(),
+		Modified:   putMeta.Modified,
 		Expiration: expiration,
 		Size:       totalSize,
 		Data:       lastSegmentMetadata,
@@ -233,7 +230,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 	// TODO: delete all the segments, with the last one last
 
-	_, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return err
 	}
@@ -279,7 +276,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 
 	// TODO: list all the paths inside l/, stripping off the l/ prefix
 
-	_, lastSegmentMeta, err := s.segments.Get(ctx, prefix.Prepend("l"))
+	lastSegmentMeta, err := s.segments.Meta(ctx, prefix.Prepend("l"))
 	if err != nil {
 		return nil, false, err
 	}
