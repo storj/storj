@@ -21,7 +21,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 2
+var parallelCount = 100
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -91,7 +91,10 @@ func TestDeleteTTLByID(t *testing.T) {
 			t.Run(tt.it, func(t *testing.T) {
 				t.Parallel()
 				assert := assert.New(t)
+
+				db.mtx.Lock()
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), 0))
+				db.mtx.Unlock()
 
 				err = db.DeleteTTLByID(tt.id)
 				if tt.err != "" {
@@ -140,7 +143,9 @@ func TestGetTTLByID(t *testing.T) {
 			t.Run(tt.it, func(t *testing.T) {
 				t.Parallel()
 				assert := assert.New(t)
+				db.mtx.Lock()
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
+				db.mtx.Unlock()
 
 				expiration, err := db.GetTTLByID(tt.id)
 				if tt.err != "" {
@@ -207,6 +212,7 @@ func TestAddTTLToDB(t *testing.T) {
 				}
 				assert.Nil(err)
 
+				db.mtx.Lock()
 				rows, err := db.DB.Query(fmt.Sprintf(`SELECT * FROM ttl WHERE id="%s"`, tt.id))
 				assert.Nil(err)
 
@@ -217,6 +223,8 @@ func TestAddTTLToDB(t *testing.T) {
 				err = rows.Scan(&id, &time, &expiration)
 				assert.Nil(err)
 				rows.Close()
+
+				db.mtx.Unlock()
 
 				assert.Equal(tt.id, id)
 				assert.True(time > 0)
@@ -277,6 +285,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 				}
 				assert.Nil(err)
 				// check db to make sure agreement and signature were stored correctly
+				db.mtx.Lock()
 				rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
 				assert.Nil(err)
 
@@ -302,6 +311,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 
 				}
 				rows.Close()
+				db.mtx.Unlock()
 				err = rows.Err()
 				assert.Nil(err)
 			})

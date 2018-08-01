@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -21,7 +22,8 @@ import (
 
 // PSDB -- Piecestore database
 type PSDB struct {
-	DB *sql.DB
+	DB  *sql.DB
+	mtx sync.Mutex
 }
 
 // OpenPSDB -- opens PSDB at DBPath
@@ -122,6 +124,9 @@ func (psdb *PSDB) CheckEntries(dir string) error {
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
 func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+	psdb.mtx.Lock()
+	defer psdb.mtx.Unlock()
+
 	data := ba.GetData()
 	if data == nil {
 		return nil
@@ -159,6 +164,8 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 
 // AddTTLToDB -- Insert TTL into database by id
 func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
+	psdb.mtx.Lock()
+	defer psdb.mtx.Unlock()
 
 	tx, err := psdb.DB.Begin()
 	if err != nil {
@@ -186,6 +193,8 @@ func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 
 // GetTTLByID -- Find the TTL in the database by id and return it
 func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
+	psdb.mtx.Lock()
+	defer psdb.mtx.Unlock()
 
 	rows, err := psdb.DB.Query(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id))
 	if err != nil {
@@ -210,6 +219,8 @@ func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
 
 // DeleteTTLByID -- Find the TTL in the database by id and delete it
 func (psdb *PSDB) DeleteTTLByID(id string) error {
+	psdb.mtx.Lock()
+	defer psdb.mtx.Unlock()
 
 	tx, err := psdb.DB.Begin()
 	if err != nil {
