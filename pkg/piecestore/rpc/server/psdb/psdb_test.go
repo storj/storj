@@ -19,6 +19,7 @@ import (
 )
 
 var ctx = context.Background()
+var parallelCount = 10
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -74,19 +75,21 @@ func TestDeleteTTLByID(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		t.Run(tt.it, func(t *testing.T) {
-			assert := assert.New(t)
-			db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), 0))
+		for i := 0; i < parallelCount; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
+				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), 0))
 
-			err = db.DeleteTTLByID(tt.id)
-			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-			assert.Nil(err)
+				err = db.DeleteTTLByID(tt.id)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
 
-		})
+			})
+		}
 	}
 }
 
@@ -115,19 +118,21 @@ func TestGetTTLByID(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		t.Run(tt.it, func(t *testing.T) {
-			assert := assert.New(t)
-			db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
+		for i := 0; i < parallelCount; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
+				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
 
-			expiration, err := db.GetTTLByID(tt.id)
-			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-			assert.Nil(err)
-			assert.Equal(tt.expiration, expiration)
-		})
+				expiration, err := db.GetTTLByID(tt.id)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
+				assert.Equal(tt.expiration, expiration)
+			})
+		}
 	}
 
 	t.Run("should return 0 if ttl doesn't exist", func(t *testing.T) {
@@ -147,7 +152,7 @@ func TestAddTTLToDB(t *testing.T) {
 		err        string
 	}{
 		{
-			it:         "should successfully Get TTL by ID",
+			it:         "should successfully Put TTL",
 			id:         "Butts",
 			expiration: 666,
 			err:        "",
@@ -164,31 +169,33 @@ func TestAddTTLToDB(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		t.Run(tt.it, func(t *testing.T) {
-			assert := assert.New(t)
+		for i := 0; i < parallelCount; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
 
-			err := db.AddTTLToDB(tt.id, tt.expiration)
-			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-			assert.Nil(err)
+				err := db.AddTTLToDB(tt.id, tt.expiration)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
 
-			rows, err := db.DB.Query(fmt.Sprintf(`SELECT * FROM ttl WHERE id="%s"`, tt.id))
-			assert.Nil(err)
+				rows, err := db.DB.Query(fmt.Sprintf(`SELECT * FROM ttl WHERE id="%s"`, tt.id))
+				assert.Nil(err)
 
-			rows.Next()
-			var expiration int64
-			var id string
-			var time int64
-			err = rows.Scan(&id, &time, &expiration)
-			assert.Nil(err)
+				rows.Next()
+				var expiration int64
+				var id string
+				var time int64
+				err = rows.Scan(&id, &time, &expiration)
+				assert.Nil(err)
 
-			assert.Equal(tt.id, id)
-			assert.True(time > 0)
-			assert.Equal(tt.expiration, expiration)
-		})
+				assert.Equal(tt.id, id)
+				assert.True(time > 0)
+				assert.Equal(tt.expiration, expiration)
+			})
+		}
 	}
 }
 
@@ -220,50 +227,52 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		t.Run(tt.it, func(t *testing.T) {
-			assert := assert.New(t)
-			ba := &pb.BandwidthAllocation{
-				Signature: []byte{'A', 'B'},
-				Data: &pb.BandwidthAllocation_Data{
-					Payer: tt.payer, Renter: tt.renter, Size: tt.size, Total: tt.total,
-				},
-			}
-			err = db.WriteBandwidthAllocToDB(ba)
-			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-			assert.Nil(err)
-			// check db to make sure agreement and signature were stored correctly
-			rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
-			assert.Nil(err)
-
-			defer rows.Close()
-			for rows.Next() {
-				var (
-					agreement []byte
-					signature []byte
-				)
-
-				err = rows.Scan(&agreement, &signature)
+		for i := 0; i < parallelCount; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
+				ba := &pb.BandwidthAllocation{
+					Signature: []byte{'A', 'B'},
+					Data: &pb.BandwidthAllocation_Data{
+						Payer: tt.payer, Renter: tt.renter, Size: tt.size, Total: tt.total,
+					},
+				}
+				err = db.WriteBandwidthAllocToDB(ba)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
+				// check db to make sure agreement and signature were stored correctly
+				rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
 				assert.Nil(err)
 
-				decoded := &pb.BandwidthAllocation_Data{}
+				defer rows.Close()
+				for rows.Next() {
+					var (
+						agreement []byte
+						signature []byte
+					)
 
-				err = proto.Unmarshal(agreement, decoded)
+					err = rows.Scan(&agreement, &signature)
+					assert.Nil(err)
+
+					decoded := &pb.BandwidthAllocation_Data{}
+
+					err = proto.Unmarshal(agreement, decoded)
+					assert.Nil(err)
+
+					assert.Equal(ba.GetSignature(), signature)
+					assert.Equal(ba.Data.GetPayer(), decoded.GetPayer())
+					assert.Equal(ba.Data.GetRenter(), decoded.GetRenter())
+					assert.Equal(ba.Data.GetSize(), decoded.GetSize())
+					assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
+
+				}
+				err = rows.Err()
 				assert.Nil(err)
-
-				assert.Equal(ba.GetSignature(), signature)
-				assert.Equal(ba.Data.GetPayer(), decoded.GetPayer())
-				assert.Equal(ba.Data.GetRenter(), decoded.GetRenter())
-				assert.Equal(ba.Data.GetSize(), decoded.GetSize())
-				assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
-
-			}
-			err = rows.Err()
-			assert.Nil(err)
-		})
+			})
+		}
 	}
 }
 
