@@ -54,12 +54,8 @@ func (o *Overlay) Choose(ctx context.Context, limit int, space int64) ([]*proto.
 	if err != nil {
 		return nil, err
 	}
-	ns := resp.GetNodes()
-	nodes := make([]*proto.Node, len(ns))
-	for i, v := range ns {
-		nodes[i] = v
-	}
-	return nodes, nil
+
+	return resp.GetNodes(), nil
 }
 
 // Lookup provides a Node with the given address
