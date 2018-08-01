@@ -19,7 +19,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 10
+var parallelCount = 1000
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -190,6 +190,7 @@ func TestAddTTLToDB(t *testing.T) {
 				var time int64
 				err = rows.Scan(&id, &time, &expiration)
 				assert.Nil(err)
+				rows.Close()
 
 				assert.Equal(tt.id, id)
 				assert.True(time > 0)
@@ -247,7 +248,6 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 				rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
 				assert.Nil(err)
 
-				defer rows.Close()
 				for rows.Next() {
 					var (
 						agreement []byte
@@ -269,6 +269,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
 
 				}
+				rows.Close()
 				err = rows.Err()
 				assert.Nil(err)
 			})
