@@ -44,7 +44,7 @@ func NewMockServer(kv test.KvStore) *grpc.Server {
 
 // NewNodeAddressValue provides a convient way to create a storage.Value for testing purposes
 func NewNodeAddressValue(t *testing.T, address string) storage.Value {
-	na := &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: address}
+	na := &proto.Node{Id: "", Address: &proto.NodeAddress{Transport: proto.NodeTransport_TCP, Address: address}}
 	d, err := protob.Marshal(na)
 	assert.NoError(t, err)
 

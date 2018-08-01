@@ -37,7 +37,7 @@ func NewBoltClientTest(t *testing.T) *BoltClientTest {
 func (bt *BoltClientTest) Close() {
 	bt.c.Close()
 	switch client := bt.c.(type) {
-	case *boltClient:
+	case *Client:
 		os.Remove(client.Path)
 	}
 }
