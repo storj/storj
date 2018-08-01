@@ -30,25 +30,36 @@ func OpenPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=memory&mutex=full", DBPath))
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=memory&_mutex=full", DBPath))
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
-	if err != nil {
-		return nil, err
-	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	tx, err := db.Begin()
 	if err != nil {
 		return nil, err
 	}
 
-	return &PSDB{db}, nil
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return &PSDB{DB: db}, nil
 }
 
 // deleteEntries -- checks for and deletes expired TTL entries
-func deleteEntries(dir string, rows *sql.Rows) error {
+func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
 
 	for rows.Next() {
 		var expID string
@@ -97,7 +108,7 @@ func (psdb *PSDB) CheckEntries(dir string) error {
 				}
 			}()
 
-			if err := deleteEntries(dir, rows); err != nil {
+			if err := deleteEntriesFromFS(dir, rows); err != nil {
 				return err
 			}
 
@@ -121,17 +132,17 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return err
 	}
 
-	stmt, err := psdb.DB.Prepare(fmt.Sprintf(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`))
+	tx, err := psdb.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := psdb.DB.Prepare(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`)
 	if err != nil {
 		return err
 	}
 
 	defer stmt.Close()
-
-	tx, err := psdb.DB.Begin()
-	if err != nil {
-		return err
-	}
 
 	_, err = tx.Stmt(stmt).Exec(serialized, ba.GetSignature())
 	if err != nil {
@@ -142,19 +153,35 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
 		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
+	return tx.Commit()
 
-	return nil
 }
 
 // AddTTLToDB -- Insert TTL into database by id
 func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 
-	_, err := psdb.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, id, time.Now().Unix(), expiration))
-	return err
+	tx, err := psdb.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := psdb.DB.Prepare("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = tx.Stmt(stmt).Exec(id, time.Now().Unix(), expiration)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			log.Printf("%s\n", rollbackErr)
+		}
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // GetTTLByID -- Find the TTL in the database by id and return it
@@ -184,6 +211,25 @@ func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
 // DeleteTTLByID -- Find the TTL in the database by id and delete it
 func (psdb *PSDB) DeleteTTLByID(id string) error {
 
-	_, err := psdb.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, id))
-	return err
+	tx, err := psdb.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("DELETE FROM ttl WHERE id=?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = tx.Stmt(stmt).Exec(id)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			log.Printf("%s\n", rollbackErr)
+		}
+		return err
+	}
+
+	return tx.Commit()
 }

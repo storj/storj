@@ -332,6 +332,7 @@ func TestStore(t *testing.T) {
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
+				assert.NotNil(err)
 				assert.Equal(tt.err, err.Error())
 				return
 			}
@@ -440,7 +441,7 @@ func TestDelete(t *testing.T) {
 			}
 
 			assert.Nil(err)
-			assert.Equal(tt.message, resp.Message)
+			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, s.DataDir)

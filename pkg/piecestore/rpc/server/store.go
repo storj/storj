@@ -73,7 +73,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 
 	DBError := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 	if DBError != nil {
-		log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
+		log.Printf("WriteBandwidthAllocToDB Error: %s\n", DBError.Error())
 	}
 
 	if err != nil && err != io.EOF {
