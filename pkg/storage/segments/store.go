@@ -122,7 +122,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		p, err = s.makeRemotePointer(nodes, pieceID, expiration, metadata)
+		p, err = s.makeRemotePointer(nodes, pieceID, sizedReader, exp, metadata)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -143,8 +143,8 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID,
-	expiration time.Time, metadata []byte) (pointer *ppb.Pointer, err error) {
+func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID, sizedReader *SizedReader,
+	exp *timestamp.Timestamp, metadata []byte) (pointer *ppb.Pointer, err error) {
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodes {
 		remotePieces = append(remotePieces, &ppb.RemotePiece{
@@ -152,10 +152,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 			NodeId:   nodes[i].Id,
 		})
 	}
-	exp, err := ptypes.TimestampProto(expiration)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+
 	pointer = &ppb.Pointer{
 		Type: ppb.Pointer_REMOTE,
 		Remote: &ppb.RemoteSegment{
