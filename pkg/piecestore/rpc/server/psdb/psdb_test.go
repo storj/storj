@@ -5,6 +5,8 @@ package psdb
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,7 +38,12 @@ func TestOpenPSDB(t *testing.T) {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
-			tmp := os.TempDir()
+			tmp, err := ioutil.TempDir("", "example")
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer os.RemoveAll(tmp)
+
 			dbpath := filepath.Join(tmp, "test.db")
 
 			DB, err := OpenPSDB(dbpath)
@@ -65,7 +72,12 @@ func TestDeleteTTLByID(t *testing.T) {
 		},
 	}
 
-	tmp := os.TempDir()
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dbpath := filepath.Join(tmp, "test.db")
 	db, err := OpenPSDB(dbpath)
 	if err != nil {
@@ -109,7 +121,12 @@ func TestGetTTLByID(t *testing.T) {
 		},
 	}
 
-	tmp := os.TempDir()
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dbpath := filepath.Join(tmp, "test.db")
 	db, err := OpenPSDB(dbpath)
 	if err != nil {
@@ -162,7 +179,12 @@ func TestAddTTLToDB(t *testing.T) {
 		},
 	}
 
-	tmp := os.TempDir()
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dbpath := filepath.Join(tmp, "test.db")
 	db, err := OpenPSDB(dbpath)
 	if err != nil {
@@ -222,7 +244,12 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 		},
 	}
 
-	tmp := os.TempDir()
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
 	dbpath := filepath.Join(tmp, "test.db")
 	db, err := OpenPSDB(dbpath)
 	if err != nil {
