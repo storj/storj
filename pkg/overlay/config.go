@@ -84,6 +84,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 			case <-ticker.C:
 				err := cache.Refresh(ctx)
 				if err != nil {
+					zap.S().Error("Error with cache refresh")
 					refreshErrors <- err
 				}
 			case <-quit:
@@ -91,14 +92,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 			}
 		}
 	}()
-
-	// go func() {
-	// 	// TODO(jt): should there be a for loop here?
-	// 	err := cache.Refresh(ctx)
-	// 	if err != nil {
-	// 		zap.S().Fatal("cache refresh failed", zap.Error(err))
-	// 	}
-	// }()
 
 	proto.RegisterOverlayServer(server.GRPC(), &Server{
 		dht:   kad,
@@ -108,15 +101,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		logger:  zap.L(),
 		metrics: monkit.Default,
 	})
-
-	// go func() {
-	// 	// TODO(jt): should there be a for loop here?
-	// 	// TODO(jt): how is this different from Refresh?
-	// 	err := cache.Walk(ctx)
-	// 	if err != nil {
-	// 		zap.S().Fatal("cache walking stopped", zap.Error(err))
-	// 	}
-	// }()
 
 	return server.Run(ctx)
 }

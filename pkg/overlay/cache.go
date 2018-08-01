@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -157,25 +156,4 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// Runs function `fn` at interval. For use with the
-func Schedule(fn func() error, interval time.Duration) chan error {
-	ticker := time.NewTicker(interval * time.Second)
-	quit := make(chan struct{})
-	errors := make(chan error)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				err := fn()
-				if err != nil {
-					errors <- err
-				}
-			case <-quit:
-				ticker.Stop()
-			}
-		}
-	}()
-	return errors
 }
