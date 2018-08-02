@@ -30,6 +30,16 @@ type Meta struct {
 	Data       []byte
 }
 
+// toMeta converts segment metadata to stream metadata
+func toMeta(m segments.Meta) Meta {
+	return Meta{
+		Modified:   m.Modified,
+		Expiration: m.Expiration,
+		Size:       m.Size,
+		Data:       m.Data,
+	}
+}
+
 // Store for streams
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
@@ -55,14 +65,13 @@ func NewStreams(segments segments.Store, segmentSize int64) (Store, error) {
 	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
 
+// Put breaks up data as it comes in into s.segmentSize length pieces, then
+// store the first piece at s0/<path>, second piece at s1/<path>, and the
+// *last* piece at l/<path>. Store the given metadata, along with the number
+// of segments, in a new protobuf, in the metadata of l/<path>.
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// TODO: break up data as it comes in into s.segmentSize length pieces, then
-	// store the first piece at s0/<path>, second piece at s1/<path>, and the
-	// *last* piece at l/<path>. Store the given metadata, along with the number
-	// of segments, in a new protobuf, in the metadata of l/<path>.
 
 	identitySlice := make([]byte, 0)
 	identityMeta := Meta{}
@@ -117,13 +126,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	return resultMeta, nil
 }
 
+// Get returns a ranger that knows what the overall size is (from l/<path>)
+// and then returns the appropriate data from segments s0/<path>, s1/<path>,
+// ..., l/<path>.
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// TODO: return a ranger that knows what the overall size is (from l/<path>)
-	// and then returns the appropriate data from segments s0/<path>, s1/<path>,
-	// ..., l/<path>.
 
 	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
@@ -136,23 +144,11 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	perfectSizedSegments := msi.SegmentsSize
-	lastSegmentSize := msi.LastSegmentSize
-
-	newMeta := Meta{
-		Modified:   lastSegmentMeta.Modified,
-		Expiration: lastSegmentMeta.Expiration,
-		Size:       lastSegmentMeta.Size,
-		Data:       lastSegmentMeta.Data,
-	}
-
-	if perfectSizedSegments == 0 {
-		return ranger.NopCloser(lastRangerCloser), newMeta, nil
-	}
+	newMeta := toMeta(lastSegmentMeta)
 
 	var resRanger ranger.Ranger
 
-	for i := 0; i < int(perfectSizedSegments); i++ {
+	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
 		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
@@ -162,15 +158,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		resRanger = ranger.Concat(resRanger, rangeCloser)
 	}
 
-	if lastSegmentSize == 0 {
-		return ranger.NopCloser(resRanger), newMeta, nil
-	}
-	currentPath := fmt.Sprintf("s%d", perfectSizedSegments+1)
-	lastRangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
-	if err != nil {
-		return nil, Meta{}, err
-	}
-	resRanger = ranger.Concat(resRanger, lastRangeCloser)
+	resRanger = ranger.Concat(resRanger, lastRangerCloser)
 
 	return ranger.NopCloser(resRanger), newMeta, nil
 
@@ -181,20 +169,14 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 	if err != nil {
 		return Meta{}, err
 	}
-	meta := Meta{
-		Modified:   segmentMeta.Modified,
-		Expiration: segmentMeta.Expiration,
-		Size:       segmentMeta.Size,
-		Data:       segmentMeta.Data,
-	}
+	meta := toMeta(segmentMeta)
 
 	return meta, nil
 }
 
+// Delete all the segments, with the last one last
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// TODO: delete all the segments, with the last one last
 
 	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
@@ -207,19 +189,8 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	perfectSizedSegments := msi.SegmentsSize
-	lastSegmentSize := msi.LastSegmentSize
-
-	for i := 0; i < int(perfectSizedSegments); i++ {
+	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
-		worked := s.segments.Delete(ctx, path.Prepend(currentPath))
-		if worked != nil {
-			return worked
-		}
-	}
-
-	if lastSegmentSize > 0 {
-		currentPath := fmt.Sprintf("s%d", perfectSizedSegments+1)
 		worked := s.segments.Delete(ctx, path.Prepend(currentPath))
 		if worked != nil {
 			return worked
@@ -235,12 +206,11 @@ type ListItem struct {
 	Meta Meta
 }
 
+// List all the paths inside l/, stripping off the l/ prefix
 func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 	recursive bool, limit int, metaFlags uint32) (items []ListItem,
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// TODO: list all the paths inside l/, stripping off the l/ prefix
 
 	lastSegmentMeta, err := s.segments.Meta(ctx, prefix.Prepend("l"))
 	if err != nil {
@@ -253,47 +223,22 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		return nil, false, err
 	}
 
-	perfectSizedSegments := msi.SegmentsSize
-	lastSegmentSize := msi.LastSegmentSize
-
 	var resItems []ListItem
-	var resMoore bool
+	var resMore bool
 
-	for i := 0; i < int(perfectSizedSegments); i++ {
+	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		items, more, err := s.segments.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 		if err != nil {
 			return nil, false, err
 		}
 		for _, item := range items {
 			newPath := strings.Split(item.Path.String(), fmt.Sprintf("s%d", i))
-			newMeta := Meta{
-				Modified:   item.Meta.Modified,
-				Expiration: item.Meta.Expiration,
-				Size:       item.Meta.Size,
-				Data:       item.Meta.Data,
-			}
+			newMeta := toMeta(item.Meta)
+
 			resItems = append(resItems, ListItem{Path: newPath, Meta: newMeta})
-			resMoore = more
+			resMore = more
 		}
 	}
 
-	if lastSegmentSize > 0 {
-		items, more, err := s.segments.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
-		if err != nil {
-			return nil, false, err
-		}
-		for _, item := range items {
-			newPath := strings.Split(item.Path.String(), fmt.Sprintf("s%d", perfectSizedSegments+1))
-			newMeta := Meta{
-				Modified:   item.Meta.Modified,
-				Expiration: item.Meta.Expiration,
-				Size:       item.Meta.Size,
-				Data:       item.Meta.Data,
-			}
-			resItems = append(resItems, ListItem{Path: newPath, Meta: newMeta})
-		}
-		return resItems, more, nil
-	}
-
-	return resItems, resMoore, nil
+	return resItems, resMore, nil
 }
