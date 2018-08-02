@@ -6,6 +6,7 @@ package ecclient
 import (
 	"context"
 	"io"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
@@ -61,6 +62,9 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return Error.New("number of nodes do not match total count of erasure scheme")
+	}
+	if !unique(nodes) {
+		return Error.New("duplicated nodes are not allowed")
 	}
 	readers, err := eestream.EncodeReader(ctx, data, rs, ec.mbm)
 	if err != nil {
@@ -202,4 +206,25 @@ func closeConn(ps client.PSClient, nodeID string) {
 	if err != nil {
 		zap.S().Errorf("Failed closing connection to node %s: %v", nodeID, err)
 	}
+}
+
+func unique(nodes []*proto.Node) bool {
+	if len(nodes) < 2 {
+		return true
+	}
+
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.GetId()
+	}
+
+	// sort the ids and check for identical neighbors
+	sort.Strings(ids)
+	for i := 1; i < len(ids); i++ {
+		if ids[i] == ids[i-1] {
+			return false
+		}
+	}
+
+	return true
 }
