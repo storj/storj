@@ -21,6 +21,7 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	grpcClient pb.PointerDBClient
+	APIKey []byte
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -34,16 +35,16 @@ type ListItem struct {
 
 // Client services offerred for the interface
 type Client interface {
-	Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) error
-	Get(ctx context.Context, path p.Path, APIKey []byte) (*pb.Pointer, error)
+	Put(ctx context.Context, path p.Path, pointer *pb.Pointer) error
+	Get(ctx context.Context, path p.Path) (*pb.Pointer, error)
 	List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-		recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+		recursive bool, limit int, metaFlags uint32) (
 		items []ListItem, more bool, err error)
-	Delete(ctx context.Context, path p.Path, APIKey []byte) error
+	Delete(ctx context.Context, path p.Path) error
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(address string) (*PointerDB, error) {
+func NewClient(address string, APIKey []byte) (*PointerDB, error) {
 	c, err := clientConnection(address, grpc.WithInsecure())
 
 	if err != nil {
@@ -51,6 +52,7 @@ func NewClient(address string) (*PointerDB, error) {
 	}
 	return &PointerDB{
 		grpcClient: c,
+		APIKey: APIKey,
 	}, nil
 }
 
@@ -68,19 +70,19 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 }
 
 // Put is the interface to make a PUT request, needs Pointer and APIKey
-func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer, APIKey []byte) (err error) {
+func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: APIKey})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: pdb.APIKey})
 
 	return err
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (pointer *pb.Pointer, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: APIKey})
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path, APIKey []byte) (poin
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
 func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-	recursive bool, limit int, metaFlags uint32, APIKey []byte) (
+	recursive bool, limit int, metaFlags uint32) (
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -104,7 +106,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
-		APIKey:     APIKey,
+		APIKey:     pdb.APIKey,
 	})
 	if err != nil {
 		return nil, false, err
@@ -123,10 +125,10 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 }
 
 // Delete is the interface to make a Delete request, needs Path and APIKey
-func (pdb *PointerDB) Delete(ctx context.Context, path p.Path, APIKey []byte) (err error) {
+func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: APIKey})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
 
 	return err
 }
