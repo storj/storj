@@ -145,42 +145,82 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	return buckets, err
 }
 
+// listObjects - (List Objects) - List some or all (up to 1000) of the objects in a bucket.
+//
+// You can use the request parameters as selection criteria to return a subset of the objects in a bucket.
+// request parameters :-
+// ---------
+// ?marker - Specifies the key to start with when listing objects in a bucket.
+// ?delimiter - A delimiter is a character you use to group keys.
+// ?prefix - Limits the response to keys that begin with the specified prefix.
+// ?max-keys - Sets the maximum number of keys returned in the response body.
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
-	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+	delimiter string, maxKeys int) (objInfo minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// handle invalid parameters
+	if bucket == "" {
+		return objInfo, Error.New("Invalid argument(s)")
+	}
+
+	// maxkeys should default to 1000 or less.
+	if maxKeys > 0 {
+		if maxKeys == 0 || maxKeys > 1000 {
+			maxKeys = 1000
+		}
+	} else {
+		return objInfo, Error.New("Invalid argument(s)")
+	}
+
 	startAfter := paths.New(marker)
-	var fl []minio.ObjectInfo
+
 	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
-		return result, err
+		return objInfo, err
 	}
-	if len(items) > 0 {
+
+	var fl []minio.ObjectInfo
+	itemsListLen := len(items)
+	if itemsListLen > 0 {
 		//Populate the objectlist (aka filelist)
-		f := make([]minio.ObjectInfo, len(items))
+		var f []minio.ObjectInfo
+		if itemsListLen > maxKeys {
+			itemsListLen = maxKeys
+			f = make([]minio.ObjectInfo, maxKeys)
+		} else {
+			f = make([]minio.ObjectInfo, itemsListLen)
+		}
+
 		for i, fi := range items {
-			f[i] = minio.ObjectInfo{
-				Bucket:      fi.Path[0],
-				Name:        fi.Path[1:].String(),
-				ModTime:     fi.Meta.Modified,
-				Size:        fi.Meta.Size,
-				ContentType: fi.Meta.ContentType,
-				UserDefined: fi.Meta.UserDefined,
-				ETag:        fi.Meta.Checksum,
+			if i < itemsListLen {
+				f[i] = minio.ObjectInfo{
+					Bucket:      fi.Path[0],
+					Name:        fi.Path[1:].String(),
+					ModTime:     fi.Meta.Modified,
+					Size:        fi.Meta.Size,
+					ContentType: fi.Meta.ContentType,
+					UserDefined: fi.Meta.UserDefined,
+					ETag:        fi.Meta.Checksum,
+				}
+			} else {
+				break
 			}
 		}
 		startAfter = items[len(items)-1].Path[len(paths.New(bucket, prefix)):]
 		fl = f
+	} else {
+		return objInfo, err
 	}
 
-	result = minio.ListObjectsInfo{
+	objInfo = minio.ListObjectsInfo{
 		IsTruncated: more,
 		Objects:     fl,
 	}
 	if more {
-		result.NextMarker = startAfter.String()
+		objInfo.NextMarker = startAfter.String()
 	}
 
-	return result, err
+	return objInfo, err
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
