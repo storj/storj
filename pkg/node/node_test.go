@@ -5,16 +5,25 @@ package node
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
+	// "storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay"
+	"testing"
+	"net"
+	"fmt"
+	"storj.io/storj/pkg/provider"
+	"github.com/stretchr/testify/assert"
 )
+
+func NewNodeID(t *testing.T) string {
+	// NewNodeID returns the string representation of a dht node PeerIdentity
+	fi, _ := provider.Generate(12, 5)
+	assert.NotEmpty(t, fi)
+
+	return fi.PeerIdentity.ID.String()
+}
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
@@ -25,9 +34,9 @@ func TestLookup(t *testing.T) {
 		expectedNumNodes int
 	}{
 		{
-			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
-			to:          proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
-			find:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
+			self:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
+			to:          proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
+			find:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}

@@ -10,21 +10,29 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/dht"
-
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/protos/overlay"
 )
 
 const (
-	testNetSize = 20
+	testNetSize      = 20
+	idDifficulty     = 1
+	idHashLen        = 16
+	idGenConcurrency = 2
 )
 
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
-	bid, err := newID()
+func newNodeID(t *testing.T) dht.NodeID {
+	id, err := node.NewID(idDifficulty, idHashLen, idGenConcurrency)
 	assert.NoError(t, err)
 
-	bnid := NodeID(bid)
+	return id
+}
+
+func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
+	bnid := newNodeID(t)
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
@@ -33,7 +41,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	intro, err := GetIntroNode(bnid.String(), ip, pm)
 	assert.NoError(t, err)
 
-	boot, err := NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
+	boot, err := NewKademlia(bnid, []overlay.Node{*intro}, ip, pm)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -48,11 +56,8 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
 
-		nid, err := newID()
-		assert.NoError(t, err)
-		id := NodeID(nid)
-
-		dht, err := NewKademlia(&id, []overlay.Node{bootNode}, ip, gg)
+		id := newNodeID(t)
+		dht, err := NewKademlia(id, []overlay.Node{bootNode}, ip, gg)
 		assert.NoError(t, err)
 
 		p++
@@ -68,12 +73,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 }
 
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *Kademlia {
-	i, err := newID()
-	assert.NoError(t, err)
-	id := NodeID(i)
+	id := newNodeID(t)
 	n := []overlay.Node{b}
 
-	kad, err := NewKademlia(&id, n, ip, port)
+	kad, err := NewKademlia(id, n, ip, port)
 	assert.NoError(t, err)
 	return kad
 }
@@ -107,11 +110,13 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 
 		localID := rt.Local().Id
-		n := NodeID(localID)
-		node, err := v.k.FindNode(ctx, &n)
+		n, err := node.ParsePeerIdentity(localID)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, localID, node.Id)
+
+		foundNode, err := v.k.FindNode(ctx, n)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, foundNode)
+		assert.Equal(t, localID, foundNode.Id)
 		v.k.dht.Disconnect()
 	}
 
@@ -175,7 +180,7 @@ func TestFindNode(t *testing.T) {
 	cases := []struct {
 		k           *Kademlia
 		start       string
-		input       NodeID
+		input       dht.NodeID
 		expectedErr error
 	}{
 		{
@@ -195,8 +200,10 @@ func TestFindNode(t *testing.T) {
 		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
 
-		id := NodeID(rt.Local().Id)
-		node, err := v.k.FindNode(ctx, &id)
+		id, err := node.ParsePeerIdentity(rt.Local().Id)
+		assert.NoError(t, err)
+
+		node, err := v.k.FindNode(ctx, id)
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotZero(t, node)
 		assert.Equal(t, node.Id, id.String())
@@ -251,3 +258,32 @@ func TestPing(t *testing.T) {
 	}
 
 }
+
+// func TestNewClient_LoadTLS(t *testing.T) {
+// 	var err error
+//
+// 	tmpPath, err := ioutil.TempDir("", "TestNewClient")
+// 	assert.NoError(t, err)
+// 	defer os.RemoveAll(tmpPath)
+//
+// 	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
+// 	_, err = peertls.NewTLSHelper(nil)
+//
+// 	assert.NoError(t, err)
+//
+// 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+// 	assert.NoError(t, err)
+// 	// NB: do NOT create a cert, it should be loaded from disk
+// 	srv, tlsH := newMockTLSServer(t, basePath, false)
+//
+// 	go srv.Serve(lis)
+// 	defer srv.Stop()
+//
+// 	address := lis.Addr().String()
+// 	c, err := NewClient(&address, tlsH.DialOption())
+// 	assert.NoError(t, err)
+//
+// 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
+// 	assert.NoError(t, err)
+// 	assert.NotNil(t, r)
+// }

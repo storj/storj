@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 )
 
 // createCmd represents the create command
@@ -26,22 +26,27 @@ var createCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(createCmd)
 
-	nodeID, err := kademlia.NewID()
-	if err != nil {
-		zap.S().Fatal(err)
-	}
-
 	home, err := homedir.Dir()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 
+	createCmd.Flags().String("nodeIDPath", "", "Path to grpc node PeerIdentity PEM file")
+	createCmd.Flags().Uint16("nodeIDHashLen", 38, "Hash length to use for own identity")
 	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
 	createCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")
 	createCmd.Flags().String("kademliaListenPort", "7776", "Kademlia server `listen port`")
 	createCmd.Flags().String("pieceStoreHost", "127.0.0.1", "Farmer's public ip/host")
 	createCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
 	createCmd.Flags().String("dir", home, "`dir` of drive being shared")
+
+	if err := viper.BindPFlag("node.idPath", createCmd.Flags().Lookup("nodeIDPath")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.credsBasePath")
+	}
+
+	if err := viper.BindPFlag("node.idHashLen", createCmd.Flags().Lookup("nodeIDHashLen")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.hashLen")
+	}
 
 	if err := viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost")); err != nil {
 		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.host")
@@ -65,6 +70,14 @@ func init() {
 
 	if err := viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir")); err != nil {
 		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.dir")
+	}
+
+	nodeID, err := node.LoadID(
+		viper.GetString("kademlia.credsBasePath"),
+		uint16(viper.GetInt("kademlia.hashLen")),
+	)
+	if err != nil {
+		zap.S().Fatal(err)
 	}
 
 	viper.SetDefault("piecestore.id", nodeID.String())

@@ -5,13 +5,14 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -19,7 +20,7 @@ import (
 )
 
 // ErrNodeNotFound error standardization
-var ErrNodeNotFound = errs.New("Node not found")
+var ErrNodeNotFound = errs.Class("Node not found")
 
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
@@ -94,9 +95,15 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		nodeID, err := node.ParsePeerIdentity(v.Id)
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
+			zap.Error(errs.New("unable to parse node id \"%s\"", v.Id, err))
+		}
+
+		found, err := o.DHT.FindNode(ctx, nodeID)
+		if err != nil {
+			fmt.Println("could not find node in network", err, v.Id)
+			zap.Error(ErrNodeNotFound.New("node id: %s", v.Id))
 		}
 		addr, err := proto.Marshal(found.Address)
 		if err != nil {
@@ -114,7 +121,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	// loop through nodes in RT and get THEIR route table
 	// keep going forever and ever
 
-	// Other Possibilities: Randomly generate node ID's to ask for?
+	// Other Possibilities: Randomly generate node PeerIdentity's to ask for?
 
 	_, err = o.DHT.GetRoutingTable(ctx)
 
@@ -151,10 +158,12 @@ func (o *Cache) Walk(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		nodeID, err := node.ParsePeerIdentity(v.Id)
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
-			return err
+			return errs.New("unable to parse node id \"%s\"", v.Id, err)
+		}
+		if _, err := o.DHT.FindNode(ctx, nodeID); err != nil {
+			return ErrNodeNotFound.New("node id:", v.Id)
 		}
 	}
 

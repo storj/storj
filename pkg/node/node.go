@@ -6,10 +6,24 @@ package node
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
+)
+
+const (
+	defaultHashLength = uint16(256) // NB: number of bytes required to represent `keyLen` and `hashLen`
+)
+
+var (
+	// ErrInvalidNodeID is used when a node id can't be parsed
+	ErrInvalidNodeID = errs.Class("InvalidNodeIDError")
+	// ErrDifficulty is used when an PeerIdentity has an incompatible or
+	// insufficient difficulty
+	ErrDifficulty = errs.Class("difficulty error")
 )
 
 // Node is the storj definition for a node in the network
@@ -45,3 +59,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 
 	return resp.Response, nil
 }
+
+// func (n *Node) DialOption() (*grpc.DialOption) {
+//
+// }
