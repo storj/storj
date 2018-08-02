@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -141,16 +140,6 @@ func (r *EOFAwareLimitReader) isEOF() bool {
 	return r.eof
 }
 
-func sizeTuple(totalSegments int64, sizeOfSegments int64) (int64, error, int64, error) {
-	sizePerSegment := float64(totalSegments) / float64(sizeOfSegments)
-	stringSegmentsSize := fmt.Sprintf("%f", sizePerSegment)
-	segmentSizeSlice := strings.Split(stringSegmentsSize, ".")
-	perfectSizedSegments, pErr := strconv.ParseInt(segmentSizeSlice[0], 10, 64)
-	lastSegmentSize, lErr := strconv.ParseInt(segmentSizeSlice[1], 10, 64)
-
-	return perfectSizedSegments, pErr, lastSegmentSize, lErr
-}
-
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -163,21 +152,21 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	if err != nil {
 		return nil, Meta{}, err
 	}
-	totalSize := lastSegmentMeta.Size
+
+	msi := streamspb.MetaStreamInfo{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	perfectSizedSegments := msi.SegmentsSize
+	lastSegmentSize := msi.LastSegmentSize
 
 	newMeta := Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
 		Size:       lastSegmentMeta.Size,
 		Data:       lastSegmentMeta.Data,
-	}
-
-	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
-	if pErr == nil {
-		return nil, Meta{}, pErr
-	}
-	if lErr == nil {
-		return nil, Meta{}, lErr
 	}
 
 	if perfectSizedSegments == 0 {
@@ -234,15 +223,15 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	if err != nil {
 		return err
 	}
-	totalSize := lastSegmentMeta.Size
 
-	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
-	if pErr == nil {
-		return pErr
+	msi := streamspb.MetaStreamInfo{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	if err != nil {
+		return err
 	}
-	if lErr == nil {
-		return lErr
-	}
+
+	perfectSizedSegments := msi.SegmentsSize
+	lastSegmentSize := msi.LastSegmentSize
 
 	for i := 0; i < int(perfectSizedSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
@@ -280,15 +269,15 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	if err != nil {
 		return nil, false, err
 	}
-	totalSize := lastSegmentMeta.Size
 
-	perfectSizedSegments, pErr, lastSegmentSize, lErr := sizeTuple(totalSize, s.segmentSize)
-	if pErr == nil {
-		return nil, false, pErr
+	msi := streamspb.MetaStreamInfo{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	if err != nil {
+		return nil, false, err
 	}
-	if lErr == nil {
-		return nil, false, lErr
-	}
+
+	perfectSizedSegments := msi.SegmentsSize
+	lastSegmentSize := msi.LastSegmentSize
 
 	var resItems []ListItem
 	var resMoore bool
