@@ -58,6 +58,8 @@ type ClientConfig struct {
 	// TODO(jt): these should probably be the same
 	OverlayAddr   string `help:"Address to contact overlay server through"`
 	PointerDBAddr string `help:"Address to contact pointerdb server through"`
+
+	APIKey string `help:"API Key (TODO: this needs to change to macaroons somehow)"`
 }
 
 // Config is a general miniogw configuration struct. This should be everything
@@ -124,7 +126,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
-	pdb, err := pointerdb.NewClient(c.PointerDBAddr, nil)
+	pdb, err := pointerdb.NewClient(c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
 		return err
 	}
