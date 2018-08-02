@@ -5,6 +5,7 @@ package boltdb
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -152,5 +153,16 @@ func TestListNoStartingKey(t *testing.T) {
 
 	if !bytes.Equal(testPaths[2], []byte("test/path/3")) {
 		bt.HandleErr(nil, "Expected test/path/3 to be last in list")
+	}
+}
+
+func TestGetAll(t *testing.T) {
+	cases := []struct {
+	}{
+		{},
+	}
+
+	for _, v := range cases {
+		fmt.Println(v)
 	}
 }

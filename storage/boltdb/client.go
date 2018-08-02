@@ -4,7 +4,7 @@
 package boltdb
 
 import (
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -30,7 +30,8 @@ const (
 	// KBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
 	KBucket = "kbuckets"
 	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
-	NodeBucket = "nodes"
+	NodeBucket   = "nodes"
+	maxKeyLookup = 100
 )
 
 var (
@@ -149,5 +150,19 @@ func (c *Client) Close() error {
 
 // GetAll // TODO(coyle): implement
 func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	return nil, errors.New("Not Implemented")
+	lk := len(keys)
+	if lk > maxKeyLookup {
+		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup))
+	}
+
+	vals := make(storage.Values, len(keys))
+	for i, v := range keys {
+		val, err := c.Get(v)
+		if err != nil {
+			return nil, err
+		}
+
+		vals[i] = val
+	}
+	return vals, nil
 }
