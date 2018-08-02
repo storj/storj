@@ -75,7 +75,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -129,7 +129,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, p, nil)
+	err = s.pdb.Put(ctx, path, p)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -178,7 +178,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -206,7 +206,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -227,7 +227,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 	}
 
 	// deletes pointer from pointerdb
-	return s.pdb.Delete(ctx, path, nil)
+	return s.pdb.Delete(ctx, path)
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
@@ -253,7 +253,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	defer mon.Task()(&ctx)(&err)
 
 	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore,
-		recursive, limit, metaFlags, nil)
+		recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}

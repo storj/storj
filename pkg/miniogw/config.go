@@ -124,7 +124,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
-	pdb, err := pointerdb.NewClient(c.PointerDBAddr)
+	pdb, err := pointerdb.NewClient(c.PointerDBAddr, nil)
 	if err != nil {
 		return err
 	}
