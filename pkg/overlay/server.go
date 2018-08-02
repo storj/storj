@@ -42,17 +42,11 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
-	o.logger.Info("@FindStorageNodes")
 	opts := req.GetOpts()
-	o.logger.Info("@GetOpts")
 	maxNodes := opts.GetAmount()
-	o.logger.Info("@GetAmount")
 	restrictions := opts.GetRestrictions()
-	o.logger.Info("@GetRestrictions")
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
-	o.logger.Info("@GetFreeBandwidth")
 	restrictedSpace := restrictions.GetFreeDisk()
-	o.logger.Info("@GetFreeDisk")
 
 	var start storage.Key
 	result := []*proto.Node{}
@@ -60,7 +54,6 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 		var nodes []*proto.Node
 		nodes, start, err = o.populate(ctx, start, maxNodes, restrictedBandwidth, restrictedSpace)
 		if err != nil {
-			o.logger.Info("@FindStorageNodes.populate ERRORED!", zap.Error(err))
 			return nil, Error.Wrap(err)
 		}
 
@@ -77,7 +70,6 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 	}
 
 	if len(result) < int(maxNodes) {
-		o.logger.Info("@FindStorageNodes.len(result) ERRORED!")
 		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 
@@ -93,16 +85,13 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node, error) {
 	values, err := o.cache.DB.GetAll(keys)
 	if err != nil {
-		o.logger.Error("@getNodes.GetAll ERRORED!", zap.Error(err))
 		return nil, Error.Wrap(err)
 	}
 
 	nodes := []*proto.Node{}
 	for _, v := range values {
 		n := &proto.Node{}
-		o.logger.Error("@getNodes.Unmarshal ERRORED!", zap.String("value: ", fmt.Sprintf("%#v", string(v))))
 		if err := protob.Unmarshal(v, n); err != nil {
-			o.logger.Error("@getNodes.Unmarshal ERRORED!", zap.Error(err))
 			return nil, Error.Wrap(err)
 		}
 
