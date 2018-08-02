@@ -5,7 +5,6 @@ package miniogw
 
 import (
 	"context"
-	"flag"
 	"os"
 
 	"github.com/minio/cli"
@@ -23,15 +22,6 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
-
-var (
-	maxInlineSize int
-)
-
-func init() {
-	// maxInlineSize is the maximum size for an inline segment in bytes
-	flag.IntVar(&maxInlineSize, "segments.max_inline_size", 4*1024, "max inline segment size in bytes")
-}
 
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
@@ -59,7 +49,8 @@ type ClientConfig struct {
 	OverlayAddr   string `help:"Address to contact overlay server through"`
 	PointerDBAddr string `help:"Address to contact pointerdb server through"`
 
-	APIKey string `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	APIKey        string `help:"API Key (TODO: this needs to change to macaroons somehow)"`
+	MaxInlineSize int    `help:"max inline segment size in bytes" default:"4096"`
 }
 
 // Config is a general miniogw configuration struct. This should be everything
@@ -107,8 +98,20 @@ func (c Config) Run(ctx context.Context) (err error) {
 }
 
 func (c Config) action(ctx context.Context, cliCtx *cli.Context,
-	identity *provider.FullIdentity) (
-	err error) {
+	identity *provider.FullIdentity) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	gw, err := c.NewGateway(ctx, identity)
+	if err != nil {
+		return err
+	}
+
+	minio.StartGateway(cliCtx, logging.Gateway(gw))
+	return Error.New("unexpected minio exit")
+}
+
+func (c Config) NewGateway(ctx context.Context,
+	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(jt): the transport client should use tls and should use the identity
@@ -118,38 +121,40 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	// TODO(jt): overlay.NewClient should dial the overlay server with the
 	// transport client. probably should use the same connection as the
 	// pointerdb client
-	oc, err := overlay.NewOverlayClient(c.OverlayAddr)
+	var oc overlay.Client
+	oc, err = overlay.NewOverlayClient(c.OverlayAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	// TODO(jt): remove this!
+	oc = GlobalMockOverlay
 
 	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
 	pdb, err := pointerdb.NewClient(c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ec := ecclient.NewClient(t, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(
 		eestream.NewRSScheme(fc, c.StripeSize/c.MaxThreshold),
 		c.RepairThreshold, c.SuccessThreshold)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	segments := segment.NewSegmentStore(oc, ec, pdb, rs, maxInlineSize)
+	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
 	// TODO(jt): wrap segments and turn segments into streams actually
 	// TODO: passthrough is bad
 	stream := streams.NewPassthrough(segments)
 
-	minio.StartGateway(cliCtx, logging.Gateway(
-		NewStorjGateway(objects.NewStore(stream))))
-	return Error.New("unexpected minio exit")
+	return NewStorjGateway(objects.NewStore(stream)), nil
 }
