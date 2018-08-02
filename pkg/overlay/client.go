@@ -44,10 +44,10 @@ func NewOverlayClient(address string) (*Overlay, error) {
 var _ Client = (*Overlay)(nil)
 
 // Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, limit int, space int64) ([]*proto.Node, error) {
+func (o *Overlay) Choose(ctx context.Context, amount int, space int64) ([]*proto.Node, error) {
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &proto.FindStorageNodesRequest{
-		Opts: &proto.OverlayOptions{Limit: int64(limit), Restrictions: &proto.NodeRestrictions{
+		Opts: &proto.OverlayOptions{Amount: int64(amount), Restrictions: &proto.NodeRestrictions{
 			FreeDisk: space,
 		}},
 	})

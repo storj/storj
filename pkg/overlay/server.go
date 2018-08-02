@@ -5,9 +5,12 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 
 	protob "github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/dht"
 
@@ -40,7 +43,7 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
-	maxNodes := opts.GetLimit()
+	maxNodes := opts.GetAmount()
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
@@ -64,6 +67,10 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 			break
 		}
 
+	}
+
+	if len(result) < int(maxNodes) {
+		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 
 	if len(result) > int(maxNodes) {
@@ -97,7 +104,7 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node
 
 func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64) ([]*proto.Node, storage.Key, error) {
 	limit := storage.Limit(maxNodes) * 2
-	keys, err := o.cache.DB.List(nil, limit)
+	keys, err := o.cache.DB.List(starting, limit)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
 		return nil, nil, err
