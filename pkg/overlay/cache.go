@@ -5,6 +5,8 @@ package overlay
 
 import (
 	"context"
+	"fmt"
+	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -111,10 +113,11 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	return err
 }
 
-// Refresh will run as often as configured and updates the cache db
-// with the current DHT. We currently do not penalize nodes that are
-// unresponsive, but should in the future.
+// Refresh updates the cache db with the current DHT.
+// We currently do not penalize nodes that are unresponsive,
+// but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
+	log.Print("starting cache refresh")
 	table, err := o.DHT.GetRoutingTable(ctx)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting routing table", err))
@@ -122,7 +125,25 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	}
 
 	k := table.K()
-	nodes, err := o.DHT.GetNodes(ctx, "0", k)
+	buckets, err := table.GetBuckets()
+	fmt.Printf("got buckets %+v\n, error %s", buckets, err)
+	nodes, err := o.DHT.GetNodes(ctx, "", k)
+
+	/// kick off concurrent refreshes
+	go func() {
+		randomId, err := kademlia.NewID()
+		if err != nil {
+			zap.Error(OverlayError.New("Error generating random ID", err))
+			fmt.Printf("error finding random ID", err)
+		}
+
+		ping, err := o.DHT.Ping(ctx, overlay.Node{Id: randomId.String()})
+		if err != nil {
+			zap.Error(OverlayError.New("Error pinging overlay node", err))
+			fmt.Printf("error pinging node %+v\n", overlay.Node{Id: randomId.String()})
+		}
+		o.DB.Put([]byte(ping.Id), []byte(ping.Address.Address))
+	}()
 
 	for _, node := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *node)
