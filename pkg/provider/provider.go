@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"net"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/peertls"
@@ -35,8 +36,11 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
 
 	return &Provider{
-		lis:      lis,
-		g:        grpc.NewServer(),
+		lis: lis,
+		g: grpc.NewServer(
+			grpc.StreamInterceptor(streamInterceptor),
+			grpc.UnaryInterceptor(unaryInterceptor),
+		),
 		next:     responsibilities,
 		identity: identity,
 	}, nil
@@ -75,4 +79,23 @@ func (p *Provider) TLSConfig() *tls.Config {
 	return (&peertls.TLSFileOptions{
 		LeafCertificate: p.identity.todoCert,
 	}).NewTLSConfig(nil)
+}
+
+func streamInterceptor(srv interface{}, ss grpc.ServerStream,
+	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	err = handler(srv, ss)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return err
+}
+
+func unaryInterceptor(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+	err error) {
+	resp, err = handler(ctx, req)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return resp, err
 }
