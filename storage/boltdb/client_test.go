@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"storj.io/storj/storage"
 )
@@ -157,12 +158,58 @@ func TestListNoStartingKey(t *testing.T) {
 }
 
 func TestGetAll(t *testing.T) {
+	bt := NewBoltClientTest(t)
+	defer bt.Close()
+
 	cases := []struct {
+		setup       func(bt *BoltClientTest) storage.Keys
+		expected    storage.Values
+		expectedErr error
 	}{
-		{},
+		{
+			setup: func(bt *BoltClientTest) storage.Keys {
+				assert.NoError(t, bt.c.Put([]byte("hello"), []byte("world")))
+				return storage.Keys{storage.Key([]byte("hello"))}
+			},
+			expected:    storage.Values{storage.Value([]byte("world"))},
+			expectedErr: nil,
+		},
+		{
+			setup: func(bt *BoltClientTest) storage.Keys {
+				keys := storage.Keys{}
+				for i := 0; i < 101; i++ {
+					key := fmt.Sprintf("hello%d", i)
+					assert.NoError(t, bt.c.Put([]byte(key), []byte("world")))
+					keys = append(keys, storage.Key([]byte(key)))
+				}
+				return keys
+			},
+			expected:    nil,
+			expectedErr: Error.New("requested 101 keys, maximum is 100"),
+		},
+		{
+			setup: func(bt *BoltClientTest) storage.Keys {
+				assert.NoError(t, bt.c.Put([]byte("hello01"), []byte("world")))
+				assert.NoError(t, bt.c.Put([]byte("hello02"), []byte("world")))
+				assert.NoError(t, bt.c.Put([]byte("hello03"), []byte("world")))
+				return storage.Keys{storage.Key([]byte("hello01")), storage.Key([]byte("hello02")), storage.Key([]byte("hello03"))}
+			},
+			expected:    storage.Values{storage.Value([]byte("world")), storage.Value([]byte("world")), storage.Value([]byte("world"))},
+			expectedErr: nil,
+		},
 	}
 
 	for _, v := range cases {
-		fmt.Println(v)
+		bt := NewBoltClientTest(t)
+		defer bt.Close()
+
+		keys := v.setup(bt)
+		actual, actualErr := bt.c.GetAll(keys)
+		if v.expectedErr != nil || actualErr != nil {
+			fmt.Println(actualErr)
+			assert.EqualError(t, v.expectedErr, actualErr.Error())
+		}
+
+		assert.Equal(t, v.expected, actual)
 	}
 }
