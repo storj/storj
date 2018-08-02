@@ -16,15 +16,10 @@ service PieceStoreRoutes {
 
 }
 
-message Identity {  // this is stuff bryan is working on
-  bytes CA = 1; // TODO: Change to Cert type
-  bytes Leaf = 2; // TODO: Change to Cert type
-}
-
 message PayerBandwidthAllocation {
   message Data {
-    string payer = 1;
-    Identity renter = 2;
+    bytes payer = 1;
+    bytes renter = 2;
     int64 max_size = 3;
     int64 expiration = 4; // Timestamp
     string serial_number = 5;
@@ -35,10 +30,9 @@ message PayerBandwidthAllocation {
 
 message RenterBandwidthAllocation {
   message Data {
-    PayerBandwidthAllocation payer = 1;
-    string renter = 2;
-    int64 size = 3;
-    int64 total = 4;
+    PayerBandwidthAllocation payer_allocation = 1;
+    int64 size = 2;
+    int64 total = 3;
   }
 
   bytes signature = 1;

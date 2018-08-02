@@ -2,15 +2,14 @@
 // Source: storj.io/storj/protos/piecestore (interfaces: PieceStoreRoutesClient,PieceStoreRoutes_RetrieveClient)
 
 // Package mock_piecestore is a generated GoMock package.
-package piecestoreroutes
+package mock_piecestore
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
+	reflect "reflect"
 )
 
 // MockPieceStoreRoutesClient is a mock of PieceStoreRoutesClient interface
