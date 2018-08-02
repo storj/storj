@@ -99,7 +99,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			zap.Error(ErrNodeNotFound)
 		}
 
-		node, err := proto.Marshal(v)
+		node, err := proto.Marshal(found)
 		if err != nil {
 			return err
 		}
