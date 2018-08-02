@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
@@ -27,6 +28,7 @@ type Client interface {
 // Overlay is the overlay concrete implementation of the client interface
 type Overlay struct {
 	client proto.OverlayClient
+	logger *zap.Logger
 }
 
 // NewOverlayClient returns a new intialized Overlay Client
@@ -35,8 +37,15 @@ func NewOverlayClient(address string) (*Overlay, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	l, err := zap.NewDevelopment()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Overlay{
 		client: c,
+		logger: l,
 	}, nil
 }
 
@@ -46,13 +55,16 @@ var _ Client = (*Overlay)(nil)
 // Choose implements the client.Choose interface
 func (o *Overlay) Choose(ctx context.Context, amount int, space int64) ([]*proto.Node, error) {
 	// TODO(coyle): We will also need to communicate with the reputation service here
+	o.logger.Info("HERE")
 	resp, err := o.client.FindStorageNodes(ctx, &proto.FindStorageNodesRequest{
 		Opts: &proto.OverlayOptions{Amount: int64(amount), Restrictions: &proto.NodeRestrictions{
 			FreeDisk: space,
 		}},
 	})
+	o.logger.Info("HERE 2")
 	if err != nil {
-		return nil, err
+		o.logger.Info("Error", zap.Error(err))
+		return nil, Error.Wrap(err)
 	}
 
 	return resp.GetNodes(), nil

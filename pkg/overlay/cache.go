@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -82,11 +83,14 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 		return err
 	}
 
-	return o.DB.Put([]byte(nodeID), []byte(data))
+	ss := kademlia.StringToNodeID(nodeID)
+
+	return o.DB.Put(ss.Bytes(), []byte(data))
 }
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
+	fmt.Println("HERE @ Bootstrap")
 	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
 
 	if err != nil {
@@ -98,12 +102,14 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
-		addr, err := proto.Marshal(found.Address)
+		fmt.Printf("HERE @ Bootstrap :: %#v\n", kademlia.StringToNodeID(v.Id).String())
+		node, err := proto.Marshal(v)
 		if err != nil {
 			return err
 		}
+		ss := kademlia.StringToNodeID(found.Id)
 
-		if err := o.DB.Put([]byte(found.Id), addr); err != nil {
+		if err := o.DB.Put(ss.Bytes(), node); err != nil {
 			return err
 		}
 	}

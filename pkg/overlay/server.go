@@ -42,11 +42,17 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
+	o.logger.Info("@FindStorageNodes")
 	opts := req.GetOpts()
+	o.logger.Info("@GetOpts")
 	maxNodes := opts.GetAmount()
+	o.logger.Info("@GetAmount")
 	restrictions := opts.GetRestrictions()
+	o.logger.Info("@GetRestrictions")
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
+	o.logger.Info("@GetFreeBandwidth")
 	restrictedSpace := restrictions.GetFreeDisk()
+	o.logger.Info("@GetFreeDisk")
 
 	var start storage.Key
 	result := []*proto.Node{}
@@ -54,7 +60,8 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 		var nodes []*proto.Node
 		nodes, start, err = o.populate(ctx, start, maxNodes, restrictedBandwidth, restrictedSpace)
 		if err != nil {
-			return nil, err
+			o.logger.Info("@FindStorageNodes.populate ERRORED!", zap.Error(err))
+			return nil, Error.Wrap(err)
 		}
 
 		if len(nodes) <= 0 {
@@ -70,6 +77,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 	}
 
 	if len(result) < int(maxNodes) {
+		o.logger.Info("@FindStorageNodes.len(result) ERRORED!")
 		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 
@@ -85,14 +93,17 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node, error) {
 	values, err := o.cache.DB.GetAll(keys)
 	if err != nil {
-		return nil, err
+		o.logger.Error("@getNodes.GetAll ERRORED!", zap.Error(err))
+		return nil, Error.Wrap(err)
 	}
 
 	nodes := []*proto.Node{}
 	for _, v := range values {
 		n := &proto.Node{}
+		o.logger.Error("@getNodes.Unmarshal ERRORED!", zap.String("value: ", fmt.Sprintf("%#v", string(v))))
 		if err := protob.Unmarshal(v, n); err != nil {
-			return nil, err
+			o.logger.Error("@getNodes.Unmarshal ERRORED!", zap.Error(err))
+			return nil, Error.Wrap(err)
 		}
 
 		nodes = append(nodes, n)
@@ -107,7 +118,7 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	keys, err := o.cache.DB.List(starting, limit)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
-		return nil, nil, err
+		return nil, nil, Error.Wrap(err)
 	}
 
 	if len(keys) <= 0 {
@@ -118,7 +129,8 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	result := []*proto.Node{}
 	nodes, err := o.getNodes(ctx, keys)
 	if err != nil {
-		return nil, nil, err
+		o.logger.Error("Error getting nodes", zap.Error(err))
+		return nil, nil, Error.Wrap(err)
 	}
 
 	for _, v := range nodes {

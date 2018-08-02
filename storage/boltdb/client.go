@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	protob "github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/storage"
 )
 
@@ -55,6 +57,13 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (c *Client) Put(key storage.Key, value storage.Value) error {
+
+	fmt.Printf("\nVALUE::%#v\n", string(value))
+	n := &proto.Node{}
+	if err := protob.Unmarshal(value, n); err != nil {
+		c.logger.Error("errored marshalling")
+	}
+	fmt.Printf("\nVALUE::%#v\n", n)
 	c.logger.Debug("entering bolt put")
 	return c.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(c.Bucket)
