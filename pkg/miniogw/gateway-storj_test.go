@@ -291,7 +291,7 @@ func TestListObjects(t *testing.T) {
 	s := Storj{os: mockGetObject}
 	testUser := storjObjects{storj: &s}
 
-	for _, example := range []struct {
+	for i, example := range []struct {
 		bucket, prefix    string
 		marker, delimiter string
 		maxKeys           int
@@ -306,12 +306,47 @@ func TestListObjects(t *testing.T) {
 		Checksum          string
 		NumOfListItems    int
 		err               error
+		errString         string
 	}{
 		/* initialize the structure */
-		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1, nil},
-		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2, nil},
-		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2, errors.New("some error")},
+
+		// happy scenario with  request items 1 and returned items 1
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1, nil, ""},
+
+		// happy scenario with  request items 2 and returned items 2
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 2, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2, nil, ""},
+
+		// happy scenario with requested 10 and returned items 0
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 10, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 0, nil, ""},
+
+		// happy scenario with requested 10 and returned items 100
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 10, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 100, nil, ""},
+
+		// happy scenario with requested 100 and returned items 10
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+
+		// happy scenario with requested 1000 and returned items 2000
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, ""},
+
+		// happy scenario with requested 2000 and returned items 2000
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 2000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, ""},
+
+		// happy scenario with requested -10 and returned items 2000
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", -10, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, "Storj Gateway error: Invalid argument(s)"},
+
+		// invalid bucket
+		{"", ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, "Storj Gateway error: Invalid argument(s)"},
+
+		// // empty prefix
+		{("bucket_" + checksumGen(10)), "", ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+
+		// invalid bucket and/or object
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, ""},
+
+		// mock returning non-nil error
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1000, Error.New("error"), "Storj Gateway error: error"},
 	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
 
 		/* add test code here ... */
 		var metadata = make(map[string]string)
@@ -334,25 +369,42 @@ func TestListObjects(t *testing.T) {
 		}
 		items := make([]objects.ListItem, example.NumOfListItems)
 
-		for i := 0x00; i < example.NumOfListItems; i++ {
-			items[i].Path = paths.Path{example.bucket, example.prefix}
-			items[i].Meta = meta1
+		// set the item[0] to the initialized test case to keep the same starting marker
+		if example.NumOfListItems > 0x00 {
+			items[0].Path = paths.Path{example.bucket, example.prefix, example.marker}
+			for i := 0x01; i < example.NumOfListItems; i++ {
+				items[i].Path = paths.Path{example.bucket, example.prefix, ("marker_" + checksumGen(10))}
+				items[i].Meta = meta1
+			}
 		}
 
 		// initialize the necessary mock's argument
 		startAfter := paths.New(example.marker)
 
-		mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
-			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
+		if example.bucket == "" {
+			/* dont execute the mock's EXPECT() if any of the above 3 conditions are true */
+		} else {
+			maxKeys := example.maxKeys
+			if maxKeys > 0 {
+				if maxKeys > 1000 {
+					maxKeys = 1000
+				}
+				mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
+					startAfter, nil, example.recursive, maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
+			}
+		}
 
-		oi, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
+		objInfo, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
 			example.marker, example.delimiter, example.maxKeys)
 
-		if example.err != nil {
-			assert.NotNil(t, err)
+		if err != nil {
+			assert.EqualError(t, err, example.errString)
+			if example.err != nil {
+				assert.Empty(t, objInfo, errTag)
+			}
 		} else {
-			assert.Nil(t, err)
+			assert.NoError(t, err, errTag)
+			assert.NotNil(t, objInfo, errTag)
 		}
-		assert.NotNil(t, oi)
 	}
 }
