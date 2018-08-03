@@ -4,13 +4,14 @@
 package kademlia
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	pb "github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 )
@@ -28,9 +29,16 @@ func tempfile(fileName string) string {
 	return f.Name()
 }
 
-func createRT() *RoutingTable {
-	localNodeID, _ := newID()
-	localNode := proto.Node{Id: string(localNodeID)}
+func createRT(localNodeID ...[]byte) *RoutingTable {
+	if localNodeID == nil {
+		id, err := newID()
+		if err != nil {
+			fmt.Print(err)
+			return nil
+		}
+		localNodeID = append(localNodeID, id)
+	}
+	localNode := proto.Node{Id: string(localNodeID[0])}
 	options := &RoutingOptions{
 		kpath:      tempfile("Kadbucket"),
 		npath:      tempfile("Nodebucket"),
@@ -48,12 +56,8 @@ func mockNode(id string) *proto.Node {
 }
 
 func TestAddNode(t *testing.T) {
-	rt := createRT()
-	//add local node
-	rt.self = mockNode("OO") //[79, 79] or [01001111, 01001111]
-	localNode := rt.self
-	err := rt.addNode(localNode)
-	assert.NoError(t, err)
+	rt := createRT([]byte("OO")) //localNode [79, 79] or [01001111, 01001111]
+
 	bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
 	assert.NoError(t, err)
 	assert.NotNil(t, bucket)
@@ -259,9 +263,8 @@ func TestXorTwoIds(t *testing.T) {
 }
 
 func TestSortByXOR(t *testing.T) {
-	rt := createRT()
 	node1 := []byte{127, 255} //xor 0
-	rt.nodeBucketDB.Put(node1, []byte(""))
+	rt := createRT(node1)
 	node2 := []byte{143, 255} //xor 240
 	rt.nodeBucketDB.Put(node2, []byte(""))
 	node3 := []byte{255, 255} //xor 128
@@ -283,8 +286,8 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
-	rt := createRT()
 	node1 := []byte{127, 255} //xor 0
+	rt := createRT(node1)
 	rt.self.Id = string(node1)
 	rt.nodeBucketDB.Put(node1, []byte(""))
 	expectedFurthest := node1
@@ -327,12 +330,9 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 }
 
 func TestNodeIsWithinNearestK(t *testing.T) {
-	rt := createRT()
-	rt.bucketSize = 2
-
 	selfNode := []byte{127, 255}
-	rt.self.Id = string(selfNode)
-	rt.nodeBucketDB.Put(selfNode, []byte(""))
+	rt := createRT(selfNode)
+	rt.bucketSize = 2
 	expectTrue, err := rt.nodeIsWithinNearestK(selfNode)
 	assert.NoError(t, err)
 	assert.True(t, expectTrue)
@@ -362,18 +362,13 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
-	rt := createRT()
+	nodeIDA := []byte{183, 255} //[10110111, 1111111]
+	rt := createRT(nodeIDA)
 	kadIDA := storage.Key([]byte{255, 255})
 	kadIDB := storage.Key([]byte{127, 255})
 	now := time.Now()
-	err := rt.createOrUpdateKBucket(kadIDA, now)
+	err := rt.createOrUpdateKBucket(kadIDB, now)
 	assert.NoError(t, err)
-	err = rt.createOrUpdateKBucket(kadIDB, now)
-	assert.NoError(t, err)
-	nodeIDA := []byte{183, 255} //[10110111, 1111111]
-	err = rt.nodeBucketDB.Put(nodeIDA, []byte(""))
-	assert.NoError(t, err)
-	rt.self.Id = string(nodeIDA)
 	resultTrue, err := rt.kadBucketContainsLocalNode(kadIDA)
 	assert.NoError(t, err)
 	resultFalse, err := rt.kadBucketContainsLocalNode(kadIDB)
@@ -383,18 +378,14 @@ func TestKadBucketContainsLocalNode(t *testing.T) {
 }
 
 func TestKadBucketHasRoom(t *testing.T) {
-	//valid when kad bucket has >0 nodes in it due to ../storage/boltdb/client.go:99
-	rt := createRT()
-	kadIDA := storage.Key([]byte{255, 255})
-	now := time.Now()
-	rt.createOrUpdateKBucket(kadIDA, now)
 	node1 := []byte{255, 255}
+	kadIDA := storage.Key([]byte{255, 255})
+	rt := createRT(node1)
 	node2 := []byte{191, 255}
 	node3 := []byte{127, 255}
 	node4 := []byte{63, 255}
 	node5 := []byte{159, 255}
 	node6 := []byte{0, 127}
-	rt.nodeBucketDB.Put(node1, []byte(""))
 	resultA, err := rt.kadBucketHasRoom(kadIDA)
 	assert.NoError(t, err)
 	assert.True(t, resultA)
@@ -409,18 +400,16 @@ func TestKadBucketHasRoom(t *testing.T) {
 }
 
 func TestGetNodeIDsWithinKBucket(t *testing.T) {
-	rt := createRT()
+	nodeIDA := []byte{183, 255} //[10110111, 1111111]
+	rt := createRT(nodeIDA)
 	kadIDA := storage.Key([]byte{255, 255})
 	kadIDB := storage.Key([]byte{127, 255})
 	now := time.Now()
-	rt.createOrUpdateKBucket(kadIDA, now)
 	rt.createOrUpdateKBucket(kadIDB, now)
 
-	nodeIDA := []byte{183, 255} //[10110111, 1111111]
 	nodeIDB := []byte{111, 255} //[01101111, 1111111]
 	nodeIDC := []byte{47, 255}  //[00101111, 1111111]
 
-	rt.nodeBucketDB.Put(nodeIDA, []byte(""))
 	rt.nodeBucketDB.Put(nodeIDB, []byte(""))
 	rt.nodeBucketDB.Put(nodeIDC, []byte(""))
 
@@ -437,11 +426,9 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 }
 
 func TestGetNodesFromIDs(t *testing.T) {
-	rt := createRT()
 	nodeA := mockNode("AA")
 	nodeB := mockNode("BB")
 	nodeC := mockNode("CC")
-
 	nodeIDA := []byte(nodeA.Id)
 	nodeIDB := []byte(nodeB.Id)
 	nodeIDC := []byte(nodeC.Id)
@@ -451,11 +438,13 @@ func TestGetNodesFromIDs(t *testing.T) {
 	assert.NoError(t, err)
 	c, err := pb.Marshal(nodeC)
 	assert.NoError(t, err)
+	rt := createRT(nodeIDA)
+
 	rt.nodeBucketDB.Put(nodeIDA, a)
 	rt.nodeBucketDB.Put(nodeIDB, b)
 	rt.nodeBucketDB.Put(nodeIDC, c)
 	expected := []storage.Value{a, b, c}
-	
+
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	values, err := rt.getNodesFromIDs(nodeIDs)
@@ -464,7 +453,7 @@ func TestGetNodesFromIDs(t *testing.T) {
 }
 
 func TestUnmarshalNodes(t *testing.T) {
-	rt := createRT()
+	//FAILING
 	nodeA := mockNode("AA")
 	nodeB := mockNode("BB")
 	nodeC := mockNode("CC")
@@ -478,6 +467,7 @@ func TestUnmarshalNodes(t *testing.T) {
 	assert.NoError(t, err)
 	c, err := pb.Marshal(nodeC)
 	assert.NoError(t, err)
+	rt := createRT(nodeIDA)
 	rt.nodeBucketDB.Put(nodeIDA, a)
 	rt.nodeBucketDB.Put(nodeIDB, b)
 	rt.nodeBucketDB.Put(nodeIDC, c)
@@ -492,6 +482,7 @@ func TestUnmarshalNodes(t *testing.T) {
 }
 
 func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
+	//FAILING
 	rt := createRT()
 	bucketID := []byte{255, 255}
 	nodeA := mockNode("AA")

@@ -16,7 +16,6 @@ import (
 )
 
 // addNode attempts to add a new contact to the routing table
-// Note: Local Node must be added to the routing table first
 // Requires node not already in table
 func (rt *RoutingTable) addNode(node *proto.Node) error {
 	rt.mutex.Lock()
@@ -225,7 +224,9 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 		return true, nil
 	}
 	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodes)
-
+	if err != nil {
+		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
+	}
 	localNodeID := rt.self.Id
 	existingXor := xorTwoIds(furthestIDWithinK, []byte(localNodeID))
 	newXor := xorTwoIds(nodeID, []byte(localNodeID))

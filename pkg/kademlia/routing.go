@@ -52,7 +52,7 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
-	return &RoutingTable{
+	rt := &RoutingTable{
 		self:         localNode,
 		kadBucketDB:  kdb,
 		nodeBucketDB: ndb,
@@ -60,8 +60,14 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 		mutex:        &sync.Mutex{},
 		idLength:     options.idLength,
 		bucketSize:   options.bucketSize,
-	}, nil
+	}
+	err = rt.addNode(localNode)
+	if err != nil {
+		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
+	}
+	return rt, nil
 }
+
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() proto.Node {
