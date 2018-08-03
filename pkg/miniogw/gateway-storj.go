@@ -89,17 +89,6 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// handle invalid parameters
-	if bucket == "" {
-		return Error.New("Invalid bucket")
-	}
-	if object == "" {
-		return Error.New("Invalid object")
-	}
-	if writer == nil {
-		return Error.New("Invalid io.Writer")
-	}
-
 	objpath := paths.New(bucket, object)
 	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
@@ -120,14 +109,6 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// handle invalid parameters
-	if bucket == "" {
-		return objInfo, Error.New("Invalid bucket")
-	}
-	if object == "" {
-		return objInfo, Error.New("Invalid object")
-	}
 
 	objPath := paths.New(bucket, object)
 	m, err := s.storj.os.Meta(ctx, objPath)
@@ -154,71 +135,32 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	return buckets, err
 }
 
-// listObjects - (List Objects) - List some or all (up to 1000) of the objects in a bucket.
-//
-// You can use the request parameters as selection criteria to return a subset of the objects in a bucket.
-// request parameters :-
-// ---------
-// ?marker - Specifies the key to start with when listing objects in a bucket.
-// ?delimiter - A delimiter is a character you use to group keys.
-// ?prefix - Limits the response to keys that begin with the specified prefix.
-// ?max-keys - Sets the maximum number of keys returned in the response body.
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (objInfo minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// handle invalid parameters
-	if bucket == "" {
-		return objInfo, Error.New("Invalid bucket")
-	}
-
-	// maxkeys should default to 1000 or less.
-	if maxKeys > 0 {
-		if maxKeys == 0 || maxKeys > 1000 {
-			maxKeys = 1000
-		}
-	} else {
-		return objInfo, Error.New("Invalid maxKeys")
-	}
-
 	startAfter := paths.New(marker)
-
+	var fl []minio.ObjectInfo
 	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
 		return objInfo, err
 	}
-
-	var fl []minio.ObjectInfo
-	itemsListLen := len(items)
-	if itemsListLen > 0 {
+	if len(items) > 0 {
 		//Populate the objectlist (aka filelist)
-		var f []minio.ObjectInfo
-		if itemsListLen > maxKeys {
-			itemsListLen = maxKeys
-			f = make([]minio.ObjectInfo, maxKeys)
-		} else {
-			f = make([]minio.ObjectInfo, itemsListLen)
-		}
-
+		f := make([]minio.ObjectInfo, len(items))
 		for i, fi := range items {
-			if i < itemsListLen {
-				f[i] = minio.ObjectInfo{
-					Bucket:      fi.Path[0],
-					Name:        fi.Path[1:].String(),
-					ModTime:     fi.Meta.Modified,
-					Size:        fi.Meta.Size,
-					ContentType: fi.Meta.ContentType,
-					UserDefined: fi.Meta.UserDefined,
-					ETag:        fi.Meta.Checksum,
-				}
-			} else {
-				break
+			f[i] = minio.ObjectInfo{
+				Bucket:      fi.Path[0],
+				Name:        fi.Path[1:].String(),
+				ModTime:     fi.Meta.Modified,
+				Size:        fi.Meta.Size,
+				ContentType: fi.Meta.ContentType,
+				UserDefined: fi.Meta.UserDefined,
+				ETag:        fi.Meta.Checksum,
 			}
 		}
 		startAfter = items[len(items)-1].Path[len(paths.New(bucket, prefix)):]
 		fl = f
-	} else {
-		return objInfo, err
 	}
 
 	objInfo = minio.ListObjectsInfo{
@@ -243,28 +185,17 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// handle invalid parameters
-	if bucket == "" {
-		return objInfo, Error.New("Invalid bucket")
-	}
-	if object == "" {
-		return objInfo, Error.New("Invalid object")
-	}
-	if data == nil {
-		return objInfo, Error.New("Invalid io.Reader")
-	}
-
 	objPath := paths.New(bucket, object)
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 
-	//metadata serialized
+	// metadata serialized
 	serMetaInfo := objects.SerializableMeta{
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
 
-	// [TODO @ASK] setting zero value means the object never expires
+	// setting zero value means the object never expires
 	expTime := time.Time{}
 
 	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
