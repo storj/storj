@@ -4,11 +4,13 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -77,6 +79,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	startingPort := setupCfg.StartingPort
 
+	apiKey, err := newAPIKey()
+	if err != nil {
+		return err
+	}
+
 	overrides := map[string]interface{}{
 		"heavy-client.identity.cert-path": filepath.Join(
 			setupCfg.BasePath, "hc", "ident.leaf.cert"),
@@ -104,7 +111,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+1),
 		"gateway.minio-dir": filepath.Join(
 			setupCfg.BasePath, "gw", "minio"),
-		"pointer-db.auth.api-key": "abc123",
+		"gateway.api-key":         apiKey,
+		"pointer-db.auth.api-key": apiKey,
 	}
 
 	for i := 0; i < len(runCfg.Farmers); i++ {
@@ -129,4 +137,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 func joinHostPort(host string, port int) string {
 	return net.JoinHostPort(host, fmt.Sprint(port))
+}
+
+func newAPIKey() (string, error) {
+	var buf [20]byte
+	_, err := rand.Read(buf[:])
+	if err != nil {
+		return "", err
+	}
+	return base58.Encode(buf[:]), nil
 }

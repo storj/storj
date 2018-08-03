@@ -82,7 +82,7 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 		return err
 	}
 
-	return o.DB.Put([]byte(nodeID), []byte(data))
+	return o.DB.Put(kademlia.StringToNodeID(nodeID).Bytes(), []byte(data))
 }
 
 // Bootstrap walks the initialized network and populates the cache
@@ -98,12 +98,13 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
-		addr, err := proto.Marshal(found.Address)
+
+		node, err := proto.Marshal(&found)
 		if err != nil {
 			return err
 		}
 
-		if err := o.DB.Put([]byte(found.Id), addr); err != nil {
+		if err := o.DB.Put(kademlia.StringToNodeID(found.Id).Bytes(), node); err != nil {
 			return err
 		}
 	}
