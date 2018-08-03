@@ -124,15 +124,24 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	k := table.K()
-	nodes, err := o.DHT.GetNodes(ctx, "", k)
+	buckets, _ := table.GetBuckets()
+
+	for _, b := range buckets {
+		log.Printf("refreshing bucket %+v\n", b)
+		bucketNodes := b.Nodes()
+		for _, bn := range bucketNodes {
+			log.Printf("bucket node %+v\n", bn)
+		}
+	}
+
+	nodes, err := o.DHT.GetNodes(ctx, "", 1024)
 
 	/// kick off concurrent refreshes
 	randomID, err := kademlia.NewID()
 
 	if err != nil {
 		zap.Error(OverlayError.New("Error generating random ID", err))
-		fmt.Printf("error finding random ID", err)
+		log.Printf("error finding random ID %+v\n", err)
 	}
 
 	nn, err := o.DHT.FindNearNodes(ctx, randomID)
@@ -141,6 +150,16 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	}
 
 	fmt.Printf("found near nodes %+v\n", nn)
+
+	for _, n := range nn {
+		log.Printf("getting routing table for node %+v\n", n)
+		t, err := kademlia.GetNodeRoutingTable(ctx, kademlia.NodeID(n.Id))
+		if err != nil {
+			zap.Error(OverlayError.New("Error getting node routing table", err))
+			log.Printf("error getting routing table from foreign node %+v\n", err)
+		}
+		log.Printf("got routing table back %+v\n", t)
+	}
 
 	for _, node := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *node)
