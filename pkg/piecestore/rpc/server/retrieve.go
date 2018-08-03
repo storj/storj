@@ -77,7 +77,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager(length)
-	var latestBA *pb.BandwidthAllocation
+	var latestBA *pb.RenterBandwidthAllocation
 
 	for am.Used < am.MaxToUse {
 		// Receive Bandwidth allocation

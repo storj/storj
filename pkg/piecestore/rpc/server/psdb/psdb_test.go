@@ -236,19 +236,18 @@ func TestAddTTLToDB(t *testing.T) {
 
 func TestWriteBandwidthAllocToDB(t *testing.T) {
 	tests := []struct {
-		it            string
-		id            string
-		payer, renter string
-		size, total   int64
-		err           string
+		it              string
+		id              string
+		payerAllocation *pb.PayerBandwidthAllocation
+		size, total     int64
+		err             string
 	}{
 		{
-			it:     "should successfully Put Bandwidth Allocation",
-			payer:  "payer-id",
-			renter: "renter-id",
-			size:   5,
-			total:  5,
-			err:    "",
+			it:              "should successfully Put Bandwidth Allocation",
+			payerAllocation: &pb.PayerBandwidthAllocation{},
+			size:            5,
+			total:           5,
+			err:             "",
 		},
 	}
 
@@ -271,10 +270,12 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 			t.Run(tt.it, func(t *testing.T) {
 				t.Parallel()
 				assert := assert.New(t)
-				ba := &pb.BandwidthAllocation{
+				ba := &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
-					Data: &pb.BandwidthAllocation_Data{
-						Payer: tt.payer, Renter: tt.renter, Size: tt.size, Total: tt.total,
+					Data: &pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: tt.payerAllocation,
+						Size:            tt.size,
+						Total:           tt.total,
 					},
 				}
 				err = db.WriteBandwidthAllocToDB(ba)
@@ -298,14 +299,13 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					err = rows.Scan(&agreement, &signature)
 					assert.Nil(err)
 
-					decoded := &pb.BandwidthAllocation_Data{}
+					decoded := &pb.RenterBandwidthAllocation_Data{}
 
 					err = proto.Unmarshal(agreement, decoded)
 					assert.Nil(err)
 
 					assert.Equal(ba.GetSignature(), signature)
-					assert.Equal(ba.Data.GetPayer(), decoded.GetPayer())
-					assert.Equal(ba.Data.GetRenter(), decoded.GetRenter())
+					assert.Equal(ba.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
 					assert.Equal(ba.Data.GetSize(), decoded.GetSize())
 					assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
 

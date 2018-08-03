@@ -123,7 +123,7 @@ func (psdb *PSDB) CheckEntries(dir string) error {
 }
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
-func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.BandwidthAllocation) error {
+func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 	psdb.mtx.Lock()
 	defer psdb.mtx.Unlock()
 

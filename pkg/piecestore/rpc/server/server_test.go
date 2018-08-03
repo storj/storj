@@ -237,7 +237,18 @@ func TestRetrieve(t *testing.T) {
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
-				err = stream.Send(&pb.PieceRetrieval{Bandwidthallocation: &pb.BandwidthAllocation{Signature: []byte{'A', 'B'}, Data: &pb.BandwidthAllocation_Data{Payer: "payer-id", Renter: "renter-id", Size: tt.allocSize, Total: totalAllocated}}})
+				err = stream.Send(
+					&pb.PieceRetrieval{
+						Bandwidthallocation: &pb.RenterBandwidthAllocation{
+							Signature: []byte{'A', 'B'},
+							Data: &pb.RenterBandwidthAllocation_Data{
+								PayerAllocation: &pb.PayerBandwidthAllocation{},
+								Size:            tt.allocSize,
+								Total:           totalAllocated,
+							},
+						},
+					},
+				)
 				assert.Nil(err)
 
 				resp, err = stream.Recv()
@@ -319,10 +330,12 @@ func TestStore(t *testing.T) {
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
 				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
-				Bandwidthallocation: &pb.BandwidthAllocation{
+				Bandwidthallocation: &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
-					Data: &pb.BandwidthAllocation_Data{
-						Payer: "payer-id", Renter: "renter-id", Size: int64(len(tt.content)), Total: int64(len(tt.content)),
+					Data: &pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						Size:            int64(len(tt.content)),
+						Total:           int64(len(tt.content)),
 					},
 				},
 			}
@@ -356,13 +369,12 @@ func TestStore(t *testing.T) {
 				err = rows.Scan(&agreement, &signature)
 				assert.Nil(err)
 
-				decoded := &pb.BandwidthAllocation_Data{}
+				decoded := &pb.RenterBandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
 
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
-				assert.Equal(msg.Bandwidthallocation.Data.GetPayer(), decoded.GetPayer())
-				assert.Equal(msg.Bandwidthallocation.Data.GetRenter(), decoded.GetRenter())
+				assert.Equal(msg.Bandwidthallocation.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
 				assert.Equal(msg.Bandwidthallocation.Data.GetSize(), decoded.GetSize())
 				assert.Equal(msg.Bandwidthallocation.Data.GetTotal(), decoded.GetTotal())
 

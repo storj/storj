@@ -180,7 +180,7 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ba *pb.BandwidthAllocation) error {
+func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
 	// TODO: verify signature
 
 	// data := ba.GetData()

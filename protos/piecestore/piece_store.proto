@@ -25,7 +25,7 @@ message PayerBandwidthAllocation {
     string serial_number = 5;
   }
   bytes signature = 1;
-  bytes data = 2;
+  Data data = 2;
 }
 
 message RenterBandwidthAllocation {
@@ -36,7 +36,7 @@ message RenterBandwidthAllocation {
   }
 
   bytes signature = 1;
-  bytes data = 2;
+  Data data = 2;
 }
 
 message PieceStore {

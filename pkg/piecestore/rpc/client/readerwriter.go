@@ -21,8 +21,10 @@ type StreamWriter struct {
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
-	allocationData := &pb.BandwidthAllocation_Data{
-		Payer: s.signer.payerID, Renter: s.signer.renterID, Total: updatedAllocation, Size: int64(len(b)),
+	allocationData := &pb.RenterBandwidthAllocation_Data{
+		PayerAllocation: s.signer.payerBandwidthAllocation,
+		Total:           updatedAllocation,
+		Size:            int64(len(b)),
 	}
 
 	sig, err := s.signer.sign(allocationData)
@@ -31,8 +33,10 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	}
 
 	msg := &pb.PieceStore{
-		Piecedata:           &pb.PieceStore_PieceData{Content: b},
-		Bandwidthallocation: &pb.BandwidthAllocation{Data: allocationData, Signature: sig},
+		Piecedata: &pb.PieceStore_PieceData{Content: b},
+		Bandwidthallocation: &pb.RenterBandwidthAllocation{
+			Data: allocationData, Signature: sig,
+		},
 	}
 
 	s.totalWritten = updatedAllocation
@@ -72,8 +76,10 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
-		allocationData := &pb.BandwidthAllocation_Data{
-			Payer: signer.payerID, Renter: signer.renterID, Size: int64(signer.bandwidthMsgSize), Total: updatedAllocation,
+		allocationData := &pb.RenterBandwidthAllocation_Data{
+			PayerAllocation: signer.payerBandwidthAllocation,
+			Total:           updatedAllocation,
+			Size:            int64(signer.bandwidthMsgSize),
 		}
 
 		sig, err := signer.sign(allocationData)
@@ -82,7 +88,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 		}
 
 		msg := &pb.PieceRetrieval{
-			Bandwidthallocation: &pb.BandwidthAllocation{
+			Bandwidthallocation: &pb.RenterBandwidthAllocation{
 				Signature: sig,
 				Data:      allocationData,
 			},

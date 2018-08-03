@@ -31,16 +31,15 @@ type PSClient interface {
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
-	route            pb.PieceStoreRoutesClient
-	conn             *grpc.ClientConn
-	pkey             []byte
-	bandwidthMsgSize int
-	payerID          string
-	renterID         string
+	route                    pb.PieceStoreRoutesClient
+	conn                     *grpc.ClientConn
+	pkey                     []byte
+	bandwidthMsgSize         int
+	payerBandwidthAllocation *pb.PayerBandwidthAllocation
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID string) PSClient {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) PSClient {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
@@ -52,15 +51,15 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, payerID, renterID 
 	}
 
 	return &Client{
-		conn:    conn,
-		route:   pb.NewPieceStoreRoutesClient(conn),
-		payerID: payerID, renterID: renterID,
-		bandwidthMsgSize: bandwidthMsgSize,
+		conn:  conn,
+		route: pb.NewPieceStoreRoutesClient(conn),
+		payerBandwidthAllocation: pba,
+		bandwidthMsgSize:         bandwidthMsgSize,
 	}
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, payerID, renterID string) *Client {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) *Client {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
@@ -71,7 +70,11 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, payer
 		bandwidthMsgSize = defaultBandwidthMsgSize
 	}
 
-	return &Client{route: route, payerID: payerID, renterID: renterID, bandwidthMsgSize: bandwidthMsgSize}
+	return &Client{
+		route: route,
+		payerBandwidthAllocation: pba,
+		bandwidthMsgSize:         bandwidthMsgSize,
+	}
 }
 
 // CloseConn closes the connection with piecestore
@@ -135,7 +138,7 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 }
 
 // sign a message using the clients private key
-func (client *Client) sign(msg *pb.BandwidthAllocation_Data) (signature []byte, err error) {
+func (client *Client) sign(msg *pb.RenterBandwidthAllocation_Data) (signature []byte, err error) {
 	// use c.pkey to sign msg
 
 	return signature, err

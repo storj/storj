@@ -32,7 +32,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 // StreamReader is a struct for Retrieving data from server
 type StreamReader struct {
 	src                 *utils.ReaderSource
-	bandwidthAllocation *pb.BandwidthAllocation
+	bandwidthAllocation *pb.RenterBandwidthAllocation
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store

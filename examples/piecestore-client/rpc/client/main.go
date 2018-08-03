@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var argError = errs.Class("argError")
@@ -32,7 +33,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn, 1024*32, "payer-id", "renter-id")
+	psClient := client.NewPSClient(conn, 1024*32, &pb.PayerBandwidthAllocation{})
 
 	app.Commands = []cli.Command{
 		{
