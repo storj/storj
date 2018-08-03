@@ -56,6 +56,8 @@ func Initialize(config Config) (*Server, error) {
 		return nil, err
 	}
 
+	fmt.Println(dbPath)
+
 	return &Server{DataDir: dataDir, DB: psDB, config: config}, nil
 }
 
