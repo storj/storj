@@ -28,7 +28,7 @@ var (
 // Overlay cache responsibility.
 type Config struct {
 	DatabaseURL     string 					`help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
-	RefreshInterval time.Duration  	`help:"the interval at which the cache refreshes itself in seconds" default: "30s"`
+	RefreshInterval time.Duration  	`help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 }
 
 // Run implements the provider.Responsibility interface. Run assumes a

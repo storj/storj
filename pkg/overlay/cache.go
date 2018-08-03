@@ -125,25 +125,22 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	}
 
 	k := table.K()
-	buckets, err := table.GetBuckets()
-	fmt.Printf("got buckets %+v\n, error %s", buckets, err)
 	nodes, err := o.DHT.GetNodes(ctx, "", k)
 
 	/// kick off concurrent refreshes
-	go func() {
-		randomId, err := kademlia.NewID()
-		if err != nil {
-			zap.Error(OverlayError.New("Error generating random ID", err))
-			fmt.Printf("error finding random ID", err)
-		}
+	randomID, err := kademlia.NewID()
 
-		ping, err := o.DHT.Ping(ctx, overlay.Node{Id: randomId.String()})
-		if err != nil {
-			zap.Error(OverlayError.New("Error pinging overlay node", err))
-			fmt.Printf("error pinging node %+v\n", overlay.Node{Id: randomId.String()})
-		}
-		o.DB.Put([]byte(ping.Id), []byte(ping.Address.Address))
-	}()
+	if err != nil {
+		zap.Error(OverlayError.New("Error generating random ID", err))
+		fmt.Printf("error finding random ID", err)
+	}
+
+	nn, err := o.DHT.FindNearNodes(ctx, randomID)
+	if err != nil {
+		zap.Error(OverlayError.New("Error finding node", err))
+	}
+
+	fmt.Printf("found near nodes %+v\n", nn)
 
 	for _, node := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *node)
