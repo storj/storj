@@ -47,6 +47,11 @@ func TestGetObject(t *testing.T) {
 		errString            string
 		iowriter             io.Writer
 	}{
+		// empty bucket and/or object
+		{"mybucket", "", "abcdef", 6, 0, 0, "", nil, "Storj Gateway error: Invalid object", w},
+		{"", "myobject1", "abcdef", 6, 3, 0, "", nil, "Storj Gateway error: Invalid bucket", w},
+		{"", "", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid bucket", w},
+
 		// most obnoxious case - happy scenario
 		{"mybucket", "myobject1", "", 0, 0, 0, "", nil, "", w},
 		{"x", "y", "abcdef", 6, 0, 6, "abcdef", nil, "", w},
@@ -56,8 +61,8 @@ func TestGetObject(t *testing.T) {
 		{"mybucket", "myobject1", "abcdef", 6, 2, 4, "cdef", nil, "", w},
 		{"mybucket", "myobject1", "abcdefg", 7, 1, 4, "bcde", nil, "", w},
 
-		// error returned by the objects.Put()
-		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", errors.New("some err"), "some err", w},
+		// invalid io.writer
+		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", nil},
 
 		// errors returned by the ranger in the code
 		{"mybucket", "myobject1", "abcdef", 6, 0, 7, "", nil, "ranger error: buffer runoff", w},
@@ -66,14 +71,8 @@ func TestGetObject(t *testing.T) {
 		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "bcde", nil, "ranger error: buffer runoff", w},
 		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "", nil, "ranger error: buffer runoff", w},
 
-		// invalid io.writer
-		{"", "", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", nil},
-		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", nil},
-
-		// empty bucket and/or object
-		{"mybucket", "", "abcdef", 6, 0, 0, "", nil, "Storj Gateway error: Invalid argument(s)", w},
-		{"", "myobject1", "abcdef", 6, 3, 0, "", nil, "Storj Gateway error: Invalid argument(s)", w},
-		{"", "", "abcdef", 6, 0, 6, "abcdef", nil, "Storj Gateway error: Invalid argument(s)", w},
+		// error returned by the objects.Get()
+		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", errors.New("some err"), "some err", w},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		r := ranger.ByteRanger([]byte(example.data))
@@ -127,9 +126,13 @@ func TestPutObject(t *testing.T) {
 
 	testUser := storjObjects{storj: &s}
 
+	r, err := hash.NewReader(bytes.NewReader([]byte("abcdefgiiuweriiwyrwyiywrywhti")), int64(len("abcdefgiiuweriiwyrwyiywrywhti")), "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for i, example := range []struct {
 		bucket, object string
-		DataStream     string
 		MetaKey        []string
 		MetaVal        []string
 		Modified       time.Time
@@ -138,26 +141,26 @@ func TestPutObject(t *testing.T) {
 		Checksum       string
 		err            error // used by mock function
 		errString      string
+		DataReader     *hash.Reader
 	}{
 		// most obnoxious case - happy scenario
-		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
-
-		// emulating objects.Put() returning err
-		{"mybucket", "myobject1", "abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
-		{"mybucket", "myobject1", "abcdefghti", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
-		{"mybucket", "myobject1", "", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
+		{"mybucket", "myobject1", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "", r},
 
 		// emulate invalid bucket and/or object
-		{"mybucket", "", "", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
-		{"", "myobject1", "", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
+		{"mybucket", "", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid object", r},
+		{"", "myobject1", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid bucket", r},
+		{"", "", []string{}, []string{}, time.Now(), time.Time{}, int64(0x00), checksumGen(25), Error.New("DON'T CARE"), "Storj Gateway error: Invalid bucket", r},
 
 		// emulate invalid io.reader
-		{"", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(0x00), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
+		{"mybucket", "myobject1", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(0x00), checksumGen(25), nil, "Storj Gateway error: Invalid io.Reader", nil},
 
-		// emulate invalid bucket object and io.Reader
-		{"", "", "", []string{}, []string{}, time.Now(), time.Time{}, int64(0x00), checksumGen(25), Error.New("DON'T CARE"), "Storj Gateway error: Invalid argument(s)"},
+		// emulating objects.Put() returning err
+		{"mybucket", "myobject1", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error", r},
+		{"mybucket", "myobject1", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error", r},
+		{"mybucket", "myobject1", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error", r},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
+
 		var metadata = make(map[string]string)
 		for i := 0x00; i < len(example.MetaKey); i++ {
 			metadata[example.MetaKey[i]] = example.MetaVal[i]
@@ -181,20 +184,15 @@ func TestPutObject(t *testing.T) {
 			meta1 = objects.Meta{}
 		}
 
-		data, err := hash.NewReader(bytes.NewReader([]byte(example.DataStream)), int64(len(example.DataStream)), "e2fc714c4727ee9395f324cd2e7f331f", "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if (example.Size == 0x00) || (example.bucket == "") || (example.object == "") {
-			/* Intentionlly set the size to zero to emulate a nil hash.Reader */
-			data, err = nil, nil
+		// emulate io.Reader error unique combination
+		if (example.DataReader == nil) || (example.bucket == "") || (example.object == "") {
+			/* handle the mock of invalid parameters*/
 		} else {
 			/* for valid io.reader only */
-			mockGetObject.EXPECT().Put(gomock.Any(), paths.New(example.bucket, example.object), data, serMetaInfo, example.Expiration).Return(meta1, example.err).Times(1)
+			mockGetObject.EXPECT().Put(gomock.Any(), paths.New(example.bucket, example.object), example.DataReader, serMetaInfo, example.Expiration).Return(meta1, example.err).Times(1)
 		}
 
-		objInfo, err := testUser.PutObject(context.Background(), example.bucket, example.object, data, metadata)
+		objInfo, err := testUser.PutObject(context.Background(), example.bucket, example.object, example.DataReader, metadata)
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
 			if example.err != nil {
@@ -231,17 +229,17 @@ func TestGetObjectInfo(t *testing.T) {
 		// most obnoxious case - happy scenario
 		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
 
-		// various combination of arguments (in obnoxious mode)
+		// invalid bucket and/or object
+		{"", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid bucket"},
+		{"mybucket", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid object"},
+		{"", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid bucket"},
+
+		// various key-value combinations with empty and non-matching keys
 		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
 		{"mybucket", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{}, []string{}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
 
-		// invalid bucket and/or object
-		{"", "myobject1", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
-		{"mybucket", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
-		{"", "", "abcdefgiiuweriiwyrwyiywrywhti", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, "Storj Gateway error: Invalid argument(s)"},
-
-		// mock function to return error
-		{"mybucket", "myobject1", "abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("error"), "Storj Gateway error: error"},
+		// mock object.Meta function to return error
+		{"mybucket", "myobject1", "abcdefghti", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("mock error"), "Storj Gateway error: mock error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -308,8 +306,16 @@ func TestListObjects(t *testing.T) {
 		err               error
 		errString         string
 	}{
-		/* initialize the structure */
+		// invalid bucket
+		{"", ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, "Storj Gateway error: Invalid bucket"},
 
+		// empty prefix
+		{("bucket_" + checksumGen(10)), "", ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+
+		// empty marker  & delimiter is never used so not tested
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), "", "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+
+		//maxKeys combination test cases
 		// happy scenario with  request items 1 and returned items 1
 		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1, nil, ""},
 
@@ -331,17 +337,8 @@ func TestListObjects(t *testing.T) {
 		// happy scenario with requested 2000 and returned items 2000
 		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 2000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, ""},
 
-		// happy scenario with requested -10 and returned items 2000
-		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", -10, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, "Storj Gateway error: Invalid argument(s)"},
-
-		// invalid bucket
-		{"", ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, "Storj Gateway error: Invalid argument(s)"},
-
-		// // empty prefix
-		{("bucket_" + checksumGen(10)), "", ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
-
-		// invalid bucket and/or object
-		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, ""},
+		// // happy scenario with requested -10 and returned items 2000
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", -10, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 2000, nil, "Storj Gateway error: Invalid maxKeys"},
 
 		// mock returning non-nil error
 		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1000, Error.New("error"), "Storj Gateway error: error"},
