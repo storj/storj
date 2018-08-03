@@ -15,7 +15,7 @@ import (
 )
 
 func TestLocal(t *testing.T) {
-	rt := createRT()
+	rt := createRT() //clean these up
 	local := rt.Local()
 	assert.Equal(t, *rt.self, local)
 }
@@ -61,7 +61,7 @@ func TestGetBucket(t *testing.T) {
 	}
 	for i, v := range cases {
 		b, e := rt.GetBucket(node2.Id)
-		assert.Equal(t, v.expected, b)
+		assert.Equal(t, *v.expected, b)
 		assert.Equal(t, v.ok, e)
 		fmt.Printf("error occured at index %d", i)
 	}

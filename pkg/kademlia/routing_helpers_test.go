@@ -478,24 +478,25 @@ func TestUnmarshalNodes(t *testing.T) {
 	nodes, err := unmarshalNodes(values)
 	assert.NoError(t, err)
 	expected := []*proto.Node{nodeA, nodeB, nodeC}
-	assert.Equal(t, expected, nodes)
+	for i, v := range expected {
+		assert.True(t, pb.Equal(v, nodes[i]))
+	}
 }
 
 func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
-	//FAILING
-	rt := createRT()
 	bucketID := []byte{255, 255}
 	nodeA := mockNode("AA")
+	rt := createRT([]byte(nodeA.Id))
 	nodeB := mockNode("BB")
 	nodeC := mockNode("CC")
-	rt.self.Id = nodeA.Id
-	rt.addNode(nodeA)
 	rt.addNode(nodeB)
 	rt.addNode(nodeC)
 	nodes, err := rt.getUnmarshaledNodesFromBucket(bucketID)
 	expected := []*proto.Node{nodeA, nodeB, nodeC}
 	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
+	for i, v := range expected {
+		assert.True(t,pb.Equal(v, nodes[i]))
+	}
 }
 
 func TestGetKBucketRange(t *testing.T) {
