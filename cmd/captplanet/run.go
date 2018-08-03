@@ -16,10 +16,11 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	proto "storj.io/storj/protos/overlay"
 )
 
 const (
-	farmerCount = 40
+	farmerCount = 50
 )
 
 type HeavyClient struct {
@@ -80,6 +81,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				runCfg.Farmers[i].Kademlia,
 				runCfg.Farmers[i].Storage)
 		}(i)
+		identity, err := runCfg.Farmers[i].Identity.LoadIdentity()
+		if err != nil {
+			return err
+		}
+		miniogw.GlobalMockOverlay.Nodes[identity.ID.String()] = &proto.Node{
+			Id: identity.ID.String(),
+			Address: &proto.NodeAddress{
+				Transport: proto.NodeTransport_TCP,
+				Address:   runCfg.Farmers[i].Identity.Address,
+			},
+		}
 	}
 
 	// start s3 gateway
