@@ -60,7 +60,7 @@ git clone https://github.com/storj/storj $STORJDEV/src/storj.io/storj
 ```bash
 git clone --recursive https://github.com/storj/storj-vendor $STORJDEV/vendor
 rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/github.com/minio/cli
-rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/golang.org/x/net
+rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/golang.org/x/net/trace
 ```
 
 ### Run unit tests
