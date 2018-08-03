@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"go.uber.org/zap" // naming proto to avoid confusion with this package
+	"go.uber.org/zap"
+
 	"storj.io/storj/storage"
 )
 
