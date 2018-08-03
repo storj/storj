@@ -6,9 +6,9 @@ package kademlia
 import (
 	"bytes"
 	"math/rand"
-	"strconv"
+	// "strconv"
 	"time"
-
+	"encoding/binary"
 	pb "github.com/golang/protobuf/proto"
 
 	proto "storj.io/storj/protos/overlay"
@@ -143,8 +143,12 @@ func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) er
 
 // createOrUpdateKBucket: helper, adds or updates given kbucket
 func (rt *RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Time) error {
-	dateTime := strconv.FormatInt(now.UTC().UnixNano(), 10)
-	err := rt.kadBucketDB.Put(bucketID, []byte(dateTime))
+	dateTime := make([]byte, binary.MaxVarintLen64)
+	binary.PutVarint(dateTime, now.UnixNano())
+	err := rt.kadBucketDB.Put(bucketID, dateTime[:])
+
+	// dateTime := strconv.FormatInt(now.UTC().UnixNano(), 10)
+	// err := rt.kadBucketDB.Put(bucketID, []byte(dateTime))
 	if err != nil {
 		return RoutingErr.New("could not add or update k bucket: %s", err)
 	}

@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/dht"
 	proto "storj.io/storj/protos/overlay"
 )
 
 func TestLocal(t *testing.T) {
-	rt := createRT() //clean these up
+	rt := createRT()
 	local := rt.Local()
 	assert.Equal(t, *rt.self, local)
 }
@@ -36,13 +36,10 @@ func TestCacheSize(t *testing.T) {
 }
 
 func TestGetBucket(t *testing.T) {
-	rt := createRT()
-	rt.self.Id = "AA"
-	node := mockNode(rt.self.Id)
+	rt := createRT([]byte("AA"))
+	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node)
-	assert.NoError(t, err)
-	err = rt.addNode(node2)
+	err := rt.addNode(node2)
 	assert.NoError(t, err)
 
 	cases := []struct {
@@ -61,40 +58,42 @@ func TestGetBucket(t *testing.T) {
 	}
 	for i, v := range cases {
 		b, e := rt.GetBucket(node2.Id)
-		assert.Equal(t, *v.expected, b)
+		for j, w := range v.expected.nodes {
+			assert.True(t, pb.Equal(w, b.Nodes()[j]))
+		}
 		assert.Equal(t, v.ok, e)
-		fmt.Printf("error occured at index %d", i)
+		fmt.Printf("error occured at index %d", i) //what's a better way to print the index?
 	}
 }
 
 func TestGetBuckets(t *testing.T) {
-	rt := createRT()
-	rt.self.Id = "AA"
-	node := mockNode(rt.self.Id)
+	rt := createRT([]byte("AA"))
+	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node)
+	err := rt.addNode(node2)
 	assert.NoError(t, err)
-	err = rt.addNode(node2)
-	assert.NoError(t, err)
-	expected := []dht.Bucket{&KBucket{nodes: []*proto.Node{node, node2}}}
+	expected := []*proto.Node{node, node2}
 	buckets, err := rt.GetBuckets()
 	assert.NoError(t, err)
-	assert.Equal(t, expected, buckets)
+	for _, v := range buckets {
+		for j, w := range v.Nodes() {
+			assert.True(t, pb.Equal(expected[j], w))
+		}
+	}
 }
 
 func TestFindNear(t *testing.T) {
-	rt := createRT()
-	rt.self.Id = "AA"
-	node := mockNode(rt.self.Id)
+	rt := createRT([]byte("AA"))
+	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node)
-	assert.NoError(t, err)
-	err = rt.addNode(node2)
+	err := rt.addNode(node2)
 	assert.NoError(t, err)
 	expected := []*proto.Node{node2}
 	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
 	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
+	for i, v := range nodes {
+		assert.True(t, pb.Equal(expected[i], v))
+	}
 }
 
 func TestConnectionSuccess(t *testing.T) {
