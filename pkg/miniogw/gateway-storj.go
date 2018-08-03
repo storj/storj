@@ -90,8 +90,14 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 
 	// handle invalid parameters
-	if writer == nil || bucket == "" || object == "" {
-		return Error.New("Invalid argument(s)")
+	if bucket == "" {
+		return Error.New("Invalid bucket")
+	}
+	if object == "" {
+		return Error.New("Invalid object")
+	}
+	if writer == nil {
+		return Error.New("Invalid io.Writer")
 	}
 
 	objpath := paths.New(bucket, object)
@@ -116,8 +122,11 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	defer mon.Task()(&ctx)(&err)
 
 	// handle invalid parameters
-	if (bucket == "") || (object == "") {
-		return objInfo, Error.New("Invalid argument(s)")
+	if bucket == "" {
+		return objInfo, Error.New("Invalid bucket")
+	}
+	if object == "" {
+		return objInfo, Error.New("Invalid object")
 	}
 
 	objPath := paths.New(bucket, object)
@@ -160,7 +169,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 
 	// handle invalid parameters
 	if bucket == "" {
-		return objInfo, Error.New("Invalid argument(s)")
+		return objInfo, Error.New("Invalid bucket")
 	}
 
 	// maxkeys should default to 1000 or less.
@@ -169,7 +178,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 			maxKeys = 1000
 		}
 	} else {
-		return objInfo, Error.New("Invalid argument(s)")
+		return objInfo, Error.New("Invalid maxKeys")
 	}
 
 	startAfter := paths.New(marker)
@@ -235,8 +244,14 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	defer mon.Task()(&ctx)(&err)
 
 	// handle invalid parameters
-	if data == nil || bucket == "" || object == "" {
-		return objInfo, Error.New("Invalid argument(s)")
+	if bucket == "" {
+		return objInfo, Error.New("Invalid bucket")
+	}
+	if object == "" {
+		return objInfo, Error.New("Invalid object")
+	}
+	if data == nil {
+		return objInfo, Error.New("Invalid io.Reader")
 	}
 
 	objPath := paths.New(bucket, object)
