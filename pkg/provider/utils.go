@@ -11,8 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/peertls"
+	"context"
+	"golang.org/x/crypto/sha3"
 )
 
 type secretIdentity struct {
@@ -70,39 +71,53 @@ func idDifficulty(id nodeID) uint16 {
 	panic(reason)
 }
 
-// TODO: resume here; change `fiC` channel to a struct that consists of
-// `FullIdentity` and root private key
-func generateCreds(difficulty uint16, siC chan secretIdentity, done chan bool) {
+func generateCreds(ctx context.Context, difficulty uint16, caC chan CertificateAuthority) {
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return
 		default:
-			leafCert, caCert, err := peertls.Generate()
+			ct, err := peertls.CATemplate()
 			if err != nil {
-				zap.S().Error(errs.Wrap(err))
+				zap.S().Error(err)
 				continue
 			}
 
-			pi, err := PeerIdentityFromCerts(leafCert.Leaf, caCert.Leaf)
+			c, err := peertls.Generate(ct, nil, nil, nil)
 			if err != nil {
-				zap.S().Error(errs.Wrap(err))
+				zap.S().Error(err)
 				continue
 			}
 
-			si := secretIdentity{
-				FullIdentity{
-					*pi,
-					leafCert.PrivateKey,
-				},
-				caCert.PrivateKey,
+			i, err := idFromCert(c.Leaf)
+			if err != nil {
+				zap.S().Error(err)
+				continue
 			}
 
-			if si.FullIdentity.Difficulty() >= difficulty {
-				siC <- si
+			ca := CertificateAuthority{
+				Cert: c.Leaf,
+				Key:  &c.PrivateKey,
+				ID: i,
+			}
+
+			if ca.Difficulty() >= difficulty {
+				caC <- ca
 			}
 		}
 	}
+}
+
+func idFromCert(c *x509.Certificate) (nodeID, error) {
+	caPublicKey, err := x509.MarshalPKIXPublicKey(c.PublicKey)
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+
+	hash := make([]byte, IdentityLength)
+	sha3.ShakeSum256(hash, caPublicKey)
+
+	return nodeID(base64.URLEncoding.EncodeToString(hash)), nil
 }
 
 func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
@@ -114,7 +129,7 @@ func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc 
 		}
 
 		if pi.Difficulty() < difficulty {
-			return node.ErrDifficulty.New("expected: %d; got: %d", difficulty, pi.Difficulty())
+			return ErrDifficulty.New("expected: \"%d\" but got: \"%d\"", difficulty, pi.Difficulty())
 		}
 
 		return nil

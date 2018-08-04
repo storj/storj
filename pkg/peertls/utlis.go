@@ -106,9 +106,9 @@ func createCert(
 	template,
 	parentTemplate *x509.Certificate,
 	parentDERCerts [][]byte,
-	pubKey *ecdsa.PublicKey,
+	pubKey crypto.PublicKey,
 	signingKey,
-	privKey *ecdsa.PrivateKey) (*tls.Certificate, error) {
+	privKey crypto.PrivateKey) (*tls.Certificate, error) {
 
 	certDERBytes, err := x509.CreateCertificate(
 		rand.Reader,

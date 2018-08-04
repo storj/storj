@@ -20,28 +20,48 @@ import (
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
-	leafCert, caCert, err := peertls.Generate()
+	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	pi, err := PeerIdentityFromCerts(leafCert.Leaf, caCert.Leaf)
+	caC, err := peertls.Generate(caT, nil, nil, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, caCert.Leaf, pi.CA)
-	assert.Equal(t, leafCert.Leaf, pi.Leaf)
+
+	lT, err := peertls.LeafTemplate()
+	assert.NoError(t, err)
+
+	lC, err := peertls.Generate(lT, caT, caC, caC)
+	assert.NoError(t, err)
+
+	pi, err := PeerIdentityFromCerts(lC.Leaf, caC.Leaf)
+	assert.NoError(t, err)
+	assert.Equal(t, caC.Leaf, pi.CA.Cert)
+	assert.Equal(t, lC.Leaf, pi.Leaf)
 	assert.NotEmpty(t, pi.ID)
 }
 
 func TestFullIdentityFromPEM(t *testing.T) {
-	leafCert, caCert, err := peertls.Generate()
+	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, caCert)
-	assert.NotEmpty(t, caCert.PrivateKey)
+
+	caC, err := peertls.Generate(caT, nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, caC)
+
+	lT, err := peertls.LeafTemplate()
+	assert.NoError(t, err)
+
+	lC, err := peertls.Generate(lT, caT, caC, caC)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, lC)
+	assert.NotEmpty(t, lC.PrivateKey)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	for _, c := range leafCert.Certificate {
+	for _, c := range lC.Certificate {
 		pem.Encode(chainPEM, peertls.NewCertBlock(c))
 	}
 
-	privateKey, ok := leafCert.PrivateKey.(*ecdsa.PrivateKey)
+	privateKey, ok := lC.PrivateKey.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
 	assert.NotEmpty(t, privateKey)
 
@@ -54,9 +74,9 @@ func TestFullIdentityFromPEM(t *testing.T) {
 
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, leafCert.Certificate[0], fi.PeerIdentity.Leaf.Raw)
-	assert.Equal(t, leafCert.Certificate[1], fi.PeerIdentity.CA.Raw)
-	assert.Equal(t, leafCert.PrivateKey, fi.PrivateKey)
+	assert.Equal(t, lC.Certificate[0], fi.PeerIdentity.Leaf.Raw)
+	assert.Equal(t, lC.Certificate[1], fi.PeerIdentity.CA.Cert.Raw)
+	assert.Equal(t, lC.PrivateKey, fi.PrivateKey)
 }
 
 func TestIdentityConfig_SaveIdentity(t *testing.T) {
@@ -65,7 +85,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 
 	chainPEM := bytes.NewBuffer([]byte{})
 	pem.Encode(chainPEM, peertls.NewCertBlock(fi.Leaf.Raw))
-	pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Raw))
+	pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Cert.Raw))
 
 	privateKey, ok := fi.PrivateKey.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
@@ -163,12 +183,12 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.NotEmpty(t, fi.PrivateKey)
 	assert.NotEmpty(t, fi.PeerIdentity.Leaf)
 	assert.NotEmpty(t, fi.PeerIdentity.CA)
-	assert.NotEmpty(t, fi.PeerIdentity.ID.Bytes())
+	assert.NotEmpty(t, fi.PeerIdentity.ID().Bytes())
 
 	assert.Equal(t, expectedFI.PrivateKey, fi.PrivateKey)
 	assert.Equal(t, expectedFI.PeerIdentity.Leaf, fi.PeerIdentity.Leaf)
 	assert.Equal(t, expectedFI.PeerIdentity.CA, fi.PeerIdentity.CA)
-	assert.Equal(t, expectedFI.PeerIdentity.ID.Bytes(), fi.PeerIdentity.ID.Bytes())
+	assert.Equal(t, expectedFI.PeerIdentity.ID().Bytes(), fi.PeerIdentity.ID().Bytes())
 }
 
 func TestFullIdentity_Difficulty(t *testing.T) {
@@ -182,38 +202,37 @@ func TestFullIdentity_Difficulty(t *testing.T) {
 func TestGenerate(t *testing.T) {
 	expectedDifficulty := uint16(12)
 
-	fi, caKey := Generate(expectedDifficulty, 5)
-	assert.NotEmpty(t, fi)
-	assert.NotEmpty(t, caKey)
+	ca := GenerateCA(nil, expectedDifficulty, 5)
+	assert.NotEmpty(t, ca)
 
-	actualDifficulty := fi.Difficulty()
+	actualDifficulty := ca.Difficulty()
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 
 func BenchmarkGenerate_Difficulty8_Concurrency1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		Generate(expectedDifficulty, 1)
+		GenerateCA(nil, expectedDifficulty, 1)
 	}
 }
 
 func BenchmarkGenerate_Difficulty8_Concurrency2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		Generate(expectedDifficulty, 2)
+		GenerateCA(nil, expectedDifficulty, 2)
 	}
 }
 
 func BenchmarkGenerate_Difficulty8_Concurrency5(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		Generate(expectedDifficulty, 5)
+		GenerateCA(nil, expectedDifficulty, 5)
 	}
 }
 
 func BenchmarkGenerate_Difficulty8_Concurrency10(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		Generate(expectedDifficulty, 10)
+		GenerateCA(nil, expectedDifficulty, 10)
 	}
 }

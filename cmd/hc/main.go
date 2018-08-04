@@ -12,10 +12,17 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"io/ioutil"
+	"io"
+	"v/github.com/zeebo/errs"
+	"encoding/pem"
+	"storj.io/storj/pkg/peertls"
+	"crypto/x509"
+	"crypto/ecdsa"
+	"context"
 )
 
 var (
@@ -42,6 +49,8 @@ var (
 	}
 	setupCfg struct {
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		Concurrency uint  `default:"4" help:"number of concurrent workers for certificate authority generation"`
+		CA provider.CAConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -65,11 +74,47 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	identityPath := filepath.Join(setupCfg.BasePath, "identity")
-	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, false)
-	if err != nil {
-		return err
+	// GenerateCA CA
+	CA := provider.GenerateCA(context.Background(), setupCfg.CA.Difficulty, 4)
+	// fi, caKey := provider.GenerateCA(setupCfg.Difficulty, setupCfg.Concurrency)
+	// Create identity
+	// Save identity to disk
+
+	cc := filepath.Join(setupCfg.BasePath, "ca.cert")
+	ck := filepath.Join(setupCfg.BasePath, "ca.key")
+	c := filepath.Join(setupCfg.BasePath, "identity.cert")
+	k := filepath.Join(setupCfg.BasePath, "identity.key")
+
+	ic := provider.IdentityConfig{
+		CertPath: c,
+		KeyPath: k,
 	}
+
+	ic.SaveIdentity(&fi)
+
+	// ckf, err := os.OpenFile(ck, os.O_CREATE | os.O_WRONLY, 0600)
+	// if err != nil {
+	// 	return errs.Wrap(err)
+	// }
+	//
+	// ccf, err := os.Open(cc)
+	// if err != nil {
+	// 	return errs.Wrap(err)
+	// }
+	//
+	// var ccBytes []byte
+	// switch k := caKey.(type) {
+	// case *ecdsa.PrivateKey:
+	// 	ccBytes, err = x509.MarshalECPrivateKey(k)
+	// 	if err != nil {
+	// 		return errs.Wrap(err)
+	// 	}
+	// default:
+	// 	return peertls.ErrUnsupportedKey.New("")
+	// }
+	//
+	// ccBlock :=  peertls.NewCertBlock(ccBytes)
+	// pem.Encode(ccf, ccBlock)
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)

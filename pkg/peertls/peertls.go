@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/rand"
 	"encoding/pem"
+	"reflect"
 )
 
 const (
@@ -25,9 +26,6 @@ const (
 var (
 	// ErrNotExist is used when a file or directory doesn't exist
 	ErrNotExist = errs.Class("file or directory not found error")
-	// ErrNoOverwrite is used when `create == true && overwrite == false`
-	// 	and tls certs/keys already exist at the specified paths
-	ErrNoOverwrite = errs.Class("tls overwrite disabled error")
 	// ErrGenerate is used when an error occured during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
 	// ErrTLSOptions is used inconsistently and should probably just be removed
@@ -44,57 +42,46 @@ var (
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
-func Generate() (leaf, ca *tls.Certificate, _ error) {
-	var fail = func(err error) (_, _ *tls.Certificate, _ error) {
-		return nil, nil, err
-	}
-
-	caKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
+func Generate(template, parentTemplate *x509.Certificate, parent, signer *tls.Certificate) (*tls.Certificate, error) {
+	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
-		return fail(ErrGenerate.New("failed to generateServerTLS root private key", err))
+		return nil, ErrGenerate.New("failed to generateServerTLS root private key", err)
 	}
 
-	caTemplate, err := rootTemplate()
-	if err != nil {
-		return fail(ErrGenerate.Wrap(err))
+	if signer == nil {
+		signer = &tls.Certificate{
+			PrivateKey: k,
+			Leaf: &x509.Certificate{
+				PublicKey: &k.PublicKey,
+			},
+		}
+	}
+	sk, ok := signer.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, ErrUnsupportedKey.New("%s", reflect.TypeOf(sk))
 	}
 
+	if parent == nil {
+		parent = &tls.Certificate{
+			Certificate: nil,
+		}
+	}
+	if parentTemplate == nil {
+		parentTemplate = template
+	}
 	caCert, err := createCert(
-		caTemplate,
-		caTemplate,
-		nil,
-		&caKey.PublicKey,
-		caKey,
-		caKey,
+		template,
+		parentTemplate,
+		parent.Certificate,
+		sk,
+		k,
+		signer.PrivateKey,
 	)
 	if err != nil {
-		return fail(ErrGenerate.Wrap(err))
+		return nil, ErrGenerate.Wrap(err)
 	}
 
-	leafKey, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
-	if err != nil {
-		return fail(ErrGenerate.New("failed to generateTLS client private key", err))
-	}
-
-	leafTemplate, err := leafTemplate()
-	if err != nil {
-		return fail(ErrGenerate.Wrap(err))
-	}
-
-	leafCert, err := createCert(
-		leafTemplate,
-		caTemplate,
-		caCert.Certificate,
-		&leafKey.PublicKey,
-		caKey,
-		leafKey,
-	)
-
-	if err != nil {
-		return fail(ErrGenerate.Wrap(err))
-	}
-
-	return leafCert, caCert, nil
+	return caCert, nil
 }
 
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
