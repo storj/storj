@@ -1,19 +1,20 @@
 package provider
 
 import (
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/bits"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
-	"context"
-
 	"golang.org/x/crypto/sha3"
+
 	"storj.io/storj/pkg/peertls"
 )
 
@@ -97,9 +98,9 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan Certifica
 			}
 
 			ca := CertificateAuthority{
-				Cert: c.Leaf,
-				Key:  &c.PrivateKey,
-				ID:   i,
+				Cert:       c.Leaf,
+				PrivateKey: &c.PrivateKey,
+				ID:         i,
 			}
 
 			if ca.Difficulty() >= difficulty {
@@ -121,18 +122,26 @@ func idFromCert(c *x509.Certificate) (nodeID, error) {
 	return nodeID(base64.URLEncoding.EncodeToString(hash)), nil
 }
 
-func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
-	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
-		// NB: use the first chain; leaf should be first, followed by the ca
-		pi, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1])
-		if err != nil {
-			return err
-		}
-
-		if pi.Difficulty() < difficulty {
-			return ErrDifficulty.New("expected: \"%d\" but got: \"%d\"", difficulty, pi.Difficulty())
-		}
-
-		return nil
+func openCert(path string, flag int) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 644); err != nil {
+		return nil, errs.Wrap(err)
 	}
+
+	c, err := os.OpenFile(path, flag, 0644)
+	if err != nil {
+		return nil, errs.New("unable to open cert file for writing \"%s\"", path, err)
+	}
+	return c, nil
+}
+
+func openKey(path string, flag int) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 600); err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	k, err := os.OpenFile(path, flag, 0600)
+	if err != nil {
+		return nil, errs.New("unable to open key file for writing \"%s\"", path, err)
+	}
+	return k, nil
 }

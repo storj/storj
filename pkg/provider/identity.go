@@ -6,16 +6,11 @@ package provider
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
-	"reflect"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -36,8 +31,8 @@ var (
 
 // CertificateAuthority represents the CA which is used to author and validate identities
 type CertificateAuthority struct {
-	// Key is the private key of the CA
-	Key crypto.PrivateKey
+	// PrivateKey is the private key of the CA
+	PrivateKey crypto.PrivateKey
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA cert.
@@ -156,13 +151,31 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
+// VerifyPeerIdentityFunc returns a function to use with `tls.Certificate.VerifyPeerCertificate`
+// that verifies the peer identity satisfies the minimum difficulty
+func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
+	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
+		// NB: use the first chain; leaf should be first, followed by the ca
+		pi, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1])
+		if err != nil {
+			return err
+		}
+
+		if pi.Difficulty() < difficulty {
+			return ErrDifficulty.New("expected: \"%d\" but got: \"%d\"", difficulty, pi.Difficulty())
+		}
+
+		return nil
+	}
+}
+
 // Generate Identity
 func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	lT, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
 	}
-	caC, err := peertls.TLSCert([][]byte{ca.Cert.Raw}, ca.Cert, ca.Key)
+	caC, err := peertls.TLSCert([][]byte{ca.Cert.Raw}, ca.Cert, ca.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +192,32 @@ func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 		PeerIdentity: *pi,
 		PrivateKey:   lC.PrivateKey,
 	}, nil
+}
+
+// Load loads a CA from the given configuration
+func (caC CAConfig) Load() (*CertificateAuthority, error) {
+	cb, err := ioutil.ReadFile(caC.CertPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+	kb, err := ioutil.ReadFile(caC.KeyPath)
+	if err != nil {
+		return nil, peertls.ErrNotExist.Wrap(err)
+	}
+
+	pi, err := PeerIdentityFromCertChain([][]byte{cb})
+	if err != nil {
+		return nil, errs.New("failed to load identity %#v, %#v: %v",
+			caC.CertPath, caC.KeyPath, err)
+	}
+
+	k, err := x509.ParseECPrivateKey(kb)
+	if err != nil {
+		return nil, errs.New("unable to parse EC private key", err)
+	}
+	pi.CA.PrivateKey = k
+
+	return &pi.CA, nil
 }
 
 // Load loads a FullIdentity from the given configuration
@@ -200,33 +239,47 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 	return fi, nil
 }
 
-// Save saves a FullIdentity with the given configuration
-func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	if err := os.MkdirAll(filepath.Dir(ic.CertPath), 644); err != nil {
-		return errs.Wrap(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(ic.KeyPath), 600); err != nil {
-		return errs.Wrap(err)
-	}
-
+// Save saves a CA with the given configuration
+func (caC CAConfig) Save(ca *CertificateAuthority) error {
 	f := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-
-	c, err := os.OpenFile(ic.CertPath, f, 0644)
+	c, err := openCert(caC.CertPath, f)
 	if err != nil {
-		return errs.New("unable to open cert file for writing \"%s\"", ic.CertPath, err)
+		return err
 	}
 	defer utils.LogClose(c)
-
-	k, err := os.OpenFile(ic.KeyPath, f, 0600)
+	k, err := openKey(caC.KeyPath, f)
 	if err != nil {
-		return errs.New("unable to open key file for writing \"%s\"", ic.KeyPath, err)
+		return err
 	}
 	defer utils.LogClose(k)
 
-	if err = fi.WriteChain(c, fi.Leaf, fi.CA.Cert); err != nil {
+	if err = peertls.WriteChain(c, ca.Cert); err != nil {
 		return err
 	}
-	if err = fi.WriteKey(k, fi.PrivateKey); err != nil {
+	if err = peertls.WriteKey(k, ca.PrivateKey); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Save saves a FullIdentity with the given configuration
+func (ic IdentityConfig) Save(fi *FullIdentity) error {
+	f := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	c, err := openCert(ic.CertPath, f)
+	if err != nil {
+		return err
+	}
+	defer utils.LogClose(c)
+	k, err := openKey(ic.KeyPath, f)
+	if err != nil {
+		return err
+	}
+	defer utils.LogClose(k)
+
+	if err = peertls.WriteChain(c, fi.Leaf, fi.CA.Cert); err != nil {
+		return err
+	}
+	if err = peertls.WriteKey(k, fi.PrivateKey); err != nil {
 		return err
 	}
 	return nil
@@ -258,43 +311,6 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	zap.S().Infof("Node %s started", s.Identity().ID())
 
 	return s.Run(ctx)
-}
-
-// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
-func (fi *FullIdentity) WriteChain(w io.Writer, chain ...*x509.Certificate) error {
-	if len(chain) < 1 {
-		return errs.New("expected at least one certificate for writing")
-	}
-
-	for _, c := range chain {
-		if err := pem.Encode(w, peertls.NewCertBlock(c.Raw)); err != nil {
-			return errs.Wrap(err)
-		}
-	}
-	return nil
-}
-
-// WriteChain writes the private key to the writer, PEM-encoded.
-func (fi *FullIdentity) WriteKey(w io.Writer, key crypto.PrivateKey) error {
-	var (
-		kb  []byte
-		err error
-	)
-
-	switch k := key.(type) {
-	case *ecdsa.PrivateKey:
-		kb, err = x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-	default:
-		return peertls.ErrUnsupportedKey.New("%s", reflect.TypeOf(k))
-	}
-
-	if err := pem.Encode(w, peertls.NewKeyBlock(kb)); err != nil {
-		return errs.Wrap(err)
-	}
-	return nil
 }
 
 // ID returns the ID of the certificate authority associated with this `FullIdentity`

@@ -4,11 +4,13 @@
 package peertls
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
 	"reflect"
 
 	"github.com/zeebo/errs"
@@ -119,4 +121,57 @@ func NewKeyBlock(b []byte) *pem.Block {
 // into a `pem.Block` pointer
 func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
+}
+
+func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
+	var err error
+	if leaf == nil {
+		leaf, err = x509.ParseCertificate(chain[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &tls.Certificate{
+		Leaf:        leaf,
+		Certificate: chain,
+		PrivateKey:  key,
+	}, nil
+}
+
+// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
+func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
+	if len(chain) < 1 {
+		return errs.New("expected at least one certificate for writing")
+	}
+
+	for _, c := range chain {
+		if err := pem.Encode(w, NewCertBlock(c.Raw)); err != nil {
+			return errs.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// WriteChain writes the private key to the writer, PEM-encoded.
+func WriteKey(w io.Writer, key crypto.PrivateKey) error {
+	var (
+		kb  []byte
+		err error
+	)
+
+	switch k := key.(type) {
+	case *ecdsa.PrivateKey:
+		kb, err = x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	default:
+		return ErrUnsupportedKey.New("%s", reflect.TypeOf(k))
+	}
+
+	if err := pem.Encode(w, NewKeyBlock(kb)); err != nil {
+		return errs.Wrap(err)
+	}
+	return nil
 }
