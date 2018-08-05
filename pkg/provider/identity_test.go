@@ -74,8 +74,8 @@ func TestFullIdentityFromPEM(t *testing.T) {
 
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, lC.Certificate[0], fi.PeerIdentity.Leaf.Raw)
-	assert.Equal(t, lC.Certificate[1], fi.PeerIdentity.CA.Cert.Raw)
+	assert.Equal(t, lC.Certificate[0], fi.Leaf.Raw)
+	assert.Equal(t, lC.Certificate[1], fi.CA.Cert.Raw)
 	assert.Equal(t, lC.PrivateKey, fi.PrivateKey)
 }
 
@@ -181,14 +181,14 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.PrivateKey)
-	assert.NotEmpty(t, fi.PeerIdentity.Leaf)
-	assert.NotEmpty(t, fi.PeerIdentity.CA)
-	assert.NotEmpty(t, fi.PeerIdentity.ID().Bytes())
+	assert.NotEmpty(t, fi.Leaf)
+	assert.NotEmpty(t, fi.CA)
+	assert.NotEmpty(t, fi.ID().Bytes())
 
 	assert.Equal(t, expectedFI.PrivateKey, fi.PrivateKey)
-	assert.Equal(t, expectedFI.PeerIdentity.Leaf, fi.PeerIdentity.Leaf)
-	assert.Equal(t, expectedFI.PeerIdentity.CA, fi.PeerIdentity.CA)
-	assert.Equal(t, expectedFI.PeerIdentity.ID().Bytes(), fi.PeerIdentity.ID().Bytes())
+	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
+	assert.Equal(t, expectedFI.CA, fi.CA)
+	assert.Equal(t, expectedFI.ID().Bytes(), fi.ID().Bytes())
 }
 
 func TestFullIdentity_Difficulty(t *testing.T) {
@@ -199,7 +199,7 @@ func TestFullIdentity_Difficulty(t *testing.T) {
 	assert.True(t, difficulty >= knownDifficulty)
 }
 
-func TestGenerate(t *testing.T) {
+func TestGenerateCA(t *testing.T) {
 	expectedDifficulty := uint16(12)
 
 	ca := GenerateCA(nil, expectedDifficulty, 5)

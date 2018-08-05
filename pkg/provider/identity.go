@@ -36,7 +36,7 @@ var (
 // CertificateAuthority represents the CA which is used to author and validate identities
 type CertificateAuthority struct {
 	// Key is the private key of the CA
-	Key *crypto.PrivateKey
+	Key crypto.PrivateKey
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA cert.
@@ -222,37 +222,6 @@ func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*Cert
 	return &ca
 }
 
-// PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
-func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
-	ca, err := x509.ParseCertificate(chain[1])
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	leaf, err := x509.ParseCertificate(chain[0])
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	return PeerIdentityFromCerts(leaf, ca)
-}
-
-// PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
-func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
-	i, err := idFromCert(ca)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PeerIdentity{
-		CA: CertificateAuthority{
-			Cert: ca,
-			ID:   i,
-		},
-		Leaf: leaf,
-	}, nil
-}
-
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key file
 func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
@@ -284,9 +253,40 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	}, nil
 }
 
+// PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
+func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
+	ca, err := x509.ParseCertificate(chain[1])
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	leaf, err := x509.ParseCertificate(chain[0])
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return PeerIdentityFromCerts(leaf, ca)
+}
+
+// PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
+func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
+	i, err := idFromCert(ca)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PeerIdentity{
+		CA: CertificateAuthority{
+			Cert: ca,
+			ID:   i,
+		},
+		Leaf: leaf,
+	}, nil
+}
+
 // ID returns the ID of the certificate authority associated with this `FullIdentity`
 func (fi *FullIdentity) ID() nodeID {
-	return fi.PeerIdentity.CA.ID
+	return fi.CA.ID
 }
 
 // ID returns the ID of the certificate authority associated with this `PeerIdentity`
@@ -343,10 +343,10 @@ func (pi *PeerIdentity) DialOption(difficulty uint16) grpc.DialOption {
 // `*tlsCertificate`
 func (fi *FullIdentity) Certificate() *tls.Certificate {
 	var chain [][]byte
-	chain = append(chain, fi.PeerIdentity.Leaf.Raw, fi.PeerIdentity.CA.Cert.Raw)
+	chain = append(chain, fi.Leaf.Raw, fi.CA.Cert.Raw)
 
 	return &tls.Certificate{
-		Leaf:        fi.PeerIdentity.Leaf,
+		Leaf:        fi.Leaf,
 		Certificate: chain,
 		PrivateKey:  fi.PrivateKey,
 	}

@@ -6,11 +6,12 @@ package peertls
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"github.com/zeebo/errs"
 	"crypto/tls"
 	"crypto/rand"
 	"encoding/pem"
 	"reflect"
+
+	"github.com/zeebo/errs"
 )
 
 const (
