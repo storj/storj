@@ -30,11 +30,15 @@ type Provider struct {
 // of responsibilities.
 func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
+	// NB: talk to anyone with an identity
+	s, err := identity.ServerOption(0)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Provider{
-		lis: lis,
-		// NB: talk to anyone with an identity
-		g:        grpc.NewServer(identity.ServerOption(0)),
+		lis:      lis,
+		g:        grpc.NewServer(s),
 		next:     responsibilities,
 		identity: identity,
 	}, nil

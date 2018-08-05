@@ -21,7 +21,7 @@ const (
 	BlockTypeCertificate = "CERTIFICATE"
 	// BlockTypeIDOptions is the value to define a block type of id options
 	// (e.g. `version`)
-	// BlockTypeIDOptions = "ID OPTIONS"
+	BlockTypeIDOptions = "ID OPTIONS"
 )
 
 var (
@@ -88,20 +88,19 @@ func Generate(template, parentTemplate *x509.Certificate, parent, signer *tls.Ce
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
 // functions and adds certificate parsing.
 func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
-	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-		parsedCerts, err := parseCertificateChains(rawCerts)
+	return func(chain [][]byte, _ [][]*x509.Certificate) error {
+		c, err := parseCertificateChains(chain)
 		if err != nil {
 			return err
 		}
 
 		for _, n := range next {
 			if n != nil {
-				if err := n(nil, [][]*x509.Certificate{parsedCerts}); err != nil {
+				if err := n(nil, [][]*x509.Certificate{c}); err != nil {
 					return err
 				}
 			}
 		}
-
 		return nil
 	}
 }

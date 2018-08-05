@@ -12,14 +12,14 @@ package peertls
 // (see https://en.wikipedia.org/wiki/Privacy-enhanced_Electronic_Mail)
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"math/big"
-	"crypto"
 	"encoding/asn1"
+	"math/big"
 
 	"github.com/zeebo/errs"
 )
@@ -144,4 +144,20 @@ func newSerialNumber() (*big.Int, error) {
 	}
 
 	return serialNumber, nil
+}
+
+func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
+	var err error
+	if leaf == nil {
+		leaf, err = x509.ParseCertificate(chain[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &tls.Certificate{
+		Leaf:        leaf,
+		Certificate: chain,
+		PrivateKey:  key,
+	}, nil
 }

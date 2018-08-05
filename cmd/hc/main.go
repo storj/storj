@@ -44,6 +44,7 @@ var (
 		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
 		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		CA          provider.CAConfig
+		ID          provider.IdentityConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -68,7 +69,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// GenerateCA CA
-	CA := provider.GenerateCA(context.Background(), setupCfg.CA.Difficulty, 4)
+	ca := provider.GenerateCA(context.Background(), setupCfg.CA.Difficulty, 4)
+	fi, err := ca.GenerateIdentity()
 	// fi, caKey := provider.GenerateCA(setupCfg.Difficulty, setupCfg.Concurrency)
 	// Create identity
 	// Save identity to disk
