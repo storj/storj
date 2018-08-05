@@ -32,7 +32,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
 
 	return &Provider{
-		lis:      lis,
+		lis: lis,
 		// NB: talk to anyone with an identity
 		g:        grpc.NewServer(identity.ServerOption(0)),
 		next:     responsibilities,

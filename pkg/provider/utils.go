@@ -11,9 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/peertls"
 	"context"
+
 	"golang.org/x/crypto/sha3"
+	"storj.io/storj/pkg/peertls"
 )
 
 type secretIdentity struct {
@@ -98,7 +99,7 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan Certifica
 			ca := CertificateAuthority{
 				Cert: c.Leaf,
 				Key:  &c.PrivateKey,
-				ID: i,
+				ID:   i,
 			}
 
 			if ca.Difficulty() >= difficulty {

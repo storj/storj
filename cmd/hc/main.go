@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -15,14 +16,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"io/ioutil"
-	"io"
-	"v/github.com/zeebo/errs"
-	"encoding/pem"
-	"storj.io/storj/pkg/peertls"
-	"crypto/x509"
-	"crypto/ecdsa"
-	"context"
 )
 
 var (
@@ -48,9 +41,9 @@ var (
 		Overlay   overlay.Config
 	}
 	setupCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
-		Concurrency uint  `default:"4" help:"number of concurrent workers for certificate authority generation"`
-		CA provider.CAConfig
+		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
+		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
+		CA          provider.CAConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -87,7 +80,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	ic := provider.IdentityConfig{
 		CertPath: c,
-		KeyPath: k,
+		KeyPath:  k,
 	}
 
 	ic.SaveIdentity(&fi)

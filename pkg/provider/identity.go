@@ -168,8 +168,8 @@ func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
 
 // Run will run the given responsibilities with the configured identity.
 func (ic IdentityConfig) Run(ctx context.Context,
-		responsibilities ...Responsibility) (
-		err error) {
+	responsibilities ...Responsibility) (
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pi, err := ic.LoadIdentity()
@@ -195,7 +195,7 @@ func (ic IdentityConfig) Run(ctx context.Context,
 }
 
 // GenerateCA creates a new full identity with the given difficulty
-func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*CertificateAuthority) {
+func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) *CertificateAuthority {
 	if ctx == nil {
 		ctx = context.Background()
 	}

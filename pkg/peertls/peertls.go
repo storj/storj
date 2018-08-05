@@ -5,9 +5,9 @@ package peertls
 
 import (
 	"crypto/ecdsa"
-	"crypto/x509"
-	"crypto/tls"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
 	"reflect"
 

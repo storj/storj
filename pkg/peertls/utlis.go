@@ -18,10 +18,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"math/big"
+	"crypto"
+	"encoding/asn1"
 
 	"github.com/zeebo/errs"
-	"encoding/asn1"
-	"crypto"
 )
 
 type ecdsaSignature struct {
