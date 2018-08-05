@@ -98,7 +98,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	keyPEM := bytes.NewBuffer([]byte{})
 	pem.Encode(keyPEM, peertls.NewKeyBlock(keyBytes))
 
-	err = ic.SaveIdentity(fi)
+	err = ic.Save(fi)
 	assert.NoError(t, err)
 
 	certInfo, err := os.Stat(ic.CertPath)
@@ -174,10 +174,10 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	done, ic, expectedFI, _ := tempIdentity(t)
 	defer done()
 
-	err := ic.SaveIdentity(expectedFI)
+	err := ic.Save(expectedFI)
 	assert.NoError(t, err)
 
-	fi, err := ic.LoadIdentity()
+	fi, err := ic.Load()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.PrivateKey)

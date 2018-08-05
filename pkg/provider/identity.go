@@ -181,8 +181,8 @@ func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	}, nil
 }
 
-// LoadIdentity loads a FullIdentity from the given configuration
-func (ic IdentityConfig) LoadIdentity() (*FullIdentity, error) {
+// Load loads a FullIdentity from the given configuration
+func (ic IdentityConfig) Load() (*FullIdentity, error) {
 	c, err := ioutil.ReadFile(ic.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
@@ -200,8 +200,8 @@ func (ic IdentityConfig) LoadIdentity() (*FullIdentity, error) {
 	return fi, nil
 }
 
-// SaveIdentity saves a FullIdentity with the given configuration
-func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
+// Save saves a FullIdentity with the given configuration
+func (ic IdentityConfig) Save(fi *FullIdentity) error {
 	if err := os.MkdirAll(filepath.Dir(ic.CertPath), 644); err != nil {
 		return errs.Wrap(err)
 	}
@@ -223,10 +223,10 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	}
 	defer utils.LogClose(k)
 
-	if err = fi.WriteCertChain(c); err != nil {
+	if err = fi.WriteChain(c, fi.Leaf, fi.CA.Cert); err != nil {
 		return err
 	}
-	if err = fi.WritePrivateKey(k); err != nil {
+	if err = fi.WriteKey(k, fi.PrivateKey); err != nil {
 		return err
 	}
 	return nil
@@ -238,7 +238,7 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pi, err := ic.LoadIdentity()
+	pi, err := ic.Load()
 	if err != nil {
 		return err
 	}
@@ -260,34 +260,35 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	return s.Run(ctx)
 }
 
-// WriteCertChain writes the certificate chain (leaf-first) from `FullIdentity` to
-// a passed writer, PEM-encoded.
-func (fi *FullIdentity) WriteCertChain(w io.Writer) error {
-	if err := pem.Encode(w, peertls.NewCertBlock(fi.Leaf.Raw)); err != nil {
-		return errs.Wrap(err)
+// WriteChain writes the certificate chain (leaf-first) to the writer, PEM-encoded.
+func (fi *FullIdentity) WriteChain(w io.Writer, chain ...*x509.Certificate) error {
+	if len(chain) < 1 {
+		return errs.New("expected at least one certificate for writing")
 	}
-	if err := pem.Encode(w, peertls.NewCertBlock(fi.CA.Cert.Raw)); err != nil {
-		return errs.Wrap(err)
+
+	for _, c := range chain {
+		if err := pem.Encode(w, peertls.NewCertBlock(c.Raw)); err != nil {
+			return errs.Wrap(err)
+		}
 	}
 	return nil
 }
 
-// WriteCertChain writes the certificate chain (leaf-first) from `FullIdentity` to
-// a passed writer, PEM-encoded.
-func (fi *FullIdentity) WritePrivateKey(w io.Writer) error {
+// WriteChain writes the private key to the writer, PEM-encoded.
+func (fi *FullIdentity) WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
 		kb  []byte
 		err error
 	)
 
-	switch privateKey := fi.PrivateKey.(type) {
+	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
-		kb, err = x509.MarshalECPrivateKey(privateKey)
+		kb, err = x509.MarshalECPrivateKey(k)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 	default:
-		return peertls.ErrUnsupportedKey.New("%s", reflect.TypeOf(privateKey))
+		return peertls.ErrUnsupportedKey.New("%s", reflect.TypeOf(k))
 	}
 
 	if err := pem.Encode(w, peertls.NewKeyBlock(kb)); err != nil {

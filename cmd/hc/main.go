@@ -44,7 +44,7 @@ var (
 		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
 		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		CA          provider.CAConfig
-		ID          provider.IdentityConfig
+		Identity    provider.IdentityConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -71,45 +71,19 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// GenerateCA CA
 	ca := provider.GenerateCA(context.Background(), setupCfg.CA.Difficulty, 4)
 	fi, err := ca.GenerateIdentity()
-	// fi, caKey := provider.GenerateCA(setupCfg.Difficulty, setupCfg.Concurrency)
-	// Create identity
-	// Save identity to disk
-
-	cc := filepath.Join(setupCfg.BasePath, "ca.cert")
-	ck := filepath.Join(setupCfg.BasePath, "ca.key")
-	c := filepath.Join(setupCfg.BasePath, "identity.cert")
-	k := filepath.Join(setupCfg.BasePath, "identity.key")
-
-	ic := provider.IdentityConfig{
-		CertPath: c,
-		KeyPath:  k,
+	if err != nil {
+		return err
 	}
 
-	ic.SaveIdentity(&fi)
+	err = setupCfg.CA.Save(ca)
+	if err != nil {
+		return err
+	}
 
-	// ckf, err := os.OpenFile(ck, os.O_CREATE | os.O_WRONLY, 0600)
-	// if err != nil {
-	// 	return errs.Wrap(err)
-	// }
-	//
-	// ccf, err := os.Open(cc)
-	// if err != nil {
-	// 	return errs.Wrap(err)
-	// }
-	//
-	// var ccBytes []byte
-	// switch k := caKey.(type) {
-	// case *ecdsa.PrivateKey:
-	// 	ccBytes, err = x509.MarshalECPrivateKey(k)
-	// 	if err != nil {
-	// 		return errs.Wrap(err)
-	// 	}
-	// default:
-	// 	return peertls.ErrUnsupportedKey.New("")
-	// }
-	//
-	// ccBlock :=  peertls.NewCertBlock(ccBytes)
-	// pem.Encode(ccf, ccBlock)
+	err = setupCfg.Identity.Save(fi)
+	if err != nil {
+		return err
+	}
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
