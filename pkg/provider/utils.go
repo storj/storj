@@ -71,7 +71,7 @@ func idDifficulty(id nodeID) uint16 {
 	panic(reason)
 }
 
-func generateCreds(ctx context.Context, difficulty uint16, caC chan CertificateAuthority) {
+func generateCAWorker(ctx context.Context, difficulty uint16, caC chan CertificateAuthority) {
 	for {
 		select {
 		case <-ctx.Done():

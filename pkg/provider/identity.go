@@ -108,7 +108,6 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	if err != nil {
 		return errs.New("unable to open cert file for writing \"%s\"", ic.CertPath, err)
 	}
-
 	defer func() {
 		if err := certFile.Close(); err != nil {
 			zap.S().Error(errs.Wrap(err))
@@ -119,7 +118,6 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	if err != nil {
 		return errs.New("unable to open key file for writing \"%s\"", ic.KeyPath, err)
 	}
-
 	defer func() {
 		if err := keyFile.Close(); err != nil {
 			zap.S().Error(errs.Wrap(err))
@@ -129,7 +127,6 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	if err = fi.WriteCertChain(certFile); err != nil {
 		return err
 	}
-
 	if err = fi.WritePrivateKey(keyFile); err != nil {
 		return err
 	}
@@ -213,7 +210,7 @@ func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*Cert
 
 	caC := make(chan CertificateAuthority, 1)
 	for i := 0; i < int(concurrency); i++ {
-		go generateCreds(ctx, difficulty, caC)
+		go generateCAWorker(ctx, difficulty, caC)
 	}
 
 	ca := <-caC
