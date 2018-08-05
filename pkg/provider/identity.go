@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"storj.io/storj/pkg/peertls"
+	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -108,21 +109,13 @@ func (ic IdentityConfig) SaveIdentity(fi *FullIdentity) error {
 	if err != nil {
 		return errs.New("unable to open cert file for writing \"%s\"", ic.CertPath, err)
 	}
-	defer func() {
-		if err := certFile.Close(); err != nil {
-			zap.S().Error(errs.Wrap(err))
-		}
-	}()
+	defer utils.LogClose(certFile)
 
 	keyFile, err := os.OpenFile(ic.KeyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return errs.New("unable to open key file for writing \"%s\"", ic.KeyPath, err)
 	}
-	defer func() {
-		if err := keyFile.Close(); err != nil {
-			zap.S().Error(errs.Wrap(err))
-		}
-	}()
+	defer utils.LogClose(keyFile)
 
 	if err = fi.WriteCertChain(certFile); err != nil {
 		return err
