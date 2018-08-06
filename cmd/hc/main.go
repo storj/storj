@@ -67,6 +67,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if setupCfg.BasePath != defaultConfDir {
+		setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+	}
+
 	// Load or create a certificate authority
 	ca, err := setupCfg.CA.LoadOrCreate(nil, 4)
 	if err != nil {

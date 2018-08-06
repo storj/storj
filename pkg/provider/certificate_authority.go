@@ -71,7 +71,7 @@ func (caC CAConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*Certif
 			"if you wish overwrite this key, set the overwrite option to true")
 	case CertKey | CertNoKey:
 		if caC.Overwrite {
-			zap.S().Warn("overwriting certificate authority")
+			zap.S().Info("overwriting certificate authority")
 			ca, err = caC.Create(ctx, concurrency)
 			if err != nil {
 				return nil, err
@@ -157,7 +157,7 @@ func (caC CAConfig) Load() (*CertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	pi, err := PeerIdentityFromCertChain([][]byte{cb})
+	pi, err := PeerIdentityFromCertChain([][]byte{[]byte{}, cb})
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v, %#v: %v",
 			caC.CertPath, caC.KeyPath, err)

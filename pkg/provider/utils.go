@@ -102,7 +102,7 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan Certifica
 
 			ca := CertificateAuthority{
 				Cert:       c.Leaf,
-				PrivateKey: &c.PrivateKey,
+				PrivateKey: c.PrivateKey,
 				ID:         i,
 			}
 
@@ -126,7 +126,7 @@ func idFromCert(c *x509.Certificate) (nodeID, error) {
 }
 
 func openCert(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 644); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 744); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
@@ -138,7 +138,7 @@ func openCert(path string, flag int) (*os.File, error) {
 }
 
 func openKey(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 600); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 700); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
