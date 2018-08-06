@@ -75,6 +75,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	ticker := time.NewTicker(time.Duration(c.RefreshInterval))
+	defer ticker.Stop()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	go func() {
 		for {
@@ -84,6 +88,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 				if err != nil {
 					zap.S().Error("Error with cache refresh: ", err)
 				}
+			case <- ctx.Done():
+				return
 			}
 		}
 	}()

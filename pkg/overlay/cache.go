@@ -125,7 +125,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	}
 
 	rid := kademlia.NodeID(r)
-	near, err := o.DHT.GetNodes(ctx, rid.String(), 1000)
+	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
 		return err
 	}
@@ -140,8 +140,9 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			return err
 		}
 	}
-		
-	nodes, err := o.DHT.GetNodes(ctx, "", 10000)
+	
+	// TODO: Kademlia hooks to do this automatically rather than at interval
+	nodes, err := o.DHT.GetNodes(ctx, "", 128)
 	if err != nil {
 		return err
 	}
