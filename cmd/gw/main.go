@@ -11,8 +11,8 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -33,7 +33,10 @@ var (
 
 	runCfg   miniogw.Config
 	setupCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
+		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
+		CA          provider.CAConfig
+		Identity    provider.IdentityConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/gw"
@@ -56,8 +59,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	identityPath := filepath.Join(setupCfg.BasePath, "identity")
-	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, false)
+	// Load or create a certificate authority
+	ca, err := setupCfg.CA.LoadOrCreate(nil, 4)
+	if err != nil {
+		return err
+	}
+	// Load or create identity from CA
+	_, err = setupCfg.Identity.LoadOrCreate(ca)
 	if err != nil {
 		return err
 	}

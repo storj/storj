@@ -29,7 +29,7 @@ type CertificateAuthority struct {
 type CAConfig struct {
 	CertPath   string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.leaf.cert"`
 	KeyPath    string `help:"path to the private key for this identity" default:"$CONFDIR/identity.leaf.key"`
-	Difficulty uint16 `help:"minimum difficulty for identity generation" default:"24"`
+	Difficulty uint64 `help:"minimum difficulty for identity generation" default:"24"`
 	Overwrite  bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Version    string `help:"semantic version of CA storage format"`
 }
@@ -47,7 +47,7 @@ func (caC CAConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*Certif
 			return nil, err
 		}
 
-		if ca.Difficulty() < caC.Difficulty {
+		if ca.Difficulty() < uint16(caC.Difficulty) {
 			return nil, ErrDifficulty.New("loaded certificate authority has a difficulty less than requested: %d; expected >= %d",
 				ca.Difficulty(), caC.Difficulty)
 		}
@@ -96,7 +96,7 @@ func (caC CAConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*Certif
 
 // Create generates and saves a CA using the config
 func (caC CAConfig) Create(ctx context.Context, concurrency uint) (*CertificateAuthority, error) {
-	ca := GenerateCA(ctx, caC.Difficulty, concurrency)
+	ca := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
 	return ca, caC.Save(ca)
 }
 

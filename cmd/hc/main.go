@@ -78,8 +78,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	o := map[string]interface{}{
+		// "Identity"
+	}
+
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
+		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
 }
 
 func main() {
