@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -68,19 +67,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// GenerateCA CA
-	ca := provider.GenerateCA(context.Background(), setupCfg.CA.Difficulty, 4)
-	fi, err := ca.GenerateIdentity()
+	// Load or create a certificate authority
+	ca, err := setupCfg.CA.LoadOrCreate(nil, 4)
 	if err != nil {
 		return err
 	}
-
-	err = setupCfg.CA.Save(ca)
-	if err != nil {
-		return err
-	}
-
-	err = setupCfg.Identity.Save(fi)
+	// Load or create identity from CA
+	_, err = setupCfg.Identity.LoadOrCreate(ca)
 	if err != nil {
 		return err
 	}

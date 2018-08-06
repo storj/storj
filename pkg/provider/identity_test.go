@@ -4,17 +4,16 @@
 package provider
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"bytes"
-	"crypto/ecdsa"
-	"encoding/pem"
 
 	"storj.io/storj/pkg/peertls"
 )
@@ -197,42 +196,4 @@ func TestFullIdentity_Difficulty(t *testing.T) {
 
 	difficulty := fi.Difficulty()
 	assert.True(t, difficulty >= knownDifficulty)
-}
-
-func TestGenerateCA(t *testing.T) {
-	expectedDifficulty := uint16(12)
-
-	ca := GenerateCA(nil, expectedDifficulty, 5)
-	assert.NotEmpty(t, ca)
-
-	actualDifficulty := ca.Difficulty()
-	assert.True(t, actualDifficulty >= expectedDifficulty)
-}
-
-func BenchmarkGenerate_Difficulty8_Concurrency1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 1)
-	}
-}
-
-func BenchmarkGenerate_Difficulty8_Concurrency2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 2)
-	}
-}
-
-func BenchmarkGenerate_Difficulty8_Concurrency5(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 5)
-	}
-}
-
-func BenchmarkGenerate_Difficulty8_Concurrency10(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 10)
-	}
 }

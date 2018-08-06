@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"crypto"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -18,10 +17,14 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-type secretIdentity struct {
-	FullIdentity
-	crypto.PrivateKey
-}
+type TlsFilesStat int
+
+const (
+	NoCertNoKey = iota
+	CertNoKey
+	NoCertKey
+	CertKey
+)
 
 var (
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
@@ -144,4 +147,17 @@ func openKey(path string, flag int) (*os.File, error) {
 		return nil, errs.New("unable to open key file for writing \"%s\"", path, err)
 	}
 	return k, nil
+}
+
+func statTLSFiles(certPath, keyPath string) TlsFilesStat {
+	s := 0
+	_, err := os.Stat(certPath)
+	if err != nil {
+		s += 1
+	}
+	_, err = os.Stat(keyPath)
+	if err != nil {
+		s += 2
+	}
+	return TlsFilesStat(s)
 }
