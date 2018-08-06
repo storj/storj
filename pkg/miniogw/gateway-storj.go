@@ -15,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 )
@@ -33,6 +34,7 @@ func NewStorjGateway(os objects.Store) *Storj {
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
 	os objects.Store
+	bs buckets.Store
 }
 
 // Name implements cmd.Gateway
@@ -58,7 +60,11 @@ type storjObjects struct {
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	err = s.storj.bs.Delete(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
@@ -70,7 +76,11 @@ func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+	meta, err := s.storj.bs.Get(ctx, bucket)
+	if err != nil {
+		return minio.BucketInfo{}, err
+	}
+	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
@@ -123,8 +133,15 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	buckets = nil
-	err = nil
+	// TODO(nat): figure out bs.List parameters and format for returned buckets value
+	items, _, err := s.storj.bs.List(ctx, "", "", 40)
+	if err != nil {
+		return nil, err
+	}
+	buckets = make([]minio.BucketInfo, 40)
+	for i, item := range items {
+		buckets[i].Created = item.Created
+	}
 	return buckets, err
 }
 
