@@ -196,7 +196,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 	} else {
-		rr = ranger.NopCloser(ranger.ByteRanger(pr.InlineSegment))
+		rr = ranger.ByteRangeCloser(pr.InlineSegment)
 	}
 
 	return rr, convertMeta(pr), nil

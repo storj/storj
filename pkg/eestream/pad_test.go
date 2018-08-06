@@ -44,7 +44,7 @@ func TestPad(t *testing.T) {
 		if int64(padding+len(example.data)) != padded.Size() {
 			t.Fatalf("invalid padding")
 		}
-		unpadded, err := Unpad(padded, padding)
+		unpadded, err := Unpad(ranger.NopCloser(padded), padding)
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
@@ -59,7 +59,7 @@ func TestPad(t *testing.T) {
 		if !bytes.Equal(data, []byte(example.data)) {
 			t.Fatalf("mismatch")
 		}
-		unpadded, err = UnpadSlow(ctx, padded)
+		unpadded, err = UnpadSlow(ctx, ranger.NopCloser(padded))
 		if err != nil {
 			t.Fatalf("unexpected error")
 		}
