@@ -152,11 +152,11 @@ func openKey(path string, flag int) (*os.File, error) {
 func statTLSFiles(certPath, keyPath string) TlsFilesStat {
 	s := 0
 	_, err := os.Stat(certPath)
-	if err != nil {
+	if err == nil {
 		s += 1
 	}
 	_, err = os.Stat(keyPath)
-	if err != nil {
+	if err == nil {
 		s += 2
 	}
 	return TlsFilesStat(s)

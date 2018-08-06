@@ -49,8 +49,8 @@ type FullIdentity struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.leaf.cert"`
-	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.leaf.key"`
+	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
+	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version   string `help:"semantic version of identity storage format" default:"0"`
 	Address   string `help:"address to listen on" default:":7777"`

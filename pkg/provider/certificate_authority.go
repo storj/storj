@@ -27,8 +27,8 @@ type CertificateAuthority struct {
 }
 
 type CAConfig struct {
-	CertPath   string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.leaf.cert"`
-	KeyPath    string `help:"path to the private key for this identity" default:"$CONFDIR/identity.leaf.key"`
+	CertPath   string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	KeyPath    string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 	Difficulty uint64 `help:"minimum difficulty for identity generation" default:"24"`
 	Overwrite  bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Version    string `help:"semantic version of CA storage format"`
