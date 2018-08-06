@@ -5,8 +5,8 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"crypto/rand"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -119,55 +119,43 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 // but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
 	log.Print("starting cache refresh")
-	table, err := o.DHT.GetRoutingTable(ctx)
+	r, err := randomID()
 	if err != nil {
-		zap.Error(OverlayError.New("Error getting routing table", err))
 		return err
 	}
 
-	buckets, _ := table.GetBuckets()
-
-	for _, b := range buckets {
-		log.Printf("refreshing bucket %+v\n", b)
-		bucketNodes := b.Nodes()
-		for _, bn := range bucketNodes {
-			log.Printf("bucket node %+v\n", bn)
-		}
-	}
-
-	nodes, err := o.DHT.GetNodes(ctx, "", 1024)
-
-	/// kick off concurrent refreshes
-	randomID, err := kademlia.NewID()
-
+	rid := kademlia.NodeID(r)
+	near, err := o.DHT.GetNodes(ctx, rid.String(), 1000)
 	if err != nil {
-		zap.Error(OverlayError.New("Error generating random ID", err))
-		log.Printf("error finding random ID %+v\n", err)
+		return err
 	}
 
-	nn, err := o.DHT.FindNearNodes(ctx, randomID)
-	if err != nil {
-		zap.Error(OverlayError.New("Error finding node", err))
-	}
-
-	fmt.Printf("found near nodes %+v\n", nn)
-
-	for _, n := range nn {
-		log.Printf("getting routing table for node %+v\n", n)
-		t, err := kademlia.GetNodeRoutingTable(ctx, kademlia.NodeID(n.Id))
+	for _, node := range near {
+		pinged, err := o.DHT.Ping(ctx, *node)
 		if err != nil {
-			zap.Error(OverlayError.New("Error getting node routing table", err))
-			log.Printf("error getting routing table from foreign node %+v\n", err)
+			return err
 		}
-		log.Printf("got routing table back %+v\n", t)
+		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		if err != nil {
+			return err
+		}
+	}
+		
+	nodes, err := o.DHT.GetNodes(ctx, "", 10000)
+	if err != nil {
+		return err
 	}
 
 	for _, node := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *node)
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
+			return err
 		} else {
-			o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+			err := o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -176,22 +164,12 @@ func (o *Cache) Refresh(ctx context.Context) error {
 
 // Walk iterates over each node in each bucket to traverse the network
 func (o *Cache) Walk(ctx context.Context) error {
-	table, _ := o.DHT.GetRoutingTable(ctx)
-	k := table.K()
-
-	nodes, err := o.DHT.GetNodes(ctx, "0", k)
-	if err != nil {
-		zap.Error(OverlayError.New("Error getting routing table", err))
-		return err
-	}
-
-	for _, node := range nodes {
-		_, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(node.Id))
-		if err != nil {
-			zap.Error(ErrNodeNotFound)
-			return err
-		}
-	}
-
+	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
+}
+
+func randomID() ([]byte, error) {
+	result := make([]byte, 64)
+	_, err := rand.Read(result)
+	return result, err
 }

@@ -27,8 +27,8 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL     string 					`help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
-	RefreshInterval time.Duration  	`help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
+	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
+	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 }
 
 // Run implements the provider.Responsibility interface. Run assumes a
@@ -75,7 +75,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	ticker := time.NewTicker(time.Duration(c.RefreshInterval))
-	refreshErrors := make(chan error)
 
 	go func() {
 		for {
@@ -83,8 +82,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 			case <-ticker.C:
 				err := cache.Refresh(ctx)
 				if err != nil {
-					zap.S().Error("Error with cache refresh")
-					refreshErrors <- err
+					zap.S().Error("Error with cache refresh: ", err)
 				}
 			}
 		}

@@ -23,7 +23,6 @@ type DHT interface {
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node proto.Node) (proto.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (proto.Node, error)
-	FindNearNodes(ctx context.Context, ID NodeID) ([]*proto.Node, error)
 	Disconnect() error
 }
 

@@ -161,16 +161,6 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 	return proto.Node{}, NodeErr.New("node not found")
 }
 
-// FindNearNodes returns a slice of proto.Nodes that are close to the node ID provided
-func (k *Kademlia) FindNearNodes(ctx context.Context, ID dht.NodeID) ([]*proto.Node, error) {
-	nodes, err := k.dht.FindNode(ID.Bytes())
-	if err != nil {
-		return []*proto.Node{}, err
-	}
-	n := convertNetworkNodes(nodes)
-	return n, nil
-}
-
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
 func (k *Kademlia) ListenAndServe() error {
 	if err := k.dht.CreateSocket(); err != nil {
