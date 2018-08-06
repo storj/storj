@@ -113,7 +113,7 @@ func TestRSRanger(t *testing.T) {
 	}
 	rrs := map[int]ranger.RangeCloser{}
 	for i, piece := range pieces {
-		rrs[i] = ranger.NopCloser(ranger.ByteRanger(piece))
+		rrs[i] = ranger.ByteRangeCloser(piece)
 	}
 	decrypter, err := NewAESGCMDecrypter(
 		&encKey, &firstNonce, rs.DecodedBlockSize())

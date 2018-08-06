@@ -106,6 +106,15 @@ func TestPut(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	size := 32 * 1024
+	k := 2
+	n := 4
+	fc, err := infectious.NewFEC(k, n)
+	if !assert.NoError(t, err) {
+		return
+	}
+	es := eestream.NewRSScheme(fc, size/n)
+
 TestLoop:
 	for i, tt := range []struct {
 		nodes     []*proto.Node
@@ -140,7 +149,6 @@ TestLoop:
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := client.NewPieceID()
-		size := 32 * 1024
 		ttl := time.Now()
 
 		errs := make(map[*proto.Node]error, len(tt.nodes))
@@ -163,12 +171,6 @@ TestLoop:
 				m[n] = ps
 			}
 		}
-
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := eestream.NewRSScheme(fc, size/4)
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
 			continue
@@ -189,6 +191,15 @@ func TestGet(t *testing.T) {
 	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	size := 32 * 1024
+	k := 2
+	n := 4
+	fc, err := infectious.NewFEC(k, n)
+	if !assert.NoError(t, err) {
+		return
+	}
+	es := eestream.NewRSScheme(fc, size/n)
 
 TestLoop:
 	for i, tt := range []struct {
@@ -218,7 +229,6 @@ TestLoop:
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := client.NewPieceID()
-		size := 32 * 1024
 
 		errs := make(map[*proto.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
@@ -233,17 +243,11 @@ TestLoop:
 					continue TestLoop
 				}
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size)).Return(
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k)).Return(
 					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
 				m[n] = ps
 			}
 		}
-
-		fc, err := infectious.NewFEC(2, 4)
-		if !assert.NoError(t, err, errTag) {
-			continue
-		}
-		es := eestream.NewRSScheme(fc, size/4)
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
 		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size))
 
