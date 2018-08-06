@@ -39,6 +39,7 @@ type Kademlia struct {
 	stun           bool
 	dht            *bkad.DHT
 	nodeClient     node.Client
+	alpha          int
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -140,26 +141,26 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("Bootstrap node provided no known nodes")
 	}
 
-	return k.boostrap(ctx, nodes, nil)
+	return k.lookup(ctx, nodes, nil)
 }
 
-func (k *Kademlia) boostrap(ctx context.Context, nodes []*proto.Node, closestNode *proto.Node) error {
-	results, err := k.lookup(ctx, nodes)
+func (k *Kademlia) lookup(ctx context.Context, nodes []*proto.Node, closestNode *proto.Node) error {
+	results, err := k.query(ctx, nodes)
 	if err != nil {
 		return err
 	}
 
 	closest := k.getClosest(results)
 	if cl := k.closer(&closest, closestNode); cl && closest.GetId() != closestNode.GetId() {
-		return k.boostrap(ctx, results, &closest)
+		return k.lookup(ctx, results, &closest)
 	}
 
-	_, err = k.lookup(ctx, results)
+	_, err = k.query(ctx, results)
 
 	return err
 }
 
-func (k *Kademlia) lookup(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {
+func (k *Kademlia) query(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {
 	if len(nodes) <= 0 {
 		return nil, NodeErr.New("no nodes provided for lookup")
 	}
