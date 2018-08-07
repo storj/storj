@@ -47,7 +47,11 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 		ctx = context.Background()
 	}
 
-	var ca = new(CertificateAuthority)
+	var (
+		ca    = new(CertificateAuthority)
+		isNew = false
+		err   error
+	)
 	load := func() (*CertificateAuthority, error) {
 		ca, err := caC.Load()
 		if err != nil {
@@ -62,51 +66,45 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 		return ca, nil
 	}
 
-	var (
-		new bool
-		err error
-	)
 	switch caC.Stat() {
 	case NoCertKey:
 		if caC.Overwrite {
 			zap.S().Warn("overwriting certificate authority")
-			new = true
+			isNew = true
 			ca, err = caC.Create(ctx, concurrency)
 			if err != nil {
-				return nil, new, err
+				return nil, isNew, err
 			}
 			break
 		}
 
-		new = false
-		return nil, new, errs.New("a key already exists at \"%s\" but no cert was found at \"%s\"; " +
+		return nil, isNew, errs.New("a key already exists at \"%s\" but no cert was found at \"%s\"; " +
 			"if you wish overwrite this key, set the overwrite option to true")
 	case CertKey | CertNoKey:
 		if caC.Overwrite {
 			zap.S().Info("overwriting certificate authority")
-			new = true
+			isNew = true
 			ca, err = caC.Create(ctx, concurrency)
 			if err != nil {
-				return nil, new, err
+				return nil, isNew, err
 			}
 			break
 		}
 
 		zap.S().Info("certificate authority exist, loading")
-		new = false
 		ca, err = load()
 		if err != nil {
-			return nil, false, err
+			return nil, isNew, err
 		}
 	case NoCertNoKey:
 		zap.S().Info("certificate authority not found, generating")
-		new = true
+		isNew = true
 		ca, err = caC.Create(ctx, concurrency)
 		if err != nil {
-			return nil, new, err
+			return nil, isNew, err
 		}
 	}
-	return ca, new, nil
+	return ca, isNew, nil
 }
 
 // Load loads a CA from the given configuration
