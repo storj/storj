@@ -52,8 +52,9 @@ func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
 
 func verifyChainSignatures(certs []*x509.Certificate) error {
 	for i, cert := range certs {
-		if i < len(certs)-1 {
-			isValid, err := verifyCertSignature(certs[i+1], cert)
+		j := len(certs)
+		if i+1 < j {
+			isValid, err := verifyCertSignature(certs[i], cert)
 			if err != nil {
 				return ErrVerifyPeerCert.Wrap(err)
 			}
