@@ -39,17 +39,14 @@ func parseCertificateChains(rawCerts [][]byte) ([]*x509.Certificate, error) {
 }
 
 func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
-	certs := []*x509.Certificate{}
-
-	for _, c := range rawCerts {
-		parsedCert, err := x509.ParseCertificate(c)
+	certs := make([]*x509.Certificate, len(rawCerts))
+	for i, c := range rawCerts {
+		var err error
+		certs[i], err = x509.ParseCertificate(c)
 		if err != nil {
 			return nil, ErrVerifyPeerCert.New("unable to parse certificate", err)
 		}
-
-		certs = append(certs, parsedCert)
 	}
-
 	return certs, nil
 }
 
