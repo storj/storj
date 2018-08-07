@@ -76,7 +76,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return(tt.returnPointer, nil),
 		}
 		gomock.InOrder(calls...)
@@ -128,10 +128,10 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
 			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
@@ -171,10 +171,10 @@ func TestSegmentStorePutInline(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
@@ -218,7 +218,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return(&ppb.Pointer{
 				Type:           tt.pointerType,
 				InlineSegment:  tt.inlineContent,
@@ -268,7 +268,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return(&ppb.Pointer{
 				Type: tt.pointerType,
 				Remote: &ppb.RemoteSegment{
@@ -332,7 +332,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return(&ppb.Pointer{
 				Type:           tt.pointerType,
 				InlineSegment:  tt.inlineContent,
@@ -342,7 +342,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 				Metadata:       tt.metadata,
 			}, nil),
 			mockPDB.EXPECT().Delete(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
@@ -385,7 +385,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return(&ppb.Pointer{
 				Type: tt.pointerType,
 				Remote: &ppb.RemoteSegment{
@@ -408,7 +408,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 			mockPDB.EXPECT().Delete(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
@@ -455,7 +455,7 @@ func TestSegmentStoreList(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().List(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]pdb.ListItem{
 				pdb.ListItem{
 					Path: listedPath,

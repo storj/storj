@@ -37,33 +37,33 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Delete mocks base method
-func (m *MockClient) Delete(arg0 context.Context, arg1 paths.Path, arg2 []byte) error {
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
+func (m *MockClient) Delete(arg0 context.Context, arg1 paths.Path) error {
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete
-func (mr *MockClientMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockClient)(nil).Delete), arg0, arg1, arg2)
+func (mr *MockClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockClient)(nil).Delete), arg0, arg1)
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 paths.Path, arg2 []byte) (*pointerdb0.Pointer, error) {
-	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
+func (m *MockClient) Get(arg0 context.Context, arg1 paths.Path) (*pointerdb0.Pointer, error) {
+	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*pointerdb0.Pointer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClient)(nil).Get), arg0, arg1, arg2)
+func (mr *MockClientMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClient)(nil).Get), arg0, arg1)
 }
 
 // List mocks base method
-func (m *MockClient) List(arg0 context.Context, arg1, arg2, arg3 paths.Path, arg4 bool, arg5 int, arg6 uint32, arg7 []byte) ([]pointerdb.ListItem, bool, error) {
-	ret := m.ctrl.Call(m, "List", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+func (m *MockClient) List(arg0 context.Context, arg1, arg2, arg3 paths.Path, arg4 bool, arg5 int, arg6 uint32) ([]pointerdb.ListItem, bool, error) {
+	ret := m.ctrl.Call(m, "List", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]pointerdb.ListItem)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -71,18 +71,18 @@ func (m *MockClient) List(arg0 context.Context, arg1, arg2, arg3 paths.Path, arg
 }
 
 // List indicates an expected call of List
-func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockClient)(nil).List), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockClient)(nil).List), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 paths.Path, arg2 *pointerdb0.Pointer, arg3 []byte) error {
-	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
+func (m *MockClient) Put(arg0 context.Context, arg1 paths.Path, arg2 *pointerdb0.Pointer) error {
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put
-func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2, arg3)
+func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockClient)(nil).Put), arg0, arg1, arg2)
 }
