@@ -6,8 +6,8 @@ package provider
 import (
 	"context"
 	"net"
-	"time"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -55,12 +55,12 @@ func SetupIdentityPaths(basePath string, c *CAConfig, i *IdentityConfig) {
 }
 
 // SetupIdentity ensures a CA and identity exist and returns a config overrides map
-func SetupIdentity(c CASetupConfig, i IdentitySetupConfig) (map[string]interface{}, error) {
+func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) (map[string]interface{}, error) {
 	t, err := time.ParseDuration(c.Timeout)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	ctx, _ := context.WithTimeout(context.Background(), t)
+	ctx, _ = context.WithTimeout(ctx, t)
 
 	// Load or create a certificate authority
 	ca, n, err := c.LoadOrCreate(ctx, 4)

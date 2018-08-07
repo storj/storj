@@ -44,46 +44,43 @@ var (
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
-func Generate(template, parentTemplate *x509.Certificate, parent, signer *tls.Certificate) (*tls.Certificate, error) {
+func NewKey() (crypto.PrivateKey, error) {
 	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.New("failed to generateServerTLS root private key", err)
+		return nil, ErrGenerate.New("failed to generate private key", err)
 	}
 
-	if signer == nil {
-		signer = &tls.Certificate{
-			PrivateKey: k,
-			Leaf: &x509.Certificate{
-				PublicKey: &k.PublicKey,
-			},
-		}
-	}
-	sk, ok := signer.Leaf.PublicKey.(*ecdsa.PublicKey)
+	return k, nil
+}
+
+// NewCert returns a new x509 certificate using the provided templates and
+// signed by the `signer` key
+func NewCert(template, parentTemplate *x509.Certificate, signer crypto.PrivateKey) (*x509.Certificate, error) {
+	k, ok := signer.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, ErrUnsupportedKey.New("%T", sk)
+		return nil, ErrUnsupportedKey.New("%T", k)
 	}
 
-	if parent == nil {
-		parent = &tls.Certificate{
-			Certificate: nil,
-		}
-	}
 	if parentTemplate == nil {
 		parentTemplate = template
 	}
-	caCert, err := createCert(
+
+	cb, err := x509.CreateCertificate(
+		rand.Reader,
 		template,
 		parentTemplate,
-		parent.Certificate,
-		sk,
+		&k.PublicKey,
 		k,
-		signer.PrivateKey,
 	)
 	if err != nil {
-		return nil, ErrGenerate.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	return caCert, nil
+	c, err := x509.ParseCertificate(cb)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return c, nil
 }
 
 // VerifyPeerFunc combines multiple `*tls.Config#VerifyPeerCertificate`
@@ -97,7 +94,7 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 
 		for _, n := range next {
 			if n != nil {
-				if err := n(nil, [][]*x509.Certificate{c}); err != nil {
+				if err := n(chain, [][]*x509.Certificate{c}); err != nil {
 					return err
 				}
 			}

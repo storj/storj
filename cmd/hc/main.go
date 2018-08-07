@@ -76,7 +76,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		)
 	}
 
-	o, err := provider.SetupIdentity(setupCfg.CA, setupCfg.Identity)
+	o, err := provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}

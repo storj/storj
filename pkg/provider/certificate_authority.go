@@ -54,9 +54,9 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 			return nil, err
 		}
 
-		if ca.Difficulty() < uint16(caC.Difficulty) {
+		if ca.ID.Difficulty() < uint16(caC.Difficulty) {
 			return nil, ErrDifficulty.New("loaded certificate authority has a difficulty less than requested: %d; expected >= %d",
-				ca.Difficulty(), caC.Difficulty)
+				ca.ID.Difficulty(), caC.Difficulty)
 		}
 
 		return ca, nil
@@ -147,29 +147,34 @@ func (caC CAConfig) Load() (*CertificateAuthority, error) {
 
 // Create generates and saves a CA using the config
 func (caC CAConfig) Create(ctx context.Context, concurrency uint) (*CertificateAuthority, error) {
-	ca := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
+	ca, err := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
+	if err != nil {
+		return nil, err
+	}
 	return ca, caC.Save(ca)
 }
 
 // GenerateCA creates a new full identity with the given difficulty
-func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) *CertificateAuthority {
+func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*CertificateAuthority, error) {
 	if concurrency < 1 {
 		concurrency = 1
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	ctx, cancel := context.WithCancel(ctx)
 
+	eC := make(chan error)
 	caC := make(chan CertificateAuthority, 1)
 	for i := 0; i < int(concurrency); i++ {
-		go generateCAWorker(ctx, difficulty, caC)
+		go generateCAWorker(ctx, difficulty, caC, eC)
 	}
 
-	ca := <-caC
-	cancel()
-
-	return &ca
+	select {
+	case ca := <-caC:
+		cancel()
+		return &ca, nil
+	case err := <-eC:
+		cancel()
+		return nil, err
+	}
 }
 
 // Save saves a CA with the given configuration
@@ -208,21 +213,25 @@ func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	caC, err := peertls.TLSCert([][]byte{ca.Cert.Raw}, ca.Cert, ca.PrivateKey)
+	l, err := peertls.NewCert(lT, ca.Cert, ca.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	lC, err := peertls.Generate(lT, ca.Cert, caC, caC)
+	pi, err := PeerIdentityFromCerts(l, ca.Cert)
 	if err != nil {
 		return nil, err
 	}
-	pi, err := PeerIdentityFromCerts(lC.Leaf, ca.Cert)
+	k, err := peertls.NewKey()
 	if err != nil {
 		return nil, err
 	}
 
 	return &FullIdentity{
 		PeerIdentity: *pi,
-		PrivateKey:   lC.PrivateKey,
+		PrivateKey:   k,
 	}, nil
+}
+
+func (ca *CertificateAuthority) Difficulty() uint16 {
+	return ca.ID.Difficulty()
 }

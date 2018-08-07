@@ -17,6 +17,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"encoding/base64"
+	"fmt"
+	"math/bits"
+
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
 )
@@ -123,7 +127,7 @@ func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
 func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
-	i, err := idFromCert(ca)
+	i, err := idFromKey(ca.PublicKey.(crypto.PublicKey))
 	if err != nil {
 		return nil, err
 	}
@@ -294,18 +298,14 @@ func (pi *PeerIdentity) ID() nodeID {
 	return pi.CA.ID
 }
 
-func (ca *CertificateAuthority) Difficulty() uint16 {
-	return idDifficulty(ca.ID)
-}
-
 // Difficulty returns the number of trailing zero-value bits in the CA's ID hash
 func (fi *FullIdentity) Difficulty() uint16 {
-	return idDifficulty(fi.ID())
+	return fi.ID().Difficulty()
 }
 
 // Difficulty returns the number of trailing zero-value bits in the CA's ID hash
 func (pi *PeerIdentity) Difficulty() uint16 {
-	return idDifficulty(pi.ID())
+	return pi.ID().Difficulty()
 }
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
@@ -349,8 +349,7 @@ func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
-// Certificate converts the full identity `*tls.Certificate` into a
-// `*tlsCertificate`
+// Certificate returns a `*tls.Certifcate` using the identity's certificate and key
 func (fi *FullIdentity) Certificate() (*tls.Certificate, error) {
 	var chain [][]byte
 	chain = append(chain, fi.Leaf.Raw, fi.CA.Cert.Raw)
@@ -358,8 +357,7 @@ func (fi *FullIdentity) Certificate() (*tls.Certificate, error) {
 	return peertls.TLSCert(chain, fi.Leaf, fi.PrivateKey)
 }
 
-// Certificate converts the peer identity `*tls.Certificate` into a
-// `*tlsCertificate` (without a private key)
+// Certificate returns a `*tls.Certifcate` using the identity's certificate and key
 func (pi *PeerIdentity) Certificate() (*tls.Certificate, error) {
 	var chain [][]byte
 	chain = append(chain, pi.Leaf.Raw, pi.CA.Cert.Raw)
@@ -371,3 +369,27 @@ type nodeID string
 
 func (n nodeID) String() string { return string(n) }
 func (n nodeID) Bytes() []byte  { return []byte(n) }
+func (n nodeID) Difficulty() uint16 {
+	hash, err := base64.URLEncoding.DecodeString(n.String())
+	if err != nil {
+		zap.S().Error(errs.Wrap(err))
+	}
+
+	for i := 1; i < len(hash); i++ {
+		b := hash[len(hash)-i]
+
+		if b != 0 {
+			zeroBits := bits.TrailingZeros16(uint16(b))
+			if zeroBits == 16 {
+				zeroBits = 0
+			}
+
+			return uint16((i-1)*8 + zeroBits)
+		}
+	}
+
+	// NB: this should never happen
+	reason := fmt.Sprintf("difficulty matches hash length! hash: %s", hash)
+	zap.S().Error(reason)
+	panic(reason)
+}

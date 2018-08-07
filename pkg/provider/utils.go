@@ -1,17 +1,19 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package provider
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"fmt"
-	"math/bits"
 	"os"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/sha3"
 
 	"storj.io/storj/pkg/peertls"
@@ -51,77 +53,64 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func idDifficulty(id nodeID) uint16 {
-	hash, err := base64.URLEncoding.DecodeString(id.String())
-	if err != nil {
-		zap.S().Error(errs.Wrap(err))
-	}
-
-	for i := 1; i < len(hash); i++ {
-		b := hash[len(hash)-i]
-
-		if b != 0 {
-			zeroBits := bits.TrailingZeros16(uint16(b))
-			if zeroBits == 16 {
-				zeroBits = 0
-			}
-
-			return uint16((i-1)*8 + zeroBits)
-		}
-	}
-
-	// NB: this should never happen
-	reason := fmt.Sprintf("difficulty matches hash length! hash: %s", hash)
-	zap.S().Error(reason)
-	panic(reason)
-}
-
-func generateCAWorker(ctx context.Context, difficulty uint16, caC chan CertificateAuthority) {
+func generateCAWorker(ctx context.Context, difficulty uint16, caC chan CertificateAuthority, eC chan error) {
+	var (
+		k   crypto.PrivateKey
+		i   nodeID
+		err error
+	)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			ct, err := peertls.CATemplate()
-			if err != nil {
-				zap.S().Error(err)
-				continue
-			}
-
-			c, err := peertls.Generate(ct, nil, nil, nil)
-			if err != nil {
-				zap.S().Error(err)
-				continue
-			}
-
-			i, err := idFromCert(c.Leaf)
-			if err != nil {
-				zap.S().Error(err)
-				continue
-			}
-
-			ca := CertificateAuthority{
-				Cert:       c.Leaf,
-				PrivateKey: c.PrivateKey,
-				ID:         i,
-			}
-
-			if ca.Difficulty() >= difficulty {
-				caC <- ca
+			k, err = peertls.NewKey()
+			switch kE := k.(type) {
+			case *ecdsa.PrivateKey:
+				i, err = idFromKey(&kE.PublicKey)
+				if err != nil {
+					eC <- err
+					return
+				}
+			default:
+				eC <- peertls.ErrUnsupportedKey.New("%T", k)
+				return
 			}
 		}
+
+		if i.Difficulty() >= difficulty {
+			break
+		}
 	}
+
+	ct, err := peertls.CATemplate()
+	if err != nil {
+		eC <- err
+		return
+	}
+
+	c, err := peertls.NewCert(ct, nil, k)
+	if err != nil {
+		eC <- err
+		return
+	}
+
+	ca := CertificateAuthority{
+		Cert:       c,
+		PrivateKey: k,
+		ID:         i,
+	}
+	caC <- ca
+	return
 }
 
-func idFromCert(c *x509.Certificate) (nodeID, error) {
-	caPublicKey, err := x509.MarshalPKIXPublicKey(c.PublicKey)
+func idFromKey(k crypto.PublicKey) (nodeID, error) {
+	kb, err := x509.MarshalPKIXPublicKey(k)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
-
 	hash := make([]byte, IdentityLength)
-	sha3.ShakeSum256(hash, caPublicKey)
-
+	sha3.ShakeSum256(hash, kb)
 	return nodeID(base64.URLEncoding.EncodeToString(hash)), nil
 }
 

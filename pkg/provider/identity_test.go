@@ -19,63 +19,70 @@ import (
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
+	k, err := peertls.NewKey()
+	assert.NoError(t, err)
+
 	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	caC, err := peertls.Generate(caT, nil, nil, nil)
+	c, err := peertls.NewCert(caT, nil, k)
 	assert.NoError(t, err)
 
 	lT, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	lC, err := peertls.Generate(lT, caT, caC, caC)
+	l, err := peertls.NewCert(lT, caT, k)
 	assert.NoError(t, err)
 
-	pi, err := PeerIdentityFromCerts(lC.Leaf, caC.Leaf)
+	pi, err := PeerIdentityFromCerts(l, c)
 	assert.NoError(t, err)
-	assert.Equal(t, caC.Leaf, pi.CA.Cert)
-	assert.Equal(t, lC.Leaf, pi.Leaf)
+	assert.Equal(t, c, pi.CA.Cert)
+	assert.Equal(t, l, pi.Leaf)
 	assert.NotEmpty(t, pi.ID)
 }
 
 func TestFullIdentityFromPEM(t *testing.T) {
+	ck, err := peertls.NewKey()
+	assert.NoError(t, err)
+
 	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	caC, err := peertls.Generate(caT, nil, nil, nil)
+	c, err := peertls.NewCert(caT, nil, ck)
 	assert.NoError(t, err)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, caC)
+	assert.NotEmpty(t, c)
 
 	lT, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	lC, err := peertls.Generate(lT, caT, caC, caC)
+	l, err := peertls.NewCert(lT, caT, ck)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, lC)
-	assert.NotEmpty(t, lC.PrivateKey)
+	assert.NotEmpty(t, l)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	for _, c := range lC.Certificate {
-		pem.Encode(chainPEM, peertls.NewCertBlock(c))
-	}
+	pem.Encode(chainPEM, peertls.NewCertBlock(l.Raw))
+	pem.Encode(chainPEM, peertls.NewCertBlock(c.Raw))
 
-	privateKey, ok := lC.PrivateKey.(*ecdsa.PrivateKey)
-	assert.True(t, ok)
-	assert.NotEmpty(t, privateKey)
-
-	keyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	lk, err := peertls.NewKey()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, keyBytes)
+
+	lkE, ok := lk.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	assert.NotEmpty(t, lkE)
+
+	lkB, err := x509.MarshalECPrivateKey(lkE)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, lkB)
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	pem.Encode(keyPEM, peertls.NewKeyBlock(keyBytes))
+	pem.Encode(keyPEM, peertls.NewKeyBlock(lkB))
 
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, lC.Certificate[0], fi.Leaf.Raw)
-	assert.Equal(t, lC.Certificate[1], fi.CA.Cert.Raw)
-	assert.Equal(t, lC.PrivateKey, fi.PrivateKey)
+	assert.Equal(t, l.Raw, fi.Leaf.Raw)
+	assert.Equal(t, c.Raw, fi.CA.Cert.Raw)
+	assert.Equal(t, lk, fi.PrivateKey)
 }
 
 func TestIdentityConfig_SaveIdentity(t *testing.T) {

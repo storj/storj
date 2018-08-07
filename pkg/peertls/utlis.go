@@ -16,7 +16,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
 	"math/big"
@@ -100,40 +99,6 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) 
 	isValid := ecdsa.Verify(pubKey, digest, signature.R, signature.S)
 
 	return isValid, nil
-}
-
-func createCert(
-	template,
-	parentTemplate *x509.Certificate,
-	parentDERCerts [][]byte,
-	pubKey crypto.PublicKey,
-	signingKey,
-	privKey crypto.PrivateKey) (*tls.Certificate, error) {
-
-	certDERBytes, err := x509.CreateCertificate(
-		rand.Reader,
-		template,
-		parentTemplate,
-		pubKey,
-		signingKey,
-	)
-
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	parsedLeaf, _ := x509.ParseCertificate(certDERBytes)
-
-	DERCerts := [][]byte{}
-	DERCerts = append(DERCerts, certDERBytes)
-	DERCerts = append(DERCerts, parentDERCerts...)
-
-	cert := tls.Certificate{}
-	cert.Leaf = parsedLeaf
-	cert.Certificate = DERCerts
-	cert.PrivateKey = privKey
-
-	return &cert, nil
 }
 
 func newSerialNumber() (*big.Int, error) {
