@@ -52,26 +52,28 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 		isNew = false
 		err   error
 	)
-	load := func() (*CertificateAuthority, error) {
+	create := func() {
+		isNew = true
+		ca, err = caC.Create(ctx, concurrency)
+	}
+	load := func() {
 		ca, err := caC.Load()
 		if err != nil {
-			return nil, err
+			return
 		}
 
 		if ca.ID.Difficulty() < uint16(caC.Difficulty) {
-			return nil, ErrDifficulty.New("loaded certificate authority has a difficulty less than requested: %d; expected >= %d",
+			err = ErrDifficulty.New("loaded certificate authority has a difficulty less than requested: %d; expected >= %d",
 				ca.ID.Difficulty(), caC.Difficulty)
 		}
-
-		return ca, nil
+		return
 	}
 
 	switch caC.Stat() {
 	case NoCertKey:
 		if caC.Overwrite {
-			zap.S().Warn("overwriting certificate authority")
-			isNew = true
-			ca, err = caC.Create(ctx, concurrency)
+			zap.S().Info("overwriting certificate authority")
+			create()
 			if err != nil {
 				return nil, isNew, err
 			}
@@ -83,8 +85,7 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 	case CertKey | CertNoKey:
 		if caC.Overwrite {
 			zap.S().Info("overwriting certificate authority")
-			isNew = true
-			ca, err = caC.Create(ctx, concurrency)
+			create()
 			if err != nil {
 				return nil, isNew, err
 			}
@@ -92,14 +93,13 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 		}
 
 		zap.S().Info("certificate authority exist, loading")
-		ca, err = load()
+		load()
 		if err != nil {
 			return nil, isNew, err
 		}
 	case NoCertNoKey:
 		zap.S().Info("certificate authority not found, generating")
-		isNew = true
-		ca, err = caC.Create(ctx, concurrency)
+		create()
 		if err != nil {
 			return nil, isNew, err
 		}
