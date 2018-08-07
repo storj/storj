@@ -375,7 +375,6 @@ func TestStore(t *testing.T) {
 
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
 				assert.Equal(msg.Bandwidthallocation.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
-				assert.Equal(msg.Bandwidthallocation.Data.GetSize(), decoded.GetSize())
 				assert.Equal(msg.Bandwidthallocation.Data.GetTotal(), decoded.GetTotal())
 
 			}

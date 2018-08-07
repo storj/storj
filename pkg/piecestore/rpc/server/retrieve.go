@@ -76,10 +76,18 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 	defer utils.Close(storeFile)
 
 	writer := NewStreamWriter(s, stream)
-	am := NewAllocationManager(length)
+	am := NewAllocationManager()
 	var latestBA *pb.RenterBandwidthAllocation
 
-	for am.Used < am.MaxToUse {
+	// Save latest bandwidth allocation even if we fail
+	defer func() {
+		err := s.DB.WriteBandwidthAllocToDB(latestBA)
+		if latestBA != nil && err != nil {
+			log.Println("WriteBandwidthAllocToDB Error:", err)
+		}
+	}()
+
+	for am.Used < length {
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
@@ -88,18 +96,16 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 		ba := recv.GetBandwidthallocation()
 		baData := ba.GetData()
-
-		// TODO: Validate that Heavy Client agrees to pay up to baData.GetTotal()
-
 		if baData != nil {
 			if err = s.verifySignature(ba); err != nil {
 				break
 			}
 
-			am.AddAllocation(baData.GetSize())
+			am.NewTotal(baData.GetTotal())
 		}
 
-		if ba.GetData().GetTotal() > latestBA.GetData().GetTotal() {
+		// The bandwidthallocation with the higher total is what I want to earn the most money
+		if baData.GetTotal() > latestBA.GetData().GetTotal() {
 			latestBA = ba
 		}
 
@@ -116,10 +122,5 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		}
 	}
 
-	DBError := s.DB.WriteBandwidthAllocToDB(latestBA)
-	if latestBA != nil && DBError != nil {
-		log.Println("WriteBandwidthAllocToDB Error:", DBError)
-	}
-
-	return am.Used, am.Allocated, err
+	return am.Used, am.TotalAllocated, err
 }

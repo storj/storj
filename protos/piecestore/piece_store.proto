@@ -31,8 +31,7 @@ message PayerBandwidthAllocation {
 message RenterBandwidthAllocation {
   message Data {
     PayerBandwidthAllocation payer_allocation = 1;
-    int64 size = 2;
-    int64 total = 3;
+    int64 total = 2;
   }
 
   bytes signature = 1;

@@ -21,7 +21,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 100
+var parallelCount = 1
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -239,13 +239,12 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 		it              string
 		id              string
 		payerAllocation *pb.PayerBandwidthAllocation
-		size, total     int64
+		total           int64
 		err             string
 	}{
 		{
 			it:              "should successfully Put Bandwidth Allocation",
 			payerAllocation: &pb.PayerBandwidthAllocation{},
-			size:            5,
 			total:           5,
 			err:             "",
 		},
@@ -274,7 +273,6 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					Signature: []byte{'A', 'B'},
 					Data: &pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: tt.payerAllocation,
-						Size:            tt.size,
 						Total:           tt.total,
 					},
 				}
@@ -306,7 +304,6 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 
 					assert.Equal(ba.GetSignature(), signature)
 					assert.Equal(ba.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
-					assert.Equal(ba.Data.GetSize(), decoded.GetSize())
 					assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
 
 				}
