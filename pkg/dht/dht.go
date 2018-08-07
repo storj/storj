@@ -18,8 +18,7 @@ type NodeID interface {
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error)
-
+	GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error)
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node proto.Node) (proto.Node, error)

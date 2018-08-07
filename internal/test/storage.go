@@ -119,6 +119,15 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// GetAll is a noop to adhere to the interface
+func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
+	result := storage.Values{}
+	for _, v := range keys {
+		result = append(result, m.Data[v.String()])
+	}
+	return result, nil
+}
+
 // ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
 func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	//TODO - JJ
