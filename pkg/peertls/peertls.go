@@ -11,8 +11,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"io"
-	"reflect"
-
 	"github.com/zeebo/errs"
 )
 
@@ -61,7 +59,7 @@ func Generate(template, parentTemplate *x509.Certificate, parent, signer *tls.Ce
 	}
 	sk, ok := signer.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
-		return nil, ErrUnsupportedKey.New("%s", reflect.TypeOf(sk))
+		return nil, ErrUnsupportedKey.New("%T", sk)
 	}
 
 	if parent == nil {
@@ -167,7 +165,7 @@ func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 			return errs.Wrap(err)
 		}
 	default:
-		return ErrUnsupportedKey.New("%s", reflect.TypeOf(k))
+		return ErrUnsupportedKey.New("%T", k)
 	}
 
 	if err := pem.Encode(w, NewKeyBlock(kb)); err != nil {
