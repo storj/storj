@@ -5,7 +5,7 @@ package overlay
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -87,8 +87,8 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
-	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
-
+	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
+	fmt.Print(nodes)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting nodes from DHT", err))
 	}
@@ -116,7 +116,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	// keep going forever and ever
 
 	// Other Possibilities: Randomly generate node ID's to ask for?
-
+	fmt.Print("im in pkg/overlay cache bootstrap")
 	_, err = o.DHT.GetRoutingTable(ctx)
 
 	return err
@@ -129,6 +129,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	// listen for responses from existing nodes
 	// if no response from existing, then mark it as offline for time period
 	// if responds, it refreshes in DHT
+	fmt.Print("im in pkg/overlay cache refresh")
 	_, rtErr := o.DHT.GetRoutingTable(ctx)
 
 	if rtErr != nil {
