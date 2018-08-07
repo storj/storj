@@ -113,11 +113,13 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 
 		// Write the buffer to the stream we opened earlier
 		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		if err != nil {
-			break
+		if n > 0 {
+			if err := am.UseAllocation(n); err != nil {
+				break
+			}
 		}
 
-		if err = am.UseAllocation(n); err != nil {
+		if err != nil {
 			break
 		}
 	}

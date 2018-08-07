@@ -21,7 +21,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 1
+var parallelCount = 100
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -141,7 +141,6 @@ func TestGetTTLByID(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				// t.Parallel()
 				assert := assert.New(t)
 				db.mtx.Lock()
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
@@ -267,7 +266,6 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				// t.Parallel()
 				assert := assert.New(t)
 				ba := &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
