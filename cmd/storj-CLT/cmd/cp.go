@@ -43,11 +43,11 @@ func init() {
 func copy(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
-	if args[0] == "" {
+	if len(args) == 0 {
 		return errs.New("No file specified for copy")
 	}
 
-	if args[1] == "" {
+	if len(args) == 1 {
 		return errs.New("No destination specified")
 	}
 
