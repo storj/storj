@@ -23,8 +23,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 
 	// Receive Signature
 	recv, err := stream.Recv()
-	if err != nil || recv == nil {
-		return RetrieveError.New("Error receiving Piece data")
+	if err != nil {
+		return RetrieveError.Wrap(err)
+	}
+	if recv == nil {
+		return RetrieveError.New("error receiving piece data")
 	}
 
 	pd := recv.GetPieceData()
@@ -43,7 +46,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 	// Verify that the path exists
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return err
+		return RetrieveError.Wrap(err)
 	}
 
 	// Read the size specified

@@ -198,7 +198,7 @@ func TestRetrieve(t *testing.T) {
 			allocSize: 5,
 			offset:    0,
 			content:   []byte("butts"),
-			err:       fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
+			err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
 			id:        "11111111111111111111",
