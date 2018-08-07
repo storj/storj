@@ -86,6 +86,7 @@ func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
 	return nil
 }
 
+// Close the database
 func (psdb *PSDB) Close() error {
 	return psdb.DB.Close()
 }

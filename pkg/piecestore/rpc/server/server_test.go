@@ -5,7 +5,6 @@ package server
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -60,7 +59,7 @@ func TestPiece(t *testing.T) {
 
 	db := s.DB.DB
 
-	defer cleanup(db)
+	defer cleanup(s)
 
 	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
@@ -136,9 +135,7 @@ func TestRetrieve(t *testing.T) {
 
 	defer conn.Close()
 
-	db := s.DB.DB
-
-	defer cleanup(db)
+	defer cleanup(s)
 
 	// simulate piece stored with farmer
 	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
@@ -243,7 +240,6 @@ func TestRetrieve(t *testing.T) {
 							Signature: []byte{'A', 'B'},
 							Data: &pb.RenterBandwidthAllocation_Data{
 								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Size:            tt.allocSize,
 								Total:           totalAllocated,
 							},
 						},
@@ -281,7 +277,7 @@ func TestStore(t *testing.T) {
 
 	db := s.DB.DB
 
-	defer cleanup(db)
+	defer cleanup(s)
 
 	tests := []struct {
 		id            string
@@ -334,7 +330,6 @@ func TestStore(t *testing.T) {
 					Signature: []byte{'A', 'B'},
 					Data: &pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
-						Size:            int64(len(tt.content)),
 						Total:           int64(len(tt.content)),
 					},
 				},
@@ -401,7 +396,7 @@ func TestDelete(t *testing.T) {
 
 	db := s.DB.DB
 
-	defer cleanup(db)
+	defer cleanup(s)
 
 	// set up test cases
 	tests := []struct {
@@ -505,10 +500,9 @@ func startServer(s *Server, grpcs *grpc.Server) {
 	}
 }
 
-func cleanup(db *sql.DB) {
-	db.Close()
-	os.RemoveAll(filepath.Join(os.TempDir(), "test-data"))
-	os.Remove(filepath.Join(os.TempDir(), "test.db"))
+func cleanup(server *Server) {
+	server.Stop(ctx)
+	os.RemoveAll(server.DataDir)
 	return
 }
 

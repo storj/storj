@@ -141,7 +141,7 @@ func TestGetTTLByID(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				t.Parallel()
+				// t.Parallel()
 				assert := assert.New(t)
 				db.mtx.Lock()
 				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
@@ -201,7 +201,7 @@ func TestAddTTLToDB(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				t.Parallel()
+				// t.Parallel()
 				assert := assert.New(t)
 
 				err := db.AddTTLToDB(tt.id, tt.expiration)
@@ -267,7 +267,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	for _, tt := range tests {
 		for i := 0; i < parallelCount; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				t.Parallel()
+				// t.Parallel()
 				assert := assert.New(t)
 				ba := &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
