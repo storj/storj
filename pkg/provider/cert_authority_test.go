@@ -4,10 +4,10 @@
 package provider
 
 import (
-	"testing"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )

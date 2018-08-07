@@ -7,10 +7,10 @@ import (
 	"context"
 	"net"
 	"time"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"path/filepath"
 )
 
 // Responsibility represents a specific gRPC method collection to be registered

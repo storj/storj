@@ -7,9 +7,9 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"os"
-	"encoding/pem"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
