@@ -6,8 +6,11 @@ package provider
 import (
 	"context"
 	"net"
+	"time"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"path/filepath"
 )
 
 // Responsibility represents a specific gRPC method collection to be registered
@@ -42,6 +45,53 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 		next:     responsibilities,
 		identity: identity,
 	}, nil
+}
+
+func SetupIdentityPaths(basePath string, c *CAConfig, i *IdentityConfig) {
+	c.CertPath = filepath.Join(basePath, "ca.cert")
+	c.KeyPath = filepath.Join(basePath, "ca.key")
+	i.CertPath = filepath.Join(basePath, "identity.cert")
+	i.KeyPath = filepath.Join(basePath, "identity.key")
+}
+
+// SetupIdentity ensures a CA and identity exist and returns a config overrides map
+func SetupIdentity(c CASetupConfig, i IdentitySetupConfig) (map[string]interface{}, error) {
+	t, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	ctx, _ := context.WithTimeout(context.Background(), t)
+
+	// Load or create a certificate authority
+	ca, n, err := c.LoadOrCreate(ctx, 4)
+	if err != nil {
+		return nil, err
+	}
+	if n {
+		// Create identity from new CA
+		_, err = i.Create(ca)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Load or create identity from existing CA
+		_, err = i.LoadOrCreate(ca)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	o := map[string]interface{}{
+		"ca.cert-path":       c.CertPath,
+		"ca.key-path":        "",
+		"ca.difficulty":      c.Difficulty,
+		"ca.version":         c.Version,
+		"identity.cert-path": i.CertPath,
+		"identity.key-path":  i.KeyPath,
+		"identity.version":   i.Version,
+		"identity.address":   i.Address,
+	}
+	return o, nil
 }
 
 // Identity returns the provider's identity

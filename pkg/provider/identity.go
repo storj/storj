@@ -48,12 +48,18 @@ type FullIdentity struct {
 
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
+type IdentitySetupConfig struct {
+	IdentityConfig
+	Overwrite bool `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
+}
+
+// IdentityConfig allows you to run a set of Responsibilities with the given
+// identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath   string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
-	Overwrite bool   `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
-	Version   string `help:"semantic version of identity storage format" default:"0"`
-	Address   string `help:"address to listen on" default:":7777"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	Version  string `help:"semantic version of identity storage format" default:"0"`
+	Address  string `help:"address to listen on" default:":7777"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -88,12 +94,26 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 
 // PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
 func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
-	ca, err := x509.ParseCertificate(chain[1])
+	var (
+		cb []byte
+		lb []byte
+	)
+	switch len(chain) {
+	case 0:
+		return nil, errs.New("empty certificate chain")
+	case 1:
+		cb = chain[0]
+	default:
+		cb = chain[1]
+	}
+	lb = chain[0]
+
+	ca, err := x509.ParseCertificate(cb)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	l, err := x509.ParseCertificate(chain[0])
+	l, err := x509.ParseCertificate(lb)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -136,7 +156,7 @@ func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc 
 }
 
 // LoadOrCreate loads or generates the identity files using the configuration
-func (ic IdentityConfig) LoadOrCreate(ca *CertificateAuthority) (*FullIdentity, error) {
+func (ic IdentitySetupConfig) LoadOrCreate(ca *CertificateAuthority) (*FullIdentity, error) {
 	var (
 		fi  = new(FullIdentity)
 		err error
@@ -180,15 +200,6 @@ func (ic IdentityConfig) LoadOrCreate(ca *CertificateAuthority) (*FullIdentity, 
 	return fi, nil
 }
 
-// Create generates and saves a CA using the config
-func (ic IdentityConfig) Create(ca *CertificateAuthority) (*FullIdentity, error) {
-	fi, err := ca.GenerateIdentity()
-	if err != nil {
-		return nil, err
-	}
-	return fi, ic.Save(fi)
-}
-
 // Load loads a FullIdentity from the config
 func (ic IdentityConfig) Load() (*FullIdentity, error) {
 	c, err := ioutil.ReadFile(ic.CertPath)
@@ -206,6 +217,15 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 			ic.CertPath, ic.KeyPath, err)
 	}
 	return fi, nil
+}
+
+// Create generates and saves a CA using the config
+func (ic IdentityConfig) Create(ca *CertificateAuthority) (*FullIdentity, error) {
+	fi, err := ca.GenerateIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return fi, ic.Save(fi)
 }
 
 // Save saves a FullIdentity according to the config

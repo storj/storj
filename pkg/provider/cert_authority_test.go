@@ -5,11 +5,11 @@ package provider
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateCA(t *testing.T) {
@@ -31,8 +31,8 @@ func tempCAConfig() (*CAConfig, func(), error) {
 	cleanup := func() { os.RemoveAll(tmpDir) }
 
 	return &CAConfig{
-		CertPath: filepath.Join(tmpDir, "ca.cert"),
-		KeyPath:  filepath.Join(tmpDir, "ca.key"),
+		CertPath:   filepath.Join(tmpDir, "ca.cert"),
+		KeyPath:    filepath.Join(tmpDir, "ca.key"),
 		Difficulty: 0,
 	}, cleanup, nil
 }
