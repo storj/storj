@@ -29,16 +29,16 @@ type CertificateAuthority struct {
 
 type CASetupConfig struct {
 	CAConfig
+	Difficulty  uint64 `help:"minimum difficulty for identity generation" default:"24"`
 	Timeout     string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
 	Overwrite   bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
 type CAConfig struct {
-	CertPath   string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath    string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
-	Difficulty uint64 `help:"minimum difficulty for identity generation" default:"24"`
-	Version    string `help:"semantic version of CA storage format" default:"0"`
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+	Version  string `help:"semantic version of CA storage format" default:"0"`
 }
 
 // LoadOrCreate loads or generates the CA files using the configuration
@@ -144,7 +144,7 @@ func (caC CAConfig) Load() (*CertificateAuthority, error) {
 }
 
 // Create generates and saves a CA using the config
-func (caC CAConfig) Create(ctx context.Context, concurrency uint) (*CertificateAuthority, error) {
+func (caC CASetupConfig) Create(ctx context.Context, concurrency uint) (*CertificateAuthority, error) {
 	ca, err := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
 	if err != nil {
 		return nil, err
