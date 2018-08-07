@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -20,6 +21,11 @@ const (
 	completed
 )
 
+var (
+	// WorkerError is the class of errors for the worker struct
+	WorkerError = errs.Class("worker error")
+)
+
 type chore struct {
 	status int
 	node   *proto.Node
@@ -27,7 +33,7 @@ type chore struct {
 
 type worker struct {
 	// node id to chore
-	contacted   map[string]*chore
+	workingSet  map[string]*chore
 	mu          *sync.Mutex
 	maxResponse time.Duration
 	cancel      context.CancelFunc
@@ -38,80 +44,20 @@ type worker struct {
 
 func (w *worker) work(ctx context.Context) error {
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return nil
-		default:
-			w.mu.Lock()
-			var wk *chore
-			for i, v := range w.contacted {
-				if v.status == uncontacted {
-					wk = v
-					w.contacted[i].status = inProgress
-					w.mu.Unlock()
-					break
-				}
-			}
-
-			if wk == nil {
-				w.mu.Unlock()
-				time.AfterFunc(2*w.maxResponse, w.cancel)
-				return nil
-			}
-
-			start := time.Now()
-			nodes, err := w.nodeClient.Lookup(ctx, *wk.node, w.find)
-			if err != nil {
-				return err
-			}
-			latency := time.Now().Sub(start)
-			if latency > w.maxResponse {
-				w.maxResponse = latency
-			}
-
-			w.mu.Lock()
-			if (len(w.contacted) + len(nodes)) < w.k {
-				for _, v := range nodes {
-					w.contacted[v.GetId()] = &chore{node: v, status: uncontacted}
-				}
-				w.mu.Unlock()
-			}
-
-			// sort all nodes from map
-			mapNodes := make([][]byte, len(w.contacted))
-			ii := 0
-			for i := range w.contacted {
-				mapNodes[ii] = []byte(i)
-				ii++
-			}
-
-			// sort all nodes from map
-			lookupNodes := make([][]byte, len(nodes))
-			for i, v := range nodes {
-				lookupNodes[i] = []byte(v.GetId())
-			}
-
-			self := []byte(w.find.GetId())
-			smapNodes := sortByXOR(mapNodes, self)
-			// sort all nodes returned from lookup
-			slookupNodes := sortByXOR(lookupNodes, self)
-			// update the nearest-k data structure with the results of the request, bumping nodes out of the data structure that are farther than k.
-			ll := 0
-			for i := len(smapNodes) - 1; i >= 0; {
-				if bytes.Compare(smapNodes[i], slookupNodes[ll]) < 0 {
-					i--
-					ll++
-				} else {
-					delete(w.contacted, string(smapNodes[i]))
-					w.contacted[string(slookupNodes[ll])] = &chore{node: nodes[ll], status: uncontacted}
-					i--
-					ll++
-				}
-			}
-
-			w.mu.Unlock()
 		}
 
+		nodes, err := w.lookup(ctx, w.getWork())
+		if err != nil {
+			//TODO(coyle): determine best way to handle this error
+		}
+
+		if err := w.update(nodes); err != nil {
+			//TODO(coyle): determine best way to handle this error
+		}
+
+		return nil
 	}
 
 }
@@ -136,4 +82,84 @@ func sortByXOR(nodeIDs [][]byte, comp []byte) [][]byte {
 	sortByXOR(nodeIDs[:left], comp)
 	sortByXOR(nodeIDs[left+1:], comp)
 	return nodeIDs
+}
+
+func (w *worker) getWork() *chore {
+	var wk *chore
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i, v := range w.workingSet {
+		if v.status == uncontacted {
+			wk = v
+			w.workingSet[i].status = inProgress
+			break
+		}
+	}
+
+	if wk == nil {
+		w.mu.Unlock()
+		time.AfterFunc(2*w.maxResponse, w.cancel)
+		return nil
+	}
+
+	return wk
+}
+
+func (w *worker) lookup(ctx context.Context, wk *chore) ([]*proto.Node, error) {
+	start := time.Now()
+	nodes, err := w.nodeClient.Lookup(ctx, *wk.node, w.find)
+	if err != nil {
+		return nil, WorkerError.Wrap(err)
+	}
+	latency := time.Now().Sub(start)
+	if latency > w.maxResponse {
+		w.maxResponse = latency
+	}
+
+	return nodes, nil
+}
+
+func (w *worker) update(nodes []*proto.Node) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if (len(w.workingSet) + len(nodes)) < w.k {
+		for _, v := range nodes {
+			w.workingSet[v.GetId()] = &chore{node: v, status: uncontacted}
+		}
+		return nil
+	}
+
+	// sort all nodes from map
+	mapNodes := make([][]byte, len(w.workingSet))
+	ii := 0
+	for i := range w.workingSet {
+		mapNodes[ii] = []byte(i)
+		ii++
+	}
+
+	// sort all nodes from map
+	lookupNodes := make([][]byte, len(nodes))
+	for i, v := range nodes {
+		lookupNodes[i] = []byte(v.GetId())
+	}
+
+	self := []byte(w.find.GetId())
+	smapNodes := sortByXOR(mapNodes, self)
+	// sort all nodes returned from lookup
+	slookupNodes := sortByXOR(lookupNodes, self)
+	// update the nearest-k data structure with the results of the request, bumping nodes out of the data structure that are farther than k.
+	ll := 0
+	for i := len(smapNodes) - 1; i >= 0; {
+		if bytes.Compare(smapNodes[i], slookupNodes[ll]) < 0 {
+			i--
+			ll++
+		} else {
+			delete(w.workingSet, string(smapNodes[i]))
+			w.workingSet[string(slookupNodes[ll])] = &chore{node: nodes[ll], status: uncontacted}
+			i--
+			ll++
+		}
+	}
+
+	return nil
 }
