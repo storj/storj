@@ -72,7 +72,7 @@ func TestVerifyPeerFunc(t *testing.T) {
 	assert.NoError(t, err)
 
 	testFunc := func(chain [][]byte, parsedChains [][]*x509.Certificate) error {
-		switch true {
+		switch {
 		case bytes.Compare(chain[1], c.Raw) != 0:
 			return errs.New("CA cert doesn't match")
 		case bytes.Compare(chain[0], l.Raw) != 0:
