@@ -81,45 +81,6 @@ func newTestKademlia(t *testing.T, ip, port string, b overlay.Node) *Kademlia {
 	return kad
 }
 
-func TestBootstrap(t *testing.T) {
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3000")
-
-	defer func(d []dht.DHT) {
-		for _, v := range d {
-			v.Disconnect()
-		}
-	}(dhts)
-
-	cases := []struct {
-		k *Kademlia
-	}{
-		{
-			k: newTestKademlia(t, "127.0.0.1", "2999", bootNode),
-		},
-	}
-
-	for _, v := range cases {
-		defer v.k.Disconnect()
-		err := v.k.ListenAndServe()
-		assert.NoError(t, err)
-		err = v.k.Bootstrap(context.Background())
-		assert.NoError(t, err)
-		ctx := context.Background()
-
-		rt, err := dhts[0].GetRoutingTable(context.Background())
-		assert.NoError(t, err)
-
-		localID := rt.Local().Id
-		n := NodeID(localID)
-		node, err := v.k.FindNode(ctx, &n)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, localID, node.Id)
-		v.k.dht.Disconnect()
-	}
-
-}
-
 func TestGetNodes(t *testing.T) {
 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
 	defer func(d []dht.DHT) {

@@ -22,6 +22,7 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not get routing table %v", err)
 	}
+
 	nodes, err := rt.FindNear(req.Sender, req.Target, rt.K())
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not find near %v", err)
