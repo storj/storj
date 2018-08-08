@@ -27,13 +27,12 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(os objects.Store) *Storj {
-	return &Storj{os: os}
+func NewStorjGateway(bs buckets.Store) *Storj {
+	return &Storj{bs: bs}
 }
 
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	os objects.Store
 	bs buckets.Store
 }
 
@@ -69,8 +68,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	objpath := paths.New(bucket, object)
-	return s.storj.os.Delete(ctx, objpath)
+	return s.storj.bs.GetObjectStore(bucket).Delete(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -86,8 +84,7 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	objpath := paths.New(bucket, object)
-	rr, _, err := s.storj.os.Get(ctx, objpath)
+	rr, _, err := s.storj.bs.GetObjectStore(bucket).Get(ctx, paths.New(objpath))
 	if err != nil {
 		return err
 	}
@@ -114,8 +111,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	objPath := paths.New(bucket, object)
-	m, err := s.storj.os.Meta(ctx, objPath)
+	m, err := s.storj.bs.GetObjectStore(bucket).Meta(ctx, paths.New(objPath))
 	if err != nil {
 		return objInfo, err
 	}
@@ -133,14 +129,23 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO(nat): figure out bs.List parameters and format for returned buckets value
-	items, _, err := s.storj.bs.List(ctx, "", "", 40)
-	if err != nil {
-		return nil, err
+	startAfter := ""
+	var items []buckets.ListItem
+	for {
+		moreItems, more, err := s.storj.bs.List(ctx, startAfter, "", 0)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, moreItems)
+		if !more {
+			break
+		}
+		startAfter = moreItems[len(moreItems)-1]
 	}
-	buckets = make([]minio.BucketInfo, 40)
+	buckets = make([]minio.BucketInfo, len(items))
 	for i, item := range items {
-		buckets[i].Created = item.Created
+		buckets[i].Name = item.Bucket
+		buckets[i].Created = item.Meta.Created
 	}
 	return buckets, err
 }
@@ -150,7 +155,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	defer mon.Task()(&ctx)(&err)
 	startAfter := paths.New(marker)
 	var fl []minio.ObjectInfo
-	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, meta.All)
+	items, more, err := s.storj.bs.GetObjectStore(bucket).List(ctx, paths.New(prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
@@ -159,8 +164,8 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		f := make([]minio.ObjectInfo, len(items))
 		for i, fi := range items {
 			f[i] = minio.ObjectInfo{
-				Bucket:      fi.Path[0],
-				Name:        fi.Path[1:].String(),
+				Bucket:      bucket,
+				Name:        fi.Path.String(),
 				ModTime:     fi.Meta.Modified,
 				Size:        fi.Meta.Size,
 				ContentType: fi.Meta.ContentType,
@@ -168,7 +173,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 				ETag:        fi.Meta.Checksum,
 			}
 		}
-		startAfter = items[len(items)-1].Path[len(paths.New(bucket, prefix)):]
+		startAfter = items[len(items)-1].Path[len(paths.New(prefix)):]
 		fl = f
 	}
 
@@ -186,6 +191,10 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	_, err = s.storj.bs.Put(ctx, bucket)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -200,10 +209,9 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
-	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
 	expTime := time.Time{}
-	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
+	m, err := s.storj.bs.GetObjectStore(bucket).Put(ctx, paths.New(objPath), data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
