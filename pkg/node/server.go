@@ -13,14 +13,18 @@ import (
 
 // Server implements the grpc Node Server
 type Server struct {
-	rt dht.RoutingTable
+    dht dht.DHT
 }
 
 // Query is a node to node communication query
 func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.QueryResponse, error) {
-	// TODO(coyle): this will need to be added to the overlay service
-	//look for node in routing table?
-	//If not in there, add node to routing table?
-	
-	return proto.QueryResponse{}, nil
+	rt, err := s.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return proto.QueryResponse{}, NodeClientErr.New("could not get routing table %v", err)
+	}
+	nodes, err := rt.FindNear(req.Sender, req.Target, rt.K())
+	if err != nil {
+		return proto.QueryResponse{}, NodeClientErr.New("could not find near %v", err)
+	}
+    return proto.QueryResponse{Sender: req.Sender, Response: nodes}, nil
 }
