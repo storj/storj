@@ -501,7 +501,6 @@ func startServer(s *Server, grpcs *grpc.Server) {
 }
 
 func cleanup(server *Server) {
-	server.Stop(ctx)
 	os.RemoveAll(server.DataDir)
 	return
 }
