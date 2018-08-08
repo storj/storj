@@ -86,7 +86,7 @@ enum NodeType {
 
 message QueryRequest {
     overlay.Node sender = 1;
-    overlay.Node receiver = 2;
+    overlay.Node target = 2;
 }
 
 message QueryResponse {

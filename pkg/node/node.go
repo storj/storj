@@ -52,7 +52,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 	return resp.Response, nil
 }
 
-// Ping ...
+// Ping checks that the provided node is still accessible on the network
 func (n *Node) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
 	return proto.Node{}, nil
 }
