@@ -89,20 +89,20 @@ test-docker-clean:
 	-docker-compose down --rmi all
 
 images:
-	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/hc:${TAG}-${GO_VERSION} -f cmd/hc/Dockerfile .
-	docker tag storjlabs/hc:${TAG}-${GO_VERSION} storjlabs/hc:latest
-	docker build -t storjlabs/piecestore-farmer:${TAG} -f cmd/piecestore-farmer/Dockerfile .
-	docker tag storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
+	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG}-${GO_VERSION} -f cmd/hc/Dockerfile .
+	docker tag storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
+	docker build -t storjlabs/storage-node:${TAG} -f cmd/piecestore-farmer/Dockerfile .
+	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 
 push-images:
-	docker push storjlabs/hc:${TAG}-${GO_VERSION}
-	docker push storjlabs/hc:latest
-	docker push storjlabs/piecestore-farmer:${TAG}
-	docker push storjlabs/piecestore-farmer:latest
+	docker push storjlabs/satellite:${TAG}-${GO_VERSION}
+	docker push storjlabs/satellite:latest
+	docker push storjlabs/storage-node:${TAG}
+	docker push storjlabs/storage-node:latest
 
 clean-images:
-	-docker rmi storjlabs/hc:${TAG}-${GO_VERSION} storjlabs/hc:latest
-	-docker rmi storjlabs/piecestore-farmer:${TAG} storjlabs/piecestore-farmer:latest
+	-docker rmi storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
+	-docker rmi storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 
 install-deps:
 	go get -u -v golang.org/x/vgo
