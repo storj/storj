@@ -44,7 +44,6 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("No destination specified")
 	}
 
-	//TODO: actually get the proper config
 	identity, err := cpCfg.LoadIdentity()
 	if err != nil {
 		return err

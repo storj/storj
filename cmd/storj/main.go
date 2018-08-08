@@ -4,7 +4,7 @@
 package main
 
 import (
-	"storj.io/storj/cmd/storj-CLT/cmd"
+	"storj.io/storj/cmd/storj/cmd"
 	"storj.io/storj/pkg/process"
 )
 
