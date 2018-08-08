@@ -5,10 +5,17 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"storj.io/storj/pkg/miniogw"
 )
 
-// rootCmd represents the base command when called without any subcommands
+const defaultConfDir = "$HOME/.storj/cli"
+
+type Config struct {
+	miniogw.Config
+}
+
+// RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "storj-CLT",
+	Use:   "storj",
 	Short: "A brief description of your application",
 }

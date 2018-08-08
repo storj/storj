@@ -19,15 +19,12 @@ var (
 		Short: "A brief description of your command",
 		RunE:  cmdSetup,
 	}
-
 	setupCfg struct {
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 	}
 )
 
 func init() {
-	defaultConfDir := "$HOME/.storj/clt"
-
 	RootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }

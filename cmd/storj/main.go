@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	process.Execute(cmd.RootCmd)
+	process.Exec(cmd.RootCmd)
 }
