@@ -162,7 +162,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 		}
 		startAfter = moreItems[len(moreItems)-1].Bucket
 	}
-	b = make([]minio.BucketInfo, len(items))
+	b := make([]minio.BucketInfo, len(items))
 	for i, item := range items {
 		b[i].Name = item.Bucket
 		b[i].Created = item.Meta.Created
@@ -177,7 +177,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	var fl []minio.ObjectInfo
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return err
+		return minio.ListObjectsInfo{}, err
 	}
 	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
@@ -237,9 +237,9 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	expTime := time.Time{}
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return err
+		return minio.ObjectInfo{}, err
 	}
-	m, err := o.Put(ctx, paths.New(objPath), data, serMetaInfo, expTime)
+	m, err := o.Put(ctx, paths.New(object), data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,

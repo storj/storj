@@ -26,7 +26,7 @@ func TestGetObject(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockGetObject := NewMockStore(mockCtrl)
-	s := Storj{os: mockGetObject}
+	s := Storj{bs: mockGetObject}
 
 	testUser := storjObjects{storj: &s}
 
@@ -77,7 +77,7 @@ func TestPutObject(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockGetObject := NewMockStore(mockCtrl)
-	s := Storj{os: mockGetObject}
+	s := Storj{bs: mockGetObject}
 
 	testUser := storjObjects{storj: &s}
 
@@ -110,7 +110,7 @@ func TestGetObjectInfo(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockGetObject := NewMockStore(mockCtrl)
-	s := Storj{os: mockGetObject}
+	s := Storj{bs: mockGetObject}
 	testUser := storjObjects{storj: &s}
 
 	meta1 := objects.Meta{
@@ -134,7 +134,7 @@ func TestListObjects(t *testing.T) {
 
 	// Mock framework initialization
 	mockGetObject := NewMockStore(mockCtrl)
-	s := Storj{os: mockGetObject}
+	s := Storj{bs: mockGetObject}
 	testUser := storjObjects{storj: &s}
 
 	type iterationType struct {
