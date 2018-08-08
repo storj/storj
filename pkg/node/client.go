@@ -24,4 +24,5 @@ func NewNodeClient(self proto.Node) (Client, error) {
 // Client is the Node client communication interface
 type Client interface {
 	Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*proto.Node, error)
+	Ping(ctx context.Context, node proto.Node) (proto.Node, error)
 }

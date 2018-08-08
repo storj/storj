@@ -4,17 +4,17 @@
 package kademlia
 
 import (
-	"encoding/binary"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
-	
+
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -30,6 +30,7 @@ type RoutingTable struct {
 	nodeBucketDB storage.KeyValueStore
 	transport    *proto.NodeTransport
 	mutex        *sync.Mutex
+	nodeClient   node.Client
 	idLength     int // kbucket and node id bit length (SHA256) = 256
 	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
 }
@@ -68,7 +69,6 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	}
 	return rt, nil
 }
-
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() proto.Node {
@@ -137,7 +137,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	} else {
 		nearIDs = sortedIDs[1 : limit+1]
 	}
-	ids,serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}

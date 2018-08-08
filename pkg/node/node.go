@@ -6,11 +6,17 @@ package node
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
 )
+
+// NodeClientErr is the class for all errors pertaining to node client operations
+var NodeClientErr = errs.Class("node client")
 
 // Node is the storj definition for a node in the network
 type Node struct {
@@ -23,7 +29,7 @@ type Node struct {
 func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*proto.Node, error) {
 	v, err := n.cache.Get(ctx, to.GetId())
 	if err != nil {
-		return nil, err
+		return nil, NodeClientErr.New("could not get cache %v", err)
 	}
 
 	var conn *grpc.ClientConn
@@ -32,16 +38,21 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 	} else {
 		c, err := n.tc.DialNode(ctx, &to)
 		if err != nil {
-			return nil, err
+			return nil, NodeClientErr.New("could not dial node %v", err)
 		}
 		conn = c
 	}
 
 	c := proto.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Receiver: &find})
+	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Target: &find})
 	if err != nil {
-		return nil, err
+		return nil, NodeClientErr.New("could not query %v", err)
 	}
 
 	return resp.Response, nil
+}
+
+// Ping ...
+func (n *Node) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
+	return proto.Node{}, nil
 }
