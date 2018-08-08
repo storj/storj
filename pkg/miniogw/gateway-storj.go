@@ -69,7 +69,11 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.storj.bs.GetObjectStore(bucket).Delete(ctx, objpath)
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	return o.Delete(ctx, paths.New(object))
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -85,7 +89,11 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	rr, _, err := s.storj.bs.GetObjectStore(bucket).Get(ctx, paths.New(objpath))
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	rr, _, err := o.Get(ctx, paths.New(object))
 	if err != nil {
 		return err
 	}
@@ -112,7 +120,11 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	m, err := s.storj.bs.GetObjectStore(bucket).Meta(ctx, paths.New(objPath))
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	m, err := o.Meta(ctx, paths.New(object))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return objInfo, minio.ObjectNotFound{
@@ -135,7 +147,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
-	buckets []minio.BucketInfo, err error) {
+	bucketItems []minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	startAfter := ""
 	var items []buckets.ListItem
@@ -155,7 +167,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 		buckets[i].Name = item.Bucket
 		buckets[i].Created = item.Meta.Created
 	}
-	return buckets, err
+	return bucketItems, err
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
