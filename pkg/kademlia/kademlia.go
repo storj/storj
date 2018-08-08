@@ -123,23 +123,6 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	return k.dht.Bootstrap()
 }
 
-// Ping checks that the provided node is still accessible on the network
-func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	n, err := convertProtoNode(node)
-	if err != nil {
-		return proto.Node{}, err
-	}
-
-	ok, err := k.dht.Ping(n)
-	if err != nil {
-		return proto.Node{}, err
-	}
-	if !ok {
-		return proto.Node{}, NodeErr.New("node unavailable")
-	}
-	return node, nil
-}
-
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
