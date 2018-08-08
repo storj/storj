@@ -110,10 +110,7 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return &RoutingTable{
-		// ht:  k.dht.HT,
-		// dht: k.dht,
-	}, nil
+	return &RoutingTable{}, nil
 
 }
 
