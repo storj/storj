@@ -46,27 +46,16 @@ func writeFileToDir(name, dir string) error {
 }
 
 func TestPiece(t *testing.T) {
-	s := newTestServerStruct()
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
 
-	grpcs := grpc.NewServer()
-
-	go startServer(s, grpcs)
-	defer grpcs.Stop()
-
-	c, conn := connect()
-
-	defer conn.Close()
-
-	db := s.DB.DB
-
-	defer cleanup(s)
-
-	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
+	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer pstore.Delete("11111111111111111111", s.DataDir)
+	defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -91,7 +80,7 @@ func TestPiece(t *testing.T) {
 			id:         "22222222222222222222",
 			size:       5,
 			expiration: 9999999999,
-			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
+			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
 	}
 
@@ -100,13 +89,13 @@ func TestPiece(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece TTL entry
-			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
+			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
 			assert.Nil(err)
 
-			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+			defer TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := c.Piece(ctx, req)
+			resp, err := TS.c.Piece(ctx, req)
 
 			if tt.err != "" {
 				assert.NotNil(err)
@@ -124,26 +113,17 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	s := newTestServerStruct()
-
-	grpcs := grpc.NewServer()
-
-	go startServer(s, grpcs)
-	defer grpcs.Stop()
-
-	c, conn := connect()
-
-	defer conn.Close()
-
-	defer cleanup(s)
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
 
 	// simulate piece stored with farmer
-	if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
+	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer pstore.Delete("11111111111111111111", s.DataDir)
+	defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -198,7 +178,7 @@ func TestRetrieve(t *testing.T) {
 			allocSize: 5,
 			offset:    0,
 			content:   []byte("butts"),
-			err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(s.DataDir, "/22/22/2222222222222222")),
+			err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
 			id:        "11111111111111111111",
@@ -223,7 +203,7 @@ func TestRetrieve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
-			stream, err := c.Retrieve(ctx)
+			stream, err := TS.c.Retrieve(ctx)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
@@ -264,20 +244,11 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	s := newTestServerStruct()
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
 
-	grpcs := grpc.NewServer()
-
-	go startServer(s, grpcs)
-	defer grpcs.Stop()
-
-	c, conn := connect()
-
-	defer conn.Close()
-
-	db := s.DB.DB
-
-	defer cleanup(s)
+	db := TS.s.DB.DB
 
 	tests := []struct {
 		id            string
@@ -316,7 +287,7 @@ func TestStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 			assert := assert.New(t)
-			stream, err := c.Store(ctx)
+			stream, err := TS.c.Store(ctx)
 			assert.Nil(err)
 
 			// Write the buffer to the stream we opened earlier
@@ -383,20 +354,11 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	s := newTestServerStruct()
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
 
-	grpcs := grpc.NewServer()
-
-	go startServer(s, grpcs)
-	defer grpcs.Stop()
-
-	c, conn := connect()
-
-	defer conn.Close()
-
-	db := s.DB.DB
-
-	defer cleanup(s)
+	db := TS.s.DB.DB
 
 	// set up test cases
 	tests := []struct {
@@ -426,7 +388,7 @@ func TestDelete(t *testing.T) {
 			assert := assert.New(t)
 
 			// simulate piece stored with farmer
-			if err := writeFileToDir("11111111111111111111", s.DataDir); err != nil {
+			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
 			}
@@ -437,10 +399,10 @@ func TestDelete(t *testing.T) {
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete("11111111111111111111", s.DataDir)
+			defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := c.Delete(ctx, req)
+			resp, err := TS.c.Delete(ctx, req)
 
 			if tt.err != "" {
 				assert.Equal(tt.err, err.Error())
@@ -451,7 +413,7 @@ func TestDelete(t *testing.T) {
 			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathByID(tt.id, s.DataDir)
+			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return
@@ -489,20 +451,39 @@ func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
 	return c, conn
 }
 
-func startServer(s *Server, grpcs *grpc.Server) {
+type TestServer struct {
+	s     *Server
+	grpcs *grpc.Server
+	conn  *grpc.ClientConn
+	c     pb.PieceStoreRoutesClient
+}
+
+func NewTestServer() *TestServer {
+	s := newTestServerStruct()
+	grpcs := grpc.NewServer()
+	c, conn := connect()
+
+	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+}
+
+func (TS *TestServer) Start() {
 	lis, err := net.Listen("tcp", ":3000")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	pb.RegisterPieceStoreRoutesServer(grpcs, s)
-	if err := grpcs.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	pb.RegisterPieceStoreRoutesServer(TS.grpcs, TS.s)
+
+	go func() {
+		if err := TS.grpcs.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
 }
 
-func cleanup(server *Server) {
-	os.RemoveAll(server.DataDir)
-	return
+func (TS *TestServer) Stop() {
+	TS.conn.Close()
+	TS.grpcs.Stop()
+	os.RemoveAll(TS.s.DataDir)
 }
 
 func TestMain(m *testing.M) {
