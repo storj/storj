@@ -4,6 +4,7 @@
 package psdb
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite is weird and needs underscore
 
@@ -20,15 +22,22 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+var (
+	mon = monkit.Package()
+)
+
 // PSDB -- Piecestore database
 type PSDB struct {
-	DB  *sql.DB
-	mtx sync.Mutex
+	DB       *sql.DB
+	mtx      sync.Mutex
+	dataPath string
 }
 
 // OpenPSDB -- opens PSDB at DBPath
-func OpenPSDB(DBPath string) (*PSDB, error) {
-	if err := os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
+func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
 
@@ -37,13 +46,29 @@ func OpenPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
+	defer func(err error) {
+		if err != nil {
+			db.Close()
+		}
+	}(err)
+
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, err
 	}
 
+	defer func(err error) {
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Printf("%s\n", err)
+			}
+		}
+	}(err)
+
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
@@ -57,12 +82,11 @@ func OpenPSDB(DBPath string) (*PSDB, error) {
 		return nil, err
 	}
 
-	return &PSDB{DB: db}, nil
+	return &PSDB{DB: db, dataPath: DataPath}, nil
 }
 
 // deleteEntries -- checks for and deletes expired TTL entries
 func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
-
 	for rows.Next() {
 		var expID string
 
@@ -78,9 +102,10 @@ func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
 		}
 
 		log.Printf("Deleted file: %s\n", expID)
-		if rows.Err() != nil {
-			return rows.Err()
-		}
+	}
+
+	if rows.Err() != nil {
+		return rows.Err()
 	}
 
 	return nil
@@ -93,9 +118,12 @@ func (psdb *PSDB) Close() error {
 
 // CheckEntries -- go routine to check ttl database for expired entries
 // pass in database and location of file for deletion
-func (psdb *PSDB) CheckEntries(dir string) error {
+func (psdb *PSDB) CheckEntries(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	tickChan := time.NewTicker(time.Second * 5).C
+	ticker := time.NewTicker(time.Second * 5)
+	defer ticker.Stop()
+	tickChan := ticker.C
 	for {
 		select {
 		case <-tickChan:
@@ -105,13 +133,12 @@ func (psdb *PSDB) CheckEntries(dir string) error {
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if err := rows.Close(); err != nil {
-					log.Printf("failed to close Rows: %s\n", err)
-				}
-			}()
 
-			if err := deleteEntriesFromFS(dir, rows); err != nil {
+			err = deleteEntriesFromFS(psdb.dataPath, rows)
+			if err := rows.Close(); err != nil {
+				log.Printf("failed to close Rows: %s\n", err)
+			}
+			if err != nil {
 				return err
 			}
 
@@ -119,6 +146,8 @@ func (psdb *PSDB) CheckEntries(dir string) error {
 			if err != nil {
 				return err
 			}
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }

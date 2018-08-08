@@ -46,7 +46,7 @@ func TestOpenPSDB(t *testing.T) {
 
 			dbpath := filepath.Join(tmp, "test.db")
 
-			DB, err := OpenPSDB(dbpath)
+			DB, err := OpenPSDB(ctx, "", dbpath)
 			if tt.err != "" {
 				assert.NotNil(err)
 				assert.Equal(tt.err, err.Error())
@@ -79,7 +79,7 @@ func TestDeleteTTLByID(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(dbpath)
+	db, err := OpenPSDB(ctx, "", dbpath)
 	if err != nil {
 		t.Errorf("Failed to create database")
 		return
@@ -131,7 +131,7 @@ func TestGetTTLByID(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(dbpath)
+	db, err := OpenPSDB(ctx, "", dbpath)
 	if err != nil {
 		t.Errorf("Failed to create database")
 		return
@@ -190,7 +190,7 @@ func TestAddTTLToDB(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(dbpath)
+	db, err := OpenPSDB(ctx, "", dbpath)
 	if err != nil {
 		t.Errorf("Failed to create database")
 		return
@@ -256,7 +256,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(dbpath)
+	db, err := OpenPSDB(ctx, "", dbpath)
 	if err != nil {
 		t.Errorf("Failed to create database")
 		return

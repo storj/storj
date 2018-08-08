@@ -45,11 +45,11 @@ type Config struct {
 }
 
 // Initialize -- initializes a server struct
-func Initialize(config Config) (*Server, error) {
+func Initialize(ctx context.Context, config Config) (*Server, error) {
 	dbPath := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piecestore.db")
 	dataDir := filepath.Join(config.PieceStoreDir, fmt.Sprintf("store-%s", config.NodeID), "piece-store-data")
 
-	psDB, err := psdb.OpenPSDB(dbPath)
+	psDB, err := psdb.OpenPSDB(ctx, dataDir, dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *Server) Start(ctx context.Context) (err error) {
 
 	// routinely check DB and delete expired entries
 	go func() {
-		err := s.DB.CheckEntries(s.DataDir)
+		err := s.DB.CheckEntries(ctx)
 		zap.S().Fatal("Error in CheckEntries: %v\n", err)
 	}()
 

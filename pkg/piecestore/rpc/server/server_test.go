@@ -430,12 +430,12 @@ func newTestServerStruct() *Server {
 
 	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().String()))
 
-	psDB, err := psdb.OpenPSDB(tempDBPath)
+	tempDir := filepath.Join(tmp, "test-data", "3000")
+
+	psDB, err := psdb.OpenPSDB(ctx, tempDir, tempDBPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	tempDir := filepath.Join(tmp, "test-data", "3000")
 
 	return &Server{DataDir: tempDir, DB: psDB}
 }
