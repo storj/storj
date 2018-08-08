@@ -122,7 +122,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	defer mon.Task()(&ctx)(&err)
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return err
+		return minio.ObjectInfo{}, err
 	}
 	m, err := o.Meta(ctx, paths.New(object))
 	if err != nil {
@@ -156,16 +156,16 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, moreItems)
+		items = append(items, moreItems...)
 		if !more {
 			break
 		}
-		startAfter = moreItems[len(moreItems)-1]
+		startAfter = moreItems[len(moreItems)-1].Bucket
 	}
-	buckets = make([]minio.BucketInfo, len(items))
+	b = make([]minio.BucketInfo, len(items))
 	for i, item := range items {
-		buckets[i].Name = item.Bucket
-		buckets[i].Created = item.Meta.Created
+		b[i].Name = item.Bucket
+		b[i].Created = item.Meta.Created
 	}
 	return bucketItems, err
 }
@@ -175,7 +175,11 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	defer mon.Task()(&ctx)(&err)
 	startAfter := paths.New(marker)
 	var fl []minio.ObjectInfo
-	items, more, err := s.storj.bs.GetObjectStore(bucket).List(ctx, paths.New(prefix), startAfter, nil, true, maxKeys, meta.All)
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
@@ -231,7 +235,11 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	}
 	// setting zero value means the object never expires
 	expTime := time.Time{}
-	m, err := s.storj.bs.GetObjectStore(bucket).Put(ctx, paths.New(objPath), data, serMetaInfo, expTime)
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	m, err := o.Put(ctx, paths.New(objPath), data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
