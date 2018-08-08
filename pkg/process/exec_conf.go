@@ -8,6 +8,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -106,6 +107,7 @@ func cleanup(cmd *cobra.Command) {
 			return err
 		}
 		vip.SetEnvPrefix("storj")
+		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
 
 		cfgFlag := cmd.Flags().Lookup("config")
