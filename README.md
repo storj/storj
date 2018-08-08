@@ -4,7 +4,7 @@
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
 [![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
 
-<img src="https://github.com/Storj/storj/blob/wip/logo/logo.png" width="100">
+<img src="https://github.com/storj/storj/raw/master/logo/logo.png" width="100">
 
 Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
 
