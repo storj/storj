@@ -25,9 +25,11 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// Receive id/ttl
 	recv, err := reqStream.Recv()
-	if err != nil || recv == nil {
-		log.Println(err)
-		return StoreError.New("Error receiving Piece Meta Data")
+	if err != nil {
+		return StoreError.Wrap(err)
+	}
+	if recv == nil {
+		return StoreError.New("Error receiving Piece metadata")
 	}
 
 	pd := recv.GetPiecedata()
@@ -42,7 +44,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 	// If we put in the database first then that checks if the data already exists
 	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetTtl()); err != nil {
-		log.Printf("AddTTLToDB error: %s\n", err.Error())
 		return StoreError.New("Failed to write expiration data to database")
 	}
 
@@ -57,32 +58,34 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 }
 
 func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
+	// Delete data if we error
+	defer func(err error) {
+		if err != nil && err != io.EOF {
+			if err = s.deleteByID(id); err != nil {
+				log.Printf("Failed on deleteByID in Store: %s", err.Error())
+			}
+		}
+	}(err)
+
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.DataDir)
 	if err != nil {
-		if err = s.deleteByID(id); err != nil {
-			log.Printf("Failed on deleteByID in Store: %s", err.Error())
-		}
-
 		return 0, err
 	}
+
 	defer utils.Close(storeFile)
 
 	reader := NewStreamReader(s, stream)
 	total, err = io.Copy(storeFile, reader)
 
-	DBError := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-	if DBError != nil {
-		log.Printf("WriteBandwidthAllocToDB Error: %s\n", DBError.Error())
-	}
+	defer func() {
+		err := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+		if err != nil {
+			log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
+		}
+	}()
 
 	if err != nil && err != io.EOF {
-		log.Printf("ioCopy Error: %s\n", err.Error())
-
-		if err = s.deleteByID(id); err != nil {
-			log.Printf("Failed on deleteByID in Store: %s", err.Error())
-		}
-
 		return 0, err
 	}
 
