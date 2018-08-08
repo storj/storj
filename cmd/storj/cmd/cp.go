@@ -15,16 +15,11 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 )
 
-type config struct {
-	miniogw.Config
-}
-
 var (
-	cfg   config
+	cpCfg Config
 	cpCmd = &cobra.Command{
 		Use:   "cp",
 		Short: "A brief description of your command",
@@ -33,10 +28,8 @@ var (
 )
 
 func init() {
-	defaultConfDir := "$HOME/.storj/clt"
-
 	RootCmd.AddCommand(cpCmd)
-	cfgstruct.Bind(cpCmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(cpCmd.Flags(), &cpCfg, cfgstruct.ConfDir(defaultConfDir))
 	cpCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 }
 
@@ -52,17 +45,17 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	//TODO: actually get the proper config
-	identity, err := cfg.LoadIdentity()
+	identity, err := cpCfg.LoadIdentity()
 	if err != nil {
 		return err
 	}
 
-	gateway, err := cfg.NewGateway(ctx, identity)
+	gateway, err := cpCfg.NewGateway(ctx, identity)
 	if err != nil {
 		return err
 	}
 
-	credentials, err := auth.CreateCredentials(cfg.AccessKey, cfg.SecretKey)
+	credentials, err := auth.CreateCredentials(cpCfg.AccessKey, cpCfg.SecretKey)
 	if err != nil {
 		return err
 	}
