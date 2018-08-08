@@ -36,7 +36,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 
 	pi, err := PeerIdentityFromCerts(l, c)
 	assert.NoError(t, err)
-	assert.Equal(t, c, pi.CA.Cert)
+	assert.Equal(t, c, pi.CA)
 	assert.Equal(t, l, pi.Leaf)
 	assert.NotEmpty(t, pi.ID)
 }
@@ -81,8 +81,8 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, l.Raw, fi.Leaf.Raw)
-	assert.Equal(t, c.Raw, fi.CA.Cert.Raw)
-	assert.Equal(t, lk, fi.PrivateKey)
+	assert.Equal(t, c.Raw, fi.CA.Raw)
+	assert.Equal(t, lk, fi.Key)
 }
 
 func TestIdentityConfig_SaveIdentity(t *testing.T) {
@@ -91,9 +91,9 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 
 	chainPEM := bytes.NewBuffer([]byte{})
 	pem.Encode(chainPEM, peertls.NewCertBlock(fi.Leaf.Raw))
-	pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Cert.Raw))
+	pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Raw))
 
-	privateKey, ok := fi.PrivateKey.(*ecdsa.PrivateKey)
+	privateKey, ok := fi.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
 	assert.NotEmpty(t, privateKey)
 
@@ -186,15 +186,15 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	fi, err := ic.Load()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, fi)
-	assert.NotEmpty(t, fi.PrivateKey)
+	assert.NotEmpty(t, fi.Key)
 	assert.NotEmpty(t, fi.Leaf)
 	assert.NotEmpty(t, fi.CA)
-	assert.NotEmpty(t, fi.ID().Bytes())
+	assert.NotEmpty(t, fi.ID.Bytes())
 
-	assert.Equal(t, expectedFI.PrivateKey, fi.PrivateKey)
+	assert.Equal(t, expectedFI.Key, fi.Key)
 	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
 	assert.Equal(t, expectedFI.CA, fi.CA)
-	assert.Equal(t, expectedFI.ID().Bytes(), fi.ID().Bytes())
+	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
 }
 
 func TestFullIdentity_Difficulty(t *testing.T) {

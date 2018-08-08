@@ -53,7 +53,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func generateCAWorker(ctx context.Context, difficulty uint16, caC chan CertificateAuthority, eC chan error) {
+func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
 	var (
 		k   crypto.PrivateKey
 		i   nodeID
@@ -95,10 +95,10 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan Certifica
 		return
 	}
 
-	ca := CertificateAuthority{
-		Cert:       c,
-		PrivateKey: k,
-		ID:         i,
+	ca := FullCertificateAuthority{
+		Cert: c,
+		Key:  k,
+		ID:   i,
 	}
 	caC <- ca
 	return

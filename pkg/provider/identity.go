@@ -35,19 +35,27 @@ var (
 
 // PeerIdentity represents another peer on the network.
 type PeerIdentity struct {
-	// CA represents the peer's self-signed CA. The ID is taken from this cert.
-	CA CertificateAuthority
+	// CA represents the peer's self-signed CA
+	CA *x509.Certificate
 	// Leaf represents the leaf they're currently using. The leaf should be
 	// signed by the CA. The leaf is what is used for communication.
 	Leaf *x509.Certificate
+	// The ID taken from the CA public key
+	ID nodeID
 }
 
 // FullIdentity represents you on the network. In addition to a PeerIdentity,
-// a FullIdentity also has a PrivateKey, which a PeerIdentity doesn't have.
-// The PrivateKey should be for the PeerIdentity's Leaf certificate.
+// a FullIdentity also has a Key, which a PeerIdentity doesn't have.
 type FullIdentity struct {
-	PeerIdentity
-	PrivateKey crypto.PrivateKey
+	// CA represents the peer's self-signed CA. The ID is taken from this cert.
+	CA *x509.Certificate
+	// Leaf represents the leaf they're currently using. The leaf should be
+	// signed by the CA. The leaf is what is used for communication.
+	Leaf *x509.Certificate
+	// The ID taken from the CA public key
+	ID nodeID
+	// Key is the key this identity uses with the leaf for communication.
+	Key crypto.PrivateKey
 }
 
 // IdentityConfig allows you to run a set of Responsibilities with the given
@@ -73,56 +81,47 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	if len(cb) < 2 {
+		return nil, errs.New("too few certificates in chain")
+	}
 	kb, err := decodePEM(keyPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
 	// NB: there shouldn't be multiple keys in the key file but if there
 	// are, this uses the first one
-	pk, err := x509.ParseECPrivateKey(kb[0])
+	k, err := x509.ParseECPrivateKey(kb[0])
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key", err)
 	}
-
-	pi, err := PeerIdentityFromCertChain(cb)
+	ch, err := ParseCertChain(cb)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+	i, err := idFromKey(ch[1].PublicKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return &FullIdentity{
-		PeerIdentity: *pi,
-		PrivateKey:   pk,
+		CA:   ch[1],
+		Leaf: ch[0],
+		Key:  k,
+		ID:   i,
 	}, nil
 }
 
-// PeerIdentityFromCertChain loads a PeerIdentity from a chain of certificates
-func PeerIdentityFromCertChain(chain [][]byte) (*PeerIdentity, error) {
-	var (
-		cb []byte
-		lb []byte
-	)
-	switch len(chain) {
-	case 0:
-		return nil, errs.New("empty certificate chain")
-	case 1:
-		cb = chain[0]
-	default:
-		cb = chain[1]
+// ParseCertChain converts a chain of certificate bytes into x509 certs
+func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
+	c := make([]*x509.Certificate, len(chain))
+	for i, ct := range chain {
+		cp, err := x509.ParseCertificate(ct)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		c[i] = cp
 	}
-	lb = chain[0]
-
-	ca, err := x509.ParseCertificate(cb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	l, err := x509.ParseCertificate(lb)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	return PeerIdentityFromCerts(l, ca)
+	return c, nil
 }
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
@@ -133,10 +132,8 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}
 
 	return &PeerIdentity{
-		CA: CertificateAuthority{
-			Cert: ca,
-			ID:   i,
-		},
+		CA:   ca,
+		ID:   i,
 		Leaf: leaf,
 	}, nil
 }
@@ -160,7 +157,7 @@ func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc 
 }
 
 // LoadOrCreate loads or generates the identity files using the configuration
-func (ic IdentitySetupConfig) LoadOrCreate(ca *CertificateAuthority) (*FullIdentity, error) {
+func (ic IdentitySetupConfig) LoadOrCreate(ca *FullCertificateAuthority) (*FullIdentity, error) {
 	var (
 		fi  = new(FullIdentity)
 		err error
@@ -224,11 +221,12 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 }
 
 // Create generates and saves a CA using the config
-func (ic IdentityConfig) Create(ca *CertificateAuthority) (*FullIdentity, error) {
+func (ic IdentityConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error) {
 	fi, err := ca.GenerateIdentity()
 	if err != nil {
 		return nil, err
 	}
+	fi.CA = ca.Cert
 	return fi, ic.Save(fi)
 }
 
@@ -246,10 +244,10 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 	}
 	defer utils.LogClose(k)
 
-	if err = peertls.WriteChain(c, fi.Leaf, fi.CA.Cert); err != nil {
+	if err = peertls.WriteChain(c, fi.Leaf, fi.CA); err != nil {
 		return err
 	}
-	if err = peertls.WriteKey(k, fi.PrivateKey); err != nil {
+	if err = peertls.WriteKey(k, fi.Key); err != nil {
 		return err
 	}
 	return nil
@@ -283,29 +281,19 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	}
 	defer func() { _ = s.Close() }()
 
-	zap.S().Infof("Node %s started", s.Identity().ID())
+	zap.S().Infof("Node %s started", s.Identity().ID)
 
 	return s.Run(ctx)
 }
 
-// ID returns the ID of the certificate authority associated with this `FullIdentity`
-func (fi *FullIdentity) ID() nodeID {
-	return fi.CA.ID
-}
-
-// ID returns the ID of the certificate authority associated with this `PeerIdentity`
-func (pi *PeerIdentity) ID() nodeID {
-	return pi.CA.ID
-}
-
 // Difficulty returns the number of trailing zero-value bits in the CA's ID hash
 func (fi *FullIdentity) Difficulty() uint16 {
-	return fi.ID().Difficulty()
+	return fi.ID.Difficulty()
 }
 
 // Difficulty returns the number of trailing zero-value bits in the CA's ID hash
 func (pi *PeerIdentity) Difficulty() uint16 {
-	return pi.ID().Difficulty()
+	return pi.ID.Difficulty()
 }
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
@@ -352,15 +340,15 @@ func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
 // Certificate returns a `*tls.Certifcate` using the identity's certificate and key
 func (fi *FullIdentity) Certificate() (*tls.Certificate, error) {
 	var chain [][]byte
-	chain = append(chain, fi.Leaf.Raw, fi.CA.Cert.Raw)
+	chain = append(chain, fi.Leaf.Raw, fi.CA.Raw)
 
-	return peertls.TLSCert(chain, fi.Leaf, fi.PrivateKey)
+	return peertls.TLSCert(chain, fi.Leaf, fi.Key)
 }
 
 // Certificate returns a `*tls.Certifcate` using the identity's certificate and key
 func (pi *PeerIdentity) Certificate() (*tls.Certificate, error) {
 	var chain [][]byte
-	chain = append(chain, pi.Leaf.Raw, pi.CA.Cert.Raw)
+	chain = append(chain, pi.Leaf.Raw, pi.CA.Raw)
 
 	return peertls.TLSCert(chain, pi.Leaf, nil)
 }

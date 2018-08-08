@@ -17,14 +17,22 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-// CertificateAuthority represents the CA which is used to author and validate identities
-type CertificateAuthority struct {
-	// PrivateKey is the private key of the CA
-	PrivateKey crypto.PrivateKey
+// PeerCertificateAuthority represents the CA which is used to validate peer identities
+type PeerCertificateAuthority struct {
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
-	// The ID is calculated from the CA cert.
+	// The ID is calculated from the CA public key.
 	ID nodeID
+}
+
+// FullCertificateAuthority represents the CA which is used to author and validate full identities
+type FullCertificateAuthority struct {
+	// Cert is the x509 certificate of the CA
+	Cert *x509.Certificate
+	// The ID is calculated from the CA public key.
+	ID nodeID
+	// Key is the private key of the CA
+	Key crypto.PrivateKey
 }
 
 type CASetupConfig struct {
@@ -42,13 +50,13 @@ type CAConfig struct {
 }
 
 // LoadOrCreate loads or generates the CA files using the configuration
-func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*CertificateAuthority, bool, error) {
+func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*FullCertificateAuthority, bool, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	var (
-		ca    = new(CertificateAuthority)
+		ca    = new(FullCertificateAuthority)
 		isNew = false
 		err   error
 	)
@@ -108,8 +116,8 @@ func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*C
 }
 
 // Load loads a CA from the given configuration
-func (caC CAConfig) Load() (*CertificateAuthority, error) {
-	cb, err := ioutil.ReadFile(caC.CertPath)
+func (caC CAConfig) Load() (*FullCertificateAuthority, error) {
+	cd, err := ioutil.ReadFile(caC.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
@@ -118,16 +126,16 @@ func (caC CAConfig) Load() (*CertificateAuthority, error) {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
 
-	var c [][]byte
+	var cb [][]byte
 	for {
 		var cp *pem.Block
-		cp, cb = pem.Decode(cb)
+		cp, cd = pem.Decode(cd)
 		if cp == nil {
 			break
 		}
-		c = append(c, cp.Bytes)
+		cb = append(cb, cp.Bytes)
 	}
-	pi, err := PeerIdentityFromCertChain(c)
+	c, err := ParseCertChain(cb)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v, %#v: %v",
 			caC.CertPath, caC.KeyPath, err)
@@ -138,13 +146,20 @@ func (caC CAConfig) Load() (*CertificateAuthority, error) {
 	if err != nil {
 		return nil, errs.New("unable to parse EC private key", err)
 	}
-	pi.CA.PrivateKey = k
+	i, err := idFromKey(k)
+	if err != nil {
+		return nil, err
+	}
 
-	return &pi.CA, nil
+	return &FullCertificateAuthority{
+		Cert: c[0],
+		Key:  k,
+		ID:   i,
+	}, nil
 }
 
 // Create generates and saves a CA using the config
-func (caC CASetupConfig) Create(ctx context.Context, concurrency uint) (*CertificateAuthority, error) {
+func (caC CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
 	ca, err := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
 	if err != nil {
 		return nil, err
@@ -153,14 +168,14 @@ func (caC CASetupConfig) Create(ctx context.Context, concurrency uint) (*Certifi
 }
 
 // GenerateCA creates a new full identity with the given difficulty
-func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*CertificateAuthority, error) {
+func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCertificateAuthority, error) {
 	if concurrency < 1 {
 		concurrency = 1
 	}
 	ctx, cancel := context.WithCancel(ctx)
 
 	eC := make(chan error)
-	caC := make(chan CertificateAuthority, 1)
+	caC := make(chan FullCertificateAuthority, 1)
 	for i := 0; i < int(concurrency); i++ {
 		go generateCAWorker(ctx, difficulty, caC, eC)
 	}
@@ -176,7 +191,7 @@ func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*Cert
 }
 
 // Save saves a CA with the given configuration
-func (caC CAConfig) Save(ca *CertificateAuthority) error {
+func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
 	f := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	c, err := openCert(caC.CertPath, f)
 	if err != nil {
@@ -192,7 +207,7 @@ func (caC CAConfig) Save(ca *CertificateAuthority) error {
 	if err = peertls.WriteChain(c, ca.Cert); err != nil {
 		return err
 	}
-	if err = peertls.WriteKey(k, ca.PrivateKey); err != nil {
+	if err = peertls.WriteKey(k, ca.Key); err != nil {
 		return err
 	}
 	return nil
@@ -206,16 +221,12 @@ func (caC CAConfig) Stat() TlsFilesStat {
 // Generate Identity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
-func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
+func (ca FullCertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	lT, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
 	}
-	l, err := peertls.NewCert(lT, ca.Cert, ca.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	pi, err := PeerIdentityFromCerts(l, ca.Cert)
+	l, err := peertls.NewCert(lT, ca.Cert, ca.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -225,11 +236,12 @@ func (ca CertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	}
 
 	return &FullIdentity{
-		PeerIdentity: *pi,
-		PrivateKey:   k,
+		Leaf: l,
+		Key:  k,
+		ID:   ca.ID,
 	}, nil
 }
 
-func (ca *CertificateAuthority) Difficulty() uint16 {
+func (ca *FullCertificateAuthority) Difficulty() uint16 {
 	return ca.ID.Difficulty()
 }
