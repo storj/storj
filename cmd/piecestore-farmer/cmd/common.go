@@ -31,11 +31,9 @@ func SetConfigPath(fileName string) (configDir, configFile string, err error) {
 func GetConfigValues() server.Config {
 	config := server.Config{
 		NodeID:        viper.GetString("piecestore.id"),
-		PsHost:        viper.GetString("piecestore.host"),
-		PsPort:        viper.GetString("piecestore.port"),
+		PSAddress:     viper.GetString("piecestore.address"),
 		KadListenPort: viper.GetString("kademlia.listen.port"),
-		KadPort:       viper.GetString("kademlia.port"),
-		KadHost:       viper.GetString("kademlia.host"),
+		KadAddress:    viper.GetString("kademlia.address"),
 		PieceStoreDir: viper.GetString("piecestore.dir"),
 	}
 	return config

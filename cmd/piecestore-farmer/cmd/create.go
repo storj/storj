@@ -36,31 +36,21 @@ func init() {
 		zap.S().Fatal(err)
 	}
 
-	createCmd.Flags().String("kademliaHost", "bootstrap.storj.io", "Kademlia server `host`")
-	createCmd.Flags().String("kademliaPort", "8080", "Kademlia server `port`")
+	createCmd.Flags().String("kademliaAddr", "bootstrap.storj.io:8080", "Kademlia server `host`")
 	createCmd.Flags().String("kademliaListenPort", "7776", "Kademlia server `listen port`")
-	createCmd.Flags().String("pieceStoreHost", "127.0.0.1", "Farmer's public ip/host")
-	createCmd.Flags().String("pieceStorePort", "7777", "`port` where piece store data is accessed")
+	createCmd.Flags().String("pieceStoreAddr", "127.0.0.1:7777", "Farmer's public ip/host")
 	createCmd.Flags().String("dir", home, "`dir` of drive being shared")
 
-	if err := viper.BindPFlag("kademlia.host", createCmd.Flags().Lookup("kademliaHost")); err != nil {
-		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.host")
-	}
-
-	if err := viper.BindPFlag("kademlia.port", createCmd.Flags().Lookup("kademliaPort")); err != nil {
-		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.port")
+	if err := viper.BindPFlag("kademlia.address", createCmd.Flags().Lookup("kademliaAddr")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.address")
 	}
 
 	if err := viper.BindPFlag("kademlia.listen.port", createCmd.Flags().Lookup("kademliaListenPort")); err != nil {
 		zap.S().Fatalf("Failed to bind flag: %s", "kademlia.listen.port")
 	}
 
-	if err := viper.BindPFlag("piecestore.host", createCmd.Flags().Lookup("pieceStoreHost")); err != nil {
-		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.host")
-	}
-
-	if err := viper.BindPFlag("piecestore.port", createCmd.Flags().Lookup("pieceStorePort")); err != nil {
-		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.port")
+	if err := viper.BindPFlag("piecestore.address", createCmd.Flags().Lookup("pieceStoreAddr")); err != nil {
+		zap.S().Fatalf("Failed to bind flag: %s", "piecestore.address")
 	}
 
 	if err := viper.BindPFlag("piecestore.dir", createCmd.Flags().Lookup("dir")); err != nil {

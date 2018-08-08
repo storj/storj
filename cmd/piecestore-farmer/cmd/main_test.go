@@ -41,11 +41,9 @@ func TestCreate(t *testing.T) {
 			it: "should successfully write config with default values",
 			expectedConfig: server.Config{
 				NodeID:        "",
-				PsHost:        "127.0.0.1",
-				PsPort:        "7777",
+				PSAddress:     "127.0.0.1:7777",
 				KadListenPort: "7776",
-				KadPort:       "8080",
-				KadHost:       "bootstrap.storj.io",
+				KadAddress:    "bootstrap.storj.io:8080",
 				PieceStoreDir: home,
 			},
 			args: []string{
@@ -57,20 +55,16 @@ func TestCreate(t *testing.T) {
 			it: "should successfully write config with flag values",
 			expectedConfig: server.Config{
 				NodeID:        "",
-				PsHost:        "123.4.5.6",
-				PsPort:        "1234",
+				PSAddress:     "123.4.5.6:1234",
 				KadListenPort: "4321",
-				KadPort:       "4444",
-				KadHost:       "hack@theplanet.com",
+				KadAddress:    "hack@theplanet.com:4444",
 				PieceStoreDir: os.TempDir(),
 			},
 			args: []string{
 				"create",
-				fmt.Sprintf("--pieceStoreHost=%s", "123.4.5.6"),
-				fmt.Sprintf("--pieceStorePort=%s", "1234"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "123.4.5.6:1234"),
 				fmt.Sprintf("--kademliaListenPort=%s", "4321"),
-				fmt.Sprintf("--kademliaPort=%s", "4444"),
-				fmt.Sprintf("--kademliaHost=%s", "hack@theplanet.com"),
+				fmt.Sprintf("--kademliaAddr=%s", "hack@theplanet.com:4444"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			err: "",
@@ -79,11 +73,9 @@ func TestCreate(t *testing.T) {
 			it: "should err when a config with identical ID already exists",
 			expectedConfig: server.Config{
 				NodeID:        "",
-				PsHost:        "123.4.5.6",
-				PsPort:        "1234",
+				PSAddress:     "123.4.5.6:1234",
 				KadListenPort: "4321",
-				KadPort:       "4444",
-				KadHost:       "hack@theplanet.com",
+				KadAddress:    "hack@theplanet.com:4444",
 				PieceStoreDir: home,
 			},
 			args: []string{
@@ -96,11 +88,9 @@ func TestCreate(t *testing.T) {
 			it: "should err when pieceStoreDir is not a directory",
 			expectedConfig: server.Config{
 				NodeID:        "",
-				PsHost:        "123.4.5.6",
-				PsPort:        "1234",
+				PSAddress:     "123.4.5.6:1234",
 				KadListenPort: "4321",
-				KadPort:       "4444",
-				KadHost:       "hack@theplanet.com",
+				KadAddress:    "hack@theplanet.com:4444",
 				PieceStoreDir: tempFile.Name(),
 			},
 			args: []string{
@@ -174,11 +164,9 @@ func TestStart(t *testing.T) {
 			it: "should err with no ID specified",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", "127.0.0.1"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			startArgs: []string{
@@ -190,11 +178,9 @@ func TestStart(t *testing.T) {
 			it: "should err with invalid Farmer IP",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", "123"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			startArgs: []string{
@@ -207,11 +193,9 @@ func TestStart(t *testing.T) {
 			it: "should err with missing Kademlia Listen Port",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
-				fmt.Sprintf("--kademliaListenPort=%s", ""),
-				fmt.Sprintf("--pieceStoreHost=%s", "127.0.0.1"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
+				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			startArgs: []string{
@@ -224,11 +208,9 @@ func TestStart(t *testing.T) {
 			it: "should err with missing IP",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", ""),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			startArgs: []string{
@@ -286,11 +268,9 @@ func TestDelete(t *testing.T) {
 			it: "should successfully delete node config",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", "127.0.0.1"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			deleteArgs: []string{
@@ -303,11 +283,9 @@ func TestDelete(t *testing.T) {
 			it: "should err with no ID specified",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", "127.0.0.1"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			deleteArgs: []string{
@@ -319,11 +297,9 @@ func TestDelete(t *testing.T) {
 			it: "should err with no ID specified",
 			createArgs: []string{
 				"create",
-				fmt.Sprintf("--kademliaHost=%s", "bootstrap.storj.io"),
-				fmt.Sprintf("--kademliaPort=%s", "8080"),
+				fmt.Sprintf("--kademliaAddr=%s", "bootstrap.storj.io:8080"),
 				fmt.Sprintf("--kademliaListenPort=%s", "7776"),
-				fmt.Sprintf("--pieceStoreHost=%s", "127.0.0.1"),
-				fmt.Sprintf("--pieceStorePort=%s", "7777"),
+				fmt.Sprintf("--pieceStoreAddr=%s", "127.0.0.1:7777"),
 				fmt.Sprintf("--dir=%s", os.TempDir()),
 			},
 			deleteArgs: []string{

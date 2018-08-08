@@ -38,11 +38,9 @@ type Server struct {
 // Config stores values from a farmer node config file
 type Config struct {
 	NodeID        string
-	PsHost        string
-	PsPort        string
+	PSAddress     string
 	KadListenPort string
-	KadPort       string
-	KadHost       string
+	KadAddress    string
 	PieceStoreDir string
 }
 
@@ -63,10 +61,14 @@ func Initialize(config Config) (*Server, error) {
 
 // connectToKad joins the Kademlia network
 func connectToKad(ctx context.Context, config Config) (*kademlia.Kademlia, error) {
+	pshost, _, err := net.SplitHostPort(config.PSAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	id := config.NodeID
-	ip := config.PsHost
 	kadListenPort := config.KadListenPort
-	kadAddress := fmt.Sprintf("%s:%s", config.KadHost, config.KadPort)
+	kadAddress := config.KadAddress
 
 	node := proto.Node{
 		Id: id,
@@ -76,7 +78,7 @@ func connectToKad(ctx context.Context, config Config) (*kademlia.Kademlia, error
 		},
 	}
 
-	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, ip, kadListenPort)
+	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, pshost, kadListenPort)
 	if err != nil {
 		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
 	}
@@ -102,7 +104,7 @@ func (s *Server) Start(ctx context.Context) (err error) {
 	}
 
 	// create a listener on TCP port
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", s.config.PsPort))
+	lis, err := net.Listen("tcp", s.config.PSAddress)
 	if err != nil {
 		return err
 	}
