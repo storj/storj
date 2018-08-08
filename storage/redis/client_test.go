@@ -220,7 +220,6 @@ func TestCrudValidConnection(t *testing.T) {
 		{
 			"GetKeysList",
 			func(t *testing.T, st storage.KeyValueStore) {
-				t.Skip()
 				orgValue := storage.Value(validValue)
 
 				list := storage.Keys{}
