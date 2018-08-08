@@ -57,7 +57,7 @@ message OverlayOptions {
     google.protobuf.Duration maxLatency = 1;
     NodeRep minReputation = 2; // Not sure what NodeRep is yet.
     int64 minSpeedKbps = 3;
-    int64 limit = 4;
+    int64 amount = 4;
     NodeRestrictions restrictions = 5;
 }
 

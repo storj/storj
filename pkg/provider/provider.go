@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -40,8 +41,12 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 	}
 
 	return &Provider{
-		lis:      lis,
-		g:        grpc.NewServer(s),
+
+		lis: lis,
+		g: grpc.NewServer(
+			grpc.StreamInterceptor(streamInterceptor),
+			grpc.UnaryInterceptor(unaryInterceptor),
+		),
 		next:     responsibilities,
 		identity: identity,
 	}, nil
@@ -119,4 +124,31 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 	}
 
 	return p.g.Serve(p.lis)
+}
+
+// TLSConfig returns the provider's identity as a TLS Config
+func (p *Provider) TLSConfig() *tls.Config {
+	// TODO(jt): get rid of tls.Certificate
+	return (&peertls.TLSFileOptions{
+		LeafCertificate: p.identity.todoCert,
+	}).NewTLSConfig(nil)
+}
+
+func streamInterceptor(srv interface{}, ss grpc.ServerStream,
+	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	err = handler(srv, ss)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return err
+}
+
+func unaryInterceptor(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+	err error) {
+	resp, err = handler(ctx, req)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return resp, err
 }

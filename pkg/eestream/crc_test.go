@@ -78,12 +78,12 @@ func (c *crcChecker) Transform(out, in []byte, blockOffset int64) (
 
 // addCRC is a Ranger constructor, given a specific crc table and an existing
 // un-crced Ranger
-func addCRC(data ranger.Ranger, tab *crc32.Table) (ranger.Ranger, error) {
+func addCRC(data ranger.RangeCloser, tab *crc32.Table) (ranger.RangeCloser, error) {
 	return Transform(data, newCRCAdder(tab))
 }
 
 // checkCRC is a Ranger constructor, given a specific crc table and an existing
 // crced Ranger
-func checkCRC(data ranger.Ranger, tab *crc32.Table) (ranger.Ranger, error) {
+func checkCRC(data ranger.RangeCloser, tab *crc32.Table) (ranger.RangeCloser, error) {
 	return Transform(data, newCRCChecker(tab))
 }

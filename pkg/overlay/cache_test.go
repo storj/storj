@@ -6,9 +6,11 @@ package overlay
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,6 +19,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
@@ -36,7 +40,65 @@ const (
 	mock dbClient = iota
 	bolt
 	_redis
+	testNetSize = 30
 )
+
+func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *kademlia.Kademlia {
+	i, err := kademlia.NewID()
+	assert.NoError(t, err)
+	id := kademlia.NodeID(*i)
+	n := []overlay.Node{b}
+	kad, err := kademlia.NewKademlia(&id, n, ip, port)
+	assert.NoError(t, err)
+
+	return kad
+}
+
+func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
+	bid, err := kademlia.NewID()
+	assert.NoError(t, err)
+
+	bnid := kademlia.NodeID(*bid)
+	dhts := []dht.DHT{}
+
+	p, err := strconv.Atoi(port)
+	pm := strconv.Itoa(p)
+	assert.NoError(t, err)
+	intro, err := kademlia.GetIntroNode(bnid.String(), ip, pm)
+	assert.NoError(t, err)
+
+	boot, err := kademlia.NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
+
+	assert.NoError(t, err)
+	rt, err := boot.GetRoutingTable(context.Background())
+	bootNode := rt.Local()
+
+	err = boot.ListenAndServe()
+	assert.NoError(t, err)
+	p++
+
+	err = boot.Bootstrap(context.Background())
+	assert.NoError(t, err)
+	for i := 0; i < testNetSize; i++ {
+		gg := strconv.Itoa(p)
+
+		nid, err := kademlia.NewID()
+		assert.NoError(t, err)
+		id := kademlia.NodeID(*nid)
+
+		dht, err := kademlia.NewKademlia(&id, []overlay.Node{bootNode}, ip, gg)
+		assert.NoError(t, err)
+
+		p++
+		dhts = append(dhts, dht)
+		err = dht.ListenAndServe()
+		assert.NoError(t, err)
+		err = dht.Bootstrap(context.Background())
+		assert.NoError(t, err)
+	}
+
+	return dhts, bootNode
+}
 
 var (
 	getCases = []struct {
@@ -144,6 +206,20 @@ var (
 				_redis: nil,
 			},
 			data: test.KvStore{},
+		},
+	}
+
+	refreshCases = []struct {
+		testID              string
+		expectedTimesCalled int
+		expectedErr         error
+		data                test.KvStore
+	}{
+		{
+			testID:              "valid update",
+			expectedTimesCalled: 1,
+			expectedErr:         nil,
+			data:                test.KvStore{},
 		},
 	}
 )
@@ -309,6 +385,25 @@ func TestMockPut(t *testing.T) {
 
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.Equal(t, na, &c.value)
+		})
+	}
+}
+
+func TestRefresh(t *testing.T) {
+	for _, c := range refreshCases {
+		t.Run(c.testID, func(t *testing.T) {
+			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "3000")
+			ctx := context.Background()
+			db := test.NewMockKeyValueStore(c.data)
+			dht := newTestKademlia(t, "127.0.0.1", "2999", dhts[rand.Intn(testNetSize)], b)
+
+			_cache := &Cache{
+				DB:  db,
+				DHT: dht,
+			}
+
+			err := _cache.Refresh(ctx)
+			assert.Equal(t, err, c.expectedErr)
 		})
 	}
 }

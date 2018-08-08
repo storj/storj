@@ -96,12 +96,12 @@ func TestPut(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
 		// here we don't care what type of context we pass
 		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
 
-		err := pdb.Put(ctx, tt.path, putRequest.Pointer, tt.APIKey)
+		err := pdb.Put(ctx, tt.path, putRequest.Pointer)
 
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -142,11 +142,11 @@ func TestGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
-		pointer, err := pdb.Get(ctx, tt.path, tt.APIKey)
+		pointer, err := pdb.Get(ctx, tt.path)
 
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -169,7 +169,7 @@ func TestList(t *testing.T) {
 		recursive  bool
 		limit      int
 		metaFlags  uint32
-		apiKey     string
+		APIKey     string
 		items      []*pb.ListResponse_Item
 		more       bool
 		err        error
@@ -211,18 +211,18 @@ func TestList(t *testing.T) {
 			Recursive:  tt.recursive,
 			Limit:      int32(tt.limit),
 			MetaFlags:  tt.metaFlags,
-			APIKey:     []byte(tt.apiKey),
+			APIKey:     []byte(tt.APIKey),
 		}
 
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{grpcClient: gc, APIKey: []byte(tt.APIKey)}
 
 		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
 		items, more, err := pdb.List(ctx, p.New(tt.prefix), p.New(tt.startAfter),
-			p.New(tt.endBefore), tt.recursive, tt.limit, tt.metaFlags, []byte(tt.apiKey))
+			p.New(tt.endBefore), tt.recursive, tt.limit, tt.metaFlags)
 
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -267,11 +267,11 @@ func TestDelete(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
 		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 
-		err := pdb.Delete(ctx, tt.path, tt.APIKey)
+		err := pdb.Delete(ctx, tt.path)
 
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
