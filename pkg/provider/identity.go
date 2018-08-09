@@ -231,7 +231,8 @@ func (ic IdentityConfig) Run(ctx context.Context,
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
-	c, err := fi.Certificate()
+	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +252,8 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
 func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
-	c, err := pi.Certificate()
+	ch := [][]byte{pi.Leaf.Raw, pi.CA.Raw}
+	c, err := peertls.TLSCert(ch, pi.Leaf, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -265,22 +267,6 @@ func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
 	}
 
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
-}
-
-// Certificate returns a `*tls.Certifcate` using the identity's certificate and key
-func (fi *FullIdentity) Certificate() (*tls.Certificate, error) {
-	var chain [][]byte
-	chain = append(chain, fi.Leaf.Raw, fi.CA.Raw)
-
-	return peertls.TLSCert(chain, fi.Leaf, fi.Key)
-}
-
-// Certificate returns a `*tls.Certifcate` using the identity's certificate and key
-func (pi *PeerIdentity) Certificate() (*tls.Certificate, error) {
-	var chain [][]byte
-	chain = append(chain, pi.Leaf.Raw, pi.CA.Raw)
-
-	return peertls.TLSCert(chain, pi.Leaf, nil)
 }
 
 type nodeID string

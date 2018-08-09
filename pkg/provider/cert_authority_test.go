@@ -17,7 +17,7 @@ func TestGenerateCA(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ca)
 
-	actualDifficulty := ca.Difficulty()
+	actualDifficulty := ca.ID.Difficulty()
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 

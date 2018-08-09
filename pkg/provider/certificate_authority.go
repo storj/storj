@@ -178,7 +178,3 @@ func (ca FullCertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 		ID:   ca.ID,
 	}, nil
 }
-
-func (ca *FullCertificateAuthority) Difficulty() uint16 {
-	return ca.ID.Difficulty()
-}
