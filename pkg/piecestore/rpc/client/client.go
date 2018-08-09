@@ -71,12 +71,18 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	writer := &StreamWriter{stream: stream}
 
 	defer func() {
-		if err := writer.Close(); err != nil {
+		if err := writer.Close(); err != nil && err != io.EOF {
 			log.Printf("failed to close writer: %s\n", err)
 		}
 	}()
 
 	_, err = io.Copy(writer, data)
+
+	if err == io.ErrUnexpectedEOF {
+		writer.Close()
+		zap.S().Infof("Node cut from upload due to slowliness. Deleting piece %s...", id)
+		return client.Delete(ctx, id)
+	}
 
 	return err
 }
