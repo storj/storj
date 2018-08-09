@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	io "io"
 	"math/rand"
 	"testing"
 	time "time"
@@ -16,65 +17,69 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	paths "storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	mock_buckets "storj.io/storj/pkg/storage/buckets/mocks"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 )
 
-// func TestGetObject(t *testing.T) {
-// 	mockBucketCtrl := gomock.NewController(t)
-// 	defer mockBucketCtrl.Finish()
+func TestGetObject(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
 
-// 	mockObjCtrl := gomock.NewController(t)
-// 	defer mockObjCtrl.Finish()
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
 
-// 	mockBucketGetObject := mock_buckets.NewMockStore(mockBucketCtrl)
-// 	b := Storj{bs: mockBucketGetObject}
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
 
-// 	mockObjGetObject := NewMockStore(mockObjCtrl)
-// 	o := buckets.BucketStore{os: mockObjGetObject}
+	mockOS := NewMockStore(mockObjCtrl)
+	bs := buckets.BucketStore{O: mockOS}
 
-// 	testUser := storjObjects{storj: &s}
+	storjObj := storjObjects{storj: &b}
 
-// 	meta := objects.Meta{}
+	meta := objects.Meta{}
 
-// 	for i, example := range []struct {
-// 		bucket, object       string
-// 		data                 string
-// 		size, offset, length int64
-// 		substr               string
-// 		err                  error
-// 		errString            string
-// 	}{
-// 		// happy scenario
-// 		{"mybucket", "myobject1", "abcdef", 6, 0, 5, "abcde", nil, ""},
+	for i, example := range []struct {
+		bucket, object       string
+		data                 string
+		size, offset, length int64
+		substr               string
+		err                  error
+		errString            string
+	}{
+		// happy scenario
+		{"mybucket", "myobject1", "abcdef", 6, 0, 5, "abcde", nil, ""},
 
-// 		// error returned by the ranger in the code
-// 		{"mybucket", "myobject1", "abcdef", 6, -1, 7, "abcde", nil, "ranger error: negative offset"},
-// 		{"mybucket", "myobject1", "abcdef", 6, 0, -1, "abcde", nil, "ranger error: negative length"},
-// 		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "bcde", nil, "ranger error: buffer runoff"},
+		// error returned by the ranger in the code
+		{"mybucket", "myobject1", "abcdef", 6, -1, 7, "abcde", nil, "ranger error: negative offset"},
+		{"mybucket", "myobject1", "abcdef", 6, 0, -1, "abcde", nil, "ranger error: negative length"},
+		{"mybucket", "myobject1", "abcdef", 6, 1, 7, "bcde", nil, "ranger error: buffer runoff"},
 
-// 		// error returned by the objects.Get()
-// 		{"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", errors.New("some err"), "some err"},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
-// 		r := ranger.ByteRanger([]byte(example.data))
+		// // error returned by the objects.Get()
+		// {"mybucket", "myobject1", "abcdef", 6, 0, 6, "abcdef", errors.New("some err"), "some err"},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		r := ranger.ByteRanger([]byte(example.data))
 
-// 		rr := ranger.NopCloser(r)
-// 		mockGetObject.EXPECT().Get(gomock.Any(), paths.New(example.bucket, example.object)).Return(rr, meta, example.err).Times(1)
+		rr := ranger.NopCloser(r)
 
-// 		var buf1 bytes.Buffer
-// 		iowriter := io.Writer(&buf1)
-// 		err := testUser.GetObject(context.Background(), example.bucket, example.object, example.offset, example.length, iowriter, "etag")
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
+		mockOS.EXPECT().Get(gomock.Any(), paths.New(example.object)).Return(rr, meta, example.err).Times(1)
 
-// 		if err != nil {
-// 			assert.EqualError(t, err, example.errString)
-// 		} else {
-// 			assert.Equal(t, example.substr, buf1.String())
-// 			assert.NoError(t, err, errTag)
-// 		}
-// 	}
-// }
+		var buf1 bytes.Buffer
+		iowriter := io.Writer(&buf1)
+		err := storjObj.GetObject(context.Background(), example.bucket, example.object, example.offset, example.length, iowriter, "etag")
+
+		if err != nil {
+			assert.EqualError(t, err, example.errString)
+		} else {
+			assert.Equal(t, example.substr, buf1.String())
+			assert.NoError(t, err, errTag)
+		}
+	}
+}
 
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" + "0123456789"
@@ -121,10 +126,10 @@ func TestPutObject(t *testing.T) {
 		errString      string
 	}{
 		// happy scenario
-		//{"mybucket", "myobject1", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
+		{"mybucket", "myobject1", []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), nil, ""},
 
 		// emulating objects.Put() returning err
-		{"mybucket", "myobject1", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
+		// {"mybucket", "myobject1", []string{"content-type1", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -163,7 +168,7 @@ func TestPutObject(t *testing.T) {
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
 			if example.err != nil {
-				//assert.Empty(t, objInfo, errTag)
+				assert.Empty(t, objInfo, errTag)
 			}
 		} else {
 			assert.NoError(t, err, errTag)
@@ -246,90 +251,97 @@ func TestGetObjectInfo(t *testing.T) {
 	}
 }
 
-// func TestListObjects(t *testing.T) {
-// 	mockCtrl := gomock.NewController(t)
-// 	defer mockCtrl.Finish()
+func TestListObjects(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
 
-// 	// Mock framework initialization
-// 	mockGetObject := NewMockStore(mockCtrl)
-// 	s := Storj{os: mockGetObject}
-// 	testUser := storjObjects{storj: &s}
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
 
-// 	for i, example := range []struct {
-// 		bucket, prefix    string
-// 		marker, delimiter string
-// 		maxKeys           int
-// 		recursive         bool
-// 		metaFlags         uint32
-// 		more              bool
-// 		MetaKey           []string
-// 		MetaVal           []string
-// 		Modified          time.Time
-// 		Expiration        time.Time
-// 		Size              int64
-// 		Checksum          string
-// 		NumOfListItems    int
-// 		err               error
-// 		errString         string
-// 	}{
-// 		// empty prefix
-// 		{("bucket_" + checksumGen(10)), "", ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
 
-// 		// empty marker
-// 		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), "", "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
+	mockOS := NewMockStore(mockObjCtrl)
+	bs := buckets.BucketStore{O: mockOS}
 
-// 		// mock returning non-nil error
-// 		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1000, Error.New("error"), "Storj Gateway error: error"},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
+	storjObj := storjObjects{storj: &b}
 
-// 		/* add test code here ... */
-// 		var metadata = make(map[string]string)
-// 		for i := 0x00; i < len(example.MetaKey); i++ {
-// 			metadata[example.MetaKey[i]] = example.MetaVal[i]
-// 		}
+	for i, example := range []struct {
+		bucket, prefix    string
+		marker, delimiter string
+		maxKeys           int
+		recursive         bool
+		metaFlags         uint32
+		more              bool
+		MetaKey           []string
+		MetaVal           []string
+		Modified          time.Time
+		Expiration        time.Time
+		Size              int64
+		Checksum          string
+		NumOfListItems    int
+		err               error
+		errString         string
+	}{
+		// empty prefix
+		{("bucket_" + checksumGen(10)), "", ("marker_" + checksumGen(10)), "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
 
-// 		//metadata serialized
-// 		serMetaInfo := objects.SerializableMeta{
-// 			ContentType: metadata["content-type"],
-// 			UserDefined: metadata,
-// 		}
+		// empty marker
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), "", "/", 100, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 10, nil, ""},
 
-// 		meta1 := objects.Meta{
-// 			serMetaInfo,
-// 			example.Modified,
-// 			example.Expiration,
-// 			example.Size,
-// 			example.Checksum,
-// 		}
-// 		items := make([]objects.ListItem, example.NumOfListItems)
+		// mock returning non-nil error
+		{("bucket_" + checksumGen(10)), ("prefix_" + checksumGen(10)), ("marker_" + checksumGen(10)), "/", 1000, true, meta.All, true, []string{"content-type", "userdef_key1", "userdef_key2"}, []string{"foo1", "userdef_val1", "user_val2"}, time.Now(), time.Time{}, int64(rand.Intn(1000)), checksumGen(25), 1000, Error.New("error"), "Storj Gateway error: error"},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
 
-// 		// set the item[0] to the initialized test case to keep the same starting marker
-// 		if example.NumOfListItems > 0x00 {
-// 			items[0].Path = paths.Path{example.bucket, example.prefix, example.marker}
-// 			for i := 0x01; i < example.NumOfListItems; i++ {
-// 				items[i].Path = paths.Path{example.bucket, example.prefix, ("marker_" + checksumGen(10))}
-// 				items[i].Meta = meta1
-// 			}
-// 		}
+		/* add test code here ... */
+		var metadata = make(map[string]string)
+		for i := 0x00; i < len(example.MetaKey); i++ {
+			metadata[example.MetaKey[i]] = example.MetaVal[i]
+		}
 
-// 		// initialize the necessary mock's argument
-// 		startAfter := paths.New(example.marker)
+		//metadata serialized
+		serMetaInfo := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: metadata,
+		}
 
-// 		mockGetObject.EXPECT().List(gomock.Any(), paths.New(example.bucket, example.prefix),
-// 			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
+		meta1 := objects.Meta{
+			SerializableMeta: serMetaInfo,
+			Modified:         example.Modified,
+			Expiration:       example.Expiration,
+			Size:             example.Size,
+			Checksum:         example.Checksum,
+		}
+		items := make([]objects.ListItem, example.NumOfListItems)
 
-// 		objInfo, err := testUser.ListObjects(context.Background(), example.bucket, example.prefix,
-// 			example.marker, example.delimiter, example.maxKeys)
+		// set the item[0] to the initialized test case to keep the same starting marker
+		if example.NumOfListItems > 0x00 {
+			items[0].Path = paths.Path{example.bucket, example.prefix, example.marker}
+			for i := 0x01; i < example.NumOfListItems; i++ {
+				items[i].Path = paths.Path{example.bucket, example.prefix, ("marker_" + checksumGen(10))}
+				items[i].Meta = meta1
+			}
+		}
 
-// 		if err != nil {
-// 			assert.EqualError(t, err, example.errString)
-// 			if example.err != nil {
-// 				assert.Empty(t, objInfo, errTag)
-// 			}
-// 		} else {
-// 			assert.NoError(t, err, errTag)
-// 			assert.NotNil(t, objInfo, errTag)
-// 		}
-// 	}
-// }
+		// initialize the necessary mock's argument
+		startAfter := paths.New(example.marker)
+
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, nil).Times(1)
+		mockOS.EXPECT().List(gomock.Any(), paths.New(example.prefix),
+			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
+
+		objInfo, err := storjObj.ListObjects(context.Background(), example.bucket, example.prefix,
+			example.marker, example.delimiter, example.maxKeys)
+
+		if err != nil {
+			assert.EqualError(t, err, example.errString)
+			if example.err != nil {
+				assert.Empty(t, objInfo, errTag)
+			}
+		} else {
+			assert.NoError(t, err, errTag)
+			assert.NotNil(t, objInfo, errTag)
+		}
+	}
+}
