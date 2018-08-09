@@ -33,7 +33,6 @@ var (
 	}
 
 	runCfg struct {
-		CA        provider.CAConfig
 		Identity  provider.IdentityConfig
 		Kademlia  kademlia.Config
 		PointerDB pointerdb.Config

@@ -35,7 +35,7 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
-	s, err := identity.ServerOption(0)
+	s, err := identity.ServerOption()
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +46,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 		g: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
+			s,
 		),
 		next:     responsibilities,
 		identity: identity,
@@ -124,14 +125,6 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 	}
 
 	return p.g.Serve(p.lis)
-}
-
-// TLSConfig returns the provider's identity as a TLS Config
-func (p *Provider) TLSConfig() *tls.Config {
-	// TODO(jt): get rid of tls.Certificate
-	return (&peertls.TLSFileOptions{
-		LeafCertificate: p.identity.todoCert,
-	}).NewTLSConfig(nil)
 }
 
 func streamInterceptor(srv interface{}, ss grpc.ServerStream,

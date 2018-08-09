@@ -298,7 +298,7 @@ func (pi *PeerIdentity) Difficulty() uint16 {
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
-func (fi *FullIdentity) ServerOption(difficulty uint16) (grpc.ServerOption, error) {
+func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 	c, err := fi.Certificate()
 	if err != nil {
 		return nil, err
@@ -310,7 +310,6 @@ func (fi *FullIdentity) ServerOption(difficulty uint16) (grpc.ServerOption, erro
 		ClientAuth:         tls.RequireAnyClientCert,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
-			VerifyPeerIdentityFunc(difficulty),
 		),
 	}
 
