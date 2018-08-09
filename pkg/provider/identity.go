@@ -139,24 +139,6 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
-// VerifyPeerIdentityFunc returns a function to use with `tls.Certificate.VerifyPeerCertificate`
-// that verifies the peer identity satisfies the minimum difficulty
-func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc {
-	return func(rawChain [][]byte, parsedChains [][]*x509.Certificate) error {
-		// NB: use the first chain; leaf should be first, followed by the ca
-		pi, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1])
-		if err != nil {
-			return err
-		}
-
-		if pi.Difficulty() < difficulty {
-			return ErrDifficulty.New("expected: \"%d\" but got: \"%d\"", difficulty, pi.Difficulty())
-		}
-
-		return nil
-	}
-}
-
 // Stat returns the status of the identity cert/key files for the config
 func (is IdentitySetupConfig) Stat() TlsFilesStat {
 	return statTLSFiles(is.CertPath, is.KeyPath)
