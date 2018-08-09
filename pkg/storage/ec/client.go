@@ -62,7 +62,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
-		return Error.New("number of nodes do not match total count of erasure scheme")
+		return Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme",
+			len(nodes), rs.TotalCount())
 	}
 	if !unique(nodes) {
 		return Error.New("duplicated nodes are not allowed")
