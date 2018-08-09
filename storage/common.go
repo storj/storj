@@ -12,6 +12,9 @@ type Value []byte
 // Keys is the type for a slice of keys in a `KeyValueStore`
 type Keys []Key
 
+// Values is the type for a slice of Values in a `KeyValueStore`
+type Values []Value
+
 // Limit indicates how many keys to return when calling List
 type Limit int
 
@@ -20,6 +23,7 @@ type KeyValueStore interface {
 	// Put adds a value to the provided key in the KeyValueStore, returning an error on failure.
 	Put(Key, Value) error
 	Get(Key) (Value, error)
+	GetAll(Keys) (Values, error)
 	List(Key, Limit) (Keys, error)
 	ReverseList(Key, Limit) (Keys, error)
 	Delete(Key) error

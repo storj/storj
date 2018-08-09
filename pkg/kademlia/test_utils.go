@@ -23,7 +23,7 @@ type MockKademlia struct {
 
 // GetNodes increments the GetNodesCalled field on MockKademlia
 // returns the Nodes field on MockKademlia
-func (k *MockKademlia) GetNodes(ctx context.Context, start string, limit int) ([]*proto.Node, error) {
+func (k *MockKademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
 	return k.Nodes, nil
 }
 

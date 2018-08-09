@@ -35,7 +35,8 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	pdbclient, err := client.NewClient(pointerdbClientPort)
+	APIKey := []byte("abc123")
+	pdbclient, err := client.NewClient(pointerdbClientPort, APIKey)
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))
@@ -51,10 +52,9 @@ func main() {
 		Type:          proto.Pointer_INLINE,
 		InlineSegment: []byte("popcorn"),
 	}
-	APIKey := []byte("abc123")
 
 	// Example Put1
-	err = pdbclient.Put(ctx, path, pointer, APIKey)
+	err = pdbclient.Put(ctx, path, pointer)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
@@ -63,7 +63,7 @@ func main() {
 	}
 
 	// Example Put2
-	err = pdbclient.Put(ctx, p.New("fold1/fold2"), pointer, APIKey)
+	err = pdbclient.Put(ctx, p.New("fold1/fold2"), pointer)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// Example Get
-	getRes, err := pdbclient.Get(ctx, path, APIKey)
+	getRes, err := pdbclient.Get(ctx, path)
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
@@ -84,7 +84,7 @@ func main() {
 
 	// Example List with pagination
 	prefix := p.New("fold1")
-	items, more, err := pdbclient.List(ctx, prefix, nil, nil, true, 1, meta.None, APIKey)
+	items, more, err := pdbclient.List(ctx, prefix, nil, nil, true, 1, meta.None)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths", zap.Error(err))
@@ -97,7 +97,7 @@ func main() {
 	}
 
 	// Example Delete
-	err = pdbclient.Delete(ctx, path, APIKey)
+	err = pdbclient.Delete(ctx, path)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("Error in deleteing file from db", zap.Error(err))
