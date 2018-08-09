@@ -228,16 +228,6 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	return s.Run(ctx)
 }
 
-// Difficulty returns the number of trailing zero-value bits in the CA's ID hash
-func (fi *FullIdentity) Difficulty() uint16 {
-	return fi.ID.Difficulty()
-}
-
-// Difficulty returns the number of trailing zero-value bits in the CA's ID hash
-func (pi *PeerIdentity) Difficulty() uint16 {
-	return pi.ID.Difficulty()
-}
-
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
@@ -271,7 +261,6 @@ func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
-			VerifyPeerIdentityFunc(difficulty),
 		),
 	}
 

@@ -197,10 +197,10 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
 }
 
-func TestFullIdentity_Difficulty(t *testing.T) {
+func TestNodeID_Difficulty(t *testing.T) {
 	done, _, fi, knownDifficulty := tempIdentity(t)
 	defer done()
 
-	difficulty := fi.Difficulty()
+	difficulty := fi.ID.Difficulty()
 	assert.True(t, difficulty >= knownDifficulty)
 }
