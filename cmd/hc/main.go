@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -41,7 +42,8 @@ var (
 		Overlay   overlay.Config
 	}
 	setupCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
+		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -60,13 +62,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	_, err = os.Stat(setupCfg.BasePath)
+	if !setupCfg.Overwrite && err == nil {
+		fmt.Println("An hc configuration already exists. Rerun with --overwrite")
+		return nil
+	}
+
 	err = os.MkdirAll(setupCfg.BasePath, 0700)
 	if err != nil {
 		return err
 	}
 
 	identityPath := filepath.Join(setupCfg.BasePath, "identity")
-	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, false)
+	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, true)
 	if err != nil {
 		return err
 	}

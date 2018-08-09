@@ -6,6 +6,8 @@ package ecclient
 import (
 	"context"
 	"io"
+	"io/ioutil"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
@@ -65,7 +67,11 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	if len(nodes) != rs.TotalCount() {
 		return Error.New("number of nodes do not match total count of erasure scheme")
 	}
-	readers, err := eestream.EncodeReader(ctx, data, rs, ec.mbm)
+	if !unique(nodes) {
+		return Error.New("duplicated nodes are not allowed")
+	}
+	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
+	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
 	if err != nil {
 		return err
 	}
@@ -112,6 +118,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes do not match total count of erasure scheme")
 	}
+	paddedSize := calcPadded(size, es.DecodedBlockSize())
+	pieceSize := paddedSize / int64(es.RequiredCount())
 	rrs := map[int]ranger.RangeCloser{}
 	type rangerInfo struct {
 		i   int
@@ -134,7 +142,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 				ch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			rr, err := ps.Get(ctx, derivedPieceID, size)
+			rr, err := ps.Get(ctx, derivedPieceID, pieceSize)
 			// no ps.CloseConn() here, the connection will be closed by
 			// the caller using RangeCloser.Close
 			if err != nil {
@@ -150,7 +158,11 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			rrs[rri.i] = rri.rr
 		}
 	}
-	return eestream.Decode(rrs, es, ec.mbm)
+	rr, err = eestream.Decode(rrs, es, ec.mbm)
+	if err != nil {
+		return nil, err
+	}
+	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
@@ -205,4 +217,33 @@ func closeConn(ps client.PSClient, nodeID string) {
 	if err != nil {
 		zap.S().Errorf("Failed closing connection to node %s: %v", nodeID, err)
 	}
+}
+
+func unique(nodes []*proto.Node) bool {
+	if len(nodes) < 2 {
+		return true
+	}
+
+	ids := make([]string, len(nodes))
+	for i, n := range nodes {
+		ids[i] = n.GetId()
+	}
+
+	// sort the ids and check for identical neighbors
+	sort.Strings(ids)
+	for i := 1; i < len(ids); i++ {
+		if ids[i] == ids[i-1] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func calcPadded(size int64, blockSize int) int64 {
+	mod := size % int64(blockSize)
+	if mod == 0 {
+		return size
+	}
+	return size + int64(blockSize) - mod
 }

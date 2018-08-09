@@ -124,7 +124,7 @@ func (s *Server) Start(ctx context.Context) (err error) {
 	}()
 
 	log.Printf("Node %s started\n", s.config.NodeID)
-
+  
 	// start the server
 	return grpcServer.Serve(lis)
 }
@@ -136,7 +136,7 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Println("Getting Meta data...")
+	log.Printf("Getting Meta for %s...", in.Id)
 
 	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
@@ -154,19 +154,19 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Println("Meta data retrieved.")
-	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), Expiration: ttl}, nil
+	log.Printf("Successfully retrieved meta for %s.", in.Id)
+  return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Println("Deleting data...")
+	log.Printf("Deleting %s...", in.Id)
 
 	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
-	log.Println("Successfully deleted data.")
+	log.Printf("Successfully deleted %s.", in.Id)
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 

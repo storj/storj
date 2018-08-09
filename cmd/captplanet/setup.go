@@ -4,11 +4,13 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -21,6 +23,7 @@ type Config struct {
 	BasePath     string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost   string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	Overwrite    bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
 var (
@@ -40,13 +43,19 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	_, err = os.Stat(setupCfg.BasePath)
+	if !setupCfg.Overwrite && err == nil {
+		fmt.Println("A captplanet configuration already exists. Rerun with --overwrite")
+		return nil
+	}
+
 	hcPath := filepath.Join(setupCfg.BasePath, "hc")
 	err = os.MkdirAll(hcPath, 0700)
 	if err != nil {
 		return err
 	}
 	identPath := filepath.Join(hcPath, "ident")
-	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 	if err != nil {
 		return err
 	}
@@ -58,7 +67,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		identPath = filepath.Join(farmerPath, "ident")
-		_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+		_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 		if err != nil {
 			return err
 		}
@@ -70,12 +79,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	identPath = filepath.Join(gwPath, "ident")
-	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 	if err != nil {
 		return err
 	}
 
 	startingPort := setupCfg.StartingPort
+
+	apiKey, err := newAPIKey()
+	if err != nil {
+		return err
+	}
 
 	overrides := map[string]interface{}{
 		"heavy-client.identity.cert-path": filepath.Join(
@@ -104,7 +118,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+1),
 		"gateway.minio-dir": filepath.Join(
 			setupCfg.BasePath, "gw", "minio"),
-		"pointer-db.auth.api-key": "abc123",
+		"gateway.api-key":         apiKey,
+		"pointer-db.auth.api-key": apiKey,
 	}
 
 	for i := 0; i < len(runCfg.Farmers); i++ {
@@ -129,4 +144,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 func joinHostPort(host string, port int) string {
 	return net.JoinHostPort(host, fmt.Sprint(port))
+}
+
+func newAPIKey() (string, error) {
+	var buf [20]byte
+	_, err := rand.Read(buf[:])
+	if err != nil {
+		return "", err
+	}
+	return base58.Encode(buf[:]), nil
 }

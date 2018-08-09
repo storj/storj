@@ -39,7 +39,6 @@ func (rt RouteTable) Local() proto.Node {
 			Address:   fmt.Sprintf("%s:%d", rt.dht.HT.Self.IP.String(), rt.dht.HT.Self.Port),
 		},
 	}
-
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
@@ -55,6 +54,10 @@ func (rt RouteTable) CacheSize() int {
 
 // GetBucket retrieves a bucket from the local node
 func (rt RouteTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
+	if id == "" {
+		return &KBucket{}, false
+	}
+
 	i, err := hex.DecodeString(id)
 	if err != nil {
 		return &KBucket{}, false
