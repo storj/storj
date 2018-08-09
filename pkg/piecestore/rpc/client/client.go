@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -76,9 +77,12 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		}
 	}()
 
-	_, err = io.Copy(writer, data)
-
-	return err
+	bufw := bufio.NewWriterSize(writer, 32*1024)
+	_, err = io.Copy(bufw, data)
+	if err != nil {
+		return err
+	}
+	return bufw.Flush()
 }
 
 // Get begins downloading a Piece from a piece store Server
