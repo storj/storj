@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -76,15 +77,19 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		}
 	}()
 
-	_, err = io.Copy(writer, data)
+	bufw := bufio.NewWriterSize(writer, 32*1024)
 
+	_, err = io.Copy(bufw, data)
 	if err == io.ErrUnexpectedEOF {
 		writer.Close()
 		zap.S().Infof("Node cut from upload due to slowliness. Deleting piece %s...", id)
 		return client.Delete(ctx, id)
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	return bufw.Flush()
 }
 
 // Get begins downloading a Piece from a piece store Server
