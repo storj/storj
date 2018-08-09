@@ -34,8 +34,9 @@ type ListItem struct {
 	Meta   Meta
 }
 
-type bucketStore struct {
-	o objects.Store
+// BucketStore contains objects store
+type BucketStore struct {
+	O objects.Store
 }
 
 // Meta is the bucket metadata struct
@@ -43,29 +44,29 @@ type Meta struct {
 	Created time.Time
 }
 
-// NewStore instantiates bucketStore
+// NewStore instantiates BucketStore
 func NewStore(obj objects.Store) Store {
-	return &bucketStore{o: obj}
+	return &BucketStore{O: obj}
 }
 
 // GetObjectStore returns an implementation of objects.Store
-func (b *bucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
+func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
 	_, err := b.Get(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
 	prefixed := prefixedObjStore{
-		o:      b.o,
+		o:      b.O,
 		prefix: bucket,
 	}
 	return &prefixed, nil
 }
 
 // Get calls objects store Get
-func (b *bucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
+func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	p := paths.New(bucket)
-	objMeta, err := b.o.Meta(ctx, p)
+	objMeta, err := b.O.Meta(ctx, p)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -73,12 +74,12 @@ func (b *bucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 }
 
 // Put calls objects store Put
-func (b *bucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
+func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	p := paths.New(bucket)
 	r := bytes.NewReader(nil)
 	var exp time.Time
-	m, err := b.o.Put(ctx, p, r, objects.SerializableMeta{}, exp)
+	m, err := b.O.Put(ctx, p, r, objects.SerializableMeta{}, exp)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -86,17 +87,17 @@ func (b *bucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 }
 
 // Delete calls objects store Delete
-func (b *bucketStore) Delete(ctx context.Context, bucket string) (err error) {
+func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	p := paths.New(bucket)
-	return b.o.Delete(ctx, p)
+	return b.O.Delete(ctx, p)
 }
 
 // List calls objects store List
-func (b *bucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (
+func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	objItems, more, err := b.o.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
+	objItems, more, err := b.O.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
 	items = make([]ListItem, len(objItems))
 	for i, itm := range objItems {
 		items[i] = ListItem{
