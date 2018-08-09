@@ -26,7 +26,7 @@ var defaultTransport = proto.NodeTransport_TCP
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	routingTable   dht.RoutingTable
+	routingTable   RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
@@ -67,9 +67,9 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 		return nil, err
 	}
 
-	rt := RouteTable{
-		ht:  bdht.HT,
-		dht: bdht,
+	rt := RoutingTable{
+		// ht:  bdht.HT,
+		// dht: bdht,
 	}
 
 	return &Kademlia{
@@ -104,15 +104,15 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 	for _, r := range restrictions {
 		nodes = restrict(r, nodes)
 	}
-
+	fmt.Printf("get nodes length %v\n", len(nodes))
 	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return RouteTable{
-		ht:  k.dht.HT,
-		dht: k.dht,
+	return &RoutingTable{
+		// ht:  k.dht.HT,
+		// dht: k.dht,
 	}, nil
 
 }
@@ -121,23 +121,6 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	return k.dht.Bootstrap()
-}
-
-// Ping checks that the provided node is still accessible on the network
-func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	n, err := convertProtoNode(node)
-	if err != nil {
-		return proto.Node{}, err
-	}
-
-	ok, err := k.dht.Ping(n)
-	if err != nil {
-		return proto.Node{}, err
-	}
-	if !ok {
-		return proto.Node{}, NodeErr.New("node unavailable")
-	}
-	return node, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

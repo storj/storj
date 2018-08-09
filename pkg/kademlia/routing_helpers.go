@@ -6,58 +6,19 @@ package kademlia
 import (
 	"bytes"
 	"math/rand"
-	"sync"
+	// "strconv"
+	// "fmt"
 	"time"
-
+	"encoding/binary"
 	pb "github.com/golang/protobuf/proto"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
 
-// RoutingErr is the class for all errors pertaining to routing table operations
-var RoutingErr = errs.Class("routing table error")
-
-// RoutingTable implements the RoutingTable interface
-type RoutingTable struct {
-	self         *proto.Node
-	kadBucketDB  storage.KeyValueStore
-	nodeBucketDB storage.KeyValueStore
-	transport    *proto.NodeTransport
-	mutex        *sync.Mutex
-	idLength     int // kbucket and node id bit length (SHA256) = 256
-	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
-}
-
-// NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength int, bucketSize int) (*RoutingTable, error) {
-	logger := zap.L()
-	kdb, err := boltdb.NewClient(logger, kpath, boltdb.KBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
-	}
-	ndb, err := boltdb.NewClient(logger, npath, boltdb.NodeBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
-	}
-	return &RoutingTable{
-		self:         localNode,
-		kadBucketDB:  kdb,
-		nodeBucketDB: ndb,
-		transport:    &defaultTransport,
-		mutex:        &sync.Mutex{},
-		idLength:     idLength,
-		bucketSize:   bucketSize,
-	}, nil
-}
-
 // addNode attempts to add a new contact to the routing table
-// Note: Local Node must be added to the routing table first
 // Requires node not already in table
-func (rt RoutingTable) addNode(node *proto.Node) error {
+func (rt *RoutingTable) addNode(node *proto.Node) error {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	nodeKey := storage.Key(node.Id)
@@ -66,7 +27,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 		if err != nil {
 			return RoutingErr.New("could not create initial K bucket: %s", err)
 		}
-		nodeValue, err := rt.marshalNode(node)
+		nodeValue, err := marshalNode(*node)
 		if err != nil {
 			return RoutingErr.New("could not marshal initial node: %s", err)
 		}
@@ -79,7 +40,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 	kadBucketID, err := rt.getKBucketID(nodeKey)
 	if err != nil {
 		return RoutingErr.New("could not getKBucketID: %s", err)
-	}
+	}		
 	hasRoom, err := rt.kadBucketHasRoom(kadBucketID)
 	if err != nil {
 		return err
@@ -121,7 +82,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 			return nil
 		}
 	}
-	nodeValue, err := rt.marshalNode(node)
+	nodeValue, err := marshalNode(*node)
 	if err != nil {
 		return RoutingErr.New("could not marshal node: %s", err)
 	}
@@ -137,7 +98,7 @@ func (rt RoutingTable) addNode(node *proto.Node) error {
 }
 
 // nodeAlreadyExists will return true if the given node ID exists within nodeBucketDB
-func (rt RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
+func (rt *RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
 	node, err := rt.nodeBucketDB.Get(nodeID)
 	if err != nil {
 		return false, err
@@ -150,7 +111,7 @@ func (rt RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
 
 // updateNode will update the node information given that
 // the node is already in the routing table.
-func (rt RoutingTable) updateNode(node *proto.Node) error {
+func (rt *RoutingTable) updateNode(node *proto.Node) error {
 	//TODO (JJ)
 	return nil
 }
@@ -158,14 +119,18 @@ func (rt RoutingTable) updateNode(node *proto.Node) error {
 // removeNode will remove nodes and replace those entries with nodes
 // from the replacement cache.
 // We want to replace churned nodes (no longer online)
-func (rt RoutingTable) removeNode(nodeID storage.Key) error {
+func (rt *RoutingTable) removeNode(nodeID storage.Key) error {
 	//TODO (JJ)
 	return nil
 }
 
 // marshalNode: helper, sanitizes proto Node for db insertion
-func (rt RoutingTable) marshalNode(node *proto.Node) ([]byte, error) {
-	nodeVal, err := pb.Marshal(node)
+func marshalNode(node proto.Node) ([]byte, error) {
+	// n := *node
+	// n.Id = "-"
+
+	node.Id = "-"
+	nodeVal, err := pb.Marshal(&node)
 	if err != nil {
 		return nil, RoutingErr.New("could not marshal proto node: %s", err)
 	}
@@ -173,7 +138,7 @@ func (rt RoutingTable) marshalNode(node *proto.Node) ([]byte, error) {
 }
 
 // putNode: helper, adds proto Node and ID to nodeBucketDB
-func (rt RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
+func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
 	err := rt.nodeBucketDB.Put(nodeKey, nodeValue)
 	if err != nil {
 		return RoutingErr.New("could not add key value pair to nodeBucketDB: %s", err)
@@ -182,17 +147,19 @@ func (rt RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) err
 }
 
 // createOrUpdateKBucket: helper, adds or updates given kbucket
-func (rt RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Time) error {
-	dateTime := string(now.UTC().UnixNano())
-	err := rt.kadBucketDB.Put(bucketID, []byte(dateTime))
+func (rt *RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Time) error {
+	dateTime := make([]byte, binary.MaxVarintLen64)
+	binary.PutVarint(dateTime, now.UnixNano())
+	err := rt.kadBucketDB.Put(bucketID, dateTime)
 	if err != nil {
 		return RoutingErr.New("could not add or update k bucket: %s", err)
 	}
 	return nil
 }
 
-// getKBucketID: helper, returns the id of the corresponding k bucket given a node id
-func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
+// getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
+// The node doesn't have to be in the routing table at time of search
+func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
 	if err != nil {
 		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
@@ -211,8 +178,8 @@ func (rt RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	return nil, RoutingErr.New("could not find k bucket")
 }
 
-// sortByXOR: helper, quick sorts node IDs by xor from local node, smallest xor to largest
-func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
+// sortByXOR: helper, quick sorts node IDs by xor from the reference Node, smallest xor to largest
+func sortByXOR(nodeIDs storage.Keys, referenceNode storage.Key) storage.Keys {
 	if len(nodeIDs) < 2 {
 		return nodeIDs
 	}
@@ -220,22 +187,22 @@ func (rt RoutingTable) sortByXOR(nodeIDs storage.Keys) storage.Keys {
 	pivot := rand.Int() % len(nodeIDs)
 	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
 	for i := range nodeIDs {
-		xorI := xorTwoIds(nodeIDs[i], []byte(rt.self.Id))
-		xorR := xorTwoIds(nodeIDs[right], []byte(rt.self.Id))
+		xorI := xorTwoIds(nodeIDs[i], referenceNode)
+		xorR := xorTwoIds(nodeIDs[right], referenceNode)
 		if bytes.Compare(xorI, xorR) < 0 {
 			nodeIDs[left], nodeIDs[i] = nodeIDs[i], nodeIDs[left]
 			left++
 		}
 	}
 	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
-	rt.sortByXOR(nodeIDs[:left])
-	rt.sortByXOR(nodeIDs[left+1:])
+	sortByXOR(nodeIDs[:left], referenceNode)
+	sortByXOR(nodeIDs[left+1:], referenceNode)
 	return nodeIDs
 }
 
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
-func (rt RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
-	sortedNodes := rt.sortByXOR(nodeIDs)
+func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
+	sortedNodes := sortByXOR(nodeIDs, []byte(rt.self.Id))
 	if len(sortedNodes) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
 		return sortedNodes[len(sortedNodes)-1], nil
 	}
@@ -253,7 +220,7 @@ func xorTwoIds(id []byte, comparisonID []byte) []byte {
 }
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
-func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
+func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {
 		return false, RoutingErr.New("could not get nodes: %s", err)
@@ -263,7 +230,9 @@ func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 		return true, nil
 	}
 	furthestIDWithinK, err := rt.determineFurthestIDWithinK(nodes)
-
+	if err != nil {
+		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
+	}
 	localNodeID := rt.self.Id
 	existingXor := xorTwoIds(furthestIDWithinK, []byte(localNodeID))
 	newXor := xorTwoIds(nodeID, []byte(localNodeID))
@@ -274,7 +243,7 @@ func (rt RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 }
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
-func (rt RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, error) {
+func (rt *RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, error) {
 	key := storage.Key(rt.self.Id)
 	bucket, err := rt.getKBucketID(key)
 	if err != nil {
@@ -287,7 +256,7 @@ func (rt RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, e
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
-func (rt RoutingTable) kadBucketHasRoom(bucketID storage.Key) (bool, error) {
+func (rt *RoutingTable) kadBucketHasRoom(bucketID storage.Key) (bool, error) {
 	nodes, err := rt.getNodeIDsWithinKBucket(bucketID)
 	if err != nil {
 		return false, err
@@ -299,7 +268,7 @@ func (rt RoutingTable) kadBucketHasRoom(bucketID storage.Key) (bool, error) {
 }
 
 // getNodeIDsWithinKBucket: helper, returns a collection of all the node ids contained within the kbucket
-func (rt RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.Keys, error) {
+func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.Keys, error) {
 	endpoints, err := rt.getKBucketRange(bucketID)
 	if err != nil {
 		return nil, err
@@ -325,8 +294,56 @@ func (rt RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.Ke
 	return nil, nil
 }
 
+// getNodesFromIDs: helper, returns 
+func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []storage.Value, error) {
+	var nodes []storage.Value
+	for _, v := range nodeIDs {
+		n, err := rt.nodeBucketDB.Get(v)
+		if err != nil {
+			return nodeIDs, nodes, RoutingErr.New("could not get node id %v, %s", v, err)
+		}
+		nodes = append(nodes, n)
+	}
+	return nodeIDs, nodes, nil
+}
+
+// unmarshalNodes: helper, returns slice of reconstructed proto node pointers given a map of nodeIDs:serialized nodes
+func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*proto.Node, error) {
+	if len(nodeIDs) != len(nodes) {
+		return []*proto.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
+	}
+	var unmarshaled []*proto.Node
+	for i, n := range nodes {
+		node := &proto.Node{}
+		err := pb.Unmarshal(n, node)
+		if err != nil {
+			return unmarshaled, RoutingErr.New("could not unmarshal node %s", err)
+		}
+		node.Id = string(nodeIDs[i])
+		unmarshaled = append(unmarshaled, node)
+	}
+	return unmarshaled, nil
+}
+
+// getUnmarshaledNodesFromBucket: helper, gets proto nodes within kbucket
+func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*proto.Node, error) {
+	nodeIDs, err := rt.getNodeIDsWithinKBucket(bucketID)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not get nodeIds within kbucket %s", err)
+	}
+	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not get node values %s", err)
+	}
+	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
+	}
+	return unmarshaledNodes, nil
+}
+
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
-func (rt RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, error) {
+func (rt *RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, error) {
 	key := storage.Key(bucketID)
 	kadIDs, err := rt.kadBucketDB.ReverseList(key, 2)
 	if err != nil {
@@ -343,7 +360,7 @@ func (rt RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, erro
 }
 
 // createFirstBucketID creates byte slice representing 11..11
-func (rt RoutingTable) createFirstBucketID() []byte {
+func (rt *RoutingTable) createFirstBucketID() []byte {
 	var id []byte
 	x := byte(255)
 	bytesLength := rt.idLength / 8
@@ -354,7 +371,7 @@ func (rt RoutingTable) createFirstBucketID() []byte {
 }
 
 // createZeroAsStorageKey creates storage Key representation of 00..00
-func (rt RoutingTable) createZeroAsStorageKey() storage.Key {
+func (rt *RoutingTable) createZeroAsStorageKey() storage.Key {
 	var id []byte
 	x := byte(0)
 	bytesLength := rt.idLength / 8
@@ -366,7 +383,7 @@ func (rt RoutingTable) createZeroAsStorageKey() storage.Key {
 
 // determineLeafDepth determines the level of the bucket id in question.
 // Eg level 0 means there is only 1 bucket, level 1 means the bucket has been split once, and so on
-func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
+func (rt *RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 	bucketRange, err := rt.getKBucketRange(bucketID)
 	if err != nil {
 		return -1, RoutingErr.New("could not get k bucket range %s", err)
@@ -380,7 +397,7 @@ func (rt RoutingTable) determineLeafDepth(bucketID storage.Key) (int, error) {
 }
 
 // determineDifferingBitIndex: helper, returns the last bit differs starting from prefix to suffix
-func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparisonID storage.Key) (int, error) {
+func (rt *RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparisonID storage.Key) (int, error) {
 	if bytes.Equal(bucketID, comparisonID) {
 		return -2, RoutingErr.New("compared two equivalent k bucket ids")
 	}
@@ -423,7 +440,7 @@ func (rt RoutingTable) determineDifferingBitIndex(bucketID storage.Key, comparis
 
 // splitBucket: helper, returns the smaller of the two new bucket ids
 // the original bucket id becomes the greater of the 2 new
-func (rt RoutingTable) splitBucket(bucketID []byte, depth int) []byte {
+func (rt *RoutingTable) splitBucket(bucketID []byte, depth int) []byte {
 	newID := make([]byte, len(bucketID))
 	copy(newID, bucketID)
 	bitIndex := depth

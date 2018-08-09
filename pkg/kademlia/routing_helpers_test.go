@@ -4,13 +4,14 @@
 package kademlia
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
+	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 )
@@ -28,31 +29,34 @@ func tempfile(fileName string) string {
 	return f.Name()
 }
 
-func createRT() *RoutingTable {
-	localNodeID, _ := newID()
-	localNode := proto.Node{Id: string(localNodeID)}
-	rt, _ := NewRoutingTable(&localNode, tempfile("Kadbucket"), tempfile("Nodebucket"), 16, 6)
+func createRT(localNodeID []byte) *RoutingTable {
+	if localNodeID == nil {
+		localNodeID = []byte("AA")
+	}
+	localNode := &proto.Node{Id: string(localNodeID)}
+	options := &RoutingOptions{
+		kpath:      tempfile("Kadbucket"),
+		npath:      tempfile("Nodebucket"),
+		idLength:   16,
+		bucketSize: 6,
+	}
+	rt, _ := NewRoutingTable(localNode, options)
 	return rt
 }
 
-func mockNodes(id string) *proto.Node {
+func mockNode(id string) *proto.Node {
 	var node proto.Node
 	node.Id = id
 	return &node
 }
 
 func TestAddNode(t *testing.T) {
-	rt := createRT()
-	//add local node
-	rt.self = mockNodes("OO") //[79, 79] or [01001111, 01001111]
-	localNode := rt.self
-	err := rt.addNode(localNode)
-	assert.NoError(t, err)
+	rt := createRT([]byte("OO")) //localNode [79, 79] or [01001111, 01001111]
 	bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
 	assert.NoError(t, err)
 	assert.NotNil(t, bucket)
 	//add node to unfilled kbucket
-	node1 := mockNodes("PO") //[80, 79] or [01010000, 01001111]
+	node1 := mockNode("PO") //[80, 79] or [01010000, 01001111]
 	err = rt.addNode(node1)
 	assert.NoError(t, err)
 	kadKeys, err := rt.kadBucketDB.List(nil, 0)
@@ -63,19 +67,19 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 2, len(nodeKeys))
 
 	//add node to full kbucket and split
-	node2 := mockNodes("NO") //[78, 79] or [01001110, 01001111]
+	node2 := mockNode("NO") //[78, 79] or [01001110, 01001111]
 	err = rt.addNode(node2)
 	assert.NoError(t, err)
 
-	node3 := mockNodes("MO") //[77, 79] or [01001101, 01001111]
+	node3 := mockNode("MO") //[77, 79] or [01001101, 01001111]
 	err = rt.addNode(node3)
 	assert.NoError(t, err)
 
-	node4 := mockNodes("LO") //[76, 79] or [01001100, 01001111]
+	node4 := mockNode("LO") //[76, 79] or [01001100, 01001111]
 	err = rt.addNode(node4)
 	assert.NoError(t, err)
 
-	node5 := mockNodes("QO") //[81, 79] or [01010001, 01001111]
+	node5 := mockNode("QO") //[81, 79] or [01010001, 01001111]
 	err = rt.addNode(node5)
 	assert.NoError(t, err)
 
@@ -87,7 +91,7 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(nodeKeys))
 
 	//splitting here
-	node6 := mockNodes("SO")
+	node6 := mockNode("SO")
 	err = rt.addNode(node6)
 	assert.NoError(t, err)
 
@@ -116,27 +120,27 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 0, len(e))
 
 	//add node to full kbucket and drop
-	node7 := mockNodes("?O")
+	node7 := mockNode("?O")
 	err = rt.addNode(node7)
 	assert.NoError(t, err)
 
-	node8 := mockNodes(">O")
+	node8 := mockNode(">O")
 	err = rt.addNode(node8)
 	assert.NoError(t, err)
 
-	node9 := mockNodes("=O")
+	node9 := mockNode("=O")
 	err = rt.addNode(node9)
 	assert.NoError(t, err)
 
-	node10 := mockNodes(";O")
+	node10 := mockNode(";O")
 	err = rt.addNode(node10)
 	assert.NoError(t, err)
 
-	node11 := mockNodes(":O")
+	node11 := mockNode(":O")
 	err = rt.addNode(node11)
 	assert.NoError(t, err)
 
-	node12 := mockNodes("9O")
+	node12 := mockNode("9O")
 	err = rt.addNode(node12)
 	assert.NoError(t, err)
 
@@ -152,7 +156,7 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNodes("8O")
+	node13 := mockNode("8O")
 	err = rt.addNode(node13)
 	assert.NoError(t, err)
 
@@ -168,21 +172,21 @@ func TestAddNode(t *testing.T) {
 
 	//add node to highly unbalanced tree
 	//adding to bucket 1
-	node14 := mockNodes("KO") //75
+	node14 := mockNode("KO") //75
 	err = rt.addNode(node14)
 	assert.NoError(t, err)
-	node15 := mockNodes("JO") //74
+	node15 := mockNode("JO") //74
 	err = rt.addNode(node15)
 	assert.NoError(t, err)
 
 	//adding to bucket 2
-	node16 := mockNodes("]O") //93
+	node16 := mockNode("]O") //93
 	err = rt.addNode(node16)
 	assert.NoError(t, err)
-	node17 := mockNodes("^O") //94
+	node17 := mockNode("^O") //94
 	err = rt.addNode(node17)
 	assert.NoError(t, err)
-	node18 := mockNodes("_O") //95
+	node18 := mockNode("_O") //95
 	err = rt.addNode(node18)
 	assert.NoError(t, err)
 
@@ -200,7 +204,7 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 18, len(nodeKeys))
 
 	//split bucket 2
-	node19 := mockNodes("@O")
+	node19 := mockNode("@O")
 	err = rt.addNode(node19)
 	assert.NoError(t, err)
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -213,8 +217,8 @@ func TestAddNode(t *testing.T) {
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {
-	rt := createRT()
 	id := []byte{255, 255}
+	rt := createRT(nil)
 	err := rt.createOrUpdateKBucket(storage.Key(id), time.Now())
 	assert.NoError(t, err)
 	val, e := rt.kadBucketDB.Get(storage.Key(id))
@@ -224,27 +228,12 @@ func TestCreateOrUpdateKBucket(t *testing.T) {
 }
 
 func TestGetKBucketID(t *testing.T) {
-	rt := createRT()
-
 	kadIDA := storage.Key([]byte{255, 255})
-	kadIDB := storage.Key([]byte{127, 255})
-	kadIDC := storage.Key([]byte{63, 255})
-	now := time.Now()
-	rt.createOrUpdateKBucket(kadIDA, now)
-	rt.createOrUpdateKBucket(kadIDB, now)
-	rt.createOrUpdateKBucket(kadIDC, now)
-	nodeIDA := []byte{183, 255} //[10110111, 1111111]
-	nodeIDB := []byte{111, 255} //[01101111, 1111111]
-	nodeIDC := []byte{47, 255}  //[00101111, 1111111]
-
-	keyA, _ := rt.getKBucketID(nodeIDA)
+	nodeIDA := []byte("AA")
+	rt := createRT(nodeIDA)
+	keyA, err := rt.getKBucketID(nodeIDA)
+	assert.NoError(t, err)
 	assert.Equal(t, kadIDA, keyA)
-
-	keyB, _ := rt.getKBucketID(nodeIDB)
-	assert.Equal(t, kadIDB, keyB)
-
-	keyC, _ := rt.getKBucketID(nodeIDC)
-	assert.Equal(t, kadIDC, keyC)
 }
 
 func TestXorTwoIds(t *testing.T) {
@@ -253,10 +242,8 @@ func TestXorTwoIds(t *testing.T) {
 }
 
 func TestSortByXOR(t *testing.T) {
-	rt := createRT()
 	node1 := []byte{127, 255} //xor 0
-	rt.self.Id = string(node1)
-	rt.nodeBucketDB.Put(node1, []byte(""))
+	rt := createRT(node1)
 	node2 := []byte{143, 255} //xor 240
 	rt.nodeBucketDB.Put(node2, []byte(""))
 	node3 := []byte{255, 255} //xor 128
@@ -266,10 +253,11 @@ func TestSortByXOR(t *testing.T) {
 	node5 := []byte{133, 255} //xor 250
 	rt.nodeBucketDB.Put(node5, []byte(""))
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
+	fmt.Print(nodes)
 	assert.NoError(t, err)
 	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
 	assert.Equal(t, expectedNodes, nodes)
-	sortedNodes := rt.sortByXOR(nodes)
+	sortedNodes := sortByXOR(nodes, node1)
 	expectedSorted := storage.Keys{node1, node3, node4, node2, node5}
 	assert.Equal(t, expectedSorted, sortedNodes)
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
@@ -278,8 +266,8 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
-	rt := createRT()
 	node1 := []byte{127, 255} //xor 0
+	rt := createRT(node1)
 	rt.self.Id = string(node1)
 	rt.nodeBucketDB.Put(node1, []byte(""))
 	expectedFurthest := node1
@@ -322,12 +310,9 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 }
 
 func TestNodeIsWithinNearestK(t *testing.T) {
-	rt := createRT()
-	rt.bucketSize = 2
-
 	selfNode := []byte{127, 255}
-	rt.self.Id = string(selfNode)
-	rt.nodeBucketDB.Put(selfNode, []byte(""))
+	rt := createRT(selfNode)
+	rt.bucketSize = 2
 	expectTrue, err := rt.nodeIsWithinNearestK(selfNode)
 	assert.NoError(t, err)
 	assert.True(t, expectTrue)
@@ -357,18 +342,13 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
-	rt := createRT()
+	nodeIDA := []byte{183, 255} //[10110111, 1111111]
+	rt := createRT(nodeIDA)
 	kadIDA := storage.Key([]byte{255, 255})
 	kadIDB := storage.Key([]byte{127, 255})
 	now := time.Now()
-	err := rt.createOrUpdateKBucket(kadIDA, now)
+	err := rt.createOrUpdateKBucket(kadIDB, now)
 	assert.NoError(t, err)
-	err = rt.createOrUpdateKBucket(kadIDB, now)
-	assert.NoError(t, err)
-	nodeIDA := []byte{183, 255} //[10110111, 1111111]
-	err = rt.nodeBucketDB.Put(nodeIDA, []byte(""))
-	assert.NoError(t, err)
-	rt.self.Id = string(nodeIDA)
 	resultTrue, err := rt.kadBucketContainsLocalNode(kadIDA)
 	assert.NoError(t, err)
 	resultFalse, err := rt.kadBucketContainsLocalNode(kadIDB)
@@ -378,18 +358,14 @@ func TestKadBucketContainsLocalNode(t *testing.T) {
 }
 
 func TestKadBucketHasRoom(t *testing.T) {
-	//valid when kad bucket has >0 nodes in it due to ../storage/boltdb/client.go:99
-	rt := createRT()
-	kadIDA := storage.Key([]byte{255, 255})
-	now := time.Now()
-	rt.createOrUpdateKBucket(kadIDA, now)
 	node1 := []byte{255, 255}
+	kadIDA := storage.Key([]byte{255, 255})
+	rt := createRT(node1)
 	node2 := []byte{191, 255}
 	node3 := []byte{127, 255}
 	node4 := []byte{63, 255}
 	node5 := []byte{159, 255}
 	node6 := []byte{0, 127}
-	rt.nodeBucketDB.Put(node1, []byte(""))
 	resultA, err := rt.kadBucketHasRoom(kadIDA)
 	assert.NoError(t, err)
 	assert.True(t, resultA)
@@ -404,18 +380,16 @@ func TestKadBucketHasRoom(t *testing.T) {
 }
 
 func TestGetNodeIDsWithinKBucket(t *testing.T) {
-	rt := createRT()
+	nodeIDA := []byte{183, 255} //[10110111, 1111111]
+	rt := createRT(nodeIDA)
 	kadIDA := storage.Key([]byte{255, 255})
 	kadIDB := storage.Key([]byte{127, 255})
 	now := time.Now()
-	rt.createOrUpdateKBucket(kadIDA, now)
 	rt.createOrUpdateKBucket(kadIDB, now)
 
-	nodeIDA := []byte{183, 255} //[10110111, 1111111]
 	nodeIDB := []byte{111, 255} //[01101111, 1111111]
 	nodeIDC := []byte{47, 255}  //[00101111, 1111111]
 
-	rt.nodeBucketDB.Put(nodeIDA, []byte(""))
 	rt.nodeBucketDB.Put(nodeIDB, []byte(""))
 	rt.nodeBucketDB.Put(nodeIDC, []byte(""))
 
@@ -431,8 +405,83 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	assert.Equal(t, expectedB, B)
 }
 
+func TestGetNodesFromIDs(t *testing.T) {
+	nodeA := mockNode("AA")
+	nodeB := mockNode("BB")
+	nodeC := mockNode("CC")
+	nodeIDA := []byte(nodeA.Id)
+	nodeIDB := []byte(nodeB.Id)
+	nodeIDC := []byte(nodeC.Id)
+	a, err := pb.Marshal(nodeA)
+	assert.NoError(t, err)
+	b, err := pb.Marshal(nodeB)
+	assert.NoError(t, err)
+	c, err := pb.Marshal(nodeC)
+	assert.NoError(t, err)
+	rt := createRT(nodeIDA)
+
+	rt.nodeBucketDB.Put(nodeIDA, a)
+	rt.nodeBucketDB.Put(nodeIDB, b)
+	rt.nodeBucketDB.Put(nodeIDC, c)
+	expected := []storage.Value{a, b, c}
+
+	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	_, values, err := rt.getNodesFromIDs(nodeIDs)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, values)
+}
+
+func TestUnmarshalNodes(t *testing.T) {
+	nodeA := mockNode("AA")
+	nodeB := mockNode("BB")
+	nodeC := mockNode("CC")
+
+	nodeIDA := []byte(nodeA.Id)
+	nodeIDB := []byte(nodeB.Id)
+	nodeIDC := []byte(nodeC.Id)
+	a, err := pb.Marshal(nodeA)
+	assert.NoError(t, err)
+	b, err := pb.Marshal(nodeB)
+	assert.NoError(t, err)
+	c, err := pb.Marshal(nodeC)
+	assert.NoError(t, err)
+	rt := createRT(nodeIDA)
+	rt.nodeBucketDB.Put(nodeIDA, a)
+	rt.nodeBucketDB.Put(nodeIDB, b)
+	rt.nodeBucketDB.Put(nodeIDC, c)
+	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	ids, values, err := rt.getNodesFromIDs(nodeIDs)
+	assert.NoError(t, err)
+	nodes, err := unmarshalNodes(ids, values)
+	assert.NoError(t, err)
+	expected := []*proto.Node{nodeA, nodeB, nodeC}
+	for i, v := range expected {
+		assert.True(t, pb.Equal(v, nodes[i]))
+	}
+}
+
+func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
+	bucketID := []byte{255, 255}
+	nodeA := mockNode("AA")
+	rt := createRT([]byte(nodeA.Id))
+	nodeB := mockNode("BB")
+	nodeC := mockNode("CC")
+	rt.addNode(nodeB)
+	rt.addNode(nodeC)
+	nodes, err := rt.getUnmarshaledNodesFromBucket(bucketID)
+	expected := []*proto.Node{nodeA, nodeB, nodeC}
+	fmt.Print(expected)
+	fmt.Print(nodes)
+	assert.NoError(t, err)
+	for i, v := range expected {
+		assert.True(t, pb.Equal(v, nodes[i]))
+	}
+}
+
 func TestGetKBucketRange(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	idA := []byte{255, 255}
 	idB := []byte{127, 255}
 	idC := []byte{63, 255}
@@ -455,21 +504,21 @@ func TestGetKBucketRange(t *testing.T) {
 }
 
 func TestCreateFirstBucketID(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	x := rt.createFirstBucketID()
 	expected := []byte{255, 255}
 	assert.Equal(t, x, expected)
 }
 
 func TestCreateZeroAsStorageKey(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	zero := rt.createZeroAsStorageKey()
 	expected := []byte{0, 0}
 	assert.Equal(t, zero, storage.Key(expected))
 }
 
 func TestDetermineLeafDepth(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	idA := []byte{255, 255}
 	idB := []byte{127, 255}
 	idC := []byte{63, 255}
@@ -506,7 +555,7 @@ func TestDetermineLeafDepth(t *testing.T) {
 }
 
 func TestDetermineDifferingBitIndex(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	diff, err := rt.determineDifferingBitIndex([]byte{191, 255}, []byte{255, 255})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, diff)
@@ -558,7 +607,7 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 }
 
 func TestSplitBucket(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	id1 := []byte{255, 255}
 	id2 := []byte{191, 255}
 	id3 := []byte{127, 255}

@@ -89,8 +89,7 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
-	nodes, err := o.DHT.GetNodes(ctx, "0", 1280)
-
+	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting nodes from DHT", err))
 	}
@@ -152,12 +151,12 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 			return err
-		} else {
-			err := o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
-			if err != nil {
-				return err
-			}
 		}
+		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		if err != nil {
+			return err
+		}
+	
 	}
 
 	return err
