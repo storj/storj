@@ -19,8 +19,6 @@ var RetrieveError = errs.Class("retrieve error")
 
 // Retrieve -- Retrieve data from piecestore and send to client
 func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
-	log.Println("Retrieving data...")
-
 	// Receive Signature
 	recv, err := stream.Recv()
 	if err != nil {
@@ -35,7 +33,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	log.Printf("ID: %s, Size: %v, Offset: %v\n", pd.GetId(), pd.GetSize(), pd.GetOffset())
+	log.Printf("Retrieving %s...", pd.GetId())
 
 	// Get path to data being retrieved
 	path, err := pstore.PathByID(pd.GetId(), s.DataDir)
@@ -63,7 +61,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
 		return err
 	}
 
-	log.Printf("Successfully retrieved data: Allocated: %v, Retrieved: %v\n", allocated, retrieved)
+	log.Printf("Successfully retrieved %s: Allocated: %v, Retrieved: %v\n", pd.GetId(), allocated, retrieved)
 	return nil
 }
 

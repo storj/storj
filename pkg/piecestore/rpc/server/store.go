@@ -21,8 +21,6 @@ var StoreError = errs.Class("store error")
 
 // Store incoming data using piecestore
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
-	log.Println("Storing data...")
-
 	// Receive id/ttl
 	recv, err := reqStream.Recv()
 	if err != nil {
@@ -37,7 +35,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return StoreError.New("PieceStore message is nil")
 	}
 
-	log.Printf("ID: %s, TTL: %v\n", pd.GetId(), pd.GetTtl())
+	log.Printf("Storing %s...", pd.GetId())
+
 	if pd.GetId() == "" {
 		return StoreError.New("Piece ID not specified")
 	}
@@ -52,7 +51,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	log.Println("Successfully stored data.")
+	log.Printf("Successfully stored %s.", pd.GetId())
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
 }
