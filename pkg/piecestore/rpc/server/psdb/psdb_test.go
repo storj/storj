@@ -162,7 +162,7 @@ func TestGetTTLByID(t *testing.T) {
 		t.Parallel()
 		assert := assert.New(t)
 		expiration, err := db.GetTTLByID("fake-id")
-		assert.Nil(err)
+		assert.NotNil(err)
 		assert.Equal(int64(0), expiration)
 	})
 
