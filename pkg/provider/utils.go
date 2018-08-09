@@ -150,3 +150,16 @@ func statTLSFiles(certPath, keyPath string) TlsFilesStat {
 	}
 	return TlsFilesStat(s)
 }
+
+func (t TlsFilesStat) String() string {
+	switch t {
+	case CertKey:
+		return "certificate and key"
+	case CertNoKey:
+		return "certificate"
+	case NoCertKey:
+		return "key"
+	default:
+		return ""
+	}
+}

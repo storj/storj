@@ -12,7 +12,6 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
 )
@@ -36,12 +35,12 @@ type FullCertificateAuthority struct {
 }
 
 type CASetupConfig struct {
-	CAConfig
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 	Difficulty  uint64 `help:"minimum difficulty for identity generation" default:"24"`
 	Timeout     string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
 	Overwrite   bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
-	Version  string `help:"semantic version of CA storage format" default:"0"`
 }
 
 type CAConfig struct {
@@ -49,66 +48,22 @@ type CAConfig struct {
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 }
 
-// LoadOrCreate loads or generates the CA files using the configuration
-func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*FullCertificateAuthority, bool, error) {
-	var (
-		ca    = new(FullCertificateAuthority)
-		isNew = false
-		err   error
-	)
-	create := func() {
-		isNew = true
-		ca, err = caC.Create(ctx, concurrency)
+// Stat returns the status of the CA cert/key files for the config
+func (caS CASetupConfig) Stat() TlsFilesStat {
+	return statTLSFiles(caS.CertPath, caS.KeyPath)
+}
+
+// Create generates and saves a CA using the config
+func (caS CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
+	ca, err := GenerateCA(ctx, uint16(caS.Difficulty), concurrency)
+	if err != nil {
+		return nil, err
 	}
-	load := func() {
-		ca, err := caC.Load()
-		if err != nil {
-			return
-		}
-
-		if ca.ID.Difficulty() < uint16(caC.Difficulty) {
-			err = ErrDifficulty.New("loaded certificate authority has a difficulty less than requested: %d; expected >= %d",
-				ca.ID.Difficulty(), caC.Difficulty)
-		}
-		return
+	caC := CAConfig{
+		CertPath: caS.CertPath,
+		KeyPath:  caS.KeyPath,
 	}
-
-	switch caC.Stat() {
-	case NoCertKey:
-		if caC.Overwrite {
-			zap.S().Info("overwriting certificate authority")
-			create()
-			if err != nil {
-				return nil, isNew, err
-			}
-			break
-		}
-
-		return nil, isNew, errs.New("a key already exists at \"%s\" but no cert was found at \"%s\"; " +
-			"if you wish overwrite this key, set the overwrite option to true")
-	case CertKey | CertNoKey:
-		if caC.Overwrite {
-			zap.S().Info("overwriting certificate authority")
-			create()
-			if err != nil {
-				return nil, isNew, err
-			}
-			break
-		}
-
-		zap.S().Info("certificate authority exist, loading")
-		load()
-		if err != nil {
-			return nil, isNew, err
-		}
-	case NoCertNoKey:
-		zap.S().Info("certificate authority not found, generating")
-		create()
-		if err != nil {
-			return nil, isNew, err
-		}
-	}
-	return ca, isNew, nil
+	return ca, caC.Save(ca)
 }
 
 // Load loads a CA from the given configuration
@@ -154,15 +109,6 @@ func (caC CAConfig) Load() (*FullCertificateAuthority, error) {
 	}, nil
 }
 
-// Create generates and saves a CA using the config
-func (caC CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
-	ca, err := GenerateCA(ctx, uint16(caC.Difficulty), concurrency)
-	if err != nil {
-		return nil, err
-	}
-	return ca, caC.Save(ca)
-}
-
 // GenerateCA creates a new full identity with the given difficulty
 func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCertificateAuthority, error) {
 	if concurrency < 1 {
@@ -188,7 +134,7 @@ func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*Full
 
 // Save saves a CA with the given configuration
 func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
-	f := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	f := os.O_WRONLY | os.O_CREATE
 	c, err := openCert(caC.CertPath, f)
 	if err != nil {
 		return err
@@ -207,11 +153,6 @@ func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
 		return err
 	}
 	return nil
-}
-
-// Stat returns the status of the CA cert/key files for the config
-func (caC CAConfig) Stat() TlsFilesStat {
-	return statTLSFiles(caC.CertPath, caC.KeyPath)
 }
 
 // Generate Identity generates a new `FullIdentity` based on the CA. The CA

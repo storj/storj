@@ -70,11 +70,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if setupCfg.BasePath != defaultConfDir {
 		provider.SetupIdentityPaths(
 			setupCfg.BasePath,
-			&setupCfg.CA.CAConfig,
-			&setupCfg.Identity.IdentityConfig,
+			&setupCfg.CA,
+			&setupCfg.Identity,
 		)
 	}
-
 	o, err := provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err

@@ -61,7 +61,8 @@ type FullIdentity struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentitySetupConfig struct {
-	IdentityConfig
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
+	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	Overwrite bool `help:"if true, existing identity certs AND keys will overwritten for" default:"false"`
 	Version  string `help:"semantic version of identity storage format" default:"0"`
 }
@@ -156,49 +157,23 @@ func VerifyPeerIdentityFunc(difficulty uint16) peertls.PeerCertVerificationFunc 
 	}
 }
 
-// LoadOrCreate loads or generates the identity files using the configuration
-func (ic IdentitySetupConfig) LoadOrCreate(ca *FullCertificateAuthority) (*FullIdentity, error) {
-	var (
-		fi  = new(FullIdentity)
-		err error
-	)
-	switch ic.Stat() {
-	case NoCertKey:
-		if ic.Overwrite {
-			zap.S().Warn("overwriting identity")
-			fi, err = ic.Create(ca)
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
+// Stat returns the status of the identity cert/key files for the config
+func (is IdentitySetupConfig) Stat() TlsFilesStat {
+	return statTLSFiles(is.CertPath, is.KeyPath)
+}
 
-		return nil, errs.New("a key already exists for identity at \"%s\" " +
-			"but no cert was found at \"%s\"; if you wish overwrite this key, set " +
-			"the overwrite option to true")
-	case CertKey | CertNoKey:
-		if ic.Overwrite {
-			zap.S().Warn("overwriting identity")
-			fi, err = ic.Create(ca)
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
-
-		zap.S().Info("identity exist, loading")
-		fi, err = ic.Load()
-		if err != nil {
-			return nil, err
-		}
-	case NoCertNoKey:
-		zap.S().Info("identity not found, generating")
-		fi, err = ic.Create(ca)
-		if err != nil {
-			return nil, err
-		}
+// Create generates and saves a CA using the config
+func (is IdentitySetupConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error) {
+	fi, err := ca.GenerateIdentity()
+	if err != nil {
+		return nil, err
 	}
-	return fi, nil
+	fi.CA = ca.Cert
+	ic := IdentityConfig{
+		CertPath: is.CertPath,
+		KeyPath:  is.KeyPath,
+	}
+	return fi, ic.Save(fi)
 }
 
 // Load loads a FullIdentity from the config
@@ -220,19 +195,9 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 	return fi, nil
 }
 
-// Create generates and saves a CA using the config
-func (ic IdentityConfig) Create(ca *FullCertificateAuthority) (*FullIdentity, error) {
-	fi, err := ca.GenerateIdentity()
-	if err != nil {
-		return nil, err
-	}
-	fi.CA = ca.Cert
-	return fi, ic.Save(fi)
-}
-
 // Save saves a FullIdentity according to the config
 func (ic IdentityConfig) Save(fi *FullIdentity) error {
-	f := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	f := os.O_WRONLY | os.O_CREATE
 	c, err := openCert(ic.CertPath, f)
 	if err != nil {
 		return err
@@ -251,11 +216,6 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 		return err
 	}
 	return nil
-}
-
-// Stat returns the status of the identity cert/key files for the config
-func (ic IdentityConfig) Stat() TlsFilesStat {
-	return statTLSFiles(ic.CertPath, ic.KeyPath)
 }
 
 // Run will run the given responsibilities with the configured identity.
