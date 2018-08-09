@@ -24,6 +24,10 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 )
 
+var (
+	ctx = context.Background()
+)
+
 func TestGetObject(t *testing.T) {
 	mockBucketCtrl := gomock.NewController(t)
 	defer mockBucketCtrl.Finish()
@@ -70,7 +74,7 @@ func TestGetObject(t *testing.T) {
 
 		var buf1 bytes.Buffer
 		iowriter := io.Writer(&buf1)
-		err := storjObj.GetObject(context.Background(), example.bucket, example.object, example.offset, example.length, iowriter, "etag")
+		err := storjObj.GetObject(ctx, example.bucket, example.object, example.offset, example.length, iowriter, "etag")
 
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
@@ -78,6 +82,41 @@ func TestGetObject(t *testing.T) {
 			assert.Equal(t, example.substr, buf1.String())
 			assert.NoError(t, err, errTag)
 		}
+	}
+}
+
+func TestDeleteObject(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
+
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
+
+	mockOS := NewMockStore(mockObjCtrl)
+	bs := buckets.BucketStore{O: mockOS}
+
+	storjObj := storjObjects{storj: &b}
+
+	for i, example := range []struct {
+		bucket, object string
+		data           string
+		substr         string
+		err            error
+		errString      string
+	}{
+		// happy scenario
+		{"mybucket", "myobject1", "abcdef", "abcdef", nil, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
+		mockOS.EXPECT().Delete(gomock.Any(), paths.New(example.object)).Return(example.err).Times(1)
+
+		err := storjObj.DeleteObject(ctx, example.bucket, example.object)
+		assert.NoError(t, err, errTag)
 	}
 }
 
@@ -164,7 +203,7 @@ func TestPutObject(t *testing.T) {
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
 		/* for valid io.reader only */
 		mockOS.EXPECT().Put(gomock.Any(), paths.New(example.object), r, serMetaInfo, example.Expiration).Return(meta1, example.err).Times(1)
-		objInfo, err := storjObj.PutObject(context.Background(), example.bucket, example.object, r, metadata)
+		objInfo, err := storjObj.PutObject(ctx, example.bucket, example.object, r, metadata)
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
 			if example.err != nil {
@@ -238,7 +277,7 @@ func TestGetObjectInfo(t *testing.T) {
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, nil).Times(1)
 		mockOS.EXPECT().Meta(gomock.Any(), paths.New(example.object)).Return(meta1, example.err).Times(1)
 
-		objInfo, err := storjObj.GetObjectInfo(context.Background(), example.bucket, example.object)
+		objInfo, err := storjObj.GetObjectInfo(ctx, example.bucket, example.object)
 		if err != nil {
 			assert.EqualError(t, err, example.errString)
 			if example.err != nil {
@@ -331,7 +370,7 @@ func TestListObjects(t *testing.T) {
 		mockOS.EXPECT().List(gomock.Any(), paths.New(example.prefix),
 			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
 
-		objInfo, err := storjObj.ListObjects(context.Background(), example.bucket, example.prefix,
+		objInfo, err := storjObj.ListObjects(ctx, example.bucket, example.prefix,
 			example.marker, example.delimiter, example.maxKeys)
 
 		if err != nil {
@@ -343,5 +382,137 @@ func TestListObjects(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.NotNil(t, objInfo, errTag)
 		}
+	}
+}
+
+func TestDeleteBucket(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
+
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
+
+	storjObj := storjObjects{storj: &b}
+
+	for i, example := range []struct {
+		bucket    string
+		err       error
+		errString string
+	}{
+		// happy scenario
+		{"mybucket", nil, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockBS.EXPECT().Delete(gomock.Any(), example.bucket).Return(example.err).Times(1)
+
+		err := storjObj.DeleteBucket(ctx, example.bucket)
+		assert.NoError(t, err, errTag)
+	}
+}
+
+func TestGetBucketInfo(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
+
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
+
+	storjObj := storjObjects{storj: &b}
+
+	var exp time.Time
+	exp = time.Unix(0, 0).UTC()
+
+	for i, example := range []struct {
+		bucket    string
+		meta      time.Time
+		err       error
+		errString string
+	}{
+		// happy scenario
+		{"mybucket", exp, nil, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockBS.EXPECT().Get(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, example.err).Times(1)
+
+		_, err := storjObj.GetBucketInfo(ctx, example.bucket)
+		assert.NoError(t, err, errTag)
+	}
+}
+
+func TestMakeBucketWithLocation(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
+
+	mockObjCtrl := gomock.NewController(t)
+	defer mockObjCtrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
+
+	storjObj := storjObjects{storj: &b}
+
+	var exp time.Time
+	exp = time.Unix(0, 0).UTC()
+
+	for i, example := range []struct {
+		bucket    string
+		meta      time.Time
+		err       error
+		errString string
+	}{
+		// happy scenario
+		{"mybucket", exp, nil, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockBS.EXPECT().Put(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, example.err).Times(1)
+
+		err := storjObj.MakeBucketWithLocation(ctx, example.bucket, "location")
+		assert.NoError(t, err, errTag)
+	}
+}
+
+func TestListBuckets(t *testing.T) {
+	mockBucketCtrl := gomock.NewController(t)
+	defer mockBucketCtrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	b := Storj{bs: mockBS}
+
+	storjObj := storjObjects{storj: &b}
+
+	var exp time.Time
+	exp = time.Unix(0, 0).UTC()
+
+	for i, example := range []struct {
+		bucket    string
+		meta      time.Time
+		more      bool
+		err       error
+		errString string
+	}{
+		// happy scenario
+		{"mybucket", exp, false, nil, ""},
+		{"mybucket", exp, true, nil, ""},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		b := make([]buckets.ListItem, 5)
+		for i, item := range b {
+			item.Bucket = fmt.Sprintf("bucket %d", i)
+			item.Meta = buckets.Meta{Created: exp}
+		}
+		mockBS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), 0).Return(b, example.more, example.err).AnyTimes()
+
+		_, err := storjObj.ListBuckets(ctx)
+		assert.NoError(t, err, errTag)
 	}
 }
