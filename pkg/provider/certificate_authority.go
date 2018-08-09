@@ -51,10 +51,6 @@ type CAConfig struct {
 
 // LoadOrCreate loads or generates the CA files using the configuration
 func (caC CASetupConfig) LoadOrCreate(ctx context.Context, concurrency uint) (*FullCertificateAuthority, bool, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
 	var (
 		ca    = new(FullCertificateAuthority)
 		isNew = false
