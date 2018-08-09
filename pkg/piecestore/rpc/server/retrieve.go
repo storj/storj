@@ -79,53 +79,18 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 	defer utils.Close(storeFile)
 
 	writer := NewStreamWriter(s, stream)
-	am := NewAllocationManager()
-	var latestBA *pb.RenterBandwidthAllocation
 
-	// Save latest bandwidth allocation even if we fail
 	defer func() {
-		err := s.DB.WriteBandwidthAllocToDB(latestBA)
-		if latestBA != nil && err != nil {
-			log.Println("WriteBandwidthAllocToDB Error:", err)
+		if writer.ba != nil {
+			err := s.DB.WriteBandwidthAllocToDB(writer.ba)
+			if err != nil {
+				log.Println("WriteBandwidthAllocToDB Error:", err)
+			}
 		}
 	}()
 
-	for am.Used < length {
-		// Receive Bandwidth allocation
-		recv, err := stream.Recv()
-		if err != nil {
-			break
-		}
+	// Write the buffer to the stream we opened earlier
+	_, err = io.Copy(writer, storeFile)
 
-		ba := recv.GetBandwidthallocation()
-		baData := ba.GetData()
-		if baData != nil {
-			if err = s.verifySignature(ba); err != nil {
-				break
-			}
-
-			am.NewTotal(baData.GetTotal())
-		}
-
-		// The bandwidthallocation with the higher total is what I want to earn the most money
-		if baData.GetTotal() > latestBA.GetData().GetTotal() {
-			latestBA = ba
-		}
-
-		sizeToRead := am.NextReadSize()
-
-		// Write the buffer to the stream we opened earlier
-		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		if n > 0 {
-			if err := am.UseAllocation(n); err != nil {
-				break
-			}
-		}
-
-		if err != nil {
-			break
-		}
-	}
-
-	return am.Used, am.TotalAllocated, err
+	return writer.am.Used, writer.am.TotalAllocated, err
 }

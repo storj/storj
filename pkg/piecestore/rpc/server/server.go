@@ -119,8 +119,8 @@ func (s *Server) Start(ctx context.Context) (err error) {
 
 	// routinely check DB and delete expired entries
 	go func() {
-		err := s.DB.CheckEntries(ctx)
-		zap.S().Fatal("Error in CheckEntries: %v\n", err)
+		err := s.DB.DeleteExpiredLoop(ctx)
+		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
 	}()
 
 	log.Printf("Node %s started\n", s.config.NodeID)
