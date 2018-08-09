@@ -219,6 +219,8 @@ func TestRetrieve(t *testing.T) {
 			assert.Nil(err)
 
 			totalAllocated := int64(0)
+			var data string
+			var totalRetrieved = int64(0)
 			var resp *pb.PieceRetrievalStream
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
@@ -243,13 +245,15 @@ func TestRetrieve(t *testing.T) {
 					return
 				}
 
+				data = fmt.Sprintf("%s%s", data, string(resp.Content))
+				totalRetrieved += resp.Size
 			}
 
 			assert.Nil(err)
 			assert.NotNil(resp)
 			if resp != nil {
-				assert.Equal(tt.respSize, resp.Size)
-				assert.Equal(tt.content, resp.Content)
+				assert.Equal(tt.respSize, totalRetrieved)
+				assert.Equal(string(tt.content), data)
 			}
 		})
 	}
