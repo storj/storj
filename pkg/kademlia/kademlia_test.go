@@ -5,10 +5,10 @@ package kademlia
 
 import (
 	"context"
-	// "math/rand"
+	"math/rand"
 	"strconv"
 	"testing"
-	// "time"
+	"time"
 
 	"storj.io/storj/pkg/dht"
 
@@ -81,175 +81,175 @@ func newTestKademlia(t *testing.T, ip, port string, b overlay.Node) *Kademlia {
 	return kad
 }
 
-// func TestBootstrap(t *testing.T) {
-// 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3000")
+func TestBootstrap(t *testing.T) {
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3000")
 
-// 	defer func(d []dht.DHT) {
-// 		for _, v := range d {
-// 			v.Disconnect()
-// 		}
-// 	}(dhts)
+	defer func(d []dht.DHT) {
+		for _, v := range d {
+			v.Disconnect()
+		}
+	}(dhts)
 
-// 	cases := []struct {
-// 		k *Kademlia
-// 	}{
-// 		{
-// 			k: newTestKademlia(t, "127.0.0.1", "2999", bootNode),
-// 		},
-// 	}
+	cases := []struct {
+		k *Kademlia
+	}{
+		{
+			k: newTestKademlia(t, "127.0.0.1", "2999", bootNode),
+		},
+	}
 
-// 	for _, v := range cases {
-// 		defer v.k.Disconnect()
-// 		err := v.k.ListenAndServe()
-// 		assert.NoError(t, err)
-// 		err = v.k.Bootstrap(context.Background())
-// 		assert.NoError(t, err)
-// 		ctx := context.Background()
+	for _, v := range cases {
+		defer v.k.Disconnect()
+		err := v.k.ListenAndServe()
+		assert.NoError(t, err)
+		err = v.k.Bootstrap(context.Background())
+		assert.NoError(t, err)
+		ctx := context.Background()
 
-// 		rt, err := dhts[0].GetRoutingTable(context.Background())
-// 		assert.NoError(t, err)
+		rt, err := dhts[0].GetRoutingTable(context.Background())
+		assert.NoError(t, err)
 
-// 		localID := rt.Local().Id
-// 		n := NodeID(localID)
-// 		node, err := v.k.FindNode(ctx, &n)
-// 		assert.NoError(t, err)
-// 		assert.NotEmpty(t, node)
-// 		assert.Equal(t, localID, node.Id)
-// 		v.k.dht.Disconnect()
-// 	}
+		localID := rt.Local().Id
+		n := NodeID(localID)
+		node, err := v.k.FindNode(ctx, &n)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, node)
+		assert.Equal(t, localID, node.Id)
+		v.k.dht.Disconnect()
+	}
 
-// }
+}
 
-// func TestGetNodes(t *testing.T) {
-// 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
-// 	defer func(d []dht.DHT) {
-// 		for _, v := range d {
-// 			err := v.Disconnect()
-// 			assert.NoError(t, err)
-// 		}
-// 	}(dhts)
+func TestGetNodes(t *testing.T) {
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
+	defer func(d []dht.DHT) {
+		for _, v := range d {
+			err := v.Disconnect()
+			assert.NoError(t, err)
+		}
+	}(dhts)
 
-// 	cases := []struct {
-// 		k            *Kademlia
-// 		start        string
-// 		limit        int
-// 		expectedErr  error
-// 		restrictions []overlay.Restriction
-// 	}{
-// 		{
-// 			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-// 			limit:       10,
-// 			expectedErr: nil,
-// 		},
-// 	}
+	cases := []struct {
+		k            *Kademlia
+		start        string
+		limit        int
+		expectedErr  error
+		restrictions []overlay.Restriction
+	}{
+		{
+			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
+			limit:       10,
+			expectedErr: nil,
+		},
+	}
 
-// 	for _, v := range cases {
-// 		defer v.k.Disconnect()
-// 		ctx := context.Background()
-// 		err := v.k.ListenAndServe()
-// 		assert.Equal(t, v.expectedErr, err)
-// 		time.Sleep(time.Second)
-// 		err = v.k.Bootstrap(ctx)
-// 		assert.NoError(t, err)
+	for _, v := range cases {
+		defer v.k.Disconnect()
+		ctx := context.Background()
+		err := v.k.ListenAndServe()
+		assert.Equal(t, v.expectedErr, err)
+		time.Sleep(time.Second)
+		err = v.k.Bootstrap(ctx)
+		assert.NoError(t, err)
 
-// 		rt, err := v.k.GetRoutingTable(context.Background())
+		rt, err := v.k.GetRoutingTable(context.Background())
 
-// 		assert.NoError(t, err)
-// 		start := rt.Local().Id
+		assert.NoError(t, err)
+		start := rt.Local().Id
 
-// 		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions...)
-// 		assert.Equal(t, v.expectedErr, err)
-// 		assert.Len(t, nodes, v.limit)
-// 		v.k.dht.Disconnect()
-// 	}
+		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions...)
+		assert.Equal(t, v.expectedErr, err)
+		assert.Len(t, nodes, v.limit)
+		v.k.dht.Disconnect()
+	}
 
-// }
+}
 
-// func TestFindNode(t *testing.T) {
-// 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "5001")
-// 	defer func(d []dht.DHT) {
-// 		for _, v := range d {
-// 			err := v.Disconnect()
-// 			assert.NoError(t, err)
-// 		}
-// 	}(dhts)
+func TestFindNode(t *testing.T) {
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "5001")
+	defer func(d []dht.DHT) {
+		for _, v := range d {
+			err := v.Disconnect()
+			assert.NoError(t, err)
+		}
+	}(dhts)
 
-// 	cases := []struct {
-// 		k           *Kademlia
-// 		start       string
-// 		input       NodeID
-// 		expectedErr error
-// 	}{
-// 		{
-// 			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-// 			expectedErr: nil,
-// 		},
-// 	}
+	cases := []struct {
+		k           *Kademlia
+		start       string
+		input       NodeID
+		expectedErr error
+	}{
+		{
+			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
+			expectedErr: nil,
+		},
+	}
 
-// 	for _, v := range cases {
-// 		defer v.k.Disconnect()
-// 		ctx := context.Background()
-// 		go v.k.ListenAndServe()
-// 		time.Sleep(time.Second)
-// 		err := v.k.Bootstrap(ctx)
-// 		assert.NoError(t, err)
+	for _, v := range cases {
+		defer v.k.Disconnect()
+		ctx := context.Background()
+		go v.k.ListenAndServe()
+		time.Sleep(time.Second)
+		err := v.k.Bootstrap(ctx)
+		assert.NoError(t, err)
 
-// 		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
-// 		assert.NoError(t, err)
+		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
+		assert.NoError(t, err)
 
-// 		id := NodeID(rt.Local().Id)
-// 		node, err := v.k.FindNode(ctx, &id)
-// 		assert.Equal(t, v.expectedErr, err)
-// 		assert.NotZero(t, node)
-// 		assert.Equal(t, node.Id, id.String())
-// 	}
+		id := NodeID(rt.Local().Id)
+		node, err := v.k.FindNode(ctx, &id)
+		assert.Equal(t, v.expectedErr, err)
+		assert.NotZero(t, node)
+		assert.Equal(t, node.Id, id.String())
+	}
 
-// }
+}
 
-// func TestPing(t *testing.T) {
-// 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "4001")
-// 	defer func(d []dht.DHT) {
-// 		for _, v := range d {
-// 			v.Disconnect()
-// 		}
-// 	}(dhts)
+func TestPing(t *testing.T) {
+	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "4001")
+	defer func(d []dht.DHT) {
+		for _, v := range d {
+			v.Disconnect()
+		}
+	}(dhts)
 
-// 	r := dhts[rand.Intn(testNetSize)]
-// 	rt, err := r.GetRoutingTable(context.Background())
-// 	addr := rt.Local().Address
-// 	assert.NoError(t, err)
+	r := dhts[rand.Intn(testNetSize)]
+	rt, err := r.GetRoutingTable(context.Background())
+	addr := rt.Local().Address
+	assert.NoError(t, err)
 
-// 	cases := []struct {
-// 		k           *Kademlia
-// 		input       overlay.Node
-// 		expectedErr error
-// 	}{
-// 		{
-// 			k: newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-// 			input: overlay.Node{
-// 				Id: rt.Local().Id,
-// 				Address: &overlay.NodeAddress{
-// 					Transport: defaultTransport,
-// 					Address:   addr.Address,
-// 				},
-// 			},
-// 			expectedErr: nil,
-// 		},
-// 	}
+	cases := []struct {
+		k           *Kademlia
+		input       overlay.Node
+		expectedErr error
+	}{
+		{
+			k: newTestKademlia(t, "127.0.0.1", "6000", bootNode),
+			input: overlay.Node{
+				Id: rt.Local().Id,
+				Address: &overlay.NodeAddress{
+					Transport: defaultTransport,
+					Address:   addr.Address,
+				},
+			},
+			expectedErr: nil,
+		},
+	}
 
-// 	for _, v := range cases {
-// 		defer v.k.Disconnect()
-// 		ctx := context.Background()
-// 		go v.k.ListenAndServe()
-// 		time.Sleep(time.Second)
-// 		err := v.k.Bootstrap(ctx)
-// 		assert.NoError(t, err)
+	for _, v := range cases {
+		defer v.k.Disconnect()
+		ctx := context.Background()
+		go v.k.ListenAndServe()
+		time.Sleep(time.Second)
+		err := v.k.Bootstrap(ctx)
+		assert.NoError(t, err)
 
-// 		node, err := v.k.Ping(ctx, v.input)
-// 		assert.Equal(t, v.expectedErr, err)
-// 		assert.NotEmpty(t, node)
-// 		assert.Equal(t, v.input, node)
-// 		v.k.dht.Disconnect()
-// 	}
+		node, err := v.k.Ping(ctx, v.input)
+		assert.Equal(t, v.expectedErr, err)
+		assert.NotEmpty(t, node)
+		assert.Equal(t, v.input, node)
+		v.k.dht.Disconnect()
+	}
 
-// }
+}
