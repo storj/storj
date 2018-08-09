@@ -72,16 +72,23 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	writer := &StreamWriter{stream: stream}
 
 	defer func() {
-		if err := writer.Close(); err != nil {
+		if err := writer.Close(); err != nil && err != io.EOF {
 			log.Printf("failed to close writer: %s\n", err)
 		}
 	}()
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
+
 	_, err = io.Copy(bufw, data)
+	if err == io.ErrUnexpectedEOF {
+		writer.Close()
+		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
+		return client.Delete(ctx, id)
+	}
 	if err != nil {
 		return err
 	}
+
 	return bufw.Flush()
 }
 
