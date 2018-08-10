@@ -76,7 +76,7 @@ func convertMeta(m segments.Meta) Meta {
 	return Meta{
 		Modified:   m.Modified,
 		Expiration: m.Expiration,
-		Size:       m.Size,
+		Size:       m.SegmentSize,
 		Data:       m.Data,
 	}
 }
