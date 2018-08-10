@@ -207,7 +207,7 @@ func (er *encodedReader) copyData(num int, copier <-chan block) {
 
 func (er *encodedReader) addToReader(b block) {
 	if er.eps[b.i].ch == nil {
-		// this channel is already closed for slowliness - skip it
+		// this channel is already closed for slowness - skip it
 		return
 	}
 	for {
@@ -284,7 +284,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 		select {
 		case b, ok := <-ep.ch:
 			if !ok {
-				// channel was closed due to slowliness
+				// channel was closed due to slowness
 				return 0, io.ErrUnexpectedEOF
 			}
 			if b.err != nil {
@@ -297,7 +297,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 			ep.outbuf = b.data
 		case <-ep.ctx.Done():
 			// context was canceled due to:
-			//  - slowliness
+			//  - slowness
 			//  - optimum threshold reached
 			//  - timeout after reaching minimum threshold expired
 			return 0, io.ErrUnexpectedEOF

@@ -70,6 +70,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 	}
 
 	if len(result) < int(maxNodes) {
+		fmt.Printf("result %v",result)
 		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 
@@ -105,6 +106,7 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*proto.Node
 func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64) ([]*proto.Node, storage.Key, error) {
 	limit := storage.Limit(maxNodes) * 2
 	keys, err := o.cache.DB.List(starting, limit)
+	fmt.Printf("keys from populate %v\n", keys)
 	if err != nil {
 		o.logger.Error("Error listing nodes", zap.Error(err))
 		return nil, nil, Error.Wrap(err)
@@ -117,6 +119,7 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 
 	result := []*proto.Node{}
 	nodes, err := o.getNodes(ctx, keys)
+	fmt.Printf("nodes from populate %v\n", len(nodes))
 	if err != nil {
 		o.logger.Error("Error getting nodes", zap.Error(err))
 		return nil, nil, Error.Wrap(err)

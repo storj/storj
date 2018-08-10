@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -37,6 +38,8 @@ var (
 		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		CA          provider.CAConfig
 		Identity    provider.IdentityConfig
+		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+
 	}
 
 	defaultConfDir = "$HOME/.storj/gw"
@@ -54,6 +57,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	_, err = os.Stat(setupCfg.BasePath)
+	if !setupCfg.Overwrite && err == nil {
+		fmt.Println("A gw configuration already exists. Rerun with --overwrite")
+		return nil
+	}
+
 	err = os.MkdirAll(setupCfg.BasePath, 0700)
 	if err != nil {
 		return err

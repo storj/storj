@@ -130,8 +130,7 @@ func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, er
 
 // ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
 func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	//TODO - JJ
-	return storage.Keys{}, nil
+	panic("TODO")
 }
 
 func mapIntoSlice(data KvStore) []string {

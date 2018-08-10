@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -42,6 +43,7 @@ var (
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
 		CA       provider.CASetupConfig
 		Identity provider.IdentitySetupConfig
+		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -60,6 +62,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	_, err = os.Stat(setupCfg.BasePath)
+	if !setupCfg.Overwrite && err == nil {
+		fmt.Println("An hc configuration already exists. Rerun with --overwrite")
+		return nil
+	}
+
 	err = os.MkdirAll(setupCfg.BasePath, 0700)
 	if err != nil {
 		return err

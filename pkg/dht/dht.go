@@ -32,7 +32,7 @@ type RoutingTable interface {
 	Local() proto.Node
 	K() int
 	CacheSize() int
-
+	
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
 
