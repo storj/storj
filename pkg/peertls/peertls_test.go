@@ -41,7 +41,7 @@ func TestGenerate_Leaf(t *testing.T) {
 	c, err := NewCert(ct, nil, k)
 	assert.NoError(t, err)
 
-	lt, err := CATemplate()
+	lt, err := LeafTemplate()
 	assert.NoError(t, err)
 
 	l, err := NewCert(lt, ct, k)
@@ -65,7 +65,7 @@ func TestVerifyPeerFunc(t *testing.T) {
 	c, err := NewCert(ct, nil, k)
 	assert.NoError(t, err)
 
-	lt, err := CATemplate()
+	lt, err := LeafTemplate()
 	assert.NoError(t, err)
 
 	l, err := NewCert(lt, ct, k)
