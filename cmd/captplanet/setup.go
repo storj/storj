@@ -75,20 +75,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		farmerCA := provider.CASetupConfig{
-			CertPath:    filepath.Join(farmerPath, "ca.cert"),
-			KeyPath:     filepath.Join(farmerPath, "ca.key"),
-			Difficulty:  setupCfg.FarmerCA.Difficulty,
-			Timeout:     setupCfg.FarmerCA.Timeout,
-			Overwrite:   setupCfg.FarmerCA.Overwrite,
-			Concurrency: setupCfg.FarmerCA.Concurrency,
-		}
-		farmerIdentity := provider.IdentitySetupConfig{
-			CertPath: filepath.Join(farmerPath, "identity.cert"),
-			KeyPath:  filepath.Join(farmerPath, "identity.key"),
-		}
+		farmerCA := setupCfg.FarmerCA
 		farmerCA.CertPath = filepath.Join(farmerPath, "ca.cert")
 		farmerCA.KeyPath = filepath.Join(farmerPath, "ca.key")
+		farmerIdentity := setupCfg.FarmerIdentity
 		farmerIdentity.CertPath = filepath.Join(farmerPath, "identity.cert")
 		farmerIdentity.KeyPath = filepath.Join(farmerPath, "identity.key")
 		err := provider.SetupIdentity(process.Ctx(cmd), farmerCA, farmerIdentity)
