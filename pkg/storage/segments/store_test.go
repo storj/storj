@@ -127,6 +127,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
+			mockES.EXPECT().EncodedBlockSize().Return(1),
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),
