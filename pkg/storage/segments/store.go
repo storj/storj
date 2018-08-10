@@ -104,7 +104,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		p = &ppb.Pointer{
 			Type:           ppb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
-			Size:           int64(len(peekReader.thresholdBuf)),
+			SegmentSize:    int64(len(peekReader.thresholdBuf)),
 			ExpirationDate: exp,
 			Metadata:       metadata,
 		}
@@ -166,7 +166,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,
 		},
-		Size:           readerSize,
+		SegmentSize:    readerSize,
 		ExpirationDate: exp,
 		Metadata:       metadata,
 	}
@@ -191,7 +191,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 
-		rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
+		rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSegmentSize())
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -274,7 +274,7 @@ func convertMeta(pr *ppb.Pointer) Meta {
 	return Meta{
 		Modified:   convertTime(pr.GetCreationDate()),
 		Expiration: convertTime(pr.GetExpirationDate()),
-		Size:       pr.GetSize(),
+		Size:       pr.GetSegmentSize(),
 		Data:       pr.GetMetadata(),
 	}
 }

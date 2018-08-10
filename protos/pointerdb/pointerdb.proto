@@ -65,12 +65,13 @@ message Pointer {
 
   bytes inline_segment = 3;
   RemoteSegment remote = 4;
-  int64 size = 5;
+  int64 segment_size = 5;
+  int32 stripe_size = 6;
 
-  google.protobuf.Timestamp creation_date = 6;
-  google.protobuf.Timestamp expiration_date = 7;
+  google.protobuf.Timestamp creation_date = 7;
+  google.protobuf.Timestamp expiration_date = 8;
 
-  bytes metadata = 8;
+  bytes metadata = 9;
 }
 
 // PutRequest is a request message for the Put rpc call

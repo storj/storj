@@ -268,7 +268,7 @@ func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
 		item.Pointer.ExpirationDate = pr.GetExpirationDate()
 	}
 	if metaFlags&meta.Size != 0 {
-		item.Pointer.Size = pr.GetSize()
+		item.Pointer.SegmentSize = pr.GetSegmentSize()
 	}
 	if metaFlags&meta.UserDefined != 0 {
 		item.Pointer.Metadata = pr.GetMetadata()

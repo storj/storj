@@ -198,7 +198,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 		thresholdSize int
 		pointerType   ppb.Pointer_DataType
 		inlineContent []byte
-		size          int64
+		segSize       int64
 		metadata      []byte
 	}{
 		{"path/1/2/3", 10, ppb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
@@ -224,7 +224,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 				InlineSegment:  tt.inlineContent,
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
-				Size:           tt.size,
+				SegmentSize:    tt.segSize,
 				Metadata:       tt.metadata,
 			}, nil),
 		}
@@ -248,7 +248,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 		pathInput     string
 		thresholdSize int
 		pointerType   ppb.Pointer_DataType
-		size          int64
+		segSize       int64
 		metadata      []byte
 	}{
 		{"path/1/2/3", 10, ppb.Pointer_REMOTE, int64(3), []byte("metadata")},
@@ -284,7 +284,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 				},
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
-				Size:           tt.size,
+				SegmentSize:    tt.segSize,
 				Metadata:       tt.metadata,
 			}, nil),
 			mockEC.EXPECT().Get(
@@ -312,7 +312,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 		thresholdSize int
 		pointerType   ppb.Pointer_DataType
 		inlineContent []byte
-		size          int64
+		segSize       int64
 		metadata      []byte
 	}{
 		{"path/1/2/3", 10, ppb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
@@ -338,7 +338,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 				InlineSegment:  tt.inlineContent,
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
-				Size:           tt.size,
+				SegmentSize:    tt.segSize,
 				Metadata:       tt.metadata,
 			}, nil),
 			mockPDB.EXPECT().Delete(
@@ -365,7 +365,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 		pathInput     string
 		thresholdSize int
 		pointerType   ppb.Pointer_DataType
-		size          int64
+		segSize       int64
 		metadata      []byte
 	}{
 		{"path/1/2/3", 10, ppb.Pointer_REMOTE, int64(3), []byte("metadata")},
@@ -401,7 +401,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				},
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
-				Size:           tt.size,
+				SegmentSize:    tt.segSize,
 				Metadata:       tt.metadata,
 			}, nil),
 			mockEC.EXPECT().Delete(
@@ -464,7 +464,7 @@ func TestSegmentStoreList(t *testing.T) {
 						InlineSegment:  tt.inlineContent,
 						CreationDate:   someTime,
 						ExpirationDate: someTime,
-						Size:           int64(4),
+						SegmentSize:    int64(4),
 						Metadata:       tt.metadata,
 					},
 				},

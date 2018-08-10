@@ -69,7 +69,8 @@ func makePointer(path p.Path, auth []byte) pb.PutRequest {
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			Size: int64(1),
+			SegmentSize: int64(1),
+			StripeSize:  int32(1024),
 		},
 		APIKey: auth,
 	}
@@ -189,7 +190,7 @@ func TestList(t *testing.T) {
 		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
 				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{
-					Size:           1234,
+					SegmentSize:    1234,
 					CreationDate:   ptypes.TimestampNow(),
 					ExpirationDate: ptypes.TimestampNow(),
 				}},
@@ -197,8 +198,8 @@ func TestList(t *testing.T) {
 			true, nil, ""},
 		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
-				&pb.ListResponse_Item{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
+				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{SegmentSize: 1234, StripeSize: 1024}},
+				&pb.ListResponse_Item{Path: "x/y", Pointer: &pb.Pointer{SegmentSize: 789, StripeSize: 1024}},
 			},
 			true, nil, ""},
 	} {
@@ -236,8 +237,10 @@ func TestList(t *testing.T) {
 
 			for i := 0; i < len(items); i++ {
 				assert.Equal(t, tt.items[i].GetPath(), items[i].Path.String())
-				assert.Equal(t, tt.items[i].GetPointer().GetSize(),
-					items[i].Pointer.GetSize())
+				assert.Equal(t, tt.items[i].GetPointer().GetSegmentSize(),
+					items[i].Pointer.GetSegmentSize())
+				assert.Equal(t, tt.items[i].GetPointer().GetStripeSize(),
+					items[i].Pointer.GetStripeSize())
 				assert.Equal(t, tt.items[i].GetPointer().GetCreationDate(),
 					items[i].Pointer.GetCreationDate())
 				assert.Equal(t, tt.items[i].GetPointer().GetExpirationDate(),
