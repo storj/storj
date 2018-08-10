@@ -75,7 +75,7 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
 		if len(v) == 0 {
-			return Error.New("This file does not exist")
+			return storage.ErrKeyNotFound.New("File does not exist")
 		}
 
 		pointerBytes = v

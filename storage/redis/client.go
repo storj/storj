@@ -53,7 +53,7 @@ func (c *Client) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
 
 	if len(b) == 0 {
-		return nil, Error.New("key does not exist")
+		return nil, storage.ErrKeyNotFound.New("file does not exist")
 	}
 
 	if err != nil {
