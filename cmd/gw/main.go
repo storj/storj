@@ -68,21 +68,25 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overwrites identity and CA path options
+	// NB: if base path is set this overrides identity and CA path options
 	if setupCfg.BasePath != defaultConfDir {
-		provider.SetupIdentityPaths(
-			setupCfg.BasePath,
-			&setupCfg.CA,
-			&setupCfg.Identity,
-		)
+		setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
+		setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
+		setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
+		setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
 	}
-	o, err := provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
 
+	o := map[string]interface{}{
+		"identity.cert-path": setupCfg.CA.CertPath,
+		"identity.key-path":  setupCfg.CA.CertPath,
+	}
+
 	return process.SaveConfig(runCmd.Flags(),
-		filepath.Join(setupCfg.BasePath, "config.yaml"), nil)
+		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
 }
 
 func main() {

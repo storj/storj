@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"net"
-	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -57,47 +56,34 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 	}, nil
 }
 
-func SetupIdentityPaths(basePath string, c *CASetupConfig, i *IdentitySetupConfig) {
-	c.CertPath = filepath.Join(basePath, "ca.cert")
-	c.KeyPath = filepath.Join(basePath, "ca.key")
-	i.CertPath = filepath.Join(basePath, "identity.cert")
-	i.KeyPath = filepath.Join(basePath, "identity.key")
-}
-
 // SetupIdentity ensures a CA and identity exist and returns a config overrides map
-func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) (map[string]interface{}, error) {
+func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
 	if s := c.Stat(); s == NoCertNoKey || c.Overwrite {
 		t, err := time.ParseDuration(c.Timeout)
 		if err != nil {
-			return nil, errs.Wrap(err)
+			return errs.Wrap(err)
 		}
 		ctx, _ = context.WithTimeout(ctx, t)
 
 		// Load or create a certificate authority
 		ca, err := c.Create(ctx, 4)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if s := i.Stat(); s == NoCertNoKey || i.Overwrite {
 			// Create identity from new CA
 			_, err = i.Create(ca)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			return map[string]interface{}{
-				"ca.cert-path":       c.CertPath,
-				"ca.key-path":        "",
-				"ca.difficulty":      c.Difficulty,
-				"identity.cert-path": i.CertPath,
-				"identity.key-path":  i.KeyPath,
-			}, nil
+			return nil
 		} else {
-			return nil, ErrSetup.New("identity file(s) exist: %s", s)
+			return ErrSetup.New("identity file(s) exist: %s", s)
 		}
 	} else {
-		return nil, ErrSetup.New("certificate authority file(s) exist: %s", s)
+		return ErrSetup.New("certificate authority file(s) exist: %s", s)
 	}
 }
 
