@@ -48,9 +48,9 @@ func (w *worker) work(ctx context.Context) error {
 			return nil
 		}
 
-		nodes, err := w.lookup(ctx, w.getWork())
-		if err != nil {
-			//TODO(coyle): determine best way to handle this error
+		nodes := w.lookup(ctx, w.getWork())
+		if nodes == nil {
+			continue
 		}
 
 		if err := w.update(nodes); err != nil {
@@ -105,21 +105,27 @@ func (w *worker) getWork() *chore {
 	return wk
 }
 
-func (w *worker) lookup(ctx context.Context, wk *chore) ([]*proto.Node, error) {
+func (w *worker) lookup(ctx context.Context, wk *chore) []*proto.Node {
 	start := time.Now()
 	nodes, err := w.nodeClient.Lookup(ctx, *wk.node, w.find)
 	if err != nil {
-		return nil, WorkerError.Wrap(err)
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		delete(w.workingSet, wk.node.GetId())
+		return nil
 	}
 	latency := time.Now().Sub(start)
 	if latency > w.maxResponse {
 		w.maxResponse = latency
 	}
 
-	return nodes, nil
+	return nodes
 }
 
 func (w *worker) update(nodes []*proto.Node) error {
+	if nodes == nil {
+		return WorkerError.New("nodes must not be nil")
+	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if (len(w.workingSet) + len(nodes)) < w.k {

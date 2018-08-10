@@ -17,6 +17,35 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
+func TestUpdate(t *testing.T) {
+	cases := []struct {
+		name        string
+		worker      *worker
+		input       []*proto.Node
+		self        proto.Node
+		ctx         context.Context
+		expected    map[string]*chore
+		expectedErr error
+	}{
+		{
+			name: "test nil nodes",
+		},
+		{
+			name: "test combined less than k",
+		},
+		{
+			name: "test proper node removed from working set",
+		},
+		{
+			name: "test no node removed from working set",
+		},
+	}
+
+	for _, v := range cases {
+		v.worker.update(v.input)
+	}
+}
+
 func TestWork(t *testing.T) {
 	mu := &sync.Mutex{}
 	ctx, cf := context.WithCancel(context.Background())
@@ -31,7 +60,7 @@ func TestWork(t *testing.T) {
 			ctx:  ctx,
 			self: proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":7070"}},
 			worker: &worker{
-				contacted: map[string]*chore{
+				workingSet: map[string]*chore{
 					"foo": &chore{status: uncontacted, node: &proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":8080"}}},
 				},
 				mu:          mu,
