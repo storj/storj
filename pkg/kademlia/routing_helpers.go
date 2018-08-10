@@ -450,3 +450,27 @@ func (rt *RoutingTable) splitBucket(bucketID []byte, depth int) []byte {
 	newID[byteIndex] ^= toggle
 	return newID
 }
+
+// findNear: helper, finds all Nodes near the provided nodeID up to the provided limit
+func (rt *RoutingTable) findNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
+	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
+	}
+	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
+	var nearIDs storage.Keys
+	if len(sortedIDs) < limit+1 {
+		nearIDs = sortedIDs[1:]
+	} else {
+		nearIDs = sortedIDs[1 : limit+1]
+	}
+	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
+	}
+	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
+	if err != nil {
+		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
+	}
+	return unmarshaledNodes, nil
+}

@@ -80,10 +80,13 @@ func (rt *RoutingTable) K() int {
 	return rt.bucketSize
 }
 
-// CacheSize returns the total current size of the cache
+// CacheSize returns the total current size of the cache (number of nodes)
 func (rt *RoutingTable) CacheSize() int {
-	// TODO: How is this calculated ? size of the routing table ? is it total bytes, mb, kb etc .?
-	return 0
+	nodeKeys, err := rt.kadBucketDB.List(nil, 0)
+	if err != nil {
+
+	}
+	return len(nodeKeys)
 }
 
 // GetBucket retrieves the corresponding kbucket from node id
@@ -125,33 +128,29 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
-	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+	//check if target is in routing table
+	//if not, add target to routing table
+	//If target cannot be added to the routing table, find near?
+func (rt *RoutingTable) FindNear(sender, target *proto.Node, limit int) ([]*proto.Node, error) {
+	nodeInRT, err := rt.nodeAlreadyExists(storage.Key(target.Id))
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
+		//TODO
 	}
-	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	var nearIDs storage.Keys
-	if len(sortedIDs) < limit+1 {
-		nearIDs = sortedIDs[1:]
-	} else {
-		nearIDs = sortedIDs[1 : limit+1]
+	if !nodeInRT {
+		rt.addNode(target)
 	}
-	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	nodes, err := rt.findNear(StringToNodeID(target.Id), rt.K())
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
+		//TODO
 	}
-	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
-	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
-	}
-	return unmarshaledNodes, nil
+	return nodes, nil
 }
 
 // ConnectionSuccess handles the details of what kademlia should do when
 // a successful connection is made to node on the network
 func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) {
 	// TODO: What should we do ?
+	
 	return
 }
 
@@ -187,6 +186,6 @@ func (rt *RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.T
 
 // GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
 func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RoutingTable, error) {
-	//TODO: What should we do ?
+	//TODO: What should we do?
 	return RoutingTable{}, nil
 }
