@@ -6,13 +6,11 @@ package psservice
 import (
 	"context"
 	"log"
-	"path/filepath"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
 	"storj.io/storj/pkg/provider"
 	pspb "storj.io/storj/protos/piecestore"
 )
@@ -34,24 +32,24 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ttlPath := filepath.Join(c.Path, "ttl.db")
-	piecePath := filepath.Join(c.Path, "data")
+	serverConf := psserver.Config{
+		PieceStoreDir: c.Path,
+	}
 
-	ttldb, err := ttl.NewTTL(ttlPath)
+	s, err := psserver.Initialize(ctx, serverConf)
 	if err != nil {
 		return err
 	}
 	// TODO(jt): defer ttldb.Close()
 
 	// TODO(jt): server.Server constructor
-	s := &psserver.Server{PieceStoreDir: piecePath, DB: ttldb}
 	// TODO(jt): defer s.Close()
 
 	pspb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
-	go func() {
+	defer func() {
 		// TODO(jt): why isn't the piecestore server doing this?
-		log.Fatal(s.DB.DBCleanup(piecePath))
+		log.Fatal(s.Stop(ctx))
 	}()
 
 	return server.Run(ctx)

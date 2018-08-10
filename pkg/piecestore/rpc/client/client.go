@@ -18,7 +18,10 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
-// PSClient interface defines the set of methods to interact with a Piecestore Client
+var defaultBandwidthMsgSize = 32 * 1024
+var maxBandwidthMsgSize = 64 * 1024
+
+// PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
@@ -29,21 +32,53 @@ type PSClient interface {
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
-	route pb.PieceStoreRoutesClient
-	conn  *grpc.ClientConn
+	route                    pb.PieceStoreRoutesClient
+	conn                     *grpc.ClientConn
+	pkey                     []byte
+	bandwidthMsgSize         int
+	payerBandwidthAllocation *pb.PayerBandwidthAllocation
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn) PSClient {
-	return &Client{conn: conn, route: pb.NewPieceStoreRoutesClient(conn)}
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) PSClient {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
+		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
+
+		return nil
+	}
+
+	if bandwidthMsgSize == 0 {
+		bandwidthMsgSize = defaultBandwidthMsgSize
+	}
+
+	return &Client{
+		conn:  conn,
+		route: pb.NewPieceStoreRoutesClient(conn),
+		payerBandwidthAllocation: pba,
+		bandwidthMsgSize:         bandwidthMsgSize,
+	}
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient) *Client {
-	return &Client{route: route}
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) *Client {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
+		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
+
+		return nil
+	}
+
+	if bandwidthMsgSize == 0 {
+		bandwidthMsgSize = defaultBandwidthMsgSize
+	}
+
+	return &Client{
+		route: route,
+		payerBandwidthAllocation: pba,
+		bandwidthMsgSize:         bandwidthMsgSize,
+	}
 }
 
-// CloseConn closes the connection stored on the Client struct
+// CloseConn closes the connection with piecestore
 func (client *Client) CloseConn() error {
 	return client.conn.Close()
 }
@@ -61,7 +96,8 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	}
 
 	// Send preliminary data
-	if err := stream.Send(&pb.PieceStore{Id: id.String(), Ttl: ttl.Unix()}); err != nil {
+	msg := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), Ttl: ttl.Unix()}}
+	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
 			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 		}
@@ -69,7 +105,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{stream: stream}
+	writer := &StreamWriter{signer: client, stream: stream}
 
 	defer func() {
 		if err := writer.Close(); err != nil && err != io.EOF {
@@ -94,7 +130,12 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 // Get begins downloading a Piece from a piece store Server
 func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
-	return PieceRangerSize(client, id, size), nil
+	stream, err := client.route.Retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return PieceRangerSize(client, stream, id, size), nil
 }
 
 // Delete a Piece from a piece store Server
@@ -105,4 +146,11 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 	}
 	log.Printf("Route summary : %v", reply)
 	return nil
+}
+
+// sign a message using the clients private key
+func (client *Client) sign(msg *pb.RenterBandwidthAllocation_Data) (signature []byte, err error) {
+	// use c.pkey to sign msg
+
+	return signature, err
 }

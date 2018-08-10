@@ -8,23 +8,9 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-	"github.com/zeebo/errs"
-	"golang.org/x/net/context"
 
-	"storj.io/storj/pkg/kademlia"
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/piecestore/rpc/server"
 )
-
-// Config stores values from a farmer node config file
-type Config struct {
-	NodeID        string
-	PsHost        string
-	PsPort        string
-	KadListenPort string
-	KadPort       string
-	KadHost       string
-	PieceStoreDir string
-}
 
 // SetConfigPath sets and returns viper config directory and filepath
 func SetConfigPath(fileName string) (configDir, configFile string, err error) {
@@ -42,41 +28,13 @@ func SetConfigPath(fileName string) (configDir, configFile string, err error) {
 }
 
 // GetConfigValues returns a struct with config file values
-func GetConfigValues() Config {
-	config := Config{
+func GetConfigValues() server.Config {
+	config := server.Config{
 		NodeID:        viper.GetString("piecestore.id"),
-		PsHost:        viper.GetString("piecestore.host"),
-		PsPort:        viper.GetString("piecestore.port"),
+		PSAddress:     viper.GetString("piecestore.address"),
 		KadListenPort: viper.GetString("kademlia.listen.port"),
-		KadPort:       viper.GetString("kademlia.port"),
-		KadHost:       viper.GetString("kademlia.host"),
+		KadAddress:    viper.GetString("kademlia.address"),
 		PieceStoreDir: viper.GetString("piecestore.dir"),
 	}
 	return config
-}
-
-// ConnectToKad joins the Kademlia network
-func ConnectToKad(ctx context.Context, id, ip, kadListenPort, kadAddress string) (*kademlia.Kademlia, error) {
-	node := proto.Node{
-		Id: id,
-		Address: &proto.NodeAddress{
-			Transport: proto.NodeTransport_TCP,
-			Address:   kadAddress,
-		},
-	}
-
-	kad, err := kademlia.NewKademlia(kademlia.StringToNodeID(id), []proto.Node{node}, ip, kadListenPort)
-	if err != nil {
-		return nil, errs.New("Failed to instantiate new Kademlia: %s", err.Error())
-	}
-
-	if err := kad.ListenAndServe(); err != nil {
-		return nil, errs.New("Failed to ListenAndServe on new Kademlia: %s", err.Error())
-	}
-
-	if err := kad.Bootstrap(ctx); err != nil {
-		return nil, errs.New("Failed to Bootstrap on new Kademlia: %s", err.Error())
-	}
-
-	return kad, nil
 }

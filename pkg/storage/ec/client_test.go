@@ -57,9 +57,11 @@ func TestNewECClient(t *testing.T) {
 	defer ctrl.Finish()
 
 	tc := NewMockClient(ctrl)
+	payer := "payer-id"
+	renter := "renter-id"
 	mbm := 1234
 
-	ec := NewClient(tc, mbm)
+	ec := NewClient(tc, payer, renter, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
@@ -71,6 +73,8 @@ func TestNewECClient(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, dd.t)
 	assert.Equal(t, dd.t, tc)
+	assert.Equal(t, dd.payer, payer)
+	assert.Equal(t, dd.renter, renter)
 }
 
 func TestDefaultDialer(t *testing.T) {
