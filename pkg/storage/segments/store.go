@@ -31,10 +31,10 @@ var (
 
 // Meta info about a segment
 type Meta struct {
-	Modified   time.Time
-	Expiration time.Time
-	Size       int64
-	Data       []byte
+	Modified    time.Time
+	Expiration  time.Time
+	SegmentSize int64
+	Data        []byte
 }
 
 // ListItem is a single item in a listing
@@ -272,10 +272,10 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *ppb.Pointer) Meta {
 	return Meta{
-		Modified:   convertTime(pr.GetCreationDate()),
-		Expiration: convertTime(pr.GetExpirationDate()),
-		Size:       pr.GetSegmentSize(),
-		Data:       pr.GetMetadata(),
+		Modified:    convertTime(pr.GetCreationDate()),
+		Expiration:  convertTime(pr.GetExpirationDate()),
+		SegmentSize: pr.GetSegmentSize(),
+		Data:        pr.GetMetadata(),
 	}
 }
 
