@@ -43,7 +43,7 @@ var (
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
 		CA        provider.CASetupConfig
 		Identity  provider.IdentitySetupConfig
-		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"

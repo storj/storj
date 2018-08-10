@@ -20,14 +20,16 @@ import (
 
 // Config defines broad Captain Planet configuration
 type Config struct {
-	HCCA         provider.CASetupConfig
-	HCIdentity   provider.IdentitySetupConfig
-	GWCA         provider.CASetupConfig
-	GWIdentity   provider.IdentitySetupConfig
-	BasePath     string `help:"base path for captain planet storage" default:"$CONFDIR"`
-	ListenHost   string `help:"the host for providers to listen on" default:"127.0.0.1"`
-	StartingPort int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
-	Overwrite    bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
+	HCCA           provider.CASetupConfig
+	HCIdentity     provider.IdentitySetupConfig
+	GWCA           provider.CASetupConfig
+	GWIdentity     provider.IdentitySetupConfig
+	FarmerCA       provider.CASetupConfig
+	FarmerIdentity provider.IdentitySetupConfig
+	BasePath       string `help:"base path for captain planet storage" default:"$CONFDIR"`
+	ListenHost     string `help:"the host for providers to listen on" default:"127.0.0.1"`
+	StartingPort   int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	Overwrite      bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
 var (
@@ -58,14 +60,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupCfg.BasePath != defaultConfDir {
-		setupCfg.HCCA.CertPath = filepath.Join(hcPath, "ca.cert")
-		setupCfg.HCCA.KeyPath = filepath.Join(hcPath, "ca.key")
-		setupCfg.HCIdentity.CertPath = filepath.Join(hcPath, "identity.cert")
-		setupCfg.HCIdentity.KeyPath = filepath.Join(hcPath, "identity.key")
-	}
+	setupCfg.HCCA.CertPath = filepath.Join(hcPath, "ca.cert")
+	setupCfg.HCCA.KeyPath = filepath.Join(hcPath, "ca.key")
+	setupCfg.HCIdentity.CertPath = filepath.Join(hcPath, "identity.cert")
+	setupCfg.HCIdentity.KeyPath = filepath.Join(hcPath, "identity.key")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.HCCA, setupCfg.HCIdentity)
 	if err != nil {
 		return err
@@ -78,19 +76,21 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		farmerCA := provider.CASetupConfig{
-			CertPath: filepath.Join(farmerPath, "ca.cert"),
-			KeyPath:  filepath.Join(farmerPath, "ca.key"),
+			CertPath:    filepath.Join(farmerPath, "ca.cert"),
+			KeyPath:     filepath.Join(farmerPath, "ca.key"),
+			Difficulty:  setupCfg.FarmerCA.Difficulty,
+			Timeout:     setupCfg.FarmerCA.Timeout,
+			Overwrite:   setupCfg.FarmerCA.Overwrite,
+			Concurrency: setupCfg.FarmerCA.Concurrency,
 		}
 		farmerIdentity := provider.IdentitySetupConfig{
 			CertPath: filepath.Join(farmerPath, "identity.cert"),
 			KeyPath:  filepath.Join(farmerPath, "identity.key"),
 		}
-		if setupCfg.BasePath != defaultConfDir {
-			farmerCA.CertPath = filepath.Join(farmerPath, "ca.cert")
-			farmerCA.KeyPath = filepath.Join(farmerPath, "ca.key")
-			farmerIdentity.CertPath = filepath.Join(farmerPath, "identity.cert")
-			farmerIdentity.KeyPath = filepath.Join(farmerPath, "identity.key")
-		}
+		farmerCA.CertPath = filepath.Join(farmerPath, "ca.cert")
+		farmerCA.KeyPath = filepath.Join(farmerPath, "ca.key")
+		farmerIdentity.CertPath = filepath.Join(farmerPath, "identity.cert")
+		farmerIdentity.KeyPath = filepath.Join(farmerPath, "identity.key")
 		err := provider.SetupIdentity(process.Ctx(cmd), farmerCA, farmerIdentity)
 		if err != nil {
 			return err
@@ -102,14 +102,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	// TODO: handle setting base path *and* identity file paths via args
-	// NB: if base path is set this overrides identity and CA path options
-	if setupCfg.BasePath != defaultConfDir {
-		setupCfg.GWCA.CertPath = filepath.Join(gwPath, "ca.cert")
-		setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
-		setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
-		setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
-	}
+	setupCfg.GWCA.CertPath = filepath.Join(gwPath, "ca.cert")
+	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
+	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
+	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
 	if err != nil {
 		return err
