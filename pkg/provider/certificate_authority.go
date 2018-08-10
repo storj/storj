@@ -173,6 +173,7 @@ func (ca FullCertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
 	}
 
 	return &FullIdentity{
+		CA: ca.Cert,
 		Leaf: l,
 		Key:  k,
 		ID:   ca.ID,
