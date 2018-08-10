@@ -98,7 +98,7 @@ func TestGet(t *testing.T) {
 
 	// here we are expecting an error for an empty file
 	assert.Nil(t, getRes)
-	assert.Error(t, err)
+	assert.True(t, storage.ErrKeyNotFound.Has(err))
 }
 
 func TestDelete(t *testing.T) {
