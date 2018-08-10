@@ -390,7 +390,6 @@ func TestMockPut(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	t.Skip()
 	for _, c := range refreshCases {
 		t.Run(c.testID, func(t *testing.T) {
 			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "3000")
