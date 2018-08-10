@@ -297,6 +297,9 @@ func convertMeta(pr *ppb.Pointer) Meta {
 
 // convertTime converts gRPC timestamp to Go time
 func convertTime(ts *timestamp.Timestamp) time.Time {
+	if ts == nil {
+		return time.Time{}
+	}
 	t, err := ptypes.Timestamp(ts)
 	if err != nil {
 		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
