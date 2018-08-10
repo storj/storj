@@ -71,7 +71,7 @@ aws s3 --endpoint=http://localhost:7777/ presign s3://bucket/your-large-file.mp4
 For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
 
 
-# Start Contibuting to Storj
+# Start Contributing to Storj
 
 ### Install required packages
 
