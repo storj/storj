@@ -17,7 +17,8 @@ Storj is a platform, token, and suite of decentralized applications that allows 
 ### Download the latest release
 
 Go here to download the latest build
-// Todo: add link when a build is released
+// TODO: add link when a build is released
+// TODO for how to run the release
 
 ### Configure AWS CLI
 
