@@ -17,6 +17,7 @@ Storj is a platform, token, and suite of decentralized applications that allows 
 ### Download the latest release
 
 Go here to download the latest build
+// Todo: add link when a build is released
 
 ### Configure AWS CLI
 
@@ -47,13 +48,20 @@ $ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3:/
 $ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/your-large-file.mp4 ~/Desktop/your-large-file.mp4
 ```
 
-### Listing objects
+### List Objects
 
 ```bash
 aws s3 --endpoint=http://localhost:7777/ ls s3://bucket/ --recursive
 ```
 
-### Generating a URL for an Object
+
+### Delete Objects in a Bucket
+
+```bash
+aws s3 --endpoint=http://localhost:7777/ rm --recursive  s3://bucket/
+```
+
+### Generate a URL for an Object
 
 ```bash
 aws s3 --endpoint=http://localhost:7777/ presign s3://bucket/your-large-file.mp4
@@ -66,7 +74,7 @@ For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli
 
 ### Install required packages
 
-First of all, install `git` and `golang`.
+First, install git and golang. We currently support Debian-based and Mac operating systems
 
 #### Debian based (like Ubuntu)
 
