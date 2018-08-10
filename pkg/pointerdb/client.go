@@ -21,7 +21,7 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	grpcClient pb.PointerDBClient
-	APIKey []byte
+	APIKey     []byte
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -52,7 +52,7 @@ func NewClient(address string, APIKey []byte) (*PointerDB, error) {
 	}
 	return &PointerDB{
 		grpcClient: c,
-		APIKey: APIKey,
+		APIKey:     APIKey,
 	}, nil
 }
 

@@ -34,12 +34,11 @@ var (
 
 	runCfg   miniogw.Config
 	setupCfg struct {
+		CA          provider.CASetupConfig
+		Identity    provider.IdentitySetupConfig
 		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
 		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
-		CA          provider.CAConfig
-		Identity    provider.IdentityConfig
-		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
-
+		Overwrite   bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
 	defaultConfDir = "$HOME/.storj/gw"
@@ -68,13 +67,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// Load or create a certificate authority
-	ca, err := setupCfg.CA.LoadOrCreate(nil, 4)
-	if err != nil {
-		return err
+	// TODO: handle setting base path *and* identity file paths via args
+	// NB: if base path is set this overwrites identity and CA path options
+	if setupCfg.BasePath != defaultConfDir {
+		provider.SetupIdentityPaths(
+			setupCfg.BasePath,
+			&setupCfg.CA,
+			&setupCfg.Identity,
+		)
 	}
-	// Load or create identity from CA
-	_, err = setupCfg.Identity.LoadOrCreate(ca)
+	o, err := provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}

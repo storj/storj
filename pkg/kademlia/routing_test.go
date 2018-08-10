@@ -109,7 +109,7 @@ func TestSetBucketTimestamp(t *testing.T) {
 	idStr := string(id)
 	rt := createRT(id)
 	now := time.Now().UTC()
-	
+
 	err := rt.createOrUpdateKBucket(id, now)
 	assert.NoError(t, err)
 	ti, err := rt.GetBucketTimestamp(idStr, nil)

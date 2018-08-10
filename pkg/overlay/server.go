@@ -70,7 +70,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 	}
 
 	if len(result) < int(maxNodes) {
-		fmt.Printf("result %v",result)
+		fmt.Printf("result %v", result)
 		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 

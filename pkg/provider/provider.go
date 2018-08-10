@@ -7,11 +7,13 @@ import (
 	"context"
 	"net"
 	"path/filepath"
+	"time"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"time"
 )
+
 var (
 	ErrSetup = errs.Class("setup error")
 )
@@ -77,7 +79,7 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 			return nil, err
 		}
 
-		if s := i.Stat(); s == NoCertNoKey || c.Overwrite {
+		if s := i.Stat(); s == NoCertNoKey || i.Overwrite {
 			// Create identity from new CA
 			_, err = i.Create(ca)
 			if err != nil {
