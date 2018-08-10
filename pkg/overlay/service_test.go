@@ -28,7 +28,7 @@ func TestNewServer(t *testing.T) {
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	grpcServer := grpc.NewServer(opts...)
-proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
+	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
 
 	return grpcServer
 }
