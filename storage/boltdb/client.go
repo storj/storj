@@ -74,6 +74,10 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
+		if len(v) == 0 {
+			return Error.New("This file does not exist")
+		}
+
 		pointerBytes = v
 		return nil
 	})
