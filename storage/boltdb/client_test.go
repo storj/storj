@@ -95,7 +95,7 @@ func TestGet(t *testing.T) {
 
 	// tests Get non-existent path
 	getRes, err := bt.c.Get([]byte("fake/path"))
-	
+
 	// here we are expecting an error for an empty file
 	assert.Nil(t, getRes)
 	assert.Error(t, err)
