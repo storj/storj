@@ -212,10 +212,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = s.storj.bs.Put(ctx, bucket)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
