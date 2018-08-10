@@ -136,19 +136,19 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	for i := 0; i < len(runCfg.Farmers); i++ {
-		basepath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		farmerPath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
 		farmer := fmt.Sprintf("farmers.%02d.", i)
 		overrides[farmer+"identity.cert-path"] = filepath.Join(
-			basepath, "ident.leaf.cert")
+			farmerPath, "identity.cert")
 		overrides[farmer+"identity.key-path"] = filepath.Join(
-			basepath, "ident.leaf.key")
+			farmerPath, "identity.key")
 		overrides[farmer+"identity.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
 		overrides[farmer+"kademlia.todo-listen-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+4)
 		overrides[farmer+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
-		overrides[farmer+"storage.path"] = filepath.Join(basepath, "data")
+		overrides[farmer+"storage.path"] = filepath.Join(farmerPath, "data")
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
