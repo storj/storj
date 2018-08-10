@@ -29,17 +29,13 @@ var (
 )
 
 func TestGetObject(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
-	mockOS := NewMockStore(mockObjCtrl)
-	bs := buckets.BucketStore{O: mockOS}
+	mockOS := NewMockStore(ctrl)
 
 	storjObj := storjObjects{storj: &b}
 
@@ -69,7 +65,7 @@ func TestGetObject(t *testing.T) {
 
 		rr := ranger.NopCloser(r)
 
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, example.err).Times(1)
 		mockOS.EXPECT().Get(gomock.Any(), paths.New(example.object)).Return(rr, meta, example.err).Times(1)
 
 		var buf1 bytes.Buffer
@@ -86,17 +82,13 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
-	mockOS := NewMockStore(mockObjCtrl)
-	bs := buckets.BucketStore{O: mockOS}
+	mockOS := NewMockStore(ctrl)
 
 	storjObj := storjObjects{storj: &b}
 
@@ -112,7 +104,7 @@ func TestDeleteObject(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, example.err).Times(1)
 		mockOS.EXPECT().Delete(gomock.Any(), paths.New(example.object)).Return(example.err).Times(1)
 
 		err := storjObj.DeleteObject(ctx, example.bucket, example.object)
@@ -139,17 +131,13 @@ func checksumGen(length int) string {
 }
 
 func TestPutObject(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
-	mockOS := NewMockStore(mockObjCtrl)
-	bs := buckets.BucketStore{O: mockOS}
+	mockOS := NewMockStore(ctrl)
 
 	storjObj := storjObjects{storj: &b}
 
@@ -200,7 +188,7 @@ func TestPutObject(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, example.err).Times(1)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, example.err).Times(1)
 		/* for valid io.reader only */
 		mockOS.EXPECT().Put(gomock.Any(), paths.New(example.object), r, serMetaInfo, example.Expiration).Return(meta1, example.err).Times(1)
 		objInfo, err := storjObj.PutObject(ctx, example.bucket, example.object, r, metadata)
@@ -217,17 +205,13 @@ func TestPutObject(t *testing.T) {
 }
 
 func TestGetObjectInfo(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
-	mockOS := NewMockStore(mockObjCtrl)
-	bs := buckets.BucketStore{O: mockOS}
+	mockOS := NewMockStore(ctrl)
 
 	storjObj := storjObjects{storj: &b}
 
@@ -274,7 +258,7 @@ func TestGetObjectInfo(t *testing.T) {
 			Checksum:         example.Checksum,
 		}
 
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, nil).Times(1)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil).Times(1)
 		mockOS.EXPECT().Meta(gomock.Any(), paths.New(example.object)).Return(meta1, example.err).Times(1)
 
 		objInfo, err := storjObj.GetObjectInfo(ctx, example.bucket, example.object)
@@ -291,17 +275,13 @@ func TestGetObjectInfo(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
-	mockOS := NewMockStore(mockObjCtrl)
-	bs := buckets.BucketStore{O: mockOS}
+	mockOS := NewMockStore(ctrl)
 
 	storjObj := storjObjects{storj: &b}
 
@@ -366,7 +346,7 @@ func TestListObjects(t *testing.T) {
 		// initialize the necessary mock's argument
 		startAfter := paths.New(example.marker)
 
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(bs.O, nil).Times(1)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil).Times(1)
 		mockOS.EXPECT().List(gomock.Any(), paths.New(example.prefix),
 			startAfter, nil, example.recursive, example.maxKeys, example.metaFlags).Return(items, example.more, example.err).Times(1)
 
@@ -386,13 +366,10 @@ func TestListObjects(t *testing.T) {
 }
 
 func TestDeleteBucket(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
 	storjObj := storjObjects{storj: &b}
@@ -415,13 +392,10 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestGetBucketInfo(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
 	storjObj := storjObjects{storj: &b}
@@ -448,13 +422,10 @@ func TestGetBucketInfo(t *testing.T) {
 }
 
 func TestMakeBucketWithLocation(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockObjCtrl := gomock.NewController(t)
-	defer mockObjCtrl.Finish()
-
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
 	storjObj := storjObjects{storj: &b}
@@ -481,10 +452,10 @@ func TestMakeBucketWithLocation(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	mockBucketCtrl := gomock.NewController(t)
-	defer mockBucketCtrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	mockBS := mock_buckets.NewMockStore(mockBucketCtrl)
+	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
 	storjObj := storjObjects{storj: &b}

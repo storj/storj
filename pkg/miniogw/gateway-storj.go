@@ -59,11 +59,7 @@ type storjObjects struct {
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = s.storj.bs.Delete(ctx, bucket)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.storj.bs.Delete(ctx, bucket)
 }
 
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
@@ -154,10 +150,10 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 		}
 		startAfter = moreItems[len(moreItems)-1].Bucket
 	}
-	b := make([]minio.BucketInfo, len(items))
+	bucketItems = make([]minio.BucketInfo, len(items))
 	for i, item := range items {
-		b[i].Name = item.Bucket
-		b[i].Created = item.Meta.Created
+		bucketItems[i].Name = item.Bucket
+		bucketItems[i].Created = item.Meta.Created
 	}
 	return bucketItems, err
 }
