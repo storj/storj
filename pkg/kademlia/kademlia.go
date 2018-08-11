@@ -109,15 +109,15 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 	for _, r := range restrictions {
 		nodes = restrict(r, nodes)
 	}
-
+	fmt.Printf("get nodes length %v\n", len(nodes))
 	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return RouteTable{
-		ht:  k.dht.HT,
-		dht: k.dht,
+	return &RoutingTable{
+		// ht:  k.dht.HT,
+		// dht: k.dht,
 	}, nil
 
 }

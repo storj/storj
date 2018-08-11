@@ -38,13 +38,13 @@ func cleanup(s *Server, id string) error {
 
 // Store -- Store incoming data using piecestore
 func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
-	log.Println("Storing data...")
-
 	// Receive initial meta data about what's being stored
 	piece, err := stream.Recv()
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Storing %s...", piece.Id)
 
 	// If we put in the database first then that checks if the data already exists
 	if err = s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
@@ -78,14 +78,14 @@ func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
 		return err
 	}
 
-	log.Println("Successfully stored data.")
+	log.Printf("Successfully stored %s.", piece.Id)
 
 	return stream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
 }
 
 // Retrieve -- Retrieve data from piecestore and send to client
 func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
-	log.Println("Retrieving data...")
+	log.Printf("Retrieving %s...", pieceMeta.Id)
 
 	path, err := pstore.PathByID(pieceMeta.Id, s.PieceStoreDir)
 	if err != nil {
@@ -121,13 +121,13 @@ func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRout
 		return err
 	}
 
-	log.Println("Successfully retrieved data.")
+	log.Printf("Successfully retrieved %s.", pieceMeta.Id)
 	return nil
 }
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Println("Getting Meta data...")
+	log.Printf("Getting Meta for %s...", in.Id)
 
 	path, err := pstore.PathByID(in.Id, s.PieceStoreDir)
 	if err != nil {
@@ -145,18 +145,18 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Println("Meta data retrieved.")
+	log.Printf("Successfully retrieved meta for %s.", in.Id)
 	return &pb.PieceSummary{Id: in.Id, Size: fileInfo.Size(), Expiration: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Println("Deleting data...")
+	log.Printf("Deleting %s...", in.Id)
 
 	if err := cleanup(s, in.Id); err != nil {
 		return nil, err
 	}
 
-	log.Println("Successfully deleted data.")
+	log.Printf("Successfully deleted %s.", in.Id)
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }

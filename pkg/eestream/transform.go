@@ -92,12 +92,12 @@ func (t *transformedReader) Close() error {
 }
 
 type transformedRanger struct {
-	rr ranger.Ranger
+	rr ranger.RangeCloser
 	t  Transformer
 }
 
 // Transform will apply a Transformer to a Ranger.
-func Transform(rr ranger.Ranger, t Transformer) (ranger.Ranger, error) {
+func Transform(rr ranger.RangeCloser, t Transformer) (ranger.RangeCloser, error) {
 	if rr.Size()%int64(t.InBlockSize()) != 0 {
 		return nil, Error.New("invalid transformer and range reader combination." +
 			"the range reader size is not a multiple of the block size")
@@ -158,4 +158,8 @@ func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (io
 	}
 	// the range might have been too long. only return what was requested
 	return readcloser.LimitReadCloser(tr, length), nil
+}
+
+func (t *transformedRanger) Close() error {
+	return t.rr.Close()
 }

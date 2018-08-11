@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,7 +27,8 @@ var (
 // Config is a configuration struct for everything you need to start the
 // Overlay cache responsibility.
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
+	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
+	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 }
 
 // Run implements the provider.Responsibility interface. Run assumes a
@@ -72,11 +74,23 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
+	ticker := time.NewTicker(time.Duration(c.RefreshInterval))
+	defer ticker.Stop()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	go func() {
-		// TODO(jt): should there be a for loop here?
-		err := cache.Refresh(ctx)
-		if err != nil {
-			zap.S().Fatal("cache refreshes stopped", zap.Error(err))
+		for {
+			select {
+			case <-ticker.C:
+				err := cache.Refresh(ctx)
+				if err != nil {
+					zap.S().Error("Error with cache refresh: ", err)
+				}
+			case <- ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -88,15 +102,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		logger:  zap.L(),
 		metrics: monkit.Default,
 	})
-
-	go func() {
-		// TODO(jt): should there be a for loop here?
-		// TODO(jt): how is this different from Refresh?
-		err := cache.Walk(ctx)
-		if err != nil {
-			zap.S().Fatal("cache walking stopped", zap.Error(err))
-		}
-	}()
 
 	return server.Run(ctx)
 }

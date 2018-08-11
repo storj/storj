@@ -23,6 +23,7 @@ type Config struct {
 	BasePath     string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost   string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	Overwrite    bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
 var (
@@ -42,13 +43,19 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	_, err = os.Stat(setupCfg.BasePath)
+	if !setupCfg.Overwrite && err == nil {
+		fmt.Println("A captplanet configuration already exists. Rerun with --overwrite")
+		return nil
+	}
+
 	hcPath := filepath.Join(setupCfg.BasePath, "hc")
 	err = os.MkdirAll(hcPath, 0700)
 	if err != nil {
 		return err
 	}
 	identPath := filepath.Join(hcPath, "ident")
-	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 	if err != nil {
 		return err
 	}
@@ -60,7 +67,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		identPath = filepath.Join(farmerPath, "ident")
-		_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+		_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 		if err != nil {
 			return err
 		}
@@ -72,7 +79,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	identPath = filepath.Join(gwPath, "ident")
-	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, false)
+	_, err = peertls.NewTLSFileOptions(identPath, identPath, true, true)
 	if err != nil {
 		return err
 	}

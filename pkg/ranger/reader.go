@@ -59,6 +59,11 @@ func (b ByteRanger) Range(ctx context.Context, offset, length int64) (io.ReadClo
 	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length])), nil
 }
 
+// ByteRangeCloser turns a byte slice into a RangeCloser
+func ByteRangeCloser(data []byte) RangeCloser {
+	return NopCloser(ByteRanger(data))
+}
+
 type concatReader struct {
 	r1 Ranger
 	r2 Ranger
@@ -107,12 +112,12 @@ func Concat(r ...Ranger) Ranger {
 }
 
 type subrange struct {
-	r              Ranger
+	r              RangeCloser
 	offset, length int64
 }
 
 // Subrange returns a subset of a Ranger.
-func Subrange(data Ranger, offset, length int64) (Ranger, error) {
+func Subrange(data RangeCloser, offset, length int64) (RangeCloser, error) {
 	dSize := data.Size()
 	if offset < 0 || offset > dSize {
 		return nil, Error.New("invalid offset")
@@ -129,4 +134,8 @@ func (s *subrange) Size() int64 {
 
 func (s *subrange) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	return s.r.Range(ctx, offset+s.offset, length)
+}
+
+func (s *subrange) Close() error {
+	return s.r.Close()
 }
