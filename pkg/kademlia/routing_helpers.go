@@ -6,61 +6,16 @@ package kademlia
 import (
 	"bytes"
 	"math/rand"
-	"sync"
 	// "strconv"
 	// "fmt"
 	"encoding/binary"
 	"time"
 
 	pb "github.com/golang/protobuf/proto"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
-
-// RoutingErr is the class for all errors pertaining to routing table operations
-var RoutingErr = errs.Class("routing table error")
-
-// RoutingTable implements the RoutingTable interface
-type RoutingTable struct {
-	self         *proto.Node
-	kadBucketDB  storage.KeyValueStore
-	nodeBucketDB storage.KeyValueStore
-	transport    *proto.NodeTransport
-	mutex        *sync.Mutex
-	idLength     int // kbucket and node id bit length (SHA256) = 256
-	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
-}
-
-// NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *proto.Node, kpath string, npath string, idLength int, bucketSize int) (*RoutingTable, error) {
-	logger := zap.L()
-	kdb, err := boltdb.NewClient(logger, kpath, boltdb.KBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
-	}
-	ndb, err := boltdb.NewClient(logger, npath, boltdb.NodeBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
-	}
-	return &RoutingTable{
-		self:         localNode,
-		kadBucketDB:  kdb,
-		nodeBucketDB: ndb,
-		transport:    &defaultTransport,
-		mutex:        &sync.Mutex{},
-		idLength:     idLength,
-		bucketSize:   bucketSize,
-	}, nil
-}
-
-// Local returns the node that the routing table belongs to
-func (rt RoutingTable) Local() proto.Node {
-	return *rt.self
-}
 
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table

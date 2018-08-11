@@ -63,7 +63,7 @@ func (w *worker) work(ctx context.Context) error {
 }
 
 // sortByXOR: helper, quick sorts node IDs by xor from local node, smallest xor to largest
-func sortByXOR(nodeIDs [][]byte, comp []byte) [][]byte {
+func (w *worker) sortByXOR(nodeIDs [][]byte, comp []byte) [][]byte {
 	if len(nodeIDs) < 2 {
 		return nodeIDs
 	}
@@ -79,8 +79,8 @@ func sortByXOR(nodeIDs [][]byte, comp []byte) [][]byte {
 		}
 	}
 	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
-	sortByXOR(nodeIDs[:left], comp)
-	sortByXOR(nodeIDs[left+1:], comp)
+	w.sortByXOR(nodeIDs[:left], comp)
+	w.sortByXOR(nodeIDs[left+1:], comp)
 	return nodeIDs
 }
 
@@ -150,9 +150,9 @@ func (w *worker) update(nodes []*proto.Node) error {
 	}
 
 	self := []byte(w.find.GetId())
-	smapNodes := sortByXOR(mapNodes, self)
+	smapNodes := w.sortByXOR(mapNodes, self)
 	// sort all nodes returned from lookup
-	slookupNodes := sortByXOR(lookupNodes, self)
+	slookupNodes := w.sortByXOR(lookupNodes, self)
 	// update the nearest-k data structure with the results of the request, bumping nodes out of the data structure that are farther than k.
 	ll := 0
 	for i := len(smapNodes) - 1; i >= 0; {

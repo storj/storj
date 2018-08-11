@@ -88,13 +88,13 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 }
 
 // Disconnect safely closes connections to the Kademlia network
-func (k Kademlia) Disconnect() error {
+func (k *Kademlia) Disconnect() error {
 	return k.dht.Disconnect()
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
+func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
 	if start == "" {
 		start = k.dht.GetSelfID()
 	}
@@ -216,7 +216,7 @@ func (k *Kademlia) getClosest(nodes []*proto.Node) proto.Node {
 		keys = append(keys, storage.Key(v.GetId()))
 	}
 
-	keys = k.routingTable.sortByXOR(keys)
+	keys = sortByXOR(keys, []byte(k.routingTable.self.Id))
 
 	return m[string(keys[0])]
 }
@@ -232,7 +232,7 @@ func (k *Kademlia) closer(a, b *proto.Node) bool {
 	}
 
 	keys := storage.Keys{storage.Key(a.GetId()), storage.Key(b.GetId())}
-	r := k.routingTable.sortByXOR(keys)
+	r := sortByXOR(keys, []byte(k.routingTable.self.Id))
 	if string(r[0]) == a.GetId() {
 		return true
 	}
