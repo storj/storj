@@ -73,8 +73,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	identitySlice := make([]byte, 0)
-	identityMeta := Meta{}
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
@@ -84,35 +82,34 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	for !awareLimitReader.isEOF() {
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
-		segmentMetatdata := identitySlice
+
 		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData,
-			segmentMetatdata, expiration)
+			nil, expiration)
 		if err != nil {
-			return identityMeta, err
+			return Meta{}, err
 		}
 		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
 		totalSegments = totalSegments + 1
 	}
 
-	identitySegmentData := data
 	lastSegmentPath := path.Prepend("l")
 
 	md := streamspb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
-		MetaData:         metadata,
+		Metadata:         metadata,
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
 	if err != nil {
-		return identityMeta, err
+		return Meta{}, err
 	}
 
-	putMeta, err := s.segments.Put(ctx, lastSegmentPath, identitySegmentData,
+	putMeta, err := s.segments.Put(ctx, lastSegmentPath, data,
 		lastSegmentMetadata, expiration)
 	if err != nil {
-		return identityMeta, err
+		return Meta{}, err
 	}
 	totalSize = totalSize + putMeta.Size
 
