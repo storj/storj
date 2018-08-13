@@ -193,8 +193,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 
-		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy().GetMinReq(),
-			pr.GetRemote().GetRedundancy().GetTotal(), pr.GetRemote().GetRedundancy().GetErasureShareSize())
+		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
 		if err != nil {
 			return nil, Meta{}, err
 		}
@@ -210,12 +209,12 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	return rr, convertMeta(pr), nil
 }
 
-func makeErasureScheme(minReq, total, eShareSize int32) (eestream.ErasureScheme, error) {
-	fc, err := infectious.NewFEC(int(minReq), int(total))
+func makeErasureScheme(rs *ppb.RedundancyScheme) (eestream.ErasureScheme, error) {
+	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-	es := eestream.NewRSScheme(fc, int(eShareSize))
+	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
 	return es, nil
 }
 
