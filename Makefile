@@ -72,7 +72,6 @@ run-hc:
 		hc
 
 test-captplanet:
-	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	captplanet setup
 	captplanet run &
 
@@ -83,6 +82,8 @@ test-captplanet:
 
 	aws s3 --endpoint=http://localhost:7777/ cp ~/gopath/src/storj.io/storj/README.md s3://bucket/README.md
 	aws s3 --endpoint=http://localhost:7777/ ls s3://bucket
+	aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/README.md ./NEW-README.md
+	if cmp ./NEW-README.md ~/gopath/src/storj.io/storj/README.md; then echo "Downloaded file matches uploaded file"; else echo "Downloaded file does not match uploaded file"; exit 1; fi
 
 clean-local:
 	# cleanup heavy client
