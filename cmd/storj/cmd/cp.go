@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -44,22 +43,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("No destination specified")
 	}
 
-	identity, err := cpCfg.LoadIdentity()
-	if err != nil {
-		return err
-	}
-
-	gateway, err := cpCfg.NewGateway(ctx, identity)
-	if err != nil {
-		return err
-	}
-
-	credentials, err := auth.CreateCredentials(cpCfg.AccessKey, cpCfg.SecretKey)
-	if err != nil {
-		return err
-	}
-
-	storjObjects, err := gateway.NewGatewayLayer(credentials)
+	storjObjects, err := getStorjObjects(ctx, cpCfg)
 	if err != nil {
 		return err
 	}

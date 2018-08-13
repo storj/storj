@@ -6,13 +6,9 @@ package cmd
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 
-	"github.com/minio/minio/pkg/auth"
-	"github.com/minio/minio/pkg/hash"
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -36,64 +32,41 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
+	storjObjects, err := getStorjObjects(ctx, lsCfg)
+	if err != nil {
+		return err
+	}
+
 	if len(args) == 0 {
-		return errs.New("No file specified for copy")
+		bucketInfo, err := storjObjects.ListBuckets(ctx)
+		if err != nil {
+			return err
+		}
+
+		for _, bucket := range bucketInfo {
+			fmt.Println(bucket.Created, bucket.Name)
+		}
+
+		return nil
 	}
 
-	if len(args) == 1 {
-		return errs.New("No destination specified")
-	}
-
-	//TODO: actually get the proper config
-	identity, err := lsCfg.LoadIdentity()
+	dest, err := url.Parse(args[0])
 	if err != nil {
 		return err
 	}
 
-	gateway, err := lsCfg.NewGateway(ctx, identity)
+	objInfo, err := storjObjects.ListObjects(ctx, dest.Host, dest.Path, "", "", 1000)
 	if err != nil {
 		return err
 	}
 
-	credentials, err := auth.CreateCredentials(lsCfg.AccessKey, lsCfg.SecretKey)
-	if err != nil {
-		return err
+	for _, object := range objInfo.Objects {
+		fmt.Println(object.Name)
 	}
 
-	storjObjects, err := gateway.NewGatewayLayer(credentials)
-	if err != nil {
-		return err
+	for _, prefix := range objInfo.Prefixes {
+		fmt.Println(prefix)
 	}
-
-	sourceFile, err := os.Open(args[0])
-	if err != nil {
-		return err
-	}
-
-	fileInfo, err := sourceFile.Stat()
-	if err != nil {
-		return err
-	}
-
-	fileReader, err := hash.NewReader(sourceFile, fileInfo.Size(), "", "")
-	if err != nil {
-		return err
-	}
-
-	defer sourceFile.Close()
-
-	destFile, err := url.Parse(args[1])
-	if err != nil {
-		return err
-	}
-
-	objInfo, err := storjObjects.PutObject(ctx, destFile.Host, destFile.Path, fileReader, nil)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Bucket:", objInfo.Bucket)
-	fmt.Println("Object:", objInfo.Name)
 
 	return nil
 }
