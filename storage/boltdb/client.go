@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	//minio "github.com/minio/minio/cmd"
 	"go.uber.org/zap"
 
 	"storj.io/storj/storage"
@@ -62,7 +63,6 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 		if err != nil {
 			return err
 		}
-
 		return b.Put(key, value)
 	})
 }
