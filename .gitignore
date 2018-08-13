@@ -23,7 +23,7 @@ debug
 ./storj
 
 # Jetbrains
-.idea/*
+.idea/
 
 # vendor
 vendor

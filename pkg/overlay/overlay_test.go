@@ -36,7 +36,7 @@ func TestFindStorageNodes(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{Opts: &proto.OverlayOptions{Limit: 5}})
+	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{Opts: &proto.OverlayOptions{Amount: 2}})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 

@@ -57,16 +57,17 @@ type Store interface {
 }
 
 type segmentStore struct {
-	oc  overlay.Client
-	ec  ecclient.Client
-	pdb pointerdb.Client
-	rs  eestream.RedundancyStrategy
+	oc            overlay.Client
+	ec            ecclient.Client
+	pdb           pointerdb.Client
+	rs            eestream.RedundancyStrategy
+	thresholdSize int
 }
 
 // NewSegmentStore creates a new instance of segmentStore
 func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
-	pdb pointerdb.Client, rs eestream.RedundancyStrategy) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs}
+	pdb pointerdb.Client, rs eestream.RedundancyStrategy, t int) Store {
+	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 
 // Meta retrieves the metadata of the segment
@@ -74,7 +75,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -87,55 +88,48 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// uses overlay client to request a list of nodes
-	nodes, err := s.oc.Choose(ctx, s.rs.TotalCount(), 0)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	pieceID := client.NewPieceID()
-	sizedReader := SizeReader(data)
-
-	// puts file to ecclient
-	err = s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	var remotePieces []*ppb.RemotePiece
-	for i := range nodes {
-		remotePieces = append(remotePieces, &ppb.RemotePiece{
-			PieceNum: int32(i),
-			NodeId:   nodes[i].Id,
-		})
-	}
+	var p *ppb.Pointer
 
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	// creates pointer
-	pr := &ppb.Pointer{
-		Type: ppb.Pointer_REMOTE,
-		Remote: &ppb.RemoteSegment{
-			Redundancy: &ppb.RedundancyScheme{
-				Type:             ppb.RedundancyScheme_RS,
-				MinReq:           int32(s.rs.RequiredCount()),
-				Total:            int32(s.rs.TotalCount()),
-				RepairThreshold:  int32(s.rs.Min),
-				SuccessThreshold: int32(s.rs.Opt),
-			},
-			PieceId:      string(pieceID),
-			RemotePieces: remotePieces,
-		},
-		Size:           sizedReader.Size(),
-		ExpirationDate: exp,
-		Metadata:       metadata,
+	peekReader := NewPeekThresholdReader(data)
+	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
+	if err != nil {
+		return Meta{}, err
+	}
+	if !remoteSized {
+		p = &ppb.Pointer{
+			Type:           ppb.Pointer_INLINE,
+			InlineSegment:  peekReader.thresholdBuf,
+			Size:           int64(len(peekReader.thresholdBuf)),
+			ExpirationDate: exp,
+			Metadata:       metadata,
+		}
+	} else {
+		// uses overlay client to request a list of nodes
+		nodes, err := s.oc.Choose(ctx, s.rs.TotalCount(), 0)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		pieceID := client.NewPieceID()
+		sizedReader := SizeReader(peekReader)
+
+		// puts file to ecclient
+		err = s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		p, err = s.makeRemotePointer(nodes, pieceID, sizedReader.Size(), exp, metadata)
+		if err != nil {
+			return Meta{}, err
+		}
 	}
 
 	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, pr, nil)
+	err = s.pdb.Put(ctx, path, p)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -148,30 +142,61 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	return m, nil
 }
 
+// makeRemotePointer creates a pointer of type remote
+func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID, readerSize int64,
+	exp *timestamp.Timestamp, metadata []byte) (pointer *ppb.Pointer, err error) {
+	var remotePieces []*ppb.RemotePiece
+	for i := range nodes {
+		remotePieces = append(remotePieces, &ppb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   nodes[i].Id,
+		})
+	}
+
+	pointer = &ppb.Pointer{
+		Type: ppb.Pointer_REMOTE,
+		Remote: &ppb.RemoteSegment{
+			Redundancy: &ppb.RedundancyScheme{
+				Type:             ppb.RedundancyScheme_RS,
+				MinReq:           int32(s.rs.RequiredCount()),
+				Total:            int32(s.rs.TotalCount()),
+				RepairThreshold:  int32(s.rs.Min),
+				SuccessThreshold: int32(s.rs.Opt),
+			},
+			PieceId:      string(pieceID),
+			RemotePieces: remotePieces,
+		},
+		Size:           readerSize,
+		ExpirationDate: exp,
+		Metadata:       metadata,
+	}
+	return pointer, nil
+}
+
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	if pr.GetType() != ppb.Pointer_REMOTE {
-		return nil, Meta{}, Error.New("TODO: only getting remote pointers supported")
-	}
+	if pr.GetType() == ppb.Pointer_REMOTE {
+		seg := pr.GetRemote()
+		pid := client.PieceID(seg.PieceId)
+		nodes, err := s.lookupNodes(ctx, seg)
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
 
-	seg := pr.GetRemote()
-	pid := client.PieceID(seg.PieceId)
-	nodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return nil, Meta{}, Error.Wrap(err)
-	}
-
-	rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
-	if err != nil {
-		return nil, Meta{}, Error.Wrap(err)
+		rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
+	} else {
+		rr = ranger.ByteRangeCloser(pr.InlineSegment)
 	}
 
 	return rr, convertMeta(pr), nil
@@ -181,30 +206,28 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path, nil)
+	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	if pr.GetType() != ppb.Pointer_REMOTE {
-		return Error.New("TODO: only getting remote pointers supported")
-	}
+	if pr.GetType() == ppb.Pointer_REMOTE {
+		seg := pr.GetRemote()
+		pid := client.PieceID(seg.PieceId)
+		nodes, err := s.lookupNodes(ctx, seg)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 
-	seg := pr.GetRemote()
-	pid := client.PieceID(seg.PieceId)
-	nodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// ecclient sends delete request
-	err = s.ec.Delete(ctx, nodes, pid)
-	if err != nil {
-		return Error.Wrap(err)
+		// ecclient sends delete request
+		err = s.ec.Delete(ctx, nodes, pid)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	// deletes pointer from pointerdb
-	return s.pdb.Delete(ctx, path, nil)
+	return s.pdb.Delete(ctx, path)
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
@@ -230,7 +253,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	defer mon.Task()(&ctx)(&err)
 
 	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore,
-		recursive, limit, metaFlags, nil)
+		recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}

@@ -20,7 +20,7 @@ var (
 	mon   = monkit.Package()
 )
 
-//Used as kademlia key
+//CtxKey Used as kademlia key
 type CtxKey int
 
 const (

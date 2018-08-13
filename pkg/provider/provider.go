@@ -5,12 +5,16 @@ package provider
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
+	"time"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
+)
 
-	"storj.io/storj/pkg/peertls"
+var (
+	ErrSetup = errs.Class("setup error")
 )
 
 // Responsibility represents a specific gRPC method collection to be registered
@@ -33,13 +37,56 @@ type Provider struct {
 // of responsibilities.
 func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
+	// NB: talk to anyone with an identity
+	ident, err := identity.ServerOption()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: use ident
+	_ = ident
 
 	return &Provider{
-		lis:      lis,
-		g:        grpc.NewServer(),
+		lis: lis,
+		g: grpc.NewServer(
+			grpc.StreamInterceptor(streamInterceptor),
+			grpc.UnaryInterceptor(unaryInterceptor),
+			//			ident,  TODO
+		),
 		next:     responsibilities,
 		identity: identity,
 	}, nil
+}
+
+// SetupIdentity ensures a CA and identity exist and returns a config overrides map
+func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
+	if s := c.Stat(); s == NoCertNoKey || c.Overwrite {
+		t, err := time.ParseDuration(c.Timeout)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		ctx, _ = context.WithTimeout(ctx, t)
+
+		// Load or create a certificate authority
+		ca, err := c.Create(ctx, 4)
+		if err != nil {
+			return err
+		}
+
+		if s := i.Stat(); s == NoCertNoKey || i.Overwrite {
+			// Create identity from new CA
+			_, err = i.Create(ca)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		} else {
+			return ErrSetup.New("identity file(s) exist: %s", s)
+		}
+	} else {
+		return ErrSetup.New("certificate authority file(s) exist: %s", s)
+	}
 }
 
 // Identity returns the provider's identity
@@ -69,10 +116,21 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 	return p.g.Serve(p.lis)
 }
 
-// TLSConfig returns the provider's identity as a TLS Config
-func (p *Provider) TLSConfig() *tls.Config {
-	// TODO(jt): get rid of tls.Certificate
-	return (&peertls.TLSFileOptions{
-		LeafCertificate: p.identity.todoCert,
-	}).NewTLSConfig(nil)
+func streamInterceptor(srv interface{}, ss grpc.ServerStream,
+	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	err = handler(srv, ss)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return err
+}
+
+func unaryInterceptor(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+	err error) {
+	resp, err = handler(ctx, req)
+	if err != nil {
+		zap.S().Errorf("%+v", err)
+	}
+	return resp, err
 }
