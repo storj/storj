@@ -5,8 +5,9 @@
 package mock_eestream
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockErasureScheme is a mock of ErasureScheme interface

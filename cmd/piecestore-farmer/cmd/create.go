@@ -26,6 +26,7 @@ var createCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(createCmd)
 
+	// TODO@ASK: this does not create an identity
 	nodeID, err := kademlia.NewID()
 	if err != nil {
 		zap.S().Fatal(err)

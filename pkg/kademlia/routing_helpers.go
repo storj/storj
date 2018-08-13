@@ -8,8 +8,9 @@ import (
 	"math/rand"
 	// "strconv"
 	// "fmt"
-	"time"
 	"encoding/binary"
+	"time"
+
 	pb "github.com/golang/protobuf/proto"
 
 	proto "storj.io/storj/protos/overlay"
@@ -40,7 +41,7 @@ func (rt *RoutingTable) addNode(node *proto.Node) error {
 	kadBucketID, err := rt.getKBucketID(nodeKey)
 	if err != nil {
 		return RoutingErr.New("could not getKBucketID: %s", err)
-	}		
+	}
 	hasRoom, err := rt.kadBucketHasRoom(kadBucketID)
 	if err != nil {
 		return err
@@ -294,7 +295,7 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.K
 	return nil, nil
 }
 
-// getNodesFromIDs: helper, returns 
+// getNodesFromIDs: helper, returns
 func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []storage.Value, error) {
 	var nodes []storage.Value
 	for _, v := range nodeIDs {

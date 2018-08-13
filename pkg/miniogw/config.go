@@ -66,7 +66,7 @@ type Config struct {
 func (c Config) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	identity, err := c.LoadIdentity()
+	identity, err := c.Load()
 	if err != nil {
 		return err
 	}

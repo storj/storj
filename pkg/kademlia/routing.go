@@ -4,10 +4,10 @@
 package kademlia
 
 import (
-	"encoding/binary"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
-	
+
 	"sync"
 	"time"
 
@@ -68,7 +68,6 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	}
 	return rt, nil
 }
-
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() proto.Node {
@@ -137,7 +136,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	} else {
 		nearIDs = sortedIDs[1 : limit+1]
 	}
-	ids,serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}

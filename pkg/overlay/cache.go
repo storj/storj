@@ -5,8 +5,8 @@ package overlay
 
 import (
 	"context"
-	"log"
 	"crypto/rand"
+	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -139,7 +139,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			return err
 		}
 	}
-	
+
 	// TODO: Kademlia hooks to do this automatically rather than at interval
 	nodes, err := o.DHT.GetNodes(ctx, "", 128)
 	if err != nil {
@@ -156,7 +156,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	
+
 	}
 
 	return err

@@ -88,7 +88,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 				if err != nil {
 					zap.S().Error("Error with cache refresh: ", err)
 				}
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
