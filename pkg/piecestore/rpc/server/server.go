@@ -107,7 +107,7 @@ func (s *Server) Start(ctx context.Context) (err error) {
 		return err
 	}
 
-	defer utils.Close(lis)
+	defer utils.LogClose(lis)
 
 	// create a gRPC server object
 	grpcServer := grpc.NewServer()

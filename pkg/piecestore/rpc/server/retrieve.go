@@ -74,7 +74,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		return 0, 0, err
 	}
 
-	defer utils.Close(storeFile)
+	defer utils.LogClose(storeFile)
 
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager()

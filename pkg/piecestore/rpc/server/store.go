@@ -72,7 +72,7 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 		return 0, err
 	}
 
-	defer utils.Close(storeFile)
+	defer utils.LogClose(storeFile)
 
 	reader := NewStreamReader(s, stream)
 	total, err = io.Copy(storeFile, reader)
