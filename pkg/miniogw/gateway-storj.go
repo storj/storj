@@ -60,11 +60,17 @@ type storjObjects struct {
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	_, err = s.storj.bs.Get(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	// TODO(nat): check that the bucket exists first.
+	// If not, then return minio.BucketNotFound.
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return err
 	}
-	items, _, err := o.List(ctx, paths.New(bucket), nil, nil, true, 1, meta.None)
+	items, _, err := o.List(ctx, nil, nil, nil, true, 1, meta.None)
 	if err != nil {
 		return err
 	}
@@ -222,6 +228,13 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	_, err = s.storj.bs.Get(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	// TODO(nat): get fix from #216 so this will
+	// return an error if the bucket is already
+	// there; need to return minio.BucketAlreadyExists
 	_, err = s.storj.bs.Put(ctx, bucket)
 	return err
 }

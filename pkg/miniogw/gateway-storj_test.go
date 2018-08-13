@@ -341,6 +341,8 @@ func TestDeleteBucket(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
+		// TODO(nat): add test for if bucket doesn't exist
+		mockBS.EXPECT().Get(gomock.Any(), gomock.Any())
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
 		mockOS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(example.items, false, example.err)
@@ -410,6 +412,8 @@ func TestMakeBucketWithLocation(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
+		// TODO(nat): add tests for if bucket already exists
+		mockBS.EXPECT().Get(gomock.Any(), gomock.Any())
 		mockBS.EXPECT().Put(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, example.err)
 
 		err := storjObj.MakeBucketWithLocation(ctx, example.bucket, "location")
