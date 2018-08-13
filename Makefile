@@ -71,6 +71,19 @@ run-hc:
 		-e OVERLAY_PORT=7070 \
 		hc
 
+test-captplanet:
+	echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+	captplanet setup
+	captplanet run &
+
+	aws configure set aws_access_key_id insecure-dev-access-key
+	aws configure set aws_secret_access_key insecure-dev-secret-key
+	aws configure set default.region us-east-1
+	aws configure set default.s3.multipart_threshold 1TB
+
+	aws s3 --endpoint=http://localhost:7777/ cp ~/gopath/src/storj.io/storj/README.md s3://bucket/README.md
+	aws s3 --endpoint=http://localhost:7777/ ls s3://bucket
+
 clean-local:
 	# cleanup heavy client
 	docker stop hc || true
