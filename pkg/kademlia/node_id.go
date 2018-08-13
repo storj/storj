@@ -24,6 +24,7 @@ func StringToNodeID(s string) *NodeID {
 	return &n
 }
 
+// TODO@ASK: this should be removed; superseded by `CASetupConfig.Create` / `IdentitySetupConfig.Create`
 // NewID returns a pointer to a newly intialized NodeID
 func NewID() (*NodeID, error) {
 	b, err := newID()

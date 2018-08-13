@@ -81,7 +81,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				runCfg.Farmers[i].Kademlia,
 				runCfg.Farmers[i].Storage)
 		}(i)
-		identity, err := runCfg.Farmers[i].Identity.LoadIdentity()
+		identity, err := runCfg.Farmers[i].Identity.Load()
 		if err != nil {
 			return err
 		}

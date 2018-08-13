@@ -6,16 +6,12 @@ package overlay
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/peertls"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
@@ -30,118 +26,11 @@ func TestNewServer(t *testing.T) {
 	srv.Stop()
 }
 
-func TestNewClient_CreateTLS(t *testing.T) {
-	var err error
-
-	tmpPath, err := ioutil.TempDir("", "TestNewClient")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpPath)
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-
-	basePath := filepath.Join(tmpPath, "TestNewClient_CreateTLS")
-	srv, tlsOpts := newMockTLSServer(t, basePath, true)
-	go srv.Serve(lis)
-	defer srv.Stop()
-
-	address := lis.Addr().String()
-	c, err := NewClient(address, tlsOpts.DialOption())
-	assert.NoError(t, err)
-
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
-}
-
-func TestNewClient_LoadTLS(t *testing.T) {
-	var err error
-
-	tmpPath, err := ioutil.TempDir("", "TestNewClient")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpPath)
-
-	basePath := filepath.Join(tmpPath, "TestNewClient_LoadTLS")
-	_, err = peertls.NewTLSFileOptions(
-		basePath,
-		basePath,
-		true,
-		false,
-	)
-
-	assert.NoError(t, err)
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-	// NB: do NOT create a cert, it should be loaded from disk
-	srv, tlsOpts := newMockTLSServer(t, basePath, false)
-
-	go srv.Serve(lis)
-	defer srv.Stop()
-
-	address := lis.Addr().String()
-	c, err := NewClient(address, tlsOpts.DialOption())
-	assert.NoError(t, err)
-
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
-}
-
-func TestNewClient_IndependentTLS(t *testing.T) {
-	var err error
-
-	tmpPath, err := ioutil.TempDir("", "TestNewClient_IndependentTLS")
-	assert.NoError(t, err)
-	defer os.RemoveAll(tmpPath)
-
-	clientBasePath := filepath.Join(tmpPath, "client")
-	serverBasePath := filepath.Join(tmpPath, "server")
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
-	assert.NoError(t, err)
-	srv, _ := newMockTLSServer(t, serverBasePath, true)
-
-	go srv.Serve(lis)
-	defer srv.Stop()
-
-	clientTLSOps, err := peertls.NewTLSFileOptions(
-		clientBasePath,
-		clientBasePath,
-		true,
-		false,
-	)
-
-	assert.NoError(t, err)
-
-	address := lis.Addr().String()
-	c, err := NewClient(address, clientTLSOps.DialOption())
-	assert.NoError(t, err)
-
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{})
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
-}
-
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	grpcServer := grpc.NewServer(opts...)
 	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
 
 	return grpcServer
-}
-
-func newMockTLSServer(t *testing.T, tlsBasePath string, create bool) (*grpc.Server, *peertls.TLSFileOptions) {
-	tlsOpts, err := peertls.NewTLSFileOptions(
-		tlsBasePath,
-		tlsBasePath,
-		create,
-		false,
-	)
-	assert.NoError(t, err)
-	assert.NotNil(t, tlsOpts)
-
-	grpcServer := newMockServer(tlsOpts.ServerOption())
-	return grpcServer, tlsOpts
 }
 
 type MockOverlay struct{}
@@ -152,53 +41,6 @@ func (o *MockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStora
 
 func (o *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
 	return &proto.LookupResponse{}, nil
-}
-
-func TestNewTLSServer_Fails(t *testing.T) {
-	server, err := NewTLSServer(nil, nil, nil, nil, peertls.TLSFileOptions{})
-
-	assert.Error(t, err)
-	assert.NotNil(t, err)
-	assert.Nil(t, server)
-}
-
-func TestNewTLSServer(t *testing.T) {
-	opts, tempPath := newTLSFileOptions(t)
-
-	defer os.RemoveAll(tempPath)
-
-	server, err := NewTLSServer(nil, nil, nil, nil, *opts)
-
-	assert.NotNil(t, server)
-	assert.NoError(t, err)
-}
-
-func TestNewTLSClient_Fails(t *testing.T) {
-	address := "127.0.0.1:15550"
-
-	client, err := NewTLSClient(&address, peertls.TLSFileOptions{}, nil)
-
-	assert.Error(t, err)
-	assert.NotNil(t, err)
-	assert.Nil(t, client)
-}
-
-func newTLSFileOptions(t *testing.T) (*peertls.TLSFileOptions, string) {
-	tempPath, err := ioutil.TempDir("", "TestNewPeerTLS")
-	assert.NoError(t, err)
-
-	basePath := filepath.Join(tempPath, "TestNewPeerTLS")
-
-	opts, err := peertls.NewTLSFileOptions(
-		basePath,
-		basePath,
-		true,
-		true,
-	)
-
-	assert.NoError(t, err)
-
-	return opts, tempPath
 }
 
 func TestNewServerNilArgs(t *testing.T) {
