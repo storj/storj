@@ -4,12 +4,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/telemetry"
@@ -20,10 +18,15 @@ var (
 )
 
 func main() {
-	process.Must(process.Main(func() (*viper.Viper, error) { return nil, nil }, process.ServiceFunc(run)))
+	process.Exec(&cobra.Command{
+		Use:   "metric-receiver",
+		Short: "receive metrics",
+		RunE:  run,
+	})
 }
 
-func run(ctx context.Context, _ *cobra.Command, _ []string) error {
+func run(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	s, err := telemetry.Listen(*addr)
 	if err != nil {
 		return err

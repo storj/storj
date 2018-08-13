@@ -5,14 +5,12 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 
@@ -22,7 +20,7 @@ import (
 
 var argError = errs.Class("argError")
 
-func run(ctx context.Context, _ *cobra.Command, _ []string) error {
+func run(_ *cobra.Command, args []string) error {
 	app := cli.NewApp()
 
 	app.Name = "Piece Store CLI"
@@ -142,9 +140,13 @@ func run(ctx context.Context, _ *cobra.Command, _ []string) error {
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	return app.Run(append([]string{os.Args[0]}, flag.Args()...))
+	return app.Run(append([]string{os.Args[0]}, args...))
 }
 
 func main() {
-	process.Must(process.Main(func() (*viper.Viper, error) { return nil, nil }, process.ServiceFunc(run)))
+	process.Exec(&cobra.Command{
+		Use:   "piecestore-cli",
+		Short: "piecestore example cli",
+		RunE:  run,
+	})
 }
