@@ -6,8 +6,9 @@ package mock_pointerdb
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 	paths "storj.io/storj/pkg/paths"
 	pointerdb "storj.io/storj/pkg/pointerdb"
 	pointerdb0 "storj.io/storj/protos/pointerdb"

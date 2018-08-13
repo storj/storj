@@ -6,8 +6,9 @@ package mock_overlay
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 	dht "storj.io/storj/pkg/dht"
 	overlay "storj.io/storj/protos/overlay"
 )

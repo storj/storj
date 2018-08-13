@@ -66,7 +66,7 @@ type Config struct {
 func (c Config) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	identity, err := c.LoadIdentity()
+	identity, err := c.Load()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (c Config) NewGateway(ctx context.Context,
 	}
 
 	// TODO(jt): remove this!
-	// oc = GlobalMockOverlay
+	oc = GlobalMockOverlay
 
 	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the

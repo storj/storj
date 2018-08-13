@@ -5,6 +5,7 @@ package utils
 
 import (
 	"io"
+	"os"
 
 	"go.uber.org/zap"
 )
@@ -35,10 +36,15 @@ func (rs *ReaderSource) Read(p []byte) (n int, err error) {
 	return n, rs.err
 }
 
-// Close something in a defer for errcheck
-func Close(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		zap.S().Error(err)
+// LogClose closes an io.Closer, logging the error if there is one that isn't
+// os.ErrClosed
+func LogClose(fh io.Closer) {
+	err := fh.Close()
+	if err == nil || err == os.ErrClosed {
+		return
 	}
+	if perr, ok := err.(*os.PathError); ok && perr.Err == os.ErrClosed {
+		return
+	}
+	zap.S().Errorf("Failed to close file: %s", err)
 }
