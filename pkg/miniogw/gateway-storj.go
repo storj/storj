@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/storage"
-	//"storj.io/storj/storage"
 )
 
 var (
@@ -130,12 +129,6 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 		UserDefined: m.UserDefined,
 	}, err
 }
-
-// func (s *storjObjects) GetObjectInfoError(ctx context.Context, bucket, object string) (objNotFound minio.ObjectNotFound, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	return minio.ObjectNotFound{Bucket: bucket, Object: object}, nil
-// }
 
 func (s *storjObjects) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {

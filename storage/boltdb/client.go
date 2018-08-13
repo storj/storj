@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	//minio "github.com/minio/minio/cmd"
 	"go.uber.org/zap"
 
 	"storj.io/storj/storage"
