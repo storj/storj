@@ -319,25 +319,41 @@ func TestDeleteBucket(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	mockOS := NewMockStore(ctrl)
 	mockBS := mock_buckets.NewMockStore(ctrl)
 	b := Storj{bs: mockBS}
 
 	storjObj := storjObjects{storj: &b}
 
+	itemsInBucket := make([]objects.ListItem, 1)
+	itemsInBucket[0] = objects.ListItem{Path: paths.New("path1"), Meta: objects.Meta{}}
+
+	var noItemsInBucket []objects.ListItem
+
 	for i, example := range []struct {
 		bucket    string
+		items     []objects.ListItem
 		err       error
 		errString string
 	}{
-		// happy scenario
-		{"mybucket", nil, ""},
+		{"mybucket", noItemsInBucket, nil, ""},
+		{"mybucket", itemsInBucket, minio.BucketNotEmpty{Bucket: "mybucket"}, "Bucket not empty: mybucket"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		mockBS.EXPECT().Delete(gomock.Any(), example.bucket).Return(example.err)
+		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
+		mockOS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any()).Return(example.items, false, example.err)
+		if len(example.items) == 0 {
+			mockBS.EXPECT().Delete(gomock.Any(), example.bucket).Return(example.err)
+		}
 
 		err := storjObj.DeleteBucket(ctx, example.bucket)
-		assert.NoError(t, err, errTag)
+		if err != nil {
+			assert.EqualError(t, err, example.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+		}
 	}
 }
 
