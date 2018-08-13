@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	IdentityLength = uint16(256)
+	IdentityLength = uint16(256 / 8) // 256 bits
 )
 
 var (
