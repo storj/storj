@@ -38,18 +38,20 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
-	s, err := identity.ServerOption()
+	ident, err := identity.ServerOption()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Provider{
+	// TODO: use ident
+	_ = ident
 
+	return &Provider{
 		lis: lis,
 		g: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			s,
+			//			ident,  TODO
 		),
 		next:     responsibilities,
 		identity: identity,

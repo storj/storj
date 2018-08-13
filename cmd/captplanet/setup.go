@@ -64,6 +64,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.HCCA.KeyPath = filepath.Join(hcPath, "ca.key")
 	setupCfg.HCIdentity.CertPath = filepath.Join(hcPath, "identity.cert")
 	setupCfg.HCIdentity.KeyPath = filepath.Join(hcPath, "identity.key")
+	fmt.Printf("creating identity for satellite\n")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.HCCA, setupCfg.HCIdentity)
 	if err != nil {
 		return err
@@ -81,6 +82,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		farmerIdentity := setupCfg.FarmerIdentity
 		farmerIdentity.CertPath = filepath.Join(farmerPath, "identity.cert")
 		farmerIdentity.KeyPath = filepath.Join(farmerPath, "identity.key")
+		fmt.Printf("creating identity for storage node %d\n", i+1)
 		err := provider.SetupIdentity(process.Ctx(cmd), farmerCA, farmerIdentity)
 		if err != nil {
 			return err
@@ -96,6 +98,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
 	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
 	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
+	fmt.Printf("creating identity for gateway\n")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
 	if err != nil {
 		return err
