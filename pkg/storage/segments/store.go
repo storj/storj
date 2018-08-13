@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -192,7 +193,13 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 
-		rr, err = s.ec.Get(ctx, nodes, s.rs, pid, pr.GetSize())
+		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy().GetMinReq(),
+			pr.GetRemote().GetRedundancy().GetTotal(), pr.GetRemote().GetRedundancy().GetErasureShareSize())
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize())
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -201,6 +208,15 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	return rr, convertMeta(pr), nil
+}
+
+func makeErasureScheme(minReq, total, eShareSize int32) (eestream.ErasureScheme, error) {
+	fc, err := infectious.NewFEC(int(minReq), int(total))
+	if err != nil {
+		return nil, err
+	}
+	es := eestream.NewRSScheme(fc, int(eShareSize))
+	return es, nil
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
