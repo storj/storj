@@ -11,7 +11,6 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore/psservice"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -40,6 +39,8 @@ var (
 	}
 	setupCfg struct {
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		CA       provider.CASetupConfig
+		Identity provider.IdentitySetupConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/farmer"
@@ -67,19 +68,20 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	identityPath := filepath.Join(setupCfg.BasePath, "identity")
-	_, err = peertls.NewTLSFileOptions(identityPath, identityPath, true, false)
+	setupCfg.CA.CertPath = filepath.Join(setupCfg.BasePath, "ca.cert")
+	setupCfg.CA.KeyPath = filepath.Join(setupCfg.BasePath, "ca.key")
+	setupCfg.Identity.CertPath = filepath.Join(setupCfg.BasePath, "identity.cert")
+	setupCfg.Identity.KeyPath = filepath.Join(setupCfg.BasePath, "identity.key")
+
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
 	}
 
 	overrides := map[string]interface{}{
-		"identity.cert-path": filepath.Join(
-			setupCfg.BasePath, "identity.leaf.cert"),
-		"identity.key-path": filepath.Join(
-			setupCfg.BasePath, "identity.leaf.key"),
-		"storage.path": filepath.Join(
-			setupCfg.BasePath, "storage"),
+		"identity.cert-path": setupCfg.Identity.CertPath,
+		"identity.key-path":  setupCfg.Identity.KeyPath,
+		"storage.path":       filepath.Join(setupCfg.BasePath, "storage"),
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
