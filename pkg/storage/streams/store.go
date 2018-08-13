@@ -31,12 +31,12 @@ type Meta struct {
 }
 
 // toMeta converts segment metadata to stream metadata
-func toMeta(m segments.Meta) Meta {
+func toMeta(segmentMeta segments.Meta) Meta {
 	return Meta{
-		Modified:   m.Modified,
-		Expiration: m.Expiration,
-		Size:       m.Size,
-		Data:       m.Data,
+		Modified:   segmentMeta.Modified,
+		Expiration: segmentMeta.Expiration,
+		Size:       segmentMeta.Size,
+		Data:       segmentMeta.Data,
 	}
 }
 
@@ -161,6 +161,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 }
 
+// Meta implements Store.Meta
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 	segmentMeta, err := s.segments.Meta(ctx, path)
 	if err != nil {
