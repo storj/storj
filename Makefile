@@ -80,10 +80,11 @@ test-captplanet:
 	aws configure set default.region us-east-1
 	aws configure set default.s3.multipart_threshold 1TB
 
-	aws s3 --endpoint=http://localhost:7777/ cp ~/gopath/src/storj.io/storj/README.md s3://bucket/README.md
+	head -c 5120 </dev/urandom > ./upload-testfile # create 5mb file of random bytes
+	aws s3 --endpoint=http://localhost:7777/ cp ./upload-testfile s3://bucket/testfile
 	aws s3 --endpoint=http://localhost:7777/ ls s3://bucket
-	aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/README.md ./NEW-README.md
-	if cmp ./NEW-README.md ~/gopath/src/storj.io/storj/README.md; then echo "Downloaded file matches uploaded file"; else echo "Downloaded file does not match uploaded file"; exit 1; fi
+	aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/testfile ./download-testfile
+	if cmp ./upload-testfile ./download-testfile; then echo "Downloaded file matches uploaded file"; else echo "Downloaded file does not match uploaded file"; exit 1; fi
 
 clean-local:
 	# cleanup heavy client
