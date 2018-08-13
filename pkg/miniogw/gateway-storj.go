@@ -60,6 +60,17 @@ type storjObjects struct {
 
 func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	items, _, err := o.List(ctx, paths.New(bucket), nil, nil, true, 1, meta.None)
+	if err != nil {
+		return err
+	}
+	if len(items) > 0 {
+		return minio.BucketNotEmpty{Bucket: bucket}
+	}
 	return s.storj.bs.Delete(ctx, bucket)
 }
 
