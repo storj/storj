@@ -126,9 +126,6 @@ func (rt *RoutingTable) removeNode(nodeID storage.Key) error {
 
 // marshalNode: helper, sanitizes proto Node for db insertion
 func marshalNode(node proto.Node) ([]byte, error) {
-	// n := *node
-	// n.Id = "-"
-
 	node.Id = "-"
 	nodeVal, err := pb.Marshal(&node)
 	if err != nil {

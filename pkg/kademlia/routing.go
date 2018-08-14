@@ -128,16 +128,17 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 }
 
 // FindNear finds all Nodes near the provided nodeID up to the provided limit
-	//check if target is in routing table
-	//if not, add target to routing table
-	//If target cannot be added to the routing table, find near?
+// 1. check if target is in routing table, if not add target to rt
+// 1a. If target was successfully added, return target
+// 2. If target was not successfully added, return nearest k nodes to sender
+// 2a. If target is in routing table already, return target
 func (rt *RoutingTable) FindNear(sender, target *proto.Node, limit int) ([]*proto.Node, error) {
 	nodeInRT, err := rt.nodeAlreadyExists(storage.Key(target.Id))
 	if err != nil {
 		//TODO
 	}
 	if !nodeInRT {
-		rt.addNode(target)
+		err := rt.addNode(target)
 	}
 	nodes, err := rt.findNear(StringToNodeID(target.Id), rt.K())
 	if err != nil {
