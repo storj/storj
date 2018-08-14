@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/storage"
 
 	"github.com/golang/mock/gomock"
 	minio "github.com/minio/minio/cmd"
@@ -328,26 +329,31 @@ func TestDeleteBucket(t *testing.T) {
 	itemsInBucket := make([]objects.ListItem, 1)
 	itemsInBucket[0] = objects.ListItem{Path: paths.New("path1"), Meta: objects.Meta{}}
 
+	var exp time.Time
+	exp = time.Unix(0, 0).UTC()
+
 	var noItemsInBucket []objects.ListItem
 
 	for i, example := range []struct {
-		bucket    string
-		items     []objects.ListItem
-		err       error
-		errString string
+		bucket       string
+		items        []objects.ListItem
+		bucketStatus error
+		err          error
+		errString    string
 	}{
-		{"mybucket", noItemsInBucket, nil, ""},
-		{"mybucket", itemsInBucket, minio.BucketNotEmpty{Bucket: "mybucket"}, "Bucket not empty: mybucket"},
+		{"mybucket", noItemsInBucket, nil, nil, ""},
+		{"mybucket", noItemsInBucket, storage.ErrKeyNotFound.New("mybucket"), nil, "Bucket not found: mybucket"},
+		{"mybucket", itemsInBucket, nil, minio.BucketNotEmpty{Bucket: "mybucket"}, "Bucket not empty: mybucket"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-
-		// TODO(nat): add test for if bucket doesn't exist
-		mockBS.EXPECT().Get(gomock.Any(), gomock.Any())
-		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-		mockOS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(example.items, false, example.err)
-		if len(example.items) == 0 {
-			mockBS.EXPECT().Delete(gomock.Any(), example.bucket).Return(example.err)
+		mockBS.EXPECT().Get(gomock.Any(), gomock.Any()).Return(buckets.Meta{Created: exp}, example.bucketStatus)
+		if !storage.ErrKeyNotFound.Has(example.bucketStatus) {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
+			mockOS.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any()).Return(example.items, false, example.err)
+			if len(example.items) == 0 {
+				mockBS.EXPECT().Delete(gomock.Any(), example.bucket).Return(example.err)
+			}
 		}
 
 		err := storjObj.DeleteBucket(ctx, example.bucket)
@@ -402,22 +408,27 @@ func TestMakeBucketWithLocation(t *testing.T) {
 	exp = time.Unix(0, 0).UTC()
 
 	for i, example := range []struct {
-		bucket    string
-		meta      time.Time
-		err       error
-		errString string
+		bucket       string
+		meta         time.Time
+		retErr       error
+		bucketStatus error
 	}{
-		// happy scenario
-		{"mybucket", exp, nil, ""},
+		{"mybucket", exp, minio.BucketAlreadyExists{Bucket: "mybucket"}, nil},
+		{"mybucket", exp, nil, storage.ErrKeyNotFound.New("mybucket")},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-
-		// TODO(nat): add tests for if bucket already exists
-		mockBS.EXPECT().Get(gomock.Any(), gomock.Any())
-		mockBS.EXPECT().Put(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, example.err)
+		mockBS.EXPECT().Get(gomock.Any(), gomock.Any()).Return(buckets.Meta{Created: exp}, example.bucketStatus)
+		if storage.ErrKeyNotFound.Has(example.bucketStatus) {
+			mockBS.EXPECT().Put(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, nil)
+		}
 
 		err := storjObj.MakeBucketWithLocation(ctx, example.bucket, "location")
-		assert.NoError(t, err, errTag)
+		if example.retErr != nil {
+			assert.NotNil(t, err, errTag)
+			assert.Equal(t, example.retErr, err, errTag)
+		} else {
+			assert.Nil(t, err, errTag)
+		}
 	}
 }
 

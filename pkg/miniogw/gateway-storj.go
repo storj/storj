@@ -62,10 +62,11 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 	defer mon.Task()(&ctx)(&err)
 	_, err = s.storj.bs.Get(ctx, bucket)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return minio.BucketNotFound{Bucket: bucket}
+		}
 		return err
 	}
-	// TODO(nat): check that the bucket exists first.
-	// If not, then return minio.BucketNotFound.
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return err
@@ -228,13 +229,20 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	// TODO: This current strategy of calling bs.Get
+	// to check if a bucket exists, then calling bs.Put
+	// if not, can create a race condition if two people
+	// call MakeBucketWithLocation at the same time and
+	// therefore try to Put a bucket at the same time.
+	// The reason for the Get call to check if the
+	// bucket already exists is to match S3 CLI behavior.
 	_, err = s.storj.bs.Get(ctx, bucket)
-	if err != nil {
+	if err == nil {
+		return minio.BucketAlreadyExists{Bucket: bucket}
+	}
+	if !storage.ErrKeyNotFound.Has(err) {
 		return err
 	}
-	// TODO(nat): get fix from #216 so this will
-	// return an error if the bucket is already
-	// there; need to return minio.BucketAlreadyExists
 	_, err = s.storj.bs.Put(ctx, bucket)
 	return err
 }
