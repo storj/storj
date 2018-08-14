@@ -71,6 +71,10 @@ run-hc:
 		-e OVERLAY_PORT=7070 \
 		hc
 
+test-captplanet:
+	@echo "Running ${@}"
+	@./scripts/test-captplanet.sh
+
 clean-local:
 	# cleanup heavy client
 	docker stop hc || true
