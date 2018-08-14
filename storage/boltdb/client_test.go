@@ -95,12 +95,10 @@ func TestGet(t *testing.T) {
 
 	// tests Get non-existent path
 	getRes, err := bt.c.Get([]byte("fake/path"))
-	if err != nil {
-		bt.HandleErr(err, "Failed to get")
-	}
-	if !getRes.IsZero() {
-		bt.HandleErr(nil, "Expected zero-value response for getting fake path")
-	}
+
+	// here we are expecting an error for an empty file
+	assert.Nil(t, getRes)
+	assert.True(t, storage.ErrKeyNotFound.Has(err))
 }
 
 func TestDelete(t *testing.T) {

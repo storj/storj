@@ -8,10 +8,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	p "storj.io/storj/pkg/paths"
 	pb "storj.io/storj/protos/pointerdb"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -84,6 +87,9 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 
 	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, storage.ErrKeyNotFound.Wrap(err)
+		}
 		return nil, err
 	}
 

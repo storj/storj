@@ -108,6 +108,9 @@ func (ol *olLogWrap) GetObject(ctx context.Context, bucket, object string,
 func (ol *olLogWrap) GetObjectInfo(ctx context.Context, bucket, object string) (
 	objInfo minio.ObjectInfo, err error) {
 	objInfo, err = ol.ol.GetObjectInfo(ctx, bucket, object)
+	if _, ok := err.(minio.ObjectNotFound); ok {
+		return objInfo, err
+	}
 	return objInfo, ol.wrap(err)
 }
 
