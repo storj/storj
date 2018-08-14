@@ -60,8 +60,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.CA.CertPath,
-		"identity.key-path":  setupCfg.CA.CertPath,
+		"cert-path": setupCfg.Identity.CertPath,
+		"key-path":  setupCfg.Identity.KeyPath,
 	}
 
 	return process.SaveConfig(cpCmd.Flags(),
