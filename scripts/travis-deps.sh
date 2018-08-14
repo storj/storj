@@ -11,7 +11,6 @@ mv $HOME/gopath{-staging,}
 export TRAVIS_BUILD_DIR=$HOME/gopath/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
 
-go install -v storj.io/storj/cmd/captplanet
 virtualenv my_py3 --python=/usr/bin/python3.4
 source my_py3/bin/activate
 pip install --upgrade awscli

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+go install -v storj.io/storj/cmd/captplanet
+
 captplanet setup
 captplanet run &
 CAPT_PID=$!
