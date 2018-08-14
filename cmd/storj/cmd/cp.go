@@ -65,12 +65,12 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 
 	defer sourceFile.Close()
 
-	destFile, err := url.Parse(args[1])
+	u, err := url.Parse(args[1])
 	if err != nil {
 		return err
 	}
 
-	objInfo, err := storjObjects.PutObject(ctx, destFile.Host, destFile.Path, fileReader, nil)
+	objInfo, err := storjObjects.PutObject(ctx, u.Host, u.Path, fileReader, nil)
 	if err != nil {
 		return err
 	}

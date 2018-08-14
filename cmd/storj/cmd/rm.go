@@ -41,17 +41,17 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	object, err := url.Parse(args[0])
+	u, err := url.Parse(args[0])
 	if err != nil {
 		return err
 	}
 
-	err = storjObjects.DeleteObject(ctx, object.Host, object.Path)
+	err = storjObjects.DeleteObject(ctx, u.Host, u.Path)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Deleted %s from %s", object.Path, object.Host)
+	fmt.Printf("Deleted %s from %s", u.Path, u.Host)
 
 	return nil
 }

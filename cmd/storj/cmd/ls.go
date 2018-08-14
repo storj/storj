@@ -50,12 +50,12 @@ func list(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	dest, err := url.Parse(args[0])
+	u, err := url.Parse(args[0])
 	if err != nil {
 		return err
 	}
 
-	objInfo, err := storjObjects.ListObjects(ctx, dest.Host, dest.Path, "", "", 1000)
+	objInfo, err := storjObjects.ListObjects(ctx, u.Host, u.Path, "", "", 1000)
 	if err != nil {
 		return err
 	}
