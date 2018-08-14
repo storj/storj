@@ -21,11 +21,10 @@ var (
 		RunE:  cmdSetup,
 	}
 	setupCfg struct {
-		CA          provider.CASetupConfig
-		Identity    provider.IdentitySetupConfig
-		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
-		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
-		Overwrite   bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		CA        provider.CASetupConfig
+		Identity  provider.IdentitySetupConfig
+		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
+		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 )
 
