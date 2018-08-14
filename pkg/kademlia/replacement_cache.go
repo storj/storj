@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	pb "github.com/golang/protobuf/proto"
 
 	proto "storj.io/storj/protos/overlay"
@@ -25,7 +24,6 @@ func (rt *RoutingTable) updateReplacementCache(kadBucketID storage.Key, nodes *p
 
 func (rt *RoutingTable) getReplacementCacheBucket(kadBucketID storage.Key) (*proto.NodeSlice, error){
 	nodes := &proto.NodeSlice{}
-	fmt.Print("IM IN GET REPLACEMENT CACHE")
 	val, err := rt.replacementCache.Get(kadBucketID)
 	if err != nil {
 		return nodes, RoutingErr.New("could not get node slice %s", err)
