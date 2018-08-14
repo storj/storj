@@ -9,12 +9,21 @@ node('node') {
       sh 'make test-docker images'
     }
 
-    stage('Deploy') {
-      if (env.BRANCH_NAME != 'master') {
-		echo 'Skipping deploy stage'
-        return
-      }
+    stage('Push Images') {
+      echo 'Push to Repo'
       sh 'make push-images'
+    }
+
+    stage('Deploy') {
+      /* This should only deploy to staging if the branch is master */
+      if (env.BRANCH_NAME == "master") {
+        sh "./scripts/deploy.staging.sh satellite storjlabs/storj-satellite:${commit_id}"
+        for (int i = 1; i < 60; i++) {
+          sh "./scripts/deploy.staging.sh storage-node-${i} storjlabs/storj-storage-node:${commit_id}"
+        }
+      }
+
+      return
     }
 
   }
