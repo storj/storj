@@ -181,7 +181,7 @@ func TestCrudValidConnection(t *testing.T) {
 				assert.NoError(t, err)
 
 				value, err := st.Get(storage.Key(unexistingKey))
-				assert.NoError(t, err)
+				assert.True(t, storage.ErrKeyNotFound.Has(err))
 				assert.Nil(t, value)
 			},
 		},

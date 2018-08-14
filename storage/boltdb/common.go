@@ -9,3 +9,6 @@ import (
 
 // Error is the default boltdb errs class
 var Error = errs.Class("boltdb error")
+
+//ErrKeyNotFound used When something doesn't exist
+var ErrKeyNotFound = errs.Class("key not found")

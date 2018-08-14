@@ -3,6 +3,13 @@
 
 package storage
 
+import (
+	"github.com/zeebo/errs"
+)
+
+//ErrKeyNotFound used When something doesn't exist
+var ErrKeyNotFound = errs.Class("key not found")
+
 // Key is the type for the keys in a `KeyValueStore`
 type Key []byte
 

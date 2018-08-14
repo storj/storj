@@ -62,6 +62,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	if err != nil {
+		return err
+	}
+
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
 		fmt.Println("An hc configuration already exists. Rerun with --overwrite")
@@ -87,8 +92,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.CA.CertPath,
-		"identity.key-path":  setupCfg.CA.CertPath,
+		"identity.cert-path": setupCfg.Identity.CertPath,
+		"identity.key-path":  setupCfg.Identity.KeyPath,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),

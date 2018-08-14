@@ -90,6 +90,9 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 
 	pointerBytes, err := s.DB.Get([]byte(req.GetPath()))
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		s.logger.Error("err getting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

@@ -62,7 +62,6 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 		if err != nil {
 			return err
 		}
-
 		return b.Put(key, value)
 	})
 }
@@ -74,6 +73,10 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		v := b.Get(pathKey)
+		if len(v) == 0 {
+			return storage.ErrKeyNotFound.New(pathKey.String())
+		}
+
 		pointerBytes = v
 		return nil
 	})
