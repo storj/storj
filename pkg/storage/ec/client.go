@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var mon = monkit.Package()
@@ -47,7 +48,15 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 0, d.payer, d.renter), nil
+
+	// TODO Change this to only be passed in for Get/Put, not on client creation
+	pba := &pb.PayerBandwidthAllocation{
+		Data: &pb.PayerBandwidthAllocation_Data{
+			Payer:  []byte(d.payer),
+			Renter: []byte(d.renter),
+		},
+	}
+	return client.NewPSClient(c, 0, pba), nil
 }
 
 type ecClient struct {
