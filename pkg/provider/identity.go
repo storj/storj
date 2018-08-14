@@ -72,7 +72,7 @@ type IdentitySetupConfig struct {
 type IdentityConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
-	Address  string `help:"address to listen on" default:":7777"`
+	Address  string `help:"address to listen on" default:"127.0.0.1:7777"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
