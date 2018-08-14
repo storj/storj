@@ -12,6 +12,7 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
@@ -25,6 +26,17 @@ var (
 	//Error is the errs class of standard End User Client errors
 	Error = errs.Class("Storj Gateway error")
 )
+
+func closeHelper(c io.Closer, errptr *error) {
+	err := c.Close()
+	if err != nil {
+		if *errptr == nil {
+			*errptr = err
+			return
+		}
+		zap.S().Errorf("error closing: %s", err)
+	}
+}
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
 func NewStorjGateway(os objects.Store) *Storj {
@@ -77,26 +89,19 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	objpath := paths.New(bucket, object)
 	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer closeHelper(rr, &err)
+
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer closeHelper(r, &err)
 
 	_, err = io.Copy(writer, r)
 	return err
@@ -119,6 +124,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 
 		return objInfo, err
 	}
+
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
@@ -139,13 +145,14 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 }
 
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
-	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+	delimiter string, maxKeys int) (objInfo minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	startAfter := paths.New(marker)
 	var fl []minio.ObjectInfo
 	items, more, err := s.storj.os.List(ctx, paths.New(bucket, prefix), startAfter, nil, true, maxKeys, meta.All)
 	if err != nil {
-		return result, err
+		return objInfo, err
 	}
 	if len(items) > 0 {
 		//Populate the objectlist (aka filelist)
@@ -165,15 +172,15 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		fl = f
 	}
 
-	result = minio.ListObjectsInfo{
+	objInfo = minio.ListObjectsInfo{
 		IsTruncated: more,
 		Objects:     fl,
 	}
 	if more {
-		result.NextMarker = startAfter.String()
+		objInfo.NextMarker = startAfter.String()
 	}
 
-	return result, err
+	return objInfo, err
 }
 
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
@@ -186,17 +193,24 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	objPath := paths.New(bucket, object)
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
-	//metadata serialized
+
+	// metadata serialized
 	serMetaInfo := objects.SerializableMeta{
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
-	objPath := paths.New(bucket, object)
+
 	// setting zero value means the object never expires
 	expTime := time.Time{}
+
 	m, err := s.storj.os.Put(ctx, objPath, data, serMetaInfo, expTime)
+	if err != nil {
+		return objInfo, err
+	}
 	return minio.ObjectInfo{
 		Name:        object,
 		Bucket:      bucket,
