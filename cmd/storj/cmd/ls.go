@@ -55,17 +55,26 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	objInfo, err := storjObjects.ListObjects(ctx, u.Host, u.Path, "", "", 1000)
-	if err != nil {
-		return err
-	}
+	marker := ""
 
-	for _, object := range objInfo.Objects {
-		fmt.Println(object.Name)
-	}
+	for {
+		objInfo, err := storjObjects.ListObjects(ctx, u.Host, u.Path, marker, "", 1000)
+		if err != nil {
+			return err
+		}
 
-	for _, prefix := range objInfo.Prefixes {
-		fmt.Println(prefix)
+		for _, object := range objInfo.Objects {
+			fmt.Println(object.Name)
+		}
+
+		for _, prefix := range objInfo.Prefixes {
+			fmt.Println(prefix)
+		}
+
+		if !objInfo.IsTruncated {
+			break
+		}
+		marker = objInfo.NextMarker
 	}
 
 	return nil
