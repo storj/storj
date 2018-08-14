@@ -37,6 +37,7 @@ func createRT(localNodeID []byte) *RoutingTable {
 	options := &RoutingOptions{
 		kpath:      tempfile("Kadbucket"),
 		npath:      tempfile("Nodebucket"),
+		rpath:      tempfile("ReplacementCache"),
 		idLength:   16,
 		bucketSize: 6,
 	}
@@ -55,9 +56,11 @@ func TestAddNode(t *testing.T) {
 	bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
 	assert.NoError(t, err)
 	assert.NotNil(t, bucket)
+	var ok bool
 	//add node to unfilled kbucket
 	node1 := mockNode("PO") //[80, 79] or [01010000, 01001111]
-	err = rt.addNode(node1)
+	ok, err = rt.addNode(node1)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	kadKeys, err := rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)
@@ -68,19 +71,23 @@ func TestAddNode(t *testing.T) {
 
 	//add node to full kbucket and split
 	node2 := mockNode("NO") //[78, 79] or [01001110, 01001111]
-	err = rt.addNode(node2)
+	ok, err = rt.addNode(node2)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node3 := mockNode("MO") //[77, 79] or [01001101, 01001111]
-	err = rt.addNode(node3)
+	ok, err = rt.addNode(node3)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node4 := mockNode("LO") //[76, 79] or [01001100, 01001111]
-	err = rt.addNode(node4)
+	ok, err = rt.addNode(node4)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node5 := mockNode("QO") //[81, 79] or [01010001, 01001111]
-	err = rt.addNode(node5)
+	ok, err = rt.addNode(node5)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -92,7 +99,8 @@ func TestAddNode(t *testing.T) {
 
 	//splitting here
 	node6 := mockNode("SO")
-	err = rt.addNode(node6)
+	ok, err = rt.addNode(node6)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -121,27 +129,33 @@ func TestAddNode(t *testing.T) {
 
 	//add node to full kbucket and drop
 	node7 := mockNode("?O")
-	err = rt.addNode(node7)
+	ok, err = rt.addNode(node7)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node8 := mockNode(">O")
-	err = rt.addNode(node8)
+	ok, err = rt.addNode(node8)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node9 := mockNode("=O")
-	err = rt.addNode(node9)
+	ok, err = rt.addNode(node9)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node10 := mockNode(";O")
-	err = rt.addNode(node10)
+	ok, err = rt.addNode(node10)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node11 := mockNode(":O")
-	err = rt.addNode(node11)
+	ok, err = rt.addNode(node11)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node12 := mockNode("9O")
-	err = rt.addNode(node12)
+	ok, err = rt.addNode(node12)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -156,8 +170,11 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNode("8O")
-	err = rt.addNode(node13)
+	fmt.Print("AAAAAAAAA")
+	node13 := mockNode("8O") //TODO (JJ): check if made it into the replacement cache
+	ok, err = rt.addNode(node13)
+	fmt.Print("BBBBBBBBBB")
+	assert.False(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -173,21 +190,26 @@ func TestAddNode(t *testing.T) {
 	//add node to highly unbalanced tree
 	//adding to bucket 1
 	node14 := mockNode("KO") //75
-	err = rt.addNode(node14)
+	ok, err = rt.addNode(node14)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node15 := mockNode("JO") //74
-	err = rt.addNode(node15)
+	ok, err = rt.addNode(node15)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	//adding to bucket 2
 	node16 := mockNode("]O") //93
-	err = rt.addNode(node16)
+	ok, err = rt.addNode(node16)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node17 := mockNode("^O") //94
-	err = rt.addNode(node17)
+	ok, err = rt.addNode(node17)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node18 := mockNode("_O") //95
-	err = rt.addNode(node18)
+	ok, err = rt.addNode(node18)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	b, err = rt.getNodeIDsWithinKBucket(kadKeys[1])
@@ -205,7 +227,8 @@ func TestAddNode(t *testing.T) {
 
 	//split bucket 2
 	node19 := mockNode("@O")
-	err = rt.addNode(node19)
+	ok, err = rt.addNode(node19)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)

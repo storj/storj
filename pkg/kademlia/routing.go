@@ -69,8 +69,8 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 		idLength:         options.idLength,
 		bucketSize:       options.bucketSize,
 	}
-	err = rt.addNode(localNode)
-	if err != nil {
+	ok, err := rt.addNode(localNode)
+	if ok == false || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
 	return rt, nil

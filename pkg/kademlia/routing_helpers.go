@@ -19,83 +19,84 @@ import (
 
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
-func (rt *RoutingTable) addNode(node *proto.Node) error {
+// Returns true if node was added successfully
+func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	nodeKey := storage.Key(node.Id)
 	if bytes.Equal(nodeKey, storage.Key(rt.self.Id)) {
 		err := rt.createOrUpdateKBucket(rt.createFirstBucketID(), time.Now())
 		if err != nil {
-			return RoutingErr.New("could not create initial K bucket: %s", err)
+			return false, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
 		nodeValue, err := marshalNode(*node)
 		if err != nil {
-			return RoutingErr.New("could not marshal initial node: %s", err)
+			return false, RoutingErr.New("could not marshal initial node: %s", err)
 		}
 		err = rt.putNode(nodeKey, nodeValue)
 		if err != nil {
-			return RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
+			return false, RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
 		}
-		return nil
+		return true, nil
 	}
 	kadBucketID, err := rt.getKBucketID(nodeKey)
 	if err != nil {
-		return RoutingErr.New("could not getKBucketID: %s", err)
+		return false, RoutingErr.New("could not getKBucketID: %s", err)
 	}
 	hasRoom, err := rt.kadBucketHasRoom(kadBucketID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	containsLocal, err := rt.kadBucketContainsLocalNode(kadBucketID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	withinK, err := rt.nodeIsWithinNearestK(nodeKey)
 	if err != nil {
-		return RoutingErr.New("could not determine if node is within k: %s", err)
+		return false, RoutingErr.New("could not determine if node is within k: %s", err)
 	}
 	for !hasRoom {
 		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)
 			if err != nil {
-				return RoutingErr.New("could not determine leaf depth: %s", err)
+				return false, RoutingErr.New("could not determine leaf depth: %s", err)
 			}
 			kadBucketID = rt.splitBucket(kadBucketID, depth)
 			err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 			if err != nil {
-				return RoutingErr.New("could not split and create K bucket: %s", err)
+				return false, RoutingErr.New("could not split and create K bucket: %s", err)
 			}
 			kadBucketID, err = rt.getKBucketID(nodeKey)
 			if err != nil {
-				return RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
+				return false, RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
 			hasRoom, err = rt.kadBucketHasRoom(kadBucketID)
 			if err != nil {
-				return err
+				return false, err
 			}
 			containsLocal, err = rt.kadBucketContainsLocalNode(kadBucketID)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 		} else {
-			return nil
+			return false, rt.addToReplacementCache(kadBucketID, node)
 		}
 	}
 	nodeValue, err := marshalNode(*node)
 	if err != nil {
-		return RoutingErr.New("could not marshal node: %s", err)
+		return false, RoutingErr.New("could not marshal node: %s", err)
 	}
 	err = rt.putNode(nodeKey, nodeValue)
 	if err != nil {
-		return RoutingErr.New("could not add node to nodeBucketDB: %s", err)
+		return false, RoutingErr.New("could not add node to nodeBucketDB: %s", err)
 	}
 	err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 	if err != nil {
-		return RoutingErr.New("could not create or update K bucket: %s", err)
+		return false, RoutingErr.New("could not create or update K bucket: %s", err)
 	}
-	return nil
+	return true, nil
 }
 
 // nodeAlreadyExists will return true if the given node ID exists within nodeBucketDB
