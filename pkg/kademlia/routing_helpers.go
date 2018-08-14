@@ -113,23 +113,45 @@ func (rt *RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
 // updateNode will update the node information given that
 // the node is already in the routing table.
 func (rt *RoutingTable) updateNode(node *proto.Node) error {
-	//TODO (JJ)
+	marshaledNode, err := marshalNode(*node)
+	if err != nil {
+		return err
+	}
+	err = rt.putNode(storage.Key(node.Id), marshaledNode)
+	if err != nil {
+		return RoutingErr.New("could not update node: %v", err)
+	}
 	return nil
 }
 
 // removeNode will remove nodes and replace those entries with nodes
 // from the replacement cache.
 // We want to replace churned nodes (no longer online)
-func (rt *RoutingTable) removeNode(nodeID storage.Key) error {
-	//TODO (JJ)
-	return nil
+func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) error {
+	err := rt.nodeBucketDB.Delete(nodeID)
+	if err != nil {
+		return RoutingErr.New("could not delete node %s", err)
+	}
+	nodes, err := rt.getReplacementCacheBucket(kadBucketID)
+	if err != nil {
+		return err
+	}
+	last := nodes.Nodes[len(nodes.Nodes)-1]
+	val, err := marshalNode(*last)
+	if err != nil {
+		return err
+	}
+	err = rt.putNode(storage.Key(last.Id), val)
+	if err != nil {
+		return err
+	}
+	nodes.Nodes = nodes.Nodes[:len(nodes.Nodes)-1]
+	return rt.updateReplacementCache(kadBucketID, nodes)
 }
+
 
 // marshalNode: helper, sanitizes proto Node for db insertion
 func marshalNode(node proto.Node) ([]byte, error) {
-	// n := *node
-	// n.Id = "-"
-
 	node.Id = "-"
 	nodeVal, err := pb.Marshal(&node)
 	if err != nil {
@@ -138,7 +160,7 @@ func marshalNode(node proto.Node) ([]byte, error) {
 	return nodeVal, nil
 }
 
-// putNode: helper, adds proto Node and ID to nodeBucketDB
+// putNode: helper, adds or updates proto Node and ID to nodeBucketDB
 func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
 	err := rt.nodeBucketDB.Put(nodeKey, nodeValue)
 	if err != nil {

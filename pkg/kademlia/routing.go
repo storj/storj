@@ -25,19 +25,21 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self         *proto.Node
-	kadBucketDB  storage.KeyValueStore
-	nodeBucketDB storage.KeyValueStore
-	transport    *proto.NodeTransport
-	mutex        *sync.Mutex
-	idLength     int // kbucket and node id bit length (SHA256) = 256
-	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
+	self             *proto.Node
+	kadBucketDB      storage.KeyValueStore
+	nodeBucketDB     storage.KeyValueStore
+	transport        *proto.NodeTransport
+	mutex            *sync.Mutex
+	replacementCache storage.KeyValueStore
+	idLength         int // kbucket and node id bit length (SHA256) = 256
+	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 }
 
 //RoutingOptions for configuring RoutingTable
 type RoutingOptions struct {
 	kpath      string
 	npath      string
+	rpath      string
 	idLength   int
 	bucketSize int
 }
@@ -53,14 +55,19 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
+	rdb, err := boltdb.NewClient(logger, options.rpath, boltdb.ReplacementCache)
+	if err != nil {
+		return nil, RoutingErr.New("could not create replacementCache: %s", err)
+	}
 	rt := &RoutingTable{
-		self:         localNode,
-		kadBucketDB:  kdb,
-		nodeBucketDB: ndb,
-		transport:    &defaultTransport,
-		mutex:        &sync.Mutex{},
-		idLength:     options.idLength,
-		bucketSize:   options.bucketSize,
+		self:             localNode,
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
+		transport:        &defaultTransport,
+		mutex:            &sync.Mutex{},
+		replacementCache: rdb,
+		idLength:         options.idLength,
+		bucketSize:       options.bucketSize,
 	}
 	err = rt.addNode(localNode)
 	if err != nil {
