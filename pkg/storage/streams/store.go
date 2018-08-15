@@ -5,12 +5,12 @@ package streams
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
@@ -30,19 +30,19 @@ type Meta struct {
 }
 
 // toMeta converts segment metadata to stream metadata
-func toMeta(segmentMeta segments.Meta) Meta {
+func toMeta(segmentMeta segments.Meta) (Meta, error) {
 	msi := streamspb.MetaStreamInfo{}
 	err := proto.Unmarshal(segmentMeta.Data, &msi)
 	if err != nil {
-		return Meta{}
+		return Meta{}, err
 	}
 
 	return Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       segmentMeta.Size,
+		Size:       (msi.NumberOfSegments * msi.SegmentsSize) + msi.LastSegmentSize,
 		Data:       msi.Metadata,
-	}
+	}, nil
 }
 
 // Store for streams
@@ -65,7 +65,7 @@ type streamStore struct {
 // NewStreams stuff
 func NewStreams(segments segments.Store, segmentSize int64) (Store, error) {
 	if segmentSize <= 0 {
-		return nil, errors.New("segment size must be larger than 0")
+		return nil, errs.New("segment size must be larger than 0")
 	}
 	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
@@ -146,7 +146,10 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	newMeta := toMeta(lastSegmentMeta)
+	newMeta, err := toMeta(lastSegmentMeta)
+	if err != nil {
+		return nil, Meta{}, err
+	}
 
 	var resRanger ranger.Ranger
 
@@ -168,11 +171,14 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 // Meta implements Store.Meta
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	segmentMeta, err := s.segments.Meta(ctx, path)
+	segmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
 	}
-	meta := toMeta(segmentMeta)
+	meta, err := toMeta(segmentMeta)
+	if err != nil {
+		return Meta{}, err
+	}
 
 	return meta, nil
 }
@@ -215,14 +221,18 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var resItems []ListItem
-	lItems, resMore, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	lItems, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
-	for _, item := range lItems {
-		resItems = append(resItems, ListItem{Path: prefix, Meta: toMeta(item.Meta)})
+	items = make([]ListItem, len(lItems))
+	for i, item := range lItems {
+		newMeta, err := toMeta(item.Meta)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ListItem{Path: item.Path[1:], Meta: newMeta}
 	}
 
-	return resItems, resMore, nil
+	return items, more, nil
 }
