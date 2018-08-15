@@ -32,18 +32,18 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	storjObjects, err := getStorjObjects(ctx, lsCfg)
+	so, err := getStorjObjects(ctx, lsCfg)
 	if err != nil {
 		return err
 	}
 
 	if len(args) == 0 {
-		bucketInfo, err := storjObjects.ListBuckets(ctx)
+		bi, err := so.ListBuckets(ctx)
 		if err != nil {
 			return err
 		}
 
-		for _, bucket := range bucketInfo {
+		for _, bucket := range bi {
 			fmt.Println(bucket.Created, bucket.Name)
 		}
 
@@ -58,23 +58,23 @@ func list(cmd *cobra.Command, args []string) error {
 	marker := ""
 
 	for {
-		objInfo, err := storjObjects.ListObjects(ctx, u.Host, u.Path, marker, "", 1000)
+		oi, err := so.ListObjects(ctx, u.Host, u.Path, marker, "", 1000)
 		if err != nil {
 			return err
 		}
 
-		for _, object := range objInfo.Objects {
+		for _, object := range oi.Objects {
 			fmt.Println(object.Name)
 		}
 
-		for _, prefix := range objInfo.Prefixes {
+		for _, prefix := range oi.Prefixes {
 			fmt.Println(prefix)
 		}
 
-		if !objInfo.IsTruncated {
+		if !oi.IsTruncated {
 			break
 		}
-		marker = objInfo.NextMarker
+		marker = oi.NextMarker
 	}
 
 	return nil

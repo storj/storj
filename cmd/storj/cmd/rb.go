@@ -24,7 +24,7 @@ var (
 )
 
 func init() {
-	RootCmd.AddCommand(rmCmd)
+	RootCmd.AddCommand(rbCmd)
 	cfgstruct.Bind(rbCmd.Flags(), &rbCfg, cfgstruct.ConfDir(defaultConfDir))
 	rbCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 }
@@ -36,7 +36,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return errs.New("No bucket specified for deletion")
 	}
 
-	storjObjects, err := getStorjObjects(ctx, rmCfg)
+	so, err := getStorjObjects(ctx, rmCfg)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = storjObjects.DeleteBucket(ctx, u.Host)
+	err = so.DeleteBucket(ctx, u.Host)
 	if err != nil {
 		return err
 	}
