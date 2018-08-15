@@ -40,15 +40,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	if err != nil {
 		return err
 	}
-	// TODO(jt): defer ttldb.Close()
-
-	// TODO(jt): server.Server constructor
-	// TODO(jt): defer s.Close()
 
 	pspb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	defer func() {
-		// TODO(jt): why isn't the piecestore server doing this?
 		log.Fatal(s.Stop(ctx))
 	}()
 

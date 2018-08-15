@@ -58,13 +58,13 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 
 func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
 	// Delete data if we error
-	defer func(err error) {
+	defer func() {
 		if err != nil && err != io.EOF {
 			if err = s.deleteByID(id); err != nil {
 				log.Printf("Failed on deleteByID in Store: %s", err.Error())
 			}
 		}
-	}(err)
+	}()
 
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.DataDir)
@@ -75,7 +75,6 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 	defer utils.LogClose(storeFile)
 
 	reader := NewStreamReader(s, stream)
-	total, err = io.Copy(storeFile, reader)
 
 	defer func() {
 		err := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
@@ -83,6 +82,8 @@ func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (t
 			log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
 		}
 	}()
+
+	total, err = io.Copy(storeFile, reader)
 
 	if err != nil && err != io.EOF {
 		return 0, err
