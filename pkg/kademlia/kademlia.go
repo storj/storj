@@ -5,20 +5,15 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"errors"
 	"math/rand"
-	"net"
-	"strconv"
 	"sync"
 
-	bkad "github.com/coyle/kademlia"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
-	"storj.io/storj/storage"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -37,83 +32,35 @@ var NodeNotFound = NodeErr.New("node not found")
 type Kademlia struct {
 	routingTable   *RoutingTable
 	bootstrapNodes []proto.Node
-	ip             string
-	port           string
+	address        string
 	stun           bool
-	dht            *bkad.DHT
 	nodeClient     node.Client
 	alpha          int
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port string) (*Kademlia, error) {
-	if port == "" {
-		return nil, NodeErr.New("must specify port in request to NewKademlia")
-	}
-
-	ips, err := net.LookupIP(ip)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ips) <= 0 {
-		return nil, errs.New("Invalid IP")
-	}
-
-	ip = ips[0].String()
-
-	bnodes, err := convertProtoNodes(bootstrapNodes)
-	if err != nil {
-		return nil, err
-	}
-
-	bdht, err := bkad.NewDHT(&bkad.MemoryStore{}, &bkad.Options{
-		ID:             id.Bytes(),
-		IP:             ip,
-		Port:           port,
-		BootstrapNodes: bnodes,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
+func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*Kademlia, error) {
 	rt := RoutingTable{}
 
 	return &Kademlia{
 		routingTable:   &rt,
 		bootstrapNodes: bootstrapNodes,
-		ip:             ip,
-		port:           port,
+		address:        address,
 		stun:           true,
-		dht:            bdht,
 	}, nil
 }
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	return k.dht.Disconnect()
+	// TODO(coyle)
+	return errors.New("TODO")
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
-	if start == "" {
-		start = k.dht.GetSelfID()
-	}
-
-	nn, err := k.dht.FindNodes(ctx, start, limit)
-	if err != nil {
-		return []*proto.Node{}, err
-	}
-
-	nodes := convertNetworkNodes(nn)
-
-	for _, r := range restrictions {
-		nodes = restrict(r, nodes)
-	}
-	fmt.Printf("get nodes length %v\n", len(nodes))
-	return nodes, nil
+	// TODO(coyle)
+	return []*proto.Node{}, errors.New("TODO")
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
@@ -217,133 +164,24 @@ func (k *Kademlia) query(ctx context.Context, nodes []*proto.Node) ([]*proto.Nod
 	return results, nil
 }
 
-func (k *Kademlia) getClosest(nodes []*proto.Node) proto.Node {
-	if len(nodes) <= 0 {
-		return proto.Node{}
-	}
-	m := map[string]proto.Node{}
-	keys := storage.Keys{}
-	for _, v := range nodes {
-		m[v.GetId()] = *v
-		keys = append(keys, storage.Key(v.GetId()))
-	}
-
-	keys = sortByXOR(keys, []byte(k.routingTable.self.Id))
-
-	return m[string(keys[0])]
-}
-
-// closer returns true if a is closer than b, false otherwise
-func (k *Kademlia) closer(a, b *proto.Node) bool {
-	if b == nil || a == nil {
-		return true
-	}
-
-	if a.GetId() == "" || b.GetId() == "" {
-		return false
-	}
-
-	keys := storage.Keys{storage.Key(a.GetId()), storage.Key(b.GetId())}
-	r := sortByXOR(keys, []byte(k.routingTable.self.Id))
-	if string(r[0]) == a.GetId() {
-		return true
-	}
-
-	return false
-}
-
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
-	n, err := convertProtoNode(node)
-	if err != nil {
-		return proto.Node{}, err
-	}
-
-	ok, err := k.dht.Ping(n)
-	if err != nil {
-		return proto.Node{}, err
-	}
-	if !ok {
-		return proto.Node{}, NodeErr.New("node unavailable")
-	}
-	return node, nil
+	// TODO(coyle)
+	return proto.Node{}, errors.New("TODO")
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
-	nodes, err := k.dht.FindNode(ID.Bytes())
-	if err != nil {
-		return proto.Node{}, err
-
-	}
-
-	for _, v := range nodes {
-		if string(v.ID) == ID.String() {
-			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
-				Transport: defaultTransport,
-				Address:   fmt.Sprintf("%s:%d", v.IP.String(), v.Port),
-			},
-			}, nil
-		}
-	}
-	return proto.Node{}, NodeErr.New("node not found")
+	//TODO(coyle)
+	return proto.Node{}, NodeErr.New("TODO")
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
 func (k *Kademlia) ListenAndServe() error {
-	if err := k.dht.CreateSocket(); err != nil {
-		return err
-	}
+	//TODO(coyle)
 
-	go func() {
-		if err := k.dht.Listen(); err != nil {
-			log.Printf("Failed to listen on the dht: %s\n", err)
-		}
-	}()
-
-	return nil
-}
-
-func convertProtoNodes(n []proto.Node) ([]*bkad.NetworkNode, error) {
-	nn := make([]*bkad.NetworkNode, len(n))
-	for i, v := range n {
-		node, err := convertProtoNode(v)
-		if err != nil {
-			return nil, err
-		}
-		nn[i] = node
-	}
-
-	return nn, nil
-}
-
-func convertNetworkNodes(n []*bkad.NetworkNode) []*proto.Node {
-	nn := make([]*proto.Node, len(n))
-	for i, v := range n {
-		nn[i] = convertNetworkNode(v)
-	}
-
-	return nn
-}
-
-func convertNetworkNode(v *bkad.NetworkNode) *proto.Node {
-	return &proto.Node{
-		Id:      string(v.ID),
-		Address: &proto.NodeAddress{Transport: defaultTransport, Address: net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port))},
-	}
-}
-
-func convertProtoNode(v proto.Node) (*bkad.NetworkNode, error) {
-	host, port, err := net.SplitHostPort(v.GetAddress().GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	nn := bkad.NewNetworkNode(host, port)
-	nn.ID = []byte(v.GetId())
-
-	return nn, nil
+	return errors.New("TODO")
 }
 
 // newID generates a new random ID.
