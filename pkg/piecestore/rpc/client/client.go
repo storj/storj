@@ -10,6 +10,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -17,6 +18,8 @@ import (
 	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
 )
+
+var ClientError = errs.Class("PSClient error")
 
 var defaultBandwidthMsgSize = 32 * 1024
 var maxBandwidthMsgSize = 64 * 1024
@@ -39,11 +42,9 @@ type Client struct {
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) PSClient {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
-		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
-
-		return nil
+		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
 
 	if bandwidthMsgSize == 0 {
@@ -54,15 +55,13 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) PSClient {
 		conn:             conn,
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
-	}
+	}, nil
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) *Client {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Client, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
-		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
-
-		return nil
+		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
 
 	if bandwidthMsgSize == 0 {
@@ -72,7 +71,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) *Clie
 	return &Client{
 		route:            route,
 		bandwidthMsgSize: bandwidthMsgSize,
-	}
+	}, nil
 }
 
 // CloseConn closes the connection with piecestore

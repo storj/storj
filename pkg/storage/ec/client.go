@@ -49,14 +49,7 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 		return nil, err
 	}
 
-	// TODO Change this to only be passed in for Get/Put, not on client creation
-	pba := &pb.PayerBandwidthAllocation{
-		Data: &pb.PayerBandwidthAllocation_Data{
-			Payer:  []byte(d.payer),
-			Renter: []byte(d.renter),
-		},
-	}
-	return client.NewPSClient(c, 0, pba), nil
+	return client.NewPSClient(c, 0)
 }
 
 type ecClient struct {
@@ -101,7 +94,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 				errs <- err
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			closeConn(ps, n.GetId())
@@ -152,7 +145,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 				ch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			rr, err := ps.Get(ctx, derivedPieceID, pieceSize)
+			rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
 			// no ps.CloseConn() here, the connection will be closed by
 			// the caller using RangeCloser.Close
 			if err != nil {

@@ -33,7 +33,10 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn, 1024*32)
+	psClient, err := client.NewPSClient(conn, 1024*32)
+	if err != nil {
+		log.Fatalf("could not initialize PSClient: %s", err)
+	}
 
 	app.Commands = []cli.Command{
 		{
