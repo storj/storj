@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn, 1024*32, &pb.PayerBandwidthAllocation{})
+	psClient := client.NewPSClient(conn, 1024*32)
 
 	app.Commands = []cli.Command{
 		{
@@ -70,7 +70,7 @@ func main() {
 
 				id := client.NewPieceID()
 
-				if err := psClient.Put(context.Background(), id, dataSection, ttl); err != nil {
+				if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
@@ -125,7 +125,7 @@ func main() {
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size)
+				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
 					os.Remove(c.Args().Get(outputDir))
