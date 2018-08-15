@@ -48,29 +48,26 @@ func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err err
 		return nil, err
 	}
 
-	defer func(err error) {
+	defer func() {
 		if err != nil {
 			db.Close()
 		}
-	}(err)
+	}()
 
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, err
 	}
 
-	defer func(err error) {
+	defer func() {
+		err := tx.Rollback()
 		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				log.Printf("%s\n", err)
-			}
+			log.Printf("%s\n", err)
 		}
-	}(err)
+	}()
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 
@@ -106,11 +103,7 @@ func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
 		log.Printf("Deleted file: %s\n", expID)
 	}
 
-	if rows.Err() != nil {
-		return rows.Err()
-	}
-
-	return nil
+	return rows.Err()
 }
 
 // Close the database
@@ -148,14 +141,19 @@ func (psdb *PSDB) DeleteExpired(ctx context.Context) (err error) {
 // DeleteExpiredLoop will periodically run DeleteExpired
 func (psdb *PSDB) DeleteExpiredLoop(ctx context.Context) (err error) {
 	for {
-		time.Sleep(psdb.checkInterval)
-		err = ctx.Err()
-		if err != nil {
-			return err
-		}
-		err = psdb.DeleteExpired(ctx)
-		if err != nil {
-			zap.S().Errorf("failed checking entries: %+v", err)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			time.Sleep(psdb.checkInterval)
+			err = ctx.Err()
+			if err != nil {
+				return err
+			}
+			err = psdb.DeleteExpired(ctx)
+			if err != nil {
+				zap.S().Errorf("failed checking entries: %+v", err)
+			}
 		}
 	}
 }
@@ -180,14 +178,12 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) erro
 		return err
 	}
 
-	defer func(err error) {
+	defer func() {
+		err := tx.Rollback()
 		if err != nil {
-			err := tx.Rollback()
-			if err != nil {
-				log.Printf("%s\n", err)
-			}
+			log.Printf("%s\n", err)
 		}
-	}(err)
+	}()
 
 	stmt, err := psdb.DB.Prepare(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`)
 	if err != nil {
@@ -214,14 +210,12 @@ func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 		return err
 	}
 
-	defer func(err error) {
+	defer func() {
+		err := tx.Rollback()
 		if err != nil {
-			err := tx.Rollback()
-			if err != nil {
-				log.Printf("%s\n", err)
-			}
+			log.Printf("%s\n", err)
 		}
-	}(err)
+	}()
 
 	stmt, err := psdb.DB.Prepare("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)")
 	if err != nil {
@@ -261,14 +255,12 @@ func (psdb *PSDB) DeleteTTLByID(id string) error {
 		return err
 	}
 
-	defer func(err error) {
+	defer func() {
+		err := tx.Rollback()
 		if err != nil {
-			err := tx.Rollback()
-			if err != nil {
-				log.Printf("%s\n", err)
-			}
+			log.Printf("%s\n", err)
 		}
-	}(err)
+	}()
 
 	stmt, err := tx.Prepare("DELETE FROM ttl WHERE id=?")
 	if err != nil {
