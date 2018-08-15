@@ -43,40 +43,65 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("No destination specified")
 	}
 
-	storjObjects, err := getStorjObjects(ctx, cpCfg)
+	so, err := getStorjObjects(ctx, cpCfg)
 	if err != nil {
 		return err
 	}
 
-	sourceFile, err := os.Open(args[0])
+	u, err := url.Parse(args[0])
 	if err != nil {
 		return err
 	}
 
-	fileInfo, err := sourceFile.Stat()
+	if u.Scheme == "" {
+		f, err := os.Open(args[0])
+
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
+
+		fr, err := hash.NewReader(f, fi.Size(), "", "")
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		u, err = url.Parse(args[1])
+		if err != nil {
+			return err
+		}
+
+		oi, err := so.PutObject(ctx, u.Host, u.Path, fr, nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Bucket:", oi.Bucket)
+		fmt.Println("Object:", oi.Name)
+
+		return nil
+	}
+
+	oi, err := so.GetObjectInfo(ctx, u.Host, u.Path)
 	if err != nil {
 		return err
 	}
 
-	fileReader, err := hash.NewReader(sourceFile, fileInfo.Size(), "", "")
+	f, err := os.Create(args[1])
 	if err != nil {
 		return err
 	}
 
-	defer sourceFile.Close()
+	defer f.Close()
 
-	u, err := url.Parse(args[1])
+	err = so.GetObject(ctx, oi.Bucket, oi.Name, 0, oi.Size, f, oi.ETag)
 	if err != nil {
 		return err
 	}
 
-	objInfo, err := storjObjects.PutObject(ctx, u.Host, u.Path, fileReader, nil)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Bucket:", objInfo.Bucket)
-	fmt.Println("Object:", objInfo.Name)
+	fmt.Printf("Downloaded %s to %s", oi.Bucket+oi.Name, args[1])
 
 	return nil
 }
