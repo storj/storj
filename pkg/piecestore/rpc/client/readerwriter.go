@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -27,7 +28,12 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 		Total:           updatedAllocation,
 	}
 
-	sig, err := s.signer.sign(allocationData)
+	serializedAllocation, err := proto.Marshal(allocationData)
+	if err != nil {
+		return 0, err
+	}
+
+	sig, err := s.signer.sign(serializedAllocation)
 	if err != nil {
 		return 0, err
 	}
@@ -81,7 +87,12 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			Total:           updatedAllocation,
 		}
 
-		sig, err := signer.sign(allocationData)
+		serializedAllocation, err := proto.Marshal(allocationData)
+		if err != nil {
+			return nil, err
+		}
+
+		sig, err := signer.sign(serializedAllocation)
 		if err != nil {
 			return nil, err
 		}
