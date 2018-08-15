@@ -92,8 +92,8 @@ func TestPieceRanger(t *testing.T) {
 		gomock.InOrder(calls...)
 
 		ctx := context.Background()
-		c := NewCustomRoute(route, 32*1024, &pb.PayerBandwidthAllocation{})
-		rr, err := PieceRanger(ctx, c, stream, pid)
+		c := NewCustomRoute(route, 32*1024)
+		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
@@ -178,8 +178,8 @@ func TestPieceRangerSize(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		c := NewCustomRoute(route, 32*1024, &pb.PayerBandwidthAllocation{})
-		rr := PieceRangerSize(c, stream, pid, tt.size)
+		c := NewCustomRoute(route, 32*1024)
+		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {

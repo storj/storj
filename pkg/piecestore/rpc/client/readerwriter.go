@@ -16,13 +16,14 @@ type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
 	signer       *Client // We need this for signing
 	totalWritten int64
+	pba          *pb.PayerBandwidthAllocation
 }
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	updatedAllocation := s.totalWritten + int64(len(b))
 	allocationData := &pb.RenterBandwidthAllocation_Data{
-		PayerAllocation: s.signer.payerBandwidthAllocation,
+		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
 	}
 
@@ -68,7 +69,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) *StreamReader {
+func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation) *StreamReader {
 	sr := &StreamReader{
 		stream: stream,
 	}
@@ -76,7 +77,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient) 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
 		allocationData := &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: signer.payerBandwidthAllocation,
+			PayerAllocation: pba,
 			Total:           updatedAllocation,
 		}
 

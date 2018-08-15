@@ -24,23 +24,22 @@ var maxBandwidthMsgSize = 64 * 1024
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error
-	Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error)
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 	CloseConn() error
 }
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
-	route                    pb.PieceStoreRoutesClient
-	conn                     *grpc.ClientConn
-	pkey                     []byte
-	bandwidthMsgSize         int
-	payerBandwidthAllocation *pb.PayerBandwidthAllocation
+	route            pb.PieceStoreRoutesClient
+	conn             *grpc.ClientConn
+	pkey             []byte
+	bandwidthMsgSize int
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) PSClient {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) PSClient {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
@@ -52,15 +51,14 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, pba *pb.PayerBandw
 	}
 
 	return &Client{
-		conn:  conn,
-		route: pb.NewPieceStoreRoutesClient(conn),
-		payerBandwidthAllocation: pba,
-		bandwidthMsgSize:         bandwidthMsgSize,
+		conn:             conn,
+		route:            pb.NewPieceStoreRoutesClient(conn),
+		bandwidthMsgSize: bandwidthMsgSize,
 	}
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, pba *pb.PayerBandwidthAllocation) *Client {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) *Client {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
 		log.Printf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 
@@ -72,9 +70,8 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, pba *
 	}
 
 	return &Client{
-		route: route,
-		payerBandwidthAllocation: pba,
-		bandwidthMsgSize:         bandwidthMsgSize,
+		route:            route,
+		bandwidthMsgSize: bandwidthMsgSize,
 	}
 }
 
@@ -89,7 +86,7 @@ func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time) error {
+func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
 		return err
@@ -105,7 +102,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: client, stream: stream}
+	writer := &StreamWriter{signer: client, stream: stream, pba: ba}
 
 	defer func() {
 		if err := writer.Close(); err != nil && err != io.EOF {
@@ -129,13 +126,13 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64) (ranger.RangeCloser, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
 	stream, err := client.route.Retrieve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return PieceRangerSize(client, stream, id, size), nil
+	return PieceRangerSize(client, stream, id, size, ba), nil
 }
 
 // Delete a Piece from a piece store Server
