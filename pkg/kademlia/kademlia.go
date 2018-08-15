@@ -172,10 +172,6 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID) (*proto.Node, 
 	return nil, NodeNotFound
 }
 
-func (k *Kademlia) work(ctx context.Context, n []*proto.Node, target dht.NodeID) {
-
-}
-
 func (k *Kademlia) query(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {
 	if len(nodes) <= 0 {
 		return nil, NodeErr.New("no nodes provided for lookup")
