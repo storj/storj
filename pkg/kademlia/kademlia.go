@@ -30,9 +30,12 @@ var BootstrapErr = errs.Class("bootstrap node error")
 //TODO: shouldn't default to TCP but not sure what to do yet
 var defaultTransport = proto.NodeTransport_TCP
 
+// NodeNotFound is returned when a lookup can not produce the requested node
+var NodeNotFound = NodeErr.New("node not found")
+
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
-	routingTable   RoutingTable
+	routingTable   *RoutingTable
 	bootstrapNodes []proto.Node
 	ip             string
 	port           string
@@ -78,7 +81,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, ip string, port str
 	rt := RoutingTable{}
 
 	return &Kademlia{
-		routingTable:   rt,
+		routingTable:   &rt,
 		bootstrapNodes: bootstrapNodes,
 		ip:             ip,
 		port:           port,
@@ -125,39 +128,52 @@ func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
 func (k *Kademlia) Bootstrap(ctx context.Context) error {
+	// What I want to do here is do a normal lookup for myself
+	// so call lookup(ctx, nodeImLookingFor)
 	if len(k.bootstrapNodes) == 0 {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
-	// psuedo randomly select a node from the slice of bootstrap nodes
-	// TODO(coyle): should we instead bootstrap against all the nodes ?
-	bn := k.bootstrapNodes[rand.Intn(len(k.bootstrapNodes))]
 
-	nodes, err := k.nodeClient.Lookup(ctx, bn, k.routingTable.Local())
-	if err != nil {
-		return BootstrapErr.Wrap(err)
-	}
-
-	if len(nodes) <= 0 {
-		return BootstrapErr.New("Bootstrap node provided no known nodes")
-	}
-
-	return k.lookup(ctx, nodes, nil)
+	_, err := k.lookup(ctx, StringToNodeID(k.routingTable.self.GetId()))
+	return err
 }
 
-func (k *Kademlia) lookup(ctx context.Context, nodes []*proto.Node, closestNode *proto.Node) error {
-	results, err := k.query(ctx, nodes)
+func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID) (*proto.Node, error) {
+	// look in routing table for targetID
+	nodes, err := k.routingTable.FindNear(target, k.alpha)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	closest := k.getClosest(results)
-	if cl := k.closer(&closest, closestNode); cl && closest.GetId() != closestNode.GetId() {
-		return k.lookup(ctx, results, &closest)
+	// if we have the node in our routing table just return the node
+	if len(nodes) == 1 && StringToNodeID(nodes[0].GetId()) == target {
+		return nodes[0], nil
 	}
 
-	_, err = k.query(ctx, results)
+	// begin the work looking for the node by spinning up alpha workers
+	// and asking for the node we want from nodes we know in our routing table
+	ch := make(chan []*proto.Node)
+	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, k.routingTable.K())
+	for i := 0; i < k.alpha; i++ {
+		go w.work(ctx, ch)
+	}
 
-	return err
+	select {
+	case v := <-ch:
+		for _, node := range v {
+			if node.GetId() == target.String() {
+				return node, nil
+			}
+		}
+	case <-ctx.Done():
+		return nil, NodeNotFound
+	}
+
+	return nil, NodeNotFound
+}
+
+func (k *Kademlia) work(ctx context.Context, n []*proto.Node, target dht.NodeID) {
+
 }
 
 func (k *Kademlia) query(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {

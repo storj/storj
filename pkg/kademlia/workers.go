@@ -4,21 +4,17 @@
 package kademlia
 
 import (
-	"bytes"
+	"container/heap"
 	"context"
-	"math/rand"
+	"log"
 	"sync"
 	"time"
+
+	"storj.io/storj/pkg/dht"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
-)
-
-const (
-	uncontacted = iota
-	inProgress
-	completed
 )
 
 var (
@@ -26,23 +22,51 @@ var (
 	WorkerError = errs.Class("worker error")
 )
 
-type chore struct {
-	status int
-	node   *proto.Node
-}
-
 type worker struct {
-	// node id to chore
-	workingSet  map[string]*chore
-	mu          *sync.Mutex
-	maxResponse time.Duration
-	cancel      context.CancelFunc
-	nodeClient  node.Client
-	find        proto.Node
-	k           int
+	pq             PriorityQueue
+	mu             *sync.Mutex
+	maxResponse    time.Duration
+	cancel         context.CancelFunc
+	nodeClient     node.Client
+	find           dht.NodeID
+	workInProgress int
+	k              int
 }
 
-func (w *worker) work(ctx context.Context) error {
+func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc node.Client, target dht.NodeID, k int) *worker {
+	tb := target.Bytes()
+	pq := func(nodes []*proto.Node) PriorityQueue {
+		pq := make(PriorityQueue, len(nodes))
+		for i, node := range nodes {
+			priority, _ := xor([]byte(node.GetId()), tb)
+			pq[i] = &Item{
+				value:    node,
+				priority: priority,
+				index:    i,
+			}
+
+		}
+		heap.Init(&pq)
+
+		return pq
+	}(nodes)
+
+	return &worker{
+		pq:             pq,
+		mu:             &sync.Mutex{},
+		maxResponse:    0 * time.Millisecond,
+		nodeClient:     nc,
+		find:           target,
+		workInProgress: 0,
+		k:              k,
+	}
+}
+
+func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
+	// grab uncontacted node from working set
+	// change status to inprogress
+	// ask node for target
+	// if node has target cancel ctx and send node
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -62,58 +86,29 @@ func (w *worker) work(ctx context.Context) error {
 
 }
 
-// sortByXOR: helper, quick sorts node IDs by xor from local node, smallest xor to largest
-func (w *worker) sortByXOR(nodeIDs [][]byte, comp []byte) [][]byte {
-	if len(nodeIDs) < 2 {
-		return nodeIDs
-	}
-	left, right := 0, len(nodeIDs)-1
-	pivot := rand.Int() % len(nodeIDs)
-	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
-	for i := range nodeIDs {
-		xorI := xorTwoIds(nodeIDs[i], comp)
-		xorR := xorTwoIds(nodeIDs[right], comp)
-		if bytes.Compare(xorI, xorR) < 0 {
-			nodeIDs[left], nodeIDs[i] = nodeIDs[i], nodeIDs[left]
-			left++
-		}
-	}
-	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
-	w.sortByXOR(nodeIDs[:left], comp)
-	w.sortByXOR(nodeIDs[left+1:], comp)
-	return nodeIDs
-}
-
-func (w *worker) getWork() *chore {
-	var wk *chore
+func (w *worker) getWork() *proto.Node {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-	for i, v := range w.workingSet {
-		if v.status == uncontacted {
-			wk = v
-			w.workingSet[i].status = inProgress
-			break
-		}
-	}
-
-	if wk == nil {
+	if w.pq.Len() <= 0 && w.workInProgress <= 0 {
 		w.mu.Unlock()
 		time.AfterFunc(2*w.maxResponse, w.cancel)
 		return nil
 	}
 
-	return wk
+	defer w.mu.Unlock()
+	defer func() { w.workInProgress++ }()
+	return w.pq.Pop().(*Item).value
 }
 
-func (w *worker) lookup(ctx context.Context, wk *chore) []*proto.Node {
+func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 	start := time.Now()
-	nodes, err := w.nodeClient.Lookup(ctx, *wk.node, w.find)
+	nodes, err := w.nodeClient.Lookup(ctx, *node, proto.Node{Id: w.find.String()})
 	if err != nil {
-		w.mu.Lock()
-		defer w.mu.Unlock()
-		delete(w.workingSet, wk.node.GetId())
+		// TODO(coyle): I think we might want to do another look up on this node or update something
+		// but for now let's just log and ignore.
+		log.Printf("Error occured during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
 		return nil
 	}
+
 	latency := time.Now().Sub(start)
 	if latency > w.maxResponse {
 		w.maxResponse = latency
@@ -128,44 +123,20 @@ func (w *worker) update(nodes []*proto.Node) error {
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if (len(w.workingSet) + len(nodes)) < w.k {
-		for _, v := range nodes {
-			w.workingSet[v.GetId()] = &chore{node: v, status: uncontacted}
+	for _, v := range nodes {
+		priority, err := xor(w.find.Bytes(), []byte(v.GetId()))
+		if err != nil {
+			return err
 		}
-		return nil
+		w.pq.Push(&Item{
+			value:    v,
+			priority: priority,
+		})
 	}
-
-	// sort all nodes from map
-	mapNodes := make([][]byte, len(w.workingSet))
-	ii := 0
-	for i := range w.workingSet {
-		mapNodes[ii] = []byte(i)
-		ii++
-	}
-
-	// sort all nodes from map
-	lookupNodes := make([][]byte, len(nodes))
-	for i, v := range nodes {
-		lookupNodes[i] = []byte(v.GetId())
-	}
-
-	self := []byte(w.find.GetId())
-	smapNodes := w.sortByXOR(mapNodes, self)
-	// sort all nodes returned from lookup
-	slookupNodes := w.sortByXOR(lookupNodes, self)
-	// update the nearest-k data structure with the results of the request, bumping nodes out of the data structure that are farther than k.
-	ll := 0
-	for i := len(smapNodes) - 1; i >= 0; {
-		if bytes.Compare(smapNodes[i], slookupNodes[ll]) < 0 {
-			i--
-			ll++
-		} else {
-			delete(w.workingSet, string(smapNodes[i]))
-			w.workingSet[string(slookupNodes[ll])] = &chore{node: nodes[ll], status: uncontacted}
-			i--
-			ll++
-		}
-	}
+	// only keep the k closest nodes
+	w.pq = w.pq[:w.k]
+	// reinitialize heap
+	heap.Init(&w.pq)
 
 	return nil
 }

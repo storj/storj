@@ -14,7 +14,7 @@ import (
 )
 
 func TestBoostrap(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 
 	cases := []struct {
 		k           Kademlia
@@ -24,7 +24,7 @@ func TestBoostrap(t *testing.T) {
 	}{
 		{
 			k: Kademlia{
-				routingTable: *rt,
+				routingTable: rt,
 				nodeClient:   node.NewMockClient(nil),
 			},
 			expected:    nil,
@@ -32,7 +32,7 @@ func TestBoostrap(t *testing.T) {
 		},
 		{
 			k: Kademlia{
-				routingTable:   *rt,
+				routingTable:   rt,
 				nodeClient:     node.NewMockClient(nil),
 				bootstrapNodes: []overlay.Node{overlay.Node{Id: "hello"}},
 			},
@@ -41,7 +41,7 @@ func TestBoostrap(t *testing.T) {
 		},
 		{
 			k: Kademlia{
-				routingTable:   *rt,
+				routingTable:   rt,
 				nodeClient:     node.NewMockClient([]*overlay.Node{&overlay.Node{Id: "world"}}),
 				bootstrapNodes: []overlay.Node{overlay.Node{Id: "hello"}},
 			},
@@ -62,9 +62,9 @@ func TestBoostrap(t *testing.T) {
 }
 
 func TestCloser(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	k := Kademlia{
-		routingTable: *rt,
+		routingTable: rt,
 	}
 
 	cases := []struct {
@@ -106,9 +106,9 @@ func TestCloser(t *testing.T) {
 }
 
 func TestGetClosest(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 	k := Kademlia{
-		routingTable: *rt,
+		routingTable: rt,
 	}
 
 	cases := []struct {
@@ -136,7 +136,7 @@ func TestGetClosest(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	rt := createRT()
+	rt := createRT(nil)
 
 	cases := []struct {
 		k           Kademlia
@@ -146,7 +146,7 @@ func TestLookup(t *testing.T) {
 	}{
 		{
 			k: Kademlia{
-				routingTable: *rt,
+				routingTable: rt,
 				nodeClient:   node.NewMockClient([]*overlay.Node{&overlay.Node{Id: string([]byte{255, 255})}}),
 			},
 			expected:    []*overlay.Node{&overlay.Node{Id: string([]byte{255, 255})}},
@@ -155,7 +155,7 @@ func TestLookup(t *testing.T) {
 		},
 		{
 			k: Kademlia{
-				routingTable: *rt,
+				routingTable: rt,
 				nodeClient:   node.NewMockClient([]*overlay.Node{&overlay.Node{Id: string([]byte{255, 255})}}),
 			},
 			expected:    []*overlay.Node{&overlay.Node{Id: string([]byte{255, 255})}, &overlay.Node{Id: string([]byte{255, 255})}},
@@ -164,7 +164,7 @@ func TestLookup(t *testing.T) {
 		},
 		{
 			k: Kademlia{
-				routingTable: *rt,
+				routingTable: rt,
 				nodeClient:   node.NewMockClient([]*overlay.Node{&overlay.Node{Id: string([]byte{255, 255})}}),
 			},
 			expected:    nil,
