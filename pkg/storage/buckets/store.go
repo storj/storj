@@ -8,6 +8,9 @@ import (
 	"context"
 	"time"
 
+	minio "github.com/minio/minio/cmd"
+	"storj.io/storj/storage"
+
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
@@ -53,11 +56,9 @@ func NewStore(obj objects.Store) Store {
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
 	_, err := b.Get(ctx, bucket)
 	if err != nil {
-		// TODO(nat): When pull #216 is ready, we have to check
-		// if the error is ErrKeyNotFound, and if so, return
-		// minio.BucketNotFound error instead. Otherwise, S3
-		// clients will only receive a "500 Internal Error"
-		// message.
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, minio.BucketNotFound{Bucket: bucket}
+		}
 		return nil, err
 	}
 	prefixed := prefixedObjStore{
