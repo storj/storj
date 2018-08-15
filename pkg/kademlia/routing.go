@@ -30,7 +30,7 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *proto.NodeTransport
 	mutex            *sync.Mutex
-	replacementCache storage.KeyValueStore
+	replacementCache map[string][]*proto.Node
 	idLength         int // kbucket and node id bit length (SHA256) = 256
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 }
@@ -55,17 +55,14 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
-	rdb, err := boltdb.NewClient(logger, options.rpath, boltdb.ReplacementCache)
-	if err != nil {
-		return nil, RoutingErr.New("could not create replacementCache: %s", err)
-	}
+	rp := make(map[string][]*proto.Node)
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      kdb,
 		nodeBucketDB:     ndb,
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
-		replacementCache: rdb,
+		replacementCache: rp,
 		idLength:         options.idLength,
 		bucketSize:       options.bucketSize,
 	}

@@ -81,7 +81,8 @@ func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
 			}
 
 		} else {
-			return false, rt.addToReplacementCache(kadBucketID, node)
+			rt.addToReplacementCache(kadBucketID, node)
+			return false, nil
 		}
 	}
 	nodeValue, err := marshalNode(*node)
@@ -133,11 +134,11 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return RoutingErr.New("could not delete node %s", err)
 	}
-	nodes, err := rt.getReplacementCacheBucket(kadBucketID)
-	if err != nil {
-		return err
+	nodes := rt.getReplacementCacheBucket(kadBucketID)
+	if len(nodes) == 0 {
+		return nil
 	}
-	last := nodes.Nodes[len(nodes.Nodes)-1]
+	last := nodes[len(nodes)-1]
 	val, err := marshalNode(*last)
 	if err != nil {
 		return err
@@ -146,8 +147,8 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return err
 	}
-	nodes.Nodes = nodes.Nodes[:len(nodes.Nodes)-1]
-	return rt.updateReplacementCache(kadBucketID, nodes)
+	rt.updateReplacementCache(kadBucketID, nodes[:len(nodes)-1])
+	return nil
 }
 
 
