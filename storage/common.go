@@ -22,6 +22,19 @@ type Keys []Key
 // Values is the type for a slice of Values in a `KeyValueStore`
 type Values []Value
 
+// ListItem returns items that fulfill the requirements in the `LIST` method
+type ListItem []ListItem
+
+// ListOptions are items that are optional for the LIST method
+type ListOptions struct {
+	prefix    Key
+	start     Key
+	end       Key
+	delimeter string
+	value     bool
+	limit     Limit
+}
+
 // Limit indicates how many keys to return when calling List
 type Limit int
 
@@ -31,7 +44,7 @@ type KeyValueStore interface {
 	Put(Key, Value) error
 	Get(Key) (Value, error)
 	GetAll(Keys) (Values, error)
-	List(Key, Limit) (Keys, error)
+	List(opts ListOptions) ([]ListItem, error)
 	ReverseList(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
