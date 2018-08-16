@@ -5,6 +5,7 @@ package client
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -21,7 +22,12 @@ import (
 
 var ClientError = errs.Class("PSClient error")
 
-var defaultBandwidthMsgSize = 32 * 1024
+var (
+	defaultBandwidthMsgSize = flag.Int(
+		"piecestore.rpc.client.default_bandwidth_msg_size", 32*1024,
+		"default bandwidth message size in kilobytes")
+)
+
 var maxBandwidthMsgSize = 64 * 1024
 
 // PSClient is an interface describing the functions for interacting with piecestore nodes
@@ -48,7 +54,7 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) 
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = defaultBandwidthMsgSize
+		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
 	return &Client{
@@ -65,7 +71,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Cli
 	}
 
 	if bandwidthMsgSize == 0 {
-		bandwidthMsgSize = defaultBandwidthMsgSize
+		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
 	return &Client{

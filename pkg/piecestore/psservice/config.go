@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
@@ -34,12 +35,18 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	serverConf := psserver.Config{
 		PieceStoreDir: c.Path,
+		NodeID:        server.Identity().ID,
 	}
 
 	s, err := psserver.Initialize(ctx, serverConf)
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		err := s.DB.DeleteExpiredLoop(ctx)
+		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
+	}()
 
 	pspb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 

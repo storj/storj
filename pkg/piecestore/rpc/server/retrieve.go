@@ -92,14 +92,14 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		// Receive Bandwidth allocation
 		recv, err := stream.Recv()
 		if err != nil {
-			break
+			return am.Used, am.TotalAllocated, err
 		}
 
 		ba := recv.GetBandwidthallocation()
 		baData := ba.GetData()
 		if baData != nil {
 			if err = s.verifySignature(ba); err != nil {
-				break
+				return am.Used, am.TotalAllocated, err
 			}
 
 			am.NewTotal(baData.GetTotal())
@@ -115,15 +115,15 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		// Write the buffer to the stream we opened earlier
 		n, err := io.CopyN(writer, storeFile, sizeToRead)
 		if n > 0 {
-			if err := am.UseAllocation(n); err != nil {
-				break
+			if allocErr := am.UseAllocation(n); allocErr != nil {
+				log.Println(allocErr)
 			}
 		}
 
 		if err != nil {
-			break
+			return am.Used, am.TotalAllocated, err
 		}
 	}
 
-	return am.Used, am.TotalAllocated, err
+	return am.Used, am.TotalAllocated, nil
 }
