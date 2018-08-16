@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"math/rand"
 	// "strconv"
-	// "fmt"
 	"encoding/binary"
 	"time"
 
@@ -145,7 +144,7 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return err
 	}
-	nodes[len(nodes)-1] = nil //is this necessary? can i use pointers instead of copies for the replacement cache
+	nodes[len(nodes)-1] = nil 
 	rt.updateReplacementCache(kadBucketID, nodes[:len(nodes)-1])
 	return nil
 }

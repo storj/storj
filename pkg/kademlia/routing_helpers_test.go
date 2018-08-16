@@ -170,10 +170,8 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	fmt.Print("AAAAAAAAA")
 	node13 := mockNode("8O") //TODO (JJ): check if made it into the replacement cache
 	ok, err = rt.addNode(node13)
-	fmt.Print("BBBBBBBBBB")
 	assert.False(t, ok)
 	assert.NoError(t, err)
 
@@ -239,12 +237,51 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 19, len(nodeKeys))
 }
 
-func TestUpdateNode(t *testing.T){
-	panic("TODO")
+func TestUpdateNode(t *testing.T) {
+	rt := createRT([]byte("AA"))
+	node := mockNode("BB")
+	ok, err := rt.addNode(node)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	val, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	unmarshaled, err := unmarshalNodes(storage.Keys{storage.Key(node.Id)}, []storage.Value{val})
+	assert.NoError(t, err)
+	x := unmarshaled[0].Address
+	assert.Nil(t, x)
+
+	node.Address = &proto.NodeAddress{Address: "BB"}
+	err = rt.updateNode(node)
+	assert.NoError(t, err)
+	val, err = rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	unmarshaled, err = unmarshalNodes(storage.Keys{storage.Key(node.Id)}, []storage.Value{val})
+	assert.NoError(t, err)
+	y := unmarshaled[0].Address.Address
+	assert.Equal(t, "BB", y)
 }
 
 func TestRemoveNode(t *testing.T) {
-	panic("TODO")
+	rt := createRT([]byte("AA"))
+	kadBucketID := []byte{255, 255}
+	node := mockNode("BB")
+	ok, err := rt.addNode(node)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	val, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	assert.NotNil(t, val)
+	node2 := mockNode("CC")
+	rt.addToReplacementCache(kadBucketID, node2)
+	err = rt.removeNode(kadBucketID, storage.Key(node.Id))
+	assert.NoError(t, err)
+	val, err = rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.Nil(t, val)
+	assert.Error(t, err)
+	val2, err := rt.nodeBucketDB.Get(storage.Key(node2.Id))
+	assert.NoError(t, err)
+	assert.NotNil(t, val2)
+	assert.Equal(t, 0, len(rt.replacementCache[string(kadBucketID)]))
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {
