@@ -126,9 +126,7 @@ func (rt *RoutingTable) updateNode(node *proto.Node) error {
 	return nil
 }
 
-// removeNode will remove nodes and replace those entries with nodes
-// from the replacement cache.
-// We want to replace churned nodes (no longer online)
+// removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
 func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) error {
 	err := rt.nodeBucketDB.Delete(nodeID)
 	if err != nil {
@@ -147,6 +145,7 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return err
 	}
+	nodes[len(nodes)-1] = nil //is this necessary? can i use pointers instead of copies for the replacement cache
 	rt.updateReplacementCache(kadBucketID, nodes[:len(nodes)-1])
 	return nil
 }

@@ -239,6 +239,14 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 19, len(nodeKeys))
 }
 
+func TestUpdateNode(t *testing.T){
+	panic("TODO")
+}
+
+func TestRemoveNode(t *testing.T) {
+	panic("TODO")
+}
+
 func TestCreateOrUpdateKBucket(t *testing.T) {
 	id := []byte{255, 255}
 	rt := createRT(nil)
