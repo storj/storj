@@ -29,8 +29,8 @@ type Meta struct {
 	Data       []byte
 }
 
-// toMeta converts segment metadata to stream metadata
-func toMeta(segmentMeta segments.Meta) (Meta, error) {
+// convertMeta converts segment metadata to stream metadata
+func convertMeta(segmentMeta segments.Meta) (Meta, error) {
 	msi := streamspb.MetaStreamInfo{}
 	err := proto.Unmarshal(segmentMeta.Data, &msi)
 	if err != nil {
@@ -40,12 +40,12 @@ func toMeta(segmentMeta segments.Meta) (Meta, error) {
 	return Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       ((msi.NumberOfSegments-1) * msi.SegmentsSize) + msi.LastSegmentSize
+		Size:       ((msi.NumberOfSegments - 1) * msi.SegmentsSize) + msi.LastSegmentSize,
 		Data:       msi.Metadata,
 	}, nil
 }
 
-// Store for streams
+// Store interface methods for streams to satisfy to be a store
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
 	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser, Meta, error)
@@ -57,6 +57,7 @@ type Store interface {
 		more bool, err error)
 }
 
+// streamStore is a store for streams
 type streamStore struct {
 	segments    segments.Store
 	segmentSize int64
@@ -146,7 +147,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	newMeta, err := toMeta(lastSegmentMeta)
+	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -175,7 +176,8 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 	if err != nil {
 		return Meta{}, err
 	}
-	meta, err := toMeta(segmentMeta)
+
+	meta, err := convertMeta(segmentMeta)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -225,9 +227,10 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	if err != nil {
 		return nil, false, err
 	}
+
 	items = make([]ListItem, len(lItems))
 	for i, item := range lItems {
-		newMeta, err := toMeta(item.Meta)
+		newMeta, err := convertMeta(item.Meta)
 		if err != nil {
 			return nil, false, err
 		}

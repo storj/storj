@@ -153,9 +153,11 @@ func (c Config) NewGateway(ctx context.Context,
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
-	// TODO(jt): wrap segments and turn segments into streams actually
-	// TODO: passthrough is bad
-	stream := streams.NewPassthrough(segments)
+	// segment size 64MB
+	stream, err := streams.NewStreams(segments, 64000000)
+	if err != nil {
+		return nil, err
+	}
 	obj := objects.NewStore(stream)
 
 	return NewStorjGateway(buckets.NewStore(obj)), nil
