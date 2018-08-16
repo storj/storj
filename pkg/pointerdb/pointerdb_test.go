@@ -142,10 +142,12 @@ func TestServiceList(t *testing.T) {
 
 	keys := storage.Keys{
 		storage.Key(paths.New("sample.jpg").Bytes()),
+		storage.Key(paths.New("music").Bytes()),
 		storage.Key(paths.New("music/song1.mp3").Bytes()),
 		storage.Key(paths.New("music/song2.mp3").Bytes()),
 		storage.Key(paths.New("music/album/song3.mp3").Bytes()),
 		storage.Key(paths.New("music/song4.mp3").Bytes()),
+		storage.Key(paths.New("videos").Bytes()),
 		storage.Key(paths.New("videos/movie.mkv").Bytes()),
 	}
 
@@ -170,15 +172,17 @@ func TestServiceList(t *testing.T) {
 		{"", "", "", true, 0, meta.None, nil, keys, keys, false,
 			errors.New("list error"), status.Errorf(codes.Internal, "list error").Error()},
 		{"", "", "", true, 2, meta.None, nil, keys, keys[:2], true, nil, ""},
-		{"", "", "", false, 0, meta.None, nil, keys, keys[:1], false, nil, ""},
-		{"music", "", "", false, 0, meta.None, nil, keys[1:], storage.Keys{keys[1], keys[2], keys[4]}, false, nil, ""},
-		{"music", "", "", true, 0, meta.None, nil, keys[1:], keys[1:5], false, nil, ""},
-		{"music", "song1.mp3", "", true, 0, meta.None, nil, keys, keys[2:5], false, nil, ""},
-		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, keys, keys[2:3], false, nil, ""},
-		{"music", "", "song4.mp3", true, 0, meta.None, nil, keys, keys[1:4], false, nil, ""},
-		{"music", "", "song4.mp3", true, 1, meta.None, nil, keys, keys[3:4], true, nil, ""},
-		{"music", "", "song4.mp3", false, 0, meta.None, nil, keys, keys[1:3], false, nil, ""},
-		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, keys, keys[3:4], false, nil, ""},
+		{"", "", "", false, 0, meta.None, nil, keys, storage.Keys{keys[0], keys[1], keys[6]}, false, nil, ""},
+		{"", "", "videos", false, 0, meta.None, nil, keys, keys[:2], false, nil, ""},
+		{"music", "", "", false, 0, meta.None, nil, keys[2:], storage.Keys{keys[2], keys[3], keys[5]}, false, nil, ""},
+		{"music", "", "", true, 0, meta.None, nil, keys[2:], keys[2:6], false, nil, ""},
+		{"music", "song1.mp3", "", true, 0, meta.None, nil, keys, keys[3:6], false, nil, ""},
+		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, keys, keys[3:4], false, nil, ""},
+		{"music", "", "song4.mp3", true, 0, meta.None, nil, keys, keys[2:5], false, nil, ""},
+		{"music", "", "song4.mp3", true, 1, meta.None, nil, keys, keys[4:5], true, nil, ""},
+		{"music", "", "song4.mp3", false, 0, meta.None, nil, keys, keys[2:4], false, nil, ""},
+		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, keys, keys[4:5], false, nil, ""},
+		{"mus", "", "", true, 0, meta.None, nil, keys[1:], nil, false, nil, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -186,7 +190,7 @@ func TestServiceList(t *testing.T) {
 		s := Server{DB: db, logger: zap.NewNop()}
 
 		if tt.err != nil || tt.errString == "" {
-			prefix := storage.Key(paths.New(tt.prefix).Bytes())
+			prefix := storage.Key([]byte(tt.prefix + "/"))
 			db.EXPECT().List(prefix, storage.Limit(0)).Return(tt.returnedKeys, tt.err)
 
 			if tt.metaFlags != meta.None {

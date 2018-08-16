@@ -71,6 +71,10 @@ run-hc:
 		-e OVERLAY_PORT=7070 \
 		hc
 
+test-captplanet:
+	@echo "Running ${@}"
+	@./scripts/test-captplanet.sh
+
 clean-local:
 	# cleanup heavy client
 	docker stop hc || true
@@ -91,7 +95,7 @@ test-docker-clean:
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG}-${GO_VERSION} -f cmd/hc/Dockerfile .
 	docker tag storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
-	docker build -t storjlabs/storage-node:${TAG} -f cmd/piecestore-farmer/Dockerfile .
+	docker build -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
 	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 
 push-images:

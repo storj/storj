@@ -63,7 +63,11 @@ func (ol *olLogWrap) StorageInfo(ctx context.Context) minio.StorageInfo {
 
 func (ol *olLogWrap) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) error {
-	return ol.wrap(ol.ol.MakeBucketWithLocation(ctx, bucket, location))
+	err := ol.ol.MakeBucketWithLocation(ctx, bucket, location)
+	if _, ok := err.(minio.BucketAlreadyExists); ok {
+		return err
+	}
+	return ol.wrap(err)
 }
 
 func (ol *olLogWrap) GetBucketInfo(ctx context.Context, bucket string) (
@@ -79,7 +83,14 @@ func (ol *olLogWrap) ListBuckets(ctx context.Context) (
 }
 
 func (ol *olLogWrap) DeleteBucket(ctx context.Context, bucket string) error {
-	return ol.wrap(ol.ol.DeleteBucket(ctx, bucket))
+	err := ol.ol.DeleteBucket(ctx, bucket)
+	if _, ok := err.(minio.BucketNotEmpty); ok {
+		return err
+	}
+	if _, ok := err.(minio.BucketNotFound); ok {
+		return err
+	}
+	return ol.wrap(err)
 }
 
 func (ol *olLogWrap) ListObjects(ctx context.Context,
@@ -108,6 +119,9 @@ func (ol *olLogWrap) GetObject(ctx context.Context, bucket, object string,
 func (ol *olLogWrap) GetObjectInfo(ctx context.Context, bucket, object string) (
 	objInfo minio.ObjectInfo, err error) {
 	objInfo, err = ol.ol.GetObjectInfo(ctx, bucket, object)
+	if _, ok := err.(minio.ObjectNotFound); ok {
+		return objInfo, err
+	}
 	return objInfo, ol.wrap(err)
 }
 
