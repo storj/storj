@@ -95,11 +95,19 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 	return pointerBytes, nil
 }
 
-// List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+// List returns paths that fulfill the criteria
+func (c *Client) List(opts storage.ListOptions) (storage.ListItem, storage.More, error) {
 	c.logger.Debug("entering bolt list")
-	return c.listHelper(false, startingKey, limit)
+	paths, err := c.listHelper(false, opts.Start, opts.Limit)
+	fmt.Println("This is paths and err in list: ", paths, err)
+	return storage.ListItem{}, false, nil
 }
+
+// // List returns either a list of keys for which boltdb has values or an error.
+// func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+// 	c.logger.Debug("entering bolt list")
+// 	return c.listHelper(false, startingKey, limit)
+// }
 
 // ReverseList returns either a list of keys for which boltdb has values or an error.
 // Starts from startingKey and iterates backwards
@@ -128,6 +136,7 @@ func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit sto
 		}
 		return nil
 	})
+	fmt.Println("this is paths: ", paths)
 	return paths, err
 }
 
