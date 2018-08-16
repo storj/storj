@@ -8,17 +8,49 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 var (
 	mon = monkit.Package()
 )
+
+// Config contains everything necessary for a server
+type Config struct {
+	Path string `help:"path to store data in" default:"$CONFDIR"`
+}
+
+// Run implements provider.Responsibility
+func (c Config) Run(ctx context.Context, server *provider.Provider) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	//TODO pass in Config
+
+	s, err := Initialize(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := s.DB.DeleteExpiredLoop(ctx)
+		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
+	}()
+
+	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
+
+	defer func() {
+		log.Fatal(s.Stop(ctx))
+	}()
+
+	return server.Run(ctx)
+}
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
@@ -27,9 +59,9 @@ type Server struct {
 }
 
 // Initialize -- initializes a server struct
-func Initialize(ctx context.Context, path string) (*Server, error) {
-	dbPath := filepath.Join(path, "piecestore.db")
-	dataDir := filepath.Join(path, "piece-store-data")
+func Initialize(ctx context.Context, config Config) (*Server, error) {
+	dbPath := filepath.Join(config.Path, "piecestore.db")
+	dataDir := filepath.Join(config.Path, "piece-store-data")
 
 	psDB, err := psdb.OpenPSDB(ctx, dataDir, dbPath)
 	if err != nil {
