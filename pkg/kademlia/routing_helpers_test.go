@@ -170,10 +170,13 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNode("8O") //TODO (JJ): check if made it into the replacement cache
+	node13 := mockNode("8O") 
 	ok, err = rt.addNode(node13)
 	assert.False(t, ok)
 	assert.NoError(t, err)
+	//check if node13 it into the replacement cache
+	ns := rt.getReplacementCacheBucket([]byte{63, 255})
+	assert.Equal(t, node13.Id, ns[0].Id)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)
