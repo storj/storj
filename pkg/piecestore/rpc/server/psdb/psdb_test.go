@@ -21,7 +21,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 1
+var parallelCount = 10
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {

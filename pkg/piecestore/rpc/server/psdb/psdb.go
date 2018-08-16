@@ -58,12 +58,7 @@ func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err err
 		return nil, err
 	}
 
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			log.Printf("%s\n", err)
-		}
-	}()
+	defer rollback(tx)
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
@@ -174,12 +169,7 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) erro
 		return err
 	}
 
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			log.Printf("%s\n", err)
-		}
-	}()
+	defer rollback(tx)
 
 	stmt, err := psdb.DB.Prepare(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`)
 	if err != nil {
@@ -206,12 +196,7 @@ func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 		return err
 	}
 
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			log.Printf("%s\n", err)
-		}
-	}()
+	defer rollback(tx)
 
 	stmt, err := psdb.DB.Prepare("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)")
 	if err != nil {
@@ -251,12 +236,7 @@ func (psdb *PSDB) DeleteTTLByID(id string) error {
 		return err
 	}
 
-	defer func() {
-		err := tx.Rollback()
-		if err != nil {
-			log.Printf("%s\n", err)
-		}
-	}()
+	defer rollback(tx)
 
 	stmt, err := tx.Prepare("DELETE FROM ttl WHERE id=?")
 	if err != nil {
@@ -270,4 +250,11 @@ func (psdb *PSDB) DeleteTTLByID(id string) error {
 	}
 
 	return tx.Commit()
+}
+
+func rollback(tx *sql.Tx) {
+	err := tx.Rollback()
+	if err != nil && err != sql.ErrTxDone {
+		log.Printf("%s\n", err)
+	}
 }
