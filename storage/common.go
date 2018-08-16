@@ -22,21 +22,31 @@ type Keys []Key
 // Values is the type for a slice of Values in a `KeyValueStore`
 type Values []Value
 
-// ListItem returns items that fulfill the requirements in the `LIST` method
-type ListItem []ListItem
-
 // ListOptions are items that are optional for the LIST method
 type ListOptions struct {
-	prefix    Key
-	start     Key
-	end       Key
-	delimeter string
-	value     bool
-	limit     Limit
+	Prefix       Key
+	Start        Key
+	End          Key
+	Delimeter    string
+	IncludeValue bool
+	Limit        Limit
 }
 
 // Limit indicates how many keys to return when calling List
 type Limit int
+
+// More indicates if the result was truncated. If false
+// then the result []ListItem includes all requested keys.
+// If true then the caller must call List again to get more
+// results by setting `StartAfter` or `EndBefore` appropriately.
+type More bool
+
+// ListItem returns Key, Value, IsPrefix
+type ListItem struct {
+	Key      Key
+	Value    Value
+	IsPrefix bool
+}
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {
@@ -44,7 +54,7 @@ type KeyValueStore interface {
 	Put(Key, Value) error
 	Get(Key) (Value, error)
 	GetAll(Keys) (Values, error)
-	List(opts ListOptions) ([]ListItem, error)
+	List(opts ListOptions) ([]ListItem, More, error)
 	ReverseList(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
