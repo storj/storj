@@ -4,31 +4,22 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path/filepath"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/overlay"
 	proto "storj.io/storj/protos/overlay"
+	"fmt"
 )
-
-type Config struct {
-	NodesPath   string `help:"the path to a JSON file containing an object with IP keys and nodeID values" default:"$CONFDIR/nodes.json"`
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
-}
 
 var (
 	mon     = monkit.Package()
@@ -42,20 +33,16 @@ var (
 		Short: "Add nodes to the overlay cache",
 		RunE:  cmdAdd,
 	}
-	clearCmd = &cobra.Command{
-		Use:   "clear",
-		Short: "Clear the overlay cache",
-		RunE:  cmdClear,
+	listCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List nodes in the overlay cache",
+		RunE:  cmdList,
 	}
 
-	addCfg struct {
+	cacheCfg struct {
 		Identity provider.IdentityConfig
 		Kademlia kademlia.Config
-		Overlay  Config
-	}
-
-	clearCfg struct {
-		ExceptPath string
+		cacheConfig
 	}
 
 	defaultConfDir = "$HOME/.storj/hc"
@@ -63,18 +50,44 @@ var (
 
 func init() {
 	rootCmd.AddCommand(addCmd)
-	cfgstruct.Bind(addCmd.Flags(), &addCfg)
-	cfgstruct.Bind(clearCmd.Flags(), &clearCfg)
+	rootCmd.AddCommand(listCmd)
+	cfgstruct.Bind(addCmd.Flags(), &cacheCfg)
+	cfgstruct.Bind(listCmd.Flags(), &cacheCfg)
+}
+
+func cmdList(cmd *cobra.Command, args []string) (err error) {
+	f := func(c *overlay.Cache) error {
+		keys, err := c.DB.List(nil, 0)
+		if err != nil {
+			return err
+		}
+
+		for _, k := range keys {
+			n, err := c.Get(process.Ctx(cmd), string(k))
+			if err != nil {
+				fmt.Printf("ID: %s; error getting value\n", k)
+				// return Error.Wrap(err)
+			}
+			if n != nil {
+				fmt.Printf("ID: %s; Address: %s\n", k, n.Address.Address)
+				continue
+			}
+			fmt.Printf("ID: %s; Address: nil\n", k)
+		}
+
+		return nil
+	}
+	c := cacheInjector{
+		cacheConfig: cacheCfg.cacheConfig,
+		c:           f,
+	}
+
+	return cacheCfg.Identity.Run(process.Ctx(cmd),
+		cacheCfg.Kademlia, c)
 }
 
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
-	return addCfg.Identity.Run(process.Ctx(cmd), addCfg.Kademlia, addCfg.Overlay)
-}
-
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	j, err := ioutil.ReadFile(addCfg.Overlay.NodesPath)
+	j, err := ioutil.ReadFile(cacheCfg.NodesPath)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -84,60 +97,37 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return errs.Wrap(err)
 	}
 
-	kad := kademlia.LoadFromContext(ctx)
-	if kad == nil {
-		return Error.New("programmer error: kademlia responsibility unstarted")
-	}
-
-	dburl, err := url.Parse(c.DatabaseURL)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	var cache *overlay.Cache
-	switch dburl.Scheme {
-	case "bolt":
-		cache, err = overlay.NewBoltOverlayCache(dburl.Path, kad)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with BoltDB")
-	case "redis":
-		db, err := strconv.Atoi(dburl.Query().Get("db"))
-		if err != nil {
-			return Error.New("invalid db: %s", err)
-		}
-		cache, err = overlay.NewRedisOverlayCache(dburl.Host, overlay.UrlPwd(dburl), db, kad)
-		if err != nil {
-			return err
-		}
-		zap.S().Info("Starting overlay cache with Redis")
-	default:
-		return Error.New("database scheme not supported: %s", dburl.Scheme)
-	}
-
 	fmt.Println(nodes)
-	for i, a := range nodes {
-		cache.Put(i, proto.Node{
-			Address: &proto.NodeAddress{
-				Transport: 0,
-				Address: a,
-			},
-			Type: 1,
-			// TODO@ASK: Restrictions for staging storage nodes?
-		})
+
+	f := func(c *overlay.Cache) error {
+		for i, a := range nodes {
+			err := c.Put(i, proto.Node{
+				Address: &proto.NodeAddress{
+					Transport: 0,
+					Address:   a,
+				},
+				Type: 1,
+				// TODO@ASK: Restrictions for staging storage nodes?
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	c := cacheInjector{
+		cacheConfig: cacheCfg.cacheConfig,
+		c:           f,
 	}
 
-	return nil
-}
-
-func cmdClear(cmd *cobra.Command, args []string) (err error) {
-	// TODO
-	return nil
+	return cacheCfg.Identity.Run(process.Ctx(cmd),
+		cacheCfg.Kademlia, c)
 }
 
 func main() {
 	addCmd.Flags().String("config",
+		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	listCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }
