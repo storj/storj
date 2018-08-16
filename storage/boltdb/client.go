@@ -96,11 +96,11 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 }
 
 // List returns paths that fulfill the criteria
-func (c *Client) List(opts storage.ListOptions) (storage.ListItem, storage.More, error) {
+func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.More, error) {
 	c.logger.Debug("entering bolt list")
 	paths, err := c.listHelper(false, opts.Start, opts.Limit)
 	fmt.Println("This is paths and err in list: ", paths, err)
-	return storage.ListItem{}, false, nil
+	return []storage.ListItem{}, false, nil
 }
 
 // // List returns either a list of keys for which boltdb has values or an error.
