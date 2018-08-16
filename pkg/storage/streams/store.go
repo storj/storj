@@ -40,7 +40,7 @@ func toMeta(segmentMeta segments.Meta) (Meta, error) {
 	return Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       segmentMeta.Size,
+		Size:       ((msi.NumberOfSegments-1) * msi.SegmentsSize) + msi.LastSegmentSize
 		Data:       msi.Metadata,
 	}, nil
 }
