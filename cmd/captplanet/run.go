@@ -24,10 +24,11 @@ const (
 )
 
 type HeavyClient struct {
-	Identity  provider.IdentityConfig
-	Kademlia  kademlia.Config
-	PointerDB pointerdb.Config
-	Overlay   overlay.Config
+	Identity    provider.IdentityConfig
+	Kademlia    kademlia.Config
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	MockOverlay bool `default:"true" help:"if false, use real overlay"`
 }
 
 type Farmer struct {
@@ -60,16 +61,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(runCfg.Farmers)+2)
-
-	// start heavy client
-	go func() {
-		_, _ = fmt.Printf("starting heavy client on %s\n",
-			runCfg.HeavyClient.Identity.Address)
-		errch <- runCfg.HeavyClient.Identity.Run(ctx,
-			runCfg.HeavyClient.Kademlia,
-			runCfg.HeavyClient.PointerDB,
-			runCfg.HeavyClient.Overlay)
-	}()
+	farmers := map[string]*proto.Node{}
 
 	// start the farmers
 	for i := 0; i < len(runCfg.Farmers); i++ {
@@ -85,7 +77,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		miniogw.GlobalMockOverlay.Nodes[identity.ID.String()] = &proto.Node{
+		farmers[identity.ID.String()] = &proto.Node{
 			Id: identity.ID.String(),
 			Address: &proto.NodeAddress{
 				Transport: proto.NodeTransport_TCP,
@@ -93,6 +85,21 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			},
 		}
 	}
+
+	// start heavy client
+	go func() {
+		_, _ = fmt.Printf("starting heavy client on %s\n",
+			runCfg.HeavyClient.Identity.Address)
+		var o provider.Responsibility = runCfg.HeavyClient.Overlay
+		if runCfg.HeavyClient.MockOverlay {
+			overlay.GlobalMockOverlay.Nodes = farmers
+			o = overlay.MockConfig{}
+		}
+		errch <- runCfg.HeavyClient.Identity.Run(ctx,
+			runCfg.HeavyClient.Kademlia,
+			runCfg.HeavyClient.PointerDB,
+			o)
+	}()
 
 	// start s3 gateway
 	go func() {
