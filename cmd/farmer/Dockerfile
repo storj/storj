@@ -13,6 +13,7 @@ ENV KAD_HOST=bootstrap.storj.io \
     KAD_LISTEN_PORT=7776 \
     KAD_PORT=8080 \
     PSID= \
+    CONF_PATH= \
     PS_DIR=/home/ \
     PUBLIC_IP=127.0.0.1 \
     RPC_PORT=7777
