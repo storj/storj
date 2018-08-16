@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -122,11 +121,13 @@ func (psdb *PSDB) DeleteExpired(ctx context.Context) (err error) {
 		return err
 	}
 
-	err = deleteEntriesFromFS(psdb.dataPath, rows)
-	if err := rows.Close(); err != nil {
-		log.Printf("failed to close Rows: %s\n", err)
-	}
-	if err != nil {
+	defer func() {
+		if rowErr := rows.Close(); rowErr != nil {
+			log.Printf("failed to close Rows: %s\n", rowErr)
+		}
+	}()
+
+	if err = deleteEntriesFromFS(psdb.dataPath, rows); err != nil {
 		return err
 	}
 
@@ -168,11 +169,6 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) erro
 		return nil
 	}
 
-	serialized, err := proto.Marshal(data)
-	if err != nil {
-		return err
-	}
-
 	tx, err := psdb.DB.Begin()
 	if err != nil {
 		return err
@@ -192,7 +188,7 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) erro
 
 	defer stmt.Close()
 
-	_, err = tx.Stmt(stmt).Exec(serialized, ba.GetSignature())
+	_, err = tx.Stmt(stmt).Exec(data, ba.GetSignature())
 	if err != nil {
 		return err
 	}

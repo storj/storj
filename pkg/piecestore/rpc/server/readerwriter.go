@@ -4,6 +4,7 @@
 package server
 
 import (
+	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -33,6 +34,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 type StreamReader struct {
 	src                 *utils.ReaderSource
 	bandwidthAllocation *pb.RenterBandwidthAllocation
+	currentTotal        int64
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
@@ -54,9 +56,16 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 			}
 		}
 
+		deserializedData := &pb.RenterBandwidthAllocation_Data{}
+		err = proto.Unmarshal(ba.GetData(), deserializedData)
+		if err != nil {
+			return nil, err
+		}
+
 		// Update bandwidthallocation to be stored
-		if ba.GetData().GetTotal() > sr.bandwidthAllocation.GetData().GetTotal() {
+		if deserializedData.GetTotal() > sr.currentTotal {
 			sr.bandwidthAllocation = ba
+			sr.currentTotal = deserializedData.GetTotal()
 		}
 
 		return pd.GetContent(), nil

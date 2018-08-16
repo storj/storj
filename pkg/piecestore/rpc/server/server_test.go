@@ -229,10 +229,10 @@ func TestRetrieve(t *testing.T) {
 					&pb.PieceRetrieval{
 						Bandwidthallocation: &pb.RenterBandwidthAllocation{
 							Signature: []byte{'A', 'B'},
-							Data: &pb.RenterBandwidthAllocation_Data{
+							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 								PayerAllocation: &pb.PayerBandwidthAllocation{},
 								Total:           totalAllocated,
-							},
+							}),
 						},
 					},
 				)
@@ -315,10 +315,10 @@ func TestStore(t *testing.T) {
 				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
 				Bandwidthallocation: &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
-					Data: &pb.RenterBandwidthAllocation_Data{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
 						Total:           int64(len(tt.content)),
-					},
+					}),
 				},
 			}
 
@@ -356,8 +356,8 @@ func TestStore(t *testing.T) {
 				err = proto.Unmarshal(agreement, decoded)
 
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
-				assert.Equal(msg.Bandwidthallocation.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
-				assert.Equal(msg.Bandwidthallocation.Data.GetTotal(), decoded.GetTotal())
+				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
+				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}
 			err = rows.Err()
@@ -500,6 +500,12 @@ func (TS *TestServer) Stop() {
 	TS.conn.Close()
 	TS.grpcs.Stop()
 	os.RemoveAll(TS.s.DataDir)
+}
+
+func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
+	data, _ := proto.Marshal(ba)
+
+	return data
 }
 
 func TestMain(m *testing.M) {

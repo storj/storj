@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -64,10 +65,10 @@ func TestPieceRanger(t *testing.T) {
 				stream.EXPECT().Send(
 					&pb.PieceRetrieval{
 						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: &pb.RenterBandwidthAllocation_Data{
+							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 								PayerAllocation: &pb.PayerBandwidthAllocation{},
 								Total:           32 * 1024,
-							},
+							}),
 						},
 					},
 				).Return(nil),
@@ -79,10 +80,10 @@ func TestPieceRanger(t *testing.T) {
 				stream.EXPECT().Send(
 					&pb.PieceRetrieval{
 						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: &pb.RenterBandwidthAllocation_Data{
+							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 								PayerAllocation: &pb.PayerBandwidthAllocation{},
 								Total:           32 * 1024 * 2,
-							},
+							}),
 						},
 					},
 				).Return(nil),
@@ -152,10 +153,10 @@ func TestPieceRangerSize(t *testing.T) {
 				).Return(nil),
 				stream.EXPECT().Send(
 					&pb.PieceRetrieval{Bandwidthallocation: &pb.RenterBandwidthAllocation{
-						Data: &pb.RenterBandwidthAllocation_Data{
+						Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 							PayerAllocation: &pb.PayerBandwidthAllocation{},
 							Total:           32 * 1024,
-						},
+						}),
 					},
 					},
 				).Return(nil),
@@ -167,10 +168,10 @@ func TestPieceRangerSize(t *testing.T) {
 				stream.EXPECT().Send(
 					&pb.PieceRetrieval{
 						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: &pb.RenterBandwidthAllocation_Data{
+							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 								PayerAllocation: &pb.PayerBandwidthAllocation{},
 								Total:           32 * 1024 * 2,
-							},
+							}),
 						},
 					},
 				).Return(nil),
@@ -194,4 +195,10 @@ func TestPieceRangerSize(t *testing.T) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}
 	}
+}
+
+func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
+	data, _ := proto.Marshal(ba)
+
+	return data
 }

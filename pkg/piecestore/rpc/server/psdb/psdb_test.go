@@ -21,7 +21,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 100
+var parallelCount = 1
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -269,10 +269,10 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 				assert := assert.New(t)
 				ba := &pb.RenterBandwidthAllocation{
 					Signature: []byte{'A', 'B'},
-					Data: &pb.RenterBandwidthAllocation_Data{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: tt.payerAllocation,
 						Total:           tt.total,
-					},
+					}),
 				}
 				err = db.WriteBandwidthAllocToDB(ba)
 				if tt.err != "" {
@@ -295,14 +295,13 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					err = rows.Scan(&agreement, &signature)
 					assert.Nil(err)
 
-					decoded := &pb.RenterBandwidthAllocation_Data{}
-
-					err = proto.Unmarshal(agreement, decoded)
+					decodedRow := &pb.RenterBandwidthAllocation_Data{}
+					err = proto.Unmarshal(agreement, decodedRow)
 					assert.Nil(err)
 
 					assert.Equal(ba.GetSignature(), signature)
-					assert.Equal(ba.Data.GetPayerAllocation(), decoded.GetPayerAllocation())
-					assert.Equal(ba.Data.GetTotal(), decoded.GetTotal())
+					assert.Equal(tt.payerAllocation, decodedRow.GetPayerAllocation())
+					assert.Equal(tt.total, decodedRow.GetTotal())
 
 				}
 				rows.Close()
@@ -312,6 +311,12 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 			})
 		}
 	}
+}
+
+func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
+	data, _ := proto.Marshal(ba)
+
+	return data
 }
 
 func TestMain(m *testing.M) {

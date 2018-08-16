@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
@@ -79,6 +80,7 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager()
 	var latestBA *pb.RenterBandwidthAllocation
+	var latestTotal int64
 
 	// Save latest bandwidth allocation even if we fail
 	defer func() {
@@ -96,18 +98,23 @@ func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id stri
 		}
 
 		ba := recv.GetBandwidthallocation()
-		baData := ba.GetData()
-		if baData != nil {
-			if err = s.verifySignature(ba); err != nil {
-				return am.Used, am.TotalAllocated, err
-			}
 
-			am.NewTotal(baData.GetTotal())
+		baData := &pb.RenterBandwidthAllocation_Data{}
+
+		if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
+			return am.Used, am.TotalAllocated, err
 		}
 
+		if err = s.verifySignature(ba); err != nil {
+			return am.Used, am.TotalAllocated, err
+		}
+
+		am.NewTotal(baData.GetTotal())
+
 		// The bandwidthallocation with the higher total is what I want to earn the most money
-		if baData.GetTotal() > latestBA.GetData().GetTotal() {
+		if baData.GetTotal() > latestTotal {
 			latestBA = ba
+			latestTotal = baData.GetTotal()
 		}
 
 		sizeToRead := am.NextReadSize()

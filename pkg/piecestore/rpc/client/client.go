@@ -20,15 +20,17 @@ import (
 	pb "storj.io/storj/protos/piecestore"
 )
 
+// ClientError is any error returned by the client
 var ClientError = errs.Class("PSClient error")
 
 var (
 	defaultBandwidthMsgSize = flag.Int(
 		"piecestore.rpc.client.default_bandwidth_msg_size", 32*1024,
 		"default bandwidth message size in kilobytes")
+	maxBandwidthMsgSize = flag.Int(
+		"piecestore.rpc.client.max_bandwidth_msg_size", 64*1024,
+		"max bandwidth message size in kilobytes")
 )
-
-var maxBandwidthMsgSize = 64 * 1024
 
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
@@ -49,7 +51,7 @@ type Client struct {
 
 // NewPSClient initilizes a PSClient
 func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) {
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
 
@@ -66,7 +68,7 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) 
 
 // NewCustomRoute creates new Client with custom route interface
 func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Client, error) {
-	if bandwidthMsgSize < 0 || bandwidthMsgSize > maxBandwidthMsgSize {
+	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
 
@@ -97,7 +99,6 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return err
 	}
 
-	// Send preliminary data
 	msg := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), Ttl: ttl.Unix()}}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
