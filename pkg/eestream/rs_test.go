@@ -48,9 +48,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(data, data2) {
-		t.Fatalf("rs encode/decode failed")
-	}
+	assert.Equal(t, data, data2)
 }
 
 // Check that io.ReadFull will return io.ErrUnexpectedEOF
@@ -450,7 +448,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 		return
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
-	// some readers will return EOF later
+	// some readers will have problematic behavior
 	for i := 0; i < tt.problematic; i++ {
 		readerMap[i] = fn(pieces[i])
 	}
