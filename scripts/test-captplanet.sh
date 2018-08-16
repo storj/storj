@@ -14,6 +14,7 @@ aws configure set default.s3.multipart_threshold 1TB
 head -c 1024 </dev/urandom > ./small-upload-testfile # create 1mb file of random bytes (inline)
 head -c 5120 </dev/urandom > ./big-upload-testfile # create 5mb file of random bytes (remote)
 
+aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 aws s3 --endpoint=http://localhost:7777/ cp ./small-upload-testfile s3://bucket/small-testfile
 aws s3 --endpoint=http://localhost:7777/ cp ./big-upload-testfile s3://bucket/big-testfile
 aws s3 --endpoint=http://localhost:7777/ ls s3://bucket

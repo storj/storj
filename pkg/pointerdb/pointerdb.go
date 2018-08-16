@@ -6,7 +6,6 @@ package pointerdb
 import (
 	"context"
 	"reflect"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -119,7 +118,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	prefix := paths.New(req.GetPrefix())
 
 	// TODO(kaloyan): here we query the DB without limit. We must optimize it!
-	keys, err := s.DB.List(prefix.Bytes(), 0)
+	keys, err := s.DB.List([]byte(req.GetPrefix()+"/"), 0)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -165,8 +164,7 @@ func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
 			break
 		}
 
-		// TODO(kaloyan): add HasPrefix method to Path type
-		if !strings.HasPrefix(p.String(), prefix.String()) {
+		if !p.HasPrefix(prefix) {
 			// We went through all keys that start with the prefix
 			break
 		}
@@ -207,8 +205,7 @@ func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
 			continue
 		}
 
-		// TODO(kaloyan): add HasPrefix method to Path type
-		if !strings.HasPrefix(p.String(), prefix.String()) {
+		if !p.HasPrefix(prefix) || len(p) <= len(prefix) {
 			// We went through all keys that start with the prefix
 			break
 		}
