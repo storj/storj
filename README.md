@@ -30,7 +30,7 @@ Go here to download the latest build
 #### Test out some Storj CLI commands!
 
 1) Create a bucket: ```$ storj mb s3://bucket-name```
-2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name/your-large-file.mp4```
+2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
 3) List objects in a bucket: ```$ storj ls s3://bucket-name/ ```
 4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
 6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
@@ -55,7 +55,7 @@ $ aws configure set default.s3.multipart_threshold 1TB  # until we support multi
 #### Test out some AWS S3 CLI commands! 
 
 1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
-2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name/your-large-file.mp4```
+2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
 3) List objects in a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ ls s3://bucket-name/ ```
 4) Download an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
 5) Generate a URL for an object: ``` $ aws s3 --endpoint=http://localhost:7777/ presign s3://bucket-name/your-large-file.mp4```
