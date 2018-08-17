@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"container/heap"
+	"math/big"
 
 	proto "storj.io/storj/protos/overlay"
 )
@@ -12,7 +13,7 @@ import (
 // An Item is something we manage in a priority queue.
 type Item struct {
 	value    *proto.Node // The value of the item; arbitrary.
-	priority int         // The priority of the item in the queue.
+	priority *big.Int    // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }
@@ -26,7 +27,11 @@ func (pq PriorityQueue) Len() int { return len(pq) }
 // Less does what you would think
 func (pq PriorityQueue) Less(i, j int) bool {
 	// this sorts the nodes where the node popped has the closest location
-	return pq[i].priority < pq[j].priority
+	if i := pq[i].priority.Cmp(pq[j].priority); i < 0 {
+		return true
+	}
+
+	return false
 }
 
 // Swap swaps two ints
@@ -56,7 +61,7 @@ func (pq *PriorityQueue) Pop() interface{} {
 }
 
 // update modifies the priority and value of an Item in the queue.
-func (pq *PriorityQueue) update(item *Item, value *proto.Node, priority int) {
+func (pq *PriorityQueue) update(item *Item, value *proto.Node, priority *big.Int) {
 	item.value = value
 	item.priority = priority
 	heap.Fix(pq, item.index)

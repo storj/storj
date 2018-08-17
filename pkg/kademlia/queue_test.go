@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"container/heap"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,13 +14,17 @@ import (
 
 func TestPriorityQueue(t *testing.T) {
 	cases := []struct {
-		target   []byte
+		target   *big.Int
 		nodes    map[string]*proto.Node
 		pq       PriorityQueue
 		expected []int
 	}{
 		{
-			target: []byte("0001"),
+			target: func() *big.Int {
+				i, ok := new(big.Int).SetString("0001", 2)
+				assert.True(t, ok)
+				return i
+			}(),
 			nodes: map[string]*proto.Node{
 				"1001": &proto.Node{Id: "1001"},
 				"0100": &proto.Node{Id: "0100"},
@@ -34,10 +39,11 @@ func TestPriorityQueue(t *testing.T) {
 	for _, v := range cases {
 		i := 0
 		for id, value := range v.nodes {
-			priority, _ := xor([]byte(id), v.target)
+			bn, ok := new(big.Int).SetString(id, 2)
+			assert.True(t, ok)
 			v.pq[i] = &Item{
 				value:    value,
-				priority: priority,
+				priority: new(big.Int).Xor(v.target, bn),
 				index:    i,
 			}
 			i++
@@ -47,7 +53,7 @@ func TestPriorityQueue(t *testing.T) {
 		i = 0
 		for v.pq.Len() > 0 {
 			item := heap.Pop(&v.pq).(*Item)
-			assert.Equal(t, v.expected[i], item.priority)
+			assert.Equal(t, &v.expected[i], item.priority)
 			i++
 		}
 

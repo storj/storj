@@ -7,6 +7,7 @@ import (
 	"container/heap"
 	"context"
 	"log"
+	"math/big"
 	"sync"
 	"time"
 
@@ -34,14 +35,22 @@ type worker struct {
 }
 
 func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc node.Client, target dht.NodeID, k int) *worker {
-	tb := target.Bytes()
+	t, ok := new(big.Int).SetString(target.String(), 2)
+	if !ok {
+		// TODO(coyle): return error
+		return nil
+	}
+
 	pq := func(nodes []*proto.Node) PriorityQueue {
 		pq := make(PriorityQueue, len(nodes))
 		for i, node := range nodes {
-			priority, _ := xor([]byte(node.GetId()), tb)
+			bnode, ok := new(big.Int).SetString(node.GetId(), 2)
+			if !ok {
+				// TODO(coyle): return error
+			}
 			pq[i] = &Item{
 				value:    node,
-				priority: priority,
+				priority: new(big.Int).Xor(t, bnode),
 				index:    i,
 			}
 
@@ -95,7 +104,7 @@ func (w *worker) getWork() *proto.Node {
 	}
 
 	defer w.mu.Unlock()
-	defer func() { w.workInProgress++ }()
+	w.workInProgress++
 	return w.pq.Pop().(*Item).value
 }
 
@@ -118,19 +127,25 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 }
 
 func (w *worker) update(nodes []*proto.Node) error {
-	if nodes == nil {
-		return WorkerError.New("nodes must not be nil")
+	if len(nodes) == 0 {
+		return WorkerError.New("nodes must not be empty")
 	}
+	t, ok := new(big.Int).SetString(w.find.String(), 2)
+	if !ok {
+		return WorkerError.New("Unable to parse target ID")
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, v := range nodes {
-		priority, err := xor(w.find.Bytes(), []byte(v.GetId()))
-		if err != nil {
-			return err
+		bn, ok := new(big.Int).SetString(w.find.String(), 2)
+		if !ok {
+			return WorkerError.New("Unable to parse node ID")
 		}
+
 		w.pq.Push(&Item{
 			value:    v,
-			priority: priority,
+			priority: new(big.Int).Xor(t, bn),
 		})
 	}
 	// only keep the k closest nodes

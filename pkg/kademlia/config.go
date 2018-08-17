@@ -52,14 +52,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	// TODO(jt): don't split the host/port
-	host, port, err = net.SplitHostPort(c.TODOListenAddr)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
-	kad, err := NewKademlia(server.Identity().ID, []proto.Node{*in}, host, port)
+	kad, err := NewKademlia(server.Identity().ID, []proto.Node{*in}, c.TODOListenAddr)
 	if err != nil {
 		return err
 	}
