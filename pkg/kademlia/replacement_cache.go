@@ -9,12 +9,13 @@ import (
 )
 
 
-func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *proto.Node) {
-	//get length of nodes
-	//if length of nodes is equal to rt.replacementCacheSize, pop node off bottom of stack
-	
+func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *proto.Node) {	
 	bucketID := string(kadBucketID)
 	nodes := rt.replacementCache[bucketID]
 	nodes = append(nodes, node)
+	if len(nodes) > rt.rcBucketSize {
+		copy(nodes, nodes[1:])
+		nodes = nodes[:len(nodes)-1]
+	}
 	rt.replacementCache[bucketID] = nodes
 }

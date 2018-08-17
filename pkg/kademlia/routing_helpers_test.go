@@ -40,6 +40,7 @@ func createRT(localNodeID []byte) *RoutingTable {
 		rpath:      tempfile("ReplacementCache"),
 		idLength:   16,
 		bucketSize: 6,
+		rcBucketSize: 2,
 	}
 	rt, _ := NewRoutingTable(localNode, options)
 	return rt
@@ -175,7 +176,7 @@ func TestAddNode(t *testing.T) {
 	assert.False(t, ok)
 	assert.NoError(t, err)
 	//check if node13 it into the replacement cache
-	ns := rt.getReplacementCacheBucket([]byte{63, 255})
+	ns := rt.replacementCache[string([]byte{63, 255})]
 	assert.Equal(t, node13.Id, ns[0].Id)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
