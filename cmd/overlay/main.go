@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
-	"fmt"
+	"go.uber.org/zap"
 )
 
 var (
@@ -65,14 +65,13 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 		for _, k := range keys {
 			n, err := c.Get(process.Ctx(cmd), string(k))
 			if err != nil {
-				fmt.Printf("ID: %s; error getting value\n", k)
-				// return Error.Wrap(err)
+				zap.S().Infof("ID: %s; error getting value\n", k)
 			}
 			if n != nil {
-				fmt.Printf("ID: %s; Address: %s\n", k, n.Address.Address)
+				zap.S().Infof("ID: %s; Address: %s\n", k, n.Address.Address)
 				continue
 			}
-			fmt.Printf("ID: %s; Address: nil\n", k)
+			zap.S().Infof("ID: %s: nil\n", k)
 		}
 
 		return nil
@@ -97,10 +96,9 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Println(nodes)
-
 	f := func(c *overlay.Cache) error {
 		for i, a := range nodes {
+			zap.S().Infof("adding node ID: %s; Address: %s", i, a)
 			err := c.Put(i, proto.Node{
 				Address: &proto.NodeAddress{
 					Transport: 0,
