@@ -4,13 +4,17 @@
 package server
 
 import (
+	"crypto/ecdsa"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"github.com/gtank/cryptopasta"
 
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
@@ -19,7 +23,8 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon         = monkit.Package()
+	ServerError = errs.Class("PSServer error")
 )
 
 // Config contains everything necessary for a server
@@ -31,7 +36,7 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	s, err := Initialize(ctx, c)
+	s, err := Initialize(ctx, c, server.Identity().Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		return err
 	}
@@ -54,10 +59,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 type Server struct {
 	DataDir string
 	DB      *psdb.PSDB
+	pkey    *ecdsa.PrivateKey
 }
 
 // Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config) (*Server, error) {
+func Initialize(ctx context.Context, config Config, pkey *ecdsa.PrivateKey) (*Server, error) {
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
@@ -66,7 +72,7 @@ func Initialize(ctx context.Context, config Config) (*Server, error) {
 		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: psDB}, nil
+	return &Server{DataDir: dataDir, DB: psDB, pkey: pkey}, nil
 }
 
 // Stop the piececstore node
@@ -125,11 +131,12 @@ func (s *Server) deleteByID(id string) error {
 }
 
 func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
-	// TODO: verify signature
+	if s.pkey == nil {
+		return ServerError.New("Failed to sign msg: Private Key not Set")
+	}
 
-	// data := ba.GetData()
-	// signature := ba.GetSignature()
-	log.Printf("Verified signature\n")
-
+	if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), s.pkey.Public().(*ecdsa.PublicKey)); success == false {
+		return ServerError.New("Failed to verify Signature")
+	}
 	return nil
 }
