@@ -1,4 +1,4 @@
-# Storj
+# Storj V3 Netowrk
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/storj/storj)](https://goreportcard.com/report/github.com/storj/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
@@ -11,6 +11,7 @@ Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepap
 ----
 
 Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces and stored in a global decentralized network of computers. Luckily, we also support allowing you (and only you) to recover them!
+
 
 # Start Using Storj
 
@@ -35,6 +36,7 @@ Go here to download the latest build
 4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
 6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
 
+---
 
 ## Using Storj via the AWS S3 CLI
 
@@ -43,7 +45,7 @@ Go here to download the latest build
 Download and install the AWS S3 CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
 
 In a new terminal session configure the AWS S3 CLI:
-```
+```bash
 $ aws configure
 AWS Access Key ID [None]: insecure-dev-access-key
 AWS Secret Access Key [None]: insecure-dev-secret-key
