@@ -37,9 +37,7 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	t      transport.Client
-	payer  string
-	renter string
+	t transport.Client
 }
 
 func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
@@ -58,8 +56,8 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(t transport.Client, payer, renter string, mbm int) Client {
-	d := defaultDialer{t: t, payer: payer, renter: renter}
+func NewClient(t transport.Client, mbm int) Client {
+	d := defaultDialer{t: t}
 	return &ecClient{d: &d, mbm: mbm}
 }
 
