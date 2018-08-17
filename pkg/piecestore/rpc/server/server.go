@@ -4,132 +4,81 @@
 package server
 
 import (
-	"io"
 	"log"
 	"os"
+	"path/filepath"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
-// OK - Success!
-const OK = "OK"
+var (
+	mon = monkit.Package()
+)
+
+// Config contains everything necessary for a server
+type Config struct {
+	Path string `help:"path to store data in" default:"$CONFDIR"`
+}
+
+// Run implements provider.Responsibility
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	s, err := Initialize(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := s.DB.DeleteExpiredLoop(ctx)
+		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
+	}()
+
+	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
+
+	defer func() {
+		log.Fatal(s.Stop(ctx))
+	}()
+
+	return server.Run(ctx)
+}
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
-	PieceStoreDir string
-	DB            *ttl.TTL
+	DataDir string
+	DB      *psdb.PSDB
 }
 
-func cleanup(s *Server, id string) error {
-	if err := pstore.Delete(id, s.PieceStoreDir); err != nil {
-		return err
+// Initialize -- initializes a server struct
+func Initialize(ctx context.Context, config Config) (*Server, error) {
+	dbPath := filepath.Join(config.Path, "piecestore.db")
+	dataDir := filepath.Join(config.Path, "piece-store-data")
+
+	psDB, err := psdb.OpenPSDB(ctx, dataDir, dbPath)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := s.DB.DeleteTTLByID(id); err != nil {
-		return err
-	}
-
-	return nil
+	return &Server{DataDir: dataDir, DB: psDB}, nil
 }
 
-// Store -- Store incoming data using piecestore
-func (s *Server) Store(stream pb.PieceStoreRoutes_StoreServer) error {
-	// Receive initial meta data about what's being stored
-	piece, err := stream.Recv()
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Storing %s...", piece.Id)
-
-	// If we put in the database first then that checks if the data already exists
-	if err = s.DB.AddTTLToDB(piece.Id, piece.Ttl); err != nil {
-		log.Println(err)
-		return err
-	}
-
-	// Initialize file for storing data
-	storeFile, err := pstore.StoreWriter(piece.Id, s.PieceStoreDir)
-	if err != nil {
-		if err = cleanup(s, piece.Id); err != nil {
-			log.Printf("Failed on cleanup in Store: %s", err.Error())
-		}
-
-		return err
-	}
-
-	defer func() {
-		if err := storeFile.Close(); err != nil {
-			log.Printf("failed to close store file: %s\n", err)
-		}
-	}()
-
-	reader := NewStreamReader(stream)
-	total, err := io.Copy(storeFile, reader)
-	if err != nil {
-		if err = cleanup(s, piece.Id); err != nil {
-			log.Printf("Failed on cleanup in Store: %s", err.Error())
-		}
-
-		return err
-	}
-
-	log.Printf("Successfully stored %s.", piece.Id)
-
-	return stream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
-}
-
-// Retrieve -- Retrieve data from piecestore and send to client
-func (s *Server) Retrieve(pieceMeta *pb.PieceRetrieval, stream pb.PieceStoreRoutes_RetrieveServer) error {
-	log.Printf("Retrieving %s...", pieceMeta.Id)
-
-	path, err := pstore.PathByID(pieceMeta.Id, s.PieceStoreDir)
-	if err != nil {
-		return err
-	}
-
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-
-	// Read the size specified
-	totalToRead := pieceMeta.Size
-	// Read the entire file if specified -1
-	if pieceMeta.Size <= -1 {
-		totalToRead = fileInfo.Size()
-	}
-
-	storeFile, err := pstore.RetrieveReader(stream.Context(), pieceMeta.Id, pieceMeta.Offset, totalToRead, s.PieceStoreDir)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := storeFile.Close(); err != nil {
-			log.Printf("failed to close store file: %s\n", err)
-		}
-	}()
-
-	writer := &StreamWriter{stream: stream}
-	_, err = io.Copy(writer, storeFile)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Successfully retrieved %s.", pieceMeta.Id)
-	return nil
+// Stop the piececstore node
+func (s *Server) Stop(ctx context.Context) (err error) {
+	return s.DB.Close()
 }
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Printf("Getting Meta for %s...", in.Id)
 
-	path, err := pstore.PathByID(in.Id, s.PieceStoreDir)
+	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -140,23 +89,47 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLByID(in.Id)
+	ttl, err := s.DB.GetTTLByID(in.GetId())
 	if err != nil {
 		return nil, err
 	}
 
 	log.Printf("Successfully retrieved meta for %s.", in.Id)
-	return &pb.PieceSummary{Id: in.Id, Size: fileInfo.Size(), Expiration: ttl}, nil
+	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.Id)
 
-	if err := cleanup(s, in.Id); err != nil {
+	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
 	log.Printf("Successfully deleted %s.", in.Id)
 	return &pb.PieceDeleteSummary{Message: OK}, nil
+}
+
+func (s *Server) deleteByID(id string) error {
+	if err := pstore.Delete(id, s.DataDir); err != nil {
+		return err
+	}
+
+	if err := s.DB.DeleteTTLByID(id); err != nil {
+		return err
+	}
+
+	log.Printf("Deleted data of id (%s) from piecestore\n", id)
+
+	return nil
+}
+
+func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
+	// TODO: verify signature
+
+	// data := ba.GetData()
+	// signature := ba.GetSignature()
+	log.Printf("Verified signature\n")
+
+	return nil
 }

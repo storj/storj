@@ -5,40 +5,36 @@ package server
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/ttl"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
 
-var tempDir = path.Join(os.TempDir(), "test-data", "3000")
-var tempDBPath = path.Join(os.TempDir(), "test.db")
-var db *sql.DB
-var s Server
-var c pb.PieceStoreRoutesClient
-var testID = "11111111111111111111"
-var testCreatedDate int64 = 1234567890
-var testExpiration int64 = 9999999999
+var ctx = context.Background()
 
-func TestPiece(t *testing.T) {
-	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
+func writeFileToDir(name, dir string) error {
+	file, err := pstore.StoreWriter(name, dir)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Close when finished
@@ -46,12 +42,20 @@ func TestPiece(t *testing.T) {
 
 	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
 
-	if err != nil {
+	return err
+}
+
+func TestPiece(t *testing.T) {
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
+
+	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
 
-	defer pstore.Delete(testID, s.PieceStoreDir)
+	defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 	// set up test cases
 	tests := []struct {
@@ -61,186 +65,218 @@ func TestPiece(t *testing.T) {
 		err        string
 	}{
 		{ // should successfully retrieve piece meta-data
-			id:         testID,
+			id:         "11111111111111111111",
 			size:       5,
-			expiration: testExpiration,
+			expiration: 9999999999,
 			err:        "",
 		},
 		{ // server should err with invalid id
 			id:         "123",
 			size:       5,
-			expiration: testExpiration,
+			expiration: 9999999999,
 			err:        "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
 			size:       5,
-			expiration: testExpiration,
-			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
+			expiration: 9999999999,
+			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceSummary values", func(t *testing.T) {
+			assert := assert.New(t)
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testExpiration))
-			if err != nil {
-				t.Errorf("Error: %v\nCould not make TTL entry", err)
-				return
-			}
+			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
+			assert.Nil(err)
 
-			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
+			defer TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			req := &pb.PieceId{Id: tt.id}
-			resp, err := c.Piece(context.Background(), req)
+			resp, err := TS.c.Piece(ctx, req)
 
-			if len(tt.err) > 0 {
-
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+			if tt.err != "" {
+				assert.NotNil(err)
+				assert.Equal(tt.err, err.Error())
 				return
 			}
 
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
+			assert.Nil(err)
 
-			if resp.Id != tt.id || resp.Size != tt.size || resp.Expiration != tt.expiration {
-				t.Errorf("Expected: %v, %v, %v\nGot: %v, %v, %v\n", tt.id, tt.size, tt.expiration, resp.Id, resp.Size, resp.Expiration)
-				return
-			}
-
-			// clean up DB entry
-			_, err = db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, testID))
-			if err != nil {
-				t.Errorf("Error cleaning test DB entry")
-				return
-			}
+			assert.Equal(tt.id, resp.GetId())
+			assert.Equal(tt.size, resp.GetSize())
+			assert.Equal(tt.expiration, resp.GetExpirationUnixSec())
 		})
 	}
 }
 
 func TestRetrieve(t *testing.T) {
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
+
 	// simulate piece stored with farmer
-	file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
-	if err != nil {
-		return
-	}
-
-	// Close when finished
-	defer file.Close()
-
-	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-	if err != nil {
+	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
 	}
-	defer pstore.Delete(testID, s.PieceStoreDir)
+
+	defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 	// set up test cases
 	tests := []struct {
-		id       string
-		reqSize  int64
-		respSize int64
-		offset   int64
-		content  []byte
-		err      string
+		id        string
+		reqSize   int64
+		respSize  int64
+		allocSize int64
+		offset    int64
+		content   []byte
+		err       string
 	}{
 		{ // should successfully retrieve data
-			id:       testID,
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "",
+		},
+		{ // should successfully retrieve data in customizeable increments
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 2,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "",
+		},
+		{ // should successfully retrieve data with lower allocations
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  3,
+			allocSize: 3,
+			offset:    0,
+			content:   []byte("but"),
+			err:       "",
+		},
+		{ // should successfully retrieve data
+			id:        "11111111111111111111",
+			reqSize:   -1,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "",
 		},
 		{ // server should err with invalid id
-			id:       "123",
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      "rpc error: code = Unknown desc = argError: Invalid id length",
+			id:        "123",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
 		{ // server should err with nonexistent file
-			id:       "22222222222222222222",
-			reqSize:  5,
-			respSize: 5,
-			offset:   0,
-			content:  []byte("butts"),
-			err:      fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(os.TempDir(), "/test-data/3000/22/22/2222222222222222")),
+			id:        "22222222222222222222",
+			reqSize:   5,
+			respSize:  5,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butts"),
+			err:       fmt.Sprintf("rpc error: code = Unknown desc = retrieve error: stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
 		{ // server should return expected content and respSize with offset and excess reqSize
-			id:       testID,
-			reqSize:  5,
-			respSize: 4,
-			offset:   1,
-			content:  []byte("utts"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   5,
+			respSize:  4,
+			allocSize: 5,
+			offset:    1,
+			content:   []byte("utts"),
+			err:       "",
 		},
 		{ // server should return expected content with reduced reqSize
-			id:       testID,
-			reqSize:  4,
-			respSize: 4,
-			offset:   0,
-			content:  []byte("butt"),
-			err:      "",
+			id:        "11111111111111111111",
+			reqSize:   4,
+			respSize:  4,
+			allocSize: 5,
+			offset:    0,
+			content:   []byte("butt"),
+			err:       "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
-			req := &pb.PieceRetrieval{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}
-			stream, err := c.Retrieve(context.Background(), req)
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			assert := assert.New(t)
+			stream, err := TS.c.Retrieve(ctx)
 
-			resp, err := stream.Recv()
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
+			// send piece database
+			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
+			assert.Nil(err)
+
+			totalAllocated := int64(0)
+			var data string
+			var totalRetrieved = int64(0)
+			var resp *pb.PieceRetrievalStream
+			for totalAllocated < tt.respSize {
+				// Send bandwidth bandwidthAllocation
+				totalAllocated += tt.allocSize
+				err = stream.Send(
+					&pb.PieceRetrieval{
+						Bandwidthallocation: &pb.RenterBandwidthAllocation{
+							Signature: []byte{'A', 'B'},
+							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+								PayerAllocation: &pb.PayerBandwidthAllocation{},
+								Total:           totalAllocated,
+							}),
+						},
+					},
+				)
+				assert.Nil(err)
+
+				resp, err = stream.Recv()
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
 				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
+
+				data = fmt.Sprintf("%s%s", data, string(resp.Content))
+				totalRetrieved += resp.Size
 			}
 
-			if resp.Size != tt.respSize || bytes.Equal(resp.Content, tt.content) != true {
-				t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.respSize, tt.content, resp.Size, resp.Content)
-				return
+			assert.Nil(err)
+			assert.NotNil(resp)
+			if resp != nil {
+				assert.Equal(tt.respSize, totalRetrieved)
+				assert.Equal(string(tt.content), data)
 			}
 		})
 	}
 }
 
 func TestStore(t *testing.T) {
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
+
+	db := TS.s.DB.DB
+
 	tests := []struct {
 		id            string
-		size          int64
 		ttl           int64
-		offset        int64
 		content       []byte
 		message       string
 		totalReceived int64
 		err           string
 	}{
 		{ // should successfully store data
-			id:            testID,
-			ttl:           testExpiration,
+			id:            "99999999999999999999",
+			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "OK",
 			totalReceived: 5,
@@ -248,61 +284,98 @@ func TestStore(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:            "butts",
-			ttl:           testExpiration,
+			ttl:           9999999999,
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
 			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
 		},
+		{ // should err with piece ID not specified
+			id:            "",
+			ttl:           9999999999,
+			content:       []byte("butts"),
+			message:       "",
+			totalReceived: 0,
+			err:           "rpc error: code = Unknown desc = store error: Piece ID not specified",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
+			assert := assert.New(t)
+			stream, err := TS.c.Store(ctx)
+			assert.Nil(err)
 
-			stream, err := c.Store(context.Background())
-			if err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
+			// Write the buffer to the stream we opened earlier
+			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
+			assert.Nil(err)
+
+			// Send Bandwidth Allocation Data
+			msg := &pb.PieceStore{
+				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
+				Bandwidthallocation: &pb.RenterBandwidthAllocation{
+					Signature: []byte{'A', 'B'},
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						Total:           int64(len(tt.content)),
+					}),
+				},
 			}
 
 			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(&pb.PieceStore{Id: tt.id, Ttl: tt.ttl}); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
-
-			// Write the buffer to the stream we opened earlier
-			if err = stream.Send(&pb.PieceStore{Content: tt.content}); err != nil {
-				t.Errorf("Unexpected error: %v\n", err)
-				return
-			}
+			err = stream.Send(msg)
+			assert.Nil(err)
 
 			resp, err := stream.CloseAndRecv()
+			if tt.err != "" {
+				assert.NotNil(err)
+				assert.Equal(tt.err, err.Error())
+				return
+			}
+
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
+			// check db to make sure agreement and signature were stored correctly
+			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
+			assert.Nil(err)
 
-			if resp.Message != tt.message || resp.TotalReceived != tt.totalReceived {
-				t.Errorf("Expected: %v, %v\nGot: %v, %v\n", tt.message, tt.totalReceived, resp.Message, resp.TotalReceived)
+			defer rows.Close()
+			for rows.Next() {
+				var (
+					agreement []byte
+					signature []byte
+				)
+
+				err = rows.Scan(&agreement, &signature)
+				assert.Nil(err)
+
+				decoded := &pb.RenterBandwidthAllocation_Data{}
+
+				err = proto.Unmarshal(agreement, decoded)
+
+				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
+				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
+				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
+
 			}
+			err = rows.Err()
+			assert.Nil(err)
+
+			assert.Equal(tt.message, resp.Message)
+			assert.Equal(tt.totalReceived, resp.TotalReceived)
 		})
 	}
 }
 
 func TestDelete(t *testing.T) {
+	TS := NewTestServer()
+	TS.Start()
+	defer TS.Stop()
+
+	db := TS.s.DB.DB
+
 	// set up test cases
 	tests := []struct {
 		id      string
@@ -310,7 +383,7 @@ func TestDelete(t *testing.T) {
 		err     string
 	}{
 		{ // should successfully delete data
-			id:      testID,
+			id:      "11111111111111111111",
 			message: "OK",
 			err:     "",
 		},
@@ -328,56 +401,35 @@ func TestDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
+			assert := assert.New(t)
 
 			// simulate piece stored with farmer
-			file, err := pstore.StoreWriter(testID, s.PieceStoreDir)
-			if err != nil {
-				return
-			}
-
-			// Close when finished
-			defer file.Close()
-
-			_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-			if err != nil {
+			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
 			}
 
 			// simulate piece TTL entry
-			_, err = db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, testCreatedDate, testCreatedDate))
-			if err != nil {
-				t.Errorf("Error: %v\nCould not make TTL entry", err)
-				return
-			}
+			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
+			assert.Nil(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
-			defer pstore.Delete(testID, s.PieceStoreDir)
+			defer pstore.Delete("11111111111111111111", TS.s.DataDir)
 
 			req := &pb.PieceDelete{Id: tt.id}
-			resp, err := c.Delete(context.Background(), req)
-			if len(tt.err) > 0 {
-				if err != nil {
-					if err.Error() == tt.err {
-						return
-					}
-				}
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
-				return
-			}
-			if err != nil && tt.err == "" {
-				t.Errorf("\nExpected: %s\nGot: %v\n", tt.err, err)
+			resp, err := TS.c.Delete(ctx, req)
+
+			if tt.err != "" {
+				assert.Equal(tt.err, err.Error())
 				return
 			}
 
-			if resp.Message != tt.message {
-				t.Errorf("Expected: %v\nGot: %v\n", tt.message, resp.Message)
-				return
-			}
+			assert.Nil(err)
+			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
-			filePath, err := pstore.PathByID(tt.id, s.PieceStoreDir)
+			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return
@@ -386,44 +438,76 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func StartServer() {
-	lis, err := net.Listen("tcp", ":3000")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	grpcs := grpc.NewServer()
-	pb.RegisterPieceStoreRoutesServer(grpcs, &s)
-	if err := grpcs.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
-func TestMain(m *testing.M) {
-	go StartServer()
-
-	// Set up a connection to the Server.
-	const address = "localhost:3000"
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		fmt.Printf("did not connect: %v", err)
-		return
-	}
-	defer conn.Close()
-	c = pb.NewPieceStoreRoutesClient(conn)
-
-	ttlDB, err := ttl.NewTTL(tempDBPath)
+func newTestServerStruct() *Server {
+	tmp, err := ioutil.TempDir("", "example")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	s = Server{tempDir, ttlDB}
+	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().String()))
 
-	db = ttlDB.DB
+	tempDir := filepath.Join(tmp, "test-data", "3000")
 
-	// clean up temp files
-	defer os.RemoveAll(path.Join(tempDir, "/test-data"))
-	defer os.Remove(tempDBPath)
-	defer db.Close()
+	psDB, err := psdb.OpenPSDB(ctx, tempDir, tempDBPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	return &Server{DataDir: tempDir, DB: psDB}
+}
+
+func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+
+	c := pb.NewPieceStoreRoutesClient(conn)
+
+	return c, conn
+}
+
+type TestServer struct {
+	s     *Server
+	grpcs *grpc.Server
+	conn  *grpc.ClientConn
+	c     pb.PieceStoreRoutesClient
+}
+
+func NewTestServer() *TestServer {
+	s := newTestServerStruct()
+	grpcs := grpc.NewServer()
+	c, conn := connect()
+
+	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+}
+
+func (TS *TestServer) Start() {
+	lis, err := net.Listen("tcp", ":3000")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	pb.RegisterPieceStoreRoutesServer(TS.grpcs, TS.s)
+
+	go func() {
+		if err := TS.grpcs.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+}
+
+func (TS *TestServer) Stop() {
+	TS.conn.Close()
+	TS.grpcs.Stop()
+	os.RemoveAll(TS.s.DataDir)
+}
+
+func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
+	data, _ := proto.Marshal(ba)
+
+	return data
+}
+
+func TestMain(m *testing.M) {
 	m.Run()
 }
