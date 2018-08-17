@@ -32,8 +32,6 @@ const (
 	KBucket = "kbuckets"
 	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
 	NodeBucket   = "nodes"
-	//ReplacementCache is the string representing the bucket used for the kademlia routing table replacement cache
-	ReplacementCache = "replacementCache"
 	maxKeyLookup = 100
 )
 

@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"math/rand"
-	// "strconv"
 	"encoding/binary"
 	"time"
 
@@ -144,7 +143,7 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return err
 	}
-	nodes[len(nodes)-1] = nil 
+	//add info to check if room in cache bucket (detemined from rt config)
 	rt.updateReplacementCache(kadBucketID, nodes[:len(nodes)-1])
 	return nil
 }
