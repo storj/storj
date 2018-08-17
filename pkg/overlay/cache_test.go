@@ -173,8 +173,8 @@ var (
 			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
 				mock:   nil,
-				bolt:   nil,
-				_redis: nil,
+				bolt: &storage.ErrKeyNotFound,
+				_redis: &storage.ErrKeyNotFound,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
 				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}

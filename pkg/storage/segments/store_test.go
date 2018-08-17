@@ -58,11 +58,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 	assert.NotNil(t, ss)
 
 	var mExp time.Time
-	mExp = time.Unix(0, 0).UTC()
 	pExp, err := ptypes.TimestampProto(mExp)
-	assert.NoError(t, err)
-
-	mod, err := ptypes.Timestamp(pExp)
 	assert.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -70,7 +66,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		returnPointer *ppb.Pointer
 		returnMeta    Meta
 	}{
-		{"path/1/2/3", &ppb.Pointer{ExpirationDate: pExp}, Meta{Modified: mod, Expiration: mExp}},
+		{"path/1/2/3", &ppb.Pointer{CreationDate: pExp, ExpirationDate: pExp}, Meta{Modified: mExp, Expiration: mExp}},
 	} {
 		p := paths.New(tt.pathInput)
 
@@ -127,6 +123,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
+			mockES.EXPECT().EncodedBlockSize().Return(1),
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),

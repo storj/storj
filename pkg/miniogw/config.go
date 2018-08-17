@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
@@ -155,6 +156,7 @@ func (c Config) NewGateway(ctx context.Context,
 	// TODO(jt): wrap segments and turn segments into streams actually
 	// TODO: passthrough is bad
 	stream := streams.NewPassthrough(segments)
+	obj := objects.NewStore(stream)
 
-	return NewStorjGateway(objects.NewStore(stream)), nil
+	return NewStorjGateway(buckets.NewStore(obj)), nil
 }

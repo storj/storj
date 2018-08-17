@@ -11,8 +11,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"storj.io/storj/storage"
 )
 
+//ErrSetup is setup error
 var (
 	ErrSetup = errs.Class("setup error")
 )
@@ -38,18 +43,20 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
-	s, err := identity.ServerOption()
+	ident, err := identity.ServerOption()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Provider{
+	// TODO: use ident
+	_ = ident
 
+	return &Provider{
 		lis: lis,
 		g: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			s,
+			//			ident,  TODO
 		),
 		next:     responsibilities,
 		identity: identity,
@@ -118,6 +125,11 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream,
 	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
+		// modified for wrong file downloads
+		// to not zap errors
+		if storage.ErrKeyNotFound.Has(err) {
+			return err
+		}
 		zap.S().Errorf("%+v", err)
 	}
 	return err
@@ -128,6 +140,11 @@ func unaryInterceptor(ctx context.Context, req interface{},
 	err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
+		// modified for wrong file downloads
+		// to not zap errors
+		if status.Code(err) == codes.NotFound {
+			return resp, err
+		}
 		zap.S().Errorf("%+v", err)
 	}
 	return resp, err

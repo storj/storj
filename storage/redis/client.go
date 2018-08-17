@@ -51,6 +51,11 @@ func NewClient(address, password string, db int) (*Client, error) {
 // Get looks up the provided key from redis returning either an error or the result.
 func (c *Client) Get(key storage.Key) (storage.Value, error) {
 	b, err := c.db.Get(string(key)).Bytes()
+
+	if len(b) == 0 {
+		return nil, storage.ErrKeyNotFound.New(key.String())
+	}
+
 	if err != nil {
 		if err.Error() == "redis: nil" {
 			return nil, nil

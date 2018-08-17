@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package cmd
 
 import (
 	"fmt"
@@ -10,66 +10,33 @@ import (
 
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
 
 var (
-	rootCmd = &cobra.Command{
-		Use:   "hc",
-		Short: "Heavy client",
-	}
-	runCmd = &cobra.Command{
-		Use:   "run",
-		Short: "Run the heavy client",
-		RunE:  cmdRun,
-	}
 	setupCmd = &cobra.Command{
 		Use:   "setup",
-		Short: "Create config files",
+		Short: "A brief description of your command",
 		RunE:  cmdSetup,
 	}
-
-	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
-		Overlay   overlay.Config
-	}
 	setupCfg struct {
-		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
 		CA        provider.CASetupConfig
 		Identity  provider.IdentitySetupConfig
-		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
+		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
-
-	defaultConfDir = "$HOME/.storj/hc"
 )
 
 func init() {
-	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+	RootCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
-func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, runCfg.Overlay)
-}
-
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
-	if err != nil {
-		return err
-	}
-
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("An hc configuration already exists. Rerun with --overwrite")
+		fmt.Println("A cli configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 
@@ -92,16 +59,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"identity.cert-path": setupCfg.Identity.CertPath,
-		"identity.key-path":  setupCfg.Identity.KeyPath,
+		"cert-path": setupCfg.Identity.CertPath,
+		"key-path":  setupCfg.Identity.KeyPath,
 	}
 
-	return process.SaveConfig(runCmd.Flags(),
+	return process.SaveConfig(cpCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
-}
-
-func main() {
-	runCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-	process.Exec(rootCmd)
 }

@@ -169,6 +169,27 @@ func TestAppendWithSegments(t *testing.T) {
 	}
 }
 
+func TestHasPrefix(t *testing.T) {
+	for i, tt := range []struct {
+		path     string
+		prefix   string
+		expected bool
+	}{
+		{"", "", true},
+		{"my/path", "", true},
+		{"", "prefix", false},
+		{"prefix/path", "prefix", true},
+		{"prefix/path", "prefix/path", true},
+		{"prefix/path", "prefix/path/more", false},
+		{"my/path/s1/s2/s3", "my/path", true},
+		{"my/path/s1/s2/s3", "s1/s2/s3", false},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+		p := New(tt.path).HasPrefix(New(tt.prefix))
+		assert.Equal(t, tt.expected, p, errTag)
+	}
+}
+
 func TestEncryption(t *testing.T) {
 	for i, segs := range []Path{
 		nil,          // empty path
