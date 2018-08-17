@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -111,22 +112,12 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer utils.LogClose(rr)
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			// ignore for now
-		}
-	}()
-
+	defer utils.LogClose(r)
 	_, err = io.Copy(writer, r)
 	return err
 }
