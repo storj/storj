@@ -12,13 +12,13 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"go.uber.org/zap"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
-	"go.uber.org/zap"
 )
 
 var (
@@ -100,6 +100,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		for i, a := range nodes {
 			zap.S().Infof("adding node ID: %s; Address: %s", i, a)
 			err := c.Put(i, proto.Node{
+				Id: i,
 				Address: &proto.NodeAddress{
 					Transport: 0,
 					Address:   a,
