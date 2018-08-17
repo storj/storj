@@ -38,8 +38,8 @@ type RoutingTable interface {
 
 	FindNear(id NodeID, limit int) ([]*proto.Node, error)
 
-	ConnectionSuccess(id string, address proto.NodeAddress)
-	ConnectionFailed(id string, address proto.NodeAddress)
+	ConnectionSuccess(id string, address proto.NodeAddress) error
+	ConnectionFailed(id string) error
 
 	// these are for refreshing
 	SetBucketTimestamp(id string, now time.Time) error

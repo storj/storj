@@ -98,18 +98,6 @@ func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
 	return true, nil
 }
 
-// nodeAlreadyExists will return true if the given node ID exists within nodeBucketDB
-func (rt *RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
-	node, err := rt.nodeBucketDB.Get(nodeID)
-	if err != nil {
-		return false, err
-	}
-	if node == nil {
-		return false, nil
-	}
-	return true, nil
-}
-
 // updateNode will update the node information given that
 // the node is already in the routing table.
 func (rt *RoutingTable) updateNode(node *proto.Node) error {
@@ -314,7 +302,7 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.K
 	return nil, nil
 }
 
-// getNodesFromIDs: helper, returns
+// getNodesFromIDs: helper, returns array of encoded nodes from node ids
 func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []storage.Value, error) {
 	var nodes []storage.Value
 	for _, v := range nodeIDs {
