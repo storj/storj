@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -13,20 +14,22 @@ import (
 )
 
 type MockOverlay struct {
-	Nodes map[string]*proto.Node
+	nodes map[string]*proto.Node
 }
 
-func NewMockOverlay() *MockOverlay {
-	return &MockOverlay{Nodes: map[string]*proto.Node{}}
+func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
+	rv := &MockOverlay{nodes: map[string]*proto.Node{}}
+	for _, node := range nodes {
+		rv.nodes[node.Id] = node
+	}
+	return rv
 }
-
-var GlobalMockOverlay = NewMockOverlay()
 
 func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
 	err error) {
-	nodes := make([]*proto.Node, 0, len(mo.Nodes))
-	for _, node := range mo.Nodes {
+	nodes := make([]*proto.Node, 0, len(mo.nodes))
+	for _, node := range mo.nodes {
 		nodes = append(nodes, node)
 	}
 	if int64(len(nodes)) < req.Opts.GetAmount() {
@@ -38,12 +41,29 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 
 func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 	*proto.LookupResponse, error) {
-	return &proto.LookupResponse{Node: mo.Nodes[req.NodeID]}, nil
+	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
-type MockConfig struct{}
+type MockConfig struct {
+	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
+}
 
-func (MockConfig) Run(ctx context.Context, server *provider.Provider) error {
-	proto.RegisterOverlayServer(server.GRPC(), GlobalMockOverlay)
+func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
+	var nodes []*proto.Node
+	for _, nodestr := range strings.Split(c.Nodes, ",") {
+		parts := strings.SplitN(nodestr, ":", 2)
+		if len(parts) != 2 {
+			return Error.New("malformed node config: %#v", nodestr)
+		}
+		id, addr := parts[0], parts[1]
+		nodes = append(nodes, &proto.Node{
+			Id: id,
+			Address: &proto.NodeAddress{
+				Transport: proto.NodeTransport_TCP,
+				Address:   addr,
+			}})
+	}
+
+	proto.RegisterOverlayServer(server.GRPC(), NewMockOverlay(nodes))
 	return server.Run(ctx)
 }
