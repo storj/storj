@@ -12,6 +12,13 @@ Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepap
 
 Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces and stored in a global decentralized network of computers. Luckily, we also support allowing you (and only you) to recover them!
 
+## Table of Contents
+
+- [Storj CLI](#storjcli)
+- [AWS S3 CLI](#awss3cli)
+- [Run Storj Locally](#storjlocal)
+- [Support](#support)
+
 
 # Start Using Storj
 
@@ -22,7 +29,7 @@ Go here to download the latest build
 // TODO: add link when a build is released
 // TODO for how to run the release
 
-## Using Storj via the Storj CLI
+## Using Storj via the Storj CLI <a name="storjcli"></a>
 
 #### Configure the Storj CLI
 1) In a new terminal setup the Storj CLI: ```$ storj setup```
@@ -38,7 +45,7 @@ Go here to download the latest build
 
 ---
 
-## Using Storj via the AWS S3 CLI
+## Using Storj via the AWS S3 CLI <a name="awss3cli"></a>
 
 #### Configure AWS CLI
 
@@ -66,7 +73,7 @@ $ aws configure set default.s3.multipart_threshold 1TB  # until we support multi
 For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
 
 
-# Start Contributing to Storj
+# Start Contributing to Storj <a name="storjlocal"></a>
 
 ### Install required packages
 
@@ -137,8 +144,6 @@ go test storj.io/storj/...
 
 You can execute only a single test package. For example: `go test storj.io/storj/pkg/kademlia`. Add -v for more informations about the executed unit tests.
 
-## Support
+## Support <a name="support"></a>
 
 If you have any questions or suggestions please reach out to us on [Rocketchat](https://community.storj.io/) or [Twitter](https://twitter.com/storjproject).
-
-
