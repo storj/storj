@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
@@ -21,7 +20,7 @@ import (
 )
 
 var ctx = context.Background()
-var parallelCount = 10
+var concurrency = 10
 
 func TestOpenPSDB(t *testing.T) {
 	tests := []struct {
@@ -59,115 +58,6 @@ func TestOpenPSDB(t *testing.T) {
 	}
 }
 
-func TestDeleteTTLByID(t *testing.T) {
-	tests := []struct {
-		it  string
-		id  string
-		err string
-	}{
-		{
-			it:  "should successfully Delete TTL by ID",
-			id:  "butts",
-			err: "",
-		},
-	}
-
-	tmp, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
-
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
-	if err != nil {
-		t.Errorf("Failed to create database")
-		return
-	}
-	defer os.Remove(dbpath)
-
-	for _, tt := range tests {
-		for i := 0; i < parallelCount; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				t.Parallel()
-				assert := assert.New(t)
-
-				db.mtx.Lock()
-				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), 0))
-				db.mtx.Unlock()
-
-				err = db.DeleteTTLByID(tt.id)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
-				}
-				assert.Nil(err)
-
-			})
-		}
-	}
-}
-
-func TestGetTTLByID(t *testing.T) {
-	tests := []struct {
-		it         string
-		id         string
-		expiration int64
-		err        string
-	}{
-		{
-			it:         "should successfully Get TTL by ID",
-			id:         "butts",
-			expiration: 666,
-			err:        "",
-		},
-	}
-
-	tmp, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
-
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
-	if err != nil {
-		t.Errorf("Failed to create database")
-		return
-	}
-	defer os.Remove(dbpath)
-
-	for _, tt := range tests {
-		for i := 0; i < parallelCount; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				assert := assert.New(t)
-				db.mtx.Lock()
-				db.DB.Exec(fmt.Sprintf(`INSERT or REPLACE INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, time.Now().Unix(), tt.expiration))
-				db.mtx.Unlock()
-
-				expiration, err := db.GetTTLByID(tt.id)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
-				}
-				assert.Nil(err)
-				assert.Equal(tt.expiration, expiration)
-			})
-		}
-	}
-
-	t.Run("should return 0 if ttl doesn't exist", func(t *testing.T) {
-		t.Parallel()
-		assert := assert.New(t)
-		expiration, err := db.GetTTLByID("fake-id")
-		assert.NotNil(err)
-		assert.Equal(int64(0), expiration)
-	})
-
-}
-
 func TestAddTTLToDB(t *testing.T) {
 	tests := []struct {
 		it         string
@@ -198,9 +88,8 @@ func TestAddTTLToDB(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		for i := 0; i < parallelCount; i++ {
+		for i := 0; i < concurrency; i++ {
 			t.Run(tt.it, func(t *testing.T) {
-				// t.Parallel()
 				assert := assert.New(t)
 
 				err := db.AddTTLToDB(tt.id, tt.expiration)
@@ -231,6 +120,112 @@ func TestAddTTLToDB(t *testing.T) {
 			})
 		}
 	}
+}
+
+// This test depends on AddTTLToDB to pass
+func TestDeleteTTLByID(t *testing.T) {
+	tests := []struct {
+		it  string
+		id  string
+		err string
+	}{
+		{
+			it:  "should successfully Delete TTL by ID",
+			id:  "butts",
+			err: "",
+		},
+	}
+
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	dbpath := filepath.Join(tmp, "test.db")
+	db, err := OpenPSDB(ctx, "", dbpath)
+	if err != nil {
+		t.Errorf("Failed to create database")
+		return
+	}
+	defer os.Remove(dbpath)
+
+	for _, tt := range tests {
+		for i := 0; i < concurrency; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
+				err := db.AddTTLToDB(tt.id, 0)
+				assert.Nil(err)
+
+				err = db.DeleteTTLByID(tt.id)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
+
+			})
+		}
+	}
+}
+
+// This test depends on AddTTLToDB to pass
+func TestGetTTLByID(t *testing.T) {
+	tests := []struct {
+		it         string
+		id         string
+		expiration int64
+		err        string
+	}{
+		{
+			it:         "should successfully Get TTL by ID",
+			id:         "butts",
+			expiration: 666,
+			err:        "",
+		},
+	}
+
+	tmp, err := ioutil.TempDir("", "example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	dbpath := filepath.Join(tmp, "test.db")
+	db, err := OpenPSDB(ctx, "", dbpath)
+	if err != nil {
+		t.Errorf("Failed to create database")
+		return
+	}
+	defer os.Remove(dbpath)
+
+	for _, tt := range tests {
+		for i := 0; i < concurrency; i++ {
+			t.Run(tt.it, func(t *testing.T) {
+				assert := assert.New(t)
+				err := db.AddTTLToDB(tt.id, tt.expiration)
+				assert.Nil(err)
+
+				expiration, err := db.GetTTLByID(tt.id)
+				if tt.err != "" {
+					assert.NotNil(err)
+					assert.Equal(tt.err, err.Error())
+					return
+				}
+				assert.Nil(err)
+				assert.Equal(tt.expiration, expiration)
+			})
+		}
+	}
+
+	t.Run("should return 0 if ttl doesn't exist", func(t *testing.T) {
+		assert := assert.New(t)
+		expiration, err := db.GetTTLByID("fake-id")
+		assert.NotNil(err)
+		assert.Equal(int64(0), expiration)
+	})
+
 }
 
 func TestWriteBandwidthAllocToDB(t *testing.T) {
@@ -264,7 +259,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 	defer os.Remove(dbpath)
 
 	for _, tt := range tests {
-		for i := 0; i < parallelCount; i++ {
+		for i := 0; i < concurrency; i++ {
 			t.Run(tt.it, func(t *testing.T) {
 				assert := assert.New(t)
 				ba := &pb.RenterBandwidthAllocation{
