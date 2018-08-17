@@ -106,25 +106,34 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
-func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
-	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (s *storjObjects) getObject(ctx context.Context, bucket, object string, startOffset int64,
+	length int64) (r io.ReadCloser, err error) {
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	rr, _, err := o.Get(ctx, paths.New(object))
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	defer utils.LogClose(rr)
 	if length == -1 {
 		length = rr.Size() - startOffset
 	}
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	return r, nil
+}
+
+func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
+	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	r, err := s.getObject(ctx, bucket, object, startOffset, length)
 	defer utils.LogClose(r)
 	_, err = io.Copy(writer, r)
 	return err
@@ -249,23 +258,8 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket,
 	destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	o, err := s.storj.bs.GetObjectStore(ctx, srcBucket)
-	if err != nil {
-		return objInfo, err
-	}
 
-	rr, _, err := o.Get(ctx, paths.New(srcObject))
-	if err != nil {
-		return objInfo, err
-	}
-
-	defer utils.LogClose(rr)
-
-	r, err := rr.Range(ctx, 0, srcInfo.Size)
-	if err != nil {
-		return objInfo, err
-	}
-
+	r, err := s.getObject(ctx, srcBucket, srcObject, 0, srcInfo.Size)
 	defer utils.LogClose(r)
 
 	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
