@@ -5,6 +5,9 @@ package client
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -41,6 +44,9 @@ func TestPieceRanger(t *testing.T) {
 		{"abcdef", 6, 0, -1, "abcde", "pieceRanger error: negative length"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
+
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.Nil(t, err)
 
 		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 
@@ -93,7 +99,8 @@ func TestPieceRanger(t *testing.T) {
 		gomock.InOrder(calls...)
 
 		ctx := context.Background()
-		c, err := NewCustomRoute(route, 32*1024)
+
+		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
 		if assert.NoError(t, err, errTag) {
@@ -142,6 +149,9 @@ func TestPieceRangerSize(t *testing.T) {
 
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.Nil(t, err)
+
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
 			gomock.InOrder(
 				stream.EXPECT().Send(
@@ -180,7 +190,8 @@ func TestPieceRangerSize(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		c, err := NewCustomRoute(route, 32*1024)
+
+		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
 		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
 		assert.Equal(t, tt.size, rr.Size(), errTag)

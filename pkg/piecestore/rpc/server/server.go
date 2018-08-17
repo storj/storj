@@ -14,8 +14,6 @@ import (
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"github.com/gtank/cryptopasta"
-
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
@@ -131,12 +129,12 @@ func (s *Server) deleteByID(id string) error {
 }
 
 func (s *Server) verifySignature(clientpubkey *ecdsa.PublicKey, ba *pb.RenterBandwidthAllocation) error {
-	if clientpubkey == nil {
-		return ServerError.New("Failed to sign msg: Private Key not Set")
-	}
-
-	if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), clientpubkey); success == false {
-		return ServerError.New("Failed to verify Signature")
-	}
+	// if clientpubkey == nil {
+	// 	return ServerError.New("Failed to sign msg: Private Key not Set")
+	// }
+	//
+	// if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), clientpubkey); success == false {
+	// 	return ServerError.New("Failed to verify Signature")
+	// }
 	return nil
 }
