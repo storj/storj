@@ -105,9 +105,9 @@ func TestPiece(t *testing.T) {
 
 			assert.Nil(err)
 
-			assert.Equal(tt.id, resp.Id)
-			assert.Equal(tt.size, resp.Size)
-			assert.Equal(tt.expiration, resp.Expiration)
+			assert.Equal(tt.id, resp.GetId())
+			assert.Equal(tt.size, resp.GetSize())
+			assert.Equal(tt.expiration, resp.GetExpirationUnixSec())
 		})
 	}
 }
@@ -307,7 +307,7 @@ func TestStore(t *testing.T) {
 			assert.Nil(err)
 
 			// Write the buffer to the stream we opened earlier
-			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, Ttl: tt.ttl}})
+			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
 			assert.Nil(err)
 
 			// Send Bandwidth Allocation Data

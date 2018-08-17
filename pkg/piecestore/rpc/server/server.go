@@ -28,10 +28,8 @@ type Config struct {
 }
 
 // Run implements provider.Responsibility
-func (c Config) Run(ctx context.Context, server *provider.Provider) (
-	err error) {
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	//TODO pass in Config
 
 	s, err := Initialize(ctx, c)
 	if err != nil {
@@ -97,7 +95,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	log.Printf("Successfully retrieved meta for %s.", in.Id)
-	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), Expiration: ttl}, nil
+	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore

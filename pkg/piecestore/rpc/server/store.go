@@ -42,7 +42,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	}
 
 	// If we put in the database first then that checks if the data already exists
-	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetTtl()); err != nil {
+	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetExpirationUnixSec()); err != nil {
 		return StoreError.New("Failed to write expiration data to database")
 	}
 

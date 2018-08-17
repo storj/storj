@@ -19,7 +19,10 @@ import (
 var RetrieveError = errs.Class("retrieve error")
 
 // Retrieve -- Retrieve data from piecestore and send to client
-func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) error {
+func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
 	// Receive Signature
 	recv, err := stream.Recv()
 	if err != nil {

@@ -35,7 +35,7 @@ func (m *PayerBandwidthAllocation) Reset()         { *m = PayerBandwidthAllocati
 func (m *PayerBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocation) ProtoMessage()    {}
 func (*PayerBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{0}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{0}
 }
 func (m *PayerBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocation.Unmarshal(m, b)
@@ -72,9 +72,9 @@ func (m *PayerBandwidthAllocation) GetData() []byte {
 type PayerBandwidthAllocation_Data struct {
 	Payer                []byte   `protobuf:"bytes,1,opt,name=payer,proto3" json:"payer,omitempty"`
 	Renter               []byte   `protobuf:"bytes,2,opt,name=renter,proto3" json:"renter,omitempty"`
-	MaxSize              int64    `protobuf:"varint,3,opt,name=max_size,json=maxSize" json:"max_size,omitempty"`
-	Expiration           int64    `protobuf:"varint,4,opt,name=expiration" json:"expiration,omitempty"`
-	SerialNumber         string   `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber" json:"serial_number,omitempty"`
+	MaxSize              int64    `protobuf:"varint,3,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
+	ExpirationUnixSec    int64    `protobuf:"varint,4,opt,name=expiration_unix_sec,json=expirationUnixSec,proto3" json:"expiration_unix_sec,omitempty"`
+	SerialNumber         string   `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -84,7 +84,7 @@ func (m *PayerBandwidthAllocation_Data) Reset()         { *m = PayerBandwidthAll
 func (m *PayerBandwidthAllocation_Data) String() string { return proto.CompactTextString(m) }
 func (*PayerBandwidthAllocation_Data) ProtoMessage()    {}
 func (*PayerBandwidthAllocation_Data) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{0, 0}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{0, 0}
 }
 func (m *PayerBandwidthAllocation_Data) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PayerBandwidthAllocation_Data.Unmarshal(m, b)
@@ -125,9 +125,9 @@ func (m *PayerBandwidthAllocation_Data) GetMaxSize() int64 {
 	return 0
 }
 
-func (m *PayerBandwidthAllocation_Data) GetExpiration() int64 {
+func (m *PayerBandwidthAllocation_Data) GetExpirationUnixSec() int64 {
 	if m != nil {
-		return m.Expiration
+		return m.ExpirationUnixSec
 	}
 	return 0
 }
@@ -151,7 +151,7 @@ func (m *RenterBandwidthAllocation) Reset()         { *m = RenterBandwidthAlloca
 func (m *RenterBandwidthAllocation) String() string { return proto.CompactTextString(m) }
 func (*RenterBandwidthAllocation) ProtoMessage()    {}
 func (*RenterBandwidthAllocation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{1}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{1}
 }
 func (m *RenterBandwidthAllocation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RenterBandwidthAllocation.Unmarshal(m, b)
@@ -186,8 +186,8 @@ func (m *RenterBandwidthAllocation) GetData() []byte {
 }
 
 type RenterBandwidthAllocation_Data struct {
-	PayerAllocation      *PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=payer_allocation,json=payerAllocation" json:"payer_allocation,omitempty"`
-	Total                int64                     `protobuf:"varint,2,opt,name=total" json:"total,omitempty"`
+	PayerAllocation      *PayerBandwidthAllocation `protobuf:"bytes,1,opt,name=payer_allocation,json=payerAllocation,proto3" json:"payer_allocation,omitempty"`
+	Total                int64                     `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -197,7 +197,7 @@ func (m *RenterBandwidthAllocation_Data) Reset()         { *m = RenterBandwidthA
 func (m *RenterBandwidthAllocation_Data) String() string { return proto.CompactTextString(m) }
 func (*RenterBandwidthAllocation_Data) ProtoMessage()    {}
 func (*RenterBandwidthAllocation_Data) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{1, 0}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{1, 0}
 }
 func (m *RenterBandwidthAllocation_Data) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RenterBandwidthAllocation_Data.Unmarshal(m, b)
@@ -232,8 +232,8 @@ func (m *RenterBandwidthAllocation_Data) GetTotal() int64 {
 }
 
 type PieceStore struct {
-	Bandwidthallocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidthallocation" json:"bandwidthallocation,omitempty"`
-	Piecedata            *PieceStore_PieceData      `protobuf:"bytes,2,opt,name=piecedata" json:"piecedata,omitempty"`
+	Bandwidthallocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidthallocation,proto3" json:"bandwidthallocation,omitempty"`
+	Piecedata            *PieceStore_PieceData      `protobuf:"bytes,2,opt,name=piecedata,proto3" json:"piecedata,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -243,7 +243,7 @@ func (m *PieceStore) Reset()         { *m = PieceStore{} }
 func (m *PieceStore) String() string { return proto.CompactTextString(m) }
 func (*PieceStore) ProtoMessage()    {}
 func (*PieceStore) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{2}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{2}
 }
 func (m *PieceStore) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStore.Unmarshal(m, b)
@@ -278,8 +278,8 @@ func (m *PieceStore) GetPiecedata() *PieceStore_PieceData {
 }
 
 type PieceStore_PieceData struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Ttl                  int64    `protobuf:"varint,2,opt,name=ttl" json:"ttl,omitempty"`
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpirationUnixSec    int64    `protobuf:"varint,2,opt,name=expiration_unix_sec,json=expirationUnixSec,proto3" json:"expiration_unix_sec,omitempty"`
 	Content              []byte   `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -290,7 +290,7 @@ func (m *PieceStore_PieceData) Reset()         { *m = PieceStore_PieceData{} }
 func (m *PieceStore_PieceData) String() string { return proto.CompactTextString(m) }
 func (*PieceStore_PieceData) ProtoMessage()    {}
 func (*PieceStore_PieceData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{2, 0}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{2, 0}
 }
 func (m *PieceStore_PieceData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStore_PieceData.Unmarshal(m, b)
@@ -317,9 +317,9 @@ func (m *PieceStore_PieceData) GetId() string {
 	return ""
 }
 
-func (m *PieceStore_PieceData) GetTtl() int64 {
+func (m *PieceStore_PieceData) GetExpirationUnixSec() int64 {
 	if m != nil {
-		return m.Ttl
+		return m.ExpirationUnixSec
 	}
 	return 0
 }
@@ -332,7 +332,7 @@ func (m *PieceStore_PieceData) GetContent() []byte {
 }
 
 type PieceId struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -342,7 +342,7 @@ func (m *PieceId) Reset()         { *m = PieceId{} }
 func (m *PieceId) String() string { return proto.CompactTextString(m) }
 func (*PieceId) ProtoMessage()    {}
 func (*PieceId) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{3}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{3}
 }
 func (m *PieceId) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceId.Unmarshal(m, b)
@@ -370,9 +370,9 @@ func (m *PieceId) GetId() string {
 }
 
 type PieceSummary struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Size                 int64    `protobuf:"varint,2,opt,name=size" json:"size,omitempty"`
-	Expiration           int64    `protobuf:"varint,3,opt,name=expiration" json:"expiration,omitempty"`
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Size                 int64    `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	ExpirationUnixSec    int64    `protobuf:"varint,3,opt,name=expiration_unix_sec,json=expirationUnixSec,proto3" json:"expiration_unix_sec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -382,7 +382,7 @@ func (m *PieceSummary) Reset()         { *m = PieceSummary{} }
 func (m *PieceSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceSummary) ProtoMessage()    {}
 func (*PieceSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{4}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{4}
 }
 func (m *PieceSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceSummary.Unmarshal(m, b)
@@ -416,16 +416,16 @@ func (m *PieceSummary) GetSize() int64 {
 	return 0
 }
 
-func (m *PieceSummary) GetExpiration() int64 {
+func (m *PieceSummary) GetExpirationUnixSec() int64 {
 	if m != nil {
-		return m.Expiration
+		return m.ExpirationUnixSec
 	}
 	return 0
 }
 
 type PieceRetrieval struct {
-	Bandwidthallocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidthallocation" json:"bandwidthallocation,omitempty"`
-	PieceData            *PieceRetrieval_PieceData  `protobuf:"bytes,2,opt,name=pieceData" json:"pieceData,omitempty"`
+	Bandwidthallocation  *RenterBandwidthAllocation `protobuf:"bytes,1,opt,name=bandwidthallocation,proto3" json:"bandwidthallocation,omitempty"`
+	PieceData            *PieceRetrieval_PieceData  `protobuf:"bytes,2,opt,name=pieceData,proto3" json:"pieceData,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -435,7 +435,7 @@ func (m *PieceRetrieval) Reset()         { *m = PieceRetrieval{} }
 func (m *PieceRetrieval) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrieval) ProtoMessage()    {}
 func (*PieceRetrieval) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{5}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{5}
 }
 func (m *PieceRetrieval) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrieval.Unmarshal(m, b)
@@ -470,9 +470,9 @@ func (m *PieceRetrieval) GetPieceData() *PieceRetrieval_PieceData {
 }
 
 type PieceRetrieval_PieceData struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Size                 int64    `protobuf:"varint,2,opt,name=size" json:"size,omitempty"`
-	Offset               int64    `protobuf:"varint,3,opt,name=offset" json:"offset,omitempty"`
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Size                 int64    `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Offset               int64    `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -482,7 +482,7 @@ func (m *PieceRetrieval_PieceData) Reset()         { *m = PieceRetrieval_PieceDa
 func (m *PieceRetrieval_PieceData) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrieval_PieceData) ProtoMessage()    {}
 func (*PieceRetrieval_PieceData) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{5, 0}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{5, 0}
 }
 func (m *PieceRetrieval_PieceData) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrieval_PieceData.Unmarshal(m, b)
@@ -524,7 +524,7 @@ func (m *PieceRetrieval_PieceData) GetOffset() int64 {
 }
 
 type PieceRetrievalStream struct {
-	Size                 int64    `protobuf:"varint,1,opt,name=size" json:"size,omitempty"`
+	Size                 int64    `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
 	Content              []byte   `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -535,7 +535,7 @@ func (m *PieceRetrievalStream) Reset()         { *m = PieceRetrievalStream{} }
 func (m *PieceRetrievalStream) String() string { return proto.CompactTextString(m) }
 func (*PieceRetrievalStream) ProtoMessage()    {}
 func (*PieceRetrievalStream) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{6}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{6}
 }
 func (m *PieceRetrievalStream) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceRetrievalStream.Unmarshal(m, b)
@@ -570,7 +570,7 @@ func (m *PieceRetrievalStream) GetContent() []byte {
 }
 
 type PieceDelete struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -580,7 +580,7 @@ func (m *PieceDelete) Reset()         { *m = PieceDelete{} }
 func (m *PieceDelete) String() string { return proto.CompactTextString(m) }
 func (*PieceDelete) ProtoMessage()    {}
 func (*PieceDelete) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{7}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{7}
 }
 func (m *PieceDelete) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDelete.Unmarshal(m, b)
@@ -608,7 +608,7 @@ func (m *PieceDelete) GetId() string {
 }
 
 type PieceDeleteSummary struct {
-	Message              string   `protobuf:"bytes,1,opt,name=message" json:"message,omitempty"`
+	Message              string   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -618,7 +618,7 @@ func (m *PieceDeleteSummary) Reset()         { *m = PieceDeleteSummary{} }
 func (m *PieceDeleteSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceDeleteSummary) ProtoMessage()    {}
 func (*PieceDeleteSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{8}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{8}
 }
 func (m *PieceDeleteSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceDeleteSummary.Unmarshal(m, b)
@@ -646,8 +646,8 @@ func (m *PieceDeleteSummary) GetMessage() string {
 }
 
 type PieceStoreSummary struct {
-	Message              string   `protobuf:"bytes,1,opt,name=message" json:"message,omitempty"`
-	TotalReceived        int64    `protobuf:"varint,2,opt,name=totalReceived" json:"totalReceived,omitempty"`
+	Message              string   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	TotalReceived        int64    `protobuf:"varint,2,opt,name=totalReceived,proto3" json:"totalReceived,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -657,7 +657,7 @@ func (m *PieceStoreSummary) Reset()         { *m = PieceStoreSummary{} }
 func (m *PieceStoreSummary) String() string { return proto.CompactTextString(m) }
 func (*PieceStoreSummary) ProtoMessage()    {}
 func (*PieceStoreSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_piece_store_08a76880cdf77765, []int{9}
+	return fileDescriptor_piece_store_888c7042fdc2576a, []int{9}
 }
 func (m *PieceStoreSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceStoreSummary.Unmarshal(m, b)
@@ -716,8 +716,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for PieceStoreRoutes service
-
+// PieceStoreRoutesClient is the client API for PieceStoreRoutes service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PieceStoreRoutesClient interface {
 	Piece(ctx context.Context, in *PieceId, opts ...grpc.CallOption) (*PieceSummary, error)
 	Retrieve(ctx context.Context, opts ...grpc.CallOption) (PieceStoreRoutes_RetrieveClient, error)
@@ -735,7 +736,7 @@ func NewPieceStoreRoutesClient(cc *grpc.ClientConn) PieceStoreRoutesClient {
 
 func (c *pieceStoreRoutesClient) Piece(ctx context.Context, in *PieceId, opts ...grpc.CallOption) (*PieceSummary, error) {
 	out := new(PieceSummary)
-	err := grpc.Invoke(ctx, "/piecestoreroutes.PieceStoreRoutes/Piece", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/piecestoreroutes.PieceStoreRoutes/Piece", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -743,7 +744,7 @@ func (c *pieceStoreRoutesClient) Piece(ctx context.Context, in *PieceId, opts ..
 }
 
 func (c *pieceStoreRoutesClient) Retrieve(ctx context.Context, opts ...grpc.CallOption) (PieceStoreRoutes_RetrieveClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_PieceStoreRoutes_serviceDesc.Streams[0], c.cc, "/piecestoreroutes.PieceStoreRoutes/Retrieve", opts...)
+	stream, err := c.cc.NewStream(ctx, &_PieceStoreRoutes_serviceDesc.Streams[0], "/piecestoreroutes.PieceStoreRoutes/Retrieve", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +775,7 @@ func (x *pieceStoreRoutesRetrieveClient) Recv() (*PieceRetrievalStream, error) {
 }
 
 func (c *pieceStoreRoutesClient) Store(ctx context.Context, opts ...grpc.CallOption) (PieceStoreRoutes_StoreClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_PieceStoreRoutes_serviceDesc.Streams[1], c.cc, "/piecestoreroutes.PieceStoreRoutes/Store", opts...)
+	stream, err := c.cc.NewStream(ctx, &_PieceStoreRoutes_serviceDesc.Streams[1], "/piecestoreroutes.PieceStoreRoutes/Store", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -809,15 +810,14 @@ func (x *pieceStoreRoutesStoreClient) CloseAndRecv() (*PieceStoreSummary, error)
 
 func (c *pieceStoreRoutesClient) Delete(ctx context.Context, in *PieceDelete, opts ...grpc.CallOption) (*PieceDeleteSummary, error) {
 	out := new(PieceDeleteSummary)
-	err := grpc.Invoke(ctx, "/piecestoreroutes.PieceStoreRoutes/Delete", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/piecestoreroutes.PieceStoreRoutes/Delete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for PieceStoreRoutes service
-
+// PieceStoreRoutesServer is the server API for PieceStoreRoutes service.
 type PieceStoreRoutesServer interface {
 	Piece(context.Context, *PieceId) (*PieceSummary, error)
 	Retrieve(PieceStoreRoutes_RetrieveServer) error
@@ -946,46 +946,47 @@ var _PieceStoreRoutes_serviceDesc = grpc.ServiceDesc{
 	Metadata: "piece_store.proto",
 }
 
-func init() { proto.RegisterFile("piece_store.proto", fileDescriptor_piece_store_08a76880cdf77765) }
+func init() { proto.RegisterFile("piece_store.proto", fileDescriptor_piece_store_888c7042fdc2576a) }
 
-var fileDescriptor_piece_store_08a76880cdf77765 = []byte{
-	// 605 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xdb, 0x4e, 0xdb, 0x40,
-	0x10, 0x65, 0x9d, 0x1b, 0x19, 0x02, 0x0d, 0x5b, 0x84, 0x1c, 0x0b, 0x50, 0x64, 0x10, 0x8a, 0xa8,
-	0x14, 0x55, 0xf4, 0x0b, 0x5a, 0x59, 0x6a, 0x79, 0xa1, 0x68, 0xa3, 0xbe, 0x54, 0xaa, 0xa2, 0x25,
-	0x1e, 0xe8, 0x4a, 0xbe, 0x44, 0xeb, 0x0d, 0x05, 0x1e, 0xfb, 0x0d, 0xfd, 0xa2, 0xfe, 0x43, 0xbf,
-	0xa0, 0x7f, 0xd1, 0xa7, 0x2a, 0x63, 0xc7, 0xb9, 0x3a, 0x79, 0x69, 0xdf, 0x76, 0xce, 0x78, 0xcf,
-	0x9c, 0x39, 0x33, 0x9b, 0xc0, 0xfe, 0x50, 0xe1, 0x00, 0xfb, 0x89, 0x89, 0x35, 0x76, 0x87, 0x3a,
-	0x36, 0x31, 0x6f, 0x12, 0x44, 0x88, 0x8e, 0x47, 0x06, 0x13, 0xf7, 0x37, 0x03, 0xfb, 0x46, 0x3e,
-	0xa1, 0x7e, 0x27, 0x23, 0xff, 0x9b, 0xf2, 0xcd, 0xd7, 0xb7, 0x41, 0x10, 0x0f, 0xa4, 0x51, 0x71,
-	0xc4, 0x8f, 0xa0, 0x9e, 0xa8, 0xfb, 0x48, 0x9a, 0x91, 0x46, 0x9b, 0xb5, 0x59, 0xa7, 0x21, 0xa6,
-	0x00, 0xe7, 0x50, 0xf6, 0xa5, 0x91, 0xb6, 0x45, 0x09, 0x3a, 0x3b, 0x3f, 0x18, 0x94, 0x3d, 0x69,
-	0x24, 0x3f, 0x80, 0xca, 0x70, 0x4c, 0x9b, 0x5d, 0x4b, 0x03, 0x7e, 0x08, 0x55, 0x8d, 0x91, 0x41,
-	0x9d, 0x5d, 0xca, 0x22, 0xde, 0x82, 0xed, 0x50, 0x3e, 0xf6, 0x13, 0xf5, 0x8c, 0x76, 0xa9, 0xcd,
-	0x3a, 0x25, 0x51, 0x0b, 0xe5, 0x63, 0x4f, 0x3d, 0x23, 0x3f, 0x01, 0xc0, 0xc7, 0xa1, 0xd2, 0xa4,
-	0xc8, 0x2e, 0x53, 0x72, 0x06, 0xe1, 0xa7, 0xb0, 0x9b, 0xa0, 0x56, 0x32, 0xe8, 0x47, 0xa3, 0xf0,
-	0x16, 0xb5, 0x5d, 0x69, 0xb3, 0x4e, 0x5d, 0x34, 0x52, 0xf0, 0x9a, 0x30, 0xf7, 0x27, 0x83, 0x96,
-	0xa0, 0x52, 0xff, 0xa6, 0xcd, 0x24, 0xeb, 0xf2, 0x13, 0x34, 0xa9, 0xb1, 0xbe, 0xcc, 0xd9, 0x88,
-	0x60, 0xe7, 0xf2, 0xa2, 0xbb, 0x68, 0x75, 0xb7, 0xc8, 0x66, 0xf1, 0x82, 0x38, 0x66, 0x04, 0x1d,
-	0x40, 0xc5, 0xc4, 0x46, 0x06, 0x54, 0xb3, 0x24, 0xd2, 0xc0, 0xfd, 0xc3, 0x00, 0x6e, 0xc6, 0xa4,
-	0xbd, 0x31, 0x29, 0xff, 0x02, 0x2f, 0x6f, 0x27, 0x64, 0x4b, 0xe5, 0x5f, 0x2d, 0x97, 0x2f, 0xec,
-	0x5f, 0xac, 0xe2, 0xe1, 0x1e, 0xd4, 0x89, 0x22, 0xef, 0x7d, 0xe7, 0xf2, 0x7c, 0x45, 0x4f, 0xb9,
-	0x9e, 0xf4, 0x38, 0x76, 0x45, 0x4c, 0x2f, 0x3a, 0xef, 0xa1, 0x9e, 0xe3, 0x7c, 0x0f, 0x2c, 0xe5,
-	0x93, 0xc0, 0xba, 0xb0, 0x94, 0xcf, 0x9b, 0x50, 0x32, 0x66, 0xd2, 0xe4, 0xf8, 0xc8, 0x6d, 0xa8,
-	0x0d, 0xe2, 0xc8, 0x60, 0x64, 0x68, 0x0d, 0x1a, 0x62, 0x12, 0xba, 0x2d, 0xa8, 0x11, 0xd1, 0x95,
-	0xbf, 0x48, 0xe3, 0x0a, 0x68, 0xa4, 0x32, 0x46, 0x61, 0x28, 0xf5, 0xd3, 0x52, 0x19, 0x0e, 0x65,
-	0x5a, 0xac, 0xb4, 0x0e, 0x9d, 0x17, 0xb6, 0xaa, 0xb4, 0xb8, 0x55, 0xee, 0x77, 0x0b, 0xf6, 0x88,
-	0x54, 0xa0, 0xd1, 0x0a, 0x1f, 0x64, 0xf0, 0xbf, 0xfd, 0xfe, 0x90, 0xf9, 0xed, 0x4d, 0xfd, 0xbe,
-	0x28, 0xf0, 0x3b, 0xd7, 0xb4, 0xe4, 0xb9, 0xb7, 0xd1, 0xf3, 0x55, 0x66, 0x1c, 0x42, 0x35, 0xbe,
-	0xbb, 0x4b, 0xd0, 0x64, 0x46, 0x64, 0x91, 0xeb, 0xc1, 0xc1, 0x7c, 0xbd, 0x9e, 0xd1, 0x28, 0xc3,
-	0x9c, 0x83, 0xcd, 0x70, 0xcc, 0x4c, 0xce, 0x9a, 0x9f, 0xdc, 0x31, 0xec, 0xa4, 0x72, 0x30, 0x40,
-	0x83, 0x4b, 0xd3, 0xeb, 0x02, 0x9f, 0x49, 0x4f, 0x66, 0x68, 0x43, 0x2d, 0xc4, 0x24, 0x91, 0xf7,
-	0x98, 0x7d, 0x3a, 0x09, 0xdd, 0x1e, 0xec, 0x4f, 0x97, 0x6e, 0xe3, 0xe7, 0xfc, 0x0c, 0x76, 0xe9,
-	0xf5, 0x08, 0x1c, 0xa0, 0x7a, 0x40, 0x3f, 0x6b, 0x7c, 0x1e, 0xbc, 0xfc, 0x65, 0x41, 0x73, 0xca,
-	0x2a, 0xc8, 0x6b, 0xee, 0x41, 0x85, 0x30, 0xde, 0x2a, 0x98, 0xc3, 0x95, 0xef, 0x9c, 0x14, 0x3d,
-	0x89, 0x54, 0x98, 0xbb, 0xc5, 0x3f, 0xc3, 0x76, 0xe6, 0x1f, 0xf2, 0xf6, 0xa6, 0x81, 0x3a, 0xe7,
-	0x9b, 0xbe, 0x48, 0x47, 0xe0, 0x6e, 0x75, 0xd8, 0x6b, 0xc6, 0xaf, 0xa1, 0x92, 0xfe, 0x16, 0x1c,
-	0xad, 0x7b, 0x99, 0xce, 0xe9, 0xba, 0x6c, 0xae, 0xb4, 0xc3, 0xf8, 0x47, 0xa8, 0x66, 0x53, 0x3a,
-	0x2e, 0xb8, 0x92, 0xa6, 0x9d, 0xb3, 0xb5, 0xe9, 0x9c, 0xf2, 0xb6, 0x4a, 0x7f, 0x3b, 0x6f, 0xfe,
-	0x06, 0x00, 0x00, 0xff, 0xff, 0xec, 0x92, 0x41, 0x30, 0x8b, 0x06, 0x00, 0x00,
+var fileDescriptor_piece_store_888c7042fdc2576a = []byte{
+	// 620 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xdd, 0x4e, 0xdb, 0x4c,
+	0x10, 0xc5, 0xce, 0x1f, 0x19, 0x02, 0x1f, 0x2c, 0x08, 0x39, 0x16, 0x7c, 0x8a, 0x0c, 0x42, 0x11,
+	0x95, 0xa2, 0x8a, 0x3e, 0x41, 0xab, 0x48, 0x2d, 0x37, 0x14, 0x6d, 0xc4, 0x4d, 0xa5, 0xca, 0xda,
+	0xd8, 0x03, 0x5d, 0xc9, 0x3f, 0xd1, 0x7a, 0x43, 0x03, 0x97, 0x7d, 0x8a, 0x3e, 0x40, 0x9f, 0xa4,
+	0xef, 0xd0, 0x27, 0xe9, 0x0b, 0x54, 0x19, 0x3b, 0x76, 0x42, 0xe2, 0xe4, 0xa6, 0xbd, 0xdb, 0x99,
+	0xd9, 0x3d, 0xe7, 0xcc, 0x9c, 0x5d, 0x1b, 0x0e, 0x46, 0x12, 0x3d, 0x74, 0x13, 0x1d, 0x2b, 0xec,
+	0x8d, 0x54, 0xac, 0x63, 0xb6, 0x4f, 0x29, 0xca, 0xa8, 0x78, 0xac, 0x31, 0x71, 0x7e, 0x1b, 0x60,
+	0xdd, 0x8a, 0x27, 0x54, 0xef, 0x44, 0xe4, 0x7f, 0x95, 0xbe, 0xfe, 0xf2, 0x36, 0x08, 0x62, 0x4f,
+	0x68, 0x19, 0x47, 0xec, 0x04, 0x9a, 0x89, 0x7c, 0x88, 0x84, 0x1e, 0x2b, 0xb4, 0x8c, 0x8e, 0xd1,
+	0x6d, 0xf1, 0x22, 0xc1, 0x18, 0x54, 0x7d, 0xa1, 0x85, 0x65, 0x52, 0x81, 0xd6, 0xf6, 0x0f, 0x03,
+	0xaa, 0x7d, 0xa1, 0x05, 0x3b, 0x82, 0xda, 0x68, 0x0a, 0x9b, 0x1d, 0x4b, 0x03, 0x76, 0x0c, 0x75,
+	0x85, 0x91, 0x46, 0x95, 0x1d, 0xca, 0x22, 0xd6, 0x86, 0xed, 0x50, 0x4c, 0xdc, 0x44, 0x3e, 0xa3,
+	0x55, 0xe9, 0x18, 0xdd, 0x0a, 0x6f, 0x84, 0x62, 0x32, 0x90, 0xcf, 0xc8, 0x7a, 0x70, 0x88, 0x93,
+	0x91, 0x54, 0xa4, 0xc8, 0x1d, 0x47, 0x72, 0xe2, 0x26, 0xe8, 0x59, 0x55, 0xda, 0x75, 0x50, 0x94,
+	0xee, 0x22, 0x39, 0x19, 0xa0, 0xc7, 0xce, 0x60, 0x37, 0x41, 0x25, 0x45, 0xe0, 0x46, 0xe3, 0x70,
+	0x88, 0xca, 0xaa, 0x75, 0x8c, 0x6e, 0x93, 0xb7, 0xd2, 0xe4, 0x0d, 0xe5, 0x9c, 0x9f, 0x06, 0xb4,
+	0x39, 0x51, 0xff, 0x9d, 0xb6, 0x93, 0xac, 0xeb, 0x3b, 0xd8, 0xa7, 0x46, 0x5d, 0x91, 0xa3, 0x11,
+	0xc0, 0xce, 0xd5, 0x65, 0xef, 0xe5, 0xe8, 0x7b, 0x65, 0x63, 0xe7, 0xff, 0x11, 0xc6, 0x9c, 0xa0,
+	0x23, 0xa8, 0xe9, 0x58, 0x8b, 0x80, 0x38, 0x2b, 0x3c, 0x0d, 0x9c, 0xef, 0x26, 0xc0, 0xed, 0x14,
+	0x74, 0x30, 0x05, 0x65, 0x9f, 0xe1, 0x70, 0x38, 0x03, 0x5b, 0xa2, 0x7f, 0xb5, 0x4c, 0x5f, 0xda,
+	0x3f, 0x5f, 0x85, 0xc3, 0xfa, 0xd0, 0x24, 0x88, 0xbc, 0xf7, 0x9d, 0xab, 0x8b, 0x15, 0x3d, 0xe5,
+	0x7a, 0xd2, 0xe5, 0x74, 0x2a, 0xbc, 0x38, 0x68, 0x23, 0x34, 0xf3, 0x3c, 0xdb, 0x03, 0x53, 0xfa,
+	0x24, 0xb0, 0xc9, 0x4d, 0xe9, 0x97, 0x59, 0x6d, 0x96, 0x59, 0x6d, 0x41, 0xc3, 0x8b, 0x23, 0x8d,
+	0x91, 0xa6, 0x4b, 0xd3, 0xe2, 0xb3, 0xd0, 0x69, 0x43, 0x83, 0x68, 0xae, 0xfd, 0x97, 0x24, 0xce,
+	0x10, 0x5a, 0xa9, 0xc8, 0x71, 0x18, 0x0a, 0xf5, 0xb4, 0x24, 0x82, 0x41, 0x95, 0xae, 0x61, 0xca,
+	0x4a, 0xeb, 0x32, 0x61, 0x95, 0x12, 0x61, 0xce, 0x37, 0x13, 0xf6, 0x88, 0x84, 0xa3, 0x56, 0x12,
+	0x1f, 0x45, 0xf0, 0xaf, 0xdd, 0xf9, 0x90, 0xb9, 0xd3, 0x2f, 0xdc, 0xb9, 0x2c, 0x71, 0x27, 0xd7,
+	0xb4, 0xe4, 0xd0, 0x74, 0x69, 0xbf, 0x5f, 0xe7, 0xd0, 0xaa, 0xe1, 0x1c, 0x43, 0x3d, 0xbe, 0xbf,
+	0x4f, 0x50, 0x67, 0xf3, 0xc8, 0x22, 0xa7, 0x0f, 0x47, 0x8b, 0x7c, 0x03, 0xad, 0x50, 0x84, 0x39,
+	0x86, 0x31, 0x87, 0x31, 0xe7, 0xa4, 0xb9, 0xe8, 0xe4, 0x29, 0xec, 0xa4, 0x72, 0x30, 0x40, 0x8d,
+	0x4b, 0x6e, 0xf6, 0x80, 0xcd, 0x95, 0x67, 0x9e, 0x5a, 0xd0, 0x08, 0x31, 0x49, 0xc4, 0x03, 0x66,
+	0x5b, 0x67, 0xa1, 0x33, 0x80, 0x83, 0xe2, 0x8a, 0x6e, 0xdc, 0xce, 0xce, 0x61, 0x97, 0xde, 0x1a,
+	0x47, 0x0f, 0xe5, 0x23, 0xfa, 0x59, 0xe3, 0x8b, 0xc9, 0xab, 0x5f, 0x26, 0xec, 0x17, 0xa8, 0x9c,
+	0x66, 0xcd, 0xfa, 0x50, 0xa3, 0x1c, 0x6b, 0x97, 0xf8, 0x70, 0xed, 0xdb, 0xff, 0x97, 0x3d, 0xa0,
+	0x54, 0x98, 0xb3, 0xc5, 0x3e, 0xc1, 0x76, 0x36, 0x3f, 0x64, 0x9d, 0x4d, 0x86, 0xda, 0x17, 0x9b,
+	0x76, 0xa4, 0x16, 0x38, 0x5b, 0x5d, 0xe3, 0xb5, 0xc1, 0x6e, 0xa0, 0x96, 0x7e, 0x39, 0x4e, 0xd6,
+	0xbd, 0x63, 0xfb, 0x6c, 0x5d, 0x35, 0x57, 0xda, 0x35, 0xd8, 0x47, 0xa8, 0x67, 0x2e, 0x9d, 0x96,
+	0x1c, 0x49, 0xcb, 0xf6, 0xf9, 0xda, 0x72, 0x0e, 0x39, 0xac, 0xd3, 0x4f, 0xeb, 0xcd, 0x9f, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x32, 0xbf, 0x88, 0x7d, 0xc9, 0x06, 0x00, 0x00,
 }

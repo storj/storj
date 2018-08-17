@@ -99,7 +99,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return err
 	}
 
-	msg := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), Ttl: ttl.Unix()}}
+	msg := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()}}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
 			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
