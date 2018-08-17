@@ -74,7 +74,7 @@ First, install git and golang. We currently support Debian-based and Mac operati
 
 Download and install the latest release of go https://golang.org/
 
-```bash
+```
 apt-get install git golang
 echo 'export STORJDEV="$HOME/storj"' >> $HOME/.bashrc
 echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.bashrc
