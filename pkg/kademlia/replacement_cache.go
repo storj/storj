@@ -8,16 +8,11 @@ import (
 	"storj.io/storj/storage"
 )
 
-func (rt *RoutingTable) updateReplacementCache(kadBucketID storage.Key, nodes []*proto.Node) {
-	bucketID := string(kadBucketID)
-	rt.replacementCache[bucketID] = nodes
-}
-
-func (rt *RoutingTable) getReplacementCacheBucket(kadBucketID storage.Key) []*proto.Node {
-	return rt.replacementCache[string(kadBucketID)]
-}
 
 func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *proto.Node) {
+	//get length of nodes
+	//if length of nodes is equal to rt.replacementCacheSize, pop node off bottom of stack
+	
 	bucketID := string(kadBucketID)
 	nodes := rt.replacementCache[bucketID]
 	nodes = append(nodes, node)

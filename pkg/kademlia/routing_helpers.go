@@ -130,7 +130,7 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return RoutingErr.New("could not delete node %s", err)
 	}
-	nodes := rt.getReplacementCacheBucket(kadBucketID)
+	nodes := rt.replacementCache[string(kadBucketID)]
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -143,11 +143,9 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	if err != nil {
 		return err
 	}
-	//add info to check if room in cache bucket (detemined from rt config)
-	rt.updateReplacementCache(kadBucketID, nodes[:len(nodes)-1])
+	rt.replacementCache[string(kadBucketID)] = nodes[:len(nodes)-1]
 	return nil
 }
-
 
 // marshalNode: helper, sanitizes proto Node for db insertion
 func marshalNode(node proto.Node) ([]byte, error) {
