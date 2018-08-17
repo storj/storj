@@ -130,12 +130,12 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
-	if s.pkey == nil {
+func (s *Server) verifySignature(clientpubkey *ecdsa.PublicKey, ba *pb.RenterBandwidthAllocation) error {
+	if clientpubkey == nil {
 		return ServerError.New("Failed to sign msg: Private Key not Set")
 	}
 
-	if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), s.pkey.Public().(*ecdsa.PublicKey)); success == false {
+	if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), clientpubkey); success == false {
 		return ServerError.New("Failed to verify Signature")
 	}
 	return nil
