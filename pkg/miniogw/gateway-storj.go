@@ -246,6 +246,41 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	return err
 }
 
+func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket,
+	destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	o, err := s.storj.bs.GetObjectStore(ctx, srcBucket)
+	if err != nil {
+		return objInfo, err
+	}
+
+	rr, _, err := o.Get(ctx, paths.New(srcObject))
+	if err != nil {
+		return objInfo, err
+	}
+
+	defer func() {
+		if err := rr.Close(); err != nil {
+			// ignore for now
+		}
+	}()
+
+	r, err := rr.Range(ctx, 0, srcInfo.Size)
+	if err != nil {
+		return objInfo, err
+	}
+
+	defer func() {
+		if err = r.Close(); err != nil {
+			// ignore for now
+		}
+	}()
+
+	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
+
+	return s.PutObject(ctx, destBucket, destObject, hr, srcInfo.UserDefined)
+}
+
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
