@@ -90,11 +90,14 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(res.GetPointer(), pointer)
+	if err != nil {
+		return nil, err
+	}
 
 	return pointer, nil
 }
