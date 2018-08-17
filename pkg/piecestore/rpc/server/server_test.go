@@ -255,8 +255,8 @@ func TestRetrieve(t *testing.T) {
 					return
 				}
 
-				data = fmt.Sprintf("%s%s", data, string(resp.Content))
-				totalRetrieved += resp.Size
+				data = fmt.Sprintf("%s%s", data, string(resp.GetContent()))
+				totalRetrieved += resp.GetSize()
 			}
 
 			assert.Nil(err)
