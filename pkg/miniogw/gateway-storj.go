@@ -251,22 +251,14 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 		return objInfo, err
 	}
 
-	defer func() {
-		if err := rr.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, srcInfo.Size)
 	if err != nil {
 		return objInfo, err
 	}
 
-	defer func() {
-		if err = r.Close(); err != nil {
-			// ignore for now
-		}
-	}()
+	defer utils.LogClose(r)
 
 	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
 
