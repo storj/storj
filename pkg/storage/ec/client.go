@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var mon = monkit.Package()
@@ -45,7 +46,8 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c), nil
+
+	return client.NewPSClient(c, 0)
 }
 
 type ecClient struct {
@@ -55,7 +57,8 @@ type ecClient struct {
 
 // NewClient from the given TransportClient and max buffer memory
 func NewClient(t transport.Client, mbm int) Client {
-	return &ecClient{d: &defaultDialer{t: t}, mbm: mbm}
+	d := defaultDialer{t: t}
+	return &ecClient{d: &d, mbm: mbm}
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
@@ -89,7 +92,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 				errs <- err
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration)
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			closeConn(ps, n.GetId())
@@ -140,7 +143,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 				ch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			rr, err := ps.Get(ctx, derivedPieceID, pieceSize)
+			rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
 			// no ps.CloseConn() here, the connection will be closed by
 			// the caller using RangeCloser.Close
 			if err != nil {
