@@ -78,7 +78,7 @@ message Node {
     NodeRestrictions restrictions = 4;
 }
 
-// NodeTyp is an enum of possible node types
+// NodeType is an enum of possible node types
 enum NodeType {
     ADMIN = 0;
     STORAGE = 1;

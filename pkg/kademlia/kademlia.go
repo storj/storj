@@ -104,7 +104,6 @@ func (k Kademlia) GetNodes(ctx context.Context, start string, limit int, restric
 	for _, r := range restrictions {
 		nodes = restrict(r, nodes)
 	}
-	fmt.Printf("get nodes length %v\n", len(nodes))
 	return nodes, nil
 }
 
