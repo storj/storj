@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"log"
 
@@ -20,7 +21,9 @@ const OK = "OK"
 var StoreError = errs.Class("store error")
 
 // Store incoming data using piecestore
-func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
+func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
+	ctx := reqStream.Context()
+	defer mon.Task()(&ctx)(&err)
 	// Receive id/ttl
 	recv, err := reqStream.Recv()
 	if err != nil {
@@ -46,7 +49,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 		return StoreError.New("Failed to write expiration data to database")
 	}
 
-	total, err := s.storeData(reqStream, pd.GetId())
+	total, err := s.storeData(ctx, reqStream, pd.GetId())
 	if err != nil {
 		return err
 	}
@@ -56,7 +59,9 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) error {
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
 }
 
-func (s *Server) storeData(stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
+func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Delete data if we error
 	defer func() {
 		if err != nil && err != io.EOF {

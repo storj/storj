@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"log"
 	"os"
@@ -60,7 +61,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		totalToRead = fileSize - pd.GetOffset()
 	}
 
-	retrieved, allocated, err := s.retrieveData(stream, pd.GetId(), pd.GetOffset(), totalToRead)
+	retrieved, allocated, err := s.retrieveData(ctx, stream, pd.GetId(), pd.GetOffset(), totalToRead)
 	if err != nil {
 		return err
 	}
@@ -69,8 +70,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	return nil
 }
 
-func (s *Server) retrieveData(stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
-	ctx := stream.Context()
+func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storeFile, err := pstore.RetrieveReader(ctx, id, offset, length, s.DataDir)
