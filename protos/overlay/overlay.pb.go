@@ -557,7 +557,8 @@ func (m *Node) GetRestrictions() *NodeRestrictions {
 
 type QueryRequest struct {
 	Sender               *Node    `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	Receiver             *Node    `protobuf:"bytes,2,opt,name=receiver,proto3" json:"receiver,omitempty"`
+	Target               *Node    `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	Limit                int64    `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -594,11 +595,18 @@ func (m *QueryRequest) GetSender() *Node {
 	return nil
 }
 
-func (m *QueryRequest) GetReceiver() *Node {
+func (m *QueryRequest) GetTarget() *Node {
 	if m != nil {
-		return m.Receiver
+		return m.Target
 	}
 	return nil
+}
+
+func (m *QueryRequest) GetLimit() int64 {
+	if m != nil {
+		return m.Limit
+	}
+	return 0
 }
 
 type QueryResponse struct {

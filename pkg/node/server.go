@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/dht"
-
+	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -21,13 +21,24 @@ type Server struct {
 func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.QueryResponse, error) {
 	rt, err := s.dht.GetRoutingTable(ctx)
 	if err != nil {
-		return proto.QueryResponse{}, NodeClientErr.New("could not get routing table %v", err)
+		return proto.QueryResponse{}, NodeClientErr.New("could not get routing table %s", err)
 	}
-	//find node?
-	//find near to recevier?
-	nodes, err := rt.FindNear(req.Receiver, rt.K())
+	_, err = s.dht.Ping(ctx, *req.Sender)
 	if err != nil {
-		return proto.QueryResponse{}, NodeClientErr.New("could not find near %v", err)
+		err = rt.ConnectionFailed(req.Sender.Id, req.Sender.Address)
+		if err != nil {
+			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
+		}
+	} else {
+		err = rt.ConnectionSuccess(req.Sender.Id, req.Sender.Address)
+		if err != nil {
+			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
+		}
+	}
+	id := kademlia.StringToNodeID(req.Target.Id)
+	nodes, err := rt.FindNear(id, int(req.Limit))
+	if err != nil {
+		return proto.QueryResponse{}, NodeClientErr.New("could not find near %s", err)
 	}
     return proto.QueryResponse{Sender: req.Sender, Response: nodes}, nil
 }
