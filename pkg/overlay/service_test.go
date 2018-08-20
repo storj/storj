@@ -28,18 +28,18 @@ func TestNewServer(t *testing.T) {
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterOverlayServer(grpcServer, &MockOverlay{})
+	proto.RegisterOverlayServer(grpcServer, &TestMockOverlay{})
 
 	return grpcServer
 }
 
-type MockOverlay struct{}
+type TestMockOverlay struct{}
 
-func (o *MockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
+func (o *TestMockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	return &proto.FindStorageNodesResponse{}, nil
 }
 
-func (o *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
+func (o *TestMockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
 	return &proto.LookupResponse{}, nil
 }
 

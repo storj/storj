@@ -6,6 +6,7 @@ package logging
 import (
 	context "context"
 	io "io"
+	"reflect"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -41,20 +42,27 @@ type olLogWrap struct {
 	logger ErrorLogger
 }
 
-// ErrorLogger logs a templated error message
+// ErrorLogger logs a templated error message.
 type ErrorLogger interface {
 	Errorf(template string, args ...interface{})
 }
 
-func (ol *olLogWrap) wrap(err error) error {
-	if err != nil {
+// minioError checks if the given error is a minio error.
+func minioError(err error) bool {
+	return reflect.TypeOf(err).ConvertibleTo(reflect.TypeOf(minio.GenericError{}))
+}
+
+// log unexpected errors, i.e. non-minio errors. It will return the given error
+// to allow method chaining.
+func (ol *olLogWrap) log(err error) error {
+	if err != nil && !minioError(err) {
 		ol.logger.Errorf(errTemplate, err)
 	}
 	return err
 }
 
 func (ol *olLogWrap) Shutdown(ctx context.Context) error {
-	return ol.wrap(ol.ol.Shutdown(ctx))
+	return ol.log(ol.ol.Shutdown(ctx))
 }
 
 func (ol *olLogWrap) StorageInfo(ctx context.Context) minio.StorageInfo {
@@ -63,34 +71,23 @@ func (ol *olLogWrap) StorageInfo(ctx context.Context) minio.StorageInfo {
 
 func (ol *olLogWrap) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) error {
-	err := ol.ol.MakeBucketWithLocation(ctx, bucket, location)
-	if _, ok := err.(minio.BucketAlreadyExists); ok {
-		return err
-	}
-	return ol.wrap(err)
+	return ol.log(ol.ol.MakeBucketWithLocation(ctx, bucket, location))
 }
 
 func (ol *olLogWrap) GetBucketInfo(ctx context.Context, bucket string) (
 	bucketInfo minio.BucketInfo, err error) {
 	bucketInfo, err = ol.ol.GetBucketInfo(ctx, bucket)
-	return bucketInfo, ol.wrap(err)
+	return bucketInfo, ol.log(err)
 }
 
 func (ol *olLogWrap) ListBuckets(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 	buckets, err = ol.ol.ListBuckets(ctx)
-	return buckets, ol.wrap(err)
+	return buckets, ol.log(err)
 }
 
 func (ol *olLogWrap) DeleteBucket(ctx context.Context, bucket string) error {
-	err := ol.ol.DeleteBucket(ctx, bucket)
-	if _, ok := err.(minio.BucketNotEmpty); ok {
-		return err
-	}
-	if _, ok := err.(minio.BucketNotFound); ok {
-		return err
-	}
-	return ol.wrap(err)
+	return ol.log(ol.ol.DeleteBucket(ctx, bucket))
 }
 
 func (ol *olLogWrap) ListObjects(ctx context.Context,
@@ -98,7 +95,7 @@ func (ol *olLogWrap) ListObjects(ctx context.Context,
 	result minio.ListObjectsInfo, err error) {
 	result, err = ol.ol.ListObjects(ctx, bucket, prefix, marker, delimiter,
 		maxKeys)
-	return result, ol.wrap(err)
+	return result, ol.log(err)
 }
 
 func (ol *olLogWrap) ListObjectsV2(ctx context.Context,
@@ -107,29 +104,26 @@ func (ol *olLogWrap) ListObjectsV2(ctx context.Context,
 	err error) {
 	result, err = ol.ol.ListObjectsV2(ctx, bucket, prefix, continuationToken,
 		delimiter, maxKeys, fetchOwner, startAfter)
-	return result, ol.wrap(err)
+	return result, ol.log(err)
 }
 
 func (ol *olLogWrap) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
-	return ol.wrap(ol.ol.GetObject(ctx, bucket, object, startOffset, length,
+	return ol.log(ol.ol.GetObject(ctx, bucket, object, startOffset, length,
 		writer, etag))
 }
 
 func (ol *olLogWrap) GetObjectInfo(ctx context.Context, bucket, object string) (
 	objInfo minio.ObjectInfo, err error) {
 	objInfo, err = ol.ol.GetObjectInfo(ctx, bucket, object)
-	if _, ok := err.(minio.ObjectNotFound); ok {
-		return objInfo, err
-	}
-	return objInfo, ol.wrap(err)
+	return objInfo, ol.log(err)
 }
 
 func (ol *olLogWrap) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
 	objInfo, err = ol.ol.PutObject(ctx, bucket, object, data, metadata)
-	return objInfo, ol.wrap(err)
+	return objInfo, ol.log(err)
 }
 
 func (ol *olLogWrap) CopyObject(ctx context.Context,
@@ -137,12 +131,12 @@ func (ol *olLogWrap) CopyObject(ctx context.Context,
 	srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	objInfo, err = ol.ol.CopyObject(ctx, srcBucket, srcObject, destBucket,
 		destObject, srcInfo)
-	return objInfo, ol.wrap(err)
+	return objInfo, ol.log(err)
 }
 
 func (ol *olLogWrap) DeleteObject(ctx context.Context, bucket, object string) (
 	err error) {
-	return ol.wrap(ol.ol.DeleteObject(ctx, bucket, object))
+	return ol.log(ol.ol.DeleteObject(ctx, bucket, object))
 }
 
 func (ol *olLogWrap) ListMultipartUploads(ctx context.Context,
@@ -150,14 +144,14 @@ func (ol *olLogWrap) ListMultipartUploads(ctx context.Context,
 	result minio.ListMultipartsInfo, err error) {
 	result, err = ol.ol.ListMultipartUploads(ctx, bucket, prefix, keyMarker,
 		uploadIDMarker, delimiter, maxUploads)
-	return result, ol.wrap(err)
+	return result, ol.log(err)
 }
 
 func (ol *olLogWrap) NewMultipartUpload(ctx context.Context,
 	bucket, object string, metadata map[string]string) (uploadID string,
 	err error) {
 	uploadID, err = ol.ol.NewMultipartUpload(ctx, bucket, object, metadata)
-	return uploadID, ol.wrap(err)
+	return uploadID, ol.log(err)
 }
 
 func (ol *olLogWrap) CopyObjectPart(ctx context.Context,
@@ -166,14 +160,14 @@ func (ol *olLogWrap) CopyObjectPart(ctx context.Context,
 	info minio.PartInfo, err error) {
 	info, err = ol.ol.CopyObjectPart(ctx, srcBucket, srcObject, destBucket,
 		destObject, uploadID, partID, startOffset, length, srcInfo)
-	return info, ol.wrap(err)
+	return info, ol.log(err)
 }
 
 func (ol *olLogWrap) PutObjectPart(ctx context.Context,
 	bucket, object, uploadID string, partID int, data *hash.Reader) (
 	info minio.PartInfo, err error) {
 	info, err = ol.ol.PutObjectPart(ctx, bucket, object, uploadID, partID, data)
-	return info, ol.wrap(err)
+	return info, ol.log(err)
 }
 
 func (ol *olLogWrap) ListObjectParts(ctx context.Context,
@@ -181,12 +175,12 @@ func (ol *olLogWrap) ListObjectParts(ctx context.Context,
 	result minio.ListPartsInfo, err error) {
 	result, err = ol.ol.ListObjectParts(ctx, bucket, object, uploadID,
 		partNumberMarker, maxParts)
-	return result, ol.wrap(err)
+	return result, ol.log(err)
 }
 
 func (ol *olLogWrap) AbortMultipartUpload(ctx context.Context,
 	bucket, object, uploadID string) error {
-	return ol.wrap(ol.ol.AbortMultipartUpload(ctx, bucket, object, uploadID))
+	return ol.log(ol.ol.AbortMultipartUpload(ctx, bucket, object, uploadID))
 }
 
 func (ol *olLogWrap) CompleteMultipartUpload(ctx context.Context,
@@ -194,35 +188,35 @@ func (ol *olLogWrap) CompleteMultipartUpload(ctx context.Context,
 	objInfo minio.ObjectInfo, err error) {
 	objInfo, err = ol.ol.CompleteMultipartUpload(ctx, bucket, object, uploadID,
 		uploadedParts)
-	return objInfo, ol.wrap(err)
+	return objInfo, ol.log(err)
 }
 
 func (ol *olLogWrap) ReloadFormat(ctx context.Context, dryRun bool) error {
-	return ol.wrap(ol.ol.ReloadFormat(ctx, dryRun))
+	return ol.log(ol.ol.ReloadFormat(ctx, dryRun))
 }
 
 func (ol *olLogWrap) HealFormat(ctx context.Context, dryRun bool) (
 	madmin.HealResultItem, error) {
 	rv, err := ol.ol.HealFormat(ctx, dryRun)
-	return rv, ol.wrap(err)
+	return rv, ol.log(err)
 }
 
 func (ol *olLogWrap) HealBucket(ctx context.Context, bucket string,
 	dryRun bool) ([]madmin.HealResultItem, error) {
 	rv, err := ol.ol.HealBucket(ctx, bucket, dryRun)
-	return rv, ol.wrap(err)
+	return rv, ol.log(err)
 }
 
 func (ol *olLogWrap) HealObject(ctx context.Context, bucket, object string,
 	dryRun bool) (madmin.HealResultItem, error) {
 	rv, err := ol.ol.HealObject(ctx, bucket, object, dryRun)
-	return rv, ol.wrap(err)
+	return rv, ol.log(err)
 }
 
 func (ol *olLogWrap) ListBucketsHeal(ctx context.Context) (
 	buckets []minio.BucketInfo, err error) {
 	buckets, err = ol.ol.ListBucketsHeal(ctx)
-	return buckets, ol.wrap(err)
+	return buckets, ol.log(err)
 }
 
 func (ol *olLogWrap) ListObjectsHeal(ctx context.Context,
@@ -230,33 +224,33 @@ func (ol *olLogWrap) ListObjectsHeal(ctx context.Context,
 	minio.ListObjectsInfo, error) {
 	rv, err := ol.ol.ListObjectsHeal(ctx, bucket, prefix, marker, delimiter,
 		maxKeys)
-	return rv, ol.wrap(err)
+	return rv, ol.log(err)
 }
 
 func (ol *olLogWrap) ListLocks(ctx context.Context, bucket, prefix string,
 	duration time.Duration) ([]minio.VolumeLockInfo, error) {
 	rv, err := ol.ol.ListLocks(ctx, bucket, prefix, duration)
-	return rv, ol.wrap(err)
+	return rv, ol.log(err)
 }
 
 func (ol *olLogWrap) ClearLocks(ctx context.Context,
 	lockInfos []minio.VolumeLockInfo) error {
-	return ol.wrap(ol.ol.ClearLocks(ctx, lockInfos))
+	return ol.log(ol.ol.ClearLocks(ctx, lockInfos))
 }
 
 func (ol *olLogWrap) SetBucketPolicy(ctx context.Context, n string,
 	p *policy.Policy) error {
-	return ol.wrap(ol.ol.SetBucketPolicy(ctx, n, p))
+	return ol.log(ol.ol.SetBucketPolicy(ctx, n, p))
 }
 
 func (ol *olLogWrap) GetBucketPolicy(ctx context.Context, n string) (
 	*policy.Policy, error) {
 	p, err := ol.ol.GetBucketPolicy(ctx, n)
-	return p, ol.wrap(err)
+	return p, ol.log(err)
 }
 
 func (ol *olLogWrap) DeleteBucketPolicy(ctx context.Context, n string) error {
-	return ol.wrap(ol.ol.DeleteBucketPolicy(ctx, n))
+	return ol.log(ol.ol.DeleteBucketPolicy(ctx, n))
 }
 
 func (ol *olLogWrap) IsNotificationSupported() bool {

@@ -60,7 +60,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return Error.New("invalid db: %s", err)
 		}
-		cache, err = NewRedisOverlayCache(dburl.Host, urlPwd(dburl), db, kad)
+		cache, err = NewRedisOverlayCache(dburl.Host, UrlPwd(dburl), db, kad)
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	return server.Run(ctx)
 }
 
-func urlPwd(u *url.URL) string {
+func UrlPwd(u *url.URL) string {
 	if u == nil || u.User == nil {
 		return ""
 	}
