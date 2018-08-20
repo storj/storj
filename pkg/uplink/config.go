@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package uplink
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -22,6 +21,7 @@ import (
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/uplink/logging"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -40,11 +40,11 @@ type RSConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/miniogw"`
+	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/uplink"`
 }
 
-// ClientConfig is a configuration struct for the miniogw that controls how
-// the miniogw figures out how to talk to the rest of the network.
+// ClientConfig is a configuration struct for the uplink that controls how
+// the uplink figures out how to talk to the rest of the network.
 type ClientConfig struct {
 	// TODO(jt): these should probably be the same
 	OverlayAddr   string `help:"Address to contact overlay server through"`
@@ -54,7 +54,7 @@ type ClientConfig struct {
 	MaxInlineSize int    `help:"max inline segment size in bytes" default:"4096"`
 }
 
-// Config is a general miniogw configuration struct. This should be everything
+// Config is a general uplink configuration struct. This should be everything
 // one needs to start a minio gateway.
 type Config struct {
 	provider.IdentityConfig

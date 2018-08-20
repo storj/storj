@@ -10,12 +10,12 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/uplink"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -46,7 +46,7 @@ var (
 	runCfg struct {
 		HeavyClient HeavyClient
 		Farmers     [farmerCount]Farmer
-		Gateway     miniogw.Config
+		Gateway     uplink.Config
 	}
 )
 
@@ -85,7 +85,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		miniogw.GlobalMockOverlay.Nodes[identity.ID.String()] = &proto.Node{
+		uplink.GlobalMockOverlay.Nodes[identity.ID.String()] = &proto.Node{
 			Id: identity.ID.String(),
 			Address: &proto.NodeAddress{
 				Transport: proto.NodeTransport_TCP,
