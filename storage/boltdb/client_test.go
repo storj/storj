@@ -154,14 +154,20 @@ func TestListNoStartingKey(t *testing.T) {
 		bt.HandleErr(err, "Failed to save pointer3 to pointers bucket")
 	}
 
-	// testPaths, err := bt.c.List(nil, storage.Limit(3))
-	// if err != nil {
-	// 	bt.HandleErr(err, "Failed to list Paths")
-	// }
+	listItems, isMore, err := bt.c.List(storage.ListOptions{
+		Start: nil,
+		Limit: 3,
+	})
 
-	// if !bytes.Equal(testPaths[2], []byte("test/path/3")) {
-	// 	bt.HandleErr(nil, "Expected test/path/3 to be last in list")
-	// }
+	if err != nil {
+		bt.HandleErr(err, "Path doesn't exist")
+	}
+
+	if !bytes.Equal(listItems[2].Key, []byte("test/path/3")) {
+		bt.HandleErr(nil, "Expected test/path/3 to be last in list")
+	}
+
+	assert.NotNil(t, isMore)
 }
 
 func TestGetAll(t *testing.T) {
