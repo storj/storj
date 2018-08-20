@@ -6,23 +6,16 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
 
 var (
-	mon     = monkit.Package()
 	Error   = errs.Class("overlay error")
 	rootCmd = &cobra.Command{
 		Use:   "overlay",
@@ -40,12 +33,8 @@ var (
 	}
 
 	cacheCfg struct {
-		Identity provider.IdentityConfig
-		Kademlia kademlia.Config
 		cacheConfig
 	}
-
-	defaultConfDir = "$HOME/.storj/hc"
 )
 
 func init() {
@@ -56,33 +45,29 @@ func init() {
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {
-	f := func(c *overlay.Cache) error {
-		keys, err := c.DB.List(nil, 0)
+	c, err := cacheCfg.open()
+	if err != nil {
+		return err
+	}
+
+	keys, err := c.DB.List(nil, 0)
+	if err != nil {
+		return err
+	}
+
+	for _, k := range keys {
+		n, err := c.Get(process.Ctx(cmd), string(k))
 		if err != nil {
-			return err
+			zap.S().Infof("ID: %s; error getting value\n", k)
 		}
-
-		for _, k := range keys {
-			n, err := c.Get(process.Ctx(cmd), string(k))
-			if err != nil {
-				zap.S().Infof("ID: %s; error getting value\n", k)
-			}
-			if n != nil {
-				zap.S().Infof("ID: %s; Address: %s\n", k, n.Address.Address)
-				continue
-			}
-			zap.S().Infof("ID: %s: nil\n", k)
+		if n != nil {
+			zap.S().Infof("ID: %s; Address: %s\n", k, n.Address.Address)
+			continue
 		}
-
-		return nil
-	}
-	c := cacheInjector{
-		cacheConfig: cacheCfg.cacheConfig,
-		c:           f,
+		zap.S().Infof("ID: %s: nil\n", k)
 	}
 
-	return cacheCfg.Identity.Run(process.Ctx(cmd),
-		cacheCfg.Kademlia, c)
+	return nil
 }
 
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
@@ -96,37 +81,29 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	f := func(c *overlay.Cache) error {
-		for i, a := range nodes {
-			zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-			err := c.Put(i, proto.Node{
-				Id: i,
-				Address: &proto.NodeAddress{
-					Transport: 0,
-					Address:   a,
-				},
-				Type: 1,
-				// TODO@ASK: Restrictions for staging storage nodes?
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	c := cacheInjector{
-		cacheConfig: cacheCfg.cacheConfig,
-		c:           f,
+	c, err := cacheCfg.open()
+	if err != nil {
+		return err
 	}
 
-	return cacheCfg.Identity.Run(process.Ctx(cmd),
-		cacheCfg.Kademlia, c)
+	for i, a := range nodes {
+		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
+		err := c.Put(i, proto.Node{
+			Id: i,
+			Address: &proto.NodeAddress{
+				Transport: 0,
+				Address:   a,
+			},
+			Type: 1,
+			// TODO@ASK: Restrictions for staging storage nodes?
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func main() {
-	addCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-	listCmd.Flags().String("config",
-		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(rootCmd)
 }
