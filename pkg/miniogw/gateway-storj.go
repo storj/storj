@@ -15,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -106,14 +107,14 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
-func (s *storjObjects) getObject(ctx context.Context, bucket, object string, startOffset int64,
-	length int64) (r io.ReadCloser, err error) {
+func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.RangeCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(object))
+	rr, _, err = o.Get(ctx, paths.New(object))
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +134,22 @@ func (s *storjObjects) getObject(ctx context.Context, bucket, object string, sta
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	r, err := s.getObject(ctx, bucket, object, startOffset, length)
+
+	rr, err := s.getObject(ctx, bucket, object)
+	if err != nil {
+		return err
+	}
+
+	defer utils.LogClose(rr)
+
+	r, err := rr.Range(ctx, startOffset, length)
+	if err != nil {
+		return err
+	}
 	defer utils.LogClose(r)
+
 	_, err = io.Copy(writer, r)
+
 	return err
 }
 
@@ -259,12 +273,33 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	r, err := s.getObject(ctx, srcBucket, srcObject, 0, srcInfo.Size)
+	rr, err := s.getObject(ctx, srcBucket, srcObject)
+	if err != nil {
+		return objInfo, err
+	}
+
+	defer utils.LogClose(rr)
+
+	r, err := rr.Range(ctx, 0, srcInfo.Size)
+	if err != nil {
+		return objInfo, err
+	}
+
 	defer utils.LogClose(r)
 
-	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
+	return s.putObject(ctx, destBucket, destObject, r, srcInfo)
+}
 
-	return s.PutObject(ctx, destBucket, destObject, hr, srcInfo.UserDefined)
+func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.ReadCloser,
+	srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
+	if err != nil {
+		return objInfo, err
+	}
+
+	return s.PutObject(ctx, bucket, object, hr, srcInfo.UserDefined)
 }
 
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
