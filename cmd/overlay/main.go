@@ -99,7 +99,6 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
  				FreeDisk:      2000000000,
  			},
 			Type: 1,
-			// TODO@ASK: Restrictions for staging storage nodes?
 		})
 		if err != nil {
 			return err
