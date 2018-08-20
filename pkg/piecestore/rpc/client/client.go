@@ -38,7 +38,7 @@ type PSClient interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, pieceID PieceID) error
-	CloseConn() error
+	io.Closer
 }
 
 // Client -- Struct Info needed for protobuf api calls
@@ -82,8 +82,8 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Cli
 	}, nil
 }
 
-// CloseConn closes the connection with piecestore
-func (client *Client) CloseConn() error {
+// Close closes the connection with piecestore
+func (client *Client) Close() error {
 	return client.conn.Close()
 }
 

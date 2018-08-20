@@ -49,7 +49,7 @@ func (r *pieceRanger) Size() int64 {
 
 // Size implements Ranger.Size
 func (r *pieceRanger) Close() error {
-	return r.c.CloseConn()
+	return r.c.Close()
 }
 
 // Range implements Ranger.Range
