@@ -41,12 +41,20 @@ type Limit int
 // results by setting `StartAfter` or `EndBefore` appropriately.
 type More bool
 
+// Items keeps all LitItem
+type Items []ListItem
+
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {
 	Key      Key
 	Value    Value
 	IsPrefix bool
 }
+
+// ListItems is a slice of all ListItem
+// type ListItems struct {
+// 	Items []ListItem
+// }
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {

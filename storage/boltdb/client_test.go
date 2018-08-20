@@ -115,6 +115,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
+	fmt.Println("Testing LIST")
 	bt := NewBoltClientTest(t)
 	defer bt.Close()
 
@@ -123,20 +124,21 @@ func TestList(t *testing.T) {
 	}
 	//listItem,err := bt.c.List([]byte("test/path/2"), storage.Limit(1))
 
-	listItem, isMore, err := bt.c.List(storage.ListOptions{
+	listItems, isMore, err := bt.c.List(storage.ListOptions{
 		Start: []byte("test/path/2"),
 		Limit: 1,
 	})
 
-	fmt.Println("in test: ", listItem, isMore, err)
+	if err != nil {
+		bt.HandleErr(err, "Failed to list Path keys in pointers bucket")
+	}
 
-	// if err != nil {
-	// 	bt.HandleErr(err, "Failed to list Path keys in pointers bucket")
-	// }
+	if !bytes.Equal(listItems[0].Key, []byte("test/path/2")) {
+		bt.HandleErr(nil, "Expected only test/path/2 in list")
+	}
 
-	// if !bytes.Equal(testPaths[0], []byte("test/path/2")) {
-	// 	bt.HandleErr(nil, "Expected only test/path/2 in list")
-	// }
+	// will be fixed in PR2, for now, let's assume isMore is not nil
+	assert.NotNil(t, isMore)
 }
 
 func TestListNoStartingKey(t *testing.T) {
