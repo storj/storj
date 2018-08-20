@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
-	psserver "storj.io/storj/pkg/piecestore/rpc/server"
+	"storj.io/storj/pkg/piecestore/psservice"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -35,7 +35,7 @@ var (
 	runCfg struct {
 		Identity provider.IdentityConfig
 		Kademlia kademlia.Config
-		Storage  psserver.Config
+		Storage  psservice.Config
 	}
 	setupCfg struct {
 		BasePath string `default:"$CONFDIR" help:"base path for setup"`
