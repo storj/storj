@@ -6,8 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"math/rand"
-	// "strconv"
-	// "fmt"
 	"encoding/binary"
 	"time"
 
@@ -19,83 +17,85 @@ import (
 
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
-func (rt *RoutingTable) addNode(node *proto.Node) error {
+// Returns true if node was added successfully
+func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	nodeKey := storage.Key(node.Id)
 	if bytes.Equal(nodeKey, storage.Key(rt.self.Id)) {
 		err := rt.createOrUpdateKBucket(rt.createFirstBucketID(), time.Now())
 		if err != nil {
-			return RoutingErr.New("could not create initial K bucket: %s", err)
+			return false, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
 		nodeValue, err := marshalNode(*node)
 		if err != nil {
-			return RoutingErr.New("could not marshal initial node: %s", err)
+			return false, RoutingErr.New("could not marshal initial node: %s", err)
 		}
 		err = rt.putNode(nodeKey, nodeValue)
 		if err != nil {
-			return RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
+			return false, RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
 		}
-		return nil
+		return true, nil
 	}
 	kadBucketID, err := rt.getKBucketID(nodeKey)
 	if err != nil {
-		return RoutingErr.New("could not getKBucketID: %s", err)
+		return false, RoutingErr.New("could not getKBucketID: %s", err)
 	}
 	hasRoom, err := rt.kadBucketHasRoom(kadBucketID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	containsLocal, err := rt.kadBucketContainsLocalNode(kadBucketID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	withinK, err := rt.nodeIsWithinNearestK(nodeKey)
 	if err != nil {
-		return RoutingErr.New("could not determine if node is within k: %s", err)
+		return false, RoutingErr.New("could not determine if node is within k: %s", err)
 	}
 	for !hasRoom {
 		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(kadBucketID)
 			if err != nil {
-				return RoutingErr.New("could not determine leaf depth: %s", err)
+				return false, RoutingErr.New("could not determine leaf depth: %s", err)
 			}
 			kadBucketID = rt.splitBucket(kadBucketID, depth)
 			err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 			if err != nil {
-				return RoutingErr.New("could not split and create K bucket: %s", err)
+				return false, RoutingErr.New("could not split and create K bucket: %s", err)
 			}
 			kadBucketID, err = rt.getKBucketID(nodeKey)
 			if err != nil {
-				return RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
+				return false, RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
 			hasRoom, err = rt.kadBucketHasRoom(kadBucketID)
 			if err != nil {
-				return err
+				return false, err
 			}
 			containsLocal, err = rt.kadBucketContainsLocalNode(kadBucketID)
 			if err != nil {
-				return err
+				return false, err
 			}
 
 		} else {
-			return nil
+			rt.addToReplacementCache(kadBucketID, node)
+			return false, nil
 		}
 	}
 	nodeValue, err := marshalNode(*node)
 	if err != nil {
-		return RoutingErr.New("could not marshal node: %s", err)
+		return false, RoutingErr.New("could not marshal node: %s", err)
 	}
 	err = rt.putNode(nodeKey, nodeValue)
 	if err != nil {
-		return RoutingErr.New("could not add node to nodeBucketDB: %s", err)
+		return false, RoutingErr.New("could not add node to nodeBucketDB: %s", err)
 	}
 	err = rt.createOrUpdateKBucket(kadBucketID, time.Now())
 	if err != nil {
-		return RoutingErr.New("could not create or update K bucket: %s", err)
+		return false, RoutingErr.New("could not create or update K bucket: %s", err)
 	}
-	return nil
+	return true, nil
 }
 
 // nodeAlreadyExists will return true if the given node ID exists within nodeBucketDB
@@ -113,23 +113,42 @@ func (rt *RoutingTable) nodeAlreadyExists(nodeID storage.Key) (bool, error) {
 // updateNode will update the node information given that
 // the node is already in the routing table.
 func (rt *RoutingTable) updateNode(node *proto.Node) error {
-	//TODO (JJ)
+	marshaledNode, err := marshalNode(*node)
+	if err != nil {
+		return err
+	}
+	err = rt.putNode(storage.Key(node.Id), marshaledNode)
+	if err != nil {
+		return RoutingErr.New("could not update node: %v", err)
+	}
 	return nil
 }
 
-// removeNode will remove nodes and replace those entries with nodes
-// from the replacement cache.
-// We want to replace churned nodes (no longer online)
-func (rt *RoutingTable) removeNode(nodeID storage.Key) error {
-	//TODO (JJ)
+// removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
+func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) error {
+	err := rt.nodeBucketDB.Delete(nodeID)
+	if err != nil {
+		return RoutingErr.New("could not delete node %s", err)
+	}
+	nodes := rt.replacementCache[string(kadBucketID)]
+	if len(nodes) == 0 {
+		return nil
+	}
+	last := nodes[len(nodes)-1]
+	val, err := marshalNode(*last)
+	if err != nil {
+		return err
+	}
+	err = rt.putNode(storage.Key(last.Id), val)
+	if err != nil {
+		return err
+	}
+	rt.replacementCache[string(kadBucketID)] = nodes[:len(nodes)-1]
 	return nil
 }
 
 // marshalNode: helper, sanitizes proto Node for db insertion
 func marshalNode(node proto.Node) ([]byte, error) {
-	// n := *node
-	// n.Id = "-"
-
 	node.Id = "-"
 	nodeVal, err := pb.Marshal(&node)
 	if err != nil {
@@ -138,7 +157,7 @@ func marshalNode(node proto.Node) ([]byte, error) {
 	return nodeVal, nil
 }
 
-// putNode: helper, adds proto Node and ID to nodeBucketDB
+// putNode: helper, adds or updates proto Node and ID to nodeBucketDB
 func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
 	err := rt.nodeBucketDB.Put(nodeKey, nodeValue)
 	if err != nil {

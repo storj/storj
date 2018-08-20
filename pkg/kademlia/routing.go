@@ -25,21 +25,25 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self         *proto.Node
-	kadBucketDB  storage.KeyValueStore
-	nodeBucketDB storage.KeyValueStore
-	transport    *proto.NodeTransport
-	mutex        *sync.Mutex
-	idLength     int // kbucket and node id bit length (SHA256) = 256
-	bucketSize   int // max number of nodes stored in a kbucket = 20 (k)
+	self             *proto.Node
+	kadBucketDB      storage.KeyValueStore
+	nodeBucketDB     storage.KeyValueStore
+	transport        *proto.NodeTransport
+	mutex            *sync.Mutex
+	replacementCache map[string][]*proto.Node
+	idLength         int // kbucket and node id bit length (SHA256) = 256
+	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
+	rcBucketSize     int // replacementCache bucket max length
 }
 
 //RoutingOptions for configuring RoutingTable
 type RoutingOptions struct {
-	kpath      string
-	npath      string
-	idLength   int
-	bucketSize int
+	kpath        string
+	npath        string
+	rpath        string
+	idLength     int
+	bucketSize   int
+	rcBucketSize int
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -53,17 +57,20 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
+	rp := make(map[string][]*proto.Node)
 	rt := &RoutingTable{
-		self:         localNode,
-		kadBucketDB:  kdb,
-		nodeBucketDB: ndb,
-		transport:    &defaultTransport,
-		mutex:        &sync.Mutex{},
-		idLength:     options.idLength,
-		bucketSize:   options.bucketSize,
+		self:             localNode,
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
+		transport:        &defaultTransport,
+		mutex:            &sync.Mutex{},
+		replacementCache: rp,
+		idLength:         options.idLength,
+		bucketSize:       options.bucketSize,
+		rcBucketSize:     options.rcBucketSize,
 	}
-	err = rt.addNode(localNode)
-	if err != nil {
+	ok, err := rt.addNode(localNode)
+	if ok == false || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
 	return rt, nil

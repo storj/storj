@@ -48,6 +48,19 @@ func (p Path) Append(segs ...string) Path {
 	return New(append(p, segs...)...)
 }
 
+// HasPrefix tests whether the current path begins with prefix.
+func (p Path) HasPrefix(prefix Path) bool {
+	if len(prefix) > len(p) {
+		return false
+	}
+	for i := 0; i < len(prefix); i++ {
+		if p[i] != prefix[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // Encrypt creates new Path by encrypting the current path with the given key
 func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 	encrypted = make([]string, len(p))

@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	pb "storj.io/storj/protos/piecestore"
 )
 
 var argError = errs.Class("argError")
@@ -32,7 +33,10 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient := client.NewPSClient(conn)
+	psClient, err := client.NewPSClient(conn, 1024*32)
+	if err != nil {
+		log.Fatalf("could not initialize PSClient: %s", err)
+	}
 
 	app.Commands = []cli.Command{
 		{
@@ -69,7 +73,7 @@ func main() {
 
 				id := client.NewPieceID()
 
-				if err := psClient.Put(context.Background(), id, dataSection, ttl); err != nil {
+				if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
 					fmt.Printf("Failed to Store data of id: %s\n", id)
 					return err
 				}
@@ -124,7 +128,7 @@ func main() {
 				}
 
 				ctx := context.Background()
-				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size)
+				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
 					os.Remove(c.Args().Get(outputDir))

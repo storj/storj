@@ -46,6 +46,15 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 		return nil, err
 	}
 
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err = tx.CreateBucketIfNotExists([]byte(bucket))
+		return err
+	})
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	return &Client{
 		logger: logger,
 		db:     db,
@@ -58,10 +67,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 func (c *Client) Put(key storage.Key, value storage.Value) error {
 	c.logger.Debug("entering bolt put")
 	return c.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(c.Bucket)
-		if err != nil {
-			return err
-		}
+		b := tx.Bucket(c.Bucket)
 		return b.Put(key, value)
 	})
 }

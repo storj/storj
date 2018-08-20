@@ -8,7 +8,7 @@ package piecestoreroutes;
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}
 
-  rpc Retrieve(PieceRetrieval) returns (stream PieceRetrievalStream) {}
+  rpc Retrieve(stream PieceRetrieval) returns (stream PieceRetrievalStream) {}
 
   rpc Store(stream PieceStore) returns (PieceStoreSummary) {}
 
@@ -16,11 +16,37 @@ service PieceStoreRoutes {
 
 }
 
-message PieceStore {
-  string id = 1;
-  int64 ttl = 2;
+message PayerBandwidthAllocation {
+  message Data {
+    bytes payer = 1;
+    bytes renter = 2;
+    int64 max_size = 3;
+    int64 expiration_unix_sec = 4;
+    string serial_number = 5;
+  }
+  bytes signature = 1;
+  bytes data = 2; // Serialization of above Data Struct
+}
 
-  bytes content = 3;
+message RenterBandwidthAllocation {
+  message Data {
+    PayerBandwidthAllocation payer_allocation = 1;
+    int64 total = 2;
+  }
+
+  bytes signature = 1;
+  bytes data = 2; // Serialization of above Data Struct
+}
+
+message PieceStore {
+  message PieceData {
+    string id = 1;
+    int64 expiration_unix_sec = 2;
+    bytes content = 3;
+  }
+
+  RenterBandwidthAllocation bandwidthallocation = 1;
+  PieceData piecedata = 2;
 }
 
 message PieceId {
@@ -30,13 +56,18 @@ message PieceId {
 message PieceSummary {
   string id = 1;
   int64 size = 2;
-  int64 expiration = 3;
+  int64 expiration_unix_sec = 3;
 }
 
 message PieceRetrieval {
-  string id = 1;
-  int64 size = 2;
-  int64 offset = 3;
+  message PieceData {
+    string id = 1;
+    int64 size = 2;
+    int64 offset = 3;
+  }
+
+  RenterBandwidthAllocation bandwidthallocation = 1;
+  PieceData pieceData = 2;
 }
 
 message PieceRetrievalStream {
