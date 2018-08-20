@@ -52,6 +52,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	runCfg.IdentityConfig
 	return runCfg.Run(process.Ctx(cmd))
 }
 

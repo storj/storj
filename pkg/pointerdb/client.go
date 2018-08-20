@@ -13,6 +13,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	p "storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 )
@@ -47,8 +48,12 @@ type Client interface {
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(address string, APIKey []byte) (*PointerDB, error) {
-	c, err := clientConnection(address, grpc.WithInsecure())
+func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (*PointerDB, error) {
+	dialOpt, err := identity.DialOption()
+	if err != nil {
+		return nil, err
+	}
+	c, err := clientConnection(address, dialOpt)
 
 	if err != nil {
 		return nil, err

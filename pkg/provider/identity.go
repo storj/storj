@@ -251,9 +251,9 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
-func (pi *PeerIdentity) DialOption(difficulty uint16) (grpc.DialOption, error) {
-	ch := [][]byte{pi.Leaf.Raw, pi.CA.Raw}
-	c, err := peertls.TLSCert(ch, pi.Leaf, nil)
+func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
+	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
