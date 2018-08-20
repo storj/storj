@@ -152,7 +152,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	var resRanger ranger.Ranger
+	var rangers []ranger.Ranger
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
@@ -161,13 +161,14 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		resRanger = ranger.Concat(resRanger, rangeCloser)
+		rangers = append(rangers, rangeCloser)
 	}
 
-	resRanger = ranger.Concat(resRanger, lastRangerCloser)
+	rangers = append(rangers, lastRangerCloser)
 
-	return ranger.NopCloser(resRanger), newMeta, nil
+	catRangers := ranger.Concat(rangers...)
 
+	return ranger.NopCloser(catRangers), newMeta, nil
 }
 
 // Meta implements Store.Meta
