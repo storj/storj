@@ -94,6 +94,10 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Transport: 0,
 				Address:   a,
 			},
+			Restrictions: &proto.NodeRestrictions{
+ 				FreeBandwidth: 2000000000,
+ 				FreeDisk:      2000000000,
+ 			},
 			Type: 1,
 			// TODO@ASK: Restrictions for staging storage nodes?
 		})
