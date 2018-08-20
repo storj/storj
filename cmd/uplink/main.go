@@ -23,7 +23,7 @@ var (
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the gateway",
+		Short: "Run the uplink",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{

@@ -1,6 +1,6 @@
-# Gateway
+# Uplink 
 
-Documentation for developing and building the gateway service
+Documentation for developing and building the uplink service
 
 Usage:
 
