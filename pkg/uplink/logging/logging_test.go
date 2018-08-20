@@ -67,17 +67,17 @@ func TestGateway(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	gw := NewMockGateway(mockCtrl)
-	lgw := Gateway(gw)
+	uplink := NewMockGateway(mockCtrl)
+	lgw := Gateway(uplink)
 
 	// Test Name()
 	name := "GatewayName"
-	gw.EXPECT().Name().Return(name)
+	uplink.EXPECT().Name().Return(name)
 	assert.Equal(t, name, lgw.Name())
 
 	// Test Production()
 	production := true
-	gw.EXPECT().Production().Return(production)
+	uplink.EXPECT().Production().Return(production)
 	assert.Equal(t, production, lgw.Production())
 
 	// Test NewGatewayLayer() returning without error
@@ -86,7 +86,7 @@ func TestGateway(t *testing.T) {
 		SecretKey: "test-secret-key",
 	}
 	mol := NewMockObjectLayer(mockCtrl)
-	gw.EXPECT().NewGatewayLayer(creds).Return(mol, nil)
+	uplink.EXPECT().NewGatewayLayer(creds).Return(mol, nil)
 	ol, err := lgw.NewGatewayLayer(creds)
 	assert.NoError(t, err)
 	olw, ok := ol.(*olLogWrap)
@@ -95,7 +95,7 @@ func TestGateway(t *testing.T) {
 	assert.Equal(t, zap.S(), olw.logger)
 
 	// Test NewGatewayLayer() returning error
-	gw.EXPECT().NewGatewayLayer(creds).Return(nil, ErrTest)
+	uplink.EXPECT().NewGatewayLayer(creds).Return(nil, ErrTest)
 	_, err = lgw.NewGatewayLayer(creds)
 	assert.Error(t, err, testError)
 }

@@ -102,17 +102,17 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	identity *provider.FullIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	gw, err := c.NewGateway(ctx, identity)
+	uplink, err := c.NewGateway(ctx, identity)
 	if err != nil {
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(gw))
+	minio.StartGateway(cliCtx, logging.Gateway(uplink))
 	return Error.New("unexpected minio exit")
 }
 
 func (c Config) NewGateway(ctx context.Context,
-	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
+	identity *provider.FullIdentity) (uplink minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(jt): the transport client should use tls and should use the identity

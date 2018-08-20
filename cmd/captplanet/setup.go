@@ -94,7 +94,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	gwPath := filepath.Join(setupCfg.BasePath, "gw")
+	gwPath := filepath.Join(setupCfg.BasePath, "uplink")
 	err = os.MkdirAll(gwPath, 0700)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"gateway.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"gateway.minio-dir": filepath.Join(
-			setupCfg.BasePath, "gw", "minio"),
+			setupCfg.BasePath, "uplink", "minio"),
 		"gateway.api-key":         apiKey,
 		"pointer-db.auth.api-key": apiKey,
 	}

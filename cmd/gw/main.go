@@ -13,11 +13,12 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/uplink"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "gw",
+		Use:   "uplink",
 		Short: "Gateway",
 	}
 	runCmd = &cobra.Command{
@@ -40,7 +41,7 @@ var (
 		Overwrite   bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
-	defaultConfDir = "$HOME/.storj/gw"
+	defaultConfDir = "$HOME/.storj/uplink"
 )
 
 func init() {
@@ -62,7 +63,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("A gw configuration already exists. Rerun with --overwrite")
+		fmt.Println("A uplink configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 
