@@ -6,6 +6,7 @@ package psdb
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -23,7 +24,9 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon                  = monkit.Package()
+	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval",
+		time.Hour, "number of seconds to sleep between ttl checks")
 )
 
 // PSDB -- Piecestore database
@@ -75,7 +78,10 @@ func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err err
 		return nil, err
 	}
 
-	return &PSDB{DB: db, dataPath: DataPath, checkInterval: 300}, nil
+	return &PSDB{
+		DB:            db,
+		dataPath:      DataPath,
+		checkInterval: *defaultCheckInterval}, nil
 }
 
 // deleteEntries -- checks for and deletes expired TTL entries
