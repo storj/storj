@@ -323,22 +323,7 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
-	// setting zero value means the object never expires
-	// expTime := time.Time{}
-	// o, err := s.storj.bs.GetObjectStore(ctx, bucket)
-	// if err != nil {
-	// 	return minio.ObjectInfo{}, err
-	// }
-	// m, err := o.Put(ctx, paths.New(object), data, serMetaInfo, expTime)
-	// return minio.ObjectInfo{
-	// 	Name:        object,
-	// 	Bucket:      bucket,
-	// 	ModTime:     m.Modified,
-	// 	Size:        m.Size,
-	// 	ETag:        m.Checksum,
-	// 	ContentType: m.ContentType,
-	// 	UserDefined: m.UserDefined,
-	// }, err
+
 	return s.putObject(ctx, bucket, object, data, serMetaInfo)
 }
 
