@@ -84,7 +84,6 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 		}
 
 		pointerBytes = v
-		fmt.Println("This is the value: ", string(v), "for key: ", pathKey.String())
 		return nil
 	})
 
