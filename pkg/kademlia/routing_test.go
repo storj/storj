@@ -85,6 +85,7 @@ func TestGetBuckets(t *testing.T) {
 }
 
 func TestFindNear(t *testing.T) {
+	panic("MODIFY ME")
 	rt := createRT([]byte("AA"))
 	node := mockNode("AA")
 	node2 := mockNode("BB")
