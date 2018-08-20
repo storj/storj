@@ -292,18 +292,6 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
 }
 
-// func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.ReadCloser,
-// 	srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-//
-// 	hr, err := hash.NewReader(r, srcInfo.Size, "", "")
-// 	if err != nil {
-// 		return objInfo, err
-// 	}
-//
-// 	return s.PutObject(ctx, bucket, object, hr, srcInfo.UserDefined)
-// }
-
 func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
 	meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
