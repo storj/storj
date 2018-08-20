@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var errTemplate = "gateway error: %+v"
+var errTemplate = "uplink error: %+v"
 
 type gwLogWrap struct {
 	uplink minio.Gateway

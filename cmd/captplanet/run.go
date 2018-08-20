@@ -94,9 +94,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	// start s3 gateway
+	// start s3 uplink
 	go func() {
-		_, _ = fmt.Printf("starting minio gateway on %s\n",
+		_, _ = fmt.Printf("starting minio uplink on %s\n",
 			runCfg.Gateway.IdentityConfig.Address)
 		errch <- runCfg.Gateway.Run(ctx)
 	}()
