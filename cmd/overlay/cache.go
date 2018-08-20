@@ -13,8 +13,8 @@ import (
 )
 
 type cacheConfig struct {
-	NodesPath   string `help:"the path to a JSON file containing an object with IP keys and nodeID values" default:"$CONFDIR/nodes.json"`
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
+	NodesPath   string `help:"the path to a JSON file containing an object with IP keys and nodeID values"`
+	DatabaseURL string `help:"the database connection string to use"`
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
