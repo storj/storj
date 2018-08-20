@@ -108,7 +108,7 @@ func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.Mor
 	if err != nil {
 		return nil, false, err
 	}
-	fmt.Println("This is paths and err in list and finalItems: ", listItems[0].Key)
+
 	return listItems, false, err
 }
 

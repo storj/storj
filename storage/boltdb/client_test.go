@@ -122,7 +122,6 @@ func TestList(t *testing.T) {
 	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
 		bt.HandleErr(err, "Failed to put pointer2 to pointers bucket")
 	}
-	//listItem,err := bt.c.List([]byte("test/path/2"), storage.Limit(1))
 
 	listItems, isMore, err := bt.c.List(storage.ListOptions{
 		Start: []byte("test/path/2"),
