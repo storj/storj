@@ -48,12 +48,18 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	u, err := url.Parse(args[0])
+	u0, err := url.Parse(args[0])
 	if err != nil {
 		return err
 	}
 
-	if u.Scheme == "" {
+	u1, err := url.Parse(args[1])
+	if err != nil {
+		return err
+	}
+
+	// if uploading
+	if u0.Scheme == "" {
 		f, err := os.Open(args[0])
 
 		fi, err := f.Stat()
@@ -68,12 +74,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 
 		defer f.Close()
 
-		u, err = url.Parse(args[1])
-		if err != nil {
-			return err
-		}
-
-		oi, err := so.PutObject(ctx, u.Host, u.Path, fr, nil)
+		oi, err := so.PutObject(ctx, u1.Host, u1.Path, fr, nil)
 		if err != nil {
 			return err
 		}
@@ -84,24 +85,38 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	oi, err := so.GetObjectInfo(ctx, u.Host, u.Path)
+	srcInfo, err := so.GetObjectInfo(ctx, u0.Host, u0.Path)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Create(args[1])
+	// if downloading
+	if u1.Scheme == "" {
+		f, err := os.Create(args[1])
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		err = so.GetObject(ctx, srcInfo.Bucket, srcInfo.Name, 0, srcInfo.Size, f, srcInfo.ETag)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Downloaded %s to %s", srcInfo.Bucket+srcInfo.Name, args[1])
+
+		return nil
+	}
+
+	// if copying from one remote location to another
+	objInfo, err := so.CopyObject(ctx, u0.Host, u0.Path, u1.Host, u1.Path, srcInfo)
 	if err != nil {
 		return err
 	}
 
-	defer f.Close()
-
-	err = so.GetObject(ctx, oi.Bucket, oi.Name, 0, oi.Size, f, oi.ETag)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Downloaded %s to %s", oi.Bucket+oi.Name, args[1])
+	fmt.Println(objInfo.Bucket)
+	fmt.Println(objInfo.Name)
 
 	return nil
 }
