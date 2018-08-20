@@ -103,7 +103,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
 	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
 	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
-	fmt.Printf("creating identity for gateway\n")
+	fmt.Printf("creating identity for uplink\n")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
 	if err != nil {
 		return err
@@ -129,17 +129,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "hc", "pointerdb.db"),
 		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "hc", "overlay.db"),
-		"gateway.cert-path": setupCfg.GWIdentity.CertPath,
-		"gateway.key-path":  setupCfg.GWIdentity.KeyPath,
-		"gateway.address": joinHostPort(
+		"uplink.cert-path": setupCfg.GWIdentity.CertPath,
+		"uplink.key-path":  setupCfg.GWIdentity.KeyPath,
+		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
-		"gateway.overlay-addr": joinHostPort(
+		"uplink.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.pointer-db-addr": joinHostPort(
+		"uplink.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.minio-dir": filepath.Join(
+		"uplink.minio-dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
-		"gateway.api-key":         apiKey,
+		"uplink.api-key":          apiKey,
 		"pointer-db.auth.api-key": apiKey,
 	}
 

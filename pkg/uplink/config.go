@@ -55,7 +55,7 @@ type ClientConfig struct {
 }
 
 // Config is a general uplink configuration struct. This should be everything
-// one needs to start a minio gateway.
+// one needs to start a minio uplink.
 type Config struct {
 	provider.IdentityConfig
 	MinioConfig
