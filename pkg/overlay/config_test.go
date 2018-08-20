@@ -72,7 +72,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestUrlPwd(t *testing.T) {
-	res := urlPwd(nil)
+	res := UrlPwd(nil)
 
 	assert.Equal(t, res, "")
 
@@ -80,7 +80,7 @@ func TestUrlPwd(t *testing.T) {
 
 	uri := url.URL{User: uinfo}
 
-	res = urlPwd(&uri)
+	res = UrlPwd(&uri)
 
 	assert.Equal(t, res, "testPassword")
 }
