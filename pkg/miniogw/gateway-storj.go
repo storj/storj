@@ -115,9 +115,6 @@ func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr
 	}
 
 	rr, _, err = o.Get(ctx, paths.New(object))
-	if err != nil {
-		return nil, err
-	}
 
 	defer utils.LogClose(rr)
 	if length == -1 {
