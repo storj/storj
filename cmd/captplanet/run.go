@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/piecestore/psservice"
+	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -33,7 +33,7 @@ type HeavyClient struct {
 type Farmer struct {
 	Identity provider.IdentityConfig
 	Kademlia kademlia.Config
-	Storage  psservice.Config
+	Storage  psserver.Config
 }
 
 var (

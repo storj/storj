@@ -42,16 +42,16 @@ func (m *MockPSClient) EXPECT() *MockPSClientMockRecorder {
 	return m.recorder
 }
 
-// CloseConn mocks base method
-func (m *MockPSClient) CloseConn() error {
-	ret := m.ctrl.Call(m, "CloseConn")
+// Close mocks base method
+func (m *MockPSClient) Close() error {
+	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CloseConn indicates an expected call of CloseConn
-func (mr *MockPSClientMockRecorder) CloseConn() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseConn", reflect.TypeOf((*MockPSClient)(nil).CloseConn))
+// Close indicates an expected call of Close
+func (mr *MockPSClientMockRecorder) Close() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockPSClient)(nil).Close))
 }
 
 // Delete mocks base method
@@ -67,16 +67,16 @@ func (mr *MockPSClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // Get mocks base method
-func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64) (ranger.RangeCloser, error) {
-	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
+func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *piecestore.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(ranger.RangeCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockPSClientMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockPSClient)(nil).Get), arg0, arg1, arg2)
+func (mr *MockPSClientMockRecorder) Get(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockPSClient)(nil).Get), arg0, arg1, arg2, arg3)
 }
 
 // Meta mocks base method
@@ -93,13 +93,13 @@ func (mr *MockPSClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time) error {
-	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
+func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *piecestore.PayerBandwidthAllocation) error {
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put
-func (mr *MockPSClientMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockPSClient)(nil).Put), arg0, arg1, arg2, arg3)
+func (mr *MockPSClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockPSClient)(nil).Put), arg0, arg1, arg2, arg3, arg4)
 }

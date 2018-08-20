@@ -39,7 +39,8 @@ func TestGetBucket(t *testing.T) {
 	rt := createRT([]byte("AA"))
 	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node2)
+	ok, err := rt.addNode(node2)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	cases := []struct {
@@ -70,7 +71,8 @@ func TestGetBuckets(t *testing.T) {
 	rt := createRT([]byte("AA"))
 	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node2)
+	ok, err := rt.addNode(node2)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	expected := []*proto.Node{node, node2}
 	buckets, err := rt.GetBuckets()
@@ -86,7 +88,8 @@ func TestFindNear(t *testing.T) {
 	rt := createRT([]byte("AA"))
 	node := mockNode("AA")
 	node2 := mockNode("BB")
-	err := rt.addNode(node2)
+	ok, err := rt.addNode(node2)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	expected := []*proto.Node{node2}
 	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)

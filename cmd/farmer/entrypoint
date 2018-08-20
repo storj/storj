@@ -4,7 +4,15 @@ set -euo pipefail
 # Create a new farmer, if the ID for an existing farmer isn't specified.
 if [[ -z $PSID ]]; then
 	mkdir -p "${PS_DIR}"
-	export PSID=$(./piecestore-farmer create | awk '/created/ { print $2 }')
-	echo "Created farmer $PSID"
+  # Needs updating for new method of creating certs
+	#export PSID=$(./piecestore-farmer setup | awk '/created/ { print $2 }')
+  echo "(DISABLED) Created farmer $PSID"
 fi
-exec ./piecestore-farmer start $PSID
+
+RUN_PARAMS=''
+
+if [[ -z $CONF_PATH ]]; then
+  RUN_PARAMS="${RUN_PARAMS} --config ${CONF_PATH}"
+fi
+
+exec ./farmer run $RUN_PARAMS
