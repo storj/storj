@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -149,7 +150,7 @@ func TestGet(t *testing.T) {
 		pointer, err := pdb.Get(ctx, tt.path)
 
 		if err != nil {
-			assert.EqualError(t, err, tt.errString, errTag)
+			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)
 			assert.Nil(t, pointer)
 		} else {
 			assert.NotNil(t, pointer)
