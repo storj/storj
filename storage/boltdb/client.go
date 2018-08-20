@@ -84,6 +84,7 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 		}
 
 		pointerBytes = v
+		fmt.Println("This is the value: ", string(v), "for key: ", pathKey.String())
 		return nil
 	})
 
@@ -98,16 +99,41 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 // List returns paths that fulfill the criteria
 func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.More, error) {
 	c.logger.Debug("entering bolt list")
+
 	paths, err := c.listHelper(false, opts.Start, opts.Limit)
-	fmt.Println("This is paths and err in list: ", paths, err)
-	return []storage.ListItem{}, false, nil
+	if err != nil {
+		return nil, false, err
+	}
+	listItems, err := c.makeListItems(paths)
+	if err != nil {
+		return nil, false, err
+	}
+	fmt.Println("This is paths and err in list and finalItems: ", listItems[0].Key)
+	return listItems, false, err
 }
 
-// // List returns either a list of keys for which boltdb has values or an error.
-// func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-// 	c.logger.Debug("entering bolt list")
-// 	return c.listHelper(false, startingKey, limit)
-// }
+func (c *Client) makeListItems(paths storage.Keys) ([]storage.ListItem, error) {
+	listItems := []storage.ListItem{}
+
+	for _, path := range paths {
+		value, err := c.Get(path)
+
+		if err != nil {
+			return nil, err
+		}
+
+		listItem := storage.ListItem{
+			Key:   path,
+			Value: value,
+			// right now, we'll set this to false. PR2 will fix this
+			IsPrefix: false,
+		}
+
+		listItems = append(listItems, listItem)
+	}
+
+	return listItems, nil
+}
 
 // ReverseList returns either a list of keys for which boltdb has values or an error.
 // Starts from startingKey and iterates backwards
@@ -130,13 +156,14 @@ func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit sto
 		}
 		for ; k != nil; k, _ = iterate() {
 			paths = append(paths, k)
+
 			if limit > 0 && int(limit) == int(len(paths)) {
 				break
 			}
 		}
 		return nil
 	})
-	fmt.Println("this is paths: ", paths)
+
 	return paths, err
 }
 
