@@ -9,13 +9,12 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/miniogw"
 )
 
 const defaultConfDir = "$HOME/.storj/cli"
 
 type Config struct {
-	miniogw.Config
+	uplink.Config
 }
 
 func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error) {
