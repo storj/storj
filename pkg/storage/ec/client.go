@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -95,7 +96,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
-			closeConn(ps, n.GetId())
+			utils.LogClose(ps)
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
@@ -187,7 +188,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID cli
 			err = ps.Delete(ctx, derivedPieceID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
-			closeConn(ps, n.GetId())
+			utils.LogClose(ps)
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
@@ -211,13 +212,6 @@ func collectErrors(errs <-chan error, size int) []error {
 		}
 	}
 	return result
-}
-
-func closeConn(ps client.PSClient, nodeID string) {
-	err := ps.CloseConn()
-	if err != nil {
-		zap.S().Errorf("Failed closing connection to node %s: %v", nodeID, err)
-	}
 }
 
 func unique(nodes []*proto.Node) bool {

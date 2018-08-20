@@ -42,16 +42,16 @@ func (m *MockPSClient) EXPECT() *MockPSClientMockRecorder {
 	return m.recorder
 }
 
-// CloseConn mocks base method
-func (m *MockPSClient) CloseConn() error {
-	ret := m.ctrl.Call(m, "CloseConn")
+// Close mocks base method
+func (m *MockPSClient) Close() error {
+	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CloseConn indicates an expected call of CloseConn
-func (mr *MockPSClientMockRecorder) CloseConn() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseConn", reflect.TypeOf((*MockPSClient)(nil).CloseConn))
+// Close indicates an expected call of Close
+func (mr *MockPSClientMockRecorder) Close() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockPSClient)(nil).Close))
 }
 
 // Delete mocks base method
