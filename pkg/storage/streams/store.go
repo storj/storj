@@ -63,8 +63,8 @@ type streamStore struct {
 	segmentSize int64
 }
 
-// NewStreams stuff
-func NewStreams(segments segments.Store, segmentSize int64) (Store, error) {
+// NewStreamStore stuff
+func NewStreamStore(segments segments.Store, segmentSize int64) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}

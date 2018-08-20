@@ -20,7 +20,7 @@ import (
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
+	streams "storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -52,6 +52,7 @@ type ClientConfig struct {
 
 	APIKey        string `help:"API Key (TODO: this needs to change to macaroons somehow)"`
 	MaxInlineSize int    `help:"max inline segment size in bytes" default:"4096"`
+	SegmentSize   int64  `help:"the size of a segment in bytes" default:"64000000"`
 }
 
 // Config is a general miniogw configuration struct. This should be everything
@@ -154,7 +155,7 @@ func (c Config) NewGateway(ctx context.Context,
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
 	// segment size 64MB
-	stream, err := streams.NewStreams(segments, 64000000)
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize)
 	if err != nil {
 		return nil, err
 	}
