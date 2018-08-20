@@ -128,9 +128,6 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 
-	// TODO(jt): remove this!
-	oc = GlobalMockOverlay
-
 	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
