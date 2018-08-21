@@ -110,9 +110,15 @@ push-images:
 	docker push storjlabs/storage-node:${TAG}
 	docker push storjlabs/storage-node:latest
 
+ifeq (${BRANCH},master)
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
 	-docker rmi storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
+else
+clean-images:
+	-docker rmi storjlabs/satellite:${TAG}-${GO_VERSION}
+	-docker rmi storjlabs/storage-node:${TAG}
+endif
 
 install-deps:
 	go get -u -v golang.org/x/vgo
