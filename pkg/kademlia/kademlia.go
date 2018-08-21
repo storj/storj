@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -28,6 +29,10 @@ var defaultTransport = proto.NodeTransport_TCP
 // NodeNotFound is returned when a lookup can not produce the requested node
 var NodeNotFound = NodeErr.New("node not found")
 
+type lookupOpts struct {
+	amount int
+}
+
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
 	routingTable   *RoutingTable
@@ -40,10 +45,31 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*Kademlia, error) {
-	rt := RoutingTable{}
+	kf, err := os.Create("kbucket")
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+	defer kf.Close()
+	nf, err := os.Create("nbucket")
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+
+	defer nf.Close()
+
+	rt, err := NewRoutingTable(&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}, &RoutingOptions{
+		kpath:        kf.Name(),
+		npath:        nf.Name(),
+		idLength:     256,
+		bucketSize:   20,
+		rcBucketSize: 5,
+	})
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
 
 	return &Kademlia{
-		routingTable:   &rt,
+		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
 		stun:           true,
@@ -81,27 +107,35 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	_, err := k.lookup(ctx, StringToNodeID(k.routingTable.self.GetId()))
+	_, err := k.lookup(ctx, StringToNodeID(k.routingTable.self.GetId()), lookupOpts{amount: 5})
 	return err
 }
 
-func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID) (*proto.Node, error) {
+func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) (*proto.Node, error) {
+	conc := opts.amount
+	kb := k.routingTable.K()
+	if conc <= 0 {
+		conc = kb
+	}
 	// look in routing table for targetID
-	nodes, err := k.routingTable.FindNear(target, k.alpha)
+	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
 		return nil, err
 	}
 
-	// if we have the node in our routing table just return the node
-	if len(nodes) == 1 && StringToNodeID(nodes[0].GetId()) == target {
+	// if we have the node in our routing table and that node is not this node (bootstrap) just return the node
+	if len(nodes) == 1 && (StringToNodeID(nodes[0].GetId()) == target && target.String() != k.routingTable.self.GetId()) {
 		return nodes[0], nil
 	}
 
 	// begin the work looking for the node by spinning up alpha workers
 	// and asking for the node we want from nodes we know in our routing table
 	ch := make(chan []*proto.Node)
-	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, k.routingTable.K())
-	for i := 0; i < k.alpha; i++ {
+	w, err := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, kb)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < conc; i++ {
 		go w.work(ctx, ch)
 	}
 

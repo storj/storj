@@ -35,19 +35,12 @@ type worker struct {
 }
 
 func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc node.Client, target dht.NodeID, k int) *worker {
-	t, ok := new(big.Int).SetString(target.String(), 2)
-	if !ok {
-		// TODO(coyle): return error
-		return nil
-	}
+	t := new(big.Int).SetBytes(target.Bytes())
 
 	pq := func(nodes []*proto.Node) PriorityQueue {
 		pq := make(PriorityQueue, len(nodes))
 		for i, node := range nodes {
-			bnode, ok := new(big.Int).SetString(node.GetId(), 2)
-			if !ok {
-				// TODO(coyle): return error
-			}
+			bnode := new(big.Int).SetBytes([]byte(node.GetId()))
 			pq[i] = &Item{
 				value:    node,
 				priority: new(big.Int).Xor(t, bnode),
@@ -80,7 +73,6 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
 		if ctx.Err() != nil {
 			return nil
 		}
-
 		nodes := w.lookup(ctx, w.getWork())
 		if nodes == nil {
 			continue
