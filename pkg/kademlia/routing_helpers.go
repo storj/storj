@@ -5,8 +5,8 @@ package kademlia
 
 import (
 	"bytes"
-	"math/rand"
 	"encoding/binary"
+	"math/rand"
 	"time"
 
 	pb "github.com/golang/protobuf/proto"
@@ -114,7 +114,13 @@ func (rt *RoutingTable) updateNode(node *proto.Node) error {
 
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
 func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) error {
-	err := rt.nodeBucketDB.Delete(nodeID)
+	_, err := rt.nodeBucketDB.Get(nodeID)
+	if storage.ErrKeyNotFound.Has(err) {
+		return nil
+	} else if err != nil {
+		return RoutingErr.New("could not get node %s", err)
+	}
+	err = rt.nodeBucketDB.Delete(nodeID)
 	if err != nil {
 		return RoutingErr.New("could not delete node %s", err)
 	}

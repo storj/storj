@@ -155,11 +155,14 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 // ConnectionSuccess updates or adds a node to the routing table when 
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) error {
-	node, _ := rt.nodeBucketDB.Get(storage.Key(id))
+	node, err := rt.nodeBucketDB.Get(storage.Key(id))
+	if !storage.ErrKeyNotFound.Has(err) {
+		return RoutingErr.New("could not get node %s", err)
+	}
 	if node != nil {
 		pnodes, err := unmarshalNodes(storage.Keys{storage.Key(id)}, []storage.Value{node})
 		if err != nil {
-			return RoutingErr.New("could unmarshal node %s", err)
+			return RoutingErr.New("could not unmarshal node %s", err)
 		}
 		n := pnodes[0]
 		n.Address = &address
@@ -170,7 +173,7 @@ func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) 
 		return nil
 	}
 	n := &proto.Node{Id: id, Address: &address}
-	_, err := rt.addNode(n)
+	_, err = rt.addNode(n)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
