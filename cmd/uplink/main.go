@@ -19,7 +19,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "uplink",
-		Short: "Gateway",
+		Short: "Uplink",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",

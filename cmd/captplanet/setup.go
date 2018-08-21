@@ -94,15 +94,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	gwPath := filepath.Join(setupCfg.BasePath, "uplink")
-	err = os.MkdirAll(gwPath, 0700)
+	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink")
+	err = os.MkdirAll(uplinkPath, 0700)
 	if err != nil {
 		return err
 	}
-	setupCfg.GWCA.CertPath = filepath.Join(gwPath, "ca.cert")
-	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
-	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
-	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
+	setupCfg.GWCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
+	setupCfg.GWCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
+	setupCfg.GWIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
+	setupCfg.GWIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
 	fmt.Printf("creating identity for uplink\n")
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
 	if err != nil {

@@ -18,21 +18,21 @@ import (
 
 var errTemplate = "uplink error: %+v"
 
-type gwLogWrap struct {
+type uplinkLogWrap struct {
 	uplink minio.Gateway
 }
 
 // Gateway is a wrapper of minio.Gateway that logs errors before
 // returning them.
 func Gateway(uplink minio.Gateway) minio.Gateway {
-	return &gwLogWrap{uplink: uplink}
+	return &uplinkLogWrap{uplink: uplink}
 }
 
-func (lg *gwLogWrap) Name() string     { return lg.uplink.Name() }
-func (lg *gwLogWrap) Production() bool { return lg.uplink.Production() }
-func (lg *gwLogWrap) NewGatewayLayer(creds auth.Credentials) (
+func (ul *uplinkLogWrap) Name() string     { return ul.uplink.Name() }
+func (ul *uplinkLogWrap) Production() bool { return ul.uplink.Production() }
+func (ul *uplinkLogWrap) NewGatewayLayer(creds auth.Credentials) (
 	minio.ObjectLayer, error) {
-	ol, err := lg.uplink.NewGatewayLayer(creds)
+	ol, err := ul.uplink.NewGatewayLayer(creds)
 	return &olLogWrap{ol: ol, logger: zap.S()}, err
 }
 

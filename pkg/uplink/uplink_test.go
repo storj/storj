@@ -138,7 +138,7 @@ func TestPutObject(t *testing.T) {
 		// happy scenario
 		{"mybucket", "myobject1", nil, ""},
 		// emulating objects.Put() returning err
-		{"mybucket", "myobject1", Error.New("some non nil error"), "Storj Gateway error: some non nil error"},
+		{"mybucket", "myobject1", Error.New("some non nil error"), "Storj Uplink error: some non nil error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -218,7 +218,7 @@ func TestGetObjectInfo(t *testing.T) {
 		// happy scenario
 		{"mybucket", "myobject1", nil, ""},
 		// mock object.Meta function to return error
-		{"mybucket", "myobject1", Error.New("mock error"), "Storj Gateway error: mock error"},
+		{"mybucket", "myobject1", Error.New("mock error"), "Storj Uplink error: mock error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -290,7 +290,7 @@ func TestListObjects(t *testing.T) {
 		{false, "", "", nil, ""},
 		{true, "test-start-after", "test-file-2.txt", nil, ""},
 		// mock returning non-nil error
-		{false, "", "", Error.New("error"), "Storj Gateway error: error"},
+		{false, "", "", Error.New("error"), "Storj Uplink error: error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 

@@ -68,17 +68,17 @@ func TestGateway(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	uplink := NewMockGateway(mockCtrl)
-	lgw := Gateway(uplink)
+	luplink := Gateway(uplink)
 
 	// Test Name()
 	name := "GatewayName"
 	uplink.EXPECT().Name().Return(name)
-	assert.Equal(t, name, lgw.Name())
+	assert.Equal(t, name, luplink.Name())
 
 	// Test Production()
 	production := true
 	uplink.EXPECT().Production().Return(production)
-	assert.Equal(t, production, lgw.Production())
+	assert.Equal(t, production, luplink.Production())
 
 	// Test NewGatewayLayer() returning without error
 	creds := auth.Credentials{
@@ -87,7 +87,7 @@ func TestGateway(t *testing.T) {
 	}
 	mol := NewMockObjectLayer(mockCtrl)
 	uplink.EXPECT().NewGatewayLayer(creds).Return(mol, nil)
-	ol, err := lgw.NewGatewayLayer(creds)
+	ol, err := luplink.NewGatewayLayer(creds)
 	assert.NoError(t, err)
 	olw, ok := ol.(*olLogWrap)
 	assert.True(t, ok)
@@ -96,7 +96,7 @@ func TestGateway(t *testing.T) {
 
 	// Test NewGatewayLayer() returning error
 	uplink.EXPECT().NewGatewayLayer(creds).Return(nil, ErrTest)
-	_, err = lgw.NewGatewayLayer(creds)
+	_, err = luplink.NewGatewayLayer(creds)
 	assert.Error(t, err, testError)
 }
 
