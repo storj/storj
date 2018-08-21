@@ -156,7 +156,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) error {
 	node, err := rt.nodeBucketDB.Get(storage.Key(id))
-	if !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
 	if node != nil {
