@@ -9,13 +9,13 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/uplink"
 )
 
 const defaultConfDir = "$HOME/.storj/cli"
 
 type Config struct {
-	miniogw.Config
+	uplink.Config
 }
 
 func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error) {
@@ -24,7 +24,7 @@ func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error)
 		return nil, err
 	}
 
-	gateway, err := cfg.NewGateway(ctx, identity)
+	uplink, err := cfg.NewUplink(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error)
 		return nil, err
 	}
 
-	storjObjects, err := gateway.NewGatewayLayer(credentials)
+	storjObjects, err := uplink.NewUplinkLayer(credentials)
 	if err != nil {
 		return nil, err
 	}
