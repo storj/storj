@@ -10,9 +10,9 @@ import (
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	
-	"storj.io/storj/storage"
+
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage"
 )
 
 func TestLocal(t *testing.T) {
@@ -104,7 +104,7 @@ func TestFindNear(t *testing.T) {
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 2)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
-	
+
 	expected = []*proto.Node{node2}
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
 	assert.NoError(t, err)
@@ -114,7 +114,7 @@ func TestFindNear(t *testing.T) {
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
-	
+
 }
 
 func TestConnectionSuccess(t *testing.T) {
@@ -125,7 +125,7 @@ func TestConnectionSuccess(t *testing.T) {
 	address2 := &proto.NodeAddress{Address: "b"}
 	node1 := &proto.Node{Id: id, Address: address1}
 	node2 := &proto.Node{Id: id2, Address: address2}
-	
+
 	//Updates node
 	err := rt.ConnectionSuccess(node1)
 	assert.NoError(t, err)
