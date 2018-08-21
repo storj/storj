@@ -66,35 +66,42 @@ func (b *PieceBuffer) Read(p []byte) (n int, err error) {
 // will block until some data is read from it, or an error is set. The return
 // value n is the number of bytes written. If an error was set, it be returned.
 func (b *PieceBuffer) Write(p []byte) (n int, err error) {
+	for n < len(p) {
+		nn, err := b.write(p[n:])
+		n += nn
+		if err != nil {
+			return n, err
+		}
+		b.notifyNewData()
+	}
+	return n, nil
+}
+
+// write is a helper method that takes care for the locking on each copy
+// iteration.
+func (b *PieceBuffer) write(p []byte) (n int, err error) {
 	defer b.cv.Broadcast()
 	b.cv.L.Lock()
 	defer b.cv.L.Unlock()
 
-	for n < len(p) {
-		for b.full {
-			if b.err != nil {
-				return n, b.err
-			}
-			b.cv.Wait()
+	for b.full {
+		if b.err != nil {
+			return n, b.err
 		}
+		b.cv.Wait()
+	}
 
-		var wr int
-		if b.wpos < b.rpos {
-			wr = copy(b.buf[b.wpos:b.rpos], p[n:])
-		} else {
-			wr = copy(b.buf[b.wpos:], p[n:])
-		}
+	var wr int
+	if b.wpos < b.rpos {
+		wr = copy(b.buf[b.wpos:b.rpos], p)
+	} else {
+		wr = copy(b.buf[b.wpos:], p)
+	}
 
-		n += wr
-		b.wpos = (b.wpos + wr) % len(b.buf)
-		if b.wpos == b.rpos {
-			b.full = true
-		}
-
-		// Unlock the mutex when notifying for new data to avoid deadlocks
-		b.cv.L.Unlock()
-		b.notifyNewData()
-		b.cv.L.Lock()
+	n += wr
+	b.wpos = (b.wpos + wr) % len(b.buf)
+	if b.wpos == b.rpos {
+		b.full = true
 	}
 
 	return n, nil
@@ -114,8 +121,7 @@ func (b *PieceBuffer) SetError(err error) {
 	b.notifyNewData()
 }
 
-// setError sets is a helper method that locks the mutex before setting the
-// error.
+// setError is a helper method that locks the mutex before setting the error.
 func (b *PieceBuffer) setError(err error) {
 	defer b.cv.Broadcast()
 	b.cv.L.Lock()
