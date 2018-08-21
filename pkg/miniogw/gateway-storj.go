@@ -277,7 +277,7 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 
 	defer utils.LogClose(rr)
 
-	r, err := rr.Range(ctx, 0, srcInfo.Size)
+	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return objInfo, err
 	}
