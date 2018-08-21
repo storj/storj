@@ -34,7 +34,7 @@ func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error)
 		return nil, err
 	}
 
-	storjObjects, err := uplink.NewUplinkLayer(credentials)
+	storjObjects, err := uplink.NewGatewayLayer(credentials)
 	if err != nil {
 		return nil, err
 	}
