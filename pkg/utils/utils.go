@@ -6,6 +6,8 @@ package utils
 import (
 	"bytes"
 	"encoding/gob"
+	"net/url"
+	"strings"
 )
 
 // GetBytes transforms an empty interface type into a byte slice
@@ -17,4 +19,15 @@ func GetBytes(key interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func ParseURL(s string) (*url.URL, error) {
+	if strings.HasPrefix(s, "bolt://") {
+		return &url.URL{
+			Scheme: "bolt",
+			Path:   strings.TrimPrefix(s, "bolt://"),
+		}, nil
+	}
+
+	return url.Parse(s)
 }
