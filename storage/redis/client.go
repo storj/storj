@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -156,12 +155,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 	values := []storage.Value{}
 	for _, v := range vs {
-		val, err := utils.GetBytes(v)
-		if err != nil {
-
-		}
-
-		values = append(values, storage.Value(val))
+		values = append(values, storage.Value([]byte(v.(string))))
 	}
 	return values, nil
 }
