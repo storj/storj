@@ -17,23 +17,23 @@ import (
 	"go.uber.org/zap"
 )
 
-var errTemplate = "gateway error: %+v"
+var errTemplate = "uplink error: %+v"
 
-type gwLogWrap struct {
-	gw minio.Gateway
+type uplinkLogWrap struct {
+	uplink minio.Gateway
 }
 
-// Gateway is a wrapper of minio.Gateway that logs errors before
+// Uplink is a wrapper of minio.Gateway that logs errors before
 // returning them.
-func Gateway(gw minio.Gateway) minio.Gateway {
-	return &gwLogWrap{gw: gw}
+func Uplink(ul minio.Gateway) minio.Gateway {
+	return &uplinkLogWrap{uplink: ul}
 }
 
-func (lg *gwLogWrap) Name() string     { return lg.gw.Name() }
-func (lg *gwLogWrap) Production() bool { return lg.gw.Production() }
-func (lg *gwLogWrap) NewGatewayLayer(creds auth.Credentials) (
+func (ul *uplinkLogWrap) Name() string     { return ul.uplink.Name() }
+func (ul *uplinkLogWrap) Production() bool { return ul.uplink.Production() }
+func (ul *uplinkLogWrap) NewGatewayLayer(creds auth.Credentials) (
 	minio.ObjectLayer, error) {
-	ol, err := lg.gw.NewGatewayLayer(creds)
+	ol, err := ul.uplink.NewGatewayLayer(creds)
 	return &olLogWrap{ol: ol, logger: zap.S()}, err
 }
 

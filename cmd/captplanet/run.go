@@ -11,12 +11,12 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/uplink"
 )
 
 const (
@@ -47,7 +47,7 @@ var (
 	runCfg struct {
 		HeavyClient HeavyClient
 		Farmers     [farmerCount]Farmer
-		Gateway     miniogw.Config
+		Uplink      uplink.Config
 	}
 )
 
@@ -95,11 +95,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o)
 	}()
 
-	// start s3 gateway
+	// start s3 uplink
 	go func() {
-		_, _ = fmt.Printf("starting minio gateway on %s\n",
-			runCfg.Gateway.IdentityConfig.Address)
-		errch <- runCfg.Gateway.Run(ctx)
+		_, _ = fmt.Printf("starting minio uplink on %s\n",
+			runCfg.Uplink.IdentityConfig.Address)
+		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
 	return <-errch
