@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"sync"
@@ -154,26 +153,19 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 
 // ConnectionSuccess updates or adds a node to the routing table when 
 // a successful connection is made to the node on the network
-func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) error {
-	node, err := rt.nodeBucketDB.Get(storage.Key(id))
+func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
+	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
-	if node != nil {
-		pnodes, err := unmarshalNodes(storage.Keys{storage.Key(id)}, []storage.Value{node})
-		if err != nil {
-			return RoutingErr.New("could not unmarshal node %s", err)
-		}
-		n := pnodes[0]
-		n.Address = &address
-		err = rt.updateNode(n)
+	if v != nil {
+		err = rt.updateNode(node)
 		if err != nil {
 			return RoutingErr.New("could not update node %s", err)
 		}
 		return nil
 	}
-	n := &proto.Node{Id: id, Address: &address}
-	_, err = rt.addNode(n)
+	_, err = rt.addNode(node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
@@ -182,8 +174,8 @@ func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) 
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
-func (rt *RoutingTable) ConnectionFailed(id string) error {
-	nodeID := storage.Key(id)
+func (rt *RoutingTable) ConnectionFailed(node *proto.Node) error {
+	nodeID := storage.Key(node.Id)
 	bucketID, err := rt.getKBucketID(nodeID)
 	if err != nil {
 		return RoutingErr.New("could not get k bucket %s", err)
@@ -216,10 +208,4 @@ func (rt *RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.T
 	timestamp, _ := binary.Varint(t)
 
 	return time.Unix(0, timestamp).UTC(), nil
-}
-
-// GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
-func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RoutingTable, error) {
-	//TODO: Do we need this method? 
-	return RoutingTable{}, nil
 }
