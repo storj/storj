@@ -51,7 +51,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Deleted %s", u.Host)
+	fmt.Printf("Deleted %s\n", u.Host)
 
 	return nil
 }

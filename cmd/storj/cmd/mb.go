@@ -51,7 +51,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Created %s", u.Host)
+	fmt.Printf("Created %s\n", u.Host)
 
 	return nil
 }

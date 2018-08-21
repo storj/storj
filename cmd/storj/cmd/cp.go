@@ -21,7 +21,7 @@ var (
 	cpCfg Config
 	cpCmd = &cobra.Command{
 		Use:   "cp",
-		Short: "A brief description of your command",
+		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copy,
 	}
 )

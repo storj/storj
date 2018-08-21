@@ -45,5 +45,5 @@ func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error)
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "storj",
-	Short: "A brief description of your application",
+	Short: "The Storj CLI",
 }
