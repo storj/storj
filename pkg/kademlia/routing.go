@@ -38,7 +38,6 @@ type RoutingTable struct {
 type RoutingOptions struct {
 	kpath        string
 	npath        string
-	rpath        string
 	idLength     int //TODO (JJ): add checks for > 0 
 	bucketSize   int
 	rcBucketSize int
