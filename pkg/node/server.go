@@ -16,7 +16,7 @@ type Server struct {
 	dht dht.DHT
 }
 
-//TODO: add limit to query request proto
+
 // Query is a node to node communication query
 func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.QueryResponse, error) {
 	rt, err := s.dht.GetRoutingTable(ctx)
@@ -25,12 +25,12 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 	}
 	_, err = s.dht.Ping(ctx, *req.Sender)
 	if err != nil {
-		err = rt.ConnectionFailed(req.Sender.Id, req.Sender.Address)
+		err = rt.ConnectionFailed(req.Sender)
 		if err != nil {
 			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
 		}
 	} else {
-		err = rt.ConnectionSuccess(req.Sender.Id, req.Sender.Address)
+		err = rt.ConnectionSuccess(req.Sender)
 		if err != nil {
 			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
 		}
@@ -40,5 +40,5 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not find near %s", err)
 	}
-    return proto.QueryResponse{Sender: req.Sender, Response: nodes}, nil
+	return proto.QueryResponse{Sender: req.Sender, Response: nodes}, nil
 }

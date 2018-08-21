@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
