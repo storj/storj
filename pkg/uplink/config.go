@@ -107,7 +107,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 		return err
 	}
 
-	minio.StartGateway(cliCtx, logging.Gateway(uplink))
+	minio.StartGateway(cliCtx, logging.Uplink(uplink))
 	return Error.New("unexpected minio exit")
 }
 

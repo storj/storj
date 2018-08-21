@@ -68,7 +68,7 @@ func TestGateway(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	uplink := NewMockGateway(mockCtrl)
-	luplink := Gateway(uplink)
+	luplink := Uplink(uplink)
 
 	// Test Name()
 	name := "GatewayName"

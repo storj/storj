@@ -22,10 +22,10 @@ type uplinkLogWrap struct {
 	uplink minio.Gateway
 }
 
-// Gateway is a wrapper of minio.Gateway that logs errors before
+// Uplink is a wrapper of minio.Gateway that logs errors before
 // returning them.
-func Gateway(uplink minio.Gateway) minio.Gateway {
-	return &uplinkLogWrap{uplink: uplink}
+func Uplink(ul minio.Gateway) minio.Gateway {
+	return &uplinkLogWrap{uplink: ul}
 }
 
 func (ul *uplinkLogWrap) Name() string     { return ul.uplink.Name() }

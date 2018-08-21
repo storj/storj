@@ -15,43 +15,43 @@ import (
 	auth "github.com/minio/minio/pkg/auth"
 )
 
-// MockGateway is a mock of Gateway interface
-type MockGateway struct {
+// MockUplink is a mock of Gateway interface
+type MockUplink struct {
 	ctrl     *gomock.Controller
-	recorder *MockGatewayMockRecorder
+	recorder *MockUplinkMockRecorder
 }
 
-// MockGatewayMockRecorder is the mock recorder for MockGateway
-type MockGatewayMockRecorder struct {
-	mock *MockGateway
+// MockUplinkMockRecorder is the mock recorder for MockUplink
+type MockUplinkMockRecorder struct {
+	mock *MockUplink
 }
 
 // NewMockGateway creates a new mock instance
-func NewMockGateway(ctrl *gomock.Controller) *MockGateway {
-	mock := &MockGateway{ctrl: ctrl}
-	mock.recorder = &MockGatewayMockRecorder{mock}
+func NewMockGateway(ctrl *gomock.Controller) *MockUplink {
+	mock := &MockUplink{ctrl: ctrl}
+	mock.recorder = &MockUplinkMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockGateway) EXPECT() *MockGatewayMockRecorder {
+func (m *MockUplink) EXPECT() *MockUplinkMockRecorder {
 	return m.recorder
 }
 
 // Name mocks base method
-func (m *MockGateway) Name() string {
+func (m *MockUplink) Name() string {
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // Name indicates an expected call of Name
-func (mr *MockGatewayMockRecorder) Name() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockGateway)(nil).Name))
+func (mr *MockUplinkMockRecorder) Name() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockUplink)(nil).Name))
 }
 
 // NewGatewayLayer mocks base method
-func (m *MockGateway) NewGatewayLayer(arg0 auth.Credentials) (cmd.ObjectLayer, error) {
+func (m *MockUplink) NewGatewayLayer(arg0 auth.Credentials) (cmd.ObjectLayer, error) {
 	ret := m.ctrl.Call(m, "NewGatewayLayer", arg0)
 	ret0, _ := ret[0].(cmd.ObjectLayer)
 	ret1, _ := ret[1].(error)
@@ -59,18 +59,18 @@ func (m *MockGateway) NewGatewayLayer(arg0 auth.Credentials) (cmd.ObjectLayer, e
 }
 
 // NewGatewayLayer indicates an expected call of NewGatewayLayer
-func (mr *MockGatewayMockRecorder) NewGatewayLayer(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewGatewayLayer", reflect.TypeOf((*MockGateway)(nil).NewGatewayLayer), arg0)
+func (mr *MockUplinkMockRecorder) NewGatewayLayer(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewGatewayLayer", reflect.TypeOf((*MockUplink)(nil).NewGatewayLayer), arg0)
 }
 
 // Production mocks base method
-func (m *MockGateway) Production() bool {
+func (m *MockUplink) Production() bool {
 	ret := m.ctrl.Call(m, "Production")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // Production indicates an expected call of Production
-func (mr *MockGatewayMockRecorder) Production() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Production", reflect.TypeOf((*MockGateway)(nil).Production))
+func (mr *MockUplinkMockRecorder) Production() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Production", reflect.TypeOf((*MockUplink)(nil).Production))
 }
