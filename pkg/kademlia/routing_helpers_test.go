@@ -37,7 +37,6 @@ func createRT(localNodeID []byte) *RoutingTable {
 	options := &RoutingOptions{
 		kpath:      tempfile("Kadbucket"),
 		npath:      tempfile("Nodebucket"),
-		rpath:      tempfile("ReplacementCache"),
 		idLength:   16,
 		bucketSize: 6,
 		rcBucketSize: 2,
@@ -286,6 +285,10 @@ func TestRemoveNode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, val2)
 	assert.Equal(t, 0, len(rt.replacementCache[string(kadBucketID)]))
+
+	//try to remove node not in rt
+	err = rt.removeNode(kadBucketID, storage.Key("DD"))
+	assert.NoError(t, err)
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {

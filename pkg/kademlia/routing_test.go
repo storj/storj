@@ -10,7 +10,8 @@ import (
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
+	
+	"storj.io/storj/storage"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -28,9 +29,8 @@ func TestK(t *testing.T) {
 }
 
 func TestCacheSize(t *testing.T) {
-	//TODO
 	rt := createRT([]byte("AA"))
-	expected := 0
+	expected := rt.rcBucketSize
 	result := rt.CacheSize()
 	assert.Equal(t, expected, result)
 }
@@ -100,11 +100,42 @@ func TestFindNear(t *testing.T) {
 }
 
 func TestConnectionSuccess(t *testing.T) {
-	//TODO
+	id := "AA"
+	rt := createRT([]byte(id))
+	id2 := "BB"
+	address1 := &proto.NodeAddress{Address: "a"}
+	address2 := &proto.NodeAddress{Address: "b"}
+	node1 := &proto.Node{Id: id, Address: address1}
+	node2 := &proto.Node{Id: id2, Address: address2}
+	
+	//Updates node
+	err := rt.ConnectionSuccess(node1)
+	assert.NoError(t, err)
+	v, err := rt.nodeBucketDB.Get([]byte(id))
+	assert.NoError(t, err)
+	n, err := unmarshalNodes(storage.Keys{storage.Key(id)}, []storage.Value{v})
+	assert.NoError(t, err)
+	assert.Equal(t, address1.Address, n[0].Address.Address)
+
+	//Add Node
+	err = rt.ConnectionSuccess(node2)
+	assert.NoError(t, err)
+	v, err = rt.nodeBucketDB.Get([]byte(id2))
+	assert.NoError(t, err)
+	n, err = unmarshalNodes(storage.Keys{storage.Key(id2)}, []storage.Value{v})
+	assert.NoError(t, err)
+	assert.Equal(t, address2.Address, n[0].Address.Address)
 }
 
 func TestConnectionFailed(t *testing.T) {
-	//TODO
+	id := "AA"
+	node := mockNode(id)
+	rt := createRT([]byte(id))
+	err := rt.ConnectionFailed(node)
+	assert.NoError(t, err)
+	v, err := rt.nodeBucketDB.Get([]byte(id))
+	assert.Error(t, err)
+	assert.Nil(t, v)
 }
 
 func TestSetBucketTimestamp(t *testing.T) {
