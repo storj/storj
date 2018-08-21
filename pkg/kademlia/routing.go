@@ -122,11 +122,7 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 		return bs, RoutingErr.New("could not get bucket ids %s", err)
 	}
 
-	var kbuckets storage.Keys
-
-	for _, item := range kbucketsItems {
-		kbuckets = append(kbuckets, item.Key)
-	}
+	kbuckets := kbucketsItems.GetKeys()
 
 	for _, v := range kbuckets {
 		unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(v)
@@ -163,11 +159,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 
-	var nodeIDs storage.Keys
-
-	for _, item := range nodeItems {
-		nodeIDs = append(nodeIDs, item.Key)
-	}
+	nodeIDs := nodeItems.GetKeys()
 
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
 	if len(sortedIDs) >= limit {
