@@ -48,7 +48,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *
 	assert.NoError(t, err)
 	id := kademlia.NodeID(*i)
 	n := []overlay.Node{b}
-	kad, err := kademlia.NewKademlia(&id, n, ip, port)
+	kad, err := kademlia.NewKademlia(&id, n, fmt.Sprintf("%s:%s", ip, port))
 	assert.NoError(t, err)
 
 	return kad
@@ -67,7 +67,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	intro, err := kademlia.GetIntroNode(bnid.String(), ip, pm)
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
+	boot, err := kademlia.NewKademlia(&bnid, []overlay.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm))
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -86,7 +86,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 		assert.NoError(t, err)
 		id := kademlia.NodeID(*nid)
 
-		dht, err := kademlia.NewKademlia(&id, []overlay.Node{bootNode}, ip, gg)
+		dht, err := kademlia.NewKademlia(&id, []overlay.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg))
 		assert.NoError(t, err)
 
 		p++
@@ -173,7 +173,7 @@ var (
 			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
 				mock:   nil,
-				bolt: &storage.ErrKeyNotFound,
+				bolt:   &storage.ErrKeyNotFound,
 				_redis: &storage.ErrKeyNotFound,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
