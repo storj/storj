@@ -1,6 +1,12 @@
 .PHONY: test lint proto check-copyrights build-dev-deps
 
-TAG    	:= $$(git rev-parse --short HEAD)
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+ifeq (${BRANCH},master)
+TAG    	:= $(shell git rev-parse --short HEAD)
+else
+TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}
+endif
+
 GO_VERSION := 1.10
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 GO_DIRS := $(shell go list ./... | grep -v storj.io/storj/examples)
@@ -94,13 +100,13 @@ test-docker-clean:
 
 images:
 	docker build --build-arg VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG}-${GO_VERSION} -f cmd/hc/Dockerfile .
-	docker tag storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
 	docker build -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
-	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 
 push-images:
+	docker tag storjlabs/satellite:${TAG}-${GO_VERSION} storjlabs/satellite:latest
 	docker push storjlabs/satellite:${TAG}-${GO_VERSION}
 	docker push storjlabs/satellite:latest
+	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 	docker push storjlabs/storage-node:${TAG}
 	docker push storjlabs/storage-node:latest
 

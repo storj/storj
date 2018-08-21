@@ -10,8 +10,10 @@ node('node') {
     }
 
     stage('Push Images') {
-      echo 'Push to Repo'
-      sh 'make push-images'
+      if (env.BRANCH_NAME == "master") {
+        echo 'Push to Repo'
+        sh 'make push-images'
+      }
     }
 
     stage('Deploy') {
