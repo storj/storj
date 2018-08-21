@@ -4,7 +4,9 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -19,8 +21,17 @@ var (
 		Short: "Captain Planet! With our powers combined!",
 	}
 
-	defaultConfDir = "$HOME/.storj/capt"
+	defaultConfDir = getDefaultConfDir()
 )
+
+func getDefaultConfDir() string {
+	switch runtime.GOOS {
+	default:
+		return "$HOME/.storj/capt"
+	case "windows":
+		return filepath.Join(os.Getenv("AppData"), "Storj", "capt")
+	}
+}
 
 func main() {
 	// process.Exec will load this for this command.
