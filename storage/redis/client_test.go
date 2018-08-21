@@ -59,7 +59,11 @@ func TestListWithoutStartKey(t *testing.T) {
 		rt.HandleErr(err, "Failed to put")
 	}
 
-	_, err := rt.c.List(nil, storage.Limit(3))
+	_, _, err := rt.c.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
+
 	if err != nil {
 		rt.HandleErr(err, "Failed to list")
 	}

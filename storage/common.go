@@ -57,7 +57,7 @@ type KeyValueStore interface {
 	Put(Key, Value) error
 	Get(Key) (Value, error)
 	GetAll(Keys) (Values, error)
-	List(opts ListOptions) ([]ListItem, More, error)
+	List(opts ListOptions) (Items, More, error)
 	ReverseList(Key, Limit) (Keys, error)
 	Delete(Key) error
 	Close() error
@@ -99,8 +99,8 @@ func (k *Key) String() string {
 	return string(*k)
 }
 
-// ListKeys gets all the Keys in []ListItem and converts them to Keys
-func (i *Items) ListKeys() Keys {
+// GetKeys gets all the Keys in []ListItem and converts them to Keys
+func (i *Items) GetKeys() Keys {
 	if len(*i) == 0 {
 		return nil
 	}

@@ -96,7 +96,7 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 }
 
 // List returns paths that fulfill the criteria
-func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.More, error) {
+func (c *Client) List(opts storage.ListOptions) (storage.Items, storage.More, error) {
 	c.logger.Debug("entering bolt list")
 
 	paths, err := c.listHelper(false, opts.Start, opts.Limit)
@@ -111,8 +111,8 @@ func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.Mor
 	return listItems, false, err
 }
 
-func (c *Client) makeListItems(paths storage.Keys) ([]storage.ListItem, error) {
-	listItems := []storage.ListItem{}
+func (c *Client) makeListItems(paths storage.Keys) (storage.Items, error) {
+	listItems := storage.Items{}
 
 	for _, path := range paths {
 		value, err := c.Get(path)

@@ -185,11 +185,7 @@ func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
 
-	//TODO replace with common.go method
-	var kadBucketIDs storage.Keys
-	for _, item := range kadBucketItems {
-		kadBucketIDs = append(kadBucketIDs, item.Key)
-	}
+	kadBucketIDs := kadBucketItems.GetKeys()
 
 	smallestKey := rt.createZeroAsStorageKey()
 	var keys storage.Keys

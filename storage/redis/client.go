@@ -84,7 +84,7 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.More, error) {
+func (c *Client) List(opts storage.ListOptions) (storage.Items, storage.More, error) {
 	var noOrderKeys []string
 	if opts.Start != nil {
 		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", opts.Start), int64(opts.Limit)).Result()
