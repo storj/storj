@@ -41,7 +41,7 @@ type Limit int
 // results by setting `StartAfter` or `EndBefore` appropriately.
 type More bool
 
-// Items keeps all LitItem
+// Items keeps all ListItem
 type Items []ListItem
 
 // ListItem returns Key, Value, IsPrefix
@@ -50,11 +50,6 @@ type ListItem struct {
 	Value    Value
 	IsPrefix bool
 }
-
-// ListItems is a slice of all ListItem
-// type ListItems struct {
-// 	Items []ListItem
-// }
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {
@@ -102,4 +97,19 @@ func (k *Keys) ByteSlices() [][]byte {
 // String implements the Stringer interface
 func (k *Key) String() string {
 	return string(*k)
+}
+
+// ListKeys gets all the Keys in []ListItem and converts them to Keys
+func (i *Items) ListKeys() Keys {
+	if len(*i) == 0 {
+		return nil
+	}
+
+	var keys Keys
+
+	for _, item := range *i {
+		keys = append(keys, item.Key)
+	}
+
+	return keys
 }

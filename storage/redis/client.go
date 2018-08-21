@@ -84,32 +84,47 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (c *Client) List(opts storage.ListOptions) ([]storage.ListItem, storage.More, error) {
 	var noOrderKeys []string
-	if startingKey != nil {
-		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
+	if opts.Start != nil {
+		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", opts.Start), int64(opts.Limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
+			return nil, false, Error.New("list error with starting key", err)
 		}
-		keys, _, err := c.db.Scan(cursor, "", int64(limit)).Result()
+		keys, _, err := c.db.Scan(cursor, "", int64(opts.Limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
+			return nil, false, Error.New("list error with starting key", err)
 		}
 		noOrderKeys = keys
-	} else if startingKey == nil {
-		keys, _, err := c.db.Scan(0, "", int64(limit)).Result()
+	} else if opts.Start == nil {
+		keys, _, err := c.db.Scan(0, "", int64(opts.Limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error without starting key: %v", err)
+			return nil, false, Error.New("list error without starting key", err)
 		}
 		noOrderKeys = keys
 	}
 
-	listKeys := make(storage.Keys, len(noOrderKeys))
-	for i, k := range noOrderKeys {
-		listKeys[i] = storage.Key(k)
+	listItems := storage.Items{}
+
+	for _, key := range noOrderKeys {
+		value, err := c.Get(storage.Key(key))
+
+		if err != nil {
+			return nil, false, err
+		}
+
+		listItem := storage.ListItem{
+			Key:   storage.Key(key),
+			Value: value,
+			// right now, we'll set this to false. PR2 will fix this
+			IsPrefix: false,
+		}
+
+		listItems = append(listItems, listItem)
 	}
 
-	return listKeys, nil
+	fmt.Println("This is List Keys in redis: ", listItems)
+	return listItems, false, nil
 }
 
 // ReverseList returns either a list of keys for which redis has values or an error.
