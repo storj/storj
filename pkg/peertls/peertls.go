@@ -47,7 +47,7 @@ type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 func NewKey() (crypto.PrivateKey, error) {
 	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
-		return nil, ErrGenerate.New("failed to generate private key", err)
+		return nil, ErrGenerate.New("failed to generate private key: %v", err)
 	}
 
 	return k, nil
