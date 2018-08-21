@@ -102,7 +102,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	identity *provider.FullIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uplink, err := c.NewGateway(ctx, identity)
+	uplink, err := c.NewUplink(ctx, identity)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	return Error.New("unexpected minio exit")
 }
 
-func (c Config) NewGateway(ctx context.Context,
+func (c Config) NewUplink(ctx context.Context,
 	identity *provider.FullIdentity) (uplink minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
