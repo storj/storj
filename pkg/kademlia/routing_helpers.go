@@ -9,7 +9,7 @@ import (
 
 	// "fmt"
 	"encoding/binary"
-	"math/rand"
+	//"math/rand"
 	"time"
 
 	pb "github.com/golang/protobuf/proto"
@@ -177,7 +177,7 @@ func (rt *RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Tim
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
-	kadBucketItems, isMore, err := rt.kadBucketDB.List(storage.ListOptions{
+	kadBucketItems, _, err := rt.kadBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
@@ -248,7 +248,7 @@ func xorTwoIds(id []byte, comparisonID []byte) []byte {
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
-	nodeItems, isMore, err := rt.nodeBucketDB.List(storage.ListOptions{
+	nodeItems, _, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
@@ -314,7 +314,7 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.K
 	right := endpoints[1]
 	var nodeIDs storage.Keys
 
-	allNodeItems, isMore, err := rt.nodeBucketDB.List(storage.ListOptions{
+	allNodeItems, _, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})

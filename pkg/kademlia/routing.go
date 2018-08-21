@@ -38,7 +38,7 @@ type RoutingTable struct {
 type RoutingOptions struct {
 	kpath        string
 	npath        string
-	idLength     int //TODO (JJ): add checks for > 0 
+	idLength     int //TODO (JJ): add checks for > 0
 	bucketSize   int
 	rcBucketSize int
 }
@@ -112,10 +112,22 @@ func (rt *RoutingTable) GetBucket(id string) (bucket dht.Bucket, ok bool) {
 // GetBuckets retrieves all buckets from the local node
 func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	bs := []dht.Bucket{}
-	kbuckets, err := rt.kadBucketDB.List(nil, 0)
+
+	kbucketsItems, _, err := rt.kadBucketDB.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
+
 	if err != nil {
 		return bs, RoutingErr.New("could not get bucket ids %s", err)
 	}
+
+	var kbuckets storage.Keys
+
+	for _, item := range kbucketsItems {
+		kbuckets = append(kbuckets, item.Key)
+	}
+
 	for _, v := range kbuckets {
 		unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(v)
 		if err != nil {
@@ -142,10 +154,21 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
 	}
 	// if id is not in the routing table
-	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+	nodeItems, _, err := rt.kadBucketDB.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
+
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
+
+	var nodeIDs storage.Keys
+
+	for _, item := range nodeItems {
+		nodeIDs = append(nodeIDs, item.Key)
+	}
+
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
 	if len(sortedIDs) >= limit {
 		sortedIDs = sortedIDs[:limit]
@@ -161,7 +184,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	return unmarshaledNodes, nil
 }
 
-// ConnectionSuccess updates or adds a node to the routing table when 
+// ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
