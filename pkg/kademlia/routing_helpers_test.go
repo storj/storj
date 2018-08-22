@@ -143,8 +143,6 @@ func TestAddNode(t *testing.T) {
 		Limit: 0,
 	})
 
-	fmt.Println("add node 147: ", nodeKeyItems)
-
 	//kadKeys, err = rt.kadBucketDB.List(nil, 0)
 	//assert.NoError(t, err)
 	//nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
@@ -421,24 +419,20 @@ func TestSortByXOR(t *testing.T) {
 	node1 := []byte{127, 255} //xor 0
 	rt := createRT(node1)
 	node2 := []byte{143, 255} //xor 240
-	rt.nodeBucketDB.Put(node2, []byte(""))
+	rt.nodeBucketDB.Put(node2, []byte("a"))
 	node3 := []byte{255, 255} //xor 128
-	rt.nodeBucketDB.Put(node3, []byte(""))
+	rt.nodeBucketDB.Put(node3, []byte("b"))
 	node4 := []byte{191, 255} //xor 192
-	rt.nodeBucketDB.Put(node4, []byte(""))
+	rt.nodeBucketDB.Put(node4, []byte("c"))
 	node5 := []byte{133, 255} //xor 250
-	rt.nodeBucketDB.Put(node5, []byte(""))
-	//nodes, err := rt.nodeBucketDB.List(nil, 0)
+	rt.nodeBucketDB.Put(node5, []byte("d"))
 
 	nodeKeyItems, isMore, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
 
-	fmt.Println(nodeKeyItems, "key items")
-
 	nodes := nodeKeyItems.GetKeys()
-	fmt.Println("node keys: ", nodes)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, isMore)
@@ -455,7 +449,6 @@ func TestSortByXOR(t *testing.T) {
 	})
 
 	nodes = nodeKeyItems.GetKeys()
-	//nodes, err = rt.nodeBucketDB.List(nil, 0)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, isMore)
@@ -466,7 +459,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	node1 := []byte{127, 255} //xor 0
 	rt := createRT(node1)
 	rt.self.Id = string(node1)
-	rt.nodeBucketDB.Put(node1, []byte(""))
+	rt.nodeBucketDB.Put(node1, []byte("a"))
 	expectedFurthest := node1
 	//nodes, err := rt.nodeBucketDB.List(nil, 0)
 
@@ -487,7 +480,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node2 := []byte{143, 255} //xor 240
-	rt.nodeBucketDB.Put(node2, []byte(""))
+	rt.nodeBucketDB.Put(node2, []byte("a"))
 	expectedFurthest = node2
 
 	nodeKeyItems, isMore, err = rt.nodeBucketDB.List(storage.ListOptions{
@@ -505,7 +498,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node3 := []byte{255, 255} //xor 128
-	rt.nodeBucketDB.Put(node3, []byte(""))
+	rt.nodeBucketDB.Put(node3, []byte("a"))
 	expectedFurthest = node2
 
 	nodeKeyItems, isMore, err = rt.nodeBucketDB.List(storage.ListOptions{
@@ -522,7 +515,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node4 := []byte{191, 255} //xor 192
-	rt.nodeBucketDB.Put(node4, []byte(""))
+	rt.nodeBucketDB.Put(node4, []byte("a"))
 	expectedFurthest = node2
 
 	nodeKeyItems, isMore, err = rt.nodeBucketDB.List(storage.ListOptions{
@@ -540,7 +533,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node5 := []byte{133, 255} //xor 250
-	rt.nodeBucketDB.Put(node5, []byte(""))
+	rt.nodeBucketDB.Put(node5, []byte("a"))
 	expectedFurthest = node5
 
 	nodeKeyItems, isMore, err = rt.nodeBucketDB.List(storage.ListOptions{
@@ -569,19 +562,19 @@ func TestNodeIsWithinNearestK(t *testing.T) {
 	expectTrue, err = rt.nodeIsWithinNearestK(furthestNode)
 	assert.NoError(t, err)
 	assert.True(t, expectTrue)
-	rt.nodeBucketDB.Put(furthestNode, []byte(""))
+	rt.nodeBucketDB.Put(furthestNode, []byte("a"))
 
 	node1 := []byte{255, 255}
 	expectTrue, err = rt.nodeIsWithinNearestK(node1)
 	assert.NoError(t, err)
 	assert.True(t, expectTrue)
-	rt.nodeBucketDB.Put(node1, []byte(""))
+	rt.nodeBucketDB.Put(node1, []byte("a"))
 
 	node2 := []byte{191, 255}
 	expectTrue, err = rt.nodeIsWithinNearestK(node2)
 	assert.NoError(t, err)
 	assert.True(t, expectTrue)
-	rt.nodeBucketDB.Put(node1, []byte(""))
+	rt.nodeBucketDB.Put(node1, []byte("a"))
 
 	node3 := []byte{133, 255}
 	expectFalse, err := rt.nodeIsWithinNearestK(node3)
@@ -617,11 +610,11 @@ func TestKadBucketHasRoom(t *testing.T) {
 	resultA, err := rt.kadBucketHasRoom(kadIDA)
 	assert.NoError(t, err)
 	assert.True(t, resultA)
-	rt.nodeBucketDB.Put(node2, []byte(""))
-	rt.nodeBucketDB.Put(node3, []byte(""))
-	rt.nodeBucketDB.Put(node4, []byte(""))
-	rt.nodeBucketDB.Put(node5, []byte(""))
-	rt.nodeBucketDB.Put(node6, []byte(""))
+	rt.nodeBucketDB.Put(node2, []byte("a"))
+	rt.nodeBucketDB.Put(node3, []byte("a"))
+	rt.nodeBucketDB.Put(node4, []byte("a"))
+	rt.nodeBucketDB.Put(node5, []byte("a"))
+	rt.nodeBucketDB.Put(node6, []byte("a"))
 	resultB, err := rt.kadBucketHasRoom(kadIDA)
 	assert.NoError(t, err)
 	assert.False(t, resultB)
@@ -638,8 +631,8 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	nodeIDB := []byte{111, 255} //[01101111, 1111111]
 	nodeIDC := []byte{47, 255}  //[00101111, 1111111]
 
-	rt.nodeBucketDB.Put(nodeIDB, []byte(""))
-	rt.nodeBucketDB.Put(nodeIDC, []byte(""))
+	rt.nodeBucketDB.Put(nodeIDB, []byte("a"))
+	rt.nodeBucketDB.Put(nodeIDC, []byte("a"))
 
 	expectedA := storage.Keys{nodeIDA}
 	expectedB := storage.Keys{nodeIDC, nodeIDB}
@@ -665,6 +658,7 @@ func TestGetNodesFromIDs(t *testing.T) {
 	b, err := pb.Marshal(nodeB)
 	assert.NoError(t, err)
 	c, err := pb.Marshal(nodeC)
+
 	assert.NoError(t, err)
 	rt := createRT(nodeIDA)
 
@@ -673,7 +667,7 @@ func TestGetNodesFromIDs(t *testing.T) {
 	rt.nodeBucketDB.Put(nodeIDC, c)
 	expected := []storage.Value{a, b, c}
 
-	nodeItems, isMore, err := rt.kadBucketDB.List(storage.ListOptions{
+	nodeItems, isMore, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
@@ -708,7 +702,7 @@ func TestUnmarshalNodes(t *testing.T) {
 	rt.nodeBucketDB.Put(nodeIDC, c)
 	//nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 
-	nodeItems, isMore, err := rt.kadBucketDB.List(storage.ListOptions{
+	nodeItems, isMore, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
