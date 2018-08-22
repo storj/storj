@@ -34,11 +34,13 @@ var (
 
 	runCfg   miniogw.Config
 	setupCfg struct {
-		CA          provider.CASetupConfig
-		Identity    provider.IdentitySetupConfig
-		BasePath    string `default:"$CONFDIR" help:"base path for setup"`
-		Concurrency uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
-		Overwrite   bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		CA            provider.CASetupConfig
+		Identity      provider.IdentitySetupConfig
+		BasePath      string `default:"$CONFDIR" help:"base path for setup"`
+		Concurrency   uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
+		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
+		APIKey        string `default:"" help:"the api key to use for the satellite"`
 	}
 
 	defaultConfDir = "$HOME/.storj/gw"
@@ -86,8 +88,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"cert-path": setupCfg.Identity.CertPath,
-		"key-path":  setupCfg.Identity.KeyPath,
+		"cert-path":       setupCfg.Identity.CertPath,
+		"key-path":        setupCfg.Identity.KeyPath,
+		"api-key":         setupCfg.APIKey,
+		"pointer-db-addr": setupCfg.SatelliteAddr,
+		"overlay-addr":    setupCfg.SatelliteAddr,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
