@@ -548,7 +548,7 @@ type StatDBClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	// Update updates storagenode stats for a single storagenode
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
-	// UpdateBatch updates storagenode stats for multiple farmers at a time
+	// UpdateBatch updates storagenode stats for multiple storagenodes at a time
 	UpdateBatch(ctx context.Context, in *UpdateBatchRequest, opts ...grpc.CallOption) (*UpdateBatchResponse, error)
 }
 
@@ -604,7 +604,7 @@ type StatDBServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	// Update updates storagenode stats for a single storagenode
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
-	// UpdateBatch updates storagenode stats for multiple farmers at a time
+	// UpdateBatch updates storagenode stats for multiple storagenodes at a time
 	UpdateBatch(context.Context, *UpdateBatchRequest) (*UpdateBatchResponse, error)
 }
 

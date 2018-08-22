@@ -177,7 +177,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
-// UpdateBatch for updating  multiple farmers' stats in the db
+// UpdateBatch for updating  multiple storagenodes' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 

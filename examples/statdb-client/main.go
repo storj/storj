@@ -52,7 +52,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Test farmers
+	// Test storagenodes
 	farmer1 := proto.Node{
 		NodeId:             []byte("nodeid1"),
 		UpdateAuditSuccess: false,

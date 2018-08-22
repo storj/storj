@@ -1,6 +1,6 @@
 # gRPC Server
 
-This is a gRPC server which handles CRUD (create, read, update, delete) requests for storing stats for farmers in a relational database
+This is a gRPC server which handles CRUD (create, read, update, delete) requests for storing stats for storagenodes in a relational database
 
 To run the server:
 ```

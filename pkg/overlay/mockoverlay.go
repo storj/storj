@@ -33,7 +33,7 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 		nodes = append(nodes, node)
 	}
 	if int64(len(nodes)) < req.Opts.GetAmount() {
-		return nil, errs.New("not enough farmers exist")
+		return nil, errs.New("not enough storagenodes exist")
 	}
 	nodes = nodes[:req.Opts.GetAmount()]
 	return &proto.FindStorageNodesResponse{Nodes: nodes}, nil

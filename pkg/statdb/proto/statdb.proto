@@ -12,7 +12,7 @@ service StatDB {
   rpc Get(GetRequest) returns (GetResponse);
   // Update updates storagenode stats for a single storagenode
   rpc Update(UpdateRequest) returns (UpdateResponse);
-  // UpdateBatch updates storagenode stats for multiple farmers at a time
+  // UpdateBatch updates storagenode stats for multiple storagenodes at a time
   rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
 }
 
