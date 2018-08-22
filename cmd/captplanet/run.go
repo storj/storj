@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	farmerCount = 50
+	storagenodeCount = 50
 )
 
 type HeavyClient struct {
@@ -46,7 +46,7 @@ var (
 
 	runCfg struct {
 		HeavyClient HeavyClient
-		Farmers     [farmerCount]StorageNode
+		Farmers     [storagenodeCount]StorageNode
 		Gateway     miniogw.Config
 	}
 )
