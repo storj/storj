@@ -25,4 +25,4 @@ Steps to setup a local network
 5. `docker-compose up satellite uplink`
    Bring up the satellite and uplink
 
-6. Visit http://localhost:7777 or use the aws tool with `--endpoint localhost:7777`
+6. Visit http://localhost:7777 or use the aws tool with `--endpoint=http://localhost:7777`
