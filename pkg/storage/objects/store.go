@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
-	streamspb "storj.io/storj/protos/streams"
 )
 
 var mon = monkit.Package()
@@ -115,18 +114,11 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter,
 
 // convertMeta converts stream metadata to object metadata
 func convertMeta(m streams.Meta) Meta {
-	msi := streamspb.MetaStreamInfo{}
-	err := proto.Unmarshal(m.Data, &msi)
-	if err != nil {
-		zap.S().Warnf("Failed deserializing stream metadata info: %v", err)
-	}
-
 	ser := SerializableMeta{}
-	err = proto.Unmarshal(msi.Metadata, &ser)
+	err := proto.Unmarshal(m.Data, &ser)
 	if err != nil {
 		zap.S().Warnf("Failed deserializing metadata: %v", err)
 	}
-
 	return Meta{
 		Modified:         m.Modified,
 		Expiration:       m.Expiration,

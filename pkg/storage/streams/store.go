@@ -123,7 +123,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		Modified:   putMeta.Modified,
 		Expiration: expiration,
 		Size:       totalSize,
-		Data:       lastSegmentMetadata,
+		Data:       metadata,
 	}
 
 	return resultMeta, nil
