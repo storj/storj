@@ -1,0 +1,14 @@
+version: 3
+services:
+  storage-node:
+    image: storjlabs/storage-node:latest
+  satellite:
+    image: storjlabs/satellite:latest
+    command: --kademlia.bootstrap-addr localhost:8080
+    environment:
+    - API_KEY: abc123
+  uplink:
+    image: storjlabs/uplink:latest
+    environment:
+    - SATELLITE_ADDR: satellite:7777
+      API_KEY: abc123

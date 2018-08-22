@@ -98,9 +98,13 @@ test-docker:
 test-docker-clean:
 	-docker-compose down --rmi all
 
-images:
+images: satellite-image storage-node-image uplink-image
+satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
+storage-node-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
+uplink-image:
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/gw/Dockerfile .
 
 push-images:
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest
@@ -109,15 +113,20 @@ push-images:
 	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 	docker push storjlabs/storage-node:${TAG}
 	docker push storjlabs/storage-node:latest
+	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
+	docker push storjlabs/uplink:${TAG}
+	docker push storjlabs/uplink:latest
 
 ifeq (${BRANCH},master)
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	-docker rmi storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
+	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
 else
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG}
 	-docker rmi storjlabs/storage-node:${TAG}
+	-docker rmi storjlabs/uplink:${TAG}
 endif
 
 install-deps:
