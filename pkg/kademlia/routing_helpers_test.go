@@ -36,6 +36,7 @@ func createRT(localNodeID []byte) *RoutingTable {
 	options := &RoutingOptions{
 		kpath:        tempfile("Kadbucket"),
 		npath:        tempfile("Nodebucket"),
+		rpath:        tempfile("ReplacementCache"),
 		idLength:     16,
 		bucketSize:   6,
 		rcBucketSize: 2,
