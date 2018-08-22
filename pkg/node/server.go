@@ -28,7 +28,9 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 		err = rt.ConnectionFailed(req.Sender)
 		if err != nil {
 			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
-		}
+		} 
+		//Do we want this?
+		return proto.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
 	} else {
 		err = rt.ConnectionSuccess(req.Sender)
 		if err != nil {
