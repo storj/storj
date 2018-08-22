@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package miniogw
+package uplink
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 var (
 	mon = monkit.Package()
 	//Error is the errs class of standard End User Client errors
-	Error = errs.Class("Storj Gateway error")
+	Error = errs.Class("Storj Uplink error")
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
