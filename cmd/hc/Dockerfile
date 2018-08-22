@@ -1,4 +1,5 @@
-FROM golang:1.10-alpine AS build-env
+ARG GO_VERSION=1.10
+FROM golang:${GO_VERSION}-alpine AS build-env
 RUN apk update && \
     apk upgrade && \
     apk add curl && \
