@@ -5,6 +5,7 @@ package redis
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"testing"
@@ -326,22 +327,29 @@ func TestCrudInvalidConnection(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	redisRunning := false
 	cmd := exec.Command("redis-server")
-
-	err := cmd.Start()
-
+	// Check to see if redis is already available.
+	_, err := net.Dial("tcp", "127.0.0.1:6379")
 	if err != nil {
-		fmt.Println(err)
-		return
+
+		err := cmd.Start()
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		//waiting for "redis-server command" to start
+		time.Sleep(time.Second)
 	}
-	//waiting for "redis-server command" to start
-	time.Sleep(time.Second)
 
 	retCode := m.Run()
 
-	err = cmd.Process.Kill()
-	if err != nil {
-		fmt.Print(err)
+	if redisRunning {
+		err = cmd.Process.Kill()
+		if err != nil {
+			fmt.Print(err)
+		}
 	}
 
 	os.Exit(retCode)
