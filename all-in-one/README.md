@@ -18,7 +18,7 @@ Steps to setup a local network
    Fix the mock-overlay flag for the satellite. This is needed until the overlay
    network is populated from kademlia correctly.
 
-5. `docker-compose up`
+5. `docker-compose up satellite uplink`
    Bring up the satellite and uplink
 
 6. Visit http://localhost:7777 or use the aws tool with `--endpoint localhost:7777`
