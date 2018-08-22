@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -128,10 +128,10 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 
-	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
+	// TODO(jt): pdbclient.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
-	pdb, err := pointerdb.NewClient(c.PointerDBAddr, []byte(c.APIKey))
+	pdb, err := pdbclient.NewClient(c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
 		return nil, err
 	}
