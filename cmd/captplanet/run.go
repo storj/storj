@@ -31,7 +31,7 @@ type HeavyClient struct {
 	MockOverlay bool `default:"true" help:"if false, use real overlay"`
 }
 
-type Farmer struct {
+type StorageNode struct {
 	Identity provider.IdentityConfig
 	Kademlia kademlia.Config
 	Storage  psserver.Config
@@ -46,7 +46,7 @@ var (
 
 	runCfg struct {
 		HeavyClient HeavyClient
-		Farmers     [farmerCount]Farmer
+		Farmers     [farmerCount]StorageNode
 		Gateway     miniogw.Config
 	}
 )
@@ -61,9 +61,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(runCfg.Farmers)+2)
-	var farmers []string
+	var storagenodes []string
 
-	// start the farmers
+	// start the storagenodes
 	for i := 0; i < len(runCfg.Farmers); i++ {
 		identity, err := runCfg.Farmers[i].Identity.Load()
 		if err != nil {
@@ -71,7 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		storagenode := fmt.Sprintf("%s:%s",
 			identity.ID.String(), runCfg.Farmers[i].Identity.Address)
-		farmers = append(farmers, storagenode)
+		storagenodes = append(storagenodes, storagenode)
 		go func(i int, storagenode string) {
 			_, _ = fmt.Printf("starting storagenode %d %s (kad on %s)\n", i, storagenode,
 				runCfg.Farmers[i].Kademlia.TODOListenAddr)
@@ -87,7 +87,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.HeavyClient.Identity.Address)
 		var o provider.Responsibility = runCfg.HeavyClient.Overlay
 		if runCfg.HeavyClient.MockOverlay {
-			o = overlay.MockConfig{Nodes: strings.Join(farmers, ",")}
+			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.HeavyClient.Identity.Run(ctx,
 			runCfg.HeavyClient.Kademlia,

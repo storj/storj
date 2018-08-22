@@ -4,19 +4,19 @@
 syntax = "proto3";
 package statdb;
 
-// StatDB defines the interface for retrieving and updating farmer stats
+// StatDB defines the interface for retrieving and updating storagenode stats
 service StatDB {
-  // Create a db entry for the provided farmer ID
+  // Create a db entry for the provided storagenode ID
   rpc Create(CreateRequest) returns (CreateResponse);
-  // Get uses a farmer ID to get that farmer's stats
+  // Get uses a storagenode ID to get that storagenode's stats
   rpc Get(GetRequest) returns (GetResponse);
-  // Update updates farmer stats for a single farmer
+  // Update updates storagenode stats for a single storagenode
   rpc Update(UpdateRequest) returns (UpdateResponse);
-  // UpdateBatch updates farmer stats for multiple farmers at a time
+  // UpdateBatch updates storagenode stats for multiple farmers at a time
   rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
 }
 
-// Node is info for a updating a single farmer, used in the Update rpc calls
+// Node is info for a updating a single storagenode, used in the Update rpc calls
 message Node {
   bytes node_id = 1;
   repeated int64 latency_list = 2;
@@ -27,10 +27,10 @@ message Node {
   bool update_uptime = 7;
 }
 
-// NodeStats is info about a single farmer stored in the stats db
+// NodeStats is info about a single storagenode stored in the stats db
 message NodeStats {
   bytes node_id = 1;
-  int64 latency_90 = 2; // 90th percentile measure of farmer latency
+  int64 latency_90 = 2; // 90th percentile measure of storagenode latency
   double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
   double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
 }

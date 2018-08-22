@@ -79,14 +79,14 @@ func main() {
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 	}
-	logger.Info("Farmer 1 after Create 1")
+	logger.Info("StorageNode 1 after Create 1")
 	printNodeStats(*createRes1.Stats, *logger)
 
 	createRes2, err := client.Create(ctx, &createReq2)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 	}
-	logger.Info("Farmer 2 after Create 2")
+	logger.Info("StorageNode 2 after Create 2")
 	printNodeStats(*createRes2.Stats, *logger)
 
 	// Example Updates
@@ -104,7 +104,7 @@ func main() {
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 	}
-	logger.Info("Farmer 1 after Update")
+	logger.Info("StorageNode 1 after Update")
 	printNodeStats(*updateRes.Stats, *logger)
 
 	// Example UpdateBatch
@@ -126,7 +126,7 @@ func main() {
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update batch", zap.Error(err))
 	}
-	logger.Info("Farmer stats after UpdateBatch")
+	logger.Info("StorageNode stats after UpdateBatch")
 	statsList := updateBatchRes.StatsList
 	for _, statsEl := range statsList {
 		printNodeStats(*statsEl, *logger)
@@ -147,13 +147,13 @@ func main() {
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 	}
-	logger.Info("Farmer 1 after Get 1")
+	logger.Info("StorageNode 1 after Get 1")
 	printNodeStats(*getRes1.Stats, *logger)
 
 	getRes2, err := client.Get(ctx, &getReq2)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 	}
-	logger.Info("Farmer 2 after Get 2")
+	logger.Info("StorageNode 2 after Get 2")
 	printNodeStats(*getRes2.Stats, *logger)
 }

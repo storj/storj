@@ -19,7 +19,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
-		Short: "Farmer",
+		Short: "StorageNode",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
