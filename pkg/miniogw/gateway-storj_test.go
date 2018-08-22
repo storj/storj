@@ -57,7 +57,8 @@ func TestGetObject(t *testing.T) {
 		{"mybucket", "myobject1", "abcdef", 0, 5, "abcde", nil, ""},
 		// error returned by the ranger in the code
 		{"mybucket", "myobject1", "abcdef", -1, 7, "abcde", nil, "ranger error: negative offset"},
-		{"mybucket", "myobject1", "abcdef", 0, -1, "abcde", nil, "ranger error: negative length"},
+		{"mybucket", "myobject1", "abcdef", 0, -1, "abcdef", nil, ""},
+		{"mybucket", "myobject1", "abcdef", 0, -2, "abcde", nil, "ranger error: negative length"},
 		{"mybucket", "myobject1", "abcdef", 1, 7, "bcde", nil, "ranger error: buffer runoff"},
 		// error returned by the objects.Get()
 		{"mybucket", "myobject1", "abcdef", 0, 6, "abcdef", errors.New("some err"), "some err"},
