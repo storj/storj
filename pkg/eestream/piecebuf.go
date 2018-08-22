@@ -130,6 +130,14 @@ func (b *PieceBuffer) setError(err error) {
 	b.err = err
 }
 
+// getError is a helper method that locks the mutex before getting the error.
+func (b *PieceBuffer) getError() error {
+	b.cv.L.Lock()
+	defer b.cv.L.Unlock()
+
+	return b.err
+}
+
 // notifyNewData notifies cvNewData that new data is written to the buffer.
 func (b *PieceBuffer) notifyNewData() {
 	b.cvNewData.L.Lock()
@@ -146,6 +154,9 @@ func (b *PieceBuffer) empty() bool {
 // buffered returns the number of bytes that can be read from the buffer
 // without blocking.
 func (b *PieceBuffer) buffered() int {
+	b.cv.L.Lock()
+	defer b.cv.L.Unlock()
+
 	switch {
 	case b.rpos < b.wpos:
 		return b.wpos - b.rpos
@@ -167,7 +178,7 @@ func (b *PieceBuffer) HasShare(num int64) bool {
 		zap.S().Fatalf("Checking for erasure share %d while the current erasure share is %d.", num, b.c)
 	}
 
-	if b.err != nil {
+	if b.getError() != nil {
 		return true
 	}
 
