@@ -6,10 +6,12 @@ RUN_PARAMS="${RUN_PARAMS:-}"
 if [[ -f "${CONF_PATH:-}" ]]; then
   RUN_PARAMS="${RUN_PARAMS} --config \"${CONF_PATH}\""
 else
-  ./farmer setup
+  if [[ ! -d $HOME/.storj/farmer ]]; then
+    ./farmer setup
+  fi
 fi
 
-if [ -n "$SATELLITE_ADDR" ]; then
+if [ -n "${SATELLITE_ADDR:-}" ]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr $SATELLITE_ADDR"
 fi
 

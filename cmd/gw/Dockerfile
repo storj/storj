@@ -6,18 +6,14 @@ RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 WORKDIR /go/src/storj.io/storj
 COPY . .
 RUN dep ensure -vendor-only
-RUN go build -o uplink -v cmd/gw/*.go
+RUN go build -o uplink cmd/gw/*.go
 
 # final stage
 FROM alpine
-ENV KAD_HOST=bootstrap.storj.io \
-    KAD_LISTEN_PORT=7776 \
-    KAD_PORT=8080 \
-    PSID= \
-    CONF_PATH= \
-    PS_DIR=/home/ \
-    PUBLIC_IP=127.0.0.1 \
-    RPC_PORT=7777
+ENV API_KEY= \
+    SATELLITE_ADDR=
+EXPOSE 7777
+
 
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/uplink /app/

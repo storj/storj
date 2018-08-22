@@ -1,6 +1,6 @@
 #!/bin/sh
 set -euo pipefail
 
-./gw setup --api-key "${API_KEY}" --satellite-addr "${SATELLITE_ADDR}"
+./uplink setup --api-key "${API_KEY}" --satellite-addr "${SATELLITE_ADDR}"
 
-exec ./gw run "$@"
+exec ./uplink run "$@"
