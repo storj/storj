@@ -99,6 +99,8 @@ test-docker-clean:
 	-docker-compose down --rmi all
 
 images: satellite-image storage-node-image uplink-image
+	echo Built version: ${TAG}
+
 satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
 storage-node-image:
