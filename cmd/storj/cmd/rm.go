@@ -18,7 +18,7 @@ var (
 	rmCfg Config
 	rmCmd = &cobra.Command{
 		Use:   "rm",
-		Short: "A brief description of your command",
+		Short: "Delete an object",
 		RunE:  delete,
 	}
 )
@@ -51,7 +51,7 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Deleted %s from %s", u.Path, u.Host)
+	fmt.Printf("Deleted %s from %s\n", u.Path, u.Host)
 
 	return nil
 }

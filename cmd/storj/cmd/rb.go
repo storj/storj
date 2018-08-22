@@ -36,7 +36,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return errs.New("No bucket specified for deletion")
 	}
 
-	so, err := getStorjObjects(ctx, rmCfg)
+	so, err := getStorjObjects(ctx, rbCfg)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Deleted %s", u.Host)
+	fmt.Printf("Deleted %s\n", u.Host)
 
 	return nil
 }
