@@ -113,6 +113,9 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 	defer utils.LogClose(rr)
+	if length == -1 {
+		length = rr.Size() - startOffset
+	}
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
