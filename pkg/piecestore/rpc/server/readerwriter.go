@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
+	"storj.io/storj/pkg/provider"
 )
 
 // StreamWriter -- Struct for writing piece to server upload stream
@@ -38,7 +39,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
-func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
+func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, pi *provider.PeerIdentity) *StreamReader {
 	sr := &StreamReader{}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
@@ -51,7 +52,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 		ba := recv.GetBandwidthallocation()
 
 		if ba != nil {
-			if err = s.verifySignature(nil, ba); err != nil {
+			if err = s.verifySignature(pi, ba); err != nil {
 				return nil, err
 			}
 		}
