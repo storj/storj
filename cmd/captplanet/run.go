@@ -69,16 +69,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		farmer := fmt.Sprintf("%s:%s",
+		storagenode := fmt.Sprintf("%s:%s",
 			identity.ID.String(), runCfg.Farmers[i].Identity.Address)
-		farmers = append(farmers, farmer)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
+		farmers = append(farmers, storagenode)
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storagenode %d %s (kad on %s)\n", i, storagenode,
 				runCfg.Farmers[i].Kademlia.TODOListenAddr)
 			errch <- runCfg.Farmers[i].Identity.Run(ctx,
 				runCfg.Farmers[i].Kademlia,
 				runCfg.Farmers[i].Storage)
-		}(i, farmer)
+		}(i, storagenode)
 	}
 
 	// start heavy client

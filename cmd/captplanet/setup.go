@@ -145,18 +145,18 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	for i := 0; i < len(runCfg.Farmers); i++ {
 		farmerPath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		farmer := fmt.Sprintf("farmers.%02d.", i)
-		overrides[farmer+"identity.cert-path"] = filepath.Join(
+		storagenode := fmt.Sprintf("farmers.%02d.", i)
+		overrides[storagenode+"identity.cert-path"] = filepath.Join(
 			farmerPath, "identity.cert")
-		overrides[farmer+"identity.key-path"] = filepath.Join(
+		overrides[storagenode+"identity.key-path"] = filepath.Join(
 			farmerPath, "identity.key")
-		overrides[farmer+"identity.address"] = joinHostPort(
+		overrides[storagenode+"identity.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
-		overrides[farmer+"kademlia.todo-listen-addr"] = joinHostPort(
+		overrides[storagenode+"kademlia.todo-listen-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+4)
-		overrides[farmer+"kademlia.bootstrap-addr"] = joinHostPort(
+		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
-		overrides[farmer+"storage.path"] = filepath.Join(farmerPath, "data")
+		overrides[storagenode+"storage.path"] = filepath.Join(farmerPath, "data")
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
