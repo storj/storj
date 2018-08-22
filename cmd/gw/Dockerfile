@@ -3,10 +3,10 @@ ARG GO_VERSION=1.10
 FROM golang:${GO_VERSION}-alpine AS build-env
 RUN apk add -U curl git musl-dev gcc
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-COPY . /go/src/storj.io/storj
-RUN cd /go/src/storj.io/storj && dep ensure -vendor-only
-RUN rm -rf vendor/github.com/minio/minio/vendor/github.com/minio/cli
-RUN cd /go/src/storj.io/storj/cmd/gw && go build -o uplink
+WORKDIR /go/src/storj.io/storj
+COPY . .
+RUN dep ensure -vendor-only
+RUN go build -o uplink -v cmd/gw/*.go
 
 # final stage
 FROM alpine
@@ -20,6 +20,6 @@ ENV KAD_HOST=bootstrap.storj.io \
     RPC_PORT=7777
 
 WORKDIR /app
-COPY --from=build-env /go/src/storj.io/storj/cmd/gw/uplink /app/
+COPY --from=build-env /go/src/storj.io/storj/uplink /app/
 COPY cmd/gw/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]
