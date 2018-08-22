@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
+	"storj.io/storj/pkg/provider"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
@@ -61,7 +62,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		totalToRead = fileSize - pd.GetOffset()
 	}
 
-	retrieved, allocated, err := s.retrieveData(ctx, stream, pd.GetId(), pd.GetOffset(), totalToRead)
+	retrieved, allocated, err := s.retrieveData(ctx, stream, pd.GetOffset(), totalToRead)
 	if err != nil {
 		return err
 	}
@@ -70,10 +71,15 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 	return nil
 }
 
-func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_RetrieveServer, id string, offset, length int64) (retrieved, allocated int64, err error) {
+func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_RetrieveServer, offset, length int64) (retrieved, allocated int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	storeFile, err := pstore.RetrieveReader(ctx, id, offset, length, s.DataDir)
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	storeFile, err := pstore.RetrieveReader(ctx, pi.ID.String(), offset, length, s.DataDir)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -108,7 +114,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			return am.Used, am.TotalAllocated, err
 		}
 
-		if err = s.verifySignature(nil, ba); err != nil {
+		if err = s.verifySignature(pi, ba); err != nil {
 			return am.Used, am.TotalAllocated, err
 		}
 
