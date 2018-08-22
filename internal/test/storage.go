@@ -94,29 +94,47 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 }
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (m *MockKeyValueStore) List(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	//(m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+
 	m.ListCalled++
 	keys := storage.Keys{}
 	keySlice := mapIntoSlice(m.Data)
 	started := false
 
-	if startingKey == nil {
+	listItems := storage.Items{}
+
+	if opts.Start == nil {
 		started = true
 	}
 	for _, key := range keySlice {
-		if !started && key == string(startingKey) {
+		if !started && key == string(opts.Start) {
 			keys = append(keys, storage.Key(key))
 			started = true
 			continue
 		}
 		if started {
-			if len(keys) == int(limit) {
+			if len(keys) == int(opts.Limit) {
 				break
 			}
-			keys = append(keys, storage.Key(key))
+
+			value, err := m.Get(storage.Key(key))
+			if err != nil {
+				return nil, false, err
+			}
+
+			listItem := storage.ListItem{
+				Key:   storage.Key(key),
+				Value: value,
+				// right now, we'll set this to false. PR2 will fix this
+				IsPrefix: false,
+			}
+
+			listItems = append(listItems, listItem)
 		}
 	}
-	return keys, nil
+
+	return listItems, false, nil
 }
 
 // GetAll is a noop to adhere to the interface

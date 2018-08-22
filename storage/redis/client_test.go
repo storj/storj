@@ -101,8 +101,7 @@ func TestListWithStartKey(t *testing.T) {
 		rt.HandleErr(err, "Failed to list")
 	}
 
-	// for now assert nil since returning nil
-	assert.Nil(t, listItems)
+	assert.NotNil(t, listItems)
 	//assert.NotNil(t, listItems)
 	assert.NotNil(t, isMore)
 }
