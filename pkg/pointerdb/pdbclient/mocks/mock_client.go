@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	paths "storj.io/storj/pkg/paths"
-	pointerdb "storj.io/storj/pkg/pointerdb"
+	pointerdb "storj.io/storj/pkg/pointerdb/pdbclient"
 	pointerdb0 "storj.io/storj/protos/pointerdb"
 )
 
