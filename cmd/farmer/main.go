@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/cmd/internal/conf"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
@@ -43,7 +44,7 @@ var (
 		Identity provider.IdentitySetupConfig
 	}
 
-	defaultConfDir = "$HOME/.storj/farmer"
+	defaultConfDir = conf.DefaultDir("farmer")
 )
 
 func init() {

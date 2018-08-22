@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/cmd/internal/conf"
 	"storj.io/storj/pkg/process"
 )
 
@@ -19,7 +20,7 @@ var (
 		Short: "Captain Planet! With our powers combined!",
 	}
 
-	defaultConfDir = "$HOME/.storj/capt"
+	defaultConfDir = conf.DefaultDir("capt")
 )
 
 func main() {

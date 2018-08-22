@@ -109,6 +109,19 @@ else
 fi
 ```
 
+#### Windows
+
+Windows requires go1.11 or newer.
+
+```bash
+git clone git@github.com:storj/storj storj
+cd storj
+go install ./cmd/...
+
+captplanet setup
+captplanet run
+```
+
 ### Install storj
 
 Clone the storj repository. You may want to clone your own fork and branch.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/cmd/internal/conf"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
@@ -41,7 +42,7 @@ var (
 		Overwrite   bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
-	defaultConfDir = "$HOME/.storj/gw"
+	defaultConfDir = conf.DefaultDir("hc")
 )
 
 func init() {

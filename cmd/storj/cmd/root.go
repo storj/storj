@@ -6,13 +6,15 @@ package cmd
 import (
 	"context"
 
+	"storj.io/storj/cmd/internal/conf"
+	"storj.io/storj/pkg/miniogw"
+
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/miniogw"
 )
 
-const defaultConfDir = "$HOME/.storj/cli"
+var defaultConfDir = conf.DefaultDir("cli")
 
 type Config struct {
 	miniogw.Config

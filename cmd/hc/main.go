@@ -8,13 +8,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
+	"storj.io/storj/cmd/internal/conf"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -47,7 +49,7 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
-	defaultConfDir = "$HOME/.storj/hc"
+	defaultConfDir = conf.DefaultDir("hc")
 )
 
 func init() {
