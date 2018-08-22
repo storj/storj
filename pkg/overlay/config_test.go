@@ -59,7 +59,7 @@ func TestRun(t *testing.T) {
 				err := config.Run(ctx, nil)
 
 				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "open /overlay.db: permission denied")
+				assert.Equal(t, err.Error(), "open somedir/overlay.db: no such file or directory")
 			},
 		},
 	}
