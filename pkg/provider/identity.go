@@ -93,7 +93,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 	// are, this uses the first one
 	k, err := x509.ParseECPrivateKey(kb[0])
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key", err)
+		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
 	ch, err := ParseCertChain(cb)
 	if err != nil {

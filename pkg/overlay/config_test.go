@@ -48,7 +48,7 @@ func TestRun(t *testing.T) {
 				err := config.Run(ctx, nil)
 
 				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "redis error: ping failed%!(EXTRA *net.OpError=dial tcp: address somedir: missing port in address)")
+				assert.Equal(t, err.Error(), "redis error: ping failed: dial tcp: address somedir: missing port in address")
 			},
 		},
 		{
