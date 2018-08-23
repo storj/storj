@@ -23,6 +23,7 @@ import (
 
 var (
 	pointerdbClientPort string
+	ctx = context.Background()
 )
 
 func initializeFlags() {
@@ -36,7 +37,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	ca, err := provider.NewCA(context.Background(), 12, 4)
+	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		logger.Error("Failed to create certificate authority: ", zap.Error(err))
 		os.Exit(1)

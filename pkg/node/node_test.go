@@ -17,9 +17,9 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-func TestLookup(t *testing.T) {
-	ctx := context.Background()
+var ctx = context.Background()
 
+func TestLookup(t *testing.T) {
 	cases := []struct {
 		self             proto.Node
 		to               proto.Node
