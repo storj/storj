@@ -95,9 +95,14 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	bucketInfo minio.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	meta, err := s.storj.bs.Get(ctx, bucket)
+
 	if err != nil {
-		return minio.BucketInfo{}, err
+		if storage.ErrKeyNotFound.Has(err) {
+			return bucketInfo, minio.BucketNotFound{Bucket: bucket}
+		}
+		return bucketInfo, err
 	}
+
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
