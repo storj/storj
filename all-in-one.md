@@ -1,7 +1,7 @@
 Steps to setup a local network
 ==============================
 
-1. From the repo root: `make images`
+1. `make images`
    If you don't want to build the images locally, you can skip this step.
    Otherwise, you'll need the version number presented here if you don't use
    latest in the next step:
@@ -18,7 +18,7 @@ Steps to setup a local network
 3. `docker-compose up -d storage-node`
    Create the first storage node.
 
-4. `./fix-mock-overlay`
+4. `scripts/fix-mock-overlay`
    Fix the mock-overlay flag for the satellite. This is needed until the overlay
    network is populated from kademlia correctly.
 
