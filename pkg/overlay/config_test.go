@@ -5,9 +5,11 @@ package overlay
 import (
 	"context"
 	"net/url"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/kademlia"
 )
 
@@ -19,11 +21,11 @@ func TestRun(t *testing.T) {
 
 	cases := []struct {
 		testName string
-		testFunc func()
+		testFunc func(t *testing.T)
 	}{
 		{
 			testName: "Run with nil",
-			testFunc: func() {
+			testFunc: func(t *testing.T) {
 				err := config.Run(bctx, nil)
 
 				assert.Error(t, err)
@@ -32,7 +34,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			testName: "Run with nil, pass pointer to Kademlia in context",
-			testFunc: func() {
+			testFunc: func(t *testing.T) {
 				ctx := context.WithValue(bctx, key, kad)
 				err := config.Run(ctx, nil)
 
@@ -42,7 +44,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			testName: "db scheme redis conn fail",
-			testFunc: func() {
+			testFunc: func(t *testing.T) {
 				ctx := context.WithValue(bctx, key, kad)
 				var config = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}
 				err := config.Run(ctx, nil)
@@ -53,21 +55,21 @@ func TestRun(t *testing.T) {
 		},
 		{
 			testName: "db scheme bolt conn fail",
-			testFunc: func() {
+			testFunc: func(t *testing.T) {
 				ctx := context.WithValue(bctx, key, kad)
 				var config = Config{DatabaseURL: "bolt://somedir/overlay.db"}
 				err := config.Run(ctx, nil)
 
 				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "open /overlay.db: permission denied")
+				if !os.IsNotExist(errs.Unwrap(err)) {
+					t.Fatal(err.Error())
+				}
 			},
 		},
 	}
 
 	for _, c := range cases {
-		t.Run(c.testName, func(t *testing.T) {
-			c.testFunc()
-		})
+		t.Run(c.testName, c.testFunc)
 	}
 }
 

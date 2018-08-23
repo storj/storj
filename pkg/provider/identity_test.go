@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,13 +108,16 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	err = ic.Save(fi)
 	assert.NoError(t, err)
 
-	certInfo, err := os.Stat(ic.CertPath)
-	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), certInfo.Mode())
+	if runtime.GOOS != "windows" {
+		//TODO (windows): ignoring for windows due to different default permissions
+		certInfo, err := os.Stat(ic.CertPath)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0644), certInfo.Mode())
 
-	keyInfo, err := os.Stat(ic.KeyPath)
-	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+		keyInfo, err := os.Stat(ic.KeyPath)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+	}
 
 	savedChainPEM, err := ioutil.ReadFile(ic.CertPath)
 	assert.NoError(t, err)
