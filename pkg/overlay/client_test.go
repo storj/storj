@@ -38,7 +38,7 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		ca, err := provider.NewCA(context.Background(), 12, 4)
+		ca, err := provider.NewCA(ctx, 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -69,12 +69,12 @@ func TestChoose(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock, err := NewTestServer()
+		srv, mock, err := NewTestServer(ctx)
 		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(context.Background(), 12, 4)
+		ca, err := provider.NewCA(ctx, 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -85,7 +85,7 @@ func TestChoose(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(context.Background(), v.limit, v.space)
+		_, err = oc.Choose(ctx, v.limit, v.space)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
 	}
@@ -106,12 +106,12 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock, err := NewTestServer()
+		srv, mock, err := NewTestServer(ctx)
 		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(context.Background(), 12, 4)
+		ca, err := provider.NewCA(ctx, 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -122,15 +122,15 @@ func TestLookup(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Lookup(context.Background(), v.nodeID)
+		_, err = oc.Lookup(ctx, v.nodeID)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.lookupCalled, v.expectedCalls)
 	}
 
 }
 
-func NewTestServer() (*grpc.Server, *mockOverlayServer, error) {
-	ca, err := provider.NewCA(context.Background(), 12, 4)
+func NewTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
+	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		return nil, nil, err
 	}
