@@ -4,6 +4,7 @@
 package pointerdb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -21,6 +22,10 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
+)
+
+var (
+	ctx = context.Background()
 )
 
 func TestServicePut(t *testing.T) {

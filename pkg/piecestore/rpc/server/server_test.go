@@ -13,6 +13,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,6 +101,10 @@ func TestPiece(t *testing.T) {
 
 			if tt.err != "" {
 				assert.NotNil(err)
+				if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
+					//TODO (windows): ignoring for windows due to different underlying error
+					return
+				}
 				assert.Equal(tt.err, err.Error())
 				return
 			}
@@ -241,6 +247,10 @@ func TestRetrieve(t *testing.T) {
 				resp, err = stream.Recv()
 				if tt.err != "" {
 					assert.NotNil(err)
+					if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
+						//TODO (windows): ignoring for windows due to different underlying error
+						return
+					}
 					assert.Equal(tt.err, err.Error())
 					return
 				}
@@ -441,16 +451,15 @@ func TestDelete(t *testing.T) {
 func newTestServerStruct() *Server {
 	tmp, err := ioutil.TempDir("", "example")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed temp-dir: %v", err)
 	}
 
-	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().String()))
-
+	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().Format("2006-01-02T15-04-05.999999999Z07-00")))
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 
 	psDB, err := psdb.OpenPSDB(ctx, tempDir, tempDBPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed open psdb: %v", err)
 	}
 
 	return &Server{DataDir: tempDir, DB: psDB}
@@ -504,10 +513,5 @@ func (TS *TestServer) Stop() {
 
 func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
 	data, _ := proto.Marshal(ba)
-
 	return data
-}
-
-func TestMain(m *testing.M) {
-	m.Run()
 }

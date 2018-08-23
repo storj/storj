@@ -4,10 +4,8 @@
 package kademlia
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
-
 	"sync"
 	"time"
 
@@ -40,8 +38,7 @@ type RoutingTable struct {
 type RoutingOptions struct {
 	kpath        string
 	npath        string
-	rpath        string
-	idLength     int
+	idLength     int //TODO (JJ): add checks for > 0
 	bucketSize   int
 	rcBucketSize int
 }
@@ -86,10 +83,9 @@ func (rt *RoutingTable) K() int {
 	return rt.bucketSize
 }
 
-// CacheSize returns the total current size of the cache
+// CacheSize returns the total current size of the replacement cache
 func (rt *RoutingTable) CacheSize() int {
-	// TODO: How is this calculated ? size of the routing table ? is it total bytes, mb, kb etc .?
-	return 0
+	return rt.rcBucketSize
 }
 
 // GetBucket retrieves the corresponding kbucket from node id
@@ -130,22 +126,32 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
-// FindNear finds all Nodes near the provided nodeID up to the provided limit
+// FindNear returns the node corresponding to the provided nodeID if present in the routing table
+// otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
+	//if id is in the routing table
+	n, err := rt.nodeBucketDB.Get(id.Bytes())
+	if n != nil {
+		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
+		if err != nil {
+			return []*proto.Node{}, RoutingErr.New("could not unmarshal node %s", err)
+		}
+		return ns, nil
+	}
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
+	}
+	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	var nearIDs storage.Keys
-	if len(sortedIDs) < limit+1 {
-		nearIDs = sortedIDs[0:]
-	} else {
-		nearIDs = sortedIDs[0 : limit+1]
+	if len(sortedIDs) >= limit {
+		sortedIDs = sortedIDs[:limit]
 	}
-
-	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}
@@ -158,18 +164,40 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	return unmarshaledNodes, nil
 }
 
-// ConnectionSuccess handles the details of what kademlia should do when
-// a successful connection is made to node on the network
-func (rt *RoutingTable) ConnectionSuccess(id string, address proto.NodeAddress) {
-	// TODO: What should we do ?
-	return
+// ConnectionSuccess updates or adds a node to the routing table when
+// a successful connection is made to the node on the network
+func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
+	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		return RoutingErr.New("could not get node %s", err)
+	}
+	if v != nil {
+		err = rt.updateNode(node)
+		if err != nil {
+			return RoutingErr.New("could not update node %s", err)
+		}
+		return nil
+	}
+	_, err = rt.addNode(node)
+	if err != nil {
+		return RoutingErr.New("could not add node %s", err)
+	}
+	return nil
 }
 
-// ConnectionFailed handles the details of what kademlia should do when
-// a connection fails for a node on the network
-func (rt *RoutingTable) ConnectionFailed(id string, address proto.NodeAddress) {
-	// TODO: What should we do ?
-	return
+// ConnectionFailed removes a node from the routing table when
+// a connection fails for the node on the network
+func (rt *RoutingTable) ConnectionFailed(node *proto.Node) error {
+	nodeID := storage.Key(node.Id)
+	bucketID, err := rt.getKBucketID(nodeID)
+	if err != nil {
+		return RoutingErr.New("could not get k bucket %s", err)
+	}
+	err = rt.removeNode(bucketID, nodeID)
+	if err != nil {
+		return RoutingErr.New("could not remove node %s", err)
+	}
+	return nil
 }
 
 // SetBucketTimestamp updates the last updated time for a bucket
@@ -193,10 +221,4 @@ func (rt *RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.T
 	timestamp, _ := binary.Varint(t)
 
 	return time.Unix(0, timestamp).UTC(), nil
-}
-
-// GetNodeRoutingTable gets a routing table for a given node rather than the local node's routing table
-func GetNodeRoutingTable(ctx context.Context, ID NodeID) (RoutingTable, error) {
-	//TODO: What should we do ?
-	return RoutingTable{}, nil
 }

@@ -43,6 +43,9 @@ func (rt *RedisClientTest) HandleErr(err error, msg string) {
 }
 
 func TestListWithoutStartKey(t *testing.T) {
+	done := test.EnsureRedis(t)
+	defer done()
+
 	rt := NewRedisClientTest(t)
 	defer rt.Close()
 
@@ -63,6 +66,9 @@ func TestListWithoutStartKey(t *testing.T) {
 }
 
 func TestListWithStartKey(t *testing.T) {
+	done := test.EnsureRedis(t)
+	defer done()
+
 	rt := NewRedisClientTest(t)
 	defer rt.Close()
 
@@ -132,6 +138,9 @@ func TestCloseRedis(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
+	done := test.EnsureRedis(t)
+	defer done()
+
 	cases := []struct {
 		testName, address string
 		testFunc          func(storage.KeyValueStore, error)
@@ -263,6 +272,9 @@ func TestCrudValidConnection(t *testing.T) {
 }
 
 func TestCrudInvalidConnection(t *testing.T) {
+	done := test.EnsureRedis(t)
+	defer done()
+
 	cases := []struct {
 		testName string
 		testFunc TestFunc

@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -37,7 +36,6 @@ func createRT(localNodeID []byte) *RoutingTable {
 	options := &RoutingOptions{
 		kpath:      tempfile("Kadbucket"),
 		npath:      tempfile("Nodebucket"),
-		rpath:      tempfile("ReplacementCache"),
 		idLength:   16,
 		bucketSize: 6,
 		rcBucketSize: 2,
@@ -286,6 +284,10 @@ func TestRemoveNode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, val2)
 	assert.Equal(t, 0, len(rt.replacementCache[string(kadBucketID)]))
+
+	//try to remove node not in rt
+	err = rt.removeNode(kadBucketID, storage.Key("DD"))
+	assert.NoError(t, err)
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {
@@ -325,7 +327,6 @@ func TestSortByXOR(t *testing.T) {
 	node5 := []byte{133, 255} //xor 250
 	rt.nodeBucketDB.Put(node5, []byte(""))
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
-	fmt.Print(nodes)
 	assert.NoError(t, err)
 	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
 	assert.Equal(t, expectedNodes, nodes)
@@ -544,8 +545,6 @@ func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
 	rt.addNode(nodeC)
 	nodes, err := rt.getUnmarshaledNodesFromBucket(bucketID)
 	expected := []*proto.Node{nodeA, nodeB, nodeC}
-	fmt.Print(expected)
-	fmt.Print(nodes)
 	assert.NoError(t, err)
 	for i, v := range expected {
 		assert.True(t, pb.Equal(v, nodes[i]))
