@@ -122,11 +122,14 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	err := client.view(func(bucket *bolt.Bucket) error {
 		for _, key := range keys {
 			val := bucket.Get([]byte(key))
+			if val == nil {
+				vals = append(vals, nil)
+				continue
+			}
 			vals = append(vals, storage.CloneValue(storage.Value(val)))
 		}
 		return nil
 	})
-
 	return vals, err
 }
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 go install -v storj.io/storj/cmd/captplanet
+ls $GOPATH/bin
 
 captplanet setup
 captplanet run &

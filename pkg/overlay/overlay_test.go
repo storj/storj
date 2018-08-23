@@ -62,3 +62,28 @@ func TestOverlayLookup(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 }
+
+func TestOverlayBulkLookup(t *testing.T) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	assert.NoError(t, err)
+
+	id, err := kademlia.NewID()
+	assert.NoError(t, err)
+	id2, err := kademlia.NewID()
+	assert.NoError(t, err)
+
+	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
+	go srv.Serve(lis)
+	defer srv.Stop()
+
+	address := lis.Addr().String()
+	c, err := NewClient(address, grpc.WithInsecure())
+	assert.NoError(t, err)
+	
+	req1 := &proto.LookupRequest{NodeID: id.String()}
+	req2 := &proto.LookupRequest{NodeID: id2.String()}
+	rs := &proto.LookupRequests{Lookuprequest: []*proto.LookupRequest{req1, req2}}
+	r, err := c.BulkLookup(context.Background(), rs)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+}
