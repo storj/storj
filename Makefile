@@ -147,3 +147,10 @@ endif
 install-deps:
 	go get -u -v golang.org/x/vgo
 	cd vgo install ./...
+
+.PHONY: deploy
+deploy:
+	./scripts/deploy.staging.sh satellite storjlabs/storj-satellite:${TAG}
+	for i in $(shell seq 1 60); do \
+		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
+	done

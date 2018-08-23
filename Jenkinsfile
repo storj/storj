@@ -23,16 +23,15 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Deploy') {
+    if (env.BRANCH_NAME == "master") {
       /* This should only deploy to staging if the branch is master */
-      if (env.BRANCH_NAME == "master") {
-        sh "./scripts/deploy.staging.sh satellite storjlabs/storj-satellite:${commit_id}"
+      stage('Deploy') {
+        sh 'make deploy'
         for (int i = 1; i < 60; i++) {
           sh "./scripts/deploy.staging.sh storage-node-${i} storjlabs/storj-storage-node:${commit_id}"
         }
+        echo "Current build result: ${currentBuild.result}"
       }
-
-      echo "Current build result: ${currentBuild.result}"
     }
 
   }
