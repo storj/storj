@@ -5,10 +5,11 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"io/ioutil"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
