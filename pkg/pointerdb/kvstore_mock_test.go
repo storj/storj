@@ -87,16 +87,17 @@ func (mr *MockKeyValueStoreMockRecorder) GetAll(arg0 interface{}) *gomock.Call {
 }
 
 // List mocks base method
-func (m *MockKeyValueStore) List(arg0 storage.Key, arg1 storage.Limit) (storage.Keys, error) {
-	ret := m.ctrl.Call(m, "List", arg0, arg1)
-	ret0, _ := ret[0].(storage.Keys)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (m *MockKeyValueStore) List(arg0 storage.ListOptions) (storage.Items, storage.More, error) {
+	ret := m.ctrl.Call(m, "List", arg0)
+	ret0, _ := ret[0].(storage.Items)
+	ret1, _ := ret[1].(storage.More)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // List indicates an expected call of List
-func (mr *MockKeyValueStoreMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockKeyValueStore)(nil).List), arg0, arg1)
+func (mr *MockKeyValueStoreMockRecorder) List(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockKeyValueStore)(nil).List), arg0)
 }
 
 // Put mocks base method
