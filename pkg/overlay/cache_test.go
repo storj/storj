@@ -33,6 +33,7 @@ var (
 
 type dbClient int
 type responses map[dbClient]*overlay.Node
+type responsesB map[dbClient][]*overlay.Node
 type errors map[dbClient]*errs.Class
 
 const (
@@ -186,7 +187,141 @@ var (
 			}()},
 		},
 	}
-
+	getAllCases = []struct {
+		testID              string
+		expectedTimesCalled int
+		keys                []string
+		expectedResponses   responsesB
+		expectedErrors      errors
+		data                test.KvStore
+	}{
+		{testID: "valid GetAll",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*overlay.Node{n1}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: test.KvStore{
+				"key1": func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			},
+		},
+		{testID: "valid GetAll",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1", "key2"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				n2 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+				ns := []*overlay.Node{n1, n2}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: test.KvStore{
+				"key1": func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+				"key2": func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			},
+		},
+		{testID: "mix of valid and nil nodes returned",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1", "key3"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*overlay.Node{n1, nil}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: test.KvStore{
+				"key1": func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			},
+		},
+		{testID: "empty string keys",
+			expectedTimesCalled: 1,
+			keys:                []string{"", ""},
+			expectedResponses: func() responsesB {
+				ns := []*overlay.Node{nil, nil}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+		},
+		{testID: "empty keys",
+			expectedTimesCalled: 0,
+			keys:                []string{},
+			expectedResponses: func() responsesB {
+				return responsesB{
+					mock:   nil,
+					bolt:   nil,
+					_redis: nil,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   &OverlayError,
+				bolt:   &OverlayError,
+				_redis: &OverlayError,
+			},
+		},
+	}
 	putCases = []struct {
 		testID              string
 		expectedTimesCalled int
@@ -282,6 +417,24 @@ func TestRedisGet(t *testing.T) {
 	}
 }
 
+func TestRedisGetAll(t *testing.T) {
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db := redisTestClient(t, redisAddr, c.data)
+			oc := Cache{DB: db}
+
+			resp, err := oc.GetAll(ctx, c.keys)
+			assertErrClass(t, c.expectedErrors[_redis], err)
+			assert.Equal(t, c.expectedResponses[_redis], resp)
+		})
+	}
+}
+
 func assertErrClass(t *testing.T, class *errs.Class, err error) {
 	if class != nil {
 		assert.True(t, class.Has(err))
@@ -330,6 +483,18 @@ func TestBoltGet(t *testing.T) {
 	}
 }
 
+func TestBoltGetAll(t *testing.T) {
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db, cleanup := boltTestClient(t, c.data)
+			defer cleanup()
+			oc := Cache{DB: db}
+			resp, err := oc.GetAll(ctx, c.keys)
+			assertErrClass(t, c.expectedErrors[bolt], err)
+			assert.Equal(t, c.expectedResponses[bolt], resp)
+		})
+	}
+}
 func TestBoltPut(t *testing.T) {
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
@@ -364,6 +529,23 @@ func TestMockGet(t *testing.T) {
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedResponses[mock], resp)
 			assert.Equal(t, c.expectedTimesCalled, db.GetCalled)
+		})
+	}
+}
+
+func TestMockGetAll(t *testing.T) {
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+
+			db := test.NewMockKeyValueStore(c.data)
+			oc := Cache{DB: db}
+
+			assert.Equal(t, 0, db.GetAllCalled)
+
+			resp, err := oc.GetAll(ctx, c.keys)
+			assertErrClass(t, c.expectedErrors[mock], err)
+			assert.Equal(t, c.expectedResponses[mock], resp)
+			assert.Equal(t, c.expectedTimesCalled, db.GetAllCalled)
 		})
 	}
 }
