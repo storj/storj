@@ -16,9 +16,9 @@ import (
 
 	p "storj.io/storj/pkg/paths"
 	client "storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	proto "storj.io/storj/protos/pointerdb"
-	"storj.io/storj/pkg/provider"
 )
 
 var (

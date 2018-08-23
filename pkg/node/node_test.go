@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/test"
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/provider"
+	proto "storj.io/storj/protos/overlay"
 )
 
 func TestLookup(t *testing.T) {

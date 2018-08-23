@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/provider"
+	proto "storj.io/storj/protos/overlay"
 )
 
 type mockNodeID struct {

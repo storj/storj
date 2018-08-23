@@ -8,9 +8,9 @@ import (
 
 	"storj.io/storj/pkg/pool"
 
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
-	"storj.io/storj/pkg/provider"
 )
 
 // NewNodeClient instantiates a node client

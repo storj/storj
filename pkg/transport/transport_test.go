@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/pkg/provider"
+	proto "storj.io/storj/protos/overlay"
 )
 
 func TestDialNode(t *testing.T) {
