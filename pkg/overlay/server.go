@@ -16,6 +16,7 @@ import (
 
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/utils"
 )
 
 // Server implements our overlay RPC service
@@ -38,6 +39,16 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 	return &proto.LookupResponse{
 		Node: na,
 	}, nil
+}
+
+//BulkLookup finds the addresses of nodes in our overlay network
+func (o *Server) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
+	ns, err := o.cache.GetAll(ctx, utils.LookupRequestsToNodeIDs(reqs))
+	if err != nil {
+		o.logger.Error("")
+		return nil, err
+	}
+	return utils.NodesToLookupResponses(ns), nil
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements

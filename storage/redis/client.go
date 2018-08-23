@@ -123,6 +123,13 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 		}
 		values = append(values, storage.Value(s))
 	}
+	// for _, v := range vs {
+	// 	if v == nil {
+	// 		values = append(values, nil)
+	// 	} else {
+	// 		values = append(values, storage.Value([]byte(v.(string))))
+	// 	}
+	// }
 	return values, nil
 }
 

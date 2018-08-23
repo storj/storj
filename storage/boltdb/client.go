@@ -129,7 +129,13 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 		}
 		return nil
 	})
-
+	// vals := make(storage.Values, lk)
+	// for i, v := range keys {
+	// 	val, err := c.Get(v)
+	// 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+	// 		return nil, err
+	// 	}
+	// 	vals[i] = val
 	return vals, err
 }
 

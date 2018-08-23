@@ -63,7 +63,7 @@ func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 	}, nil
 }
 
-// Get looks up the provided nodeID from the redis cache
+// Get looks up the provided nodeID from the overlay cache
 func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 	b, err := o.DB.Get([]byte(key))
 	if err != nil {
@@ -80,6 +80,31 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 	}
 
 	return na, nil
+}
+
+// GetAll looks up the provided nodeIDs from the overlay cache
+func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, error) {
+	var ks storage.Keys
+	for _, v := range keys {
+		ks = append(ks, storage.Key(v))
+	}
+	vs, err := o.DB.GetAll(ks)
+	if err != nil {
+		return nil, err
+	}
+	var ns []*overlay.Node
+	for _, v := range vs {
+		na := &overlay.Node{}
+		if v == nil {
+			ns = append(ns, nil)
+		} else if err := proto.Unmarshal(v, na); err == nil {
+			ns = append(ns, na)
+		} else {
+			//or we could append a nil value rather than returning an error. @team What do you think?
+			return nil, OverlayError.New("could not unmarshal non nil node: %s", err)
+		}
+	}
+	return ns, nil
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node

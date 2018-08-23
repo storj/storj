@@ -48,6 +48,14 @@ func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
+//BulkLookup finds multiple storage nodes based on the requests
+func (mo *MockOverlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (
+	*proto.LookupResponses, error) {
+		node := *mo.nodes[reqs.Lookuprequest[0].NodeID]
+		resp := &proto.LookupResponse{Node: &node}
+	return &proto.LookupResponses{Lookupresponse: []*proto.LookupResponse{resp}}, nil
+}
+
 // MockConfig specifies static nodes for mock overlay
 type MockConfig struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`

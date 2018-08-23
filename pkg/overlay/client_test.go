@@ -128,6 +128,41 @@ func TestLookup(t *testing.T) {
 	}
 
 }
+func TestBulkLookup(t *testing.T) {
+	cases := []struct {
+		nodeIDs        []dht.NodeID
+		expectedCalls int
+	}{
+		{
+			nodeIDs:        []dht.NodeID{mockNodeID{}, mockNodeID{}, mockNodeID{}},
+			expectedCalls: 1,
+		},
+	}
+	for _, v := range cases {
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+		assert.NoError(t, err)
+
+		srv, mock, err := newTestServer(ctx)
+		assert.NoError(t, err)
+		go srv.Serve(lis)
+		defer srv.Stop()
+
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, lis.Addr().String())
+		assert.NoError(t, err)
+
+		assert.NotNil(t, oc)
+		assert.NotEmpty(t, oc.client)
+
+		_, err = oc.BulkLookup(ctx, v.nodeIDs)
+		assert.NoError(t, err)
+		assert.Equal(t, mock.bulkLookupCalled, v.expectedCalls)
+	}
+}
 
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
@@ -154,6 +189,7 @@ func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error
 
 type mockOverlayServer struct {
 	lookupCalled           int
+	bulkLookupCalled       int
 	FindStorageNodesCalled int
 }
 
@@ -165,4 +201,9 @@ func (o *mockOverlayServer) Lookup(ctx context.Context, req *proto.LookupRequest
 func (o *mockOverlayServer) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
 	o.FindStorageNodesCalled++
 	return &proto.FindStorageNodesResponse{}, nil
+}
+
+func (o *mockOverlayServer) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
+	o.bulkLookupCalled++
+	return &proto.LookupResponses{}, nil
 }

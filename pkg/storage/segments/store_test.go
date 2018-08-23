@@ -282,6 +282,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 				Size:           tt.size,
 				Metadata:       tt.metadata,
 			}, nil),
+			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Get(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
@@ -397,6 +398,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				Size:           tt.size,
 				Metadata:       tt.metadata,
 			}, nil),
+			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockEC.EXPECT().Delete(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			),
