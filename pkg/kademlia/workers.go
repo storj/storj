@@ -73,16 +73,23 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
 		if ctx.Err() != nil {
 			return nil
 		}
-		nodes := w.lookup(ctx, w.getWork())
+		n := w.getWork()
+		if n == nil {
+			continue
+		}
+
+		nodes := w.lookup(ctx, n)
+		w.workInProgress--
 		if nodes == nil {
 			continue
 		}
 
-		if err := w.update(nodes); err != nil {
-			//TODO(coyle): determine best way to handle this error
-		}
+		ch <- nodes
 
-		return nil
+		if err := w.update(nodes); err != nil {
+			return err
+		}
+		continue
 	}
 
 }
@@ -94,20 +101,26 @@ func (w *worker) getWork() *proto.Node {
 		time.AfterFunc(2*w.maxResponse, w.cancel)
 		return nil
 	}
-
 	defer w.mu.Unlock()
+	if w.pq.Len() <= 0 {
+		return nil
+	}
+
 	w.workInProgress++
 	return w.pq.Pop().(*Item).value
 }
 
 func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 	start := time.Now()
+	if node.GetAddress() == nil {
+		return nil
+	}
+
 	nodes, err := w.nodeClient.Lookup(ctx, *node, proto.Node{Id: w.find.String()})
 	if err != nil {
 		// TODO(coyle): I think we might want to do another look up on this node or update something
 		// but for now let's just log and ignore.
 		log.Printf("Error occured during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
-		return nil
 	}
 
 	latency := time.Now().Sub(start)
@@ -122,26 +135,17 @@ func (w *worker) update(nodes []*proto.Node) error {
 	if len(nodes) == 0 {
 		return WorkerError.New("nodes must not be empty")
 	}
-	t, ok := new(big.Int).SetString(w.find.String(), 2)
-	if !ok {
-		return WorkerError.New("Unable to parse target ID")
-	}
-
+	t := new(big.Int).SetBytes(w.find.Bytes())
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, v := range nodes {
-		bn, ok := new(big.Int).SetString(w.find.String(), 2)
-		if !ok {
-			return WorkerError.New("Unable to parse node ID")
-		}
-
 		w.pq.Push(&Item{
 			value:    v,
-			priority: new(big.Int).Xor(t, bn),
+			priority: new(big.Int).Xor(t, new(big.Int).SetBytes(w.find.Bytes())),
 		})
 	}
 	// only keep the k closest nodes
-	w.pq = w.pq[:w.k]
+	// w.pq = w.pq[:w]
 	// reinitialize heap
 	heap.Init(&w.pq)
 

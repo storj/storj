@@ -8,13 +8,19 @@ import (
 	"errors"
 	"math/rand"
 	"os"
-	"sync"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
+)
+
+const (
+	alpha                       = 5
+	defaultIDLength             = 256
+	defaultBucketSize           = 20
+	defaultReplacementCacheSize = 5
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -56,19 +62,33 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 	}
 
 	defer nf.Close()
-
-	rt, err := NewRoutingTable(&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}, &RoutingOptions{
+	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
+	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        kf.Name(),
 		npath:        nf.Name(),
-		idLength:     256,
-		bucketSize:   20,
-		rcBucketSize: 5,
+		idLength:     defaultIDLength,
+		bucketSize:   defaultBucketSize,
+		rcBucketSize: defaultReplacementCacheSize,
 	})
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
 
+	nc, err := node.NewNodeClient(self)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+
+	for _, v := range bootstrapNodes {
+		ok, err := rt.addNode(&v)
+		if !ok || err != nil {
+			return nil, err
+		}
+	}
+
 	return &Kademlia{
+		alpha:          alpha,
+		nodeClient:     nc,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
@@ -91,10 +111,7 @@ func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restri
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
-	return &RoutingTable{
-		// ht:  k.dht.HT,
-		// dht: k.dht,
-	}, nil
+	return k.routingTable, nil
 
 }
 
@@ -130,72 +147,25 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 
 	// begin the work looking for the node by spinning up alpha workers
 	// and asking for the node we want from nodes we know in our routing table
-	ch := make(chan []*proto.Node)
-	w, err := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, kb)
-	if err != nil {
-		return nil, err
-	}
+	ch := make(chan []*proto.Node, conc)
+	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, kb)
+	ctx, w.cancel = context.WithCancel(ctx)
 	for i := 0; i < conc; i++ {
 		go w.work(ctx, ch)
 	}
 
-	select {
-	case v := <-ch:
-		for _, node := range v {
-			if node.GetId() == target.String() {
-				return node, nil
+	for {
+		select {
+		case v := <-ch:
+			for i, node := range v {
+				if node.GetId() == target.String() {
+					return node, nil
+				}
 			}
+		case <-ctx.Done():
+			return nil, NodeNotFound
 		}
-	case <-ctx.Done():
-		return nil, NodeNotFound
 	}
-
-	return nil, NodeNotFound
-}
-
-func (k *Kademlia) query(ctx context.Context, nodes []*proto.Node) ([]*proto.Node, error) {
-	if len(nodes) <= 0 {
-		return nil, NodeErr.New("no nodes provided for lookup")
-	}
-
-	self := k.routingTable.Local()
-	wg := sync.WaitGroup{}
-	n := len(nodes)
-
-	wg.Add(n)
-	c := make(chan []*proto.Node, n)
-	e := make(chan error, n)
-
-	for _, v := range nodes {
-		go func(v *proto.Node, wg *sync.WaitGroup, c chan []*proto.Node, e chan error) {
-			//TODO() ctx with timeout
-			defer wg.Done()
-			nodes, err := k.nodeClient.Lookup(ctx, *v, self)
-			if err != nil {
-				e <- err
-			}
-			c <- nodes
-		}(v, &wg, c, e)
-
-	}
-	wg.Wait()
-	close(e)
-	close(c)
-
-	var err error
-	if len(e) > 0 {
-		for err = range e {
-			err = BootstrapErr.Wrap(err)
-		}
-		return nil, err
-	}
-
-	results := []*proto.Node{}
-	for ns := range c {
-		results = append(results, ns...)
-	}
-
-	return results, nil
 }
 
 // Ping checks that the provided node is still accessible on the network

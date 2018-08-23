@@ -5,68 +5,111 @@ package kademlia
 
 import (
 	"context"
-	"os"
+	"fmt"
+	"net"
 	"testing"
 
+	"storj.io/storj/pkg/dht"
+
 	"github.com/stretchr/testify/assert"
-	"storj.io/storj/protos/overlay"
+	proto "storj.io/storj/protos/overlay"
 )
 
-func TestBoostrap(t *testing.T) {
+func TestNewKademlia(t *testing.T) {
+	cases := []struct {
+		expected    *Kademlia
+		id          dht.NodeID
+		bn          []proto.Node
+		addr        string
+		expectedErr error
+	}{
+		{
+			id: func() *NodeID {
+				id, err := NewID()
+				assert.NoError(t, err)
+				return id
+			}(),
+			bn:   []proto.Node{proto.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
+		},
+	}
+
+	for _, v := range cases {
+		actual, err := NewKademlia(v.id, v.bn, v.addr)
+		assert.Equal(t, v.expectedErr, err)
+		assert.Equal(t, actual.bootstrapNodes, v.bn)
+		assert.Equal(t, actual.stun, true)
+		assert.NotNil(t, actual.nodeClient)
+		assert.NotNil(t, actual.routingTable)
+	}
+}
+
+func TestLookup(t *testing.T) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
+	assert.NoError(t, err)
+
+	srv, mns := newTestServer([]*proto.Node{&proto.Node{Id: "foo"}})
+	go srv.Serve(lis)
+	defer srv.Stop()
 
 	cases := []struct {
 		k           *Kademlia
-		expected    []*overlay.Node
+		target      dht.NodeID
+		opts        lookupOpts
+		expected    *proto.Node
 		expectedErr error
-		n           []*overlay.Node
 	}{
-		// {
-		// 	k: func() *Kademlia {
-		// 		id, err := NewID()
-		// 		assert.NoError(t, err)
-		// 		k, err := NewKademlia(id, []overlay.Node{}, "127.0.0.1:1111")
-		// 		assert.NoError(t, err)
-		// 		return k
-		// 	}(),
-		// 	expected:    nil,
-		// 	expectedErr: BootstrapErr.New("no bootstrap nodes provided"),
-		// },
 		{
 			k: func() *Kademlia {
 				id, err := NewID()
 				assert.NoError(t, err)
-				k, err := NewKademlia(id, []overlay.Node{overlay.Node{Address: &overlay.NodeAddress{Address: "127.0.0.1:2222"}}}, "127.0.0.1:1111")
-				assert.NoError(t, err, "NO!!!~!!!")
+				id2, err := NewID()
+				assert.NoError(t, err)
+
+				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
+				assert.NoError(t, err)
 				return k
 			}(),
-			expected:    nil,
-			expectedErr: BootstrapErr.New("no bootstrap nodes provided"),
+			target: func() *NodeID {
+				id, err := NewID()
+				assert.NoError(t, err)
+				mns.returnValue = &proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}
+				return id
+			}(),
+			opts:        lookupOpts{amount: 5},
+			expected:    &proto.Node{},
+			expectedErr: nil,
 		},
-		// {
-		// 	k: &Kademlia{
-		// 		routingTable:   rt,
-		// 		nodeClient:     node.NewMockClient([]*overlay.Node{&overlay.Node{Id: "world"}}),
-		// 		bootstrapNodes: []overlay.Node{overlay.Node{Id: "hello"}},
-		// 	},
-		// 	expected:    nil,
-		// 	expectedErr: nil,
-		// },
+		{
+			k: func() *Kademlia {
+				id, err := NewID()
+				assert.NoError(t, err)
+				id2, err := NewID()
+				assert.NoError(t, err)
+
+				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
+				assert.NoError(t, err)
+				return k
+			}(),
+			target: func() *NodeID {
+				id, err := NewID()
+				assert.NoError(t, err)
+				mns.returnValue = &proto.Node{}
+				return id
+			}(),
+			opts:        lookupOpts{amount: 5},
+			expected:    nil,
+			expectedErr: NodeNotFound,
+		},
 	}
 
 	for _, v := range cases {
-		err := v.k.Bootstrap(context.Background())
-		if v.expectedErr != nil || err != nil {
-			assert.EqualError(t, v.expectedErr, err.Error())
+		actual, err := v.k.lookup(context.Background(), v.target, v.opts)
+		assert.Equal(t, v.expectedErr, err)
+		if v.expected != nil {
+			assert.Equal(t, v.target.String(), actual.GetId())
+		} else {
+			assert.Nil(t, actual)
 		}
-
-		os.Remove("kbucket")
-		os.Remove("nbucket")
-
-		// TODO(coyle): check routing tables after that portion has been completed
 	}
-
-}
-
-func TestLookup(t *testing.T) {
-
 }

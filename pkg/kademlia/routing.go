@@ -136,21 +136,25 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
+
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
 	var nearIDs storage.Keys
 	if len(sortedIDs) < limit+1 {
-		nearIDs = sortedIDs[1:]
+		nearIDs = sortedIDs[0:]
 	} else {
-		nearIDs = sortedIDs[1 : limit+1]
+		nearIDs = sortedIDs[0 : limit+1]
 	}
+
 	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}
+
 	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
 	}
+
 	return unmarshaledNodes, nil
 }
 

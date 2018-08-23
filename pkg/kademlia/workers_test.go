@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -73,7 +74,7 @@ func TestWorkerLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 		assert.NoError(t, err)
 
-		srv, mock := newTestServer()
+		srv, mock := newTestServer(nil)
 		go srv.Serve(lis)
 		defer srv.Stop()
 		actual := v.worker.lookup(context.Background(), v.work)
@@ -100,7 +101,7 @@ func TestUpdate(t *testing.T) {
 			}(),
 			expectedQueueLength: 1,
 			input:               nil,
-			expectedErr:         WorkerError.New("nodes must not be nil"),
+			expectedErr:         WorkerError.New("nodes must not be empty"),
 			expected:            []*proto.Node{&proto.Node{Id: "0000"}},
 		},
 		{
@@ -133,20 +134,24 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func newTestServer() (*grpc.Server, *mockNodeServer) {
+func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 	grpcServer := grpc.NewServer()
 	mn := &mockNodeServer{queryCalled: 0}
 
 	proto.RegisterNodesServer(grpcServer, mn)
+	proto.RegisterOverlayServer(grpcServer, test.NewMockOverlay(nn))
 
 	return grpcServer, mn
 }
 
 type mockNodeServer struct {
 	queryCalled int
+	returnValue *proto.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
 	mn.queryCalled++
-	return &proto.QueryResponse{Response: []*proto.Node{req.Receiver}}, nil
+
+	return &proto.QueryResponse{Response: []*proto.Node{mn.returnValue}}, nil
+
 }
