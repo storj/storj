@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
@@ -58,13 +59,13 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	bid, err := kademlia.NewID()
 	assert.NoError(t, err)
 
-	bnid := kademlia.NodeID(*bid)
+	bnid := node.NodeID(*bid)
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
-	intro, err := kademlia.GetIntroNode(bnid.String(), ip, pm)
+	intro, err := kademlia.GetIntroNode(fmt.Sprintf("%s:%s", ip, pm))
 	assert.NoError(t, err)
 
 	boot, err := kademlia.NewKademlia(&bnid, []overlay.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm))

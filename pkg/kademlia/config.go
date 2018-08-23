@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"net"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -40,14 +39,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): don't split the host/port
-	host, port, err := net.SplitHostPort(c.BootstrapAddr)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	// TODO(jt): an intro node shouldn't require an ID, and should only be an
 	// address
-	in, err := GetIntroNode("", host, port)
+	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
 	}

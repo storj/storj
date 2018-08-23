@@ -15,7 +15,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -251,7 +250,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) 
 	nodes []*opb.Node, err error) {
 	nodes = make([]*opb.Node, len(seg.GetRemotePieces()))
 	for i, p := range seg.GetRemotePieces() {
-		node, err := s.oc.Lookup(ctx, kademlia.StringToNodeID(p.GetNodeId()))
+		node, err := s.oc.Lookup(ctx, node.StringToID(p.GetNodeId()))
 		if err != nil {
 			// TODO(kaloyan): better error handling: failing to lookup a few
 			// nodes should not fail the request

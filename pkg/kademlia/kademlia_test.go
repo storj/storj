@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
 
 	"github.com/stretchr/testify/assert"
 	proto "storj.io/storj/protos/overlay"
@@ -24,8 +26,8 @@ func TestNewKademlia(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			id: func() *NodeID {
-				id, err := NewID()
+			id: func() *node.ID {
+				id, err := node.NewID()
 				assert.NoError(t, err)
 				return id
 			}(),
@@ -61,17 +63,17 @@ func TestLookup(t *testing.T) {
 	}{
 		{
 			k: func() *Kademlia {
-				id, err := NewID()
+				id, err := node.NewID()
 				assert.NoError(t, err)
-				id2, err := NewID()
+				id2, err := node.NewID()
 				assert.NoError(t, err)
 
 				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
 				assert.NoError(t, err)
 				return k
 			}(),
-			target: func() *NodeID {
-				id, err := NewID()
+			target: func() *node.ID {
+				id, err := node.NewID()
 				assert.NoError(t, err)
 				mns.returnValue = &proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}
 				return id
@@ -82,17 +84,17 @@ func TestLookup(t *testing.T) {
 		},
 		{
 			k: func() *Kademlia {
-				id, err := NewID()
+				id, err := node.NewID()
 				assert.NoError(t, err)
-				id2, err := NewID()
+				id2, err := node.NewID()
 				assert.NoError(t, err)
 
 				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
 				assert.NoError(t, err)
 				return k
 			}(),
-			target: func() *NodeID {
-				id, err := NewID()
+			target: func() *node.ID {
+				id, err := node.NewID()
 				assert.NoError(t, err)
 				mns.returnValue = &proto.Node{}
 				return id
@@ -111,5 +113,7 @@ func TestLookup(t *testing.T) {
 		} else {
 			assert.Nil(t, actual)
 		}
+
+		time.Sleep(1 * time.Second)
 	}
 }

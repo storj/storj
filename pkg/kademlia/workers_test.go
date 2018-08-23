@@ -24,13 +24,13 @@ func TestGetWork(t *testing.T) {
 	}{
 		{
 			name:     "test valid chore returned",
-			worker:   newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "1001"}}, nil, StringToNodeID("1000"), 5),
+			worker:   newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "1001"}}, nil, node.StringToID("1000"), 5),
 			expected: &proto.Node{Id: "1001"},
 		},
 		{
 			name: "test no chore left",
 			worker: func() *worker {
-				w := newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nil, StringToNodeID("foo"), 5)
+				w := newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nil, node.StringToID("foo"), 5)
 				w.maxResponse = 0
 				w.pq.Pop()
 				assert.Len(t, w.pq, 0)
@@ -63,7 +63,7 @@ func TestWorkerLookup(t *testing.T) {
 			worker: func() *worker {
 				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nc, StringToNodeID("foo"), 5)
+				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
 			}(),
 			work:     &proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":8080"}},
 			expected: []*proto.Node{&proto.Node{Id: "foo"}},
@@ -97,7 +97,7 @@ func TestUpdate(t *testing.T) {
 			worker: func() *worker {
 				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0000"}}, nc, StringToNodeID("foo"), 2)
+				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
 			}(),
 			expectedQueueLength: 1,
 			input:               nil,
@@ -109,7 +109,7 @@ func TestUpdate(t *testing.T) {
 			worker: func() *worker {
 				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, StringToNodeID("1100"), 2)
+				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
 			}(),
 			expectedQueueLength: 2,
 			expected:            []*proto.Node{&proto.Node{Id: "0001"}, &proto.Node{Id: "1001"}},

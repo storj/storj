@@ -84,7 +84,7 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 		return err
 	}
 
-	return o.DB.Put(kademlia.StringToNodeID(nodeID).Bytes(), []byte(data))
+	return o.DB.Put(node.StringToID(nodeID).Bytes(), []byte(data))
 }
 
 // Bootstrap walks the initialized network and populates the cache
@@ -95,7 +95,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		found, err := o.DHT.FindNode(ctx, node.StringToID(v.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
@@ -105,7 +105,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			return err
 		}
 
-		if err := o.DB.Put(kademlia.StringToNodeID(found.Id).Bytes(), node); err != nil {
+		if err := o.DB.Put(node.StringToID(found.Id).Bytes(), node); err != nil {
 			return err
 		}
 	}

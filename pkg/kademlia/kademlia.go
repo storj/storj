@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"os"
 
 	"github.com/zeebo/errs"
@@ -124,7 +123,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	_, err := k.lookup(ctx, StringToNodeID(k.routingTable.self.GetId()), lookupOpts{amount: 5})
+	_, err := k.lookup(ctx, node.StringToID(k.routingTable.self.GetId()), lookupOpts{amount: 5})
 	return err
 }
 
@@ -141,7 +140,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	}
 
 	// if we have the node in our routing table and that node is not this node (bootstrap) just return the node
-	if len(nodes) == 1 && (StringToNodeID(nodes[0].GetId()) == target && target.String() != k.routingTable.self.GetId()) {
+	if len(nodes) == 1 && (node.StringToID(nodes[0].GetId()) == target && target.String() != k.routingTable.self.GetId()) {
 		return nodes[0], nil
 	}
 
@@ -157,7 +156,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	for {
 		select {
 		case v := <-ch:
-			for i, node := range v {
+			for _, node := range v {
 				if node.GetId() == target.String() {
 					return node, nil
 				}
@@ -188,32 +187,13 @@ func (k *Kademlia) ListenAndServe() error {
 	return errors.New("TODO")
 }
 
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID() ([]byte, error) {
-	result := make([]byte, 20)
-	_, err := rand.Read(result)
-	return result, err
-}
-
 // GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(id, ip, port string) (*proto.Node, error) {
-	addr := "bootstrap.storj.io:8080"
-	if ip != "" && port != "" {
-		addr = ip + ":" + port
-	}
-
-	if id == "" {
-		i, err := newID()
-		if err != nil {
-			return nil, err
-		}
-
-		id = string(i)
+func GetIntroNode(addr string) (*proto.Node, error) {
+	if addr == "" {
+		addr = "bootstrap.storj.io:8080"
 	}
 
 	return &proto.Node{
-		Id: id,
 		Address: &proto.NodeAddress{
 			Transport: defaultTransport,
 			Address:   addr,
