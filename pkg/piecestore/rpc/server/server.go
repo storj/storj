@@ -14,12 +14,12 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"github.com/gtank/cryptopasta"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
-	"storj.io/storj/pkg/peertls"
-	"github.com/gtank/cryptopasta"
 )
 
 var (

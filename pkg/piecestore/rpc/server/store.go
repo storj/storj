@@ -10,9 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
-	"storj.io/storj/pkg/provider"
 )
 
 // OK - Success!

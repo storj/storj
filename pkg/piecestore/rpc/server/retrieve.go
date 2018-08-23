@@ -12,9 +12,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
-	"storj.io/storj/pkg/provider"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
