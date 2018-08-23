@@ -6,7 +6,7 @@ RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 WORKDIR /go/src/storj.io/storj
 COPY . .
 RUN dep ensure -vendor-only
-RUN go build -o uplink cmd/gw/*.go
+RUN go build -o uplink cmd/ul/*.go
 
 # final stage
 FROM alpine
@@ -17,5 +17,5 @@ EXPOSE 7777
 
 WORKDIR /app
 COPY --from=build-env /go/src/storj.io/storj/uplink /app/
-COPY cmd/gw/entrypoint /entrypoint
+COPY cmd/ul/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

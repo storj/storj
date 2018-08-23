@@ -22,8 +22,8 @@ import (
 type Config struct {
 	HCCA           provider.CASetupConfig
 	HCIdentity     provider.IdentitySetupConfig
-	GWCA           provider.CASetupConfig
-	GWIdentity     provider.IdentitySetupConfig
+	ULCA           provider.CASetupConfig
+	ULIdentity     provider.IdentitySetupConfig
 	FarmerCA       provider.CASetupConfig
 	FarmerIdentity provider.IdentitySetupConfig
 	BasePath       string `help:"base path for captain planet storage" default:"$CONFDIR"`
@@ -99,12 +99,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	setupCfg.GWCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
-	setupCfg.GWCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
-	setupCfg.GWIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
-	setupCfg.GWIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
+	setupCfg.ULCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
+	setupCfg.ULCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
+	setupCfg.ULIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
+	setupCfg.ULIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
 	fmt.Printf("creating identity for uplink\n")
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.ULCA, setupCfg.ULIdentity)
 	if err != nil {
 		return err
 	}
@@ -129,8 +129,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "hc", "pointerdb.db"),
 		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "hc", "overlay.db"),
-		"uplink.cert-path": setupCfg.GWIdentity.CertPath,
-		"uplink.key-path":  setupCfg.GWIdentity.KeyPath,
+		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
+		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
 		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
 		"uplink.overlay-addr": joinHostPort(

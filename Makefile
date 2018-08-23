@@ -109,7 +109,7 @@ storage-node-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
 .PHONY: uplink-image
 uplink-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/gw/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/ul/Dockerfile .
 
 .PHONY: all-in-one
 all-in-one:
