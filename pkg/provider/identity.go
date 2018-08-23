@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 
 	"encoding/base64"
 	"fmt"
@@ -23,7 +24,6 @@ import (
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
-	"google.golang.org/grpc/peer"
 )
 
 const (
@@ -141,11 +141,11 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 }
 
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
-	peer, ok := peer.FromContext(ctx)
+	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, Error.New("unable to get grpc peer from contex")
 	}
-	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
+	tlsInfo := p.AuthInfo.(credentials.TLSInfo)
 	c := tlsInfo.State.PeerCertificates
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")

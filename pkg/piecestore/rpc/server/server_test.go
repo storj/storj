@@ -28,6 +28,7 @@ import (
 
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -48,7 +49,7 @@ func writeFileToDir(name, dir string) error {
 }
 
 func TestPiece(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -119,7 +120,7 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -270,7 +271,7 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -380,7 +381,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -465,8 +466,8 @@ func newTestServerStruct() *Server {
 	return &Server{DataDir: tempDir, DB: psDB}
 }
 
-func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+func connect(o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial("localhost:3000", o...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -483,10 +484,30 @@ type TestServer struct {
 	c     pb.PieceStoreRoutesClient
 }
 
-func NewTestServer() *TestServer {
+func NewTestServer(t *testing.T) *TestServer {
+	check := func(e error) {
+		if !assert.NoError(t, e) {
+			t.Fail()
+		}
+	}
+
+	caS, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiS, err := caS.NewIdentity()
+	check(err)
+	so, err := fiS.ServerOption()
+	check(err)
+
+	caC, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiC, err := caC.NewIdentity()
+	check(err)
+	co, err := fiC.DialOption()
+	check(err)
+
 	s := newTestServerStruct()
-	grpcs := grpc.NewServer()
-	c, conn := connect()
+	grpcs := grpc.NewServer(so)
+	c, conn := connect(co)
 
 	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
 }
