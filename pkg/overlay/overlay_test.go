@@ -17,7 +17,7 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
-func TestFindStorageNodes(t *testing.T) {
+func TestFindStorjNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
@@ -36,7 +36,7 @@ func TestFindStorageNodes(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{Opts: &proto.OverlayOptions{Amount: 2}})
+	r, err := c.FindStorjNodes(context.Background(), &proto.FindStorjNodesRequest{Opts: &proto.OverlayOptions{Amount: 2}})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 

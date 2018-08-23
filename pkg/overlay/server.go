@@ -40,8 +40,8 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 	}, nil
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse, err error) {
+// FindStorjNodes searches the overlay network for nodes that meet the provided requirements
+func (o *Server) FindStorjNodes(ctx context.Context, req *proto.FindStorjNodesRequest) (resp *proto.FindStorjNodesResponse, err error) {
 	opts := req.GetOpts()
 	maxNodes := opts.GetAmount()
 	restrictions := opts.GetRestrictions()
@@ -78,7 +78,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *proto.FindStorageNod
 		result = result[:maxNodes]
 	}
 
-	return &proto.FindStorageNodesResponse{
+	return &proto.FindStorjNodesResponse{
 		Nodes: result,
 	}, nil
 }

@@ -18,12 +18,12 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "farmer",
-		Short: "Farmer",
+		Use:   "storjnode",
+		Short: "StorjNode",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the farmer",
+		Short: "Run the storjnode",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
@@ -43,7 +43,7 @@ var (
 		Identity provider.IdentitySetupConfig
 	}
 
-	defaultConfDir = "$HOME/.storj/farmer"
+	defaultConfDir = "$HOME/.storj/storjnode"
 )
 
 func init() {

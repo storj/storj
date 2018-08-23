@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	farmerCount = 50
+	storjnodeCount = 50
 )
 
 type HeavyClient struct {
@@ -31,7 +31,7 @@ type HeavyClient struct {
 	MockOverlay bool `default:"true" help:"if false, use real overlay"`
 }
 
-type Farmer struct {
+type StorjNode struct {
 	Identity provider.IdentityConfig
 	Kademlia kademlia.Config
 	Storage  psserver.Config
@@ -46,7 +46,7 @@ var (
 
 	runCfg struct {
 		HeavyClient HeavyClient
-		Farmers     [farmerCount]Farmer
+		StorjNodes  [storjnodeCount]StorjNode
 		Gateway     miniogw.Config
 	}
 )
@@ -60,25 +60,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 	defer mon.Task()(&ctx)(&err)
 
-	errch := make(chan error, len(runCfg.Farmers)+2)
-	var farmers []string
+	errch := make(chan error, len(runCfg.StorjNodes)+2)
+	var storjnodes []string
 
-	// start the farmers
-	for i := 0; i < len(runCfg.Farmers); i++ {
-		identity, err := runCfg.Farmers[i].Identity.Load()
+	// start the storjnodes
+	for i := 0; i < len(runCfg.StorjNodes); i++ {
+		identity, err := runCfg.StorjNodes[i].Identity.Load()
 		if err != nil {
 			return err
 		}
-		farmer := fmt.Sprintf("%s:%s",
-			identity.ID.String(), runCfg.Farmers[i].Identity.Address)
-		farmers = append(farmers, farmer)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
-				runCfg.Farmers[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.Farmers[i].Identity.Run(ctx,
-				runCfg.Farmers[i].Kademlia,
-				runCfg.Farmers[i].Storage)
-		}(i, farmer)
+		storjnode := fmt.Sprintf("%s:%s",
+			identity.ID.String(), runCfg.StorjNodes[i].Identity.Address)
+		storjnodes = append(storjnodes, storjnode)
+		go func(i int, storjnode string) {
+			_, _ = fmt.Printf("starting storjnode %d %s (kad on %s)\n", i, storjnode,
+				runCfg.StorjNodes[i].Kademlia.TODOListenAddr)
+			errch <- runCfg.StorjNodes[i].Identity.Run(ctx,
+				runCfg.StorjNodes[i].Kademlia,
+				runCfg.StorjNodes[i].Storage)
+		}(i, storjnode)
 	}
 
 	// start heavy client
@@ -87,7 +87,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.HeavyClient.Identity.Address)
 		var o provider.Responsibility = runCfg.HeavyClient.Overlay
 		if runCfg.HeavyClient.MockOverlay {
-			o = overlay.MockConfig{Nodes: strings.Join(farmers, ",")}
+			o = overlay.MockConfig{Nodes: strings.Join(storjnodes, ",")}
 		}
 		errch <- runCfg.HeavyClient.Identity.Run(ctx,
 			runCfg.HeavyClient.Kademlia,
