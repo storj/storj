@@ -101,12 +101,25 @@ test-docker-clean:
 images: satellite-image storage-node-image uplink-image
 	echo Built version: ${TAG}
 
+.PHONY: satellite-image
 satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
+.PHONY: storage-node-image
 storage-node-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
+.PHONY: uplink-image
 uplink-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/gw/Dockerfile .
+
+.PHONY: all-in-one
+all-in-one:
+	if [ -z "${VERSION}" ]; then \
+		$(MAKE) images -j 3 \
+		&& export VERSION="${TAG}"; \
+	fi \
+	&& docker-compose up -d storage-node \
+	&& scripts/fix-mock-overlay \
+	&& docker-compose up storage-node satellite uplink
 
 push-images:
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest

@@ -1,6 +1,11 @@
 Steps to setup a local network
 ==============================
 
+Run `make all-in-one` from the repo root. This will build new images and stand
+them up locally. If you want to test a different version, run
+`VERSION=latest make all-in-one`. If you want to stand them up by hand, run the
+following:
+
 1. `make images`
    If you don't want to build the images locally, you can skip this step.
    Otherwise, you'll need the version number presented here if you don't use
