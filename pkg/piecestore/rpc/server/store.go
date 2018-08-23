@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -80,12 +79,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 
 	defer utils.LogClose(storeFile)
 
-	pi, err := provider.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	reader := NewStreamReader(s, stream, pi)
+	reader := NewStreamReader(s, stream)
 
 	defer func() {
 		err := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)

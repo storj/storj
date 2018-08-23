@@ -5,7 +5,6 @@ package server
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -39,7 +38,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader returns a new StreamReader for Server.Store
-func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, pi *provider.PeerIdentity) *StreamReader {
+func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamReader {
 	sr := &StreamReader{}
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 
@@ -52,7 +51,7 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer, pi *prov
 		ba := recv.GetBandwidthallocation()
 
 		if ba != nil {
-			if err = s.verifySignature(pi, ba); err != nil {
+			if err = s.verifySignature(stream.Context(), ba); err != nil {
 				return nil, err
 			}
 		}

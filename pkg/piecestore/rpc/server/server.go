@@ -130,7 +130,12 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(pi *provider.PeerIdentity, ba *pb.RenterBandwidthAllocation) error {
+func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	k, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
