@@ -16,7 +16,6 @@ type Server struct {
 	dht dht.DHT
 }
 
-
 // Query is a node to node communication query
 func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.QueryResponse, error) {
 	rt, err := s.dht.GetRoutingTable(ctx)
@@ -28,14 +27,12 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 		err = rt.ConnectionFailed(req.Sender)
 		if err != nil {
 			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
-		} 
-		//Do we want this?
-		return proto.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
-	} else {
-		err = rt.ConnectionSuccess(req.Sender)
-		if err != nil {
-			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
 		}
+		return proto.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
+	}
+	err = rt.ConnectionSuccess(req.Sender)
+	if err != nil {
+		return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
 	}
 	id := kademlia.StringToNodeID(req.Target.Id)
 	nodes, err := rt.FindNear(id, int(req.Limit))
