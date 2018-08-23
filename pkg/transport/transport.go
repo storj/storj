@@ -26,7 +26,7 @@ func NewClient(identity *provider.FullIdentity) *Transport {
 func (o *Transport) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if node.Address == nil {
+	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
 

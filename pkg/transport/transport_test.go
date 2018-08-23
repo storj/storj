@@ -9,10 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/provider"
 )
 
 func TestDialNode(t *testing.T) {
-	oc := Transport{}
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	oc := Transport{
+		identity: identity,
+	}
 
 	// node.Address.Address == "" condition test
 	node := proto.Node{

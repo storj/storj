@@ -10,13 +10,24 @@ import (
 
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/provider"
 )
 
 // NewNodeClient instantiates a node client
 func NewNodeClient(self proto.Node) (Client, error) {
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	client := transport.NewClient(identity)
 	return &Node{
 		self:  self,
-		tc:    transport.NewClient(),
+		tc:    client,
 		cache: pool.NewConnectionPool(),
 	}, nil
 }

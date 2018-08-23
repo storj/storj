@@ -18,6 +18,7 @@ import (
 	client "storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	proto "storj.io/storj/protos/pointerdb"
+	"storj.io/storj/pkg/provider"
 )
 
 var (
@@ -35,8 +36,18 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	if err != nil {
+		logger.Error("Failed to create certificate authority: ", zap.Error(err))
+		os.Exit(1)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		logger.Error("Failed to create full identity: ", zap.Error(err))
+		os.Exit(1)
+	}
 	APIKey := []byte("abc123")
-	pdbclient, err := client.NewClient(pointerdbClientPort, APIKey)
+	pdbclient, err := client.NewClient(identity, pointerdbClientPort, APIKey)
 
 	if err != nil {
 		logger.Error("Failed to dial: ", zap.Error(err))

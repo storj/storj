@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/provider"
 )
 
 type mockNodeID struct {
@@ -37,7 +38,12 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		oc, err := NewOverlayClient(v.address)
+		ca, err := provider.NewCA(context.Background(), 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, v.address)
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
@@ -63,11 +69,17 @@ func TestChoose(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock := NewTestServer()
+		srv, mock, err := NewTestServer()
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		oc, err := NewOverlayClient(lis.Addr().String())
+		ca, err := provider.NewCA(context.Background(), 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, lis.Addr().String())
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
@@ -94,11 +106,17 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock := NewTestServer()
+		srv, mock, err := NewTestServer()
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		oc, err := NewOverlayClient(lis.Addr().String())
+		ca, err := provider.NewCA(context.Background(), 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, lis.Addr().String())
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
@@ -111,13 +129,26 @@ func TestLookup(t *testing.T) {
 
 }
 
-func NewTestServer() (*grpc.Server, *mockOverlayServer) {
-	grpcServer := grpc.NewServer()
+func NewTestServer() (*grpc.Server, *mockOverlayServer, error) {
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil, err
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	grpcServer := grpc.NewServer(identOpt)
 	mo := &mockOverlayServer{lookupCalled: 0, FindStorageNodesCalled: 0}
 
 	proto.RegisterOverlayServer(grpcServer, mo)
 
-	return grpcServer, mo
+	return grpcServer, mo, nil
 
 }
 

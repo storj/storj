@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/test"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/provider"
 )
 
 func TestLookup(t *testing.T) {
@@ -36,7 +37,8 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 		assert.NoError(t, err)
 
-		srv, mock := newTestServer()
+		srv, mock, err := newTestServer()
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
@@ -49,13 +51,26 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func newTestServer() (*grpc.Server, *mockNodeServer) {
-	grpcServer := grpc.NewServer()
+func newTestServer() (*grpc.Server, *mockNodeServer, error) {
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil, err
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodeServer{queryCalled: 0}
 
 	proto.RegisterNodesServer(grpcServer, mn)
 
-	return grpcServer, mn
+	return grpcServer, mn, nil
 
 }
 
