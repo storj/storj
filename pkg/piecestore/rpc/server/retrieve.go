@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -83,7 +84,8 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager()
 	var latestBA *pb.RenterBandwidthAllocation
-	var latestTotal int64
+
+	errChan := make(chan error)
 
 	// Save latest bandwidth allocation even if we fail
 	defer func() {
@@ -93,47 +95,66 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		}
 	}()
 
-	for am.Used < length {
-		// Receive Bandwidth allocation
-		recv, err := stream.Recv()
-		if err != nil {
-			return am.Used, am.TotalAllocated, err
-		}
+	go func() {
+		var latestTotal int64
 
-		ba := recv.GetBandwidthallocation()
+		for am.Used < length {
+			recv, err := stream.Recv()
+			if stream.Context().Err() == context.Canceled {
+				break
+			}
+			if err != nil {
+				fmt.Println(err)
+				errChan <- err
+				break
+			}
 
-		baData := &pb.RenterBandwidthAllocation_Data{}
+			ba := recv.GetBandwidthallocation()
 
-		if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
-			return am.Used, am.TotalAllocated, err
-		}
+			baData := &pb.RenterBandwidthAllocation_Data{}
 
-		if err = s.verifySignature(ba); err != nil {
-			return am.Used, am.TotalAllocated, err
-		}
+			if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
+				errChan <- err
+				break
+			}
 
-		am.NewTotal(baData.GetTotal())
+			if err = s.verifySignature(ba); err != nil {
+				errChan <- err
+				break
+			}
 
-		// The bandwidthallocation with the higher total is what I want to earn the most money
-		if baData.GetTotal() > latestTotal {
-			latestBA = ba
-			latestTotal = baData.GetTotal()
-		}
+			am.NewTotal(baData.GetTotal())
 
-		sizeToRead := am.NextReadSize()
-
-		// Write the buffer to the stream we opened earlier
-		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		if n > 0 {
-			if allocErr := am.UseAllocation(n); allocErr != nil {
-				log.Println(allocErr)
+			if baData.GetTotal() > latestTotal {
+				latestBA = ba
+				latestTotal = baData.GetTotal()
 			}
 		}
+	}()
 
-		if err != nil {
-			return am.Used, am.TotalAllocated, err
+	go func() {
+		for am.Used < length {
+			sizeToRead := am.NextReadSize()
+
+			if sizeToRead <= 0 {
+				continue
+			}
+
+			// Write the buffer to the stream we opened earlier
+			n, err := io.CopyN(writer, storeFile, sizeToRead)
+			if n > 0 {
+				if allocErr := am.UseAllocation(n); allocErr != nil {
+					log.Println(allocErr)
+				}
+			}
+
+			if err != nil {
+				errChan <- err
+				break
+			}
 		}
-	}
+	}()
 
-	return am.Used, am.TotalAllocated, nil
+	err = <-errChan
+	return am.Used, am.TotalAllocated, err
 }
