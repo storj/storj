@@ -40,6 +40,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	dhts = append(dhts, boot)
 
 	rt, err := boot.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
 	bootNode := rt.Local()
 
 	err = boot.ListenAndServe()

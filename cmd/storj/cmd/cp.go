@@ -55,6 +55,9 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 
 	if u.Scheme == "" {
 		f, err := os.Open(args[0])
+		if err != nil {
+			return err
+		}
 
 		fi, err := f.Stat()
 		if err != nil {

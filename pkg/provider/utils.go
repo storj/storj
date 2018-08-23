@@ -65,6 +65,10 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCerti
 			return
 		default:
 			k, err = peertls.NewKey()
+			if err != nil {
+				eC <- err
+				return
+			}
 			switch kE := k.(type) {
 			case *ecdsa.PrivateKey:
 				i, err = idFromKey(&kE.PublicKey)

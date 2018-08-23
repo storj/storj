@@ -349,6 +349,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err := rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node2 := []byte{143, 255} //xor 240
@@ -357,6 +358,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node3 := []byte{255, 255} //xor 128
@@ -365,6 +367,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node4 := []byte{191, 255} //xor 192
@@ -373,6 +376,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node5 := []byte{133, 255} //xor 250
@@ -381,6 +385,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 }
 
