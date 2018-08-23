@@ -146,12 +146,12 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 
 type mockNodeServer struct {
 	queryCalled int
-	returnValue *proto.Node
+	returnValue []*proto.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
 	mn.queryCalled++
 
-	return &proto.QueryResponse{Response: []*proto.Node{mn.returnValue}}, nil
+	return &proto.QueryResponse{Response: mn.returnValue}, nil
 
 }

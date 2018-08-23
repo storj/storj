@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"errors"
-	"os"
 
 	"github.com/zeebo/errs"
 
@@ -50,21 +49,10 @@ type Kademlia struct {
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*Kademlia, error) {
-	kf, err := os.Create("kbucket")
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-	defer kf.Close()
-	nf, err := os.Create("nbucket")
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-
-	defer nf.Close()
 	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        kf.Name(),
-		npath:        nf.Name(),
+		kpath:        "kbucket.db",
+		npath:        "nbucket.db",
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,

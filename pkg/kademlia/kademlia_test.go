@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 
@@ -52,7 +54,18 @@ func TestLookup(t *testing.T) {
 
 	srv, mns := newTestServer([]*proto.Node{&proto.Node{Id: "foo"}})
 	go srv.Serve(lis)
-	defer srv.Stop()
+	defer srv.GracefulStop()
+
+	k := func() *Kademlia {
+		id, err := node.NewID()
+		assert.NoError(t, err)
+		id2, err := node.NewID()
+		assert.NoError(t, err)
+
+		k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
+		assert.NoError(t, err)
+		return k
+	}()
 
 	cases := []struct {
 		k           *Kademlia
@@ -62,20 +75,11 @@ func TestLookup(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			k: func() *Kademlia {
-				id, err := node.NewID()
-				assert.NoError(t, err)
-				id2, err := node.NewID()
-				assert.NoError(t, err)
-
-				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
-				assert.NoError(t, err)
-				return k
-			}(),
+			k: k,
 			target: func() *node.ID {
 				id, err := node.NewID()
 				assert.NoError(t, err)
-				mns.returnValue = &proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}
+				mns.returnValue = []*proto.Node{&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}
 				return id
 			}(),
 			opts:        lookupOpts{amount: 5},
@@ -83,20 +87,10 @@ func TestLookup(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			k: func() *Kademlia {
-				id, err := node.NewID()
-				assert.NoError(t, err)
-				id2, err := node.NewID()
-				assert.NoError(t, err)
-
-				k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8080"}}}, "127.0.0.1:8080")
-				assert.NoError(t, err)
-				return k
-			}(),
+			k: k,
 			target: func() *node.ID {
 				id, err := node.NewID()
 				assert.NoError(t, err)
-				mns.returnValue = &proto.Node{}
 				return id
 			}(),
 			opts:        lookupOpts{amount: 5},
@@ -116,4 +110,54 @@ func TestLookup(t *testing.T) {
 
 		time.Sleep(1 * time.Second)
 	}
+
+	assert.NoError(t, os.Remove("kbucket.db"))
+	assert.NoError(t, os.Remove("nbucket.db"))
 }
+
+func TestBootstrap(t *testing.T) {
+	bn, err := testServer([]*proto.Node{&proto.Node{Id: "foobar0", Address: &proto.NodeAddress{Address: "127.0.0.1:8881"}}, &proto.Node{Id: "foobar1", Address: &proto.NodeAddress{Address: "127.0.0.1:8882"}}}, 8880)
+	assert.NoError(t, err)
+	defer bn.GracefulStop()
+
+	bn1, err := testServer([]*proto.Node{&proto.Node{Id: "foobar1", Address: &proto.NodeAddress{Address: "127.0.0.1:8883"}}}, 8881)
+	assert.NoError(t, err)
+	defer bn1.GracefulStop()
+
+	bn2, err := testServer([]*proto.Node{&proto.Node{Id: "foobar2", Address: &proto.NodeAddress{Address: "127.0.0.1:8884"}}}, 8882)
+	assert.NoError(t, err)
+	defer bn2.GracefulStop()
+
+	nn1, err := testServer([]*proto.Node{}, 8883)
+	assert.NoError(t, err)
+	defer nn1.GracefulStop()
+
+	nn2, err := testServer([]*proto.Node{}, 8884)
+	assert.NoError(t, err)
+	defer nn2.GracefulStop()
+
+	id, err := node.NewID()
+	assert.NoError(t, err)
+	k, err := NewKademlia(id, []proto.Node{proto.Node{Address: &proto.NodeAddress{Address: "127.0.0.1:8880"}}}, "127.0.0.1:8080")
+	assert.NoError(t, err)
+
+	assert.NoError(t, k.Bootstrap(context.Background()))
+}
+
+func testServer(bn []*proto.Node, port int) (*grpc.Server, error) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, err
+	}
+	srv, mns := newTestServer(bn)
+	mns.returnValue = bn
+	go srv.Serve(lis)
+
+	return srv, nil
+}
+
+// bootstrap node
+// want bootstrap node to tell it about two nodes
+// each of the two nodes to tell it about a node
+// each of those nodes to return empty
+// routing table should contain all contacted nodes
