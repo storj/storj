@@ -18,16 +18,7 @@ import (
 var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
-func NewNodeClient(self proto.Node) (Client, error) {
-	ca, err := provider.NewCA(context.Background(), 12, 4)
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-
+func NewNodeClient(identity *provider.FullIdentity, self proto.Node) (Client, error) {
 	client := transport.NewClient(identity)
 	return &Node{
 		self:  self,

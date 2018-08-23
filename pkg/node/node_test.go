@@ -18,6 +18,8 @@ import (
 )
 
 func TestLookup(t *testing.T) {
+	ctx := context.Background()
+
 	cases := []struct {
 		self             proto.Node
 		to               proto.Node
@@ -37,22 +39,27 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 		assert.NoError(t, err)
 
-		srv, mock, err := newTestServer()
+		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		nc, err := NewNodeClient(v.self)
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		_, err = nc.Lookup(context.Background(), v.to, v.find)
+		nc, err := NewNodeClient(identity, v.self)
+		assert.NoError(t, err)
+
+		_, err = nc.Lookup(ctx, v.to, v.find)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, 1, mock.queryCalled)
 	}
 }
 
-func newTestServer() (*grpc.Server, *mockNodeServer, error) {
-	ca, err := provider.NewCA(context.Background(), 12, 4)
+func newTestServer(ctx context.Context) (*grpc.Server, *mockNodeServer, error) {
+	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		return nil, nil, err
 	}
