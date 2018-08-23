@@ -53,7 +53,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
+func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
 	var (
 		k   crypto.PrivateKey
 		i   nodeID
@@ -89,7 +89,12 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCerti
 		return
 	}
 
-	c, err := peertls.NewCert(ct, nil, k)
+	p, ok := k.(*ecdsa.PrivateKey)
+	if !ok {
+		eC <- peertls.ErrUnsupportedKey.New("%T", k)
+		return
+	}
+	c, err := peertls.NewCert(ct, nil, &p.PublicKey, k)
 	if err != nil {
 		eC <- err
 		return

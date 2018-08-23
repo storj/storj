@@ -55,7 +55,7 @@ func NewKey() (crypto.PrivateKey, error) {
 
 // NewCert returns a new x509 certificate using the provided templates and
 // signed by the `signer` key
-func NewCert(template, parentTemplate *x509.Certificate, signer crypto.PrivateKey) (*x509.Certificate, error) {
+func NewCert(template, parentTemplate *x509.Certificate, pubKey crypto.PublicKey, signer crypto.PrivateKey) (*x509.Certificate, error) {
 	k, ok := signer.(*ecdsa.PrivateKey)
 	if !ok {
 		return nil, ErrUnsupportedKey.New("%T", k)
@@ -69,7 +69,7 @@ func NewCert(template, parentTemplate *x509.Certificate, signer crypto.PrivateKe
 		rand.Reader,
 		template,
 		parentTemplate,
-		&k.PublicKey,
+		pubKey,
 		k,
 	)
 	if err != nil {

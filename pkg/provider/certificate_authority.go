@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
@@ -55,7 +56,7 @@ func (caS CASetupConfig) Stat() TlsFilesStat {
 
 // Create generates and saves a CA using the config
 func (caS CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
-	ca, err := GenerateCA(ctx, uint16(caS.Difficulty), concurrency)
+	ca, err := NewCA(ctx, uint16(caS.Difficulty), concurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +110,8 @@ func (caC CAConfig) Load() (*FullCertificateAuthority, error) {
 	}, nil
 }
 
-// GenerateCA creates a new full identity with the given difficulty
-func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCertificateAuthority, error) {
+// NewCA creates a new full identity with the given difficulty
+func NewCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCertificateAuthority, error) {
 	if concurrency < 1 {
 		concurrency = 1
 	}
@@ -119,7 +120,7 @@ func GenerateCA(ctx context.Context, difficulty uint16, concurrency uint) (*Full
 	eC := make(chan error)
 	caC := make(chan FullCertificateAuthority, 1)
 	for i := 0; i < int(concurrency); i++ {
-		go generateCAWorker(ctx, difficulty, caC, eC)
+		go newCAWorker(ctx, difficulty, caC, eC)
 	}
 
 	select {
@@ -158,16 +159,20 @@ func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
 // Generate Identity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
-func (ca FullCertificateAuthority) GenerateIdentity() (*FullIdentity, error) {
+func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	lT, err := peertls.LeafTemplate()
 	if err != nil {
 		return nil, err
 	}
-	l, err := peertls.NewCert(lT, ca.Cert, ca.Key)
+	k, err := peertls.NewKey()
 	if err != nil {
 		return nil, err
 	}
-	k, err := peertls.NewKey()
+	pk, ok := k.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("%T", k)
+	}
+	l, err := peertls.NewCert(lT, ca.Cert, &pk.PublicKey, ca.Key)
 	if err != nil {
 		return nil, err
 	}

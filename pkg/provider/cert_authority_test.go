@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGenerateCA(t *testing.T) {
+func TestNewCA(t *testing.T) {
 	expectedDifficulty := uint16(4)
 
-	ca, err := GenerateCA(context.Background(), expectedDifficulty, 5)
+	ca, err := NewCA(context.Background(), expectedDifficulty, 5)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ca)
 
@@ -21,30 +21,30 @@ func TestGenerateCA(t *testing.T) {
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 
-func BenchmarkGenerateCA_Difficulty8_Concurrency1(b *testing.B) {
+func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 1)
+		NewCA(nil, expectedDifficulty, 1)
 	}
 }
 
-func BenchmarkGenerateCA_Difficulty8_Concurrency2(b *testing.B) {
+func BenchmarkNewCA_Difficulty8_Concurrency2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 2)
+		NewCA(nil, expectedDifficulty, 2)
 	}
 }
 
-func BenchmarkGenerateCA_Difficulty8_Concurrency5(b *testing.B) {
+func BenchmarkNewCA_Difficulty8_Concurrency5(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 5)
+		NewCA(nil, expectedDifficulty, 5)
 	}
 }
 
-func BenchmarkGenerateCA_Difficulty8_Concurrency10(b *testing.B) {
+func BenchmarkNewCA_Difficulty8_Concurrency10(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		GenerateCA(nil, expectedDifficulty, 10)
+		NewCA(nil, expectedDifficulty, 10)
 	}
 }
