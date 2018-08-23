@@ -6,12 +6,12 @@ Usage:
 
 First make an identity:
 ```
-go install storj.io/storj/cmd/gw
-gw setup
+go install storj.io/storj/cmd/ul
+ul setup
 ```
 
-You can edit `~/.storj/gw/config.yaml` to your liking. Then run it!
+You can edit `~/.storj/ul/config.yaml` to your liking. Then run it!
 
 ```
-gw run
+ul run
 ```

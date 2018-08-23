@@ -59,7 +59,7 @@ github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.0.0 h1:BrX964Rv5uQ3wwS+KRUAJCBBw5PQmgJfJ6v4yly5QwU=
 github.com/fatih/structs v1.0.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
-github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
+github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPULxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 h1:YmyuMm99D7kezPc0ZVWYnaUIWfMKR81lVVXttKTnDbw=
 github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1/go.mod h1:NR3MbYisc3/PwhQ00EMzDiPmrwpPxAn5GI05/YaO1SY=
@@ -131,7 +131,7 @@ github.com/klauspost/crc32 v0.0.0-20170628072449-bab58d77464a h1:NLr4Iy1X81t+cfi
 github.com/klauspost/crc32 v0.0.0-20170628072449-bab58d77464a/go.mod h1:+ZoRqAPRLkC4NPOvfYeR5KNOrY6TD+/sAC3HXPZgDYg=
 github.com/klauspost/pgzip v1.0.1 h1:J1UvIV7CrOZlEMyfAfnqIzTmoPHEX0ODZsLATb71mkk=
 github.com/klauspost/pgzip v1.0.1/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
-github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 h1:9eOgsI7EIGhJWPMBvSY+x0SEpeGGWUSijOrwK0XhpIk=
+github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 h1:9eOgsI7EIGhJWPMBvSY+x0SEpeGULUSijOrwK0XhpIk=
 github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510/go.mod h1:CwCi+NUr9pqSVktrkN+Ondf06rkhYZ/pcNv7fu+8Un4=
 github.com/kurin/blazer v0.5.1 h1:mBc4i1uhHJEqU0KvzOgpMHhkwf+EcXvxjWEUS7HG+eY=
 github.com/kurin/blazer v0.5.1/go.mod h1:4FCXMUWo9DllR2Do4TtBd377ezyAJ51vB5uTBjt0pGU=
@@ -218,7 +218,7 @@ github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165 h1:nkcn14uNmFE
 github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rjeczalik/notify v0.9.0 h1:xJX3IQ09+O0qLAv4YdYe03EwYRyM7NPuC5O7Mc6/Jv4=
 github.com/rjeczalik/notify v0.9.0/go.mod h1:rKwnCoCGeuQnwBtTSPL9Dad03Vh2n40ePRrjvIXnJho=
-github.com/rs/cors v1.5.0 h1:dgSHE6+ia18arGOTIYQKKGWLvEbGvmbNE6NfxhoNHUY=
+github.com/rs/cors v1.5.0 h1:dgSHE6+ia18arGOTIYQKKULLvEbGvmbNE6NfxhoNHUY=
 github.com/rs/cors v1.5.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735 h1:7YvPJVmEeFHR1Tj9sZEYsmarJEQfMVYpd/Vyy/A8dqE=
 github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735/go.mod h1:807d1WSdnB0XRJzKNil9Om6lcp/3a0v4qIHxIXzX/Yc=
