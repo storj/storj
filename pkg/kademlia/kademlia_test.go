@@ -116,27 +116,33 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, err := testServer([]*proto.Node{&proto.Node{Id: "foobar0", Address: &proto.NodeAddress{Address: "127.0.0.1:8881"}}, &proto.Node{Id: "foobar1", Address: &proto.NodeAddress{Address: "127.0.0.1:8882"}}}, 8880)
+	id, err := node.NewID()
 	assert.NoError(t, err)
-	defer bn.GracefulStop()
+	bn, err := testServer([]*proto.Node{&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8881"}}, &proto.Node{Id: "2", Address: &proto.NodeAddress{Address: "127.0.0.1:8882"}}}, 8880)
+	assert.NoError(t, err)
+	defer bn.Stop()
 
-	bn1, err := testServer([]*proto.Node{&proto.Node{Id: "foobar1", Address: &proto.NodeAddress{Address: "127.0.0.1:8883"}}}, 8881)
+	id, err = node.NewID()
 	assert.NoError(t, err)
-	defer bn1.GracefulStop()
+	bn1, err := testServer([]*proto.Node{&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8883"}}}, 8881)
+	assert.NoError(t, err)
+	defer bn1.Stop()
 
-	bn2, err := testServer([]*proto.Node{&proto.Node{Id: "foobar2", Address: &proto.NodeAddress{Address: "127.0.0.1:8884"}}}, 8882)
+	id, err = node.NewID()
 	assert.NoError(t, err)
-	defer bn2.GracefulStop()
+	bn2, err := testServer([]*proto.Node{&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: "127.0.0.1:8884"}}}, 8882)
+	assert.NoError(t, err)
+	defer bn2.Stop()
 
 	nn1, err := testServer([]*proto.Node{}, 8883)
 	assert.NoError(t, err)
-	defer nn1.GracefulStop()
+	defer nn1.Stop()
 
 	nn2, err := testServer([]*proto.Node{}, 8884)
 	assert.NoError(t, err)
-	defer nn2.GracefulStop()
+	defer nn2.Stop()
 
-	id, err := node.NewID()
+	id, err = node.NewID()
 	assert.NoError(t, err)
 	k, err := NewKademlia(id, []proto.Node{proto.Node{Address: &proto.NodeAddress{Address: "127.0.0.1:8880"}}}, "127.0.0.1:8080")
 	assert.NoError(t, err)
