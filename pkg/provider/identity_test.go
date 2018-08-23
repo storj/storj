@@ -109,6 +109,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	assert.NoError(t, err)
 
 	if runtime.GOOS != "windows" {
+		//TODO (windows): ignoring for windows due to different default permissions
 		certInfo, err := os.Stat(ic.CertPath)
 		assert.NoError(t, err)
 		assert.Equal(t, os.FileMode(0644), certInfo.Mode())

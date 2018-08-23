@@ -18,6 +18,7 @@ var (
 
 func TestMetrics(t *testing.T) {
 	if runtime.GOOS == "windows" {
+		//TODO (windows): currently closing doesn't seem to be shutting down the server
 		t.Skip("broken")
 	}
 

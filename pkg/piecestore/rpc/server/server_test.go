@@ -102,7 +102,7 @@ func TestPiece(t *testing.T) {
 			if tt.err != "" {
 				assert.NotNil(err)
 				if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
-					//TODO: ignoring for windows due to different underlying error
+					//TODO (windows): ignoring for windows due to different underlying error
 					return
 				}
 				assert.Equal(tt.err, err.Error())
@@ -248,7 +248,7 @@ func TestRetrieve(t *testing.T) {
 				if tt.err != "" {
 					assert.NotNil(err)
 					if runtime.GOOS == "windows" && strings.Contains(tt.err, "no such file or directory") {
-						//TODO: ignoring for windows due to different underlying error
+						//TODO (windows): ignoring for windows due to different underlying error
 						return
 					}
 					assert.Equal(tt.err, err.Error())

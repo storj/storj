@@ -307,12 +307,7 @@ func TestRedisPut(t *testing.T) {
 
 			na := &overlay.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
-
-			{ // see https://github.com/vitessio/vitess/issues/3566
-				na.XXX_sizecache = c.value.XXX_sizecache
-				na.Address.XXX_sizecache = c.value.Address.XXX_sizecache
-			}
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }
@@ -348,12 +343,7 @@ func TestBoltPut(t *testing.T) {
 			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
-
-			{ // see https://github.com/vitessio/vitess/issues/3566
-				na.XXX_sizecache = c.value.XXX_sizecache
-				na.Address.XXX_sizecache = c.value.Address.XXX_sizecache
-			}
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }
@@ -392,11 +382,7 @@ func TestMockPut(t *testing.T) {
 			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
-			{ // see https://github.com/vitessio/vitess/issues/3566
-				na.XXX_sizecache = c.value.XXX_sizecache
-				na.Address.XXX_sizecache = c.value.Address.XXX_sizecache
-			}
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }
