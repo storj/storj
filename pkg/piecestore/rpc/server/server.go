@@ -12,8 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"github.com/gtank/cryptopasta"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
@@ -128,13 +130,19 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(clientpubkey *ecdsa.PublicKey, ba *pb.RenterBandwidthAllocation) error {
-	// if clientpubkey == nil {
-	// 	return ServerError.New("Failed to sign msg: Private Key not Set")
-	// }
-	//
-	// if success := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), clientpubkey); success == false {
-	// 	return ServerError.New("Failed to verify Signature")
-	// }
+func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	k, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
+	}
+
+	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
+		return ServerError.New("Failed to verify Signature")
+	}
 	return nil
 }

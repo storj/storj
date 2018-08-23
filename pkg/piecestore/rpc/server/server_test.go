@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,15 +20,15 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-
 	"golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -48,7 +49,7 @@ func writeFileToDir(name, dir string) error {
 }
 
 func TestPiece(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -119,7 +120,7 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -231,15 +232,21 @@ func TestRetrieve(t *testing.T) {
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
+
+				ba := pb.RenterBandwidthAllocation{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						Total:           totalAllocated,
+					}),
+				}
+
+				s, err := cryptopasta.Sign(ba.Data, TS.k)
+				assert.NoError(err)
+				ba.Signature = s
+
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Signature: []byte{'A', 'B'},
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           totalAllocated,
-							}),
-						},
+						Bandwidthallocation: &ba,
 					},
 				)
 				assert.Nil(err)
@@ -270,7 +277,7 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -324,13 +331,16 @@ func TestStore(t *testing.T) {
 			msg := &pb.PieceStore{
 				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
 				Bandwidthallocation: &pb.RenterBandwidthAllocation{
-					Signature: []byte{'A', 'B'},
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
 						Total:           int64(len(tt.content)),
 					}),
 				},
 			}
+
+			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k)
+			assert.NoError(err)
+			msg.Bandwidthallocation.Signature = s
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -380,7 +390,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	TS.Start()
 	defer TS.Stop()
 
@@ -465,8 +475,8 @@ func newTestServerStruct() *Server {
 	return &Server{DataDir: tempDir, DB: psDB}
 }
 
-func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+func connect(o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial("localhost:3000", o...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -481,14 +491,37 @@ type TestServer struct {
 	grpcs *grpc.Server
 	conn  *grpc.ClientConn
 	c     pb.PieceStoreRoutesClient
+	k     *ecdsa.PrivateKey
 }
 
-func NewTestServer() *TestServer {
-	s := newTestServerStruct()
-	grpcs := grpc.NewServer()
-	c, conn := connect()
+func NewTestServer(t *testing.T) *TestServer {
+	check := func(e error) {
+		if !assert.NoError(t, e) {
+			t.Fail()
+		}
+	}
 
-	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+	caS, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiS, err := caS.NewIdentity()
+	check(err)
+	so, err := fiS.ServerOption()
+	check(err)
+
+	caC, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiC, err := caC.NewIdentity()
+	check(err)
+	co, err := fiC.DialOption()
+	check(err)
+
+	s := newTestServerStruct()
+	grpcs := grpc.NewServer(so)
+	c, conn := connect(co)
+
+	k, ok := fiC.Key.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c, k: k}
 }
 
 func (TS *TestServer) Start() {

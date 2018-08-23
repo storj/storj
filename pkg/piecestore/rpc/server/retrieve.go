@@ -108,7 +108,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			return am.Used, am.TotalAllocated, err
 		}
 
-		if err = s.verifySignature(nil, ba); err != nil {
+		if err = s.verifySignature(ctx, ba); err != nil {
 			return am.Used, am.TotalAllocated, err
 		}
 
