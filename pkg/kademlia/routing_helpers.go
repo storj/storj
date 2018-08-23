@@ -358,7 +358,7 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, error) {
-	key := storage.Key(bucketID)
+	key := bucketID
 	kadIDs, err := rt.kadBucketDB.ReverseList(key, 2)
 	if err != nil {
 		return nil, RoutingErr.New("could not reverse list k bucket ids %s", err)

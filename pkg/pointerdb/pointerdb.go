@@ -78,7 +78,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("put to the db: " + string(req.GetPath()))
+	s.logger.Debug("put to the db: " + req.GetPath())
 
 	return &pb.PutResponse{}, nil
 }
@@ -296,6 +296,6 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 		s.logger.Error("err deleting path and pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("deleted pointer at path: " + string(req.GetPath()))
+	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
 }

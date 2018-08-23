@@ -122,7 +122,7 @@ func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit sto
 		}
 		for ; k != nil; k, _ = iterate() {
 			paths = append(paths, k)
-			if limit > 0 && int(limit) == int(len(paths)) {
+			if limit > 0 && int(limit) == len(paths) {
 				break
 			}
 		}

@@ -53,7 +53,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	s.logger.Debug("entering statdb Create")
 
-	APIKeyBytes := []byte(createReq.APIKey)
+	APIKeyBytes := createReq.APIKey
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	s.logger.Debug("entering statdb Get")
 
-	APIKeyBytes := []byte(getReq.APIKey)
+	APIKeyBytes := getReq.APIKey
 	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	s.logger.Debug("entering statdb Update")
 
-	APIKeyBytes := []byte(updateReq.APIKey)
+	APIKeyBytes := updateReq.APIKey
 	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	APIKeyBytes := []byte(updateBatchReq.APIKey)
+	APIKeyBytes := updateBatchReq.APIKey
 	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
 	for i, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{

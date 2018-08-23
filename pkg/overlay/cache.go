@@ -84,7 +84,7 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 		return err
 	}
 
-	return o.DB.Put(kademlia.StringToNodeID(nodeID).Bytes(), []byte(data))
+	return o.DB.Put(kademlia.StringToNodeID(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache

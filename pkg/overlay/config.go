@@ -75,7 +75,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	ticker := time.NewTicker(time.Duration(c.RefreshInterval))
+	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 
 	ctx, cancel := context.WithCancel(ctx)
