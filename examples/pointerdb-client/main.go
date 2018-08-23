@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	p "storj.io/storj/pkg/paths"
-	client "storj.io/storj/pkg/pointerdb"
+	client "storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	proto "storj.io/storj/protos/pointerdb"
 )

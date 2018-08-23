@@ -5,11 +5,11 @@ package pointerdb
 
 import (
 	"context"
-	"net/url"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
 )
@@ -22,7 +22,7 @@ type Config struct {
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	dburl, err := url.Parse(c.DatabaseURL)
+	dburl, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return err
 	}
