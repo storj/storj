@@ -38,7 +38,7 @@ type RoutingTable struct {
 type RoutingOptions struct {
 	kpath        string
 	npath        string
-	idLength     int //TODO (JJ): add checks for > 0 
+	idLength     int //TODO (JJ): add checks for > 0
 	bucketSize   int
 	rcBucketSize int
 }
@@ -150,7 +150,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	return unmarshaledNodes, nil
 }
 
-// ConnectionSuccess updates or adds a node to the routing table when 
+// ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))

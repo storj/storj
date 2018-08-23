@@ -116,7 +116,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]*opb.Node{
-				&opb.Node{Id: "im-a-node"},
+				{Id: "im-a-node"},
 			}, nil),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
@@ -454,7 +454,7 @@ func TestSegmentStoreList(t *testing.T) {
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]pdb.ListItem{
-				pdb.ListItem{
+				{
 					Path: listedPath,
 					Pointer: &ppb.Pointer{
 						Type:           ppb.Pointer_INLINE,

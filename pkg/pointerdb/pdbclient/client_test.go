@@ -179,17 +179,17 @@ func TestList(t *testing.T) {
 		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, nil, ""},
 		{"", "", "", false, 0, meta.None, "",
-			[]*pb.ListResponse_Item{&pb.ListResponse_Item{}}, false, nil, ""},
+			[]*pb.ListResponse_Item{{}}, false, nil, ""},
 		{"", "", "", false, -1, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
 		{"prefix", "after", "before", false, 1, meta.None, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c"},
+				{Path: "a/b/c"},
 			},
 			true, nil, ""},
 		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{
+				{Path: "a/b/c", Pointer: &pb.Pointer{
 					Size:           1234,
 					CreationDate:   ptypes.TimestampNow(),
 					ExpirationDate: ptypes.TimestampNow(),
@@ -198,8 +198,8 @@ func TestList(t *testing.T) {
 			true, nil, ""},
 		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
-				&pb.ListResponse_Item{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
-				&pb.ListResponse_Item{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
+				{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
+				{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
 			},
 			true, nil, ""},
 	} {

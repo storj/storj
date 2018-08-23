@@ -5,10 +5,10 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"io/ioutil"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -95,9 +95,9 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Address:   a,
 			},
 			Restrictions: &proto.NodeRestrictions{
- 				FreeBandwidth: 2000000000,
- 				FreeDisk:      2000000000,
- 			},
+				FreeBandwidth: 2000000000,
+				FreeDisk:      2000000000,
+			},
 			Type: 1,
 		})
 		if err != nil {

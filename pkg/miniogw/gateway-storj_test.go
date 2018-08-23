@@ -262,20 +262,20 @@ func TestListObjects(t *testing.T) {
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		objects.ListItem{
+		{
 			Path: paths.New(prefix, "test-file-1.txt"),
 		},
-		objects.ListItem{
+		{
 			Path: paths.New(prefix, "test-file-2.txt"),
 		},
 	}
 
 	objInfos := []minio.ObjectInfo{
-		minio.ObjectInfo{
+		{
 			Bucket: bucket,
 			Name:   path.Join(prefix, "test-file-1.txt"),
 		},
-		minio.ObjectInfo{
+		{
 			Bucket: bucket,
 			Name:   path.Join(prefix, "test-file-2.txt"),
 		},

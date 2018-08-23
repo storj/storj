@@ -35,10 +35,10 @@ func createRT(localNodeID []byte) *RoutingTable {
 	}
 	localNode := &proto.Node{Id: string(localNodeID)}
 	options := &RoutingOptions{
-		kpath:      tempfile("Kadbucket"),
-		npath:      tempfile("Nodebucket"),
-		idLength:   16,
-		bucketSize: 6,
+		kpath:        tempfile("Kadbucket"),
+		npath:        tempfile("Nodebucket"),
+		idLength:     16,
+		bucketSize:   6,
 		rcBucketSize: 2,
 	}
 	rt, _ := NewRoutingTable(localNode, options)
@@ -170,7 +170,7 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNode("8O") 
+	node13 := mockNode("8O")
 	ok, err = rt.addNode(node13)
 	assert.False(t, ok)
 	assert.NoError(t, err)
