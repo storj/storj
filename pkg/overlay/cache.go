@@ -32,7 +32,7 @@ type Cache struct {
 	DHT dht.DHT
 }
 
-// NewRedisOverlayCache returns a pointer to a new Cache instance with an initalized connection to Redis.
+// NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
 func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache, error) {
 	rc, err := redis.NewClient(address, password, db)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache
 	}, nil
 }
 
-// NewBoltOverlayCache returns a pointer to a new Cache instance with an initalized connection to a Bolt db.
+// NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
 func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 	bc, err := boltdb.NewClient(zap.L(), dbPath, boltdb.OverlayBucket)
 	if err != nil {

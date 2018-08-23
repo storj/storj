@@ -28,7 +28,7 @@ type Client struct {
 	TTL time.Duration
 }
 
-// NewClient returns a configured Client instance, verifying a sucessful connection to redis
+// NewClient returns a configured Client instance, verifying a successful connection to redis
 func NewClient(address, password string, db int) (*Client, error) {
 	c := &Client{
 		db: redis.NewClient(&redis.Options{

@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -63,7 +62,7 @@ func TestGetBucket(t *testing.T) {
 			assert.True(t, pb.Equal(w, b.Nodes()[j]))
 		}
 		assert.Equal(t, v.ok, e)
-		fmt.Printf("error occured at index %d", i) //what's a better way to print the index?
+		t.Logf("error occurred at index %d", i) //what's a better way to print the index?
 	}
 }
 

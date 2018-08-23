@@ -28,7 +28,7 @@ const (
 var (
 	// ErrNotExist is used when a file or directory doesn't exist
 	ErrNotExist = errs.Class("file or directory not found error")
-	// ErrGenerate is used when an error occured during cert/key generation
+	// ErrGenerate is used when an error occurred during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
 	// ErrTLSOptions is used inconsistently and should probably just be removed
 	ErrUnsupportedKey = errs.Class("unsupported key type")
