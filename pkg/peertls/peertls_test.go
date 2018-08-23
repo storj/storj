@@ -13,14 +13,15 @@ import (
 	"github.com/zeebo/errs"
 )
 
-func TestGenerate_CA(t *testing.T) {
+func TestNewCert_CA(t *testing.T) {
 	k, err := NewKey()
 	assert.NoError(t, err)
 
 	ct, err := CATemplate()
 	assert.NoError(t, err)
 
-	c, err := NewCert(ct, nil, k)
+	p, _ := k.(*ecdsa.PrivateKey)
+	c, err := NewCert(ct, nil, &p.PublicKey, k)
 	assert.NoError(t, err)
 
 	assert.NotEmpty(t, k.(*ecdsa.PrivateKey))
@@ -31,26 +32,30 @@ func TestGenerate_CA(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGenerate_Leaf(t *testing.T) {
+func TestNewCert_Leaf(t *testing.T) {
 	k, err := NewKey()
 	assert.NoError(t, err)
 
 	ct, err := CATemplate()
 	assert.NoError(t, err)
 
-	c, err := NewCert(ct, nil, k)
+	cp, _ := k.(*ecdsa.PrivateKey)
+	c, err := NewCert(ct, nil, &cp.PublicKey, k)
 	assert.NoError(t, err)
 
 	lt, err := LeafTemplate()
 	assert.NoError(t, err)
 
-	l, err := NewCert(lt, ct, k)
+	lp, _ := k.(*ecdsa.PrivateKey)
+	l, err := NewCert(lt, ct, &lp.PublicKey, k)
 	assert.NoError(t, err)
 
 	assert.NotEmpty(t, k.(*ecdsa.PrivateKey))
 	assert.NotEmpty(t, l)
 	assert.NotEmpty(t, l.PublicKey.(*ecdsa.PublicKey))
 
+	err = c.CheckSignatureFrom(c)
+	assert.NoError(t, err)
 	err = l.CheckSignatureFrom(c)
 	assert.NoError(t, err)
 }
@@ -62,13 +67,15 @@ func TestVerifyPeerFunc(t *testing.T) {
 	ct, err := CATemplate()
 	assert.NoError(t, err)
 
-	c, err := NewCert(ct, nil, k)
+	cp, _ := k.(*ecdsa.PrivateKey)
+	c, err := NewCert(ct, nil, &cp.PublicKey, k)
 	assert.NoError(t, err)
 
 	lt, err := LeafTemplate()
 	assert.NoError(t, err)
 
-	l, err := NewCert(lt, ct, k)
+	lp, _ := k.(*ecdsa.PrivateKey)
+	l, err := NewCert(lt, ct, &lp.PublicKey, k)
 	assert.NoError(t, err)
 
 	testFunc := func(chain [][]byte, parsedChains [][]*x509.Certificate) error {
@@ -92,5 +99,29 @@ func TestVerifyPeerFunc(t *testing.T) {
 	}
 
 	err = VerifyPeerFunc(testFunc)([][]byte{l.Raw, c.Raw}, nil)
+	assert.NoError(t, err)
+}
+
+func TestVerifyPeerCertChains(t *testing.T) {
+	k, err := NewKey()
+	assert.NoError(t, err)
+
+	ct, err := CATemplate()
+	assert.NoError(t, err)
+
+	cp, ok := k.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	c, err := NewCert(ct, nil, &cp.PublicKey, k)
+	assert.NoError(t, err)
+
+	lt, err := LeafTemplate()
+	assert.NoError(t, err)
+
+	lp, ok := k.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	l, err := NewCert(lt, ct, &lp.PublicKey, k)
+	assert.NoError(t, err)
+
+	err = VerifyPeerFunc(VerifyPeerCertChains)([][]byte{l.Raw, c.Raw}, nil)
 	assert.NoError(t, err)
 }
