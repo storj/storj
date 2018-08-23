@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -100,13 +99,9 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 		for am.Used < length {
 			recv, err := stream.Recv()
-			if stream.Context().Err() == context.Canceled {
-				break
-			}
 			if err != nil {
-				fmt.Println(err)
 				errChan <- err
-				break
+				return
 			}
 
 			ba := recv.GetBandwidthallocation()
@@ -115,12 +110,12 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
 				errChan <- err
-				break
+				return
 			}
 
 			if err = s.verifySignature(ba); err != nil {
 				errChan <- err
-				break
+				return
 			}
 
 			am.NewTotal(baData.GetTotal())
@@ -130,6 +125,8 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				latestTotal = baData.GetTotal()
 			}
 		}
+
+		errChan <- nil
 	}()
 
 	go func() {
@@ -150,9 +147,11 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			if err != nil {
 				errChan <- err
-				break
+				return
 			}
 		}
+
+		errChan <- nil
 	}()
 
 	err = <-errChan
