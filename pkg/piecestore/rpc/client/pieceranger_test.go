@@ -15,6 +15,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
 	pb "storj.io/storj/protos/piecestore"
@@ -60,39 +61,29 @@ func TestPieceRanger(t *testing.T) {
 		pid := NewPieceID()
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
+			msg1 := &pb.PieceRetrieval{
+				PieceData: &pb.PieceRetrieval_PieceData{
+					Id: pid.String(), Size: tt.length, Offset: tt.offset,
+				},
+			}
+
+			msg2 := &pb.PieceRetrieval{
+				Bandwidthallocation: generateBA(priv, 32*1024),
+			}
+
+			msg3 := &pb.PieceRetrieval{
+				Bandwidthallocation: generateBA(priv, 32*1024*2),
+			}
+
 			calls = append(calls,
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						PieceData: &pb.PieceRetrieval_PieceData{
-							Id: pid.String(), Size: tt.length, Offset: tt.offset,
-						},
-					},
-				).Return(nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg1).Return(nil),
+				stream.EXPECT().Send(msg2).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024 * 2,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg3).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
@@ -153,38 +144,29 @@ func TestPieceRangerSize(t *testing.T) {
 		assert.Nil(t, err)
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
+			msg1 := &pb.PieceRetrieval{
+				PieceData: &pb.PieceRetrieval_PieceData{
+					Id: pid.String(), Size: tt.length, Offset: tt.offset,
+				},
+			}
+
+			msg2 := &pb.PieceRetrieval{
+				Bandwidthallocation: generateBA(priv, 32*1024),
+			}
+
+			msg3 := &pb.PieceRetrieval{
+				Bandwidthallocation: generateBA(priv, 32*1024*2),
+			}
+
 			gomock.InOrder(
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						PieceData: &pb.PieceRetrieval_PieceData{
-							Id: pid.String(), Size: tt.length, Offset: tt.offset,
-						},
-					},
-				).Return(nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{Bandwidthallocation: &pb.RenterBandwidthAllocation{
-						Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-							PayerAllocation: &pb.PayerBandwidthAllocation{},
-							Total:           32 * 1024,
-						}),
-					},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg1).Return(nil),
+				stream.EXPECT().Send(msg2).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024 * 2,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg3).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
@@ -205,6 +187,22 @@ func TestPieceRangerSize(t *testing.T) {
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}
+	}
+}
+
+func generateBA(priv *ecdsa.PrivateKey, size int64) *pb.RenterBandwidthAllocation {
+	data := serializeData(
+		&pb.RenterBandwidthAllocation_Data{
+			PayerAllocation: &pb.PayerBandwidthAllocation{},
+			Total:           size,
+		},
+	)
+
+	sig, _ := cryptopasta.Sign(data, priv)
+
+	return &pb.RenterBandwidthAllocation{
+		Data:      data,
+		Signature: sig,
 	}
 }
 
