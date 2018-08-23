@@ -18,12 +18,12 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "gw",
-		Short: "Gateway",
+		Use:   "ul",
+		Short: "Uplink",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the gateway",
+		Short: "Run the uplink",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
@@ -43,7 +43,7 @@ var (
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
 	}
 
-	defaultConfDir = "$HOME/.storj/gw"
+	defaultConfDir = "$HOME/.storj/ul"
 )
 
 func init() {
@@ -65,7 +65,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("A gw configuration already exists. Rerun with --overwrite")
+		fmt.Println("A ul configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 

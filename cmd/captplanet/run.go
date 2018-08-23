@@ -47,7 +47,7 @@ var (
 	runCfg struct {
 		HeavyClient HeavyClient
 		Farmers     [farmerCount]Farmer
-		Gateway     miniogw.Config
+		Uplink     miniogw.Config
 	}
 )
 
@@ -95,11 +95,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o)
 	}()
 
-	// start s3 gateway
+	// start s3 uplink
 	go func() {
-		_, _ = fmt.Printf("starting minio gateway on %s\n",
-			runCfg.Gateway.IdentityConfig.Address)
-		errch <- runCfg.Gateway.Run(ctx)
+		_, _ = fmt.Printf("starting minio uplink on %s\n",
+			runCfg.Uplink.IdentityConfig.Address)
+		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
 	return <-errch
