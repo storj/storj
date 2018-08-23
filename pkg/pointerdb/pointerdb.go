@@ -13,12 +13,17 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pointerdb/auth"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // ListPageLimit is the maximum number of items that will be returned by a list

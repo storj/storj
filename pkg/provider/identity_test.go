@@ -5,12 +5,14 @@ package provider
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,13 +27,18 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	c, err := peertls.NewCert(caT, nil, k)
+	cp, _ := k.(*ecdsa.PrivateKey)
+	c, err := peertls.NewCert(caT, nil, &cp.PublicKey, k)
 	assert.NoError(t, err)
 
 	lT, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	l, err := peertls.NewCert(lT, caT, k)
+	lk, err := peertls.NewKey()
+	assert.NoError(t, err)
+
+	lp, _ := lk.(*ecdsa.PrivateKey)
+	l, err := peertls.NewCert(lT, caT, &lp.PublicKey, k)
 	assert.NoError(t, err)
 
 	pi, err := PeerIdentityFromCerts(l, c)
@@ -48,7 +55,8 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	caT, err := peertls.CATemplate()
 	assert.NoError(t, err)
 
-	c, err := peertls.NewCert(caT, nil, ck)
+	cp, _ := ck.(*ecdsa.PrivateKey)
+	c, err := peertls.NewCert(caT, nil, &cp.PublicKey, ck)
 	assert.NoError(t, err)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, c)
@@ -56,16 +64,17 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	lT, err := peertls.LeafTemplate()
 	assert.NoError(t, err)
 
-	l, err := peertls.NewCert(lT, caT, ck)
+	lk, err := peertls.NewKey()
+	assert.NoError(t, err)
+
+	lp, _ := lk.(*ecdsa.PrivateKey)
+	l, err := peertls.NewCert(lT, caT, &lp.PublicKey, ck)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, l)
 
 	chainPEM := bytes.NewBuffer([]byte{})
 	pem.Encode(chainPEM, peertls.NewCertBlock(l.Raw))
 	pem.Encode(chainPEM, peertls.NewCertBlock(c.Raw))
-
-	lk, err := peertls.NewKey()
-	assert.NoError(t, err)
 
 	lkE, ok := lk.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
@@ -107,13 +116,16 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	err = ic.Save(fi)
 	assert.NoError(t, err)
 
-	certInfo, err := os.Stat(ic.CertPath)
-	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), certInfo.Mode())
+	if runtime.GOOS != "windows" {
+		//TODO (windows): ignoring for windows due to different default permissions
+		certInfo, err := os.Stat(ic.CertPath)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0644), certInfo.Mode())
 
-	keyInfo, err := os.Stat(ic.KeyPath)
-	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+		keyInfo, err := os.Stat(ic.KeyPath)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0600), keyInfo.Mode())
+	}
 
 	savedChainPEM, err := ioutil.ReadFile(ic.CertPath)
 	assert.NoError(t, err)
@@ -203,4 +215,20 @@ func TestNodeID_Difficulty(t *testing.T) {
 
 	difficulty := fi.ID.Difficulty()
 	assert.True(t, difficulty >= knownDifficulty)
+}
+
+func TestVerifyPeer(t *testing.T) {
+	check := func(e error) {
+		if !assert.NoError(t, e) {
+			t.Fail()
+		}
+	}
+
+	ca, err := NewCA(context.Background(), 12, 4)
+	check(err)
+	fi, err := ca.NewIdentity()
+	check(err)
+
+	err = peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains)([][]byte{fi.Leaf.Raw, fi.CA.Raw}, nil)
+	assert.NoError(t, err)
 }

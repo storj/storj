@@ -44,7 +44,7 @@ func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
 		var err error
 		certs[i], err = x509.ParseCertificate(c)
 		if err != nil {
-			return nil, ErrVerifyPeerCert.New("unable to parse certificate", err)
+			return nil, ErrVerifyPeerCert.New("unable to parse certificate: %v", err)
 		}
 	}
 	return certs, nil
@@ -54,7 +54,7 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 	for i, cert := range certs {
 		j := len(certs)
 		if i+1 < j {
-			isValid, err := verifyCertSignature(certs[i], cert)
+			isValid, err := verifyCertSignature(certs[i+1], cert)
 			if err != nil {
 				return ErrVerifyPeerCert.Wrap(err)
 			}
@@ -84,7 +84,7 @@ func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) 
 	signature := new(ecdsaSignature)
 
 	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
-		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature", err)
+		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 
 	h := crypto.SHA256.New()

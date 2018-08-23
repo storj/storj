@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -42,7 +43,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
-	dburl, err := url.Parse(c.DatabaseURL)
+	dburl, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -60,7 +61,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return Error.New("invalid db: %s", err)
 		}
-		cache, err = NewRedisOverlayCache(dburl.Host, urlPwd(dburl), db, kad)
+		cache, err = NewRedisOverlayCache(dburl.Host, UrlPwd(dburl), db, kad)
 		if err != nil {
 			return err
 		}
@@ -106,7 +107,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	return server.Run(ctx)
 }
 
-func urlPwd(u *url.URL) string {
+func UrlPwd(u *url.URL) string {
 	if u == nil || u.User == nil {
 		return ""
 	}

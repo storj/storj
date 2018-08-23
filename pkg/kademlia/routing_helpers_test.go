@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -39,6 +38,7 @@ func createRT(localNodeID []byte) *RoutingTable {
 		npath:      tempfile("Nodebucket"),
 		idLength:   16,
 		bucketSize: 6,
+		rcBucketSize: 2,
 	}
 	rt, _ := NewRoutingTable(localNode, options)
 	return rt
@@ -55,9 +55,11 @@ func TestAddNode(t *testing.T) {
 	bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
 	assert.NoError(t, err)
 	assert.NotNil(t, bucket)
+	var ok bool
 	//add node to unfilled kbucket
 	node1 := mockNode("PO") //[80, 79] or [01010000, 01001111]
-	err = rt.addNode(node1)
+	ok, err = rt.addNode(node1)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	kadKeys, err := rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)
@@ -68,19 +70,23 @@ func TestAddNode(t *testing.T) {
 
 	//add node to full kbucket and split
 	node2 := mockNode("NO") //[78, 79] or [01001110, 01001111]
-	err = rt.addNode(node2)
+	ok, err = rt.addNode(node2)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node3 := mockNode("MO") //[77, 79] or [01001101, 01001111]
-	err = rt.addNode(node3)
+	ok, err = rt.addNode(node3)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node4 := mockNode("LO") //[76, 79] or [01001100, 01001111]
-	err = rt.addNode(node4)
+	ok, err = rt.addNode(node4)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node5 := mockNode("QO") //[81, 79] or [01010001, 01001111]
-	err = rt.addNode(node5)
+	ok, err = rt.addNode(node5)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -92,7 +98,8 @@ func TestAddNode(t *testing.T) {
 
 	//splitting here
 	node6 := mockNode("SO")
-	err = rt.addNode(node6)
+	ok, err = rt.addNode(node6)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -121,27 +128,33 @@ func TestAddNode(t *testing.T) {
 
 	//add node to full kbucket and drop
 	node7 := mockNode("?O")
-	err = rt.addNode(node7)
+	ok, err = rt.addNode(node7)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node8 := mockNode(">O")
-	err = rt.addNode(node8)
+	ok, err = rt.addNode(node8)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node9 := mockNode("=O")
-	err = rt.addNode(node9)
+	ok, err = rt.addNode(node9)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node10 := mockNode(";O")
-	err = rt.addNode(node10)
+	ok, err = rt.addNode(node10)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node11 := mockNode(":O")
-	err = rt.addNode(node11)
+	ok, err = rt.addNode(node11)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	node12 := mockNode("9O")
-	err = rt.addNode(node12)
+	ok, err = rt.addNode(node12)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
@@ -156,9 +169,13 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNode("8O")
-	err = rt.addNode(node13)
+	node13 := mockNode("8O") 
+	ok, err = rt.addNode(node13)
+	assert.False(t, ok)
 	assert.NoError(t, err)
+	//check if node13 it into the replacement cache
+	ns := rt.replacementCache[string([]byte{63, 255})]
+	assert.Equal(t, node13.Id, ns[0].Id)
 
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)
@@ -173,21 +190,26 @@ func TestAddNode(t *testing.T) {
 	//add node to highly unbalanced tree
 	//adding to bucket 1
 	node14 := mockNode("KO") //75
-	err = rt.addNode(node14)
+	ok, err = rt.addNode(node14)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node15 := mockNode("JO") //74
-	err = rt.addNode(node15)
+	ok, err = rt.addNode(node15)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	//adding to bucket 2
 	node16 := mockNode("]O") //93
-	err = rt.addNode(node16)
+	ok, err = rt.addNode(node16)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node17 := mockNode("^O") //94
-	err = rt.addNode(node17)
+	ok, err = rt.addNode(node17)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	node18 := mockNode("_O") //95
-	err = rt.addNode(node18)
+	ok, err = rt.addNode(node18)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	b, err = rt.getNodeIDsWithinKBucket(kadKeys[1])
@@ -205,7 +227,8 @@ func TestAddNode(t *testing.T) {
 
 	//split bucket 2
 	node19 := mockNode("@O")
-	err = rt.addNode(node19)
+	ok, err = rt.addNode(node19)
+	assert.True(t, ok)
 	assert.NoError(t, err)
 	kadKeys, err = rt.kadBucketDB.List(nil, 0)
 	assert.NoError(t, err)
@@ -214,6 +237,57 @@ func TestAddNode(t *testing.T) {
 
 	assert.Equal(t, 6, len(kadKeys))
 	assert.Equal(t, 19, len(nodeKeys))
+}
+
+func TestUpdateNode(t *testing.T) {
+	rt := createRT([]byte("AA"))
+	node := mockNode("BB")
+	ok, err := rt.addNode(node)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	val, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	unmarshaled, err := unmarshalNodes(storage.Keys{storage.Key(node.Id)}, []storage.Value{val})
+	assert.NoError(t, err)
+	x := unmarshaled[0].Address
+	assert.Nil(t, x)
+
+	node.Address = &proto.NodeAddress{Address: "BB"}
+	err = rt.updateNode(node)
+	assert.NoError(t, err)
+	val, err = rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	unmarshaled, err = unmarshalNodes(storage.Keys{storage.Key(node.Id)}, []storage.Value{val})
+	assert.NoError(t, err)
+	y := unmarshaled[0].Address.Address
+	assert.Equal(t, "BB", y)
+}
+
+func TestRemoveNode(t *testing.T) {
+	rt := createRT([]byte("AA"))
+	kadBucketID := []byte{255, 255}
+	node := mockNode("BB")
+	ok, err := rt.addNode(node)
+	assert.True(t, ok)
+	assert.NoError(t, err)
+	val, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.NoError(t, err)
+	assert.NotNil(t, val)
+	node2 := mockNode("CC")
+	rt.addToReplacementCache(kadBucketID, node2)
+	err = rt.removeNode(kadBucketID, storage.Key(node.Id))
+	assert.NoError(t, err)
+	val, err = rt.nodeBucketDB.Get(storage.Key(node.Id))
+	assert.Nil(t, val)
+	assert.Error(t, err)
+	val2, err := rt.nodeBucketDB.Get(storage.Key(node2.Id))
+	assert.NoError(t, err)
+	assert.NotNil(t, val2)
+	assert.Equal(t, 0, len(rt.replacementCache[string(kadBucketID)]))
+
+	//try to remove node not in rt
+	err = rt.removeNode(kadBucketID, storage.Key("DD"))
+	assert.NoError(t, err)
 }
 
 func TestCreateOrUpdateKBucket(t *testing.T) {
@@ -253,7 +327,6 @@ func TestSortByXOR(t *testing.T) {
 	node5 := []byte{133, 255} //xor 250
 	rt.nodeBucketDB.Put(node5, []byte(""))
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
-	fmt.Print(nodes)
 	assert.NoError(t, err)
 	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
 	assert.Equal(t, expectedNodes, nodes)
@@ -472,8 +545,6 @@ func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
 	rt.addNode(nodeC)
 	nodes, err := rt.getUnmarshaledNodesFromBucket(bucketID)
 	expected := []*proto.Node{nodeA, nodeB, nodeC}
-	fmt.Print(expected)
-	fmt.Print(nodes)
 	assert.NoError(t, err)
 	for i, v := range expected {
 		assert.True(t, pb.Equal(v, nodes[i]))

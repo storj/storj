@@ -1,17 +1,26 @@
 node('node') {
   try {
+    currentBuild.result = "SUCCESS"
 
     stage('Checkout') {
-        checkout scm
+      checkout scm
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Images') {
       sh 'make test-docker images'
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Push Images') {
-      echo 'Push to Repo'
-      sh 'make push-images'
+      if (env.BRANCH_NAME == "master") {
+        echo 'Push to Repo'
+        sh 'make push-images'
+      }
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Deploy') {
@@ -23,11 +32,13 @@ node('node') {
         }
       }
 
-      return
+      echo "Current build result: ${currentBuild.result}"
     }
 
   }
   catch (err) {
+    echo "Caught errors! ${err}"
+    echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
     /*

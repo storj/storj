@@ -34,10 +34,11 @@ var (
 	}
 
 	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
-		Overlay   overlay.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
+		Overlay     overlay.Config
+		MockOverlay overlay.MockConfig
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -57,8 +58,12 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	var o provider.Responsibility = runCfg.Overlay
+	if runCfg.MockOverlay.Nodes != "" {
+		o = runCfg.MockOverlay
+	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, runCfg.Overlay)
+		runCfg.Kademlia, runCfg.PointerDB, o)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

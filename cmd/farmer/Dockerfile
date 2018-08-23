@@ -1,7 +1,7 @@
 # build
-FROM golang:1.10-alpine AS build-env
-RUN apk add -U curl git musl-dev gcc \
- && apk add git
+ARG GO_VERSION=1.10
+FROM golang:${GO_VERSION}-alpine AS build-env
+RUN apk add -U curl git musl-dev gcc
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 COPY . /go/src/storj.io/storj
 RUN cd /go/src/storj.io/storj && dep ensure -vendor-only

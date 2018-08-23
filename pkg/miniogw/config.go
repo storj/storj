@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw/logging"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -28,7 +28,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     int `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
-	StripeSize       int `help:"the size of each new stripe in bytes" default:"1024"`
+	ErasureShareSize int `help:"the size of each new erasure sure in bytes" default:"1024"`
 	MinThreshold     int `help:"the minimum pieces required to recover a segment. k." default:"20"`
 	RepairThreshold  int `help:"the minimum safe pieces before a repair is triggered. m." default:"30"`
 	SuccessThreshold int `help:"the desired total pieces for a segment. o." default:"40"`
@@ -128,13 +128,10 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 
-	// TODO(jt): remove this!
-	oc = GlobalMockOverlay
-
-	// TODO(jt): pointerdb.NewClient should dial the pointerdb server with the
+	// TODO(jt): pdbclient.NewClient should dial the pointerdb server with the
 	// transport client. probably should use the same connection as the
 	// overlay client
-	pdb, err := pointerdb.NewClient(c.PointerDBAddr, []byte(c.APIKey))
+	pdb, err := pdbclient.NewClient(c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +142,7 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 	rs, err := eestream.NewRedundancyStrategy(
-		eestream.NewRSScheme(fc, c.StripeSize/c.MaxThreshold),
+		eestream.NewRSScheme(fc, c.ErasureShareSize),
 		c.RepairThreshold, c.SuccessThreshold)
 	if err != nil {
 		return nil, err
