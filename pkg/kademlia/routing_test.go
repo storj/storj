@@ -10,9 +10,9 @@ import (
 
 	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	
-	"storj.io/storj/storage"
+
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage"
 )
 
 func TestLocal(t *testing.T) {
@@ -60,10 +60,13 @@ func TestGetBucket(t *testing.T) {
 	for i, v := range cases {
 		b, e := rt.GetBucket(node2.Id)
 		for j, w := range v.expected.nodes {
-			assert.True(t, pb.Equal(w, b.Nodes()[j]))
+			if !assert.True(t, pb.Equal(w, b.Nodes()[j])) {
+				fmt.Printf("case %v failed expected: ", i)
+			}
 		}
-		assert.Equal(t, v.ok, e)
-		fmt.Printf("error occured at index %d", i) //what's a better way to print the index?
+		if !assert.Equal(t, v.ok, e) {
+			fmt.Printf("case %v failed ok: ", i)
+		}
 	}
 }
 
@@ -91,12 +94,27 @@ func TestFindNear(t *testing.T) {
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*proto.Node{node2}
+	expected := []*proto.Node{node}
 	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
 	assert.NoError(t, err)
-	for i, v := range nodes {
-		assert.True(t, pb.Equal(expected[i], v))
-	}
+	assert.Equal(t, expected, nodes)
+
+	node3 := mockNode("CC")
+	expected = []*proto.Node{node2, node}
+	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 2)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, nodes)
+
+	expected = []*proto.Node{node2}
+	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, nodes)
+
+	expected = []*proto.Node{node2, node}
+	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, nodes)
+
 }
 
 func TestConnectionSuccess(t *testing.T) {
@@ -107,7 +125,7 @@ func TestConnectionSuccess(t *testing.T) {
 	address2 := &proto.NodeAddress{Address: "b"}
 	node1 := &proto.Node{Id: id, Address: address1}
 	node2 := &proto.Node{Id: id2, Address: address2}
-	
+
 	//Updates node
 	err := rt.ConnectionSuccess(node1)
 	assert.NoError(t, err)

@@ -1,18 +1,18 @@
 #!/bin/sh
 set -euo pipefail
 
-# Create a new farmer, if the ID for an existing farmer isn't specified.
-if [[ -z $PSID ]]; then
-	mkdir -p "${PS_DIR}"
-  # Needs updating for new method of creating certs
-	#export PSID=$(./piecestore-farmer setup | awk '/created/ { print $2 }')
-  echo "(DISABLED) Created farmer $PSID"
+RUN_PARAMS="${RUN_PARAMS:-}"
+
+if [[ -f "${CONF_PATH:-}" ]]; then
+  RUN_PARAMS="${RUN_PARAMS} --config \"${CONF_PATH}\""
+else
+  if [[ ! -d $HOME/.storj/farmer ]]; then
+    ./farmer setup
+  fi
 fi
 
-RUN_PARAMS=''
-
-if [[ -z $CONF_PATH ]]; then
-  RUN_PARAMS="${RUN_PARAMS} --config ${CONF_PATH}"
+if [ -n "${SATELLITE_ADDR:-}" ]; then
+	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr $SATELLITE_ADDR"
 fi
 
-exec ./farmer run $RUN_PARAMS
+exec ./farmer run $RUN_PARAMS "$@"

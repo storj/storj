@@ -44,8 +44,14 @@
 [[projects]]
   name = "github.com/cheggaaa/pb"
   packages = ["."]
-  revision = "c112833d014c77e8bde723fd0158e3156951639f"
-  version = "v2.0.6"
+  revision = "2af8bbdea9e99e83b3ac400d8f6b6d1b8cbbf338"
+  version = "v1.0.25"
+
+[[projects]]
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  revision = "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb"
+  version = "v0.0.3"
 
 [[projects]]
   name = "github.com/cloudfoundry/gosigar"
@@ -336,8 +342,8 @@
 [[projects]]
   name = "github.com/klauspost/reedsolomon"
   packages = ["."]
-  revision = "6bb6130ff6a76a904c1841707d65603aec9cc288"
-  version = "v1.6"
+  revision = "925cb01d65108f2c935e02fdb79ff4a055a4a20d"
+  version = "master"
 
 [[projects]]
   branch = "master"
@@ -398,7 +404,7 @@
 [[projects]]
   name = "github.com/minio/cli"
   packages = ["."]
-  revision = "8683fa7fef37cc8cb092f47bdb6b403e0049f9ee"
+  revision = "45db1f8a055198ad8c12754026cb2c51c584c756"
   version = "v1.3.0"
 
 [[projects]]
@@ -461,7 +467,7 @@
     "pkg/wildcard",
     "pkg/words"
   ]
-  revision = "0ef0d7e685bd2fbe57bd0351e36649e971cc9a93"
+  revision = "54cd29b51c38d22653bb40477d8a366f5fcd7b26"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -631,7 +637,7 @@
 [[projects]]
   name = "github.com/segmentio/go-prompt"
   packages = ["."]
-  revision = "0be3d6bb7dff1db1f7d4127e5861ce97772dd891"
+  revision = "f0d19b6901ade831d5a3204edc0d6a7d6457fbb2"
   version = "v1.2.0"
 
 [[projects]]
