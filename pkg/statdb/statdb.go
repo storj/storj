@@ -49,7 +49,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
-// Create a db entry for the provided farmer
+// Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	s.logger.Debug("entering statdb Create")
 
@@ -88,7 +88,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	}, nil
 }
 
-// Get a farmer's stats from the db
+// Get a storagenode's stats from the db
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	s.logger.Debug("entering statdb Get")
 
@@ -113,7 +113,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	}, nil
 }
 
-// Update a single farmer's stats in the db
+// Update a single storagenode's stats in the db
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	s.logger.Debug("entering statdb Update")
 
