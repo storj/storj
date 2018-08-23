@@ -5,6 +5,9 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -33,7 +36,13 @@ func main() {
 		log.Fatalf("did not connect: %s", err)
 	}
 	defer conn.Close()
-	psClient, err := client.NewPSClient(conn, 1024*32)
+
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		log.Fatalf("did generate private key: %s", err)
+	}
+
+	psClient, err := client.NewPSClient(conn, 1024*32, privKey)
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
