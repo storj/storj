@@ -100,7 +100,7 @@ test-docker-clean:
 
 images:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storjnode/Dockerfile .
 
 push-images:
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest

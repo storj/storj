@@ -16,8 +16,8 @@ enum NodeTransport {
 service Overlay {
     // Lookup finds a nodes address from the network
     rpc Lookup(LookupRequest) returns (LookupResponse);
-    // FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-    rpc FindStorageNodes(FindStorageNodesRequest) returns (FindStorageNodesResponse);
+    // FindStorjNodes finds a list of nodes in the network that meet the specified request parameters
+    rpc FindStorjNodes(FindStorjNodesRequest) returns (FindStorjNodesResponse);
 }
 
 service Nodes {
@@ -34,13 +34,13 @@ message LookupResponse {
     Node node = 1;
 }
 
-// FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
-message FindStorageNodesResponse {
+// FindStorjNodesResponse is is response message for the FindStorjNodes rpc call
+message FindStorjNodesResponse {
     repeated Node nodes = 1;
 }
 
-// FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
-message FindStorageNodesRequest {
+// FindStorjNodesRequest is is request message for the FindStorjNodes rpc call
+message FindStorjNodesRequest {
     int64 objectSize = 1;
     google.protobuf.Duration contractLength = 2;
     OverlayOptions opts = 3;

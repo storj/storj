@@ -35,8 +35,8 @@ func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 
 type TestMockOverlay struct{}
 
-func (o *TestMockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
-	return &proto.FindStorageNodesResponse{}, nil
+func (o *TestMockOverlay) FindStorjNodes(ctx context.Context, req *proto.FindStorjNodesRequest) (*proto.FindStorjNodesResponse, error) {
+	return &proto.FindStorjNodesResponse{}, nil
 }
 
 func (o *TestMockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {

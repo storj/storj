@@ -75,7 +75,7 @@ func TestChoose(t *testing.T) {
 
 		_, err = oc.Choose(context.Background(), v.limit, v.space)
 		assert.NoError(t, err)
-		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
+		assert.Equal(t, mock.FindStorjNodesCalled, v.expectedCalls)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestLookup(t *testing.T) {
 
 func NewTestServer() (*grpc.Server, *mockOverlayServer) {
 	grpcServer := grpc.NewServer()
-	mo := &mockOverlayServer{lookupCalled: 0, FindStorageNodesCalled: 0}
+	mo := &mockOverlayServer{lookupCalled: 0, FindStorjNodesCalled: 0}
 
 	proto.RegisterOverlayServer(grpcServer, mo)
 
@@ -122,8 +122,8 @@ func NewTestServer() (*grpc.Server, *mockOverlayServer) {
 }
 
 type mockOverlayServer struct {
-	lookupCalled           int
-	FindStorageNodesCalled int
+	lookupCalled         int
+	FindStorjNodesCalled int
 }
 
 func (o *mockOverlayServer) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
@@ -131,7 +131,7 @@ func (o *mockOverlayServer) Lookup(ctx context.Context, req *proto.LookupRequest
 	return &proto.LookupResponse{}, nil
 }
 
-func (o *mockOverlayServer) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
-	o.FindStorageNodesCalled++
-	return &proto.FindStorageNodesResponse{}, nil
+func (o *mockOverlayServer) FindStorjNodes(ctx context.Context, req *proto.FindStorjNodesRequest) (*proto.FindStorjNodesResponse, error) {
+	o.FindStorjNodesCalled++
+	return &proto.FindStorjNodesResponse{}, nil
 }

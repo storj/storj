@@ -25,18 +25,18 @@ func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 	return rv
 }
 
-func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
-	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
+func (mo *MockOverlay) FindStorjNodes(ctx context.Context,
+	req *proto.FindStorjNodesRequest) (resp *proto.FindStorjNodesResponse,
 	err error) {
 	nodes := make([]*proto.Node, 0, len(mo.nodes))
 	for _, node := range mo.nodes {
 		nodes = append(nodes, node)
 	}
 	if int64(len(nodes)) < req.Opts.GetAmount() {
-		return nil, errs.New("not enough storagenodes exist")
+		return nil, errs.New("not enough storjnodes exist")
 	}
 	nodes = nodes[:req.Opts.GetAmount()]
-	return &proto.FindStorageNodesResponse{Nodes: nodes}, nil
+	return &proto.FindStorjNodesResponse{Nodes: nodes}, nil
 }
 
 func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (

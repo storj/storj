@@ -202,47 +202,47 @@ func (m *LookupResponse) GetNode() *Node {
 	return nil
 }
 
-// FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
-type FindStorageNodesResponse struct {
+// FindStorjNodesResponse is is response message for the FindStorjNodes rpc call
+type FindStorjNodesResponse struct {
 	Nodes                []*Node  `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *FindStorageNodesResponse) Reset()         { *m = FindStorageNodesResponse{} }
-func (m *FindStorageNodesResponse) String() string { return proto.CompactTextString(m) }
-func (*FindStorageNodesResponse) ProtoMessage()    {}
-func (*FindStorageNodesResponse) Descriptor() ([]byte, []int) {
+func (m *FindStorjNodesResponse) Reset()         { *m = FindStorjNodesResponse{} }
+func (m *FindStorjNodesResponse) String() string { return proto.CompactTextString(m) }
+func (*FindStorjNodesResponse) ProtoMessage()    {}
+func (*FindStorjNodesResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_overlay_54bfbe46ae104a6e, []int{2}
 }
-func (m *FindStorageNodesResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindStorageNodesResponse.Unmarshal(m, b)
+func (m *FindStorjNodesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindStorjNodesResponse.Unmarshal(m, b)
 }
-func (m *FindStorageNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindStorageNodesResponse.Marshal(b, m, deterministic)
+func (m *FindStorjNodesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindStorjNodesResponse.Marshal(b, m, deterministic)
 }
-func (dst *FindStorageNodesResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesResponse.Merge(dst, src)
+func (dst *FindStorjNodesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindStorjNodesResponse.Merge(dst, src)
 }
-func (m *FindStorageNodesResponse) XXX_Size() int {
-	return xxx_messageInfo_FindStorageNodesResponse.Size(m)
+func (m *FindStorjNodesResponse) XXX_Size() int {
+	return xxx_messageInfo_FindStorjNodesResponse.Size(m)
 }
-func (m *FindStorageNodesResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindStorageNodesResponse.DiscardUnknown(m)
+func (m *FindStorjNodesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindStorjNodesResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FindStorageNodesResponse proto.InternalMessageInfo
+var xxx_messageInfo_FindStorjNodesResponse proto.InternalMessageInfo
 
-func (m *FindStorageNodesResponse) GetNodes() []*Node {
+func (m *FindStorjNodesResponse) GetNodes() []*Node {
 	if m != nil {
 		return m.Nodes
 	}
 	return nil
 }
 
-// FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
-type FindStorageNodesRequest struct {
+// FindStorjNodesRequest is is request message for the FindStorjNodes rpc call
+type FindStorjNodesRequest struct {
 	ObjectSize           int64              `protobuf:"varint,1,opt,name=objectSize,proto3" json:"objectSize,omitempty"`
 	ContractLength       *duration.Duration `protobuf:"bytes,2,opt,name=contractLength,proto3" json:"contractLength,omitempty"`
 	Opts                 *OverlayOptions    `protobuf:"bytes,3,opt,name=opts,proto3" json:"opts,omitempty"`
@@ -251,45 +251,45 @@ type FindStorageNodesRequest struct {
 	XXX_sizecache        int32              `json:"-"`
 }
 
-func (m *FindStorageNodesRequest) Reset()         { *m = FindStorageNodesRequest{} }
-func (m *FindStorageNodesRequest) String() string { return proto.CompactTextString(m) }
-func (*FindStorageNodesRequest) ProtoMessage()    {}
-func (*FindStorageNodesRequest) Descriptor() ([]byte, []int) {
+func (m *FindStorjNodesRequest) Reset()         { *m = FindStorjNodesRequest{} }
+func (m *FindStorjNodesRequest) String() string { return proto.CompactTextString(m) }
+func (*FindStorjNodesRequest) ProtoMessage()    {}
+func (*FindStorjNodesRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_overlay_54bfbe46ae104a6e, []int{3}
 }
-func (m *FindStorageNodesRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FindStorageNodesRequest.Unmarshal(m, b)
+func (m *FindStorjNodesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FindStorjNodesRequest.Unmarshal(m, b)
 }
-func (m *FindStorageNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FindStorageNodesRequest.Marshal(b, m, deterministic)
+func (m *FindStorjNodesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FindStorjNodesRequest.Marshal(b, m, deterministic)
 }
-func (dst *FindStorageNodesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FindStorageNodesRequest.Merge(dst, src)
+func (dst *FindStorjNodesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FindStorjNodesRequest.Merge(dst, src)
 }
-func (m *FindStorageNodesRequest) XXX_Size() int {
-	return xxx_messageInfo_FindStorageNodesRequest.Size(m)
+func (m *FindStorjNodesRequest) XXX_Size() int {
+	return xxx_messageInfo_FindStorjNodesRequest.Size(m)
 }
-func (m *FindStorageNodesRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_FindStorageNodesRequest.DiscardUnknown(m)
+func (m *FindStorjNodesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FindStorjNodesRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_FindStorageNodesRequest proto.InternalMessageInfo
+var xxx_messageInfo_FindStorjNodesRequest proto.InternalMessageInfo
 
-func (m *FindStorageNodesRequest) GetObjectSize() int64 {
+func (m *FindStorjNodesRequest) GetObjectSize() int64 {
 	if m != nil {
 		return m.ObjectSize
 	}
 	return 0
 }
 
-func (m *FindStorageNodesRequest) GetContractLength() *duration.Duration {
+func (m *FindStorjNodesRequest) GetContractLength() *duration.Duration {
 	if m != nil {
 		return m.ContractLength
 	}
 	return nil
 }
 
-func (m *FindStorageNodesRequest) GetOpts() *OverlayOptions {
+func (m *FindStorjNodesRequest) GetOpts() *OverlayOptions {
 	if m != nil {
 		return m.Opts
 	}
@@ -704,8 +704,8 @@ func (m *Restriction) GetValue() int64 {
 func init() {
 	proto.RegisterType((*LookupRequest)(nil), "overlay.LookupRequest")
 	proto.RegisterType((*LookupResponse)(nil), "overlay.LookupResponse")
-	proto.RegisterType((*FindStorageNodesResponse)(nil), "overlay.FindStorageNodesResponse")
-	proto.RegisterType((*FindStorageNodesRequest)(nil), "overlay.FindStorageNodesRequest")
+	proto.RegisterType((*FindStorjNodesResponse)(nil), "overlay.FindStorjNodesResponse")
+	proto.RegisterType((*FindStorjNodesRequest)(nil), "overlay.FindStorjNodesRequest")
 	proto.RegisterType((*NodeAddress)(nil), "overlay.NodeAddress")
 	proto.RegisterType((*OverlayOptions)(nil), "overlay.OverlayOptions")
 	proto.RegisterType((*NodeRep)(nil), "overlay.NodeRep")
@@ -734,8 +734,8 @@ const _ = grpc.SupportPackageIsVersion4
 type OverlayClient interface {
 	// Lookup finds a nodes address from the network
 	Lookup(ctx context.Context, in *LookupRequest, opts ...grpc.CallOption) (*LookupResponse, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error)
+	// FindStorjNodes finds a list of nodes in the network that meet the specified request parameters
+	FindStorjNodes(ctx context.Context, in *FindStorjNodesRequest, opts ...grpc.CallOption) (*FindStorjNodesResponse, error)
 }
 
 type overlayClient struct {
@@ -755,9 +755,9 @@ func (c *overlayClient) Lookup(ctx context.Context, in *LookupRequest, opts ...g
 	return out, nil
 }
 
-func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNodesRequest, opts ...grpc.CallOption) (*FindStorageNodesResponse, error) {
-	out := new(FindStorageNodesResponse)
-	err := c.cc.Invoke(ctx, "/overlay.Overlay/FindStorageNodes", in, out, opts...)
+func (c *overlayClient) FindStorjNodes(ctx context.Context, in *FindStorjNodesRequest, opts ...grpc.CallOption) (*FindStorjNodesResponse, error) {
+	out := new(FindStorjNodesResponse)
+	err := c.cc.Invoke(ctx, "/overlay.Overlay/FindStorjNodes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -768,8 +768,8 @@ func (c *overlayClient) FindStorageNodes(ctx context.Context, in *FindStorageNod
 type OverlayServer interface {
 	// Lookup finds a nodes address from the network
 	Lookup(context.Context, *LookupRequest) (*LookupResponse, error)
-	// FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
-	FindStorageNodes(context.Context, *FindStorageNodesRequest) (*FindStorageNodesResponse, error)
+	// FindStorjNodes finds a list of nodes in the network that meet the specified request parameters
+	FindStorjNodes(context.Context, *FindStorjNodesRequest) (*FindStorjNodesResponse, error)
 }
 
 func RegisterOverlayServer(s *grpc.Server, srv OverlayServer) {
@@ -794,20 +794,20 @@ func _Overlay_Lookup_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Overlay_FindStorageNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FindStorageNodesRequest)
+func _Overlay_FindStorjNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindStorjNodesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(OverlayServer).FindStorageNodes(ctx, in)
+		return srv.(OverlayServer).FindStorjNodes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/overlay.Overlay/FindStorageNodes",
+		FullMethod: "/overlay.Overlay/FindStorjNodes",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OverlayServer).FindStorageNodes(ctx, req.(*FindStorageNodesRequest))
+		return srv.(OverlayServer).FindStorjNodes(ctx, req.(*FindStorjNodesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -821,8 +821,8 @@ var _Overlay_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Overlay_Lookup_Handler,
 		},
 		{
-			MethodName: "FindStorageNodes",
-			Handler:    _Overlay_FindStorageNodes_Handler,
+			MethodName: "FindStorjNodes",
+			Handler:    _Overlay_FindStorjNodes_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

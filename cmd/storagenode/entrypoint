@@ -1,12 +1,12 @@
 #!/bin/sh
 set -euo pipefail
 
-# Create a new storagenode, if the ID for an existing storagenode isn't specified.
+# Create a new storjnode, if the ID for an existing storjnode isn't specified.
 if [[ -z $PSID ]]; then
 	mkdir -p "${PS_DIR}"
   # Needs updating for new method of creating certs
-	#export PSID=$(./piecestore-storagenode setup | awk '/created/ { print $2 }')
-  echo "(DISABLED) Created storagenode $PSID"
+	#export PSID=$(./piecestore-storjnode setup | awk '/created/ { print $2 }')
+  echo "(DISABLED) Created storjnode $PSID"
 fi
 
 RUN_PARAMS=''
@@ -15,4 +15,4 @@ if [[ -z $CONF_PATH ]]; then
   RUN_PARAMS="${RUN_PARAMS} --config ${CONF_PATH}"
 fi
 
-exec ./storagenode run $RUN_PARAMS
+exec ./storjnode run $RUN_PARAMS

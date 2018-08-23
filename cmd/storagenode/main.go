@@ -18,12 +18,12 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "storagenode",
-		Short: "StorageNode",
+		Use:   "storjnode",
+		Short: "StorjNode",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the storagenode",
+		Short: "Run the storjnode",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
@@ -43,7 +43,7 @@ var (
 		Identity provider.IdentitySetupConfig
 	}
 
-	defaultConfDir = "$HOME/.storj/storagenode"
+	defaultConfDir = "$HOME/.storj/storjnode"
 )
 
 func init() {
