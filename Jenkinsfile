@@ -27,9 +27,6 @@ node('node') {
       /* This should only deploy to staging if the branch is master */
       stage('Deploy') {
         sh 'make deploy'
-        for (int i = 1; i < 60; i++) {
-          sh "./scripts/deploy.staging.sh storage-node-${i} storjlabs/storj-storage-node:${commit_id}"
-        }
         echo "Current build result: ${currentBuild.result}"
       }
     }

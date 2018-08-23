@@ -150,7 +150,7 @@ install-deps:
 
 .PHONY: deploy
 deploy:
-	./scripts/deploy.staging.sh satellite storjlabs/storj-satellite:${TAG}
+	./scripts/deploy.staging.sh satellite storjlabs/satellite:${TAG}
 	for i in $(shell seq 1 60); do \
 		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
 	done
