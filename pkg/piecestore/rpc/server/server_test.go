@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,11 +20,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-
 	"golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore"
@@ -232,15 +232,21 @@ func TestRetrieve(t *testing.T) {
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
+
+				ba := pb.RenterBandwidthAllocation{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						Total:           totalAllocated,
+					}),
+				}
+
+				s, err := cryptopasta.Sign(ba.Data, TS.k)
+				assert.NoError(err)
+				ba.Signature = s
+
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Signature: []byte{'A', 'B'},
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           totalAllocated,
-							}),
-						},
+						Bandwidthallocation: &ba,
 					},
 				)
 				assert.Nil(err)
@@ -325,13 +331,16 @@ func TestStore(t *testing.T) {
 			msg := &pb.PieceStore{
 				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
 				Bandwidthallocation: &pb.RenterBandwidthAllocation{
-					Signature: []byte{'A', 'B'},
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
 						Total:           int64(len(tt.content)),
 					}),
 				},
 			}
+
+			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k)
+			assert.NoError(err)
+			msg.Bandwidthallocation.Signature = s
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
@@ -482,6 +491,7 @@ type TestServer struct {
 	grpcs *grpc.Server
 	conn  *grpc.ClientConn
 	c     pb.PieceStoreRoutesClient
+	k     *ecdsa.PrivateKey
 }
 
 func NewTestServer(t *testing.T) *TestServer {
@@ -509,7 +519,9 @@ func NewTestServer(t *testing.T) *TestServer {
 	grpcs := grpc.NewServer(so)
 	c, conn := connect(co)
 
-	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+	k, ok := fiC.Key.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c, k: k}
 }
 
 func (TS *TestServer) Start() {
