@@ -6,6 +6,8 @@ package pointerdb
 import (
 	"context"
 	"reflect"
+	"fmt"
+	"errors"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -24,6 +26,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	segmentError = errors.New("Invalid segment formatting")
 )
 
 // ListPageLimit is the maximum number of items that will be returned by a list
@@ -31,17 +34,20 @@ var (
 // TODO(kaloyan): make it configurable
 const ListPageLimit = 1000
 
+
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore
 	logger *zap.Logger
+	config Config
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
+func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		config: c,
 	}
 }
 
@@ -53,10 +59,54 @@ func (s *Server) validateAuth(APIKey []byte) error {
 	return nil
 }
 
+func (s *Server) validateSegment(req *pb.PutRequest) error {
+	min := s.config.MinInlineSegmentSize
+	max := s.config.MaxInlineSegmentSize
+	inlineSize := len(req.GetPointer().InlineSegment)
+	pointer := req.GetPointer()
+	remote := pointer.Remote
+
+	fmt.Printf("Pointer is %+v\n", pointer)
+	fmt.Printf("Remote is %+v\n", remote)
+
+	if inlineSize < min {
+		if remote != nil {
+			return segmentError
+		}
+	} 
+
+	if inlineSize > max {
+		return segmentError
+	}
+
+	return nil
+}
+
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb put")
+
+	fmt.Printf("size is %d\n", len(req.GetPointer().InlineSegment))
+	err = s.validateSegment(req)
+	if err != nil {
+		return nil, err
+	}
+	
+	// fmt.Printf("configured sizes are min %d and max %d\n", min, max)
+
+	// inlinesize := len(req.GetPointer().InlineSegment)
+	// if inlinesize > 8000 {
+	// 	fmt.Printf("inline size > 8000\n")
+	// }
+
+	// segment := req.GetPointer().InlineSegment
+
+	// if inlinesize > 8000 {
+	// 	fmt.Printf("GREATER THAN 8000")
+	// }
+
+	// fmt.Printf("segment in question is %+v\n", segment)
 
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
