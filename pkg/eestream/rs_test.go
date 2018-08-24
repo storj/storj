@@ -468,27 +468,21 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	}
 }
 
-type pieceInfo struct {
-	i    int
-	data []byte
-	err  error
-}
-
 func readAll(readers []io.Reader) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
-	pieceChan := make(chan pieceInfo, len(readers))
+	errs := make(chan error, len(readers))
 	for i := range readers {
-		go func(i int, r io.Reader) {
-			data, err := ioutil.ReadAll(readers[i])
-			pieceChan <- pieceInfo{i: i, data: data, err: err}
-		}(i, readers[i])
+		go func(i int) {
+			var err error
+			pieces[i], err = ioutil.ReadAll(readers[i])
+			errs <- err
+		}(i)
 	}
 	for range readers {
-		pi := <-pieceChan
-		if pi.err != nil {
-			return nil, pi.err
+		err := <-errs
+		if err != nil {
+			return nil, err
 		}
-		pieces[pi.i] = pi.data
 	}
 	return pieces, nil
 }
@@ -533,19 +527,19 @@ func TestEncoderStalledReaders(t *testing.T) {
 
 func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
-	pieceChan := make(chan pieceInfo, len(readers))
+	errs := make(chan error, len(readers))
 	for i := stalled; i < len(readers); i++ {
-		go func(i int, r io.Reader) {
-			data, err := ioutil.ReadAll(readers[i])
-			pieceChan <- pieceInfo{i: i, data: data, err: err}
-		}(i, readers[i])
+		go func(i int) {
+			var err error
+			pieces[i], err = ioutil.ReadAll(readers[i])
+			errs <- err
+		}(i)
 	}
 	for i := stalled; i < len(readers); i++ {
-		pi := <-pieceChan
-		if pi.err != nil {
-			return nil, pi.err
+		err := <-errs
+		if err != nil {
+			return nil, err
 		}
-		pieces[pi.i] = pi.data
 	}
 	return pieces, nil
 }
