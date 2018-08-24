@@ -30,7 +30,7 @@ var (
 	ErrNotExist = errs.Class("file or directory not found error")
 	// ErrGenerate is used when an error occurred during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
-	// ErrTLSOptions is used inconsistently and should probably just be removed
+	// ErrUnsupportedKey is used when key type is not supported
 	ErrUnsupportedKey = errs.Class("unsupported key type")
 	// ErrTLSTemplate is used when an error occurs during tls template generation
 	ErrTLSTemplate = errs.Class("tls template error")
@@ -149,7 +149,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	return nil
 }
 
-// WriteChain writes the private key to the writer, PEM-encoded.
+// WriteKey writes the private key to the writer, PEM-encoded.
 func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
 		kb  []byte

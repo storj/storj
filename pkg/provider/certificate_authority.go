@@ -156,7 +156,7 @@ func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
 	return nil
 }
 
-// Generate Identity generates a new `FullIdentity` based on the CA. The CA
+// NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
 func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {

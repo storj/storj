@@ -22,7 +22,7 @@ import (
 type TlsFilesStat int
 
 const (
-	NoCertNoKey = iota
+	NoCertNoKey = TlsFilesStat(iota)
 	CertNoKey
 	NoCertKey
 	CertKey
@@ -148,16 +148,21 @@ func openKey(path string, flag int) (*os.File, error) {
 }
 
 func statTLSFiles(certPath, keyPath string) TlsFilesStat {
-	s := 0
 	_, err := os.Stat(certPath)
-	if err == nil {
-		s += 1
-	}
+	hasCert := os.IsExist(err)
+
 	_, err = os.Stat(keyPath)
-	if err == nil {
-		s += 2
+	hasKey := os.IsExist(err)
+
+	if hasCert && hasKey {
+		return CertKey
+	} else if hasCert {
+		return CertNoKey
+	} else if hasKey {
+		return NoCertKey
 	}
-	return TlsFilesStat(s)
+
+	return NoCertNoKey
 }
 
 func (t TlsFilesStat) String() string {
