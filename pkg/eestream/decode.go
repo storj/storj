@@ -13,15 +13,15 @@ import (
 )
 
 type decodedReader struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	rs     map[int]io.ReadCloser
-	es     ErasureScheme
-	sr     *StripeReader
-	outbuf []byte
-	err    error
-	cb     int64 // current stripe number
-	eb     int64 // expected number of stripes
+	ctx             context.Context
+	cancel          context.CancelFunc
+	readers         map[int]io.ReadCloser
+	scheme          ErasureScheme
+	stripeReader    *StripeReader
+	outbuf          []byte
+	err             error
+	currentStripe   int64
+	expectedStripes int64
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
@@ -45,11 +45,11 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 		return readcloser.FatalReadCloser(err)
 	}
 	dr := &decodedReader{
-		rs:     rs,
-		es:     es,
-		sr:     NewStripeReader(rs, es, mbm),
-		outbuf: make([]byte, 0, es.DecodedBlockSize()),
-		eb:     expectedSize / int64(es.DecodedBlockSize()),
+		readers:         rs,
+		scheme:          es,
+		stripeReader:    NewStripeReader(rs, es, mbm),
+		outbuf:          make([]byte, 0, es.DecodedBlockSize()),
+		expectedStripes: expectedSize / int64(es.DecodedBlockSize()),
 	}
 	dr.ctx, dr.cancel = context.WithCancel(ctx)
 	// Kick off a goroutine to watch for context cancelation.
@@ -68,16 +68,16 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			return 0, dr.err
 		}
 		// return EOF is the expected stripes were read
-		if dr.cb >= dr.eb {
+		if dr.currentStripe >= dr.expectedStripes {
 			dr.err = io.EOF
 			return 0, dr.err
 		}
 		// read the input buffers of the next stripe - may also decode it
-		dr.outbuf, dr.err = dr.sr.ReadStripe(dr.cb, dr.outbuf)
+		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(dr.currentStripe, dr.outbuf)
 		if dr.err != nil {
 			return 0, dr.err
 		}
-		dr.cb++
+		dr.currentStripe++
 	}
 
 	// copy what data we have to the output
@@ -94,14 +94,14 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// close the readers
 	var firstErr error
-	for _, c := range dr.rs {
+	for _, c := range dr.readers {
 		err := c.Close()
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
 	// close the stripe reader
-	err := dr.sr.Close()
+	err := dr.stripeReader.Close()
 	if firstErr == nil {
 		firstErr = err
 	}

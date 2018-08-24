@@ -12,27 +12,27 @@ import (
 
 // PieceBuffer is a synchronized buffer for storing erasure shares for a piece.
 type PieceBuffer struct {
-	buf        []byte
-	shareSize  int
-	cv         *sync.Cond
-	cvNewData  *sync.Cond
-	rpos, wpos int
-	full       bool
-	c          int64 // current erasure share number
-	totalwr    int64 // total bytes ever written to the buffer
-	lastwr     int64 // total bytes ever written when last notified cvNewData
-	err        error
+	buf          []byte
+	shareSize    int
+	cond         *sync.Cond
+	newDataCond  *sync.Cond
+	rpos, wpos   int
+	full         bool
+	currentShare int64 // current erasure share number
+	totalwr      int64 // total bytes ever written to the buffer
+	lastwr       int64 // total bytes ever written when last notified newDataCond
+	err          error
 }
 
 // NewPieceBuffer creates and initializes a new PieceBuffer using buf as its
-// internal content. If new data is written to the buffer, cvNewData will be
+// internal content. If new data is written to the buffer, newDataCond will be
 // notified.
-func NewPieceBuffer(buf []byte, shareSize int, cvNewData *sync.Cond) *PieceBuffer {
+func NewPieceBuffer(buf []byte, shareSize int, newDataCond *sync.Cond) *PieceBuffer {
 	return &PieceBuffer{
-		buf:       buf,
-		shareSize: shareSize,
-		cv:        sync.NewCond(&sync.Mutex{}),
-		cvNewData: cvNewData,
+		buf:         buf,
+		shareSize:   shareSize,
+		cond:        sync.NewCond(&sync.Mutex{}),
+		newDataCond: newDataCond,
 	}
 }
 
@@ -41,15 +41,15 @@ func NewPieceBuffer(buf []byte, shareSize int, cvNewData *sync.Cond) *PieceBuffe
 // no data to return and no error is set, the call will block until new data is
 // written to the buffer. Otherwise the error will be returned.
 func (b *PieceBuffer) Read(p []byte) (n int, err error) {
-	defer b.cv.Broadcast()
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	defer b.cond.Broadcast()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	for b.empty() {
 		if b.err != nil {
 			return 0, b.err
 		}
-		b.cv.Wait()
+		b.cond.Wait()
 	}
 
 	if b.rpos >= b.wpos {
@@ -76,16 +76,16 @@ func (b *PieceBuffer) Read(p []byte) (n int, err error) {
 // are less than n, the method will block until enough data is written to the
 // buffer.
 func (b *PieceBuffer) Skip(n int) error {
-	defer b.cv.Broadcast()
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	defer b.cond.Broadcast()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	for n > 0 {
 		for b.empty() {
 			if b.err != nil {
 				return b.err
 			}
-			b.cv.Wait()
+			b.cond.Wait()
 		}
 
 		if b.rpos >= b.wpos {
@@ -135,15 +135,15 @@ func (b *PieceBuffer) Write(p []byte) (n int, err error) {
 // write is a helper method that takes care for the locking on each copy
 // iteration.
 func (b *PieceBuffer) write(p []byte) (n int, err error) {
-	defer b.cv.Broadcast()
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	defer b.cond.Broadcast()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	for b.full {
 		if b.err != nil {
 			return n, b.err
 		}
-		b.cv.Wait()
+		b.cond.Wait()
 	}
 
 	var wr int
@@ -178,27 +178,27 @@ func (b *PieceBuffer) SetError(err error) {
 
 // setError is a helper method that locks the mutex before setting the error.
 func (b *PieceBuffer) setError(err error) {
-	defer b.cv.Broadcast()
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	defer b.cond.Broadcast()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	b.err = err
 }
 
 // getError is a helper method that locks the mutex before getting the error.
 func (b *PieceBuffer) getError() error {
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	return b.err
 }
 
-// notifyNewData notifies cvNewData that new data is written to the buffer.
+// notifyNewData notifies newDataCond that new data is written to the buffer.
 func (b *PieceBuffer) notifyNewData() {
-	b.cvNewData.L.Lock()
-	defer b.cvNewData.L.Unlock()
+	b.newDataCond.L.Lock()
+	defer b.newDataCond.L.Unlock()
 
-	b.cvNewData.Broadcast()
+	b.newDataCond.Broadcast()
 }
 
 // empty chacks if the buffer is empty.
@@ -209,8 +209,8 @@ func (b *PieceBuffer) empty() bool {
 // buffered returns the number of bytes that can be read from the buffer
 // without blocking.
 func (b *PieceBuffer) buffered() int {
-	b.cv.L.Lock()
-	defer b.cv.L.Unlock()
+	b.cond.L.Lock()
+	defer b.cond.L.Unlock()
 
 	switch {
 	case b.rpos < b.wpos:
@@ -228,9 +228,10 @@ func (b *PieceBuffer) buffered() int {
 // blocking. If there are older erasure shares in the buffer, they will be
 // discarded to leave room for the newer erasure shares to be written.
 func (b *PieceBuffer) HasShare(num int64) bool {
-	if num < b.c {
+	if num < b.currentShare {
 		// we should never get here!
-		zap.S().Fatalf("Checking for erasure share %d while the current erasure share is %d.", num, b.c)
+		zap.S().Fatalf("Checking for erasure share %d while the current erasure share is %d.",
+			num, b.currentShare)
 	}
 
 	if b.getError() != nil {
@@ -238,24 +239,25 @@ func (b *PieceBuffer) HasShare(num int64) bool {
 	}
 
 	bufShares := int64(b.buffered() / b.shareSize)
-	if num-b.c > 0 {
-		if bufShares > num-b.c {
+	if num-b.currentShare > 0 {
+		if bufShares > num-b.currentShare {
 			b.discardUntil(num)
 		} else {
-			b.discardUntil(b.c + bufShares)
+			b.discardUntil(b.currentShare + bufShares)
 		}
 		bufShares = int64(b.buffered() / b.shareSize)
 	}
 
-	return bufShares > num-b.c
+	return bufShares > num-b.currentShare
 }
 
 // ReadShare reads the num-th erasure share from the buffer into p. Any shares
 // before num will be discarded from the buffer.
 func (b *PieceBuffer) ReadShare(num int64, p []byte) error {
-	if num < b.c {
+	if num < b.currentShare {
 		// we should never get here!
-		zap.S().Fatalf("Trying to read erasure share %d while the current erasure share is already %d.", num, b.c)
+		zap.S().Fatalf("Trying to read erasure share %d while the current erasure share is already %d.",
+			num, b.currentShare)
 	}
 
 	err := b.discardUntil(num)
@@ -268,7 +270,7 @@ func (b *PieceBuffer) ReadShare(num int64, p []byte) error {
 		return err
 	}
 
-	b.c++
+	b.currentShare++
 
 	return nil
 }
@@ -276,16 +278,16 @@ func (b *PieceBuffer) ReadShare(num int64, p []byte) error {
 // discardUntil discards all erasure shares from the buffer until the num-th
 // erasure share exclusively.
 func (b *PieceBuffer) discardUntil(num int64) error {
-	if num <= b.c {
+	if num <= b.currentShare {
 		return nil
 	}
 
-	err := b.Skip(int(num-b.c) * b.shareSize)
+	err := b.Skip(int(num-b.currentShare) * b.shareSize)
 	if err != nil {
 		return err
 	}
 
-	b.c = num
+	b.currentShare = num
 
 	return nil
 }

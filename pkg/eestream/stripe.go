@@ -12,8 +12,8 @@ import (
 
 // StripeReader can read and decodes stripes from a set of readers
 type StripeReader struct {
-	es     ErasureScheme
-	cv     *sync.Cond
+	scheme ErasureScheme
+	cond   *sync.Cond
 	bufs   map[int]*PieceBuffer
 	inbufs [][]byte
 	inmap  map[int][]byte
@@ -30,8 +30,8 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 	}
 
 	r := &StripeReader{
-		es:     es,
-		cv:     sync.NewCond(&sync.Mutex{}),
+		scheme: es,
+		cond:   sync.NewCond(&sync.Mutex{}),
 		bufs:   make(map[int]*PieceBuffer, es.TotalCount()),
 		inbufs: make([][]byte, es.TotalCount()),
 		inmap:  make(map[int][]byte, es.TotalCount()),
@@ -40,7 +40,7 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 
 	for i := 0; i < es.TotalCount(); i++ {
 		r.inbufs[i] = make([]byte, es.EncodedBlockSize())
-		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.EncodedBlockSize(), r.cv)
+		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.EncodedBlockSize(), r.cond)
 	}
 
 	// Kick off a goroutine each reader to be copied into a PieceBuffer.
@@ -83,15 +83,15 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 		delete(r.inmap, i)
 	}
 
-	r.cv.L.Lock()
-	defer r.cv.L.Unlock()
+	r.cond.L.Lock()
+	defer r.cond.L.Unlock()
 
 	for {
 		for r.readAvailableShares(num) == 0 {
-			r.cv.Wait()
+			r.cond.Wait()
 		}
 		if r.hasEnoughShares() {
-			out, err := r.es.Decode(p, r.inmap)
+			out, err := r.scheme.Decode(p, r.inmap)
 			if err != nil {
 				if r.shouldWaitForMore(err) {
 					continue
@@ -127,8 +127,8 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 // hasEnoughShares check if there are enough erasure shares read to attempt
 // a decode.
 func (r *StripeReader) hasEnoughShares() bool {
-	return len(r.inmap) >= r.es.RequiredCount()+1 ||
-		len(r.inmap)+len(r.errmap) >= r.es.TotalCount()
+	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
+		len(r.inmap)+len(r.errmap) >= r.scheme.TotalCount()
 }
 
 // shouldWaitForMore checks the returned decode error if it makes sense to wait
@@ -140,5 +140,5 @@ func (r *StripeReader) shouldWaitForMore(err error) bool {
 		return false
 	}
 	// check if there are more input buffers to wait for
-	return len(r.inmap)+len(r.errmap) < r.es.TotalCount()
+	return len(r.inmap)+len(r.errmap) < r.scheme.TotalCount()
 }
