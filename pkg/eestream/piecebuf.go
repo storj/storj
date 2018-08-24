@@ -19,6 +19,8 @@ type PieceBuffer struct {
 	rpos, wpos int
 	full       bool
 	c          int64 // current erasure share number
+	totalwr    int64 // total bytes ever written to the buffer
+	lastwr     int64 // total bytes ever written when last notified cvNewData
 	err        error
 }
 
@@ -88,7 +90,7 @@ func (b *PieceBuffer) Skip(n int) error {
 
 		if b.rpos >= b.wpos {
 			if len(b.buf)-b.rpos > n {
-				b.rpos += (b.rpos + n) % len(b.buf)
+				b.rpos = (b.rpos + n) % len(b.buf)
 				n = 0
 			} else {
 				n -= len(b.buf) - b.rpos
@@ -120,7 +122,12 @@ func (b *PieceBuffer) Write(p []byte) (n int, err error) {
 		if err != nil {
 			return n, err
 		}
-		b.notifyNewData()
+		// Notify for new data only if a new complete erasure share is available
+		b.totalwr += int64(nn)
+		if b.totalwr/int64(b.shareSize)-b.lastwr/int64(b.shareSize) > 0 {
+			b.lastwr = b.totalwr
+			b.notifyNewData()
+		}
 	}
 	return n, nil
 }
