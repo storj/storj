@@ -41,7 +41,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 
 	// ping here to verify we are able to connect to redis with the initialized client.
 	if err := c.db.Ping().Err(); err != nil {
-		return nil, Error.New("ping failed", err)
+		return nil, Error.New("ping failed: %v", err)
 	}
 
 	return c, nil
@@ -61,7 +61,7 @@ func (c *Client) Get(key storage.Key) (storage.Value, error) {
 		}
 
 		// TODO: log
-		return nil, Error.New("get error", err)
+		return nil, Error.New("get error: %v", err)
 	}
 
 	return b, nil
@@ -72,12 +72,12 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 	v, err := value.MarshalBinary()
 
 	if err != nil {
-		return Error.New("put error", err)
+		return Error.New("put error: %v", err)
 	}
 
 	err = c.db.Set(key.String(), v, c.TTL).Err()
 	if err != nil {
-		return Error.New("put error", err)
+		return Error.New("put error: %v", err)
 	}
 
 	return nil
@@ -89,17 +89,17 @@ func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Key
 	if startingKey != nil {
 		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error with starting key", err)
+			return nil, Error.New("list error with starting key: %v", err)
 		}
 		keys, _, err := c.db.Scan(cursor, "", int64(limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error with starting key", err)
+			return nil, Error.New("list error with starting key: %v", err)
 		}
 		noOrderKeys = keys
 	} else if startingKey == nil {
 		keys, _, err := c.db.Scan(0, "", int64(limit)).Result()
 		if err != nil {
-			return nil, Error.New("list error without starting key", err)
+			return nil, Error.New("list error without starting key: %v", err)
 		}
 		noOrderKeys = keys
 	}
@@ -123,7 +123,7 @@ func (c *Client) ReverseList(startingKey storage.Key, limit storage.Limit) (stor
 func (c *Client) Delete(key storage.Key) error {
 	err := c.db.Del(key.String()).Err()
 	if err != nil {
-		return Error.New("delete error", err)
+		return Error.New("delete error: %v", err)
 	}
 
 	return err

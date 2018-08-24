@@ -53,7 +53,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
+func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
 	var (
 		k   crypto.PrivateKey
 		i   nodeID
@@ -89,7 +89,12 @@ func generateCAWorker(ctx context.Context, difficulty uint16, caC chan FullCerti
 		return
 	}
 
-	c, err := peertls.NewCert(ct, nil, k)
+	p, ok := k.(*ecdsa.PrivateKey)
+	if !ok {
+		eC <- peertls.ErrUnsupportedKey.New("%T", k)
+		return
+	}
+	c, err := peertls.NewCert(ct, nil, &p.PublicKey, k)
 	if err != nil {
 		eC <- err
 		return
@@ -121,7 +126,7 @@ func openCert(path string, flag int) (*os.File, error) {
 
 	c, err := os.OpenFile(path, flag, 0644)
 	if err != nil {
-		return nil, errs.New("unable to open cert file for writing \"%s\"", path, err)
+		return nil, errs.New("unable to open cert file for writing \"%s\": %v", path, err)
 	}
 	return c, nil
 }
@@ -133,7 +138,7 @@ func openKey(path string, flag int) (*os.File, error) {
 
 	k, err := os.OpenFile(path, flag, 0600)
 	if err != nil {
-		return nil, errs.New("unable to open key file for writing \"%s\"", path, err)
+		return nil, errs.New("unable to open key file for writing \"%s\": %v", path, err)
 	}
 	return k, nil
 }
