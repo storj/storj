@@ -219,6 +219,7 @@ func TestRetrieve(t *testing.T) {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Retrieve(ctx)
+			assert.NoError(err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
@@ -364,7 +365,7 @@ func TestStore(t *testing.T) {
 				decoded := &pb.RenterBandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
-
+				assert.NoError(err)
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
 				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
@@ -440,6 +441,7 @@ func TestDelete(t *testing.T) {
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
+			assert.NoError(err)
 			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
 				t.Errorf("File not deleted")
 				return

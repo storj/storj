@@ -313,7 +313,3 @@ func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
 
 	return data
 }
-
-func TestMain(m *testing.M) {
-	m.Run()
-}
