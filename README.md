@@ -1,4 +1,4 @@
-# Storj V3 Netowrk
+# Storj V3 Network
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/storj/storj)](https://goreportcard.com/report/github.com/storj/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
@@ -107,6 +107,19 @@ else
 	echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.profile
 	source $HOME/.profile
 fi
+```
+
+#### Windows
+
+Windows requires go1.11 or newer.
+
+```bash
+git clone git@github.com:storj/storj storj
+cd storj
+go install ./cmd/...
+
+captplanet setup
+captplanet run
 ```
 
 ### Install storj

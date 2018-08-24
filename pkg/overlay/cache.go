@@ -91,7 +91,7 @@ func (o *Cache) Put(nodeID string, value overlay.Node) error {
 func (o *Cache) Bootstrap(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
-		zap.Error(OverlayError.New("Error getting nodes from DHT", err))
+		zap.Error(OverlayError.New("Error getting nodes from DHT: %v", err))
 	}
 
 	for _, v := range nodes {

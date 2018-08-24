@@ -173,7 +173,7 @@ var (
 			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
 				mock:   nil,
-				bolt: &storage.ErrKeyNotFound,
+				bolt:   &storage.ErrKeyNotFound,
 				_redis: &storage.ErrKeyNotFound,
 			},
 			data: test.KvStore{"foo": func() storage.Value {
@@ -248,8 +248,8 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 	assert.NoError(t, err)
 
 	cleanup := func() {
-		err := os.Remove(boltPath)
-		assert.NoError(t, err)
+		assert.NoError(t, client.Close())
+		assert.NoError(t, os.Remove(boltPath))
 	}
 
 	if !(data.Empty()) {
@@ -296,9 +296,7 @@ func TestRedisPut(t *testing.T) {
 
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db, cleanup := boltTestClient(t, c.data)
-			defer cleanup()
-
+			db := redisTestClient(t, c.data)
 			oc := Cache{DB: db}
 
 			err := oc.Put(c.key, c.value)
@@ -306,10 +304,10 @@ func TestRedisPut(t *testing.T) {
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
-			na := &overlay.Node{}
 
+			na := &overlay.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }
@@ -345,7 +343,7 @@ func TestBoltPut(t *testing.T) {
 			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }
@@ -384,7 +382,7 @@ func TestMockPut(t *testing.T) {
 			na := &overlay.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.Equal(t, na, &c.value)
+			assert.True(t, proto.Equal(na, &c.value))
 		})
 	}
 }

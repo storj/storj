@@ -1,33 +1,40 @@
 node('node') {
   try {
+    currentBuild.result = "SUCCESS"
 
     stage('Checkout') {
-        checkout scm
+      checkout scm
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Images') {
       sh 'make test-docker images'
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Push Images') {
-      echo 'Push to Repo'
-      sh 'make push-images'
-    }
-
-    stage('Deploy') {
-      /* This should only deploy to staging if the branch is master */
       if (env.BRANCH_NAME == "master") {
-        sh "./scripts/deploy.staging.sh satellite storjlabs/storj-satellite:${commit_id}"
-        for (int i = 1; i < 60; i++) {
-          sh "./scripts/deploy.staging.sh storage-node-${i} storjlabs/storj-storage-node:${commit_id}"
-        }
+        echo 'Push to Repo'
+        sh 'make push-images'
       }
 
-      return
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    if (env.BRANCH_NAME == "master") {
+      /* This should only deploy to staging if the branch is master */
+      stage('Deploy') {
+        sh 'make deploy'
+        echo "Current build result: ${currentBuild.result}"
+      }
     }
 
   }
   catch (err) {
+    echo "Caught errors! ${err}"
+    echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
     /*

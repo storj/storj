@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
 	opb "storj.io/storj/protos/overlay"
@@ -60,14 +60,14 @@ type Store interface {
 type segmentStore struct {
 	oc            overlay.Client
 	ec            ecclient.Client
-	pdb           pointerdb.Client
+	pdb           pdbclient.Client
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
 }
 
 // NewSegmentStore creates a new instance of segmentStore
 func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
-	pdb pointerdb.Client, rs eestream.RedundancyStrategy, t int) Store {
+	pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 
