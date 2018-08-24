@@ -1,0 +1,6 @@
+#!/bin/sh
+set -euo pipefail
+
+./uplink setup --api-key "${API_KEY}" --satellite-addr "${SATELLITE_ADDR}"
+
+exec ./uplink run "$@"

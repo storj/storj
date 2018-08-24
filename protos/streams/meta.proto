@@ -1,0 +1,13 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+
+package streams;
+
+message MetaStreamInfo {
+    int64 number_of_segments = 1;
+    int64 segments_size = 2;
+    int64 last_segment_size = 3;
+    bytes metadata = 4;
+}
