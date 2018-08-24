@@ -87,9 +87,9 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	// Save latest bandwidth allocation even if we fail
 	defer func() {
-		err := s.DB.WriteBandwidthAllocToDB(latestBA)
-		if latestBA != nil && err != nil {
-			log.Println("WriteBandwidthAllocToDB Error:", err)
+		baWriteErr := s.DB.WriteBandwidthAllocToDB(latestBA)
+		if latestBA != nil && baWriteErr != nil {
+			log.Println("WriteBandwidthAllocToDB Error:", baWriteErr)
 		}
 	}()
 
