@@ -284,7 +284,6 @@ func TestCrudValidConnection(t *testing.T) {
 
 				keys := listItems.GetKeys()
 
-
 				//keys, err := st.List(nil, storage.Limit(len(keysList)))
 				assert.NoError(t, err)
 				assert.NotNil(t, isMore)
@@ -329,22 +328,34 @@ func TestCrudInvalidConnection(t *testing.T) {
 				assert.Error(t, err)
 			},
 		},
-		// {
-		// 	"ListArgValid",
-		// 	func(t *testing.T, st storage.KeyValueStore) {
-		// 		keys, err := st.List(storage.Key(validKey), 1)
-		// 		assert.Error(t, err)
-		// 		assert.Nil(t, keys)
-		// 	},
-		// },
-		// {
-		// 	"ListArgInvalid",
-		// 	func(t *testing.T, st storage.KeyValueStore) {
-		// 		keys, err := st.List(nil, 1)
-		// 		assert.Error(t, err)
-		// 		assert.Nil(t, keys)
-		// 	},
-		// },
+		{
+			"ListArgValid",
+			func(t *testing.T, st storage.KeyValueStore) {
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: storage.Key(validKey),
+					Limit: 1,
+				})
+
+				assert.Error(t, err)
+				assert.NotNil(t, isMore)
+				assert.Nil(t, listItems)
+			},
+		},
+		{
+			"ListArgInvalid",
+			func(t *testing.T, st storage.KeyValueStore) {
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: nil,
+					Limit: 1,
+				})
+
+				assert.Error(t, err)
+				assert.NotNil(t, isMore)
+				assert.Nil(t, listItems)
+			},
+		},
 	}
 
 	for _, c := range cases {

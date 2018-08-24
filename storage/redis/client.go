@@ -97,7 +97,6 @@ func (c *Client) List(opts storage.ListOptions) (storage.Items, storage.More, er
 		}
 		noOrderKeys = keys
 	} else if opts.Start == nil {
-		fmt.Println("start is nil")
 		keys, _, err := c.db.Scan(0, "", int64(opts.Limit)).Result()
 		if err != nil {
 			return nil, false, Error.New("list error without starting key", err)
@@ -124,7 +123,6 @@ func (c *Client) List(opts storage.ListOptions) (storage.Items, storage.More, er
 		listItems = append(listItems, listItem)
 	}
 
-	fmt.Println("This is List Keys in redis: ", listItems)
 	return listItems, false, nil
 }
 
