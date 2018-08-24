@@ -124,7 +124,7 @@ func idFromKey(k crypto.PublicKey) (nodeID, error) {
 }
 
 func openCert(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 744); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0744); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
@@ -136,7 +136,7 @@ func openCert(path string, flag int) (*os.File, error) {
 }
 
 func openKey(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
