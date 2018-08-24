@@ -53,7 +53,7 @@ func TestStore(t *testing.T) {
 
 			// Write chunk received to disk
 			_, err = storeFile.Write(tt.content)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			storeFile.Close()
 
