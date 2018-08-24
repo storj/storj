@@ -102,7 +102,6 @@ func TestListWithStartKey(t *testing.T) {
 	}
 
 	assert.NotNil(t, listItems)
-	//assert.NotNil(t, listItems)
 	assert.NotNil(t, isMore)
 }
 
@@ -284,7 +283,6 @@ func TestCrudValidConnection(t *testing.T) {
 
 				keys := listItems.GetKeys()
 
-				//keys, err := st.List(nil, storage.Limit(len(keysList)))
 				assert.NoError(t, err)
 				assert.NotNil(t, isMore)
 				assert.Equal(t, len(keys), 0)

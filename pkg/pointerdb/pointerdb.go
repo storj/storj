@@ -130,7 +130,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	// TODO(kaloyan): here we query the DB without limit. We must optimize it!
 	listItems, _, err := s.DB.List(opts)
 	keys := listItems.GetKeys()
-	//keys, err := s.DB.List([]byte(req.GetPrefix()+"/"), 0)
+
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
