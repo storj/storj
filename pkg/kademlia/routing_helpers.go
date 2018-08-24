@@ -263,10 +263,7 @@ func (rt *RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, 
 	if err != nil {
 		return false, err
 	}
-	if bytes.Compare(bucket, bucketID) == 0 {
-		return true, nil
-	}
-	return false, nil
+	return bytes.Equal(bucket, bucketID), nil
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes

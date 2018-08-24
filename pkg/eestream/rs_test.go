@@ -464,7 +464,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
-		if err == nil && bytes.Compare(data, data2) == 0 {
+		if err == nil && bytes.Equal(data, data2) {
 			assert.Fail(t, "expected to fail, but didn't", errTag)
 		}
 	} else if assert.NoError(t, err, errTag) {
