@@ -238,47 +238,59 @@ func TestCrudValidConnection(t *testing.T) {
 				assert.NoError(t, err)
 			},
 		},
-		// {
-		// 	"GetKeysList",
-		// 	func(t *testing.T, st storage.KeyValueStore) {
-		// 		orgValue := storage.Value(validValue)
+		{
+			"GetKeysList",
+			func(t *testing.T, st storage.KeyValueStore) {
+				orgValue := storage.Value(validValue)
 
-		// 		list := storage.Keys{}
-		// 		for _, key := range keysList {
-		// 			list = append(list, storage.Key(key))
-		// 		}
+				list := storage.Keys{}
+				for _, key := range keysList {
+					list = append(list, storage.Key(key))
+				}
 
-		// 		for _, key := range list {
-		// 			err := st.Put(key, orgValue)
-		// 			assert.NoError(t, err)
-		// 		}
+				for _, key := range list {
+					err := st.Put(key, orgValue)
+					assert.NoError(t, err)
+				}
 
-		// 		//Temporary fix
-		// 		_, err := st.List(list[0], storage.Limit(len(keysList)))
+				//Temporary fix
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: []byte("test/path/2"),
+					Limit: 1,
+				})
 
-		// 		listItems, isMore, err := bt.c.List(storage.ListOptions{
-		// 			Start: []byte("test/path/2"),
-		// 			Limit: 1,
-		// 		})
+				keys := listItems.GetKeys()
 
-		// 		assert.NoError(t, err)
-		// 		// assert.ElementsMatch(t, list, keys)
-		// 		// assert.Equal(t, len(list), len(keys))
+				assert.NoError(t, err)
+				assert.NotNil(t, isMore)
+				assert.NotNil(t, keys)
+				// assert.ElementsMatch(t, list, keys)
+				// assert.Equal(t, len(list), len(keys))
 
-		// 		for _, key := range list {
-		// 			err := st.Delete(key)
-		// 			assert.NoError(t, err)
-		// 		}
-		// 	},
-		// },
-		// {
-		// 	"GetKeysListWithFirstArgNil",
-		// 	func(t *testing.T, st storage.KeyValueStore) {
-		// 		keys, err := st.List(nil, storage.Limit(len(keysList)))
-		// 		assert.NoError(t, err)
-		// 		assert.Equal(t, len(keys), 0)
-		// 	},
-		// },
+				for _, key := range list {
+					err := st.Delete(key)
+					assert.NoError(t, err)
+				}
+			},
+		},
+		{
+			"GetKeysListWithFirstArgNil",
+			func(t *testing.T, st storage.KeyValueStore) {
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: nil,
+					Limit: storage.Limit(len(keysList)),
+				})
+
+				keys := listItems.GetKeys()
+
+
+				//keys, err := st.List(nil, storage.Limit(len(keysList)))
+				assert.NoError(t, err)
+				assert.NotNil(t, isMore)
+				assert.Equal(t, len(keys), 0)
+			},
+		},
 	}
 
 	for _, c := range cases {

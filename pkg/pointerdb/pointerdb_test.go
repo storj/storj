@@ -218,7 +218,6 @@ func TestServiceList(t *testing.T) {
 
 			db.EXPECT().List(opts).Return(tt.returnedItems, tt.expectedMore, tt.err)
 			keys := tt.returnedItems.GetKeys()
-			//db.EXPECT().List(prefix, storage.Limit(0)).Return(tt.returnedKeys, tt.err)
 
 			if tt.metaFlags != meta.None {
 				pr := pb.Pointer{}

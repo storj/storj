@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"math/rand"
 
-	// "fmt"
 	"encoding/binary"
-	//"math/rand"
 	"time"
 
 	pb "github.com/golang/protobuf/proto"

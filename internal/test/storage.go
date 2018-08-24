@@ -95,7 +95,6 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
 func (m *MockKeyValueStore) List(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	//(m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 
 	m.ListCalled++
 	keys := storage.Keys{}
