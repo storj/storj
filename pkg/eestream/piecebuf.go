@@ -5,7 +5,6 @@ package eestream
 
 import (
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"go.uber.org/zap"
@@ -69,6 +68,46 @@ func (b *PieceBuffer) Read(p []byte) (n int, err error) {
 	}
 
 	return n, nil
+}
+
+// Skip advances the read pointer with n bytes. It the buffered number of bytes
+// are less than n, the method will block until enough data is written to the
+// buffer.
+func (b *PieceBuffer) Skip(n int) error {
+	defer b.cv.Broadcast()
+	b.cv.L.Lock()
+	defer b.cv.L.Unlock()
+
+	for n > 0 {
+		for b.empty() {
+			if b.err != nil {
+				return b.err
+			}
+			b.cv.Wait()
+		}
+
+		if b.rpos >= b.wpos {
+			if len(b.buf)-b.rpos > n {
+				b.rpos += (b.rpos + n) % len(b.buf)
+				n = 0
+			} else {
+				n -= len(b.buf) - b.rpos
+				b.rpos = 0
+			}
+		} else {
+			if b.wpos-b.rpos > n {
+				b.rpos += n
+				n = 0
+			} else {
+				n -= b.wpos - b.rpos
+				b.rpos = b.wpos
+			}
+		}
+
+		b.full = false
+	}
+
+	return nil
 }
 
 // Write writes the contents of p into the buffer. If the buffer is full it
@@ -234,7 +273,7 @@ func (b *PieceBuffer) discardUntil(num int64) error {
 		return nil
 	}
 
-	_, err := io.CopyN(ioutil.Discard, b, (num-b.c)*int64(b.shareSize))
+	err := b.Skip(int(num-b.c) * b.shareSize)
 	if err != nil {
 		return err
 	}
