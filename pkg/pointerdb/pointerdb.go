@@ -6,9 +6,8 @@ package pointerdb
 import (
 	"context"
 	"reflect"
-	"fmt"
-	"errors"
 
+	"github.com/zeebo/errs"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
@@ -26,7 +25,7 @@ import (
 
 var (
 	mon = monkit.Package()
-	segmentError = errors.New("Invalid segment formatting")
+	segmentError = errs.Class("segment error")
 )
 
 // ListPageLimit is the maximum number of items that will be returned by a list
@@ -63,22 +62,16 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 	min := s.config.MinInlineSegmentSize
 	max := s.config.MaxInlineSegmentSize
 	inlineSize := len(req.GetPointer().InlineSegment)
-	pointer := req.GetPointer()
-	remote := pointer.Remote
-
-	fmt.Printf("Pointer is %+v\n", pointer)
-	fmt.Printf("Remote is %+v\n", remote)
+	remote := req.GetPointer().Remote
 
 	if inlineSize < min {
 		if remote != nil {
-			s.logger.Error("segment validation error: ", zap.Error(segmentError))
-			return segmentError
+			return segmentError.New("inline segment size %d less than minimum allowed %d", inlineSize, min)
 		}
 	} 
 
 	if inlineSize > max {
-		s.logger.Error("segment validation error: ", zap.Error(segmentError))
-		return segmentError
+		return segmentError.New("inline segment size %d greater than maximum allowed %d", inlineSize, max)
 	}
 
 	return nil
@@ -91,7 +84,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 
 	err = s.validateSegment(req)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
