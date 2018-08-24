@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -38,7 +37,7 @@ func TestServicePut(t *testing.T) {
 		errString string
 	}{
 		{nil, nil, ""},
-		{[]byte("wrong key"), nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("put error"), status.Errorf(codes.Internal, "put error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -74,7 +73,7 @@ func TestServiceGet(t *testing.T) {
 		errString string
 	}{
 		{nil, nil, ""},
-		{[]byte("wrong key"), nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("get error"), status.Errorf(codes.Internal, "get error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -116,7 +115,7 @@ func TestServiceDelete(t *testing.T) {
 		errString string
 	}{
 		{nil, nil, ""},
-		{[]byte("wrong key"), nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "delete error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -173,7 +172,7 @@ func TestServiceList(t *testing.T) {
 		{"", "", "", true, 0, meta.None, nil, keys, keys, false, nil, ""},
 		{"", "", "", true, 0, meta.All, nil, keys, keys, false, nil, ""},
 		{"", "", "", true, 0, meta.None, []byte("wrong key"), keys, keys, false,
-			nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+			nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{"", "", "", true, 0, meta.None, nil, keys, keys, false,
 			errors.New("list error"), status.Errorf(codes.Internal, "list error").Error()},
 		{"", "", "", true, 2, meta.None, nil, keys, keys[:2], true, nil, ""},

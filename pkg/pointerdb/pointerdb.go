@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -47,8 +46,8 @@ func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
 
 func (s *Server) validateAuth(APIKey []byte) error {
 	if !auth.ValidateAPIKey(string(APIKey)) {
-		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
 }

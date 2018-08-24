@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -43,8 +42,8 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 
 func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
-		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
 }
