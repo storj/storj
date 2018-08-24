@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/storage"
 )
 
-//ErrSetup is setup error
 var (
+	// ErrSetup is returned when there's an error with setup
 	ErrSetup = errs.Class("setup error")
 )
 

@@ -26,11 +26,8 @@ import (
 )
 
 const (
+	// IdentityLength is the number of bytes required to represent node id
 	IdentityLength = uint16(256 / 8) // 256 bits
-)
-
-var (
-	ErrDifficulty = errs.Class("difficulty error")
 )
 
 // PeerIdentity represents another peer on the network.

@@ -23,8 +23,7 @@ endif
 #   gotype, gotypex     # already done by compiling
 #   safesql             # no sql
 #   interfacer          # not that useful
-GO_DIRS := $(shell go list ./... | grep -v storj.io/storj/examples)
-lint: check-copyrights
+lint:
 	@echo "Running ${@}"
 	@gometalinter \
     --deadline=10m \
@@ -50,9 +49,10 @@ lint: check-copyrights
     --disable=gotype --disable=gotypex \
     --disable=safesql \
     --disable=interfacer \
+	--skip=examples \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
-  $GO_DIRS
+  ./...
 
 check-copyrights:
 	@echo "Running ${@}"

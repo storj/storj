@@ -44,6 +44,7 @@ var (
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
+// NewKey returns a new PrivateKey
 func NewKey() (crypto.PrivateKey, error) {
 	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
@@ -103,6 +104,7 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	}
 }
 
+// VerifyPeerCertChains verifies chains
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }

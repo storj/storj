@@ -29,6 +29,7 @@ const (
 )
 
 var (
+	// ErrZeroBytes is returned for zero slice
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
 )
 
