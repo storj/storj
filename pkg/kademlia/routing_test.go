@@ -120,15 +120,15 @@ func TestFindNear(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
-	// expected = []*proto.Node{node2}
-	// nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
-	// assert.NoError(t, err)
-	// assert.Equal(t, expected, nodes)
+	expected = []*proto.Node{node2}
+	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, nodes)
 
-	// expected = []*proto.Node{node2, node}
-	// nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
-	// assert.NoError(t, err)
-	// assert.Equal(t, expected, nodes)
+	expected = []*proto.Node{node2, node}
+	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, nodes)
 
 }
 

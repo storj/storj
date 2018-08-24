@@ -150,7 +150,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
 	}
 	// if id is not in the routing table
-	nodeItems, _, err := rt.kadBucketDB.List(storage.ListOptions{
+	nodeItems, _, err := rt.nodeBucketDB.List(storage.ListOptions{
 		Start: nil,
 		Limit: 0,
 	})
