@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -83,6 +84,8 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	writer := NewStreamWriter(s, stream)
 	am := NewAllocationManager()
 	var latestBA *pb.RenterBandwidthAllocation
+	var mtx sync.Mutex
+	cond := sync.NewCond(&mtx)
 
 	errChan := make(chan error)
 
@@ -94,6 +97,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		}
 	}()
 
+	// Bandwidth Allocation recv loop
 	go func() {
 		var latestTotal int64
 
@@ -118,7 +122,10 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
+			mtx.Lock() // Lock when updating bandwidth allocation
 			am.NewTotal(baData.GetTotal())
+			cond.Signal() // Signal the data send loop that it has available bandwidth
+			mtx.Unlock()
 
 			if baData.GetTotal() > latestTotal {
 				latestBA = ba
@@ -129,20 +136,26 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		errChan <- nil
 	}()
 
+	// Data send loop
 	go func() {
 		for am.Used < length {
-			sizeToRead := am.NextReadSize()
 
-			if sizeToRead <= 0 {
-				continue
+			cond.L.Lock()
+			for am.NextReadSize() <= 0 {
+				cond.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
 			}
+			cond.L.Unlock()
+
+			sizeToRead := am.NextReadSize()
 
 			// Write the buffer to the stream we opened earlier
 			n, err := io.CopyN(writer, storeFile, sizeToRead)
 			if n > 0 {
+				mtx.Lock()
 				if allocErr := am.UseAllocation(n); allocErr != nil {
 					log.Println(allocErr)
 				}
+				mtx.Unlock()
 			}
 
 			if err != nil {

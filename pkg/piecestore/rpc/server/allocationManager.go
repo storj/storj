@@ -3,7 +3,9 @@
 
 package server
 
-import "github.com/zeebo/errs"
+import (
+	"github.com/zeebo/errs"
+)
 
 // AllocationManager manages allocations for file retrieval
 type AllocationManager struct {
