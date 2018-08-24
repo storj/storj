@@ -71,11 +71,13 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 
 	if inlineSize < min {
 		if remote != nil {
+			s.logger.Error("segment validation error: ", zap.Error(segmentError))
 			return segmentError
 		}
 	} 
 
 	if inlineSize > max {
+		s.logger.Error("segment validation error: ", zap.Error(segmentError))
 		return segmentError
 	}
 
@@ -87,27 +89,11 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb put")
 
-	fmt.Printf("size is %d\n", len(req.GetPointer().InlineSegment))
 	err = s.validateSegment(req)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	
-	// fmt.Printf("configured sizes are min %d and max %d\n", min, max)
-
-	// inlinesize := len(req.GetPointer().InlineSegment)
-	// if inlinesize > 8000 {
-	// 	fmt.Printf("inline size > 8000\n")
-	// }
-
-	// segment := req.GetPointer().InlineSegment
-
-	// if inlinesize > 8000 {
-	// 	fmt.Printf("GREATER THAN 8000")
-	// }
-
-	// fmt.Printf("segment in question is %+v\n", segment)
-
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
 	}
