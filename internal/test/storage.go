@@ -199,7 +199,10 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
 				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
 			}
-			conn.Close()
+			err = conn.Close()
+			if err != nil {
+				log.Fatalf("Failed to close conn: %s\n", err)
+			}
 		}
 	}
 

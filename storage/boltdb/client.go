@@ -51,7 +51,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 		return err
 	})
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
