@@ -20,16 +20,16 @@ import (
 
 // Config defines broad Captain Planet configuration
 type Config struct {
-	HCCA           provider.CASetupConfig
-	HCIdentity     provider.IdentitySetupConfig
-	ULCA           provider.CASetupConfig
-	ULIdentity     provider.IdentitySetupConfig
-	FarmerCA       provider.CASetupConfig
-	FarmerIdentity provider.IdentitySetupConfig
-	BasePath       string `help:"base path for captain planet storage" default:"$CONFDIR"`
-	ListenHost     string `help:"the host for providers to listen on" default:"127.0.0.1"`
-	StartingPort   int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
-	Overwrite      bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
+	HCCA                provider.CASetupConfig
+	HCIdentity          provider.IdentitySetupConfig
+	ULCA                provider.CASetupConfig
+	ULIdentity          provider.IdentitySetupConfig
+	StorageNodeCA       provider.CASetupConfig
+	StorageNodeIdentity provider.IdentitySetupConfig
+	BasePath            string `help:"base path for captain planet storage" default:"$CONFDIR"`
+	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
+	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
 var (
