@@ -51,13 +51,22 @@ func (b *PieceBuffer) Read(p []byte) (n int, err error) {
 		b.cv.Wait()
 	}
 
-	if b.rpos < b.wpos {
-		n = copy(p, b.buf[b.rpos:b.wpos])
-	} else {
-		n = copy(p, b.buf[b.rpos:])
+	if b.rpos >= b.wpos {
+		bytesRead := copy(p, b.buf[b.rpos:])
+		n += bytesRead
+		b.rpos = (b.rpos + bytesRead) % len(b.buf)
+		p = p[n:]
 	}
-	b.rpos = (b.rpos + n) % len(b.buf)
-	b.full = false
+
+	if b.rpos < b.wpos {
+		bytesRead := copy(p, b.buf[b.rpos:b.wpos])
+		n += bytesRead
+		b.rpos += bytesRead
+	}
+
+	if n > 0 {
+		b.full = false
+	}
 
 	return n, nil
 }
