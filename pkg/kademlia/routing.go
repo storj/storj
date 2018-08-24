@@ -126,20 +126,31 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
-// FindNear finds all Nodes near the provided nodeID up to the provided limit
+// FindNear returns the node corresponding to the provided nodeID if present in the routing table
+// otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
+	//if id is in the routing table
+	n, err := rt.nodeBucketDB.Get(id.Bytes())
+	if n != nil {
+		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
+		if err != nil {
+			return []*proto.Node{}, RoutingErr.New("could not unmarshal node %s", err)
+		}
+		return ns, nil
+	}
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
+	}
+	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	var nearIDs storage.Keys
-	if len(sortedIDs) < limit+1 {
-		nearIDs = sortedIDs[1:]
-	} else {
-		nearIDs = sortedIDs[1 : limit+1]
+	if len(sortedIDs) >= limit {
+		sortedIDs = sortedIDs[:limit]
 	}
-	ids, serializedNodes, err := rt.getNodesFromIDs(nearIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
 	if err != nil {
 		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}

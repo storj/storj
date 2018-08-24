@@ -122,9 +122,28 @@ test-docker:
 test-docker-clean:
 	-docker-compose down --rmi all
 
-images:
+images: satellite-image storage-node-image uplink-image
+	echo Built version: ${TAG}
+
+.PHONY: satellite-image
+satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
+.PHONY: storage-node-image
+storage-node-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
+.PHONY: uplink-image
+uplink-image:
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/gw/Dockerfile .
+
+.PHONY: all-in-one
+all-in-one:
+	if [ -z "${VERSION}" ]; then \
+		$(MAKE) images -j 3 \
+		&& export VERSION="${TAG}"; \
+	fi \
+	&& docker-compose up -d storage-node \
+	&& scripts/fix-mock-overlay \
+	&& docker-compose up storage-node satellite uplink
 
 push-images:
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest
@@ -133,17 +152,29 @@ push-images:
 	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
 	docker push storjlabs/storage-node:${TAG}
 	docker push storjlabs/storage-node:latest
+	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
+	docker push storjlabs/uplink:${TAG}
+	docker push storjlabs/uplink:latest
 
 ifeq (${BRANCH},master)
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	-docker rmi storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
+	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
 else
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG}
 	-docker rmi storjlabs/storage-node:${TAG}
+	-docker rmi storjlabs/uplink:${TAG}
 endif
 
 install-deps:
 	go get -u -v golang.org/x/vgo
 	cd vgo install ./...
+
+.PHONY: deploy
+deploy:
+	./scripts/deploy.staging.sh satellite storjlabs/satellite:${TAG}
+	for i in $(shell seq 1 60); do \
+		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
+	done

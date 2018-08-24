@@ -6,9 +6,8 @@ package overlay
 import (
 	"context"
 
-	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -30,8 +29,12 @@ type Overlay struct {
 }
 
 // NewOverlayClient returns a new intialized Overlay Client
-func NewOverlayClient(address string) (*Overlay, error) {
-	c, err := NewClient(address, grpc.WithInsecure())
+func NewOverlayClient(identity *provider.FullIdentity, address string) (*Overlay, error) {
+	dialOpt, err := identity.DialOption()
+	if err != nil {
+		return nil, err
+	}
+	c, err := NewClient(address, dialOpt)
 	if err != nil {
 		return nil, err
 	}

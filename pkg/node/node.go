@@ -19,7 +19,6 @@ type Node struct {
 	cache pool.Pool
 }
 
-//TODO: change lookup to findnear
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*proto.Node, error) {
 	v, err := n.cache.Get(ctx, to.GetId())
@@ -39,7 +38,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 	}
 
 	c := proto.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Receiver: &find})
+	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Target: &find})
 	if err != nil {
 		return nil, err
 	}
