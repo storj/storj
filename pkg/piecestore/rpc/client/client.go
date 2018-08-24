@@ -5,6 +5,7 @@ package client
 
 import (
 	"bufio"
+	"crypto"
 	"crypto/ecdsa"
 	"flag"
 	"fmt"
@@ -48,12 +49,12 @@ type PSClient interface {
 type Client struct {
 	route            pb.PieceStoreRoutesClient
 	conn             *grpc.ClientConn
-	prikey           *ecdsa.PrivateKey
+	prikey           crypto.PrivateKey
 	bandwidthMsgSize int
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey *ecdsa.PrivateKey) (PSClient, error) {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -71,7 +72,7 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey *ecdsa.Priv
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prikey *ecdsa.PrivateKey) (*Client, error) {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Client, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -163,5 +164,5 @@ func (client *Client) sign(msg []byte) (signature []byte, err error) {
 	}
 
 	// use c.pkey to sign msg
-	return cryptopasta.Sign(msg, client.prikey)
+	return cryptopasta.Sign(msg, client.prikey.(*ecdsa.PrivateKey))
 }

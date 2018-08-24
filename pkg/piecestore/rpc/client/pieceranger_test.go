@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -190,7 +191,7 @@ func TestPieceRangerSize(t *testing.T) {
 	}
 }
 
-func generateBA(priv *ecdsa.PrivateKey, size int64) *pb.RenterBandwidthAllocation {
+func generateBA(priv crypto.PrivateKey, size int64) *pb.RenterBandwidthAllocation {
 	data := serializeData(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: &pb.PayerBandwidthAllocation{},
@@ -198,7 +199,7 @@ func generateBA(priv *ecdsa.PrivateKey, size int64) *pb.RenterBandwidthAllocatio
 		},
 	)
 
-	sig, _ := cryptopasta.Sign(data, priv)
+	sig, _ := cryptopasta.Sign(data, priv.(*ecdsa.PrivateKey))
 
 	return &pb.RenterBandwidthAllocation{
 		Data:      data,

@@ -5,6 +5,7 @@ package server
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"fmt"
 	"io"
@@ -240,7 +241,7 @@ func TestRetrieve(t *testing.T) {
 					}),
 				}
 
-				s, err := cryptopasta.Sign(ba.Data, TS.k)
+				s, err := cryptopasta.Sign(ba.Data, TS.k.(*ecdsa.PrivateKey))
 				assert.NoError(err)
 				ba.Signature = s
 
@@ -338,7 +339,7 @@ func TestStore(t *testing.T) {
 				},
 			}
 
-			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k)
+			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k.(*ecdsa.PrivateKey))
 			assert.NoError(err)
 			msg.Bandwidthallocation.Signature = s
 
@@ -491,7 +492,7 @@ type TestServer struct {
 	grpcs *grpc.Server
 	conn  *grpc.ClientConn
 	c     pb.PieceStoreRoutesClient
-	k     *ecdsa.PrivateKey
+	k     crypto.PrivateKey
 }
 
 func NewTestServer(t *testing.T) *TestServer {

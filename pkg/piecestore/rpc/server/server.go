@@ -4,6 +4,7 @@
 package server
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"log"
 	"os"
@@ -36,7 +37,7 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	s, err := Initialize(ctx, c, server.Identity().Key.(*ecdsa.PrivateKey))
+	s, err := Initialize(ctx, c, server.Identity().Key)
 	if err != nil {
 		return err
 	}
@@ -59,11 +60,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 type Server struct {
 	DataDir string
 	DB      *psdb.PSDB
-	pkey    *ecdsa.PrivateKey
+	pkey    crypto.PrivateKey
 }
 
 // Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config, pkey *ecdsa.PrivateKey) (*Server, error) {
+func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Server, error) {
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
