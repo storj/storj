@@ -10,13 +10,16 @@ import (
 
 // ConnectionPool is the in memory implementation of a connection Pool
 type ConnectionPool struct {
-	mu    sync.RWMutex
+	mu    *sync.RWMutex
 	cache map[string]interface{}
 }
 
 // NewConnectionPool initializes a new in memory pool
 func NewConnectionPool() Pool {
-	return &ConnectionPool{}
+	return &ConnectionPool{
+		cache: make(map[string]interface{}),
+		mu:    &sync.RWMutex{},
+	}
 }
 
 // Add takes a node ID as the key and a node client as the value to store

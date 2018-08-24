@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kademlia
+package node
 
 import (
 	"testing"
@@ -18,10 +18,10 @@ func TestString(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
-func TestStringToNodeID(t *testing.T) {
+func TestStringToID(t *testing.T) {
 	str := "test node"
 	node := NodeID(str)
-	expected := StringToNodeID(str)
+	expected := StringToID(str)
 
 	assert.Equal(t, expected.String(), node.String())
 }

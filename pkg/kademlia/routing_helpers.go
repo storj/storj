@@ -226,7 +226,12 @@ func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte
 // xorTwoIds: helper, finds the xor distance between two byte slices
 func xorTwoIds(id []byte, comparisonID []byte) []byte {
 	var xorArr []byte
-	for i := 0; i < len(id); i++ {
+	s := len(id)
+	if s > len(comparisonID) {
+		s = len(comparisonID)
+	}
+
+	for i := 0; i < s; i++ {
 		xor := id[i] ^ comparisonID[i]
 		xorArr = append(xorArr, xor)
 	}
@@ -311,11 +316,13 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.K
 // getNodesFromIDs: helper, returns array of encoded nodes from node ids
 func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []storage.Value, error) {
 	var nodes []storage.Value
+	// fmt.Printf("LENGTH OF NODE IDS == %v\n", len(nodeIDs))
 	for _, v := range nodeIDs {
 		n, err := rt.nodeBucketDB.Get(v)
 		if err != nil {
 			return nodeIDs, nodes, RoutingErr.New("could not get node id %v, %s", v, err)
 		}
+		// fmt.Printf("getNodesFromIDs::%#v\n", n)
 		nodes = append(nodes, n)
 	}
 	return nodeIDs, nodes, nil

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -34,7 +33,7 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
 	}
-	id := kademlia.StringToNodeID(req.Target.Id)
+	id := StringToID(req.Target.Id)
 	nodes, err := rt.FindNear(id, int(req.Limit))
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not find near %s", err)

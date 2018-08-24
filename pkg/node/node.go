@@ -34,6 +34,8 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 		if err != nil {
 			return nil, err
 		}
+
+		n.cache.Add(ctx, to.GetId(), c)
 		conn = c
 	}
 

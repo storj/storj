@@ -11,6 +11,7 @@ import (
 	pb "github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 )
@@ -89,29 +90,29 @@ func TestGetBuckets(t *testing.T) {
 
 func TestFindNear(t *testing.T) {
 	rt := createRT([]byte("AA"))
-	node := mockNode("AA")
+	n := mockNode("AA")
 	node2 := mockNode("BB")
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*proto.Node{node}
-	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
+	expected := []*proto.Node{n}
+	nodes, err := rt.FindNear(node.StringToID(n.Id), 1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
 	node3 := mockNode("CC")
-	expected = []*proto.Node{node2, node}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 2)
+	expected = []*proto.Node{node2, n}
+	nodes, err = rt.FindNear(node.StringToID(node3.Id), 2)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
 	expected = []*proto.Node{node2}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
+	nodes, err = rt.FindNear(node.StringToID(node3.Id), 1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
-	expected = []*proto.Node{node2, node}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
+	expected = []*proto.Node{node2, n}
+	nodes, err = rt.FindNear(node.StringToID(node3.Id), 3)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
