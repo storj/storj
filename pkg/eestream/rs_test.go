@@ -48,9 +48,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(data, data2) {
-		t.Fatalf("rs encode/decode failed")
-	}
+	assert.Equal(t, data, data2)
 }
 
 // Check that io.ReadFull will return io.ErrUnexpectedEOF
@@ -450,7 +448,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 		return
 	}
 	readerMap := make(map[int]io.ReadCloser, len(readers))
-	// some readers will return EOF later
+	// some readers will have problematic behavior
 	for i := 0; i < tt.problematic; i++ {
 		readerMap[i] = fn(pieces[i])
 	}
@@ -473,9 +471,9 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 func readAll(readers []io.Reader) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
 	errs := make(chan error, len(readers))
-	var err error
 	for i := range readers {
 		go func(i int) {
+			var err error
 			pieces[i], err = ioutil.ReadAll(readers[i])
 			errs <- err
 		}(i)
@@ -530,9 +528,9 @@ func TestEncoderStalledReaders(t *testing.T) {
 func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
 	pieces := make([][]byte, len(readers))
 	errs := make(chan error, len(readers))
-	var err error
 	for i := stalled; i < len(readers); i++ {
 		go func(i int) {
+			var err error
 			pieces[i], err = ioutil.ReadAll(readers[i])
 			errs <- err
 		}(i)
