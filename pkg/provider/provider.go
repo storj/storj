@@ -48,15 +48,12 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 		return nil, err
 	}
 
-	// TODO: use ident
-	_ = ident
-
 	return &Provider{
 		lis: lis,
 		g: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			//			ident,  TODO
+			ident,
 		),
 		next:     responsibilities,
 		identity: identity,

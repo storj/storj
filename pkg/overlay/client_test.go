@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -37,7 +38,12 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		oc, err := NewOverlayClient(v.address)
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, v.address)
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
@@ -63,17 +69,23 @@ func TestChoose(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock := NewTestServer()
+		srv, mock, err := NewTestServer(ctx)
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		oc, err := NewOverlayClient(lis.Addr().String())
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, lis.Addr().String())
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(context.Background(), v.limit, v.space)
+		_, err = oc.Choose(ctx, v.limit, v.space)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
 	}
@@ -94,30 +106,49 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock := NewTestServer()
+		srv, mock, err := NewTestServer(ctx)
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		oc, err := NewOverlayClient(lis.Addr().String())
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		oc, err := NewOverlayClient(identity, lis.Addr().String())
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Lookup(context.Background(), v.nodeID)
+		_, err = oc.Lookup(ctx, v.nodeID)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.lookupCalled, v.expectedCalls)
 	}
 
 }
 
-func NewTestServer() (*grpc.Server, *mockOverlayServer) {
-	grpcServer := grpc.NewServer()
+func NewTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil, err
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	grpcServer := grpc.NewServer(identOpt)
 	mo := &mockOverlayServer{lookupCalled: 0, FindStorageNodesCalled: 0}
 
 	proto.RegisterOverlayServer(grpcServer, mo)
 
-	return grpcServer, mo
+	return grpcServer, mo, nil
 
 }
 

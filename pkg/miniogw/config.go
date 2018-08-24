@@ -116,23 +116,15 @@ func (c Config) NewGateway(ctx context.Context,
 	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): the transport client should use tls and should use the identity
-	// defined in this function.
-	t := transport.NewClient()
+	t := transport.NewClient(identity)
 
-	// TODO(jt): overlay.NewClient should dial the overlay server with the
-	// transport client. probably should use the same connection as the
-	// pointerdb client
 	var oc overlay.Client
-	oc, err = overlay.NewOverlayClient(c.OverlayAddr)
+	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(jt): pdbclient.NewClient should dial the pointerdb server with the
-	// transport client. probably should use the same connection as the
-	// overlay client
-	pdb, err := pdbclient.NewClient(c.PointerDBAddr, []byte(c.APIKey))
+	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
 		return nil, err
 	}
