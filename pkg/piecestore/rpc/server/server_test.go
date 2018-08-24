@@ -26,7 +26,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -442,7 +442,7 @@ func TestDelete(t *testing.T) {
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
 			assert.NoError(err)
-			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
+			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
 			}

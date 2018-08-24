@@ -180,7 +180,7 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 	index, _ := randomHex(5)
 	redisRefs[index] = true
 
-	if testRedis.started != true {
+	if !testRedis.started {
 		conn, err := net.Dial("tcp", "127.0.0.1:6379")
 		if err != nil {
 			testRedis.start(t)
