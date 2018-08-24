@@ -5,7 +5,6 @@ package client
 
 import (
 	"context"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -14,9 +13,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
-	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
 	pb "storj.io/storj/protos/piecestore"
@@ -68,23 +65,15 @@ func TestPieceRanger(t *testing.T) {
 				},
 			}
 
-			msg2 := &pb.PieceRetrieval{
-				Bandwidthallocation: generateBA(priv, 32*1024),
-			}
-
-			msg3 := &pb.PieceRetrieval{
-				Bandwidthallocation: generateBA(priv, 32*1024*2),
-			}
-
 			calls = append(calls,
 				stream.EXPECT().Send(msg1).Return(nil),
-				stream.EXPECT().Send(msg2).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(msg3).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
@@ -151,23 +140,15 @@ func TestPieceRangerSize(t *testing.T) {
 				},
 			}
 
-			msg2 := &pb.PieceRetrieval{
-				Bandwidthallocation: generateBA(priv, 32*1024),
-			}
-
-			msg3 := &pb.PieceRetrieval{
-				Bandwidthallocation: generateBA(priv, 32*1024*2),
-			}
-
 			gomock.InOrder(
 				stream.EXPECT().Send(msg1).Return(nil),
-				stream.EXPECT().Send(msg2).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(msg3).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
@@ -189,26 +170,4 @@ func TestPieceRangerSize(t *testing.T) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}
 	}
-}
-
-func generateBA(priv crypto.PrivateKey, size int64) *pb.RenterBandwidthAllocation {
-	data := serializeData(
-		&pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{},
-			Total:           size,
-		},
-	)
-
-	sig, _ := cryptopasta.Sign(data, priv.(*ecdsa.PrivateKey))
-
-	return &pb.RenterBandwidthAllocation{
-		Data:      data,
-		Signature: sig,
-	}
-}
-
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
-
-	return data
 }
