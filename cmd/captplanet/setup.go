@@ -22,8 +22,8 @@ import (
 type Config struct {
 	HCCA           provider.CASetupConfig
 	HCIdentity     provider.IdentitySetupConfig
-	GWCA           provider.CASetupConfig
-	GWIdentity     provider.IdentitySetupConfig
+	ULCA           provider.CASetupConfig
+	ULIdentity     provider.IdentitySetupConfig
 	FarmerCA       provider.CASetupConfig
 	FarmerIdentity provider.IdentitySetupConfig
 	BasePath       string `help:"base path for captain planet storage" default:"$CONFDIR"`
@@ -94,17 +94,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	gwPath := filepath.Join(setupCfg.BasePath, "gw")
-	err = os.MkdirAll(gwPath, 0700)
+	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink")
+	err = os.MkdirAll(uplinkPath, 0700)
 	if err != nil {
 		return err
 	}
-	setupCfg.GWCA.CertPath = filepath.Join(gwPath, "ca.cert")
-	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
-	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
-	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
-	fmt.Printf("creating identity for gateway\n")
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
+	setupCfg.ULCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
+	setupCfg.ULCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
+	setupCfg.ULIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
+	setupCfg.ULIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
+	fmt.Printf("creating identity for uplink\n")
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.ULCA, setupCfg.ULIdentity)
 	if err != nil {
 		return err
 	}
@@ -129,17 +129,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "hc", "pointerdb.db"),
 		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "hc", "overlay.db"),
-		"gateway.cert-path": setupCfg.GWIdentity.CertPath,
-		"gateway.key-path":  setupCfg.GWIdentity.KeyPath,
-		"gateway.address": joinHostPort(
+		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
+		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
+		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
-		"gateway.overlay-addr": joinHostPort(
+		"uplink.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.pointer-db-addr": joinHostPort(
+		"uplink.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.minio-dir": filepath.Join(
-			setupCfg.BasePath, "gw", "minio"),
-		"gateway.api-key":         apiKey,
+		"uplink.minio-dir": filepath.Join(
+			setupCfg.BasePath, "uplink", "minio"),
+		"uplink.api-key":          apiKey,
 		"pointer-db.auth.api-key": apiKey,
 	}
 
