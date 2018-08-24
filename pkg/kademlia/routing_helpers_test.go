@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -76,8 +75,6 @@ func TestAddNode(t *testing.T) {
 		Limit: 0,
 	})
 
-	fmt.Println("nodeItems: ", nodeKeyItems)
-
 	assert.NoError(t, err)
 	assert.NotNil(t, isMore)
 	assert.Equal(t, 1, len(kadKeyItems))
@@ -109,8 +106,6 @@ func TestAddNode(t *testing.T) {
 		Limit: 0,
 	})
 
-	fmt.Println("nodeItems: ", kadKeyItems)
-
 	assert.NoError(t, err)
 	assert.NotNil(t, isMore)
 
@@ -118,8 +113,6 @@ func TestAddNode(t *testing.T) {
 		Start: nil,
 		Limit: 0,
 	})
-
-	fmt.Println("nodeItems: ", nodeKeyItems)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, isMore)

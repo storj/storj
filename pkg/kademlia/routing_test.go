@@ -87,6 +87,21 @@ func TestGetBuckets(t *testing.T) {
 	}
 }
 
+// func TestFindNear(t *testing.T) {
+// 	rt := createRT([]byte("AA"))
+// 	node := mockNode("AA")
+// 	node2 := mockNode("BB")
+// 	ok, err := rt.addNode(node2)
+// 	assert.True(t, ok)
+// 	assert.NoError(t, err)
+// 	expected := []*proto.Node{node2}
+// 	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
+// 	assert.NoError(t, err)
+// 	for i, v := range nodes {
+// 		assert.True(t, pb.Equal(expected[i], v))
+// 	}
+// }
+
 func TestFindNear(t *testing.T) {
 	rt := createRT([]byte("AA"))
 	node := mockNode("AA")
