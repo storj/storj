@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"github.com/gtank/cryptopasta"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"

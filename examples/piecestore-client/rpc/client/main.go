@@ -20,18 +20,33 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
+var ctx = context.Background()
 var argError = errs.Class("argError")
 
 func main() {
 
 	app := cli.NewApp()
 
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		log.Fatal(err)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		log.Fatal(err)
+	}
+	identOpt, err := identity.DialOption()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Set up connection with rpc server
 	var conn *grpc.ClientConn
-	conn, err := grpc.Dial(":7777", grpc.WithInsecure())
+	conn, err = grpc.Dial(":7777", identOpt)
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
@@ -136,7 +151,6 @@ func main() {
 					return err
 				}
 
-				ctx := context.Background()
 				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
