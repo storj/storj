@@ -129,7 +129,6 @@ func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
 
 	// data := ba.GetData()
 	// signature := ba.GetSignature()
-	log.Printf("Verified signature\n")
 
 	return nil
 }
