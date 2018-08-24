@@ -108,6 +108,13 @@ type encodedReader struct {
 	done   int // number of readers done
 }
 
+type block struct {
+	i    int    // reader index in the map
+	num  int64  // block number
+	data []byte // block data
+	err  error  // error reading the block
+}
+
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // Readers.
 //
