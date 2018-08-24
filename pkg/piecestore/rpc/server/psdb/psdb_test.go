@@ -231,7 +231,6 @@ func TestGetTTLByID(t *testing.T) {
 func TestWriteBandwidthAllocToDB(t *testing.T) {
 	tests := []struct {
 		it              string
-		id              string
 		payerAllocation *pb.PayerBandwidthAllocation
 		total           int64
 		err             string

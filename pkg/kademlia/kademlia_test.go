@@ -134,7 +134,6 @@ func TestGetNodes(t *testing.T) {
 
 	cases := []struct {
 		k            *Kademlia
-		start        string
 		limit        int
 		expectedErr  error
 		restrictions []overlay.Restriction
@@ -180,8 +179,6 @@ func TestFindNode(t *testing.T) {
 
 	cases := []struct {
 		k           *Kademlia
-		start       string
-		input       NodeID
 		expectedErr error
 	}{
 		{

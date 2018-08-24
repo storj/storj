@@ -15,9 +15,6 @@ import (
 )
 
 func TestServeContent(t *testing.T) {
-	type RangerArgs struct {
-		a string
-	}
 	for _, tt := range []struct {
 		testName         string
 		requestMethod    string

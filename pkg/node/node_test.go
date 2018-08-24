@@ -21,11 +21,10 @@ var ctx = context.Background()
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
-		self             proto.Node
-		to               proto.Node
-		find             proto.Node
-		expectedErr      error
-		expectedNumNodes int
+		self        proto.Node
+		to          proto.Node
+		find        proto.Node
+		expectedErr error
 	}{
 		{
 			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},

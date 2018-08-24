@@ -24,14 +24,12 @@ import (
 const (
 	unauthenticated = "failed API creds"
 	noPathGiven     = "file path not given"
-	noLimitGiven    = "limit not given"
 )
 
 var (
 	ctx                = context.Background()
 	ErrUnauthenticated = errors.New(unauthenticated)
 	ErrNoFileGiven     = errors.New(noPathGiven)
-	ErrNoLimitGiven    = errors.New(noLimitGiven)
 )
 
 func TestNewPointerDBClient(t *testing.T) {

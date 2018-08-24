@@ -440,8 +440,7 @@ func TestSegmentStoreList(t *testing.T) {
 		startAfter := paths.New(tt.startAfterInput)
 		listedPath := paths.New(tt.itemPath)
 
-		var ti time.Time
-		ti = time.Unix(0, 0).UTC()
+		ti := time.Unix(0, 0).UTC()
 		someTime, err := ptypes.TimestampProto(ti)
 		assert.NoError(t, err)
 
