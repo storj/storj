@@ -185,8 +185,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -236,8 +235,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -299,8 +297,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -353,8 +350,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 

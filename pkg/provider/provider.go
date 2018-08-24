@@ -79,11 +79,7 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 		if s := i.Stat(); s == NoCertNoKey || i.Overwrite {
 			// Create identity from new CA
 			_, err = i.Create(ca)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return err
 		} else {
 			return ErrSetup.New("identity file(s) exist: %s", s)
 		}

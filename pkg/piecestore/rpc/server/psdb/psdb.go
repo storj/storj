@@ -133,11 +133,7 @@ func (psdb *PSDB) DeleteExpired(ctx context.Context) (err error) {
 	}
 
 	_, err = psdb.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // DeleteExpiredLoop will periodically run DeleteExpired

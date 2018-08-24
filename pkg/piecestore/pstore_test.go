@@ -259,7 +259,6 @@ func TestDelete(t *testing.T) {
 				t.Errorf("Error deleting file")
 				return
 			}
-			return
 		})
 	}
 }
