@@ -51,16 +51,16 @@ func (b *PieceBuffer) Read(p []byte) (n int, err error) {
 	}
 
 	if b.rpos >= b.wpos {
-		bytesRead := copy(p, b.buf[b.rpos:])
-		n += bytesRead
-		b.rpos = (b.rpos + bytesRead) % len(b.buf)
+		nn := copy(p, b.buf[b.rpos:])
+		n += nn
+		b.rpos = (b.rpos + nn) % len(b.buf)
 		p = p[n:]
 	}
 
 	if b.rpos < b.wpos {
-		bytesRead := copy(p, b.buf[b.rpos:b.wpos])
-		n += bytesRead
-		b.rpos += bytesRead
+		nn := copy(p, b.buf[b.rpos:b.wpos])
+		n += nn
+		b.rpos += nn
 	}
 
 	if n > 0 {
