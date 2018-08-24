@@ -25,7 +25,7 @@ const (
 )
 
 // HeavyClient is for configuring client
-type HeavyClient struct {
+type Satellite struct {
 	Identity    provider.IdentityConfig
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
@@ -51,7 +51,7 @@ var (
 	}
 
 	runCfg struct {
-		HeavyClient  HeavyClient
+		Satellite    Satellite
 		StorageNodes [storagenodeCount]StorageNode
 		Uplink       miniogw.Config
 	}
@@ -95,17 +95,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
-	// start heavy client
+	// start satellite
 	go func() {
-		_, _ = fmt.Printf("starting heavy client on %s\n",
-			runCfg.HeavyClient.Identity.Address)
-		var o provider.Responsibility = runCfg.HeavyClient.Overlay
-		if runCfg.HeavyClient.MockOverlay.Enabled {
+		_, _ = fmt.Printf("starting satellite on %s\n",
+			runCfg.Satellite.Identity.Address)
+		var o provider.Responsibility = runCfg.Satellite.Overlay
+		if runCfg.Satellite.MockOverlay.Enabled {
 			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
-		errch <- runCfg.HeavyClient.Identity.Run(ctx,
-			runCfg.HeavyClient.Kademlia,
-			runCfg.HeavyClient.PointerDB,
+		errch <- runCfg.Satellite.Identity.Run(ctx,
+			runCfg.Satellite.Kademlia,
+			runCfg.Satellite.PointerDB,
 			o)
 	}()
 

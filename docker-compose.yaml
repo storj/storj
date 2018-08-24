@@ -16,7 +16,7 @@ services:
     - satellite
   satellite:
     image: storjlabs/satellite:${VERSION}
-    command: --mock-overlay.nodes INTENTIONALLY:LEFT:BLANK
+    command: --mock-overlay.nodes JwGoHjdZ3YckgNadrGjBFSn2V8HP2QBCq50UIIJbsAA=:172.18.0.4:7777
     environment:
     - API_KEY=abc123
     - IDENTITY_ADDR=:7777
