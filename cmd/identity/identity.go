@@ -1,0 +1,54 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package main
+
+import (
+	"github.com/spf13/cobra"
+
+	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/cfgstruct"
+)
+
+var (
+	idCmd = &cobra.Command{
+		Use: "id",
+		Short: "Manage identities",
+	}
+
+	newIDCmd = &cobra.Command{
+		Use:   "new",
+		Short: "Creates a new identity from an existing certificate authority",
+		RunE:  cmdNewID,
+	}
+
+	newIDCfg struct {
+		CA       provider.FullCAConfig
+		Identity provider.IdentitySetupConfig
+	}
+)
+
+func init() {
+	rootCmd.AddCommand(idCmd)
+	idCmd.AddCommand(newIDCmd)
+	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, cfgstruct.ConfDir(defaultConfDir))
+}
+
+func cmdNewID(cmd *cobra.Command, args []string) (err error) {
+	ca, err := newIDCfg.CA.Load()
+	if err != nil {
+		return err
+	}
+
+	if s := newIDCfg.Identity.Stat(); s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
+		_, err := newIDCfg.Identity.Create(ca)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return provider.ErrSetup.New("identity file(s) exist: %s", s)
+	}
+
+	return nil
+}
