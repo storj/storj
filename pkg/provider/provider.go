@@ -30,7 +30,7 @@ type Responsibility interface {
 }
 
 // Provider represents a bundle of responsibilities defined by a specific ID.
-// Examples of providers are the heavy client, the farmer, and the gateway.
+// Examples of providers are the heavy client, the storagenode, and the gateway.
 type Provider struct {
 	lis      net.Listener
 	g        *grpc.Server
@@ -48,15 +48,12 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 		return nil, err
 	}
 
-	// TODO: use ident
-	_ = ident
-
 	return &Provider{
 		lis: lis,
 		g: grpc.NewServer(
 			grpc.StreamInterceptor(streamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			//			ident,  TODO
+			ident,
 		),
 		next:     responsibilities,
 		identity: identity,

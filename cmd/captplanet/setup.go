@@ -20,16 +20,16 @@ import (
 
 // Config defines broad Captain Planet configuration
 type Config struct {
-	HCCA           provider.CASetupConfig
-	HCIdentity     provider.IdentitySetupConfig
-	GWCA           provider.CASetupConfig
-	GWIdentity     provider.IdentitySetupConfig
-	FarmerCA       provider.CASetupConfig
-	FarmerIdentity provider.IdentitySetupConfig
-	BasePath       string `help:"base path for captain planet storage" default:"$CONFDIR"`
-	ListenHost     string `help:"the host for providers to listen on" default:"127.0.0.1"`
-	StartingPort   int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
-	Overwrite      bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
+	HCCA                provider.CASetupConfig
+	HCIdentity          provider.IdentitySetupConfig
+	ULCA                provider.CASetupConfig
+	ULIdentity          provider.IdentitySetupConfig
+	StorageNodeCA       provider.CASetupConfig
+	StorageNodeIdentity provider.IdentitySetupConfig
+	BasePath            string `help:"base path for captain planet storage" default:"$CONFDIR"`
+	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
+	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
 var (
@@ -75,36 +75,36 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	for i := 0; i < len(runCfg.Farmers); i++ {
-		farmerPath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		err = os.MkdirAll(farmerPath, 0700)
+	for i := 0; i < len(runCfg.StorageNodes); i++ {
+		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		err = os.MkdirAll(storagenodePath, 0700)
 		if err != nil {
 			return err
 		}
-		farmerCA := setupCfg.FarmerCA
-		farmerCA.CertPath = filepath.Join(farmerPath, "ca.cert")
-		farmerCA.KeyPath = filepath.Join(farmerPath, "ca.key")
-		farmerIdentity := setupCfg.FarmerIdentity
-		farmerIdentity.CertPath = filepath.Join(farmerPath, "identity.cert")
-		farmerIdentity.KeyPath = filepath.Join(farmerPath, "identity.key")
+		storagenodeCA := setupCfg.StorageNodeCA
+		storagenodeCA.CertPath = filepath.Join(storagenodePath, "ca.cert")
+		storagenodeCA.KeyPath = filepath.Join(storagenodePath, "ca.key")
+		storagenodeIdentity := setupCfg.StorageNodeIdentity
+		storagenodeIdentity.CertPath = filepath.Join(storagenodePath, "identity.cert")
+		storagenodeIdentity.KeyPath = filepath.Join(storagenodePath, "identity.key")
 		fmt.Printf("creating identity for storage node %d\n", i+1)
-		err := provider.SetupIdentity(process.Ctx(cmd), farmerCA, farmerIdentity)
+		err := provider.SetupIdentity(process.Ctx(cmd), storagenodeCA, storagenodeIdentity)
 		if err != nil {
 			return err
 		}
 	}
 
-	gwPath := filepath.Join(setupCfg.BasePath, "gw")
-	err = os.MkdirAll(gwPath, 0700)
+	uplinkPath := filepath.Join(setupCfg.BasePath, "uplink")
+	err = os.MkdirAll(uplinkPath, 0700)
 	if err != nil {
 		return err
 	}
-	setupCfg.GWCA.CertPath = filepath.Join(gwPath, "ca.cert")
-	setupCfg.GWCA.KeyPath = filepath.Join(gwPath, "ca.key")
-	setupCfg.GWIdentity.CertPath = filepath.Join(gwPath, "identity.cert")
-	setupCfg.GWIdentity.KeyPath = filepath.Join(gwPath, "identity.key")
-	fmt.Printf("creating identity for gateway\n")
-	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.GWCA, setupCfg.GWIdentity)
+	setupCfg.ULCA.CertPath = filepath.Join(uplinkPath, "ca.cert")
+	setupCfg.ULCA.KeyPath = filepath.Join(uplinkPath, "ca.key")
+	setupCfg.ULIdentity.CertPath = filepath.Join(uplinkPath, "identity.cert")
+	setupCfg.ULIdentity.KeyPath = filepath.Join(uplinkPath, "identity.key")
+	fmt.Printf("creating identity for uplink\n")
+	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.ULCA, setupCfg.ULIdentity)
 	if err != nil {
 		return err
 	}
@@ -129,34 +129,34 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "hc", "pointerdb.db"),
 		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "hc", "overlay.db"),
-		"gateway.cert-path": setupCfg.GWIdentity.CertPath,
-		"gateway.key-path":  setupCfg.GWIdentity.KeyPath,
-		"gateway.address": joinHostPort(
+		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
+		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
+		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
-		"gateway.overlay-addr": joinHostPort(
+		"uplink.overlay-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.pointer-db-addr": joinHostPort(
+		"uplink.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"gateway.minio-dir": filepath.Join(
-			setupCfg.BasePath, "gw", "minio"),
-		"gateway.api-key":         apiKey,
+		"uplink.minio-dir": filepath.Join(
+			setupCfg.BasePath, "uplink", "minio"),
+		"uplink.api-key":          apiKey,
 		"pointer-db.auth.api-key": apiKey,
 	}
 
-	for i := 0; i < len(runCfg.Farmers); i++ {
-		farmerPath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		farmer := fmt.Sprintf("farmers.%02d.", i)
-		overrides[farmer+"identity.cert-path"] = filepath.Join(
-			farmerPath, "identity.cert")
-		overrides[farmer+"identity.key-path"] = filepath.Join(
-			farmerPath, "identity.key")
-		overrides[farmer+"identity.address"] = joinHostPort(
+	for i := 0; i < len(runCfg.StorageNodes); i++ {
+		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
+		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
+		overrides[storagenode+"identity.cert-path"] = filepath.Join(
+			storagenodePath, "identity.cert")
+		overrides[storagenode+"identity.key-path"] = filepath.Join(
+			storagenodePath, "identity.key")
+		overrides[storagenode+"identity.address"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+3)
-		overrides[farmer+"kademlia.todo-listen-addr"] = joinHostPort(
+		overrides[storagenode+"kademlia.todo-listen-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+i*2+4)
-		overrides[farmer+"kademlia.bootstrap-addr"] = joinHostPort(
+		overrides[storagenode+"kademlia.bootstrap-addr"] = joinHostPort(
 			setupCfg.ListenHost, startingPort+1)
-		overrides[farmer+"storage.path"] = filepath.Join(farmerPath, "data")
+		overrides[storagenode+"storage.path"] = filepath.Join(storagenodePath, "data")
 	}
 
 	return process.SaveConfig(runCmd.Flags(),

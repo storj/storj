@@ -13,8 +13,11 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
+
+var ctx = context.Background()
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
@@ -36,26 +39,45 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 		assert.NoError(t, err)
 
-		srv, mock := newTestServer()
+		srv, mock, err := newTestServer(ctx)
+		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
 
-		nc, err := NewNodeClient(v.self)
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		_, err = nc.Lookup(context.Background(), v.to, v.find)
+		nc, err := NewNodeClient(identity, v.self)
+		assert.NoError(t, err)
+
+		_, err = nc.Lookup(ctx, v.to, v.find)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, 1, mock.queryCalled)
 	}
 }
 
-func newTestServer() (*grpc.Server, *mockNodeServer) {
-	grpcServer := grpc.NewServer()
+func newTestServer(ctx context.Context) (*grpc.Server, *mockNodeServer, error) {
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil, err
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodeServer{queryCalled: 0}
 
 	proto.RegisterNodesServer(grpcServer, mn)
 
-	return grpcServer, mn
+	return grpcServer, mn, nil
 
 }
 
