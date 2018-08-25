@@ -122,7 +122,7 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 
 // ListV2 returns either a list of items for which the MockKeyValueStore has values and an error.
 func (m *MockKeyValueStore) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	m.ListCalled++
+	m.ListV2Called++
 	panic("TODO")
 }
 
