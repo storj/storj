@@ -18,7 +18,7 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "ul",
+		Use:   "uplink",
 		Short: "Uplink",
 	}
 	runCmd = &cobra.Command{
@@ -43,7 +43,7 @@ var (
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
 	}
 
-	defaultConfDir = "$HOME/.storj/ul"
+	defaultConfDir = "$HOME/.storj/uplink"
 )
 
 func init() {
@@ -65,7 +65,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("A ul configuration already exists. Rerun with --overwrite")
+		fmt.Println("An uplink configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 

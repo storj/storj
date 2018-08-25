@@ -105,7 +105,7 @@ require (
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e // indirect
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1
 	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8
-	github.com/spacemonkeygo/monotime v0.0.0-20180102220400-7067dc99a42a
+	github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
 	github.com/spf13/afero v1.1.0
 	github.com/spf13/cast v1.2.0

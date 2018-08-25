@@ -6,12 +6,12 @@ Usage:
 
 First make an identity:
 ```
-go install storj.io/storj/cmd/ul
-ul setup
+go install storj.io/storj/cmd/uplink
+uplink setup
 ```
 
-You can edit `~/.storj/ul/config.yaml` to your liking. Then run it!
+You can edit `~/.storj/uplink/config.yaml` to your liking. Then run it!
 
 ```
-ul run
+uplink run
 ```
