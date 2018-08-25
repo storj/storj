@@ -121,7 +121,7 @@ func TestRetrieve(t *testing.T) {
 	TS := NewTestServer()
 	defer TS.Stop()
 
-	// simulate piece stored with farmer
+	// simulate piece stored with storagenode
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
@@ -409,7 +409,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 
-			// simulate piece stored with farmer
+			// simulate piece stored with storagenode
 			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return

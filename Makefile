@@ -106,7 +106,7 @@ satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
 .PHONY: storage-node-image
 storage-node-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/uplink/Dockerfile .

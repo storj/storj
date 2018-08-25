@@ -23,7 +23,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// Node is info for a updating a single farmer, used in the Update rpc calls
+// Node is info for a updating a single storagenode, used in the Update rpc calls
 type Node struct {
 	NodeId               []byte   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	LatencyList          []int64  `protobuf:"varint,2,rep,packed,name=latency_list,json=latencyList,proto3" json:"latency_list,omitempty"`
@@ -110,7 +110,7 @@ func (m *Node) GetUpdateUptime() bool {
 	return false
 }
 
-// NodeStats is info about a single farmer stored in the stats db
+// NodeStats is info about a single storagenode stored in the stats db
 type NodeStats struct {
 	NodeId               []byte   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	Latency_90           int64    `protobuf:"varint,2,opt,name=latency_90,json=latency90,proto3" json:"latency_90,omitempty"`
@@ -542,13 +542,13 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type StatDBClient interface {
-	// Create a db entry for the provided farmer ID
+	// Create a db entry for the provided storagenode ID
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
-	// Get uses a farmer ID to get that farmer's stats
+	// Get uses a storagenode ID to get that storagenode's stats
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	// Update updates farmer stats for a single farmer
+	// Update updates storagenode stats for a single storagenode
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
-	// UpdateBatch updates farmer stats for multiple farmers at a time
+	// UpdateBatch updates storagenode stats for multiple farmers at a time
 	UpdateBatch(ctx context.Context, in *UpdateBatchRequest, opts ...grpc.CallOption) (*UpdateBatchResponse, error)
 }
 
@@ -598,13 +598,13 @@ func (c *statDBClient) UpdateBatch(ctx context.Context, in *UpdateBatchRequest, 
 
 // StatDBServer is the server API for StatDB service.
 type StatDBServer interface {
-	// Create a db entry for the provided farmer ID
+	// Create a db entry for the provided storagenode ID
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
-	// Get uses a farmer ID to get that farmer's stats
+	// Get uses a storagenode ID to get that storagenode's stats
 	Get(context.Context, *GetRequest) (*GetResponse, error)
-	// Update updates farmer stats for a single farmer
+	// Update updates storagenode stats for a single storagenode
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
-	// UpdateBatch updates farmer stats for multiple farmers at a time
+	// UpdateBatch updates storagenode stats for multiple farmers at a time
 	UpdateBatch(context.Context, *UpdateBatchRequest) (*UpdateBatchResponse, error)
 }
 

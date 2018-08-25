@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	farmerCount = 50
+	storagenodeCount = 50
 )
 
 type HeavyClient struct {
@@ -31,7 +31,7 @@ type HeavyClient struct {
 	MockOverlay bool `default:"true" help:"if false, use real overlay"`
 }
 
-type Farmer struct {
+type StorageNode struct {
 	Identity provider.IdentityConfig
 	Kademlia kademlia.Config
 	Storage  psserver.Config
@@ -45,9 +45,9 @@ var (
 	}
 
 	runCfg struct {
-		HeavyClient HeavyClient
-		Farmers     [farmerCount]Farmer
-		Uplink     miniogw.Config
+		HeavyClient  HeavyClient
+		StorageNodes [storagenodeCount]StorageNode
+		Uplink       miniogw.Config
 	}
 )
 
@@ -60,25 +60,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 	defer mon.Task()(&ctx)(&err)
 
-	errch := make(chan error, len(runCfg.Farmers)+2)
-	var farmers []string
+	errch := make(chan error, len(runCfg.StorageNodes)+2)
+	var storagenodes []string
 
-	// start the farmers
-	for i := 0; i < len(runCfg.Farmers); i++ {
-		identity, err := runCfg.Farmers[i].Identity.Load()
+	// start the storagenodes
+	for i := 0; i < len(runCfg.StorageNodes); i++ {
+		identity, err := runCfg.StorageNodes[i].Identity.Load()
 		if err != nil {
 			return err
 		}
-		farmer := fmt.Sprintf("%s:%s",
-			identity.ID.String(), runCfg.Farmers[i].Identity.Address)
-		farmers = append(farmers, farmer)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
-				runCfg.Farmers[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.Farmers[i].Identity.Run(ctx,
-				runCfg.Farmers[i].Kademlia,
-				runCfg.Farmers[i].Storage)
-		}(i, farmer)
+		storagenode := fmt.Sprintf("%s:%s",
+			identity.ID.String(), runCfg.StorageNodes[i].Identity.Address)
+		storagenodes = append(storagenodes, storagenode)
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storagenode %d %s (kad on %s)\n", i, storagenode,
+				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
+			errch <- runCfg.StorageNodes[i].Identity.Run(ctx,
+				runCfg.StorageNodes[i].Kademlia,
+				runCfg.StorageNodes[i].Storage)
+		}(i, storagenode)
 	}
 
 	// start heavy client
@@ -87,7 +87,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.HeavyClient.Identity.Address)
 		var o provider.Responsibility = runCfg.HeavyClient.Overlay
 		if runCfg.HeavyClient.MockOverlay {
-			o = overlay.MockConfig{Nodes: strings.Join(farmers, ",")}
+			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.HeavyClient.Identity.Run(ctx,
 			runCfg.HeavyClient.Kademlia,
