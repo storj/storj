@@ -18,7 +18,7 @@ import (
 // PointerDB responsibility
 type Config struct {
 	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
-	MinInlineSegmentSize int `default:"1240" help:"minimum inline segment size"`
+	MinInlineSegmentSize int64 `default:"1240" help:"minimum inline segment size"`
 	MaxInlineSegmentSize int `default:"8000" help:"maximum inline segment size"`
 }
 
