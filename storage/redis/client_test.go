@@ -59,7 +59,11 @@ func TestListWithoutStartKey(t *testing.T) {
 		rt.HandleErr(err, "Failed to put")
 	}
 
-	_, err := rt.c.List(nil, storage.Limit(3))
+	_, _, err := rt.c.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
+
 	if err != nil {
 		rt.HandleErr(err, "Failed to list")
 	}
@@ -88,10 +92,17 @@ func TestListWithStartKey(t *testing.T) {
 		rt.HandleErr(err, "Failed to put")
 	}
 
-	_, err := rt.c.List([]byte("path/2"), storage.Limit(2))
+	listItems, isMore, err := rt.c.List(storage.ListOptions{
+		Start: []byte("path/2"),
+		Limit: 2,
+	})
+
 	if err != nil {
 		rt.HandleErr(err, "Failed to list")
 	}
+
+	assert.NotNil(t, listItems)
+	assert.NotNil(t, isMore)
 }
 
 var (
@@ -242,9 +253,16 @@ func TestCrudValidConnection(t *testing.T) {
 				}
 
 				//Temporary fix
-				_, err := st.List(list[0], storage.Limit(len(keysList)))
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: []byte("test/path/2"),
+					Limit: 1,
+				})
+
+				keys := listItems.GetKeys()
 
 				assert.NoError(t, err)
+				assert.NotNil(t, isMore)
+				assert.NotNil(t, keys)
 				// assert.ElementsMatch(t, list, keys)
 				// assert.Equal(t, len(list), len(keys))
 
@@ -257,8 +275,16 @@ func TestCrudValidConnection(t *testing.T) {
 		{
 			"GetKeysListWithFirstArgNil",
 			func(t *testing.T, st storage.KeyValueStore) {
-				keys, err := st.List(nil, storage.Limit(len(keysList)))
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: nil,
+					Limit: storage.Limit(len(keysList)),
+				})
+
+				keys := listItems.GetKeys()
+
 				assert.NoError(t, err)
+				assert.NotNil(t, isMore)
 				assert.Equal(t, len(keys), 0)
 			},
 		},
@@ -303,17 +329,29 @@ func TestCrudInvalidConnection(t *testing.T) {
 		{
 			"ListArgValid",
 			func(t *testing.T, st storage.KeyValueStore) {
-				keys, err := st.List(storage.Key(validKey), 1)
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: storage.Key(validKey),
+					Limit: 1,
+				})
+
 				assert.Error(t, err)
-				assert.Nil(t, keys)
+				assert.NotNil(t, isMore)
+				assert.Nil(t, listItems)
 			},
 		},
 		{
 			"ListArgInvalid",
 			func(t *testing.T, st storage.KeyValueStore) {
-				keys, err := st.List(nil, 1)
+
+				listItems, isMore, err := st.List(storage.ListOptions{
+					Start: nil,
+					Limit: 1,
+				})
+
 				assert.Error(t, err)
-				assert.Nil(t, keys)
+				assert.NotNil(t, isMore)
+				assert.Nil(t, listItems)
 			},
 		},
 	}

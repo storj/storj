@@ -5,8 +5,9 @@ package kademlia
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math/rand"
+
+	"encoding/binary"
 	"time"
 
 	pb "github.com/golang/protobuf/proto"
@@ -174,10 +175,16 @@ func (rt *RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Tim
 // getKBucketID: helper, returns the id of the corresponding k bucket given a node id.
 // The node doesn't have to be in the routing table at time of search
 func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
-	kadBucketIDs, err := rt.kadBucketDB.List(nil, 0)
+	kadBucketItems, _, err := rt.kadBucketDB.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
 	if err != nil {
 		return nil, RoutingErr.New("could not list all k bucket ids: %s", err)
 	}
+
+	kadBucketIDs := kadBucketItems.GetKeys()
+
 	smallestKey := rt.createZeroAsStorageKey()
 	var keys storage.Keys
 	keys = append(keys, smallestKey)
@@ -235,10 +242,20 @@ func xorTwoIds(id []byte, comparisonID []byte) []byte {
 
 // nodeIsWithinNearestK: helper, returns true if the node in question is within the nearest k from local node
 func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
-	nodes, err := rt.nodeBucketDB.List(nil, 0)
+	nodeItems, _, err := rt.nodeBucketDB.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
 	if err != nil {
 		return false, RoutingErr.New("could not get nodes: %s", err)
 	}
+
+	var nodes storage.Keys
+
+	for _, item := range nodeItems {
+		nodes = append(nodes, item.Key)
+	}
+
 	nodeCount := len(nodes)
 	if nodeCount < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
 		return true, nil
@@ -290,10 +307,22 @@ func (rt *RoutingTable) getNodeIDsWithinKBucket(bucketID storage.Key) (storage.K
 	left := endpoints[0]
 	right := endpoints[1]
 	var nodeIDs storage.Keys
-	allNodeIDs, err := rt.nodeBucketDB.List(nil, 0)
+
+	allNodeItems, _, err := rt.nodeBucketDB.List(storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	})
 	if err != nil {
 		return nil, RoutingErr.New("could not list nodes %s", err)
 	}
+
+	// can be replaced with commons.go TODO
+	var allNodeIDs storage.Keys
+
+	for _, item := range allNodeItems {
+		allNodeIDs = append(allNodeIDs, item.Key)
+	}
+
 	for _, v := range allNodeIDs {
 		if (bytes.Compare(v, left) > 0) && (bytes.Compare(v, right) <= 0) {
 			nodeIDs = append(nodeIDs, v)

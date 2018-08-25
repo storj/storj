@@ -156,38 +156,52 @@ func TestServiceList(t *testing.T) {
 		storage.Key(paths.New("videos/movie.mkv").Bytes()),
 	}
 
+	items := storage.Items{}
+
+	for _, key := range keys {
+
+		item := storage.ListItem{
+			Key:      key,
+			Value:    storage.Value([]byte("value")),
+			IsPrefix: false,
+		}
+		items = append(items, item)
+	}
+
+	keyList := items.GetKeys()
+
 	for i, tt := range []struct {
-		prefix       string
-		startAfter   string
-		endBefore    string
-		recursive    bool
-		limit        int
-		metaFlags    uint32
-		apiKey       []byte
-		returnedKeys storage.Keys
-		expectedKeys storage.Keys
-		expectedMore bool
-		err          error
-		errString    string
+		prefix        string
+		startAfter    string
+		endBefore     string
+		recursive     bool
+		limit         int
+		metaFlags     uint32
+		apiKey        []byte
+		returnedItems storage.Items
+		expectedKeys  storage.Keys
+		expectedMore  storage.More
+		err           error
+		errString     string
 	}{
-		{"", "", "", true, 0, meta.None, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.All, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.None, []byte("wrong key"), keys, keys, false,
+		{"", "", "", true, 0, meta.None, nil, items, keyList, false, nil, ""},
+		{"", "", "", true, 0, meta.All, nil, items, keyList, false, nil, ""},
+		{"", "", "", true, 0, meta.None, []byte("wrong key"), items, keyList, false,
 			nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{"", "", "", true, 0, meta.None, nil, keys, keys, false,
+		{"", "", "", true, 0, meta.None, nil, items, keyList, false,
 			errors.New("list error"), status.Errorf(codes.Internal, "list error").Error()},
-		{"", "", "", true, 2, meta.None, nil, keys, keys[:2], true, nil, ""},
-		{"", "", "", false, 0, meta.None, nil, keys, storage.Keys{keys[0], keys[1], keys[6]}, false, nil, ""},
-		{"", "", "videos", false, 0, meta.None, nil, keys, keys[:2], false, nil, ""},
-		{"music", "", "", false, 0, meta.None, nil, keys[2:], storage.Keys{keys[2], keys[3], keys[5]}, false, nil, ""},
-		{"music", "", "", true, 0, meta.None, nil, keys[2:], keys[2:6], false, nil, ""},
-		{"music", "song1.mp3", "", true, 0, meta.None, nil, keys, keys[3:6], false, nil, ""},
-		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, keys, keys[3:4], false, nil, ""},
-		{"music", "", "song4.mp3", true, 0, meta.None, nil, keys, keys[2:5], false, nil, ""},
-		{"music", "", "song4.mp3", true, 1, meta.None, nil, keys, keys[4:5], true, nil, ""},
-		{"music", "", "song4.mp3", false, 0, meta.None, nil, keys, keys[2:4], false, nil, ""},
-		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, keys, keys[4:5], false, nil, ""},
-		{"mus", "", "", true, 0, meta.None, nil, keys[1:], nil, false, nil, ""},
+		{"", "", "", true, 2, meta.None, nil, items, keyList[:2], true, nil, ""},
+		{"", "", "", false, 0, meta.None, nil, items, storage.Keys{keyList[0], keyList[1], keyList[6]}, false, nil, ""},
+		{"", "", "videos", false, 0, meta.None, nil, items, keyList[:2], false, nil, ""},
+		{"music", "", "", false, 0, meta.None, nil, items[2:], storage.Keys{keyList[2], keyList[3], keyList[5]}, false, nil, ""},
+		{"music", "", "", true, 0, meta.None, nil, items[2:], keyList[2:6], false, nil, ""},
+		{"music", "song1.mp3", "", true, 0, meta.None, nil, items, keyList[3:6], false, nil, ""},
+		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, items, keyList[3:4], false, nil, ""},
+		{"music", "", "song4.mp3", true, 0, meta.None, nil, items, keyList[2:5], false, nil, ""},
+		{"music", "", "song4.mp3", true, 1, meta.None, nil, items, keyList[4:5], true, nil, ""},
+		{"music", "", "song4.mp3", false, 0, meta.None, nil, items, keyList[2:4], false, nil, ""},
+		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, items, keyList[4:5], false, nil, ""},
+		{"mus", "", "", true, 0, meta.None, nil, items[1:], nil, false, nil, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -196,7 +210,14 @@ func TestServiceList(t *testing.T) {
 
 		if tt.err != nil || tt.errString == "" {
 			prefix := storage.Key([]byte(tt.prefix + "/"))
-			db.EXPECT().List(prefix, storage.Limit(0)).Return(tt.returnedKeys, tt.err)
+
+			opts := storage.ListOptions{
+				Start: prefix,
+				Limit: 0,
+			}
+
+			db.EXPECT().List(opts).Return(tt.returnedItems, tt.expectedMore, tt.err)
+			keys := tt.returnedItems.GetKeys()
 
 			if tt.metaFlags != meta.None {
 				pr := pb.Pointer{}
@@ -219,11 +240,16 @@ func TestServiceList(t *testing.T) {
 		}
 		resp, err := s.List(ctx, &req)
 
+		var getMore storage.More
+
+		// assures same types are gtting compared
+		getMore = storage.More(resp.GetMore())
+
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
 			assert.NoError(t, err, errTag)
-			assert.Equal(t, tt.expectedMore, resp.GetMore(), errTag)
+			assert.Equal(t, tt.expectedMore, getMore, errTag)
 			assert.Equal(t, len(tt.expectedKeys), len(resp.GetItems()), errTag)
 			for i, item := range resp.GetItems() {
 				assert.Equal(t, tt.expectedKeys[i].String(), item.Path, errTag)

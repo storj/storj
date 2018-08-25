@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -13,6 +14,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -50,7 +52,13 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	keys, err := c.DB.List(nil, 0)
+	opts := storage.ListOptions{
+		Start: nil,
+		Limit: 0,
+	}
+	items, _, err := c.DB.List(opts)
+	keys := items.GetKeys()
+
 	if err != nil {
 		return err
 	}
@@ -95,9 +103,9 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Address:   a,
 			},
 			Restrictions: &proto.NodeRestrictions{
- 				FreeBandwidth: 2000000000,
- 				FreeDisk:      2000000000,
- 			},
+				FreeBandwidth: 2000000000,
+				FreeDisk:      2000000000,
+			},
 			Type: 1,
 		})
 		if err != nil {

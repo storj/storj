@@ -115,20 +115,29 @@ func TestDelete(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
+	fmt.Println("Testing LIST")
 	bt := NewBoltClientTest(t)
 	defer bt.Close()
 
 	if err := bt.c.Put([]byte("test/path/2"), []byte("pointer2")); err != nil {
 		bt.HandleErr(err, "Failed to put pointer2 to pointers bucket")
 	}
-	testPaths, err := bt.c.List([]byte("test/path/2"), storage.Limit(1))
+
+	listItems, isMore, err := bt.c.List(storage.ListOptions{
+		Start: []byte("test/path/2"),
+		Limit: 1,
+	})
+
 	if err != nil {
 		bt.HandleErr(err, "Failed to list Path keys in pointers bucket")
 	}
 
-	if !bytes.Equal(testPaths[0], []byte("test/path/2")) {
+	if !bytes.Equal(listItems[0].Key, []byte("test/path/2")) {
 		bt.HandleErr(nil, "Expected only test/path/2 in list")
 	}
+
+	// will be fixed in PR2, for now, let's assume isMore is not nil
+	assert.NotNil(t, isMore)
 }
 
 func TestListNoStartingKey(t *testing.T) {
@@ -145,14 +154,20 @@ func TestListNoStartingKey(t *testing.T) {
 		bt.HandleErr(err, "Failed to save pointer3 to pointers bucket")
 	}
 
-	testPaths, err := bt.c.List(nil, storage.Limit(3))
+	listItems, isMore, err := bt.c.List(storage.ListOptions{
+		Start: nil,
+		Limit: 3,
+	})
+
 	if err != nil {
-		bt.HandleErr(err, "Failed to list Paths")
+		bt.HandleErr(err, "Path doesn't exist")
 	}
 
-	if !bytes.Equal(testPaths[2], []byte("test/path/3")) {
+	if !bytes.Equal(listItems[2].Key, []byte("test/path/3")) {
 		bt.HandleErr(nil, "Expected test/path/3 to be last in list")
 	}
+
+	assert.NotNil(t, isMore)
 }
 
 func TestGetAll(t *testing.T) {

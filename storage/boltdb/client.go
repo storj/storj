@@ -95,10 +95,43 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 	return pointerBytes, nil
 }
 
-// List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
+// List returns paths that fulfill the criteria
+func (c *Client) List(opts storage.ListOptions) (storage.Items, storage.More, error) {
 	c.logger.Debug("entering bolt list")
-	return c.listHelper(false, startingKey, limit)
+
+	paths, err := c.listHelper(false, opts.Start, opts.Limit)
+	if err != nil {
+		return nil, false, err
+	}
+	listItems, err := c.makeListItems(paths)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return listItems, false, err
+}
+
+func (c *Client) makeListItems(paths storage.Keys) (storage.Items, error) {
+	listItems := storage.Items{}
+
+	for _, path := range paths {
+		value, err := c.Get(path)
+
+		if err != nil {
+			return nil, err
+		}
+
+		listItem := storage.ListItem{
+			Key:   path,
+			Value: value,
+			// right now, we'll set this to false. PR2 will fix this
+			IsPrefix: false,
+		}
+
+		listItems = append(listItems, listItem)
+	}
+
+	return listItems, nil
 }
 
 // ReverseList returns either a list of keys for which boltdb has values or an error.
@@ -122,12 +155,14 @@ func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit sto
 		}
 		for ; k != nil; k, _ = iterate() {
 			paths = append(paths, k)
+
 			if limit > 0 && int(limit) == int(len(paths)) {
 				break
 			}
 		}
 		return nil
 	})
+
 	return paths, err
 }
 
