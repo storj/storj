@@ -119,6 +119,11 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// ListV2 returns either a list of items for which the MockKeyValueStore has values and an error.
+func (m *MockKeyValueStore) ListV2(opts ListOptions) (Items, More, error) {
+	panic("TODO")
+}
+
 // GetAll is a noop to adhere to the interface
 func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
 	result := storage.Values{}
