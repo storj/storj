@@ -148,7 +148,7 @@ func prevOrNext(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
 //ListV2 is the new definition and will replace `List` definition
 func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
 	//TODO write the implementation
-	return storage.Items{}, false, nil
+	return panic("to do")
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key
