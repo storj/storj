@@ -96,9 +96,11 @@ additional work.
 
 > **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
 > and Storj has adopted Go module support. If you've used previous Go versions,
-> Go modules no longer require a GOPATH environment variable. Go falls back
-> to the old behavior if GOPATH is set, so make sure to `unset GOPATH` before
-> continuing with these instructions.
+> Go modules no longer require a GOPATH environment variable. Go by default
+> falls back to the old behavior if you check out code inside of the directory
+> referenced by your GOPATH variable, so make sure to use another directory,
+> `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
+> instructions. If you don't have a GOPATH set, you can ignore this aside.
 
 ```bash
 git clone git@github.com:storj/storj storj
