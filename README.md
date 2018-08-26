@@ -94,6 +94,12 @@ additional work.
 
 ### Download and compile Storj
 
+> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
+> and Storj has adopted Go module support. If you've used previous Go versions,
+> Go modules no longer require a GOPATH environment variable. Go falls back
+> to the old behavior if GOPATH is set, so make sure to `unset GOPATH` before
+> continuing with these instructions.
+
 ```bash
 git clone git@github.com:storj/storj storj
 cd storj
