@@ -40,6 +40,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	dhts = append(dhts, boot)
 
 	rt, err := boot.GetRoutingTable(context.Background())
+	assert.NoError(t, err)
 	bootNode := rt.Local()
 
 	err = boot.ListenAndServe()
@@ -133,7 +134,6 @@ func TestGetNodes(t *testing.T) {
 
 	cases := []struct {
 		k            *Kademlia
-		start        string
 		limit        int
 		expectedErr  error
 		restrictions []overlay.Restriction
@@ -179,8 +179,6 @@ func TestFindNode(t *testing.T) {
 
 	cases := []struct {
 		k           *Kademlia
-		start       string
-		input       NodeID
 		expectedErr error
 	}{
 		{

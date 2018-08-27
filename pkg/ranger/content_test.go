@@ -15,9 +15,6 @@ import (
 )
 
 func TestServeContent(t *testing.T) {
-	type RangerArgs struct {
-		a string
-	}
 	for _, tt := range []struct {
 		testName         string
 		requestMethod    string
@@ -73,7 +70,7 @@ func TestServeContentParseRange(t *testing.T) {
 	ServeContent(context.Background(), writer, req, "", time.Now().UTC(), ranger)
 
 	assert.Equal(t, http.StatusOK, writer.Code)
-	assert.Equal(t, "23", writer.HeaderMap.Get("Content-Length"))
+	assert.Equal(t, "23", writer.Result().Header.Get("Content-Length"))
 }
 
 func Test_isZeroTime(t *testing.T) {
@@ -124,7 +121,7 @@ func Test_setLastModified(t *testing.T) {
 
 			setLastModified(req, tt.modtime)
 
-			assert.Equal(t, tt.expected, req.HeaderMap.Get("Last-Modified"))
+			assert.Equal(t, tt.expected, req.Result().Header.Get("Last-Modified"))
 		})
 	}
 }

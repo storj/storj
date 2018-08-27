@@ -48,8 +48,7 @@ func init() {
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) (err error) {
-	_, err = provider.SetupCA(process.Ctx(cmd), newCACfg.CA)
-	if err != nil {
+	if _, err := newCACfg.CA.Create(process.Ctx(cmd)); err != nil {
 		return err
 	}
 

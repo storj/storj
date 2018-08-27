@@ -17,7 +17,9 @@ import (
 // Config is a configuration struct that is everything you need to start a
 // PointerDB responsibility
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
+	DatabaseURL          string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
+	MinInlineSegmentSize int64  `default:"1240" help:"minimum inline segment size"`
+	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
 }
 
 // Run implements the provider.Responsibility interface
@@ -35,7 +37,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 	defer func() { _ = bdb.Close() }()
 
-	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdb, zap.L()))
+	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdb, zap.L(), c))
 
 	return server.Run(ctx)
 }

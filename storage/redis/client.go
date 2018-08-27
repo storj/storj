@@ -28,7 +28,7 @@ type Client struct {
 	TTL time.Duration
 }
 
-// NewClient returns a configured Client instance, verifying a sucessful connection to redis
+// NewClient returns a configured Client instance, verifying a successful connection to redis
 func NewClient(address, password string, db int) (*Client, error) {
 	c := &Client{
 		db: redis.NewClient(&redis.Options{
@@ -110,6 +110,12 @@ func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Key
 	}
 
 	return listKeys, nil
+}
+
+//ListV2 is the new definition and will replace `List` definition
+func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	//TODO write the implementation
+	panic("to do")
 }
 
 // ReverseList returns either a list of keys for which redis has values or an error.

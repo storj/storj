@@ -44,8 +44,7 @@ var (
 
 // SaveConfig will save all flags with default values to outfilewith specific
 // values specified in 'overrides' overridden.
-func SaveConfig(flagset *pflag.FlagSet, outfile string,
-	overrides map[string]interface{}) error {
+func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
 
 	vip := viper.New()
 	err := vip.BindPFlags(pflag.CommandLine)
@@ -66,10 +65,8 @@ func SaveConfig(flagset *pflag.FlagSet, outfile string,
 		return err
 	}
 
-	if overrides != nil {
-		for key, val := range overrides {
-			vip.Set(key, val)
-		}
+	for key, val := range overrides {
+		vip.Set(key, val)
 	}
 
 	return vip.WriteConfigAs(os.ExpandEnv(outfile))

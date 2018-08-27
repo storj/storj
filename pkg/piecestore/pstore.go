@@ -33,9 +33,9 @@ func PathByID(id, dir string) (string, error) {
 		return "", ArgError.New("No path provided")
 	}
 
-	folder1 := string(id[0:2])
-	folder2 := string(id[2:4])
-	fileName := string(id[4:])
+	folder1 := id[0:2]
+	folder2 := id[2:4]
+	fileName := id[4:]
 
 	return path.Join(dir, folder1, folder2, fileName), nil
 }
@@ -105,7 +105,7 @@ func RetrieveReader(ctx context.Context, id string, offset int64, length int64, 
 	return rr.Range(ctx, offset, length)
 }
 
-// Delete deletes data from farmer
+// Delete deletes data from storagenode
 //	id is the id of the data to be stored
 //	dir is the pstore directory containing all other data stored
 //	returns error if failed and nil if successful

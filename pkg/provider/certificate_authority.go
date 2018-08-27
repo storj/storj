@@ -37,6 +37,7 @@ type FullCertificateAuthority struct {
 	Key crypto.PrivateKey
 }
 
+// CASetupConfig is for creating a CA
 type CASetupConfig struct {
 	CertPath    string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath     string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
@@ -46,22 +47,25 @@ type CASetupConfig struct {
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
+// PeerCAConfig is for locating a CA certificate without a private key
 type PeerCAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 }
+
+// FullCAConfig is for locating a CA certificate and it's private key
 type FullCAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 }
 
-// Stat returns the status of the CA cert/key files for the config
-func (caS CASetupConfig) Stat() TlsFilesStat {
+// Status returns the status of the CA cert/key files for the config
+func (caS CASetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(caS.CertPath, caS.KeyPath)
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
-	ca, err := NewCA(ctx, uint16(caS.Difficulty), concurrency)
+func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
+	ca, err := NewCA(ctx, uint16(caS.Difficulty), caS.Concurrency)
 	if err != nil {
 		return nil, err
 	}

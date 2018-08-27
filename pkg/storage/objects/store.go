@@ -73,9 +73,10 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if metadata.GetContentType() == "" {
-		// TODO(kaloyan): autodetect content type
-	}
+
+	// TODO(kaloyan): autodetect content type
+	// if metadata.GetContentType() == "" {}
+
 	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
 	b, err := proto.Marshal(&metadata)
 	if err != nil {

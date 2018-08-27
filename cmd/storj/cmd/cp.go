@@ -55,6 +55,9 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 
 	if u.Scheme == "" {
 		f, err := os.Open(args[0])
+		if err != nil {
+			return err
+		}
 
 		fi, err := f.Stat()
 		if err != nil {
@@ -66,7 +69,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		u, err = url.Parse(args[1])
 		if err != nil {
@@ -94,7 +97,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	err = so.GetObject(ctx, oi.Bucket, oi.Name, 0, oi.Size, f, oi.ETag)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
@@ -38,7 +39,8 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	t transport.Client
+	t        transport.Client
+	identity *provider.FullIdentity
 }
 
 func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
@@ -48,7 +50,7 @@ func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.P
 		return nil, err
 	}
 
-	return client.NewPSClient(c, 0)
+	return client.NewPSClient(c, 0, d.identity.Key)
 }
 
 type ecClient struct {
@@ -57,8 +59,8 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(t transport.Client, mbm int) Client {
-	d := defaultDialer{t: t}
+func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Client {
+	d := defaultDialer{identity: identity, t: t}
 	return &ecClient{d: &d, mbm: mbm}
 }
 
