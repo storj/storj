@@ -123,6 +123,8 @@ github.com/joyent/triton-go v0.0.0-20180628001255-830d2b111e62 h1:JHCT6xuyPUrbbg
 github.com/joyent/triton-go v0.0.0-20180628001255-830d2b111e62/go.mod h1:U+RSyWxWd04xTqnuOQxnai7XGS2PrPY2cfGoDKtMHjA=
 github.com/jtolds/monkit-hw v0.0.0-20180222001630-9b6edb34372a h1:eUGsb9yPSfT+PQv54ZdawJVB8ei73GLASEGHCP08pDA=
 github.com/jtolds/monkit-hw v0.0.0-20180222001630-9b6edb34372a/go.mod h1:BFDxc5CvbSvpRxqCKsFfKc+gKTsmpG6Y3Z55GcAmzDg=
+github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d h1:+TWXq24sHXNI6DVobckzgJCbCvb4bYjDZuKRR+d/Nuw=
+github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/klauspost/compress v1.4.0 h1:8nsMz3tWa9SWWPL60G1V6CUsf4lLjWLTNEtibhe8gh8=
 github.com/klauspost/compress v1.4.0/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
 github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e h1:+lIPJOWl+jSiJOc70QXJ07+2eg2Jy2EC7Mi11BWujeM=
@@ -165,6 +167,8 @@ github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 h1:utJHim4C0K4CmD+Qgod
 github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63/go.mod h1:ni10+iSX7FO8N2rv41XM444V6w4rYO0dZo5KIkbn/YA=
 github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c h1:60Q7v+91vpWLgLsVoe1O5W1ojPwod3RPQ1aah4jECNA=
 github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c/go.mod h1:pPcAoOwWUSIBqoLtp+0LEACUBUPhodkXwisyYrNgQ5o=
+github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38 h1:F7p0ZU9AQuxlA6SWwhXr0H/rYrA9fOiBk2OzOj7GtfM=
+github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38/go.mod h1:lXcp05uxYaW99ebgI6ZKIGYU7tqZkM5xSsG0xRt4VIU=
 github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3 h1:VXFNvYex+F9fSCAc3AERaRY1Zr+ZjBQSSCXzTWZ0mhQ=
 github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3/go.mod h1:lXcp05uxYaW99ebgI6ZKIGYU7tqZkM5xSsG0xRt4VIU=
 github.com/minio/minio v0.0.0-20180802050851-eb391a53c145 h1:E/CHuVTlagwcgWLTrL3nQnJjTIS0hL7dEpk9Nf2Rw5U=
@@ -299,6 +303,8 @@ golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be h1:vEDujvNQGv4jgYKudGeI/+
 golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
 golang.org/x/sys v0.0.0-20180821140842-3b58ed4ad339 h1:0w2EXzxbB03VAzqwe3csbadu4CPhMRtxCz/rjw9gkic=
 golang.org/x/sys v0.0.0-20180821140842-3b58ed4ad339/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20180824143301-4910a1d54f87 h1:GqwDwfvIpC33dK9bA1fD+JiDUNsuAiQiEkpHqUKze4o=
+golang.org/x/sys v0.0.0-20180824143301-4910a1d54f87/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 h1:+DCIGbF/swA92ohVg0//6X2IVY3KZs6p9mix0ziNYJM=
@@ -328,5 +334,7 @@ gopkg.in/olivere/elastic.v5 v5.0.71 h1:HLydL4YNSbE7XokUf7B5XxaznoVrDaRaUZ3fRdhBn
 gopkg.in/olivere/elastic.v5 v5.0.71/go.mod h1:FylZT6jQWtfHsicejzOm3jIMVPOAksa80i3o+6qtQRk=
 gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180117193750-694b83f5e32b h1:gFNj5YbME4C+US/jQzcYRkZKUWo/+jkueUpFd+riaBA=
 gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180117193750-694b83f5e32b/go.mod h1:Es02YWch8Whs+hsUfLAE7t4ZEfjeI1nnqlwVlV9G1Ak=
+gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b h1:zkhw+LuPvld5/ZwIlpYzd4DX/r0KxTvhEpo+2lcrp9k=
+gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b/go.mod h1:6UQdi0rNB4YDNwVYP8fJNmjLNaU8MA84WCdXStx3Spo=
 gopkg.in/yaml.v2 v2.2.1 h1:mUhvW9EsL+naU5Q3cakzfE91YhliOondGd6ZrsDBHQE=
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
