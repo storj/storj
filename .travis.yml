@@ -17,7 +17,7 @@ before_install:
   - source scripts/travis-deps.sh
 
 install:
-  - make build-dev-deps
+  - GO111MODULE=off make build-dev-deps
 
 script:
   - make test
