@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/provider"
 
 	"github.com/stretchr/testify/assert"
 	proto "storj.io/storj/protos/overlay"
@@ -38,7 +39,11 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		actual, err := NewKademlia(v.id, v.bn, v.addr)
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+		actual, err := NewKademlia(v.id, v.bn, v.addr, identity)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
 		assert.Equal(t, actual.stun, true)
@@ -62,7 +67,11 @@ func TestLookup(t *testing.T) {
 		id2, err := node.NewID()
 		assert.NoError(t, err)
 		// initialize kademlia
-		k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String())
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+		k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity)
 		assert.NoError(t, err)
 		return k
 	}()

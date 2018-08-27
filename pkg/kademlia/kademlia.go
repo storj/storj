@@ -49,7 +49,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
 	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        "kbucket.db",
@@ -77,15 +77,6 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 		stun:           true,
 	}
 
-	// TODO(coyle): Not sure what the correct values are and if they should be configurable or not
-	ca, err := provider.NewCA(context.Background(), 12, 4)
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
 	nc, err := node.NewNodeClient(identity, self, k)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)

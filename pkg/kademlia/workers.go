@@ -149,12 +149,14 @@ func (w *worker) update(nodes []*proto.Node) error {
 			priority: new(big.Int).Xor(t, new(big.Int).SetBytes(w.find.Bytes())),
 		})
 	}
+
+	// reinitialize heap
+	heap.Init(&w.pq)
+
 	// only keep the k closest nodes
 	if len(w.pq) > w.k {
 		w.pq = w.pq[:w.k]
 	}
-	// reinitialize heap
-	heap.Init(&w.pq)
 	w.workInProgress--
 	return nil
 }
