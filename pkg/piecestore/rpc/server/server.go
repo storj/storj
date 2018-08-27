@@ -24,7 +24,9 @@ import (
 )
 
 var (
-	mon         = monkit.Package()
+	mon = monkit.Package()
+
+	// ServerError wraps errors returned from Server struct methods
 	ServerError = errs.Class("PSServer error")
 )
 

@@ -137,6 +137,7 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
+// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {

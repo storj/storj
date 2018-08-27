@@ -82,9 +82,9 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	reader := NewStreamReader(s, stream)
 
 	defer func() {
-		err := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-		if err != nil {
-			log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
+		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+		if baWriteErr != nil {
+			log.Printf("WriteBandwidthAllocToDB Error: %s\n", baWriteErr.Error())
 		}
 	}()
 
