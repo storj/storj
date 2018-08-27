@@ -116,16 +116,7 @@ func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr
 
 	rr, _, err = o.Get(ctx, paths.New(object))
 
-	defer utils.LogClose(rr)
-	if length == -1 {
-		length = rr.Size() - startOffset
-	}
-	r, err := rr.Range(ctx, startOffset, length)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
+	return rr, err
 }
 
 func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
@@ -138,6 +129,9 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	}
 
 	defer utils.LogClose(rr)
+	if length == -1 {
+		length = rr.Size() - startOffset
+	}
 
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
