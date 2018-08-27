@@ -35,3 +35,8 @@ protos/google/*
 *test_bolt.db
 
 *.coverprofile
+
+*.swp
+satellite_*
+storagenode_*
+uplink_*
