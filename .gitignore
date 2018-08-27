@@ -35,3 +35,5 @@ protos/google/*
 *test_bolt.db
 
 *.coverprofile
+
+/release/
