@@ -10,7 +10,9 @@ cache:
     # cache built tools
     - "$GOPATH/bin"
     # cache go modules
-    - "$GOPATH/pkg/mod"
+    - "$GOPATH/pkg"
+    # cache pip
+    - "$HOME/.cache/pip"
 
 services:
   - redis
@@ -21,7 +23,7 @@ before_install:
 install:
   - GO111MODULE=off make build-dev-deps
   - go get .
-  - go install ./...
+  - go install -v ./...
 
 script:
   - make test
