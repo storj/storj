@@ -7,9 +7,18 @@ env:
 
 cache:
   directories:
+    # cache built tools
     - "$GOPATH/bin"
-    - "$GOPATH/src"
+    # cache go modules
     - "$GOPATH/pkg/mod"
+    # cache tooling, to avoid redownloading
+    # adding them separately to avoid conflicting with github.com/storj
+    - "$GOPATH/src/github.com/golang/protobuf/protoc-gen-go"
+    - "$GOPATH/src/github.com/mattn/goveralls"
+    - "$GOPATH/src/golang.org/x/tools/cover"
+    - "$GOPATH/src/github.com/modocache/gover"
+    - "$GOPATH/src/github.com/alecthomas/gometalinter"
+    - "$GOPATH/src/golang.org/x/"
 
 services:
   - redis
