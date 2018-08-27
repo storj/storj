@@ -77,6 +77,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 		stun:           true,
 	}
 
+	// TODO(coyle): Not sure what the correct values are and if they should be configurable or not
 	ca, err := provider.NewCA(context.Background(), 12, 4)
 	if err != nil {
 		return nil, err
