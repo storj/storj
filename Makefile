@@ -12,6 +12,8 @@ endif
 
 
 # currently disabled linters:
+#   gofmt               # enable after switch to go1.11
+#   goimpor             # enable after switch to go1.11
 #   unparam             # enable later
 #   gosec               # enable later
 #   vetshadow           # enable later
@@ -28,6 +30,8 @@ lint: check-copyrights
 	@gometalinter \
     --deadline=10m \
     --enable-all \
+    --disable=gofmt \
+    --disable=goimports \
     --enable=golint \
     --enable=errcheck \
     --enable=unconvert \
