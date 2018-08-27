@@ -10,7 +10,11 @@ Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepap
 
 ----
 
-Storj is a platform, token, and suite of decentralized applications that allows you to store data in a secure and decentralized manner. Your files are encrypted, shredded into little pieces and stored in a global decentralized network of computers. Luckily, we also support allowing you (and only you) to recover them!
+Storj is a platform, token, and suite of decentralized applications that allows
+you to store data in a secure and decentralized manner. Your files are
+encrypted, shredded into little pieces and stored in a global decentralized
+network of computers. Luckily, we also support allowing you (and only you) to
+recover them!
 
 ## Table of Contents
 
@@ -23,17 +27,19 @@ Storj is a platform, token, and suite of decentralized applications that allows 
 # Start Using Storj
 
 
-#### Download the latest release
+#### Download, setup, and run the latest release
 
 Go here to download the latest build
-// TODO: add link when a build is released
-// TODO for how to run the release
+ * TODO: add link when a build is released
+ * TODO for how to run the release
 
 ## Using Storj via the Storj CLI <a name="storjcli"></a>
 
 #### Configure the Storj CLI
 1) In a new terminal setup the Storj CLI: ```$ storj setup```
-2) Edit the API Key, overlay address, and pointer db address fields in the Storj CLI config file located at ```~/.storj/cli/config.yaml``` with values from the captplanet config file located at ```~/.storj/capt/config.yaml```
+2) Edit the API Key, overlay address, and pointer db address fields in the Storj
+CLI config file located at ```~/.storj/cli/config.yaml``` with values from the
+captplanet config file located at ```~/.storj/capt/config.yaml```
 
 #### Test out some Storj CLI commands!
 
@@ -57,11 +63,11 @@ $ aws configure
 AWS Access Key ID [None]: insecure-dev-access-key
 AWS Secret Access Key [None]: insecure-dev-secret-key
 Default region name [None]: us-east-1
-Default output format [None]: 
+Default output format [None]:
 $ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
 ```
 
-#### Test out some AWS S3 CLI commands! 
+#### Test out some AWS S3 CLI commands!
 
 1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
 2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
@@ -77,74 +83,41 @@ For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli
 
 ### Install required packages
 
-First, install git and golang. We currently support Debian-based and Mac operating systems
+Download and install the latest release of Go, at least Go 1.11:
+https://golang.org/
 
-#### Debian based (like Ubuntu)
+You will also need Git. (`brew install git`, `apt-get install git`, etc).
 
-Download and install the latest release of go https://golang.org/
+Install git and golang. We support Linux, Mac, and Windows operating
+systems. Other operating systems supported by Go are probably not much
+additional work.
 
-```
-apt-get install git golang
-echo 'export STORJDEV="$HOME/storj"' >> $HOME/.bashrc
-echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.bashrc
-echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.bashrc
-source $HOME/.bashrc
-```
+### Download and compile Storj
 
-#### Mac OSX
-
-```bash
-brew install git go
-if test -e $HOME/.bash_profile
-then
-	echo 'export STORJDEV="$HOME/storj"' >> $HOME/.bash_profile
-	echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.bash_profile
-	echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.bash_profile
-	source $HOME/.bash_profile
-else
-	echo 'export STORJDEV="$HOME/storj"' >> $HOME/.profile
-	echo 'export GOPATH="$STORJDEV:$STORJDEV/vendor"' >> $HOME/.profile
-	echo 'export PATH="$PATH:$STORJDEV/bin"' >> $HOME/.profile
-	source $HOME/.profile
-fi
-```
-
-#### Windows
-
-Windows requires go1.11 or newer.
+> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
+> and Storj has adopted Go module support. If you've used previous Go versions,
+> Go modules no longer require a GOPATH environment variable. Go by default
+> falls back to the old behavior if you check out code inside of the directory
+> referenced by your GOPATH variable, so make sure to use another directory,
+> `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
+> instructions. If you don't have a GOPATH set, you can ignore this aside.
 
 ```bash
 git clone git@github.com:storj/storj storj
 cd storj
-go install ./cmd/...
-
-captplanet setup
-captplanet run
+go install -v ./cmd/...
 ```
 
-### Install storj
-
-Clone the storj repository. You may want to clone your own fork and branch.
+### Configure a test network
 
 ```bash
-mkdir -p $STORJDEV/src/storj.io
-git clone https://github.com/storj/storj $STORJDEV/src/storj.io/storj
+~/go/bin/captplanet setup
 ```
 
-### Install all dependencies
+### Start the test network
 
 ```bash
-git clone --recursive https://github.com/storj/storj-vendor $STORJDEV/vendor
-rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/github.com/minio/cli
-rm -rf $STORJDEV/vendor/src/github.com/minio/minio/vendor/golang.org/x/net/trace
-```
-
-### Start the network
-
-```bash
-$ go install -v storj.io/storj/cmd/captplanet
-$ captplanet setup
-$ captplanet run
+~/go/bin/captplanet run
 ```
 
 ### Try out some commands via Storj CLI or AWS CLI
@@ -152,11 +125,15 @@ $ captplanet run
 ### Run unit tests
 
 ```bash
-go test storj.io/storj/...
+go test -v ./...
 ```
 
-You can execute only a single test package. For example: `go test storj.io/storj/pkg/kademlia`. Add -v for more informations about the executed unit tests.
+You can execute only a single test package if you like. For example:
+`go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
+tests.
 
 ## Support <a name="support"></a>
 
-If you have any questions or suggestions please reach out to us on [Rocketchat](https://community.storj.io/) or [Twitter](https://twitter.com/storjproject).
+If you have any questions or suggestions please reach out to us on
+[Rocketchat](https://community.storj.io/) or
+[Twitter](https://twitter.com/storjproject).

@@ -5,6 +5,8 @@ package client
 
 import (
 	"bufio"
+	"crypto"
+	"crypto/ecdsa"
 	"flag"
 	"fmt"
 	"io"
@@ -15,6 +17,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
+	"github.com/gtank/cryptopasta"
 
 	"storj.io/storj/pkg/ranger"
 	pb "storj.io/storj/protos/piecestore"
@@ -45,12 +49,12 @@ type PSClient interface {
 type Client struct {
 	route            pb.PieceStoreRoutesClient
 	conn             *grpc.ClientConn
-	pkey             []byte
+	prikey           crypto.PrivateKey
 	bandwidthMsgSize int
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -63,11 +67,12 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int) (PSClient, error) 
 		conn:             conn,
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
+		prikey:           prikey,
 	}, nil
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Client, error) {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Client, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -79,6 +84,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int) (*Cli
 	return &Client{
 		route:            route,
 		bandwidthMsgSize: bandwidthMsgSize,
+		prikey:           prikey,
 	}, nil
 }
 
@@ -120,7 +126,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	_, err = io.Copy(bufw, data)
 	if err == io.ErrUnexpectedEOF {
-		writer.Close()
+		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
 		return client.Delete(ctx, id)
 	}
@@ -153,7 +159,10 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 
 // sign a message using the clients private key
 func (client *Client) sign(msg []byte) (signature []byte, err error) {
-	// use c.pkey to sign msg
+	if client.prikey == nil {
+		return nil, ClientError.New("Failed to sign msg: Private Key not Set")
+	}
 
-	return signature, err
+	// use c.pkey to sign msg
+	return cryptopasta.Sign(msg, client.prikey.(*ecdsa.PrivateKey))
 }

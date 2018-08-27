@@ -91,9 +91,9 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	// Save latest bandwidth allocation even if we fail
 	defer func() {
-		err := s.DB.WriteBandwidthAllocToDB(latestBA)
-		if latestBA != nil && err != nil {
-			log.Println("WriteBandwidthAllocToDB Error:", err)
+		baWriteErr := s.DB.WriteBandwidthAllocToDB(latestBA)
+		if latestBA != nil && baWriteErr != nil {
+			log.Println("WriteBandwidthAllocToDB Error:", baWriteErr)
 		}
 	}()
 
@@ -112,15 +112,9 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			baData := &pb.RenterBandwidthAllocation_Data{}
 
-			if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
-				errChan <- err
-				return
-			}
-
-			if err = s.verifySignature(ba); err != nil {
-				errChan <- err
-				return
-			}
+      if err = s.verifySignature(ctx, ba); err != nil {
+        return am.Used, am.TotalAllocated, err
+      }
 
 			mtx.Lock() // Lock when updating bandwidth allocation
 			am.NewTotal(baData.GetTotal())

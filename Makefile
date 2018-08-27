@@ -3,7 +3,6 @@
 
 GO_VERSION ?= 1.10
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
-GO_DIRS := $(shell go list ./... | grep -v storj.io/storj/examples)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ifeq (${BRANCH},master)
 TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
@@ -12,22 +11,50 @@ TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
 endif
 
 
+# currently disabled linters:
+#   gofmt               # enable after switch to go1.11
+#   goimpor             # enable after switch to go1.11
+#   unparam             # enable later
+#   gosec               # enable later
+#   vetshadow           # enable later
+#   gochecknoinits      # enable later
+#   gochecknoglobals    # enable later
+#   dupl                # needs tuning
+#   gocyclo             # needs tuning
+#   lll                 # long lines, not relevant
+#   gotype, gotypex     # already done by compiling
+#   safesql             # no sql
+#   interfacer          # not that useful
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
-	--deadline=170s \
-	--disable-all \
-	--enable=golint \
-	--enable=errcheck \
-	--enable=goimports \
-	--enable=vet \
-	--enable=deadcode \
-	--enable=goconst \
+    --deadline=10m \
+    --enable-all \
+    --enable=golint \
+    --enable=errcheck \
+    --enable=unconvert \
+    --enable=structcheck \
+    --enable=misspell \
+    --disable=goimports \
+    --enable=ineffassign \
+    --disable=gofmt \
+    --enable=nakedret \
+    --enable=megacheck \
+    --disable=unparam \
+    --disable=gosec \
+    --disable=vetshadow \
+    --disable=gochecknoinits \
+    --disable=gochecknoglobals \
+    --disable=dupl \
+    --disable=gocyclo \
+    --disable=lll \
+    --disable=gotype --disable=gotypex \
+    --disable=safesql \
+    --disable=interfacer \
+	--skip=examples \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
-	--exclude=".*_test.go" \
-	--exclude="examples/*" \
-  ${GO_DIRS}
+  ./...
 
 check-copyrights:
 	@echo "Running ${@}"
@@ -51,7 +78,7 @@ build-dev-deps:
 
 test: lint
 	go install -v ./...
-	go test -v -covermode=count -coverprofile=coverage.out ./...
+	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
 	gover
 	@echo done
 
@@ -106,10 +133,10 @@ satellite-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
 .PHONY: storage-node-image
 storage-node-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/farmer/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/gw/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: all-in-one
 all-in-one:
@@ -147,3 +174,10 @@ endif
 install-deps:
 	go get -u -v golang.org/x/vgo
 	cd vgo install ./...
+
+.PHONY: deploy
+deploy:
+	./scripts/deploy.staging.sh satellite storjlabs/satellite:${TAG}
+	for i in $(shell seq 1 60); do \
+		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
+	done

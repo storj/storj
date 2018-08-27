@@ -20,7 +20,7 @@ import (
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
+	streams "storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -52,6 +52,7 @@ type ClientConfig struct {
 
 	APIKey        string `help:"API Key (TODO: this needs to change to macaroons somehow)"`
 	MaxInlineSize int    `help:"max inline segment size in bytes" default:"4096"`
+	SegmentSize   int64  `help:"the size of a segment in bytes" default:"64000000"`
 }
 
 // Config is a general miniogw configuration struct. This should be everything
@@ -111,32 +112,25 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	return Error.New("unexpected minio exit")
 }
 
+// NewGateway creates a new minio Gateway
 func (c Config) NewGateway(ctx context.Context,
 	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): the transport client should use tls and should use the identity
-	// defined in this function.
-	t := transport.NewClient()
+	t := transport.NewClient(identity)
 
-	// TODO(jt): overlay.NewClient should dial the overlay server with the
-	// transport client. probably should use the same connection as the
-	// pointerdb client
 	var oc overlay.Client
-	oc, err = overlay.NewOverlayClient(c.OverlayAddr)
+	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO(jt): pdbclient.NewClient should dial the pointerdb server with the
-	// transport client. probably should use the same connection as the
-	// overlay client
-	pdb, err := pdbclient.NewClient(c.PointerDBAddr, []byte(c.APIKey))
+	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, []byte(c.APIKey))
 	if err != nil {
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(t, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
 		return nil, err
@@ -150,9 +144,11 @@ func (c Config) NewGateway(ctx context.Context,
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
-	// TODO(jt): wrap segments and turn segments into streams actually
-	// TODO: passthrough is bad
-	stream := streams.NewPassthrough(segments)
+	// segment size 64MB
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize)
+	if err != nil {
+		return nil, err
+	}
 	obj := objects.NewStore(stream)
 
 	return NewStorjGateway(buckets.NewStore(obj)), nil

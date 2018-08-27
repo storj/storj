@@ -38,7 +38,7 @@ type RoutingTable struct {
 type RoutingOptions struct {
 	kpath        string
 	npath        string
-	idLength     int //TODO (JJ): add checks for > 0 
+	idLength     int //TODO (JJ): add checks for > 0
 	bucketSize   int
 	rcBucketSize int
 }
@@ -67,7 +67,7 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 		rcBucketSize:     options.rcBucketSize,
 	}
 	ok, err := rt.addNode(localNode)
-	if ok == false || err != nil {
+	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
 	return rt, nil
@@ -161,7 +161,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	return unmarshaledNodes, nil
 }
 
-// ConnectionSuccess updates or adds a node to the routing table when 
+// ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))

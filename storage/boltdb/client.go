@@ -51,7 +51,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 		return err
 	})
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -122,7 +122,7 @@ func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit sto
 		}
 		for ; k != nil; k, _ = iterate() {
 			paths = append(paths, k)
-			if limit > 0 && int(limit) == int(len(paths)) {
+			if limit > 0 && int(limit) == len(paths) {
 				break
 			}
 		}
@@ -143,6 +143,12 @@ func prevOrNext(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
 		return cur.Prev
 	}
 	return cur.Next
+}
+
+//ListV2 is the new definition and will replace `List` definition
+func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	//TODO write the implementation
+	panic("to do")
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key
