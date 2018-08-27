@@ -1,7 +1,9 @@
 .PHONY: test lint proto check-copyrights build-dev-deps release release-osx release-windows release-linux
 
 
-GO_VERSION ?= 1.10
+GO_VERSION ?= rc
+GOOS ?= linux
+GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ifeq (${BRANCH},master)
@@ -9,7 +11,12 @@ TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 else
 TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
 endif
+CUSTOMTAG ?=
 
+DOCKER_BUILD := docker build \
+	--build-arg GO_VERSION=${GO_VERSION} \
+	--build-arg GOOS=${GOOS} \
+	--build-arg GOARCH=${GOARCH}
 
 # currently disabled linters:
 #   gofmt               # enable after switch to go1.11
@@ -83,9 +90,6 @@ test: lint
 	gover
 	@echo done
 
-build-binaries:
-	docker build -t satellite .
-
 run-satellite:
 	docker network create test-net
 
@@ -131,13 +135,13 @@ images: satellite-image storage-node-image uplink-image
 
 .PHONY: satellite-image
 satellite-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
 .PHONY: storage-node-image
 storage-node-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} -t storjlabs/storage-node:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: all-in-one
 all-in-one:
@@ -183,19 +187,44 @@ deploy:
 		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
 	done
 
-release-osx:
-	GOOS=darwin GOARCH=amd64 go build -o release/uplink-osx-amd64/uplink ./cmd/uplink
-	cd release; tar czvf uplink-osx-amd64.tar.gz uplink-osx-amd64
-	rm -rf release/uplink-osx-amd64
+.PHONY: binary
+binary: CUSTOMTAG = -${GOOS}-${GOARCH}
+binary:
+	CUSTOMTAG=$(CUSTOMTAG) $(MAKE) $(COMPONENT)-image
+	cid=$$(docker create storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}) \
+	&& docker cp $$cid:/app/$(COMPONENT) $(COMPONENT)_${GOOS}_${GOARCH} \
+    && docker rm $$cid
+	docker rmi storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}
 
-release-linux:
-	GOOS=linux GOARCH=amd64 go build -o release/uplink-linux-amd64/uplink ./cmd/uplink
-	cd release; tar czvf uplink-linux-amd64.tar.gz uplink-linux-amd64
-	rm -rf release/uplink-linux-amd64
+.PHONY: satellite_linux_arm
+satellite_linux_arm:
+	GOOS=linux GOARCH=arm COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_linux_amd64
+satellite_linux_amd64:
+	GOOS=linux GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_windows_amd64
+satellite_windows_amd64:
+	GOOS=windows GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
 
-release-windows:
-	GOOS=windows GOARCH=amd64 go build -o release/uplink-windows-amd64/uplink ./cmd/uplink
-	cd release; zip uplink-windows-amd64.zip uplink-windows-amd64
-	rm -rf release/uplink-windows-amd64
+.PHONY: storagenode_linux_amd64
+storagenode_linux_amd64:
+	GOOS=linux GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_linux_arm
+storagenode_linux_arm:
+	GOOS=linux GOARCH=arm COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_windows_amd64
+storagenode_windows_amd64:
+	GOOS=windows GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
 
-release: release-osx release-linux release-windows
+.PHONY: uplink_linux_amd64
+uplink_linux_amd64:
+	GOOS=linux GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_linux_arm
+uplink_linux_arm:
+	GOOS=linux GOARCH=arm COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_windows_amd64_
+uplink_windows_amd64:
+	GOOS=windows GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
+
+.PHONY: binaries
+binaries: satellite_linux_arm satellite_linux_amd64 satellite_windows_amd64 storagenode_linux_amd64 storagenode_linux_arm storagenode_windows_amd64 uplink_linux_amd64 uplink_linux_arm uplink_windows_amd64

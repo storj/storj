@@ -1,13 +1,19 @@
 ARG GO_VERSION=1.10
 FROM golang:${GO_VERSION}-alpine AS build-env
-RUN apk update && \
-    apk upgrade && \
-    apk add curl && \
-    apk add git
+ARG GOOS=linux
+ARG GOARCH=amd64
+ARG LDFLAGS=
+RUN apk add -U curl git musl-dev gcc
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 COPY . /go/src/storj.io/storj
 RUN cd /go/src/storj.io/storj && dep ensure -vendor-only
-RUN cd /go/src/storj.io/storj/cmd/satellite && go build -o satellite
+ENV GOOS=${GOOS} \
+    GOARCH=${GOARCH} \
+    LDFLAGS=${LDFLAGS} \
+    GOARM=6 \
+    CGO_ENABLED=0
+RUN cd /go/src/storj.io/storj/cmd/satellite \
+ && go build -o satellite -ldflags "-s -w"
 
 
 # final stage
