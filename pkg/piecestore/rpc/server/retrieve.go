@@ -112,9 +112,15 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			baData := &pb.RenterBandwidthAllocation_Data{}
 
-      if err = s.verifySignature(ctx, ba); err != nil {
-        return am.Used, am.TotalAllocated, err
-      }
+			if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
+				errChan <- err
+				return
+			}
+
+			if err = s.verifySignature(ctx, ba); err != nil {
+				errChan <- err
+				return
+			}
 
 			mtx.Lock() // Lock when updating bandwidth allocation
 			am.NewTotal(baData.GetTotal())
