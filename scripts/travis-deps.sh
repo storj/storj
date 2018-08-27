@@ -1,6 +1,7 @@
 set -x
 
-git clone git@github.com:storj/storj.git storj
+# checkout outside gopath
+git clone git@github.com:storj/storj.git $HOME/storj
 export TRAVIS_BUILD_DIR=$HOME/storj
 cd $TRAVIS_BUILD_DIR
 
