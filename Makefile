@@ -219,6 +219,10 @@ uplink_windows_amd64:
 .PHONY: binaries
 binaries: satellite_darwin_amd64 satellite_freebsd_386 satellite_freebsd_amd64 satellite_linux_386 satellite_linux_amd64 satellite_windows_386 satellite_windows_amd64 storagenode_darwin_amd64 storagenode_freebsd_386 storagenode_freebsd_amd64 storagenode_linux_386 storagenode_linux_amd64 storagenode_windows_386 storagenode_windows_amd64 uplink_darwin_amd64 uplink_freebsd_386 uplink_freebsd_amd64 uplink_linux_386 uplink_linux_amd64 uplink_windows_386 uplink_windows_amd64
 
+.PHONY: binaries-upload
+binaries-upload:
+	cd release; gsutil cp -r . gs://storj-v3-alpha-builds
+
 .PHONY: binaries-clean
 binaries-clean:
 	rm -rf release
