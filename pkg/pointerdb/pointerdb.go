@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/zeebo/errs"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	segmentError = errs.Class("segment error")
 )
 
 // ListPageLimit is the maximum number of items that will be returned by a list
@@ -31,17 +33,20 @@ var (
 // TODO(kaloyan): make it configurable
 const ListPageLimit = 1000
 
+
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore
 	logger *zap.Logger
+	config Config
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
+func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		config: c,
 	}
 }
 
@@ -53,11 +58,33 @@ func (s *Server) validateAuth(APIKey []byte) error {
 	return nil
 }
 
+func (s *Server) validateSegment(req *pb.PutRequest) error {
+	min := s.config.MinInlineSegmentSize
+	max := s.config.MaxInlineSegmentSize
+	inlineSize := len(req.GetPointer().InlineSegment)
+	remote := req.GetPointer().Remote
+
+	if remote != nil && req.GetPointer().GetSize() < min {
+		return segmentError.New("inline segment size %d less than minimum allowed %d", inlineSize, min)
+	}
+
+	if inlineSize > max {
+		return segmentError.New("inline segment size %d greater than maximum allowed %d", inlineSize, max)
+	}
+
+	return nil
+}
+
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb put")
 
+	err = s.validateSegment(req)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+	
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
 	}
