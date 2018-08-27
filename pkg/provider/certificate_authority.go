@@ -35,6 +35,7 @@ type FullCertificateAuthority struct {
 	Key crypto.PrivateKey
 }
 
+// CASetupConfig is for creating a CA
 type CASetupConfig struct {
 	CertPath    string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath     string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
@@ -44,13 +45,14 @@ type CASetupConfig struct {
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
+// CAConfig is for locating the CA keys
 type CAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 }
 
-// Stat returns the status of the CA cert/key files for the config
-func (caS CASetupConfig) Stat() TlsFilesStat {
+// Status returns the status of the CA cert/key files for the config
+func (caS CASetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(caS.CertPath, caS.KeyPath)
 }
 
@@ -156,7 +158,7 @@ func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
 	return nil
 }
 
-// Generate Identity generates a new `FullIdentity` based on the CA. The CA
+// NewIdentity generates a new `FullIdentity` based on the CA. The CA
 // cert is included in the identity's cert chain and the identity's leaf cert
 // is signed by the CA.
 func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {

@@ -36,6 +36,7 @@ type MockKeyValueStore struct {
 	GetCalled         int
 	PutCalled         int
 	ListCalled        int
+	ListV2Called      int
 	ReverseListCalled int
 	DeleteCalled      int
 	CloseCalled       int
@@ -119,6 +120,12 @@ func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (
 	return keys, nil
 }
 
+// ListV2 returns either a list of items for which the MockKeyValueStore has values and an error.
+func (m *MockKeyValueStore) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	m.ListV2Called++
+	panic("TODO")
+}
+
 // GetAll is a noop to adhere to the interface
 func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
 	result := storage.Values{}
@@ -163,6 +170,7 @@ func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 		GetCalled:         0,
 		PutCalled:         0,
 		ListCalled:        0,
+		ListV2Called:      0,
 		ReverseListCalled: 0,
 		DeleteCalled:      0,
 		CloseCalled:       0,
@@ -180,16 +188,17 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 	index, _ := randomHex(5)
 	redisRefs[index] = true
 
-	if testRedis.started != true {
+	if !testRedis.started {
 		conn, err := net.Dial("tcp", "127.0.0.1:6379")
 		if err != nil {
 			testRedis.start(t)
 		} else {
 			testRedis.started = true
-			n, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			_, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
 			if err != nil {
 				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
 			}
+			var n int
 			b := make([]byte, 5)
 			n, err = conn.Read(b)
 			if err != nil {
@@ -198,7 +207,10 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
 				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
 			}
-			conn.Close()
+			err = conn.Close()
+			if err != nil {
+				log.Fatalf("Failed to close conn: %s\n", err)
+			}
 		}
 	}
 
@@ -248,6 +260,7 @@ func (r *RedisServer) start(t *testing.T) {
 
 		if err := cmd.Run(); err != nil {
 			// TODO(bryanchriswhite) error checking
+			t.Logf("unable to run redis: %v", err)
 		}
 	}()
 

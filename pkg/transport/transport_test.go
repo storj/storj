@@ -8,11 +8,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
 
+var ctx = context.Background()
+
 func TestDialNode(t *testing.T) {
-	oc := Transport{}
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	oc := Transport{
+		identity: identity,
+	}
 
 	// node.Address.Address == "" condition test
 	node := proto.Node{
@@ -22,7 +32,7 @@ func TestDialNode(t *testing.T) {
 			Address:   "",
 		},
 	}
-	conn, err := oc.DialNode(context.Background(), &node)
+	conn, err := oc.DialNode(ctx, &node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
@@ -31,7 +41,7 @@ func TestDialNode(t *testing.T) {
 		Id:      "DUMMYID2",
 		Address: nil,
 	}
-	conn, err = oc.DialNode(context.Background(), &node)
+	conn, err = oc.DialNode(ctx, &node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
@@ -43,7 +53,7 @@ func TestDialNode(t *testing.T) {
 			Address:   "127.0.0.0:9000",
 		},
 	}
-	conn, err = oc.DialNode(context.Background(), &node)
+	conn, err = oc.DialNode(ctx, &node)
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 }

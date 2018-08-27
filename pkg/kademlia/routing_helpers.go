@@ -263,10 +263,7 @@ func (rt *RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, 
 	if err != nil {
 		return false, err
 	}
-	if bytes.Compare(bucket, bucketID) == 0 {
-		return true, nil
-	}
-	return false, nil
+	return bytes.Equal(bucket, bucketID), nil
 }
 
 // kadBucketHasRoom: helper, returns true if it has fewer than k nodes
@@ -358,7 +355,7 @@ func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*
 
 // getKBucketRange: helper, returns the left and right endpoints of the range of node ids contained within the bucket
 func (rt *RoutingTable) getKBucketRange(bucketID storage.Key) (storage.Keys, error) {
-	key := storage.Key(bucketID)
+	key := bucketID
 	kadIDs, err := rt.kadBucketDB.ReverseList(key, 2)
 	if err != nil {
 		return nil, RoutingErr.New("could not reverse list k bucket ids %s", err)

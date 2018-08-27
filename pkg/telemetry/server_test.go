@@ -4,6 +4,7 @@
 package telemetry
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,13 +33,13 @@ func TestServe_ReturnErrorOnConnFail(t *testing.T) {
 	server.conn.Close()
 	server.conn = nil
 
-	errServe := server.Serve(nil, nil)
+	errServe := server.Serve(context.Background(), nil)
 
 	assert.EqualError(t, errServe, "telemetry error: invalid conn: <nil>")
 }
 
 func TestListenAndServe_ReturnErrorOnListenFails(t *testing.T) {
-	err := ListenAndServe(nil, "1", nil)
+	err := ListenAndServe(context.Background(), "1", nil)
 
 	assert.Error(t, err)
 }

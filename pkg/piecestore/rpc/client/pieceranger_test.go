@@ -5,12 +5,14 @@ package client
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -42,6 +44,9 @@ func TestPieceRanger(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.Nil(t, err)
+
 		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 
 		calls := []*gomock.Call{
@@ -54,46 +59,29 @@ func TestPieceRanger(t *testing.T) {
 		pid := NewPieceID()
 
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
+			msg1 := &pb.PieceRetrieval{
+				PieceData: &pb.PieceRetrieval_PieceData{
+					Id: pid.String(), Size: tt.length, Offset: tt.offset,
+				},
+			}
+
 			calls = append(calls,
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						PieceData: &pb.PieceRetrieval_PieceData{
-							Id: pid.String(), Size: tt.length, Offset: tt.offset,
-						},
-					},
-				).Return(nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg1).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024 * 2,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 		gomock.InOrder(calls...)
 
 		ctx := context.Background()
-		c, err := NewCustomRoute(route, 32*1024)
+
+		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
 		if assert.NoError(t, err, errTag) {
@@ -142,45 +130,32 @@ func TestPieceRangerSize(t *testing.T) {
 
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.Nil(t, err)
+
 		if tt.offset >= 0 && tt.length > 0 && tt.offset+tt.length <= tt.size {
+			msg1 := &pb.PieceRetrieval{
+				PieceData: &pb.PieceRetrieval_PieceData{
+					Id: pid.String(), Size: tt.length, Offset: tt.offset,
+				},
+			}
+
 			gomock.InOrder(
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						PieceData: &pb.PieceRetrieval_PieceData{
-							Id: pid.String(), Size: tt.length, Offset: tt.offset,
-						},
-					},
-				).Return(nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{Bandwidthallocation: &pb.RenterBandwidthAllocation{
-						Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-							PayerAllocation: &pb.PayerBandwidthAllocation{},
-							Total:           32 * 1024,
-						}),
-					},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(msg1).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(
 					&pb.PieceRetrievalStream{
 						Size:    tt.length,
 						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
 					}, nil),
-				stream.EXPECT().Send(
-					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           32 * 1024 * 2,
-							}),
-						},
-					},
-				).Return(nil),
+				stream.EXPECT().Send(gomock.Any()).Return(nil),
 				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
 			)
 		}
 
 		ctx := context.Background()
-		c, err := NewCustomRoute(route, 32*1024)
+
+		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
 		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
 		assert.Equal(t, tt.size, rr.Size(), errTag)
@@ -195,10 +170,4 @@ func TestPieceRangerSize(t *testing.T) {
 			assert.Equal(t, []byte(tt.substr), data, errTag)
 		}
 	}
-}
-
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
-
-	return data
 }

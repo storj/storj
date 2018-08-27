@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -43,17 +42,17 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 
 func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
-		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
 }
 
-// Create a db entry for the provided farmer
+// Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	s.logger.Debug("entering statdb Create")
 
-	APIKeyBytes := []byte(createReq.APIKey)
+	APIKeyBytes := createReq.APIKey
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
 	}
@@ -88,11 +87,11 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	}, nil
 }
 
-// Get a farmer's stats from the db
+// Get a storagenode's stats from the db
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	s.logger.Debug("entering statdb Get")
 
-	APIKeyBytes := []byte(getReq.APIKey)
+	APIKeyBytes := getReq.APIKey
 	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
@@ -113,11 +112,11 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	}, nil
 }
 
-// Update a single farmer's stats in the db
+// Update a single storagenode's stats in the db
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	s.logger.Debug("entering statdb Update")
 
-	APIKeyBytes := []byte(updateReq.APIKey)
+	APIKeyBytes := updateReq.APIKey
 	err = s.validateAuth(APIKeyBytes)
 	if err != nil {
 		return nil, err
@@ -132,10 +131,10 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 
 	auditSuccessCount := dbNode.AuditSuccessCount
 	totalAuditCount := dbNode.TotalAuditCount
-	auditSuccessRatio := dbNode.AuditSuccessRatio
-	uptimeSuccessCount := dbNode.UptimeSuccessCount
+	var auditSuccessRatio float64
+	var uptimeSuccessCount int64
 	totalUptimeCount := dbNode.TotalUptimeCount
-	uptimeRatio := dbNode.UptimeRatio
+	var uptimeRatio float64
 
 	updateFields := dbx.Node_Update_Fields{}
 
@@ -181,7 +180,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
 	s.logger.Debug("entering statdb UpdateBatch")
 
-	APIKeyBytes := []byte(updateBatchReq.APIKey)
+	APIKeyBytes := updateBatchReq.APIKey
 	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
 	for i, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
