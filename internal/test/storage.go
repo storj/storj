@@ -188,16 +188,17 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 	index, _ := randomHex(5)
 	redisRefs[index] = true
 
-	if testRedis.started != true {
+	if !testRedis.started {
 		conn, err := net.Dial("tcp", "127.0.0.1:6379")
 		if err != nil {
 			testRedis.start(t)
 		} else {
 			testRedis.started = true
-			n, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
+			_, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
 			if err != nil {
 				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
 			}
+			var n int
 			b := make([]byte, 5)
 			n, err = conn.Read(b)
 			if err != nil {
@@ -206,7 +207,10 @@ func EnsureRedis(t *testing.T) (_ RedisDone) {
 			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
 				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
 			}
-			conn.Close()
+			err = conn.Close()
+			if err != nil {
+				log.Fatalf("Failed to close conn: %s\n", err)
+			}
 		}
 	}
 
@@ -256,6 +260,7 @@ func (r *RedisServer) start(t *testing.T) {
 
 		if err := cmd.Run(); err != nil {
 			// TODO(bryanchriswhite) error checking
+			t.Logf("unable to run redis: %v", err)
 		}
 	}()
 

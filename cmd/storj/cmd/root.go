@@ -14,6 +14,7 @@ import (
 
 const defaultConfDir = "$HOME/.storj/cli"
 
+// Config is miniogw.Config configuration
 type Config struct {
 	miniogw.Config
 }

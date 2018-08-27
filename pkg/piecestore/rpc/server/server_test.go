@@ -5,6 +5,8 @@ package server
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/ecdsa"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,15 +21,15 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-
 	"golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -48,7 +50,7 @@ func writeFileToDir(name, dir string) error {
 }
 
 func TestPiece(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	defer TS.Stop()
 
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
@@ -91,7 +93,7 @@ func TestPiece(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -108,7 +110,7 @@ func TestPiece(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.id, resp.GetId())
 			assert.Equal(tt.size, resp.GetSize())
@@ -118,7 +120,7 @@ func TestPiece(t *testing.T) {
 }
 
 func TestRetrieve(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	defer TS.Stop()
 
 	// simulate piece stored with storagenode
@@ -217,10 +219,11 @@ func TestRetrieve(t *testing.T) {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Retrieve(ctx)
+			assert.NoError(err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			totalAllocated := int64(0)
 			var data string
@@ -229,18 +232,24 @@ func TestRetrieve(t *testing.T) {
 			for totalAllocated < tt.respSize {
 				// Send bandwidth bandwidthAllocation
 				totalAllocated += tt.allocSize
+
+				ba := pb.RenterBandwidthAllocation{
+					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
+						PayerAllocation: &pb.PayerBandwidthAllocation{},
+						Total:           totalAllocated,
+					}),
+				}
+
+				s, err := cryptopasta.Sign(ba.Data, TS.k.(*ecdsa.PrivateKey))
+				assert.NoError(err)
+				ba.Signature = s
+
 				err = stream.Send(
 					&pb.PieceRetrieval{
-						Bandwidthallocation: &pb.RenterBandwidthAllocation{
-							Signature: []byte{'A', 'B'},
-							Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-								PayerAllocation: &pb.PayerBandwidthAllocation{},
-								Total:           totalAllocated,
-							}),
-						},
+						Bandwidthallocation: &ba,
 					},
 				)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				resp, err = stream.Recv()
 				if tt.err != "" {
@@ -253,11 +262,11 @@ func TestRetrieve(t *testing.T) {
 					return
 				}
 
-				data = fmt.Sprintf("%s%s", data, string(resp.Content))
-				totalRetrieved += resp.Size
+				data = fmt.Sprintf("%s%s", data, string(resp.GetContent()))
+				totalRetrieved += resp.GetSize()
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.NotNil(resp)
 			if resp != nil {
 				assert.Equal(tt.respSize, totalRetrieved)
@@ -268,7 +277,7 @@ func TestRetrieve(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -311,17 +320,16 @@ func TestStore(t *testing.T) {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Store(ctx)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
 				Piecedata: &pb.PieceStore_PieceData{Content: tt.content},
 				Bandwidthallocation: &pb.RenterBandwidthAllocation{
-					Signature: []byte{'A', 'B'},
 					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
 						PayerAllocation: &pb.PayerBandwidthAllocation{},
 						Total:           int64(len(tt.content)),
@@ -329,9 +337,12 @@ func TestStore(t *testing.T) {
 				},
 			}
 
+			s, err := cryptopasta.Sign(msg.Bandwidthallocation.Data, TS.k.(*ecdsa.PrivateKey))
+			assert.NoError(err)
+			msg.Bandwidthallocation.Signature = s
+
 			// Write the buffer to the stream we opened earlier
-			err = stream.Send(msg)
-			assert.Nil(err)
+			stream.Send(msg)
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
@@ -340,13 +351,13 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer rows.Close()
 			for rows.Next() {
@@ -356,19 +367,19 @@ func TestStore(t *testing.T) {
 				)
 
 				err = rows.Scan(&agreement, &signature)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				decoded := &pb.RenterBandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
-
+				assert.NoError(err)
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
 				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}
 			err = rows.Err()
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
@@ -377,7 +388,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	TS := NewTestServer()
+	TS := NewTestServer(t)
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -417,7 +428,7 @@ func TestDelete(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -431,12 +442,13 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
-			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
+			assert.NoError(err)
+			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
 			}
@@ -461,8 +473,8 @@ func newTestServerStruct() *Server {
 	return &Server{DataDir: tempDir, DB: psDB}
 }
 
-func connect(addr string) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+func connect(addr string, o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(addr, o...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -477,15 +489,38 @@ type TestServer struct {
 	grpcs *grpc.Server
 	conn  *grpc.ClientConn
 	c     pb.PieceStoreRoutesClient
+	k     crypto.PrivateKey
 }
 
-func NewTestServer() *TestServer {
-	s := newTestServerStruct()
-	grpcs := grpc.NewServer()
+func NewTestServer(t *testing.T) *TestServer {
+	check := func(e error) {
+		if !assert.NoError(t, e) {
+			t.Fail()
+		}
+	}
 
-	ts := &TestServer{s: s, grpcs: grpcs}
+	caS, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiS, err := caS.NewIdentity()
+	check(err)
+	so, err := fiS.ServerOption()
+	check(err)
+
+	caC, err := provider.NewCA(context.Background(), 12, 4)
+	check(err)
+	fiC, err := caC.NewIdentity()
+	check(err)
+	co, err := fiC.DialOption()
+	check(err)
+
+	s := newTestServerStruct()
+	grpcs := grpc.NewServer(so)
+
+	k, ok := fiC.Key.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	ts := &TestServer{s: s, grpcs: grpcs, k: k}
 	addr := ts.start()
-	ts.c, ts.conn = connect(addr)
+	ts.c, ts.conn = connect(addr, co)
 
 	return ts
 }

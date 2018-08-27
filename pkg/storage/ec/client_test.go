@@ -5,6 +5,8 @@ package ecclient
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -18,6 +20,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -59,7 +62,9 @@ func TestNewECClient(t *testing.T) {
 	tc := NewMockClient(ctrl)
 	mbm := 1234
 
-	ec := NewClient(tc, mbm)
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	identity := &provider.FullIdentity{Key: privKey}
+	ec := NewClient(identity, tc, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
@@ -78,6 +83,9 @@ func TestDefaultDialer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	identity := &provider.FullIdentity{Key: privKey}
+
 	for i, tt := range []struct {
 		err       error
 		errString string
@@ -90,7 +98,7 @@ func TestDefaultDialer(t *testing.T) {
 		tc := NewMockClient(ctrl)
 		tc.EXPECT().DialNode(gomock.Any(), node0).Return(nil, tt.err)
 
-		dd := defaultDialer{t: tc}
+		dd := defaultDialer{t: tc, identity: identity}
 		_, err := dd.dial(ctx, node0)
 
 		if tt.errString != "" {

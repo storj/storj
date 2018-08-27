@@ -69,7 +69,7 @@ func TestChoose(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock, err := NewTestServer(ctx)
+		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
@@ -106,7 +106,7 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 		assert.NoError(t, err)
 
-		srv, mock, err := NewTestServer(ctx)
+		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
 		go srv.Serve(lis)
 		defer srv.Stop()
@@ -129,7 +129,7 @@ func TestLookup(t *testing.T) {
 
 }
 
-func NewTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
+func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		return nil, nil, err

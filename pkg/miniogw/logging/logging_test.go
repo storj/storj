@@ -60,7 +60,7 @@ var (
 	partList    = minio.ListPartsInfo{Parts: []minio.PartInfo{partInfo}}
 	healItem    = madmin.HealResultItem{Bucket: bucket, Object: object}
 	healList    = []madmin.HealResultItem{healItem}
-	lockList    = []minio.VolumeLockInfo{minio.VolumeLockInfo{Bucket: bucket, Object: object}}
+	lockList    = []minio.VolumeLockInfo{{Bucket: bucket, Object: object}}
 	plcy        = &policy.Policy{ID: n}
 )
 
@@ -441,7 +441,7 @@ func TestListMultipartUploads(t *testing.T) {
 
 	uidMarker := "test-upload-id-marker"
 	listMultiParts := minio.ListMultipartsInfo{
-		Uploads: []minio.MultipartInfo{minio.MultipartInfo{Object: object}}}
+		Uploads: []minio.MultipartInfo{{Object: object}}}
 
 	// No error returned
 	mol.EXPECT().ListMultipartUploads(ctx, bucket, prefix, marker, uidMarker,
@@ -616,7 +616,7 @@ func TestCompleteMultipartUpload(t *testing.T) {
 
 	logger, mol, ol := initMocks(mockCtrl)
 
-	parts := []minio.CompletePart{minio.CompletePart{PartNumber: partID}}
+	parts := []minio.CompletePart{{PartNumber: partID}}
 
 	// No error returned
 	mol.EXPECT().CompleteMultipartUpload(ctx, bucket, object, uploadID, parts).

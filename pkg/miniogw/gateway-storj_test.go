@@ -350,20 +350,20 @@ func TestListObjects(t *testing.T) {
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		objects.ListItem{
+		{
 			Path: paths.New(prefix, "test-file-1.txt"),
 		},
-		objects.ListItem{
+		{
 			Path: paths.New(prefix, "test-file-2.txt"),
 		},
 	}
 
 	objInfos := []minio.ObjectInfo{
-		minio.ObjectInfo{
+		{
 			Bucket: bucket,
 			Name:   path.Join(prefix, "test-file-1.txt"),
 		},
-		minio.ObjectInfo{
+		{
 			Bucket: bucket,
 			Name:   path.Join(prefix, "test-file-2.txt"),
 		},
@@ -418,9 +418,7 @@ func TestDeleteBucket(t *testing.T) {
 	itemsInBucket := make([]objects.ListItem, 1)
 	itemsInBucket[0] = objects.ListItem{Path: paths.New("path1"), Meta: objects.Meta{}}
 
-	var exp time.Time
-	exp = time.Unix(0, 0).UTC()
-
+	exp := time.Unix(0, 0).UTC()
 	var noItemsInBucket []objects.ListItem
 
 	for i, example := range []struct {
@@ -463,8 +461,7 @@ func TestGetBucketInfo(t *testing.T) {
 
 	storjObj := storjObjects{storj: &b}
 
-	var exp time.Time
-	exp = time.Unix(0, 0).UTC()
+	exp := time.Unix(0, 0).UTC()
 
 	for i, example := range []struct {
 		bucket    string
@@ -493,8 +490,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 
 	storjObj := storjObjects{storj: &b}
 
-	var exp time.Time
-	exp = time.Unix(0, 0).UTC()
+	exp := time.Unix(0, 0).UTC()
 
 	for i, example := range []struct {
 		bucket       string
@@ -530,8 +526,7 @@ func TestListBuckets(t *testing.T) {
 
 	storjObj := storjObjects{storj: &b}
 
-	var exp time.Time
-	exp = time.Unix(0, 0).UTC()
+	exp := time.Unix(0, 0).UTC()
 
 	for i, example := range []struct {
 		bucket    string
