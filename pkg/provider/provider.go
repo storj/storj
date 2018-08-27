@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/storage"
 )
 
-//ErrSetup is setup error
 var (
+	// ErrSetup is returned when there's an error with setup
 	ErrSetup = errs.Class("setup error")
 )
 
@@ -62,34 +62,30 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 
 // SetupIdentity ensures a CA and identity exist and returns a config overrides map
 func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
-	if s := c.Stat(); s == NoCertNoKey || c.Overwrite {
-		t, err := time.ParseDuration(c.Timeout)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		ctx, cancel := context.WithTimeout(ctx, t)
-		defer cancel()
-
-		// Load or create a certificate authority
-		ca, err := c.Create(ctx, 4)
-		if err != nil {
-			return err
-		}
-
-		if s := i.Stat(); s == NoCertNoKey || i.Overwrite {
-			// Create identity from new CA
-			_, err = i.Create(ca)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		} else {
-			return ErrSetup.New("identity file(s) exist: %s", s)
-		}
-	} else {
+	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
 		return ErrSetup.New("certificate authority file(s) exist: %s", s)
 	}
+
+	t, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, t)
+	defer cancel()
+
+	// Load or create a certificate authority
+	ca, err := c.Create(ctx, 4)
+	if err != nil {
+		return err
+	}
+
+	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
+		return ErrSetup.New("identity file(s) exist: %s", s)
+	}
+
+	// Create identity from new CA
+	_, err = i.Create(ca)
+	return err
 }
 
 // Identity returns the provider's identity

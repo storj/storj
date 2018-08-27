@@ -241,9 +241,10 @@ func (b *PieceBuffer) HasShare(num int64) bool {
 	bufShares := int64(b.buffered() / b.shareSize)
 	if num-b.currentShare > 0 {
 		if bufShares > num-b.currentShare {
-			b.discardUntil(num)
+			// TODO: should this error be ignored?
+			_ = b.discardUntil(num)
 		} else {
-			b.discardUntil(b.currentShare + bufShares)
+			_ = b.discardUntil(b.currentShare + bufShares)
 		}
 		bufShares = int64(b.buffered() / b.shareSize)
 	}

@@ -70,7 +70,6 @@ func TestRemove(t *testing.T) {
 	cases := []struct {
 		pool          ConnectionPool
 		key           string
-		value         TestFoo
 		expected      interface{}
 		expectedError error
 	}{

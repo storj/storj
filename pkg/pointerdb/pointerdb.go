@@ -9,8 +9,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon          = monkit.Package()
+	segmentError = errs.Class("segment error")
 )
 
 // ListPageLimit is the maximum number of items that will be returned by a list
@@ -35,21 +36,40 @@ const ListPageLimit = 1000
 type Server struct {
 	DB     storage.KeyValueStore
 	logger *zap.Logger
+	config Config
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, logger *zap.Logger) *Server {
+func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
+		config: c,
 	}
 }
 
 func (s *Server) validateAuth(APIKey []byte) error {
 	if !auth.ValidateAPIKey(string(APIKey)) {
-		s.logger.Error("unauthorized request: ", zap.Error(grpc.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return grpc.Errorf(codes.Unauthenticated, "Invalid API credential")
+		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
+		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
+	return nil
+}
+
+func (s *Server) validateSegment(req *pb.PutRequest) error {
+	min := s.config.MinInlineSegmentSize
+	max := s.config.MaxInlineSegmentSize
+	inlineSize := len(req.GetPointer().InlineSegment)
+	remote := req.GetPointer().Remote
+
+	if remote != nil && req.GetPointer().GetSize() < min {
+		return segmentError.New("inline segment size %d less than minimum allowed %d", inlineSize, min)
+	}
+
+	if inlineSize > max {
+		return segmentError.New("inline segment size %d greater than maximum allowed %d", inlineSize, max)
+	}
+
 	return nil
 }
 
@@ -57,6 +77,11 @@ func (s *Server) validateAuth(APIKey []byte) error {
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb put")
+
+	err = s.validateSegment(req)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
@@ -78,7 +103,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("put to the db: " + string(req.GetPath()))
+	s.logger.Debug("put to the db: " + req.GetPath())
 
 	return &pb.PutResponse{}, nil
 }
@@ -296,6 +321,6 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 		s.logger.Error("err deleting path and pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("deleted pointer at path: " + string(req.GetPath()))
+	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
 }

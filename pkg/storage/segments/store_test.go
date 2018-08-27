@@ -116,7 +116,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]*opb.Node{
-				&opb.Node{Id: "im-a-node"},
+				{Id: "im-a-node"},
 			}, nil),
 			mockEC.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
@@ -185,8 +185,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -236,8 +235,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -299,8 +297,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -353,8 +350,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var ti time.Time
-	ti = time.Unix(0, 0).UTC()
+	ti := time.Unix(0, 0).UTC()
 	someTime, err := ptypes.TimestampProto(ti)
 	assert.NoError(t, err)
 
@@ -444,8 +440,7 @@ func TestSegmentStoreList(t *testing.T) {
 		startAfter := paths.New(tt.startAfterInput)
 		listedPath := paths.New(tt.itemPath)
 
-		var ti time.Time
-		ti = time.Unix(0, 0).UTC()
+		ti := time.Unix(0, 0).UTC()
 		someTime, err := ptypes.TimestampProto(ti)
 		assert.NoError(t, err)
 
@@ -454,7 +449,7 @@ func TestSegmentStoreList(t *testing.T) {
 				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]pdb.ListItem{
-				pdb.ListItem{
+				{
 					Path: listedPath,
 					Pointer: &ppb.Pointer{
 						Type:           ppb.Pointer_INLINE,

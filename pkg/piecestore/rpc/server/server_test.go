@@ -27,7 +27,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
@@ -93,7 +93,7 @@ func TestPiece(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -110,7 +110,7 @@ func TestPiece(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.id, resp.GetId())
 			assert.Equal(tt.size, resp.GetSize())
@@ -219,10 +219,11 @@ func TestRetrieve(t *testing.T) {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Retrieve(ctx)
+			assert.NoError(err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			totalAllocated := int64(0)
 			var data string
@@ -248,7 +249,7 @@ func TestRetrieve(t *testing.T) {
 						Bandwidthallocation: &ba,
 					},
 				)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				resp, err = stream.Recv()
 				if tt.err != "" {
@@ -265,7 +266,7 @@ func TestRetrieve(t *testing.T) {
 				totalRetrieved += resp.GetSize()
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.NotNil(resp)
 			if resp != nil {
 				assert.Equal(tt.respSize, totalRetrieved)
@@ -319,11 +320,11 @@ func TestStore(t *testing.T) {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Store(ctx)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
@@ -350,13 +351,13 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer rows.Close()
 			for rows.Next() {
@@ -366,19 +367,19 @@ func TestStore(t *testing.T) {
 				)
 
 				err = rows.Scan(&agreement, &signature)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				decoded := &pb.RenterBandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
-
+				assert.NoError(err)
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
 				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}
 			err = rows.Err()
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
@@ -427,7 +428,7 @@ func TestDelete(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -441,12 +442,13 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
-			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
+			assert.NoError(err)
+			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
 			}
