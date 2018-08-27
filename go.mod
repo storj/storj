@@ -54,7 +54,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/joyent/triton-go v0.0.0-20180628001255-830d2b111e62 // indirect
-	github.com/jtolds/monkit-hw v0.0.0-20180222001630-9b6edb34372a
+	github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d
 	github.com/klauspost/compress v1.4.0 // indirect
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/crc32 v0.0.0-20170628072449-bab58d77464a // indirect
@@ -76,7 +76,7 @@ require (
 	github.com/minio/highwayhash v0.0.0-20180501080913-85fc8a2dacad // indirect
 	github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 // indirect
 	github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c // indirect
-	github.com/minio/minio v0.0.0-20180802050851-eb391a53c145
+	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/minio/minio-go v6.0.3-0.20180613230128-10531abd0af1+incompatible // indirect
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
@@ -89,7 +89,6 @@ require (
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/pelletier/go-toml v1.1.0
 	github.com/pierrec/lz4 v2.0.3+incompatible // indirect
-	github.com/pkg/errors v0.8.0 // indirect
 	github.com/pkg/profile v1.2.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
@@ -133,7 +132,6 @@ require (
 	golang.org/x/crypto v0.0.0-20180820150726-614d502a4dac
 	golang.org/x/net v0.0.0-20180821023952-922f4815f713
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be // indirect
-	golang.org/x/sys v0.0.0-20180821140842-3b58ed4ad339 // indirect
 	golang.org/x/text v0.3.0
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/api v0.0.0-20180822000451-0873c9a91f71 // indirect
@@ -147,7 +145,7 @@ require (
 	gopkg.in/mattn/go-isatty.v0 v0.0.3 // indirect
 	gopkg.in/mattn/go-runewidth.v0 v0.0.3 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.71 // indirect
-	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180117193750-694b83f5e32b
+	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
 	gopkg.in/yaml.v2 v2.2.1
 )
 

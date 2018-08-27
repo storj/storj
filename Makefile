@@ -1,4 +1,4 @@
-.PHONY: test lint proto check-copyrights build-dev-deps
+.PHONY: test lint proto check-copyrights build-dev-deps release release-osx release-windows release-linux
 
 
 GO_VERSION ?= 1.10
@@ -181,3 +181,20 @@ deploy:
 	for i in $(shell seq 1 60); do \
 		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
 	done
+
+release-osx:
+	GOOS=darwin GOARCH=amd64 go build -o release/uplink-osx-amd64/uplink ./cmd/uplink
+	cd release; tar czvf uplink-osx-amd64.tar.gz uplink-osx-amd64
+	rm -rf release/uplink-osx-amd64
+
+release-linux:
+	GOOS=linux GOARCH=amd64 go build -o release/uplink-linux-amd64/uplink ./cmd/uplink
+	cd release; tar czvf uplink-linux-amd64.tar.gz uplink-linux-amd64
+	rm -rf release/uplink-linux-amd64
+
+release-windows:
+	GOOS=windows GOARCH=amd64 go build -o release/uplink-windows-amd64/uplink ./cmd/uplink
+	cd release; zip uplink-windows-amd64.zip uplink-windows-amd64
+	rm -rf release/uplink-windows-amd64
+
+release: release-osx release-linux release-windows
