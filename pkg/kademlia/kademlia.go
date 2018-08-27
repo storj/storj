@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
 
@@ -76,7 +77,15 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 		stun:           true,
 	}
 
-	nc, err := node.NewNodeClient(self, k)
+	ca, err := provider.NewCA(context.Background(), 12, 4)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	nc, err := node.NewNodeClient(identity, self, k)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}

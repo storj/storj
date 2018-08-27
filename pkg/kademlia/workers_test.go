@@ -14,7 +14,12 @@ import (
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
+)
+
+var (
+	ctx = context.Background()
 )
 
 func TestGetWork(t *testing.T) {
@@ -73,7 +78,11 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":0"}}, mockDHT)
+				ca, err := provider.NewCA(ctx, 12, 4)
+				assert.NoError(t, err)
+				identity, err := ca.NewIdentity()
+				assert.NoError(t, err)
+				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":0"}}, mockDHT)
 				assert.NoError(t, err)
 				mock.returnValue = []*proto.Node{&proto.Node{Id: "foo"}}
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
@@ -115,7 +124,11 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test nil nodes",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
+				ca, err := provider.NewCA(ctx, 12, 4)
+				assert.NoError(t, err)
+				identity, err := ca.NewIdentity()
+				assert.NoError(t, err)
+				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
 			}(),
@@ -127,7 +140,11 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test combined less than k",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
+				ca, err := provider.NewCA(ctx, 12, 4)
+				assert.NoError(t, err)
+				identity, err := ca.NewIdentity()
+				assert.NoError(t, err)
+				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
 			}(),
