@@ -104,7 +104,8 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	}
 }
 
-// VerifyPeerCertChains verifies chains
+// VerifyPeerCertChains verifies that the first certificate chain contains certificates
+// which are signed by their respective parents, ending with a self-signed root
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }
