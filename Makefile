@@ -30,16 +30,14 @@ lint: check-copyrights
 	@gometalinter \
     --deadline=10m \
     --enable-all \
-    --disable=gofmt \
-    --disable=goimports \
     --enable=golint \
     --enable=errcheck \
     --enable=unconvert \
     --enable=structcheck \
     --enable=misspell \
-    --enable=goimports \
+    --disable=goimports \
     --enable=ineffassign \
-    --enable=gofmt \
+    --disable=gofmt \
     --enable=nakedret \
     --enable=megacheck \
     --disable=unparam \
