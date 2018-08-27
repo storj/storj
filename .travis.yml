@@ -8,7 +8,8 @@ env:
 cache:
   directories:
     - "$GOPATH/bin"
-    - "$GOPATH/pkg"
+    - "$GOPATH/src"
+    - "$GOPATH/pkg/mod"
 
 services:
   - redis
