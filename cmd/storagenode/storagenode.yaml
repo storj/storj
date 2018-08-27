@@ -35,7 +35,7 @@ spec:
     spec:
       terminationGracePeriodSeconds: 60
       containers:
-      - image: "storjlabs/piecestore-farmer"
+      - image: "storjlabs/storagenode"
         imagePullPolicy: Always
         name: piecestore
         env:

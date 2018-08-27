@@ -55,9 +55,8 @@ type Service struct {
 }
 
 // SetLogger for process
-func (s *Service) SetLogger(l *zap.Logger) error {
+func (s *Service) SetLogger(l *zap.Logger) {
 	s.logger = l
-	return nil
 }
 
 func setEnv() error {
@@ -67,9 +66,8 @@ func setEnv() error {
 }
 
 // SetMetricHandler for  process
-func (s *Service) SetMetricHandler(m *monkit.Registry) error {
+func (s *Service) SetMetricHandler(m *monkit.Registry) {
 	s.metrics = m
-	return nil
 }
 
 // InstanceID assigns a new instance ID to the process

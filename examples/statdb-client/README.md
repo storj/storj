@@ -1,6 +1,6 @@
 # gRPC Client
 
-This is an example gRPC client which makes requests for updating and storing farmer stats in a relational database.
+This is an example gRPC client which makes requests for updating and storing storagenode stats in a relational database.
 
 The gRPC server at `storj.io/storj/cmd/statdb/main.go` needs to be running for this to work.
 

@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pool"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -18,11 +19,12 @@ import (
 var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
-func NewNodeClient(self proto.Node, dht dht.DHT) (Client, error) {
+func NewNodeClient(identity *provider.FullIdentity, self proto.Node, dht dht.DHT) (Client, error) {
+	client := transport.NewClient(identity)
 	return &Node{
 		dht:   dht,
 		self:  self,
-		tc:    transport.NewClient(),
+		tc:    client,
 		cache: pool.NewConnectionPool(),
 	}, nil
 }

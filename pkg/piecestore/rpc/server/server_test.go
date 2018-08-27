@@ -26,7 +26,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -49,7 +49,6 @@ func writeFileToDir(name, dir string) error {
 
 func TestPiece(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
@@ -92,7 +91,7 @@ func TestPiece(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := TS.s.DB.DB.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, tt.expiration))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer TS.s.DB.DB.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -109,7 +108,7 @@ func TestPiece(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.id, resp.GetId())
 			assert.Equal(tt.size, resp.GetSize())
@@ -120,10 +119,9 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
-	// simulate piece stored with farmer
+	// simulate piece stored with storagenode
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
@@ -219,10 +217,11 @@ func TestRetrieve(t *testing.T) {
 		t.Run("should return expected PieceRetrievalStream values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Retrieve(ctx)
+			assert.NoError(err)
 
 			// send piece database
 			err = stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: tt.id, Size: tt.reqSize, Offset: tt.offset}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			totalAllocated := int64(0)
 			var data string
@@ -242,7 +241,7 @@ func TestRetrieve(t *testing.T) {
 						},
 					},
 				)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				resp, err = stream.Recv()
 				if tt.err != "" {
@@ -259,7 +258,7 @@ func TestRetrieve(t *testing.T) {
 				totalRetrieved += resp.Size
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.NotNil(resp)
 			if resp != nil {
 				assert.Equal(tt.respSize, totalRetrieved)
@@ -271,7 +270,6 @@ func TestRetrieve(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -314,11 +312,11 @@ func TestStore(t *testing.T) {
 		t.Run("should return expected PieceStoreSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 			stream, err := TS.c.Store(ctx)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(&pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: tt.id, ExpirationUnixSec: tt.ttl}})
-			assert.Nil(err)
+			assert.NoError(err)
 
 			// Send Bandwidth Allocation Data
 			msg := &pb.PieceStore{
@@ -334,7 +332,7 @@ func TestStore(t *testing.T) {
 
 			// Write the buffer to the stream we opened earlier
 			err = stream.Send(msg)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
@@ -343,13 +341,13 @@ func TestStore(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
 			// check db to make sure agreement and signature were stored correctly
 			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer rows.Close()
 			for rows.Next() {
@@ -359,19 +357,19 @@ func TestStore(t *testing.T) {
 				)
 
 				err = rows.Scan(&agreement, &signature)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				decoded := &pb.RenterBandwidthAllocation_Data{}
 
 				err = proto.Unmarshal(agreement, decoded)
-
+				assert.NoError(err)
 				assert.Equal(msg.Bandwidthallocation.GetSignature(), signature)
 				assert.Equal(&pb.PayerBandwidthAllocation{}, decoded.GetPayerAllocation())
 				assert.Equal(int64(len(tt.content)), decoded.GetTotal())
 
 			}
 			err = rows.Err()
-			assert.Nil(err)
+			assert.NoError(err)
 
 			assert.Equal(tt.message, resp.Message)
 			assert.Equal(tt.totalReceived, resp.TotalReceived)
@@ -381,7 +379,6 @@ func TestStore(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -413,7 +410,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 
-			// simulate piece stored with farmer
+			// simulate piece stored with storagenode
 			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
@@ -421,7 +418,7 @@ func TestDelete(t *testing.T) {
 
 			// simulate piece TTL entry
 			_, err := db.Exec(fmt.Sprintf(`INSERT INTO ttl (id, created, expires) VALUES ("%s", "%d", "%d")`, tt.id, 1234567890, 1234567890))
-			assert.Nil(err)
+			assert.NoError(err)
 
 			defer db.Exec(fmt.Sprintf(`DELETE FROM ttl WHERE id="%s"`, tt.id))
 
@@ -435,12 +432,13 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.Equal(tt.message, resp.GetMessage())
 
 			// if test passes, check if file was indeed deleted
 			filePath, err := pstore.PathByID(tt.id, TS.s.DataDir)
-			if _, err = os.Stat(filePath); os.IsNotExist(err) != true {
+			assert.NoError(err)
+			if _, err = os.Stat(filePath); os.IsExist(err) {
 				t.Errorf("File not deleted")
 				return
 			}
@@ -465,8 +463,8 @@ func newTestServerStruct() *Server {
 	return &Server{DataDir: tempDir, DB: psDB}
 }
 
-func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+func connect(addr string) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -486,13 +484,16 @@ type TestServer struct {
 func NewTestServer() *TestServer {
 	s := newTestServerStruct()
 	grpcs := grpc.NewServer()
-	c, conn := connect()
 
-	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+	ts := &TestServer{s: s, grpcs: grpcs}
+	addr := ts.start()
+	ts.c, ts.conn = connect(addr)
+
+	return ts
 }
 
-func (TS *TestServer) Start() {
-	lis, err := net.Listen("tcp", ":3000")
+func (TS *TestServer) start() (addr string) {
+	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -503,6 +504,7 @@ func (TS *TestServer) Start() {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
+	return lis.Addr().String()
 }
 
 func (TS *TestServer) Stop() {

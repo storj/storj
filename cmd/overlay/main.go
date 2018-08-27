@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ import (
 )
 
 var (
+	// Error is the error class for overlays
 	Error   = errs.Class("overlay error")
 	rootCmd = &cobra.Command{
 		Use:   "overlay",
@@ -95,9 +97,9 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 				Address:   a,
 			},
 			Restrictions: &proto.NodeRestrictions{
- 				FreeBandwidth: 2000000000,
- 				FreeDisk:      2000000000,
- 			},
+				FreeBandwidth: 2000000000,
+				FreeDisk:      2000000000,
+			},
 			Type: 1,
 		})
 		if err != nil {
