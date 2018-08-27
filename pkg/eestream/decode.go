@@ -55,7 +55,7 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 	// Kick off a goroutine to watch for context cancelation.
 	go func() {
 		<-dr.ctx.Done()
-		dr.Close()
+		_ = dr.Close()
 	}()
 	return dr
 }

@@ -22,8 +22,8 @@ import (
 // TLSFilesStatus is the status of keys
 type TLSFilesStatus int
 
+// Four possible outcomes for four files
 const (
-	// All possible statuses that TLSFilesStatus can be
 	NoCertNoKey = TLSFilesStatus(iota)
 	CertNoKey
 	NoCertKey
@@ -113,7 +113,6 @@ func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificat
 		ID:   i,
 	}
 	caC <- ca
-	return
 }
 
 func idFromKey(k crypto.PublicKey) (nodeID, error) {
@@ -176,7 +175,6 @@ func (t TLSFilesStatus) String() string {
 		return "certificate"
 	case NoCertKey:
 		return "key"
-	default:
-		return ""
 	}
+	return ""
 }

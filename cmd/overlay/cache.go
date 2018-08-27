@@ -18,8 +18,6 @@ type cacheConfig struct {
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
-	overlay.NewBoltOverlayCache(cacheCfg.DatabaseURL, nil)
-
 	dburl, err := url.Parse(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
