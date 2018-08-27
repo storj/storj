@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"log"
 	"net"
 	"os"
 	"testing"
@@ -20,7 +21,6 @@ import (
 
 func TestNewKademlia(t *testing.T) {
 	cases := []struct {
-		expected    *Kademlia
 		id          dht.NodeID
 		bn          []proto.Node
 		addr        string
@@ -204,7 +204,7 @@ func createTestNodes(n int) map[*grpc.Server]*mockNodeServer {
 	for i := 0; i < n; i++ {
 		srv, mns, err := testServer()
 		if err != nil {
-
+			log.Printf("Error=%s", err)
 		}
 		m[srv] = mns
 	}

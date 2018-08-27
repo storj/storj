@@ -37,7 +37,9 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 			return nil, err
 		}
 
-		n.cache.Add(ctx, to.GetId(), c)
+		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
+			// ignore
+		}
 		conn = c
 	}
 

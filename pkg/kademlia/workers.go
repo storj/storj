@@ -68,14 +68,14 @@ func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc no
 	}
 }
 
-func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
+func (w *worker) work(ctx context.Context, ch chan []*proto.Node) {
 	// grab uncontacted node from working set
 	// change status to inprogress
 	// ask node for target
 	// if node has target cancel ctx and send node
 	for {
 		if ctx.Err() != nil {
-			return nil
+			return
 		}
 		n := w.getWork()
 		if n == nil {
@@ -83,15 +83,14 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
 		}
 
 		nodes := w.lookup(ctx, n)
-		if nodes == nil {
+		if nodes == nil || len(nodes) == 0 {
 			continue
 		}
 
 		ch <- nodes
 
-		if err := w.update(nodes); err != nil {
-			return err
-		}
+		w.update(nodes)
+
 		continue
 	}
 
@@ -128,11 +127,11 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 	if err != nil {
 		// TODO(coyle): I think we might want to do another look up on this node or update something
 		// but for now let's just log and ignore.
-		log.Printf("Error occured during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
+		log.Printf("Error occurred during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
 		return []*proto.Node{}
 	}
 
-	latency := time.Now().Sub(start)
+	latency := time.Since(start)
 	if latency > w.maxResponse {
 		w.maxResponse = latency
 	}
@@ -141,9 +140,6 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 }
 
 func (w *worker) update(nodes []*proto.Node) error {
-	if len(nodes) == 0 {
-		return WorkerError.New("nodes must not be empty")
-	}
 	t := new(big.Int).SetBytes(w.find.Bytes())
 	w.mu.Lock()
 	defer w.mu.Unlock()

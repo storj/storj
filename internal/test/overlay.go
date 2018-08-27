@@ -54,7 +54,7 @@ type MockConfig struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
-// RUN __
+// Run __
 func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
 	var nodes []*proto.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {

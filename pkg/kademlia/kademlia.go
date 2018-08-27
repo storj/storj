@@ -153,7 +153,9 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	ctx, w.cancel = context.WithCancel(ctx)
 	defer w.cancel()
 	for i := 0; i < conc; i++ {
-		go w.work(ctx, ch)
+		go func(ctx context.Context, ch chan []*proto.Node) {
+			w.work(ctx, ch)
+		}(ctx, ch)
 	}
 
 	for {

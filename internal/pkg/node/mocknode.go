@@ -20,7 +20,7 @@ func (mc *MockClient) Lookup(ctx context.Context, to proto.Node, find proto.Node
 	return mc.response, nil
 }
 
-// NewMockClient initalizes a mock client with the default values and returns a pointer to a MockClient
+// NewMockClient initializes a mock client with the default values and returns a pointer to a MockClient
 func NewMockClient(response []*proto.Node) *MockClient {
 	return &MockClient{
 		response: response,
