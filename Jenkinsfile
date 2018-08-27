@@ -33,6 +33,7 @@ node('node') {
       /* This should only deploy to staging if the branch is master */
       stage('Deploy') {
         sh 'make deploy'
+        sh 'make binaries-upload'
         echo "Current build result: ${currentBuild.result}"
       }
     }
