@@ -42,11 +42,11 @@ proto:
 	./scripts/build-protos.sh
 
 build-dev-deps:
-	go get -u github.com/golang/protobuf/protoc-gen-go
-	go get -u github.com/mattn/goveralls
-	go get -u golang.org/x/tools/cover
-	go get -u github.com/modocache/gover
-	go get -u github.com/alecthomas/gometalinter
+	go get github.com/golang/protobuf/protoc-gen-go
+	go get github.com/mattn/goveralls
+	go get golang.org/x/tools/cover
+	go get github.com/modocache/gover
+	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
 test: lint
