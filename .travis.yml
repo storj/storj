@@ -21,6 +21,7 @@ before_install:
 install:
   - GO111MODULE=off make build-dev-deps
   - go get .
+  - go install ./...
 
 script:
   - make test

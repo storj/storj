@@ -50,7 +50,6 @@ build-dev-deps:
 	gometalinter --install --force
 
 test: lint
-	go install ./...
 	go test -v -covermode=count -coverprofile=coverage.out ./...
 	gover
 	@echo done
