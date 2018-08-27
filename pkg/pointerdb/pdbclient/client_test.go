@@ -134,7 +134,7 @@ func TestGet(t *testing.T) {
 			log.Fatal("marshaling error: ", err)
 		}
 
-		byteData := []byte(data)
+		byteData := data
 
 		getResponse := pb.GetResponse{Pointer: byteData}
 

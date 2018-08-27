@@ -57,9 +57,9 @@ func TestStore(t *testing.T) {
 
 			storeFile.Close()
 
-			folder1 := string(tt.id[0:2])
-			folder2 := string(tt.id[2:4])
-			fileName := string(tt.id[4:])
+			folder1 := tt.id[0:2]
+			folder2 := tt.id[2:4]
+			fileName := tt.id[4:]
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
@@ -144,9 +144,9 @@ func TestRetrieve(t *testing.T) {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
-			folder1 := string(tt.id[0:2])
-			folder2 := string(tt.id[2:4])
-			fileName := string(tt.id[4:])
+			folder1 := tt.id[0:2]
+			folder2 := tt.id[2:4]
+			fileName := tt.id[4:]
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
@@ -225,9 +225,9 @@ func TestDelete(t *testing.T) {
 		t.Run(tt.it, func(t *testing.T) {
 			assert := assert.New(t)
 
-			folder1 := string(tt.id[0:2])
-			folder2 := string(tt.id[2:4])
-			fileName := string(tt.id[4:])
+			folder1 := tt.id[0:2]
+			folder2 := tt.id[2:4]
+			fileName := tt.id[4:]
 
 			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
 
