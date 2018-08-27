@@ -45,9 +45,9 @@ const (
 )
 
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *kademlia.Kademlia {
-	i, err := kademlia.NewID()
+	i, err := node.NewID()
 	assert.NoError(t, err)
-	id := kademlia.NodeID(*i)
+	id := node.ID(*i)
 	n := []overlay.Node{b}
 	kad, err := kademlia.NewKademlia(&id, n, fmt.Sprintf("%s:%s", ip, port))
 	assert.NoError(t, err)
@@ -56,10 +56,10 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *
 }
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
-	bid, err := kademlia.NewID()
+	bid, err := node.NewID()
 	assert.NoError(t, err)
 
-	bnid := node.NodeID(*bid)
+	bnid := node.ID(*bid)
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
@@ -83,9 +83,9 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
 
-		nid, err := kademlia.NewID()
+		nid, err := node.NewID()
 		assert.NoError(t, err)
-		id := kademlia.NodeID(*nid)
+		id := node.ID(*nid)
 
 		dht, err := kademlia.NewKademlia(&id, []overlay.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg))
 		assert.NoError(t, err)

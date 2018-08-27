@@ -131,7 +131,7 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
 	//if id is in the routing table
 	n, err := rt.nodeBucketDB.Get(id.Bytes())
-	if n != nil {
+	if n != nil && (rt.self.GetId() != id.String()) { // for bootstrapping, we don't want to stop when we find ourself
 		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
 		if err != nil {
 			return []*proto.Node{}, RoutingErr.New("could not unmarshal node %s", err)
@@ -171,6 +171,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
+
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
@@ -178,6 +179,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 		}
 		return nil
 	}
+
 	_, err = rt.addNode(node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)

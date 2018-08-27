@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
@@ -14,6 +15,7 @@ import (
 
 // Node is the storj definition for a node in the network
 type Node struct {
+	dht   dht.DHT
 	self  proto.Node
 	tc    transport.Client
 	cache pool.Pool
@@ -43,6 +45,16 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Target: &find})
 	if err != nil {
 		return nil, err
+	}
+
+	rt, err := n.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rt.ConnectionSuccess(&to); err != nil {
+		return nil, err
+
 	}
 
 	return resp.Response, nil

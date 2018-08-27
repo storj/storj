@@ -53,7 +53,7 @@ func TestPriorityQueue(t *testing.T) {
 		i = 0
 		for v.pq.Len() > 0 {
 			item := heap.Pop(&v.pq).(*Item)
-			assert.Equal(t, &v.expected[i], item.priority)
+			assert.Equal(t, big.NewInt(int64(v.expected[i])), item.priority)
 			i++
 		}
 

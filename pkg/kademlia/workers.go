@@ -21,6 +21,10 @@ import (
 var (
 	// WorkerError is the class of errors for the worker struct
 	WorkerError = errs.Class("worker error")
+	// default timeout is the minimum timeout for worker cancellation
+	// 250ms was the minimum value allowing current workers to finish work
+	// before returning
+	defaultTimeout = 250 * time.Millisecond
 )
 
 type worker struct {
@@ -79,7 +83,6 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
 		}
 
 		nodes := w.lookup(ctx, n)
-		w.workInProgress--
 		if nodes == nil {
 			continue
 		}
@@ -96,9 +99,14 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) error {
 
 func (w *worker) getWork() *proto.Node {
 	w.mu.Lock()
-	if w.pq.Len() <= 0 && w.workInProgress <= 0 {
+	if w.pq.Len() <= 0 {
 		w.mu.Unlock()
-		time.AfterFunc(2*w.maxResponse, w.cancel)
+		timeout := defaultTimeout
+		if timeout < (2 * w.maxResponse) {
+			timeout = 2 * w.maxResponse
+		}
+
+		time.AfterFunc(timeout, w.cancel)
 		return nil
 	}
 	defer w.mu.Unlock()
@@ -121,6 +129,7 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 		// TODO(coyle): I think we might want to do another look up on this node or update something
 		// but for now let's just log and ignore.
 		log.Printf("Error occured during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
+		return []*proto.Node{}
 	}
 
 	latency := time.Now().Sub(start)
@@ -145,9 +154,9 @@ func (w *worker) update(nodes []*proto.Node) error {
 		})
 	}
 	// only keep the k closest nodes
-	// w.pq = w.pq[:w]
+	w.pq = w.pq[:w.k]
 	// reinitialize heap
 	heap.Init(&w.pq)
-
+	w.workInProgress--
 	return nil
 }

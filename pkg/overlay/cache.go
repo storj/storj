@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -100,12 +100,12 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			zap.Error(ErrNodeNotFound)
 		}
 
-		node, err := proto.Marshal(&found)
+		n, err := proto.Marshal(&found)
 		if err != nil {
 			return err
 		}
 
-		if err := o.DB.Put(node.StringToID(found.Id).Bytes(), node); err != nil {
+		if err := o.DB.Put(node.StringToID(found.Id).Bytes(), n); err != nil {
 			return err
 		}
 	}
@@ -123,7 +123,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	rid := kademlia.NodeID(r)
+	rid := node.ID(r)
 	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
 		return err

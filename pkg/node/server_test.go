@@ -107,7 +107,7 @@ func TestQuery(t *testing.T) {
 		},
 	}
 	for i, v := range cases {
-		req := proto.QueryRequest{Sender: sender, Target: &proto.Node{Id: "B"}, Limit: int64(2)}
+		req := proto.QueryRequest{Pingback: true, Sender: sender, Target: &proto.Node{Id: "B"}, Limit: int64(2)}
 		mockDHT.EXPECT().GetRoutingTable(gomock.Any()).Return(v.rt, v.getRTErr)
 		mockDHT.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(v.pingNode, v.pingErr)
 		if v.pingErr != nil {

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/test"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 )
 
@@ -21,9 +21,9 @@ func TestFindStorageNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	id, err := kademlia.NewID()
+	id, err := node.NewID()
 	assert.NoError(t, err)
-	id2, err := kademlia.NewID()
+	id2, err := node.NewID()
 	assert.NoError(t, err)
 
 	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
@@ -47,7 +47,7 @@ func TestOverlayLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
 
-	id, err := kademlia.NewID()
+	id, err := node.NewID()
 
 	assert.NoError(t, err)
 

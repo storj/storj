@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 	proto "storj.io/storj/protos/overlay"
@@ -17,8 +18,9 @@ import (
 var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
-func NewNodeClient(self proto.Node) (Client, error) {
+func NewNodeClient(self proto.Node, dht dht.DHT) (Client, error) {
 	return &Node{
+		dht:   dht,
 		self:  self,
 		tc:    transport.NewClient(),
 		cache: pool.NewConnectionPool(),

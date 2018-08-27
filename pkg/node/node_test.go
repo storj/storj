@@ -9,6 +9,9 @@ import (
 	"net"
 	"testing"
 
+	"storj.io/storj/pkg/dht/mocks"
+
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
@@ -38,10 +41,15 @@ func TestLookup(t *testing.T) {
 		srv, mock := newTestServer()
 		go srv.Serve(lis)
 		defer srv.Stop()
+		ctrl := gomock.NewController(t)
 
-		nc, err := NewNodeClient(v.self)
+		mdht := mock_dht.NewMockDHT(ctrl)
+		mrt := mock_dht.NewMockRoutingTable(ctrl)
+		nc, err := NewNodeClient(v.self, mdht)
 		assert.NoError(t, err)
 
+		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
+		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 		_, err = nc.Lookup(context.Background(), v.to, v.find)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, 1, mock.queryCalled)

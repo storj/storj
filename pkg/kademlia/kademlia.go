@@ -61,11 +61,6 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	nc, err := node.NewNodeClient(self)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
 		if !ok || err != nil {
@@ -73,14 +68,22 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string) (*K
 		}
 	}
 
-	return &Kademlia{
+	k := &Kademlia{
 		alpha:          alpha,
-		nodeClient:     nc,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
 		stun:           true,
-	}, nil
+	}
+
+	nc, err := node.NewNodeClient(self, k)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+
+	k.nodeClient = nc
+
+	return k, nil
 }
 
 // Disconnect safely closes connections to the Kademlia network
@@ -121,6 +124,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	if conc <= 0 {
 		conc = kb
 	}
+
 	// look in routing table for targetID
 	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
@@ -128,7 +132,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	}
 
 	// if we have the node in our routing table and that node is not this node (bootstrap) just return the node
-	if len(nodes) == 1 && (node.StringToID(nodes[0].GetId()) == target && target.String() != k.routingTable.self.GetId()) {
+	if len(nodes) == 1 {
 		return nodes[0], nil
 	}
 
@@ -137,6 +141,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	ch := make(chan []*proto.Node, conc)
 	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, kb)
 	ctx, w.cancel = context.WithCancel(ctx)
+	defer w.cancel()
 	for i := 0; i < conc; i++ {
 		go w.work(ctx, ch)
 	}

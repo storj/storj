@@ -11,7 +11,7 @@ import (
 
 func TestString(t *testing.T) {
 	expected := "test node"
-	node := NodeID(expected)
+	node := ID(expected)
 
 	result := node.String()
 
@@ -20,7 +20,7 @@ func TestString(t *testing.T) {
 
 func TestStringToID(t *testing.T) {
 	str := "test node"
-	node := NodeID(str)
+	node := ID(str)
 	expected := StringToID(str)
 
 	assert.Equal(t, expected.String(), node.String())

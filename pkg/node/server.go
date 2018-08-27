@@ -21,18 +21,22 @@ func (s *Server) Query(ctx context.Context, req proto.QueryRequest) (proto.Query
 	if err != nil {
 		return proto.QueryResponse{}, NodeClientErr.New("could not get routing table %s", err)
 	}
-	_, err = s.dht.Ping(ctx, *req.Sender)
-	if err != nil {
-		err = rt.ConnectionFailed(req.Sender)
+
+	if req.GetPingback() {
+		_, err = s.dht.Ping(ctx, *req.Sender)
 		if err != nil {
-			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
+			err = rt.ConnectionFailed(req.Sender)
+			if err != nil {
+				return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
+			}
+			return proto.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
 		}
-		return proto.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
+		err = rt.ConnectionSuccess(req.Sender)
+		if err != nil {
+			return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
+		}
 	}
-	err = rt.ConnectionSuccess(req.Sender)
-	if err != nil {
-		return proto.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
-	}
+
 	id := StringToID(req.Target.Id)
 	nodes, err := rt.FindNear(id, int(req.Limit))
 	if err != nil {

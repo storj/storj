@@ -5,13 +5,14 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -52,6 +53,17 @@ func TestGetWork(t *testing.T) {
 }
 
 func TestWorkerLookup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDHT := mock_dht.NewMockDHT(ctrl)
+	mockRT := mock_dht.NewMockRoutingTable(ctrl)
+
+	lis, err := net.Listen("tcp", ":0")
+	assert.NoError(t, err)
+
+	srv, mock := newTestServer(nil)
+	go srv.Serve(lis)
+	defer srv.Stop()
 	cases := []struct {
 		name     string
 		worker   *worker
@@ -61,22 +73,19 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
+				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":0"}}, mockDHT)
 				assert.NoError(t, err)
+				mock.returnValue = []*proto.Node{&proto.Node{Id: "foo"}}
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
 			}(),
-			work:     &proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":8080"}},
+			work:     &proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: lis.Addr().String()}},
 			expected: []*proto.Node{&proto.Node{Id: "foo"}},
 		},
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
-		assert.NoError(t, err)
-
-		srv, mock := newTestServer(nil)
-		go srv.Serve(lis)
-		defer srv.Stop()
+		mockDHT.EXPECT().GetRoutingTable(gomock.Any()).Return(mockRT, nil)
+		mockRT.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 		actual := v.worker.lookup(context.Background(), v.work)
 		assert.Equal(t, v.expected, actual)
 		assert.Equal(t, 1, mock.queryCalled)
@@ -84,6 +93,17 @@ func TestWorkerLookup(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDHT := mock_dht.NewMockDHT(ctrl)
+
+	lis, err := net.Listen("tcp", ":0")
+	assert.NoError(t, err)
+
+	srv, _ := newTestServer(nil)
+	go srv.Serve(lis)
+	defer srv.Stop()
+
 	cases := []struct {
 		name                string
 		worker              *worker
@@ -95,7 +115,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test nil nodes",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
+				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
 			}(),
@@ -107,7 +127,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test combined less than k",
 			worker: func() *worker {
-				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}})
+				nc, err := node.NewNodeClient(proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
 			}(),
@@ -147,6 +167,7 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 type mockNodeServer struct {
 	queryCalled int
 	returnValue []*proto.Node
+	listener    net.Addr
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
