@@ -21,6 +21,27 @@ func TestNewCA(t *testing.T) {
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 
+func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
+	check := func(err error, v interface{}) {
+		if !assert.NoError(t, err) || !assert.NotEmpty(t, v) {
+			t.Fail()
+		}
+	}
+
+	ca, err := NewCA(context.Background(), 12, 5)
+	check(err, ca)
+	fi, err := ca.NewIdentity()
+	check(err, fi)
+
+	assert.Equal(t, ca.Cert, fi.CA)
+	assert.Equal(t, ca.ID, fi.ID)
+	assert.NotEqual(t, ca.Key, fi.Key)
+	assert.NotEqual(t, ca.Cert, fi.Leaf)
+
+	err = fi.Leaf.CheckSignatureFrom(ca.Cert)
+	assert.NoError(t, err)
+}
+
 func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
