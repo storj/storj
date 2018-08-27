@@ -252,6 +252,7 @@ func (r *RedisServer) start(t *testing.T) {
 
 		if err := cmd.Run(); err != nil {
 			// TODO(bryanchriswhite) error checking
+			t.Logf("unable to run redis: %v", err)
 		}
 	}()
 

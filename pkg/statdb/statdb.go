@@ -134,7 +134,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	var auditSuccessRatio float64
 	var uptimeSuccessCount int64
 	totalUptimeCount := dbNode.TotalUptimeCount
-	uptimeRatio := dbNode.UptimeRatio
+	var uptimeRatio float64
 
 	updateFields := dbx.Node_Update_Fields{}
 

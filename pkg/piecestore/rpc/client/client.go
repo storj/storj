@@ -45,7 +45,6 @@ type PSClient interface {
 type Client struct {
 	route            pb.PieceStoreRoutesClient
 	conn             *grpc.ClientConn
-	pkey             []byte
 	bandwidthMsgSize int
 }
 

@@ -23,7 +23,7 @@ endif
 #   gotype, gotypex     # already done by compiling
 #   safesql             # no sql
 #   interfacer          # not that useful
-lint:
+lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
     --deadline=10m \
