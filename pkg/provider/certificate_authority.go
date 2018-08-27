@@ -93,12 +93,12 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 		return nil, errs.New("unable to parse EC private key", err)
 	}
 
-	kEC, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)
+	ec, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, peertls.ErrUnsupportedKey.New("certificate public key type not supported: %T", k)
 	}
 
-	if !reflect.DeepEqual(k.PublicKey, *kEC) {
+	if !reflect.DeepEqual(k.PublicKey, *ec) {
 		return nil, errs.New("certificate public key and loaded")
 	}
 
@@ -109,6 +109,7 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	}, nil
 }
 
+// PeerConfig converts a full ca config to a peer ca config
 func (fc FullCAConfig) PeerConfig() PeerCAConfig {
 	return PeerCAConfig{
 		CertPath: fc.CertPath,

@@ -15,7 +15,7 @@ import (
 
 var (
 	caCmd = &cobra.Command{
-		Use: "ca",
+		Use:   "ca",
 		Short: "Manage certificate authorities",
 	}
 
@@ -47,12 +47,9 @@ func init() {
 	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
-func cmdNewCA(cmd *cobra.Command, args []string) (err error) {
-	if _, err := newCACfg.CA.Create(process.Ctx(cmd)); err != nil {
-		return err
-	}
-
-	return nil
+func cmdNewCA(cmd *cobra.Command, args []string) (error) {
+	_, err := newCACfg.CA.Create(process.Ctx(cmd))
+	return err
 }
 
 func cmdGetID(cmd *cobra.Command, args []string) (err error) {

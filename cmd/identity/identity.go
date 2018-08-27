@@ -40,15 +40,10 @@ func cmdNewID(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if s := newIDCfg.Identity.Stat(); s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
+	s := newIDCfg.Identity.Stat()
+	if s == provider.NoCertNoKey || newIDCfg.Identity.Overwrite {
 		_, err := newIDCfg.Identity.Create(ca)
-		if err != nil {
-			return err
-		}
-		return nil
-	} else {
-		return provider.ErrSetup.New("identity file(s) exist: %s", s)
+		return err
 	}
-
-	return nil
+	return provider.ErrSetup.New("identity file(s) exist: %s", s)
 }
