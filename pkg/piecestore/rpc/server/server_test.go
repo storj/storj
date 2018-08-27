@@ -341,8 +341,7 @@ func TestStore(t *testing.T) {
 			msg.Bandwidthallocation.Signature = s
 
 			// Write the buffer to the stream we opened earlier
-			err = stream.Send(msg)
-			assert.Nil(err)
+			stream.Send(msg)
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {
@@ -515,9 +514,9 @@ func NewTestServer(t *testing.T) *TestServer {
 	s := newTestServerStruct()
 	grpcs := grpc.NewServer(so)
 
-  k, ok := fiC.Key.(*ecdsa.PrivateKey)
-  assert.True(t, ok)
-  ts := &TestServer{s: s, grpcs: grpcs, k: k}
+	k, ok := fiC.Key.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	ts := &TestServer{s: s, grpcs: grpcs, k: k}
 	addr := ts.start()
 	ts.c, ts.conn = connect(addr, co)
 
