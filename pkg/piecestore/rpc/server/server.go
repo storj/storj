@@ -4,14 +4,19 @@
 package server
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/gtank/cryptopasta"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
@@ -20,6 +25,9 @@ import (
 
 var (
 	mon = monkit.Package()
+
+	// ServerError wraps errors returned from Server struct methods
+	ServerError = errs.Class("PSServer error")
 )
 
 // Config contains everything necessary for a server
@@ -31,7 +39,7 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	s, err := Initialize(ctx, c)
+	s, err := Initialize(ctx, c, server.Identity().Key)
 	if err != nil {
 		return err
 	}
@@ -54,10 +62,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 type Server struct {
 	DataDir string
 	DB      *psdb.PSDB
+	pkey    crypto.PrivateKey
 }
 
 // Initialize -- initializes a server struct
-func Initialize(ctx context.Context, config Config) (*Server, error) {
+func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Server, error) {
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
@@ -66,7 +75,7 @@ func Initialize(ctx context.Context, config Config) (*Server, error) {
 		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: psDB}, nil
+	return &Server{DataDir: dataDir, DB: psDB, pkey: pkey}, nil
 }
 
 // Stop the piececstore node
@@ -124,12 +133,19 @@ func (s *Server) deleteByID(id string) error {
 	return nil
 }
 
-func (s *Server) verifySignature(ba *pb.RenterBandwidthAllocation) error {
-	// TODO: verify signature
+func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
+	pi, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return err
+	}
 
-	// data := ba.GetData()
-	// signature := ba.GetSignature()
-	log.Printf("Verified signature\n")
+	k, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
+	}
 
+	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
+		return ServerError.New("Failed to verify Signature")
+	}
 	return nil
 }

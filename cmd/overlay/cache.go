@@ -18,8 +18,6 @@ type cacheConfig struct {
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
-	overlay.NewBoltOverlayCache(cacheCfg.DatabaseURL, nil)
-
 	dburl, err := url.Parse(c.DatabaseURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -38,7 +36,7 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 		if err != nil {
 			return nil, Error.New("invalid db: %s", err)
 		}
-		cache, err = overlay.NewRedisOverlayCache(dburl.Host, overlay.UrlPwd(dburl), db, nil)
+		cache, err = overlay.NewRedisOverlayCache(dburl.Host, overlay.GetUserPassword(dburl), db, nil)
 		if err != nil {
 			return nil, err
 		}

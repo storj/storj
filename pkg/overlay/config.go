@@ -61,7 +61,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return Error.New("invalid db: %s", err)
 		}
-		cache, err = NewRedisOverlayCache(dburl.Host, UrlPwd(dburl), db, kad)
+		cache, err = NewRedisOverlayCache(dburl.Host, GetUserPassword(dburl), db, kad)
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	ticker := time.NewTicker(time.Duration(c.RefreshInterval))
+	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -107,7 +107,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	return server.Run(ctx)
 }
 
-func UrlPwd(u *url.URL) string {
+// GetUserPassword extracts password from scheme://user:password@hostname
+func GetUserPassword(u *url.URL) string {
 	if u == nil || u.User == nil {
 		return ""
 	}

@@ -22,29 +22,30 @@ func TestNewCA(t *testing.T) {
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
+	context.Background()
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 1)
+		NewCA(context.Background(), expectedDifficulty, 1)
 	}
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 2)
+		NewCA(context.Background(), expectedDifficulty, 2)
 	}
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency5(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 5)
+		NewCA(context.Background(), expectedDifficulty, 5)
 	}
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency10(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 10)
+		NewCA(context.Background(), expectedDifficulty, 10)
 	}
 }

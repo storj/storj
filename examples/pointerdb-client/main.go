@@ -23,7 +23,7 @@ import (
 
 var (
 	pointerdbClientPort string
-	ctx = context.Background()
+	ctx                 = context.Background()
 )
 
 func initializeFlags() {

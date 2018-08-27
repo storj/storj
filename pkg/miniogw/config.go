@@ -112,6 +112,7 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	return Error.New("unexpected minio exit")
 }
 
+// NewGateway creates a new minio Gateway
 func (c Config) NewGateway(ctx context.Context,
 	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -129,7 +130,7 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(t, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
 		return nil, err
