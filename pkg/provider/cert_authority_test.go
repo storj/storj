@@ -42,30 +42,24 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
+func NewCABenchmark(b *testing.B, difficuly uint16, concurrency uint) {
 	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 1)
+		NewCA(context.Background(), difficuly, concurrency)
 	}
+}
+
+func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
+	NewCABenchmark(b, 8, 1)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 2)
-	}
+	NewCABenchmark(b, 8, 2)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency5(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 5)
-	}
+	NewCABenchmark(b, 8, 5)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency10(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(nil, expectedDifficulty, 10)
-	}
+	NewCABenchmark(b, 8, 10)
 }
