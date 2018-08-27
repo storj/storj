@@ -11,8 +11,10 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"os"
+	"reflect"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
 )
@@ -45,8 +47,13 @@ type CASetupConfig struct {
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
-// CAConfig is for locating the CA keys
-type CAConfig struct {
+// PeerCAConfig is for locating a CA certificate without a private key
+type PeerCAConfig struct {
+	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+}
+
+// FullCAConfig is for locating a CA certificate and it's private key
+type FullCAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 }
@@ -57,12 +64,12 @@ func (caS CASetupConfig) Status() TLSFilesStatus {
 }
 
 // Create generates and saves a CA using the config
-func (caS CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCertificateAuthority, error) {
-	ca, err := NewCA(ctx, uint16(caS.Difficulty), concurrency)
+func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
+	ca, err := NewCA(ctx, uint16(caS.Difficulty), caS.Concurrency)
 	if err != nil {
 		return nil, err
 	}
-	caC := CAConfig{
+	caC := FullCAConfig{
 		CertPath: caS.CertPath,
 		KeyPath:  caS.KeyPath,
 	}
@@ -70,12 +77,48 @@ func (caS CASetupConfig) Create(ctx context.Context, concurrency uint) (*FullCer
 }
 
 // Load loads a CA from the given configuration
-func (caC CAConfig) Load() (*FullCertificateAuthority, error) {
-	cd, err := ioutil.ReadFile(caC.CertPath)
+func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
+	p, err := fc.PeerConfig().Load()
+	if err != nil {
+		return nil, err
+	}
+
+	kb, err := ioutil.ReadFile(fc.KeyPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
-	kb, err := ioutil.ReadFile(caC.KeyPath)
+	kp, _ := pem.Decode(kb)
+	k, err := x509.ParseECPrivateKey(kp.Bytes)
+	if err != nil {
+		return nil, errs.New("unable to parse EC private key", err)
+	}
+
+	ec, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("certificate public key type not supported: %T", k)
+	}
+
+	if !reflect.DeepEqual(k.PublicKey, *ec) {
+		return nil, errs.New("certificate public key and loaded")
+	}
+
+	return &FullCertificateAuthority{
+		Cert: p.Cert,
+		Key:  k,
+		ID:   p.ID,
+	}, nil
+}
+
+// PeerConfig converts a full ca config to a peer ca config
+func (fc FullCAConfig) PeerConfig() PeerCAConfig {
+	return PeerCAConfig{
+		CertPath: fc.CertPath,
+	}
+}
+
+// Load loads a CA from the given configuration
+func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
+	cd, err := ioutil.ReadFile(pc.CertPath)
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
@@ -91,23 +134,17 @@ func (caC CAConfig) Load() (*FullCertificateAuthority, error) {
 	}
 	c, err := ParseCertChain(cb)
 	if err != nil {
-		return nil, errs.New("failed to load identity %#v, %#v: %v",
-			caC.CertPath, caC.KeyPath, err)
+		return nil, errs.New("failed to load identity %#v: %v",
+			pc.CertPath, err)
 	}
 
-	kp, _ := pem.Decode(kb)
-	k, err := x509.ParseECPrivateKey(kp.Bytes)
-	if err != nil {
-		return nil, errs.New("unable to parse EC private key: %v", err)
-	}
-	i, err := idFromKey(k)
+	i, err := idFromKey(c[len(c)-1].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &FullCertificateAuthority{
+	return &PeerCertificateAuthority{
 		Cert: c[0],
-		Key:  k,
 		ID:   i,
 	}, nil
 }
@@ -136,14 +173,14 @@ func NewCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCerti
 }
 
 // Save saves a CA with the given configuration
-func (caC CAConfig) Save(ca *FullCertificateAuthority) error {
+func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	f := os.O_WRONLY | os.O_CREATE
-	c, err := openCert(caC.CertPath, f)
+	c, err := openCert(fc.CertPath, f)
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(c)
-	k, err := openKey(caC.KeyPath, f)
+	k, err := openKey(fc.KeyPath, f)
 	if err != nil {
 		return err
 	}

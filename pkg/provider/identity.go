@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 
 	"encoding/base64"
 	"fmt"
@@ -136,8 +137,27 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
-// Status returns the status of the identity cert/key files for the config
-func (is IdentitySetupConfig) Status() TLSFilesStatus {
+// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
+func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, Error.New("unable to get grpc peer from contex")
+	}
+	tlsInfo := p.AuthInfo.(credentials.TLSInfo)
+	c := tlsInfo.State.PeerCertificates
+	if len(c) < 2 {
+		return nil, Error.New("invalid certificate chain")
+	}
+	pi, err := PeerIdentityFromCerts(c[0], c[1])
+	if err != nil {
+		return nil, err
+	}
+
+	return pi, nil
+}
+
+// Stat returns the status of the identity cert/key files for the config
+func (is IdentitySetupConfig) Stat() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
 }
 

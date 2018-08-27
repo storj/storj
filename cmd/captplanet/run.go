@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,10 @@ type HeavyClient struct {
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
-	MockOverlay bool `default:"true" help:"if false, use real overlay"`
+	MockOverlay struct {
+		Enabled bool   `default:"true" help:"if false, use real overlay"`
+		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
+	}
 }
 
 // StorageNode is for configuring storage nodes
@@ -71,11 +75,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		storagenode := fmt.Sprintf("%s:%s",
-			identity.ID.String(), runCfg.StorageNodes[i].Identity.Address)
+		address := runCfg.StorageNodes[i].Identity.Address
+		if runCfg.HeavyClient.MockOverlay.Enabled &&
+			runCfg.HeavyClient.MockOverlay.Host != "" {
+			_, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+			address = net.JoinHostPort(runCfg.HeavyClient.MockOverlay.Host, port)
+		}
+		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)
-		go func(i int, storagenode string) {
-			_, _ = fmt.Printf("starting storagenode %d %s (kad on %s)\n", i, storagenode,
+		go func(i int, farmer string) {
+			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
 			errch <- runCfg.StorageNodes[i].Identity.Run(ctx,
 				runCfg.StorageNodes[i].Kademlia,
@@ -88,7 +100,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		_, _ = fmt.Printf("starting heavy client on %s\n",
 			runCfg.HeavyClient.Identity.Address)
 		var o provider.Responsibility = runCfg.HeavyClient.Overlay
-		if runCfg.HeavyClient.MockOverlay {
+		if runCfg.HeavyClient.MockOverlay.Enabled {
 			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.HeavyClient.Identity.Run(ctx,
