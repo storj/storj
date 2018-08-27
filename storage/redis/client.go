@@ -112,6 +112,12 @@ func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Key
 	return listKeys, nil
 }
 
+//ListV2 is the new definition and will replace `List` definition
+func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	//TODO write the implementation
+	panic("to do")
+}
+
 // ReverseList returns either a list of keys for which redis has values or an error.
 // Starts from startingKey and iterates backwards
 func (c *Client) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {

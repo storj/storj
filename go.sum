@@ -236,6 +236,8 @@ github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1/go.mod h1:7NL
 github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8/go.mod h1:Sv7P/HGgCluSQraRbYxntA4oe016UX0ShVPQyc5nHbA=
 github.com/spacemonkeygo/monotime v0.0.0-20180102220400-7067dc99a42a h1:f3ESu+LDN9md8tUBmak3diDJQx1g1JJAPnRXhF9UPYw=
 github.com/spacemonkeygo/monotime v0.0.0-20180102220400-7067dc99a42a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
+github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a h1:8+cCjxhToanKmxLIbuyBNe2EnpgwhiivsIaRJstDRFA=
+github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 h1:RC6RW7j+1+HkWaX/Yh71Ee5ZHaHYt7ZP4sQgUrm6cDU=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572/go.mod h1:w0SWMsp6j9O/dk4/ZpIhL+3CkG8ofA2vuv7k+ltqUMc=
 github.com/spf13/afero v1.1.0 h1:bopulORc2JeYaxfHLvJa5NzxviA9PoWhpiiJkru7Ji4=

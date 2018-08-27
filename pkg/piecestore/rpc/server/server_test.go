@@ -49,7 +49,6 @@ func writeFileToDir(name, dir string) error {
 
 func TestPiece(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
@@ -120,10 +119,9 @@ func TestPiece(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
-	// simulate piece stored with farmer
+	// simulate piece stored with storagenode
 	if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 		t.Errorf("Error: %v\nCould not create test piece", err)
 		return
@@ -272,7 +270,6 @@ func TestRetrieve(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -382,7 +379,6 @@ func TestStore(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	TS := NewTestServer()
-	TS.Start()
 	defer TS.Stop()
 
 	db := TS.s.DB.DB
@@ -414,7 +410,7 @@ func TestDelete(t *testing.T) {
 		t.Run("should return expected PieceDeleteSummary values", func(t *testing.T) {
 			assert := assert.New(t)
 
-			// simulate piece stored with farmer
+			// simulate piece stored with storagenode
 			if err := writeFileToDir("11111111111111111111", TS.s.DataDir); err != nil {
 				t.Errorf("Error: %v\nCould not create test piece", err)
 				return
@@ -467,8 +463,8 @@ func newTestServerStruct() *Server {
 	return &Server{DataDir: tempDir, DB: psDB}
 }
 
-func connect() (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial("localhost:3000", grpc.WithInsecure())
+func connect(addr string) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -488,13 +484,16 @@ type TestServer struct {
 func NewTestServer() *TestServer {
 	s := newTestServerStruct()
 	grpcs := grpc.NewServer()
-	c, conn := connect()
 
-	return &TestServer{s: s, grpcs: grpcs, conn: conn, c: c}
+	ts := &TestServer{s: s, grpcs: grpcs}
+	addr := ts.start()
+	ts.c, ts.conn = connect(addr)
+
+	return ts
 }
 
-func (TS *TestServer) Start() {
-	lis, err := net.Listen("tcp", ":3000")
+func (TS *TestServer) start() (addr string) {
+	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -505,6 +504,7 @@ func (TS *TestServer) Start() {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
+	return lis.Addr().String()
 }
 
 func (TS *TestServer) Stop() {

@@ -105,7 +105,7 @@ func RetrieveReader(ctx context.Context, id string, offset int64, length int64, 
 	return rr.Range(ctx, offset, length)
 }
 
-// Delete deletes data from farmer
+// Delete deletes data from storagenode
 //	id is the id of the data to be stored
 //	dir is the pstore directory containing all other data stored
 //	returns error if failed and nil if successful
