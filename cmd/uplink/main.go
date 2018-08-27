@@ -34,10 +34,10 @@ var (
 
 	runCfg   miniogw.Config
 	setupCfg struct {
-		CA            provider.CASetupConfig
-		Identity      provider.IdentitySetupConfig
-		BasePath      string `default:"$CONFDIR" help:"base path for setup"`
-		Concurrency   uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
+		CA       provider.CASetupConfig
+		Identity provider.IdentitySetupConfig
+		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		// Concurrency   uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey        string `default:"" help:"the api key to use for the satellite"`

@@ -19,16 +19,19 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-type TlsFilesStat int
+// TLSFilesStatus is the status of keys
+type TLSFilesStatus int
 
+// Four possible outcomes for four files
 const (
-	NoCertNoKey = iota
+	NoCertNoKey = TLSFilesStatus(iota)
 	CertNoKey
 	NoCertKey
 	CertKey
 )
 
 var (
+	// ErrZeroBytes is returned for zero slice
 	ErrZeroBytes = errs.New("byte slice was unexpectedly empty")
 )
 
@@ -65,6 +68,10 @@ func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificat
 			return
 		default:
 			k, err = peertls.NewKey()
+			if err != nil {
+				eC <- err
+				return
+			}
 			switch kE := k.(type) {
 			case *ecdsa.PrivateKey:
 				i, err = idFromKey(&kE.PublicKey)
@@ -106,7 +113,6 @@ func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificat
 		ID:   i,
 	}
 	caC <- ca
-	return
 }
 
 func idFromKey(k crypto.PublicKey) (nodeID, error) {
@@ -120,7 +126,7 @@ func idFromKey(k crypto.PublicKey) (nodeID, error) {
 }
 
 func openCert(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 744); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0744); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
@@ -132,7 +138,7 @@ func openCert(path string, flag int) (*os.File, error) {
 }
 
 func openKey(path string, flag int) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
@@ -143,20 +149,25 @@ func openKey(path string, flag int) (*os.File, error) {
 	return k, nil
 }
 
-func statTLSFiles(certPath, keyPath string) TlsFilesStat {
-	s := 0
+func statTLSFiles(certPath, keyPath string) TLSFilesStatus {
 	_, err := os.Stat(certPath)
-	if err == nil {
-		s += 1
-	}
+	hasCert := os.IsExist(err)
+
 	_, err = os.Stat(keyPath)
-	if err == nil {
-		s += 2
+	hasKey := os.IsExist(err)
+
+	if hasCert && hasKey {
+		return CertKey
+	} else if hasCert {
+		return CertNoKey
+	} else if hasKey {
+		return NoCertKey
 	}
-	return TlsFilesStat(s)
+
+	return NoCertNoKey
 }
 
-func (t TlsFilesStat) String() string {
+func (t TLSFilesStatus) String() string {
 	switch t {
 	case CertKey:
 		return "certificate and key"
@@ -164,7 +175,6 @@ func (t TlsFilesStat) String() string {
 		return "certificate"
 	case NoCertKey:
 		return "key"
-	default:
-		return ""
 	}
+	return ""
 }

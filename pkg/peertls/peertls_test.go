@@ -80,9 +80,9 @@ func TestVerifyPeerFunc(t *testing.T) {
 
 	testFunc := func(chain [][]byte, parsedChains [][]*x509.Certificate) error {
 		switch {
-		case bytes.Compare(chain[1], c.Raw) != 0:
+		case !bytes.Equal(chain[1], c.Raw):
 			return errs.New("CA cert doesn't match")
-		case bytes.Compare(chain[0], l.Raw) != 0:
+		case !bytes.Equal(chain[0], l.Raw):
 			return errs.New("leaf's CA cert doesn't match")
 		case l.PublicKey.(*ecdsa.PublicKey).Curve != parsedChains[0][0].PublicKey.(*ecdsa.PublicKey).Curve:
 			return errs.New("leaf public key doesn't match")
@@ -90,9 +90,9 @@ func TestVerifyPeerFunc(t *testing.T) {
 			return errs.New("leaf public key doesn't match")
 		case l.PublicKey.(*ecdsa.PublicKey).Y.Cmp(parsedChains[0][0].PublicKey.(*ecdsa.PublicKey).Y) != 0:
 			return errs.New("leaf public key doesn't match")
-		case bytes.Compare(parsedChains[0][1].Raw, c.Raw) != 0:
+		case !bytes.Equal(parsedChains[0][1].Raw, c.Raw):
 			return errs.New("parsed CA cert doesn't match")
-		case bytes.Compare(parsedChains[0][0].Raw, l.Raw) != 0:
+		case !bytes.Equal(parsedChains[0][0].Raw, l.Raw):
 			return errs.New("parsed leaf cert doesn't match")
 		}
 		return nil

@@ -126,7 +126,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	_, err = io.Copy(bufw, data)
 	if err == io.ErrUnexpectedEOF {
-		writer.Close()
+		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
 		return client.Delete(ctx, id)
 	}

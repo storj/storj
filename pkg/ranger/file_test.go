@@ -62,6 +62,9 @@ func TestFileRanger(t *testing.T) {
 			t.Fatalf("unexpected err: %v", err)
 		}
 		data, err := ioutil.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if !bytes.Equal(data, []byte(example.substr)) {
 			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}

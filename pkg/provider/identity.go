@@ -27,11 +27,8 @@ import (
 )
 
 const (
+	// IdentityLength is the number of bytes required to represent node id
 	IdentityLength = uint16(256 / 8) // 256 bits
-)
-
-var (
-	ErrDifficulty = errs.Class("difficulty error")
 )
 
 // PeerIdentity represents another peer on the network.
@@ -59,7 +56,7 @@ type FullIdentity struct {
 	Key crypto.PrivateKey
 }
 
-// IdentityConfig allows you to run a set of Responsibilities with the given
+// IdentitySetupConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentitySetupConfig struct {
 	CertPath  string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`

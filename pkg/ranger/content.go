@@ -26,8 +26,7 @@ import (
 
 // ServeContent is the Go standard library's http.ServeContent but modified to
 // work with Rangers.
-func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request,
-	name string, modtime time.Time, content Ranger) {
+func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request, name string, modtime time.Time, content Ranger) {
 	setLastModified(w, modtime)
 	done, rangeReq := checkPreconditions(w, r, modtime)
 	if done {
@@ -221,8 +220,7 @@ func setLastModified(w http.ResponseWriter, modtime time.Time) {
 // checkPreconditions evaluates request preconditions and reports whether a
 // precondition resulted in sending StatusNotModified or
 // StatusPreconditionFailed.
-func checkPreconditions(w http.ResponseWriter, r *http.Request,
-	modtime time.Time) (done bool, rangeHeader string) {
+func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Time) (done bool, rangeHeader string) {
 	// This function carefully follows RFC 7232 section 6.
 	ch := checkIfMatch(w, r)
 	if ch == condNone {
@@ -360,8 +358,7 @@ func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
 	return condTrue
 }
 
-func checkIfRange(w http.ResponseWriter, r *http.Request, modtime time.Time) (
-	rv condResult) {
+func checkIfRange(w http.ResponseWriter, r *http.Request, modtime time.Time) (rv condResult) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return condNone
 	}
@@ -458,8 +455,7 @@ func (r httpRange) contentRange(size int64) string {
 	return fmt.Sprintf("bytes %d-%d/%d", r.start, r.start+r.length-1, size)
 }
 
-func (r httpRange) mimeHeader(contentType string, size int64) (
-	rv textproto.MIMEHeader) {
+func (r httpRange) mimeHeader(contentType string, size int64) (rv textproto.MIMEHeader) {
 	return textproto.MIMEHeader{
 		"Content-Range": {r.contentRange(size)},
 		"Content-Type":  {contentType},
@@ -547,8 +543,7 @@ func (w *countingWriter) Write(p []byte) (n int, err error) {
 
 // rangesMIMESize returns the number of bytes it takes to encode the
 // provided ranges as a multipart response.
-func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (
-	encSize int64) {
+func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (encSize int64) {
 	var w countingWriter
 	mw := multipart.NewWriter(&w)
 	for _, ra := range ranges {
@@ -563,14 +558,14 @@ func rangesMIMESize(ranges []httpRange, contentType string, contentSize int64) (
 	}
 
 	encSize += int64(w)
-	return
+	return encSize
 }
 
 func sumRangesSize(ranges []httpRange) (size int64) {
 	for _, ra := range ranges {
 		size += ra.length
 	}
-	return
+	return size
 }
 
 // errNoOverlap is returned by serveContent's parseRange if first-byte-pos of

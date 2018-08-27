@@ -34,10 +34,10 @@ func createRT(localNodeID []byte) *RoutingTable {
 	}
 	localNode := &proto.Node{Id: string(localNodeID)}
 	options := &RoutingOptions{
-		kpath:      tempfile("Kadbucket"),
-		npath:      tempfile("Nodebucket"),
-		idLength:   16,
-		bucketSize: 6,
+		kpath:        tempfile("Kadbucket"),
+		npath:        tempfile("Nodebucket"),
+		idLength:     16,
+		bucketSize:   6,
 		rcBucketSize: 2,
 	}
 	rt, _ := NewRoutingTable(localNode, options)
@@ -169,7 +169,7 @@ func TestAddNode(t *testing.T) {
 	assert.Equal(t, 6, len(a))
 
 	//should drop
-	node13 := mockNode("8O") 
+	node13 := mockNode("8O")
 	ok, err = rt.addNode(node13)
 	assert.False(t, ok)
 	assert.NoError(t, err)
@@ -347,6 +347,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err := rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err := rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node2 := []byte{143, 255} //xor 240
@@ -355,6 +356,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node3 := []byte{255, 255} //xor 128
@@ -363,6 +365,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node4 := []byte{191, 255} //xor 192
@@ -371,6 +374,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 
 	node5 := []byte{133, 255} //xor 250
@@ -379,6 +383,7 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	furthest, err = rt.determineFurthestIDWithinK(nodes)
+	assert.NoError(t, err)
 	assert.Equal(t, expectedFurthest, furthest)
 }
 

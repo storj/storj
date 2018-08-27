@@ -28,7 +28,7 @@ type pieceRanger struct {
 
 // PieceRanger PieceRanger returns a RangeCloser from a PieceID.
 func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
-	piece, err := c.Meta(ctx, PieceID(id))
+	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
 	}

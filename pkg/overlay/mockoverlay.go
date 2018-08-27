@@ -13,10 +13,12 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
+// MockOverlay is a mocked overlay implementation
 type MockOverlay struct {
 	nodes map[string]*proto.Node
 }
 
+// NewMockOverlay creates a new overlay mock
 func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 	rv := &MockOverlay{nodes: map[string]*proto.Node{}}
 	for _, node := range nodes {
@@ -25,6 +27,7 @@ func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 	return rv
 }
 
+// FindStorageNodes finds storage nodes based on the request
 func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
 	err error) {
@@ -39,15 +42,18 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 	return &proto.FindStorageNodesResponse{Nodes: nodes}, nil
 }
 
+// Lookup finds a single storage node based on the request
 func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 	*proto.LookupResponse, error) {
 	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
+// MockConfig specifies static nodes for mock overlay
 type MockConfig struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
+// Run runs server with mock overlay
 func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
 	var nodes []*proto.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {

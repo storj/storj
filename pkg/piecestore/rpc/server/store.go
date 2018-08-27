@@ -56,7 +56,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	log.Printf("Successfully stored %s.", pd.GetId())
 
-	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: int64(total)})
+	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
 }
 
 func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_StoreServer, id string) (total int64, err error) {
