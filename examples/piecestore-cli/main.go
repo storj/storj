@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/process"
 )
 
@@ -101,7 +101,7 @@ func run(_ *cobra.Command, args []string) error {
 					return err
 				}
 
-				if fileInfo.IsDir() != true {
+				if !fileInfo.IsDir() {
 					return argError.New(fmt.Sprintf("Path (%s) is a file, not a directory", c.Args().Get(1)))
 				}
 

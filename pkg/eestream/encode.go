@@ -330,7 +330,7 @@ type EncodedRanger struct {
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
-// comments for EncodeReader about the minumum and optimum thresholds, and the
+// comments for EncodeReader about the minimum and optimum thresholds, and the
 // max buffer memory.
 func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*EncodedRanger, error) {
 	if rr.Size()%int64(rs.DecodedBlockSize()) != 0 {

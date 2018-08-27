@@ -181,6 +181,7 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 -----END EC PRIVATE KEY-----`
 
 	ic, cleanup, err := tempIdentityConfig()
+	assert.NoError(t, err)
 
 	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key))
 	assert.NoError(t, err)

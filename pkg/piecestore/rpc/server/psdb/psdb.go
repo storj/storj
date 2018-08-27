@@ -52,7 +52,7 @@ func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err err
 
 	defer func() {
 		if err != nil {
-			db.Close()
+			_ = db.Close()
 		}
 	}()
 
@@ -133,11 +133,7 @@ func (psdb *PSDB) DeleteExpired(ctx context.Context) (err error) {
 	}
 
 	_, err = psdb.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // DeleteExpiredLoop will periodically run DeleteExpired
@@ -182,7 +178,7 @@ func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) erro
 		return err
 	}
 
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	_, err = tx.Stmt(stmt).Exec(data, ba.GetSignature())
 	if err != nil {
@@ -209,7 +205,7 @@ func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
 		return err
 	}
 
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	_, err = tx.Stmt(stmt).Exec(id, time.Now().Unix(), expiration)
 	if err != nil {
@@ -248,7 +244,7 @@ func (psdb *PSDB) DeleteTTLByID(id string) error {
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	_, err = tx.Stmt(stmt).Exec(id)
 	if err != nil {

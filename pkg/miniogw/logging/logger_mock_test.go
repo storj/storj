@@ -38,10 +38,7 @@ func (m *MockErrorLogger) EXPECT() *MockErrorLoggerMockRecorder {
 
 // Errorf mocks base method
 func (m *MockErrorLogger) Errorf(arg0 string, arg1 ...interface{}) {
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
+	varargs := append([]interface{}{arg0}, arg1...)
 	m.ctrl.Call(m, "Errorf", varargs...)
 }
 
