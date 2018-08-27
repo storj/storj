@@ -14,28 +14,27 @@ import (
 )
 
 var (
-	targetAddr = flag.String("target", "satellite.staging.storj.io:7777",
-		"address of target")
+	targetAddr = flag.String("target", "satellite.staging.storj.io:7777", "address of target")
 
-	ic provider.IdentityConfig
+	identityConfig provider.IdentityConfig
 )
 
 func init() {
-	cfgstruct.Bind(flag.CommandLine, &ic, cfgstruct.ConfDir("$HOME/.storj/gw"))
+	cfgstruct.Bind(flag.CommandLine, &identityConfig, cfgstruct.ConfDir("$HOME/.storj/gw"))
 }
 
 func main() {
 	ctx := context.Background()
 	flag.Parse()
-	identity, err := ic.Load()
+	identity, err := identityConfig.Load()
 	if err != nil {
 		panic(err)
 	}
-	dialOpt, err := identity.DialOption()
+	dialOption, err := identity.DialOption()
 	if err != nil {
 		panic(err)
 	}
-	conn, err := grpc.Dial(*targetAddr, dialOpt)
+	conn, err := grpc.Dial(*targetAddr, dialOption)
 	if err != nil {
 		panic(err)
 	}
