@@ -54,18 +54,18 @@ func NewStreamReader(s *Server, stream pb.PieceStoreRoutes_StoreServer) *StreamR
 			if err = s.verifySignature(stream.Context(), ba); err != nil {
 				return nil, err
 			}
-		}
 
-		deserializedData := &pb.RenterBandwidthAllocation_Data{}
-		err = proto.Unmarshal(ba.GetData(), deserializedData)
-		if err != nil {
-			return nil, err
-		}
+			deserializedData := &pb.RenterBandwidthAllocation_Data{}
+			err = proto.Unmarshal(ba.GetData(), deserializedData)
+			if err != nil {
+				return nil, err
+			}
 
-		// Update bandwidthallocation to be stored
-		if deserializedData.GetTotal() > sr.currentTotal {
-			sr.bandwidthAllocation = ba
-			sr.currentTotal = deserializedData.GetTotal()
+			// Update bandwidthallocation to be stored
+			if deserializedData.GetTotal() > sr.currentTotal {
+				sr.bandwidthAllocation = ba
+				sr.currentTotal = deserializedData.GetTotal()
+			}
 		}
 
 		return pd.GetContent(), nil
