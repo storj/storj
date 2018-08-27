@@ -4,7 +4,6 @@
 package kademlia
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -61,11 +60,11 @@ func TestGetBucket(t *testing.T) {
 		b, e := rt.GetBucket(node2.Id)
 		for j, w := range v.expected.nodes {
 			if !assert.True(t, pb.Equal(w, b.Nodes()[j])) {
-				fmt.Printf("case %v failed expected: ", i)
+				t.Logf("case %v failed expected: ", i)
 			}
 		}
 		if !assert.Equal(t, v.ok, e) {
-			fmt.Printf("case %v failed ok: ", i)
+			t.Logf("case %v failed ok: ", i)
 		}
 	}
 }

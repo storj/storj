@@ -51,7 +51,7 @@ func TestOpenPSDB(t *testing.T) {
 				assert.Equal(tt.err, err.Error())
 				return
 			}
-			assert.Nil(err)
+			assert.NoError(err)
 			assert.NotNil(DB)
 			assert.NotNil(DB.DB)
 		})
@@ -98,18 +98,18 @@ func TestAddTTLToDB(t *testing.T) {
 					assert.Equal(tt.err, err.Error())
 					return
 				}
-				assert.Nil(err)
+				assert.NoError(err)
 
 				db.mtx.Lock()
 				rows, err := db.DB.Query(fmt.Sprintf(`SELECT * FROM ttl WHERE id="%s"`, tt.id))
-				assert.Nil(err)
+				assert.NoError(err)
 
 				rows.Next()
 				var expiration int64
 				var id string
 				var time int64
 				err = rows.Scan(&id, &time, &expiration)
-				assert.Nil(err)
+				assert.NoError(err)
 				rows.Close()
 
 				db.mtx.Unlock()
@@ -155,7 +155,7 @@ func TestDeleteTTLByID(t *testing.T) {
 			t.Run(tt.it, func(t *testing.T) {
 				assert := assert.New(t)
 				err := db.AddTTLToDB(tt.id, 0)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				err = db.DeleteTTLByID(tt.id)
 				if tt.err != "" {
@@ -163,7 +163,7 @@ func TestDeleteTTLByID(t *testing.T) {
 					assert.Equal(tt.err, err.Error())
 					return
 				}
-				assert.Nil(err)
+				assert.NoError(err)
 
 			})
 		}
@@ -205,7 +205,7 @@ func TestGetTTLByID(t *testing.T) {
 			t.Run(tt.it, func(t *testing.T) {
 				assert := assert.New(t)
 				err := db.AddTTLToDB(tt.id, tt.expiration)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				expiration, err := db.GetTTLByID(tt.id)
 				if tt.err != "" {
@@ -213,7 +213,7 @@ func TestGetTTLByID(t *testing.T) {
 					assert.Equal(tt.err, err.Error())
 					return
 				}
-				assert.Nil(err)
+				assert.NoError(err)
 				assert.Equal(tt.expiration, expiration)
 			})
 		}
@@ -231,7 +231,6 @@ func TestGetTTLByID(t *testing.T) {
 func TestWriteBandwidthAllocToDB(t *testing.T) {
 	tests := []struct {
 		it              string
-		id              string
 		payerAllocation *pb.PayerBandwidthAllocation
 		total           int64
 		err             string
@@ -275,11 +274,11 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					assert.Equal(tt.err, err.Error())
 					return
 				}
-				assert.Nil(err)
+				assert.NoError(err)
 				// check db to make sure agreement and signature were stored correctly
 				db.mtx.Lock()
 				rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
-				assert.Nil(err)
+				assert.NoError(err)
 
 				for rows.Next() {
 					var (
@@ -288,11 +287,11 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 					)
 
 					err = rows.Scan(&agreement, &signature)
-					assert.Nil(err)
+					assert.NoError(err)
 
 					decodedRow := &pb.RenterBandwidthAllocation_Data{}
 					err = proto.Unmarshal(agreement, decodedRow)
-					assert.Nil(err)
+					assert.NoError(err)
 
 					assert.Equal(ba.GetSignature(), signature)
 					assert.Equal(tt.payerAllocation, decodedRow.GetPayerAllocation())
@@ -302,7 +301,7 @@ func TestWriteBandwidthAllocToDB(t *testing.T) {
 				rows.Close()
 				db.mtx.Unlock()
 				err = rows.Err()
-				assert.Nil(err)
+				assert.NoError(err)
 			})
 		}
 	}
@@ -312,8 +311,4 @@ func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
 	data, _ := proto.Marshal(ba)
 
 	return data
-}
-
-func TestMain(m *testing.M) {
-	m.Run()
 }

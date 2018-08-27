@@ -113,8 +113,10 @@ func TestRSRanger(t *testing.T) {
 	for i, piece := range pieces {
 		rrs[i] = ranger.ByteRangeCloser(piece)
 	}
-	decrypter, err := NewAESGCMDecrypter(
-		&encKey, &firstNonce, rs.DecodedBlockSize())
+	decrypter, err := NewAESGCMDecrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
+	if err != nil {
+		t.Fatal(err)
+	}
 	rc, err := Decode(rrs, rs, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -460,7 +462,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	defer decoder.Close()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
-		if err == nil && bytes.Compare(data, data2) == 0 {
+		if err == nil && bytes.Equal(data, data2) {
 			assert.Fail(t, "expected to fail, but didn't", errTag)
 		}
 	} else if assert.NoError(t, err, errTag) {

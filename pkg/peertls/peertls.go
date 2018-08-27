@@ -28,9 +28,9 @@ const (
 var (
 	// ErrNotExist is used when a file or directory doesn't exist
 	ErrNotExist = errs.Class("file or directory not found error")
-	// ErrGenerate is used when an error occured during cert/key generation
+	// ErrGenerate is used when an error occurred during cert/key generation
 	ErrGenerate = errs.Class("tls generation error")
-	// ErrTLSOptions is used inconsistently and should probably just be removed
+	// ErrUnsupportedKey is used when key type is not supported
 	ErrUnsupportedKey = errs.Class("unsupported key type")
 	// ErrTLSTemplate is used when an error occurs during tls template generation
 	ErrTLSTemplate = errs.Class("tls template error")
@@ -44,6 +44,7 @@ var (
 // `VerifyPeerCertificate` function.
 type PeerCertVerificationFunc func([][]byte, [][]*x509.Certificate) error
 
+// NewKey returns a new PrivateKey
 func NewKey() (crypto.PrivateKey, error) {
 	k, err := ecdsa.GenerateKey(authECCurve, rand.Reader)
 	if err != nil {
@@ -103,6 +104,7 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	}
 }
 
+// VerifyPeerCertChains verifies chains
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
 }
@@ -119,6 +121,7 @@ func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
+// TLSCert creates a tls.Certificate from chains, key and leaf
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {
@@ -149,7 +152,7 @@ func WriteChain(w io.Writer, chain ...*x509.Certificate) error {
 	return nil
 }
 
-// WriteChain writes the private key to the writer, PEM-encoded.
+// WriteKey writes the private key to the writer, PEM-encoded.
 func WriteKey(w io.Writer, key crypto.PrivateKey) error {
 	var (
 		kb  []byte
