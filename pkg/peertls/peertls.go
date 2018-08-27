@@ -121,6 +121,7 @@ func NewCertBlock(b []byte) *pem.Block {
 	return &pem.Block{Type: BlockTypeCertificate, Bytes: b}
 }
 
+// TLSCert creates a tls.Certificate from chains, key and leaf
 func TLSCert(chain [][]byte, leaf *x509.Certificate, key crypto.PrivateKey) (*tls.Certificate, error) {
 	var err error
 	if leaf == nil {

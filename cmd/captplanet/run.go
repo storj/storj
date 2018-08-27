@@ -23,6 +23,7 @@ const (
 	storagenodeCount = 50
 )
 
+// HeavyClient is for configuring client
 type HeavyClient struct {
 	Identity    provider.IdentityConfig
 	Kademlia    kademlia.Config
@@ -31,6 +32,7 @@ type HeavyClient struct {
 	MockOverlay bool `default:"true" help:"if false, use real overlay"`
 }
 
+// StorageNode is for configuring storage nodes
 type StorageNode struct {
 	Identity provider.IdentityConfig
 	Kademlia kademlia.Config

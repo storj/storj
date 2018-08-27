@@ -19,9 +19,11 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
+// TlsFilesStat is the status of keys
 type TlsFilesStat int
 
 const (
+	// All possible statuses that TlsFilesStat can be
 	NoCertNoKey = TlsFilesStat(iota)
 	CertNoKey
 	NoCertKey

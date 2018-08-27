@@ -35,6 +35,7 @@ type FullCertificateAuthority struct {
 	Key crypto.PrivateKey
 }
 
+// CASetupConfig is for creating a CA
 type CASetupConfig struct {
 	CertPath    string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath     string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
@@ -44,6 +45,7 @@ type CASetupConfig struct {
 	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
+// CAConfig is for locating the CA keys
 type CAConfig struct {
 	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
