@@ -7,9 +7,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/zeebo/errs"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon          = monkit.Package()
 	segmentError = errs.Class("segment error")
 )
 
@@ -31,7 +31,6 @@ var (
 // request.
 // TODO(kaloyan): make it configurable
 const ListPageLimit = 1000
-
 
 // Server implements the network state RPC service
 type Server struct {
@@ -83,7 +82,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
-	
+
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
 	}
