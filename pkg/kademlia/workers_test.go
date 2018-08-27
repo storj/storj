@@ -172,7 +172,19 @@ func TestUpdate(t *testing.T) {
 }
 
 func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
-	grpcServer := grpc.NewServer()
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		return nil, nil
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil
+	}
+	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodeServer{queryCalled: 0}
 
 	proto.RegisterNodesServer(grpcServer, mn)

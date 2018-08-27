@@ -154,7 +154,9 @@ func (w *worker) update(nodes []*proto.Node) error {
 		})
 	}
 	// only keep the k closest nodes
-	w.pq = w.pq[:w.k]
+	if len(w.pq) > w.k {
+		w.pq = w.pq[:w.k]
+	}
 	// reinitialize heap
 	heap.Init(&w.pq)
 	w.workInProgress--

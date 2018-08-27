@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -49,7 +48,6 @@ func TestNewKademlia(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	t.Skip()
 	lis, err := net.Listen("tcp", ":0")
 	assert.NoError(t, err)
 
@@ -58,11 +56,12 @@ func TestLookup(t *testing.T) {
 	defer srv.Stop()
 
 	k := func() *Kademlia {
+		// make new identity
 		id, err := node.NewID()
 		assert.NoError(t, err)
 		id2, err := node.NewID()
 		assert.NoError(t, err)
-		fmt.Printf("ADDRESS==%v\n", lis.Addr().String())
+		// initialize kademlia
 		k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String())
 		assert.NoError(t, err)
 		return k
@@ -87,17 +86,17 @@ func TestLookup(t *testing.T) {
 			expected:    &proto.Node{},
 			expectedErr: nil,
 		},
-		// {
-		// 	k: k,
-		// 	target: func() *node.ID {
-		// 		id, err := node.NewID()
-		// 		assert.NoError(t, err)
-		// 		return id
-		// 	}(),
-		// 	opts:        lookupOpts{amount: 5},
-		// 	expected:    nil,
-		// 	expectedErr: NodeNotFound,
-		// },
+		{
+			k: k,
+			target: func() *node.ID {
+				id, err := node.NewID()
+				assert.NoError(t, err)
+				return id
+			}(),
+			opts:        lookupOpts{amount: 5},
+			expected:    nil,
+			expectedErr: NodeNotFound,
+		},
 	}
 
 	for _, v := range cases {
