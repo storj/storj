@@ -133,56 +133,94 @@ deploy:
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
+	mkdir -p release/${TAG}
 	CUSTOMTAG=$(CUSTOMTAG) $(MAKE) $(COMPONENT)-image
 	cid=$$(docker create storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}) \
-	&& docker cp $$cid:/app/$(COMPONENT) $(COMPONENT)_${GOOS}_${GOARCH} \
+	&& docker cp $$cid:/app/$(COMPONENT) release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH} \
     && docker rm $$cid
 	docker rmi storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}
+	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
+	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}
+	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}
 
+# To update this section, modify and run the following:
+# for c in satellite storagenode uplink; do \
+# for oa in "darwin amd64" "freebsd 386" "freebsd amd64" "linux 386" \
+# "linux amd64" "windows 386" "windows amd64"; do \
+# echo "$c $oa"; done; done | while read -r c o a; do; \
+# printf ".PHONY: ${c}_${o}_${a}\n${c}_${o}_${a}:\n\tGOOS=${o} GOARCH=${a} COMPONENT=${c} \$(MAKE) binary\n"; \
+# done
 .PHONY: satellite_darwin_amd64
 satellite_darwin_amd64:
 	GOOS=darwin GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_freebsd_386
+satellite_freebsd_386:
+	GOOS=freebsd GOARCH=386 COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_freebsd_amd64
+satellite_freebsd_amd64:
+	GOOS=freebsd GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_linux_386
+satellite_linux_386:
+	GOOS=linux GOARCH=386 COMPONENT=satellite $(MAKE) binary
 .PHONY: satellite_linux_amd64
 satellite_linux_amd64:
 	GOOS=linux GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
-.PHONY: satellite_linux_arm
-satellite_linux_arm:
-	GOOS=linux GOARCH=arm COMPONENT=satellite $(MAKE) binary
+.PHONY: satellite_windows_386
+satellite_windows_386:
+	GOOS=windows GOARCH=386 COMPONENT=satellite $(MAKE) binary
 .PHONY: satellite_windows_amd64
 satellite_windows_amd64:
 	GOOS=windows GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
-
 .PHONY: storagenode_darwin_amd64
 storagenode_darwin_amd64:
 	GOOS=darwin GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_freebsd_386
+storagenode_freebsd_386:
+	GOOS=freebsd GOARCH=386 COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_freebsd_amd64
+storagenode_freebsd_amd64:
+	GOOS=freebsd GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_linux_386
+storagenode_linux_386:
+	GOOS=linux GOARCH=386 COMPONENT=storagenode $(MAKE) binary
 .PHONY: storagenode_linux_amd64
 storagenode_linux_amd64:
 	GOOS=linux GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
-.PHONY: storagenode_linux_arm
-storagenode_linux_arm:
-	GOOS=linux GOARCH=arm COMPONENT=storagenode $(MAKE) binary
+.PHONY: storagenode_windows_386
+storagenode_windows_386:
+	GOOS=windows GOARCH=386 COMPONENT=storagenode $(MAKE) binary
 .PHONY: storagenode_windows_amd64
 storagenode_windows_amd64:
 	GOOS=windows GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
-
 .PHONY: uplink_darwin_amd64
 uplink_darwin_amd64:
 	GOOS=darwin GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_freebsd_386
+uplink_freebsd_386:
+	GOOS=freebsd GOARCH=386 COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_freebsd_amd64
+uplink_freebsd_amd64:
+	GOOS=freebsd GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_linux_386
+uplink_linux_386:
+	GOOS=linux GOARCH=386 COMPONENT=uplink $(MAKE) binary
 .PHONY: uplink_linux_amd64
 uplink_linux_amd64:
 	GOOS=linux GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
-.PHONY: uplink_linux_arm
-uplink_linux_arm:
-	GOOS=linux GOARCH=arm COMPONENT=uplink $(MAKE) binary
+.PHONY: uplink_windows_386
+uplink_windows_386:
+	GOOS=windows GOARCH=386 COMPONENT=uplink $(MAKE) binary
 .PHONY: uplink_windows_amd64
 uplink_windows_amd64:
 	GOOS=windows GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
 
+# To update this section, modify and run the following:
+# grep -Eo '^[a-z]*_[a-z]*_[a-z0-9]*' Makefile | tr '\n' ' '
 .PHONY: binaries
-binaries: satellite_darwin_amd64 satellite_linux_amd64 satellite_linux_arm satellite_windows_amd64 storagenode_darwin_amd64 storagenode_linux_amd64 storagenode_linux_arm storagenode_windows_amd64 uplink_darwin_amd64 uplink_linux_amd64 uplink_linux_arm uplink_windows_amd64
+binaries: satellite_darwin_amd64 satellite_freebsd_386 satellite_freebsd_amd64 satellite_linux_386 satellite_linux_amd64 satellite_windows_386 satellite_windows_amd64 storagenode_darwin_amd64 storagenode_freebsd_386 storagenode_freebsd_amd64 storagenode_linux_386 storagenode_linux_amd64 storagenode_windows_386 storagenode_windows_amd64 uplink_darwin_amd64 uplink_freebsd_386 uplink_freebsd_amd64 uplink_linux_386 uplink_linux_amd64 uplink_windows_386 uplink_windows_amd64
 
 .PHONY: binaries-clean
 binaries-clean:
-	rm -f satellite_*_* uplink_*_* storagenode_*_*
+	rm -rf release
 
 clean: test-docker-clean binaries-clean clean-images
