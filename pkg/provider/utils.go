@@ -19,12 +19,12 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// TlsFilesStat is the status of keys
-type TlsFilesStat int
+// TLSFilesStatus is the status of keys
+type TLSFilesStatus int
 
 const (
-	// All possible statuses that TlsFilesStat can be
-	NoCertNoKey = TlsFilesStat(iota)
+	// All possible statuses that TLSFilesStatus can be
+	NoCertNoKey = TLSFilesStatus(iota)
 	CertNoKey
 	NoCertKey
 	CertKey
@@ -150,7 +150,7 @@ func openKey(path string, flag int) (*os.File, error) {
 	return k, nil
 }
 
-func statTLSFiles(certPath, keyPath string) TlsFilesStat {
+func statTLSFiles(certPath, keyPath string) TLSFilesStatus {
 	_, err := os.Stat(certPath)
 	hasCert := os.IsExist(err)
 
@@ -168,7 +168,7 @@ func statTLSFiles(certPath, keyPath string) TlsFilesStat {
 	return NoCertNoKey
 }
 
-func (t TlsFilesStat) String() string {
+func (t TLSFilesStatus) String() string {
 	switch t {
 	case CertKey:
 		return "certificate and key"

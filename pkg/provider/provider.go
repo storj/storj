@@ -62,7 +62,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener,
 
 // SetupIdentity ensures a CA and identity exist and returns a config overrides map
 func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) error {
-	if s := c.Stat(); s != NoCertNoKey && !c.Overwrite {
+	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
 		return ErrSetup.New("certificate authority file(s) exist: %s", s)
 	}
 
@@ -79,7 +79,7 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 		return err
 	}
 
-	if s := c.Stat(); s != NoCertNoKey && !c.Overwrite {
+	if s := c.Status(); s != NoCertNoKey && !c.Overwrite {
 		return ErrSetup.New("identity file(s) exist: %s", s)
 	}
 

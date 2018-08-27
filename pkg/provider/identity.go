@@ -136,8 +136,8 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
-// Stat returns the status of the identity cert/key files for the config
-func (is IdentitySetupConfig) Stat() TlsFilesStat {
+// Status returns the status of the identity cert/key files for the config
+func (is IdentitySetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(is.CertPath, is.KeyPath)
 }
 

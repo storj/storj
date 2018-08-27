@@ -51,8 +51,8 @@ type CAConfig struct {
 	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
 }
 
-// Stat returns the status of the CA cert/key files for the config
-func (caS CASetupConfig) Stat() TlsFilesStat {
+// Status returns the status of the CA cert/key files for the config
+func (caS CASetupConfig) Status() TLSFilesStatus {
 	return statTLSFiles(caS.CertPath, caS.KeyPath)
 }
 
