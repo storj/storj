@@ -76,7 +76,7 @@ require (
 	github.com/minio/highwayhash v0.0.0-20180501080913-85fc8a2dacad // indirect
 	github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 // indirect
 	github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c // indirect
-	github.com/minio/minio v0.0.0-20180802050851-eb391a53c145
+	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/minio/minio-go v6.0.3-0.20180613230128-10531abd0af1+incompatible // indirect
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect

@@ -167,6 +167,8 @@ github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 h1:utJHim4C0K4CmD+Qgod
 github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63/go.mod h1:ni10+iSX7FO8N2rv41XM444V6w4rYO0dZo5KIkbn/YA=
 github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c h1:60Q7v+91vpWLgLsVoe1O5W1ojPwod3RPQ1aah4jECNA=
 github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c/go.mod h1:pPcAoOwWUSIBqoLtp+0LEACUBUPhodkXwisyYrNgQ5o=
+github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38 h1:F7p0ZU9AQuxlA6SWwhXr0H/rYrA9fOiBk2OzOj7GtfM=
+github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38/go.mod h1:lXcp05uxYaW99ebgI6ZKIGYU7tqZkM5xSsG0xRt4VIU=
 github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3 h1:VXFNvYex+F9fSCAc3AERaRY1Zr+ZjBQSSCXzTWZ0mhQ=
 github.com/minio/minio v0.0.0-20180601024350-c22b9d5d4db3/go.mod h1:lXcp05uxYaW99ebgI6ZKIGYU7tqZkM5xSsG0xRt4VIU=
 github.com/minio/minio v0.0.0-20180802050851-eb391a53c145 h1:E/CHuVTlagwcgWLTrL3nQnJjTIS0hL7dEpk9Nf2Rw5U=
