@@ -92,6 +92,9 @@ func TestCopyObject(t *testing.T) {
 
 		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
 		r, err := rr.Range(ctx, 0, rr.Size())
+		if err != {
+			t.Fatal(err)
+		}
 
 		// if o.Get returns an error, only expect GetObjectStore once, do not expect Put
 		if example.errString != "some Get err" {
