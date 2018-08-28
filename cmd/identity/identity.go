@@ -6,13 +6,13 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/provider"
 )
 
 var (
 	idCmd = &cobra.Command{
-		Use: "id",
+		Use:   "id",
 		Short: "Manage identities",
 	}
 
