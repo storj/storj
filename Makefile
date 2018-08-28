@@ -1,7 +1,7 @@
 .PHONY: test lint proto check-copyrights build-dev-deps release release-osx release-windows release-linux
 
 
-GO_VERSION ?= 1.11rc2
+GO_VERSION ?= 1.11
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
