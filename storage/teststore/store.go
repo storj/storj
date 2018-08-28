@@ -13,7 +13,7 @@ var (
 
 // Client implements in-memory key value store
 type Client struct {
-	items []keyvalue
+	Items []KeyValue
 
 	CallCount struct {
 		Get         int
@@ -30,20 +30,20 @@ type Client struct {
 
 func New() *Client { return &Client{} }
 
-type keyvalue struct {
-	key   storage.Key
-	value storage.Value
+type KeyValue struct {
+	Key   storage.Key
+	Value storage.Value
 }
 
 func (store *Client) indexOf(key storage.Key) (int, bool) {
-	i := sort.Search(len(store.items), func(k int) bool {
-		return !store.items[k].key.Less(key)
+	i := sort.Search(len(store.Items), func(k int) bool {
+		return !store.Items[k].Key.Less(key)
 	})
 
-	if i >= len(store.items) {
+	if i >= len(store.Items) {
 		return i, false
 	}
-	return i, store.items[i].key.Equal(key)
+	return i, store.Items[i].Key.Equal(key)
 }
 
 // Put adds a value to store
@@ -52,16 +52,16 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 
 	keyIndex, found := store.indexOf(key)
 	if found {
-		kv := &store.items[keyIndex]
-		kv.value = cloneValue(value)
+		kv := &store.Items[keyIndex]
+		kv.Value = cloneValue(value)
 		return nil
 	}
 
-	store.items = append(store.items, keyvalue{})
-	copy(store.items[keyIndex+1:], store.items[keyIndex:])
-	store.items[keyIndex] = keyvalue{
-		key:   cloneKey(key),
-		value: cloneValue(value),
+	store.Items = append(store.Items, KeyValue{})
+	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
+	store.Items[keyIndex] = KeyValue{
+		Key:   cloneKey(key),
+		Value: cloneValue(value),
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 		return nil, ErrNotExist
 	}
 
-	return cloneValue(store.items[keyIndex].value), nil
+	return cloneValue(store.Items[keyIndex].Value), nil
 }
 
 // GetAll gets all values from the store
@@ -89,7 +89,7 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 		if !found {
 			return nil, ErrNotExist
 		}
-		values = append(values, cloneValue(store.items[keyIndex].value))
+		values = append(values, cloneValue(store.Items[keyIndex].Value))
 	}
 	return values, nil
 }
@@ -102,8 +102,8 @@ func (store *Client) Delete(key storage.Key) error {
 		return ErrNotExist
 	}
 
-	copy(store.items[keyIndex:], store.items[keyIndex+1:])
-	store.items = store.items[:len(store.items)-1]
+	copy(store.Items[keyIndex:], store.Items[keyIndex+1:])
+	store.Items = store.Items[:len(store.Items)-1]
 	return nil
 }
 
@@ -113,13 +113,13 @@ func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys,
 
 	firstIndex, _ := store.indexOf(first)
 	lastIndex := firstIndex + int(limit)
-	if lastIndex > len(store.items) {
-		lastIndex = len(store.items)
+	if lastIndex > len(store.Items) {
+		lastIndex = len(store.Items)
 	}
 
 	keys := make(storage.Keys, lastIndex-firstIndex)
-	for i, item := range store.items[firstIndex:lastIndex] {
-		keys[i] = cloneKey(item.key)
+	for i, item := range store.Items[firstIndex:lastIndex] {
+		keys[i] = cloneKey(item.Key)
 	}
 
 	return keys, nil
@@ -149,8 +149,8 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 	keys := make(storage.Keys, lastIndex-firstIndex)
 	k := 0
 	for i := lastIndex; i >= firstIndex; i-- {
-		item := store.items[i]
-		keys[k] = cloneKey(item.key)
+		item := store.Items[i]
+		keys[k] = cloneKey(item.Key)
 		k++
 	}
 
