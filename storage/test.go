@@ -54,6 +54,8 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 		}
 	}
 
+	rand.Shuffle(len(items), items.Swap)
+
 	// Get
 	for _, item := range items {
 		value, err := store.Get(item.Key)
@@ -62,6 +64,22 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 		}
 		if !bytes.Equal([]byte(value), []byte(item.Value)) {
 			t.Fatalf("invalid value for %q = %v: got %v", item.Key, item.Value, value)
+		}
+	}
+
+	// GetAll
+	subset := items[:len(items)/2]
+	keys := subset.GetKeys()
+	values, err := store.GetAll(keys)
+	if err != nil {
+		t.Fatalf("failed to GetAll %q: %v", keys, err)
+	}
+	if len(values) != len(keys) {
+		t.Fatalf("failed to GetAll %q: got %q", keys, values)
+	}
+	for i, item := range subset {
+		if !bytes.Equal([]byte(values[i]), []byte(item.Value)) {
+			t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[i])
 		}
 	}
 
