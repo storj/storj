@@ -20,7 +20,7 @@ func TestCommon(t *testing.T) {
 	defer os.RemoveAll(tempdir)
 
 	dbname := filepath.Join(tempdir, "bolt.db")
-	store, err := NewClient(dbname, "bucket")
+	store, err := New(dbname, "bucket")
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}

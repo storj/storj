@@ -22,14 +22,7 @@ type Client struct {
 const (
 	// fileMode sets permissions so owner can read and write
 	fileMode = 0600
-	// PointerBucket is the string representing the bucket used for `PointerEntries`
-	PointerBucket = "pointers"
-	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
-	OverlayBucket = "overlay"
-	// KBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
-	KBucket = "kbuckets"
-	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
-	NodeBucket   = "nodes"
+
 	maxKeyLookup = 100
 )
 
@@ -37,8 +30,8 @@ var (
 	defaultTimeout = 1 * time.Second
 )
 
-// NewClient instantiates a new BoltDB client given db file path, and a bucket name
-func NewClient(path, bucket string) (*Client, error) {
+// New instantiates a new BoltDB client given db file path, and a bucket name
+func New(path, bucket string) (*Client, error) {
 	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
 		return nil, err
