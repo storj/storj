@@ -13,6 +13,11 @@ TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
 endif
 CUSTOMTAG ?=
 
+FILEEXT :=
+ifeq (${GOOS},windows)
+FILEEXT := .exe
+endif
+
 DOCKER_BUILD := docker build \
 	--build-arg GO_VERSION=${GO_VERSION} \
 	--build-arg GOOS=${GOOS} \
@@ -164,12 +169,12 @@ binary:
 	mkdir -p release/${TAG}
 	CUSTOMTAG=$(CUSTOMTAG) $(MAKE) $(COMPONENT)-image
 	cid=$$(docker create storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}) \
-	&& docker cp $$cid:/app/$(COMPONENT) release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH} \
+	&& docker cp $$cid:/app/$(COMPONENT) release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
     && docker rm $$cid
 	docker rmi storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
-	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}
-	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}
+	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
+	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 
 # To update this section, modify and run the following:
 # for c in satellite storagenode uplink; do \
