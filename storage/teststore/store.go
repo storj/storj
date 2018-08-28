@@ -161,13 +161,6 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 }
 
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
-	if prefix != nil && prefix[len(prefix)-1] != delimiter {
-		p := make(storage.Key, len(prefix)+1)
-		copy(p, prefix)
-		p = append(p, delimiter)
-		prefix = p
-	}
-
 	if after.Less(prefix) {
 		after = prefix
 	}
@@ -243,6 +236,12 @@ func (it *iterator) Next() bool {
 			it.head = it.head[:i+1]
 			break
 		}
+	}
+
+	if !it.isPrefix {
+		it.value = next.Value
+	} else {
+		it.value = nil
 	}
 
 	return true

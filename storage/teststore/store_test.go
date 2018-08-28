@@ -7,5 +7,5 @@ import (
 )
 
 func TestCommon(t *testing.T) {
-	storage.RunTests(t, storage.NewTestLogger(t, New()))
+	storage.RunTests(t, New())
 }

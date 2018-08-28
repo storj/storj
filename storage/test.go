@@ -181,17 +181,17 @@ func testList(t *testing.T, store KeyValueStore) {
 
 func testIterator(t *testing.T, store IterableStore) {
 	items := Items{
-		newItem("a", "1"),
-		newItem("b/", "2"),
-		newItem("b/1", "3"),
-		newItem("b/2", "4"),
-		newItem("b/3", "5"),
-		newItem("c", "6"),
-		newItem("c/", "7"),
-		newItem("c//", "8"),
-		newItem("c/1", "9"),
-		newItem("e", "10"),
-		newItem("f", "11"),
+		newItem("a", "a"),
+		newItem("b/", "b/"),
+		newItem("b/1", "b/1"),
+		newItem("b/2", "b/2"),
+		newItem("b/3", "b/3"),
+		newItem("c", "c"),
+		newItem("c/", "c/"),
+		newItem("c//", "c//"),
+		newItem("c/1", "c/1"),
+		newItem("e", "e"),
+		newItem("f", "f"),
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(t, store, items)
@@ -211,26 +211,30 @@ func testIterator(t *testing.T, store IterableStore) {
 	}
 
 	checkIterator(t, "no limits", store.Iterate(nil, nil, '/'), []ListItem{
-		mkitem("a", "1", false),
-		mkitem("b/", "2", true),
-		mkitem("c", "", false),
+		mkitem("a", "a", false),
+		mkitem("b/", "", true),
+		mkitem("c", "c", false),
 		mkitem("c/", "", true),
-		mkitem("e", "10", false),
-		mkitem("f", "11", false),
+		mkitem("e", "e", false),
+		mkitem("f", "f", false),
 	})
 
-	checkIterator(t, "start at c", store.Iterate(nil, Key("c"), '/'), []ListItem{
-		mkitem("c", "", false),
+	checkIterator(t, "start after c", store.Iterate(nil, Key("c"), '/'), []ListItem{
 		mkitem("c/", "", true),
-		mkitem("e", "10", false),
-		mkitem("f", "11", false),
+		mkitem("e", "e", false),
+		mkitem("f", "f", false),
 	})
 
-	checkIterator(t, "start at c", store.Iterate(Key("c"), nil, '/'), []ListItem{
-		mkitem("c", "", false),
-		mkitem("c/", "", true),
-		mkitem("e", "10", false),
-		mkitem("f", "11", false),
+	checkIterator(t, "prefix c", store.Iterate(Key("c"), nil, '/'), []ListItem{
+		mkitem("c/", "c/", false),
+		mkitem("c//", "", true),
+		mkitem("c/1", "c/1", false),
+	})
+
+	checkIterator(t, "prefix c", store.Iterate(Key("c/"), nil, '/'), []ListItem{
+		mkitem("c/", "c/", false),
+		mkitem("c//", "", true),
+		mkitem("c/1", "c/1", false),
 	})
 }
 
@@ -275,6 +279,7 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
 			if !key.Equal(item.Key) || !bytes.Equal(value, item.Value) || isPrefix != item.IsPrefix {
 				t.Fatalf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
+					i,
 					key, value, isPrefix,
 					item.Key, item.Value, item.IsPrefix)
 			}
