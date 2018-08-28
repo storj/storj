@@ -22,13 +22,6 @@ func RunTests(t *testing.T, store KeyValueStore) {
 	}
 }
 
-func newItem(key, value string) ListItem {
-	return ListItem{
-		Key:   Key(key),
-		Value: Value(value),
-	}
-}
-
 func testCRUD(t *testing.T, store KeyValueStore) {
 	items := Items{
 		// newItem("0", ""), //TODO: broken
@@ -175,6 +168,13 @@ func testList(t *testing.T, store KeyValueStore) {
 		}
 		testKeysSorted(t, keys)
 	})
+}
+
+func newItem(key, value string) ListItem {
+	return ListItem{
+		Key:   Key(key),
+		Value: Value(value),
+	}
 }
 
 func testKeysSorted(t *testing.T, keys Keys) {

@@ -21,8 +21,7 @@ type Client struct {
 
 const (
 	// fileMode sets permissions so owner can read and write
-	fileMode = 0600
-
+	fileMode     = 0600
 	maxKeyLookup = 100
 )
 

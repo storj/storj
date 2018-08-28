@@ -3,7 +3,6 @@ package teststore
 import (
 	"errors"
 	"sort"
-	"sync"
 
 	"storj.io/storj/storage"
 )
@@ -14,8 +13,19 @@ var (
 
 // Client implements in-memory key value store
 type Client struct {
-	mu    sync.Mutex
 	items []keyvalue
+
+	CallCount struct {
+		Get         int
+		Put         int
+		List        int
+		ListV2      int
+		GetAll      int
+		ReverseList int
+		Delete      int
+		Close       int
+		Ping        int
+	}
 }
 
 func New() *Client { return &Client{} }
@@ -23,11 +33,6 @@ func New() *Client { return &Client{} }
 type keyvalue struct {
 	key   storage.Key
 	value storage.Value
-}
-
-func (store *Client) locked() func() {
-	store.mu.Lock()
-	return store.mu.Unlock
 }
 
 func (store *Client) indexOf(key storage.Key) (int, bool) {
@@ -43,7 +48,7 @@ func (store *Client) indexOf(key storage.Key) (int, bool) {
 
 // Put adds a value to store
 func (store *Client) Put(key storage.Key, value storage.Value) error {
-	defer store.locked()()
+	store.CallCount.Put++
 
 	keyIndex, found := store.indexOf(key)
 	if found {
@@ -64,7 +69,7 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 
 // Get gets a value to store
 func (store *Client) Get(key storage.Key) (storage.Value, error) {
-	defer store.locked()()
+	store.CallCount.Get++
 
 	keyIndex, found := store.indexOf(key)
 	if !found {
@@ -76,7 +81,7 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 
 // GetAll gets all values from the store
 func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	defer store.locked()()
+	store.CallCount.GetAll++
 
 	values := storage.Values{}
 	for _, key := range keys {
@@ -91,7 +96,7 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 // Delete deletes key and the value
 func (store *Client) Delete(key storage.Key) error {
-	defer store.locked()()
+	store.CallCount.Delete++
 	keyIndex, found := store.indexOf(key)
 	if !found {
 		return ErrNotExist
@@ -104,7 +109,7 @@ func (store *Client) Delete(key storage.Key) error {
 
 // List lists all keys starting from start and upto limit items
 func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	defer store.locked()()
+	store.CallCount.List++
 
 	firstIndex, _ := store.indexOf(first)
 	lastIndex := firstIndex + int(limit)
@@ -122,11 +127,15 @@ func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys,
 
 // ListV2 lists all keys corresponding to ListOptions
 func (store *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+	store.CallCount.ListV2++
+
 	return nil, false, errors.New("todo")
 }
 
 // ReverseList lists all keys in revers order
 func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	store.CallCount.ReverseList++
+
 	lastIndex, ok := store.indexOf(first)
 	if !ok {
 		lastIndex--
@@ -150,6 +159,8 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 
 // Close closes the store
 func (store *Client) Close() error {
+	store.CallCount.Close++
+
 	return nil
 }
 
