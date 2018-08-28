@@ -21,31 +21,45 @@ func TestNewCA(t *testing.T) {
 	assert.True(t, actualDifficulty >= expectedDifficulty)
 }
 
-func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
-	context.Background()
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(context.Background(), expectedDifficulty, 1)
+func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
+	check := func(err error, v interface{}) {
+		if !assert.NoError(t, err) || !assert.NotEmpty(t, v) {
+			t.Fail()
+		}
 	}
+
+	ca, err := NewCA(context.Background(), 12, 5)
+	check(err, ca)
+	fi, err := ca.NewIdentity()
+	check(err, fi)
+
+	assert.Equal(t, ca.Cert, fi.CA)
+	assert.Equal(t, ca.ID, fi.ID)
+	assert.NotEqual(t, ca.Key, fi.Key)
+	assert.NotEqual(t, ca.Cert, fi.Leaf)
+
+	err = fi.Leaf.CheckSignatureFrom(ca.Cert)
+	assert.NoError(t, err)
+}
+
+func NewCABenchmark(b *testing.B, difficulty uint16, concurrency uint) {
+	for i := 0; i < b.N; i++ {
+		NewCA(context.Background(), difficulty, concurrency)
+	}
+}
+
+func BenchmarkNewCA_Difficulty8_Concurrency1(b *testing.B) {
+	NewCABenchmark(b, 8, 1)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency2(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(context.Background(), expectedDifficulty, 2)
-	}
+	NewCABenchmark(b, 8, 2)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency5(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(context.Background(), expectedDifficulty, 5)
-	}
+	NewCABenchmark(b, 8, 5)
 }
 
 func BenchmarkNewCA_Difficulty8_Concurrency10(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expectedDifficulty := uint16(8)
-		NewCA(context.Background(), expectedDifficulty, 10)
-	}
+	NewCABenchmark(b, 8, 10)
 }

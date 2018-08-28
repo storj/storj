@@ -80,7 +80,11 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
-	pubKey := parentCert.PublicKey.(*ecdsa.PublicKey)
+	pubKey, ok := parentCert.PublicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return false, ErrUnsupportedKey.New("%T", parentCert.PublicKey)
+	}
+
 	signature := new(ecdsaSignature)
 
 	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {

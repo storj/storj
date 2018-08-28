@@ -65,8 +65,8 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	// Delete data if we error
 	defer func() {
 		if err != nil && err != io.EOF {
-			if err = s.deleteByID(id); err != nil {
-				log.Printf("Failed on deleteByID in Store: %s", err.Error())
+			if deleteErr := s.deleteByID(id); deleteErr != nil {
+				log.Printf("Failed on deleteByID in Store: %s", deleteErr.Error())
 			}
 		}
 	}()
@@ -82,9 +82,9 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	reader := NewStreamReader(s, stream)
 
 	defer func() {
-		err := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
-		if err != nil {
-			log.Printf("WriteBandwidthAllocToDB Error: %s\n", err.Error())
+		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
+		if baWriteErr != nil {
+			log.Printf("WriteBandwidthAllocToDB Error: %s\n", baWriteErr.Error())
 		}
 	}()
 
