@@ -3,6 +3,7 @@ package teststore
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sort"
 
 	"storj.io/storj/storage"
@@ -160,8 +161,22 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 	return keys, nil
 }
 
+// Close closes the store
+func (store *Client) Close() error {
+	store.CallCount.Close++
+
+	return nil
+}
+
+func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
+func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }
+
+var _ storage.Iterator = &iterator{}
+
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+	fmt.Println("PREFIX ", after.Less(prefix), after, prefix)
 	if after.Less(prefix) {
+		fmt.Println("PREFIX ")
 		after = prefix
 	}
 
@@ -174,18 +189,6 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 		isPrefix:  false,
 	}
 }
-
-// Close closes the store
-func (store *Client) Close() error {
-	store.CallCount.Close++
-
-	return nil
-}
-
-func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
-func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }
-
-var _ storage.Iterator = &iterator{}
 
 type iterator struct {
 	store *Client

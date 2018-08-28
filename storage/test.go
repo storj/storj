@@ -182,7 +182,6 @@ func testList(t *testing.T, store KeyValueStore) {
 func testIterator(t *testing.T, store IterableStore) {
 	items := Items{
 		newItem("a", "a"),
-		newItem("b/", "b/"),
 		newItem("b/1", "b/1"),
 		newItem("b/2", "b/2"),
 		newItem("b/3", "b/3"),
@@ -190,8 +189,8 @@ func testIterator(t *testing.T, store IterableStore) {
 		newItem("c/", "c/"),
 		newItem("c//", "c//"),
 		newItem("c/1", "c/1"),
-		newItem("e", "e"),
-		newItem("f", "f"),
+		newItem("g", "g"),
+		newItem("h", "h"),
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(t, store, items)
@@ -215,14 +214,41 @@ func testIterator(t *testing.T, store IterableStore) {
 		mkitem("b/", "", true),
 		mkitem("c", "c", false),
 		mkitem("c/", "", true),
-		mkitem("e", "e", false),
-		mkitem("f", "f", false),
+		mkitem("g", "g", false),
+		mkitem("h", "h", false),
 	})
 
-	checkIterator(t, "start after c", store.Iterate(nil, Key("c"), '/'), []ListItem{
+	checkIterator(t, "after a", store.Iterate(nil, Key("a"), '/'), []ListItem{
+		mkitem("b/", "", true),
+		mkitem("c", "c", false),
 		mkitem("c/", "", true),
-		mkitem("e", "e", false),
-		mkitem("f", "f", false),
+		mkitem("g", "g", false),
+		mkitem("h", "h", false),
+	})
+
+	checkIterator(t, "after b", store.Iterate(nil, Key("b"), '/'), []ListItem{
+		mkitem("b/", "", true),
+		mkitem("c", "c", false),
+		mkitem("c/", "", true),
+		mkitem("g", "g", false),
+		mkitem("h", "h", false),
+	})
+
+	checkIterator(t, "after c", store.Iterate(nil, Key("c"), '/'), []ListItem{
+		mkitem("c/", "", true),
+		mkitem("g", "g", false),
+		mkitem("h", "h", false),
+	})
+
+	checkIterator(t, "after e", store.Iterate(nil, Key("e"), '/'), []ListItem{
+		mkitem("g", "g", false),
+		mkitem("h", "h", false),
+	})
+
+	checkIterator(t, "prefix b", store.Iterate(Key("b"), nil, '/'), []ListItem{
+		mkitem("b/1", "b/1", true),
+		mkitem("b/2", "b/2", true),
+		mkitem("b/3", "b/3", true),
 	})
 
 	checkIterator(t, "prefix c", store.Iterate(Key("c"), nil, '/'), []ListItem{
