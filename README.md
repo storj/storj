@@ -30,8 +30,8 @@ recover them!
 #### Download, setup, and run the latest release
 
 Go here to download the latest build
- * TODO: add link when a build is released
- * TODO for how to run the release
+* Alpha builds are available at https://storj-v3-alpha-builds.storage.googleapis.com/index.html
+* TODO for how to run the release
 
 ## Using Storj via the Storj CLI <a name="storjcli"></a>
 
