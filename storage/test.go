@@ -7,19 +7,16 @@ import (
 )
 
 func RunTests(t *testing.T, store KeyValueStore) {
-	tests := []struct {
-		name string
-		test func(*testing.T, KeyValueStore)
-	}{
-		{"CRUD", testCRUD},
-		{"List", testList},
-	}
+	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
+	t.Run("List", func(t *testing.T) { testList(t, store) })
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			test.test(t, store)
-		})
-	}
+	t.Run("Iterator", func(t *testing.T) {
+		iterable, ok := store.(IterableStore)
+		if !ok {
+			t.Skip("not implemented")
+		}
+		testIterator(t, iterable)
+	})
 }
 
 func testCRUD(t *testing.T, store KeyValueStore) {
@@ -147,6 +144,18 @@ func testList(t *testing.T, store KeyValueStore) {
 		testKeysSorted(t, keys)
 	})
 
+	t.Run("Without Key, Limit 0", func(t *testing.T) {
+		t.Skip("unimplemented")
+		keys, err := store.List(Key(""), Limit(0))
+		if err != nil {
+			t.Fatalf("failed to list: %v", err)
+		}
+		if len(keys) != len(items) {
+			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
+		}
+		testKeysSorted(t, keys)
+	})
+
 	t.Run("With Key", func(t *testing.T) {
 		keys, err := store.List(Key("path/2"), Limit(3))
 		if err != nil {
@@ -170,6 +179,61 @@ func testList(t *testing.T, store KeyValueStore) {
 	})
 }
 
+func testIterator(t *testing.T, store IterableStore) {
+	items := Items{
+		newItem("a", "1"),
+		newItem("b/", "2"),
+		newItem("b/1", "3"),
+		newItem("b/2", "4"),
+		newItem("b/3", "5"),
+		newItem("c", "6"),
+		newItem("c/", "7"),
+		newItem("c//", "8"),
+		newItem("c/1", "9"),
+		newItem("e", "10"),
+		newItem("f", "11"),
+	}
+	rand.Shuffle(len(items), items.Swap)
+	defer cleanupItems(t, store, items)
+
+	for _, item := range items {
+		if err := store.Put(item.Key, item.Value); err != nil {
+			t.Fatalf("failed to put: %v", err)
+		}
+	}
+
+	mkitem := func(key, value string, isPrefix bool) ListItem {
+		return ListItem{
+			Key:      Key(key),
+			Value:    Value(value),
+			IsPrefix: isPrefix,
+		}
+	}
+
+	checkIterator(t, "no limits", store.Iterate(nil, nil, '/'), []ListItem{
+		mkitem("a", "1", false),
+		mkitem("b/", "2", true),
+		mkitem("c", "", false),
+		mkitem("c/", "", true),
+		mkitem("e", "10", false),
+		mkitem("f", "11", false),
+	})
+
+	checkIterator(t, "start at c", store.Iterate(nil, Key("c"), '/'), []ListItem{
+		mkitem("c", "", false),
+		mkitem("c/", "", true),
+		mkitem("e", "10", false),
+		mkitem("f", "11", false),
+	})
+
+	checkIterator(t, "start at c", store.Iterate(Key("c"), nil, '/'), []ListItem{
+		mkitem("c", "", false),
+		mkitem("c/", "", true),
+		mkitem("e", "10", false),
+		mkitem("f", "11", false),
+	})
+}
+
 func newItem(key, value string) ListItem {
 	return ListItem{
 		Key:   Key(key),
@@ -189,6 +253,38 @@ func testKeysSorted(t *testing.T, keys Keys) {
 			t.Fatalf("unsorted order: %v", keys)
 		}
 	}
+}
+
+func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		defer func() {
+			if err := it.Err(); err != nil {
+				t.Fatalf("got error:", err)
+			}
+			if err := it.Close(); err != nil {
+				t.Fatalf("failed to close:", err)
+			}
+		}()
+
+		for i, item := range items {
+			if !it.Next() {
+				t.Fatalf("%d: finished early", i)
+			}
+
+			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
+			if !key.Equal(item.Key) || !bytes.Equal(value, item.Value) || isPrefix != item.IsPrefix {
+				t.Fatalf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
+					key, value, isPrefix,
+					item.Key, item.Value, item.IsPrefix)
+			}
+		}
+
+		if it.Next() {
+			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
+			t.Fatalf("%d: too many, got {%q,%q,%v}", len(items), key, value, isPrefix)
+		}
+	})
 }
 
 func cleanupItems(t *testing.T, store KeyValueStore, items Items) {

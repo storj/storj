@@ -1,6 +1,7 @@
 package teststore
 
 import (
+	"bytes"
 	"errors"
 	"sort"
 
@@ -10,6 +11,8 @@ import (
 var (
 	ErrNotExist = errors.New("does not exist")
 )
+
+var _ storage.IterableStore = &Client{}
 
 // Client implements in-memory key value store
 type Client struct {
@@ -157,6 +160,28 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 	return keys, nil
 }
 
+func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+	if prefix != nil && prefix[len(prefix)-1] != delimiter {
+		p := make(storage.Key, len(prefix)+1)
+		copy(p, prefix)
+		p = append(p, delimiter)
+		prefix = p
+	}
+
+	if after.Less(prefix) {
+		after = prefix
+	}
+
+	return &iterator{
+		store:     store,
+		prefix:    prefix,
+		delimiter: delimiter,
+		head:      after,
+		value:     nil,
+		isPrefix:  false,
+	}
+}
+
 // Close closes the store
 func (store *Client) Close() error {
 	store.CallCount.Close++
@@ -166,3 +191,77 @@ func (store *Client) Close() error {
 
 func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
 func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }
+
+var _ storage.Iterator = &iterator{}
+
+type iterator struct {
+	store *Client
+
+	prefix    storage.Key
+	delimiter byte
+
+	head     storage.Key
+	value    storage.Value
+	isPrefix bool
+}
+
+func (it *iterator) Next() bool {
+	index, ok := it.store.indexOf(it.head)
+	if ok {
+		index++
+	}
+
+	// skip all other with the same prefix
+	if it.isPrefix {
+		for ; index < len(it.store.Items); index++ {
+			if !bytes.HasPrefix(it.store.Items[index].Key, it.head) {
+				break
+			}
+		}
+	}
+
+	// all done?
+	if index >= len(it.store.Items) {
+		it.cleanup()
+		return false
+	}
+
+	// check whether we are still in the correct prefix
+	next := &it.store.Items[index]
+	if !bytes.HasPrefix(next.Key, it.prefix) {
+		return false
+	}
+
+	// update head
+	it.head = next.Key
+	it.isPrefix = false
+
+	// check whether it is a nested item
+	for i, b := range it.head[len(it.prefix):] {
+		if b == it.delimiter {
+			it.isPrefix = true
+			it.head = it.head[:i+1]
+			break
+		}
+	}
+
+	return true
+}
+
+func (it *iterator) cleanup() {
+	it.store = nil
+	it.head = nil
+	it.value = nil
+	it.isPrefix = false
+}
+
+func (it *iterator) Close() error {
+	it.cleanup()
+	return nil
+}
+
+func (it *iterator) Key() storage.Key     { return it.head }
+func (it *iterator) IsPrefix() bool       { return it.isPrefix }
+func (it *iterator) Value() storage.Value { return it.value }
+
+func (it *iterator) Err() error { return nil }

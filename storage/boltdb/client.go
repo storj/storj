@@ -167,3 +167,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	}
 	return vals, nil
 }
+
+func (c *Client) Iterate(first storage.Key) storage.Iterator {
+	return nil
+}

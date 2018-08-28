@@ -56,6 +56,12 @@ func (store *Logger) ListV2(opts ListOptions) (Items, More, error) {
 	return store.store.ListV2(opts)
 }
 
+// Iterate iterates over all items between first and last
+func (store *Logger) Iterate(first Key) Iterator {
+	store.log.Debug("List", zap.String("first", string(first)))
+	return nil
+}
+
 // ReverseList lists all keys in reverse order, starting from first
 func (store *Logger) ReverseList(first Key, limit Limit) (Keys, error) {
 	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)))

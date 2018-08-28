@@ -73,6 +73,21 @@ type KeyValueStore interface {
 	Close() error
 }
 
+type IterableStore interface {
+	KeyValueStore
+	Iterate(prefix, after Key, delimiter byte) Iterator
+}
+
+type Iterator interface {
+	Next() bool
+	Err() error
+	Close() error
+
+	Key() Key
+	Value() Value
+	IsPrefix() bool
+}
+
 // IsZero returns true if the value struct is it's zero value
 func (v *Value) IsZero() (_ bool) {
 	return len(*v) == 0
