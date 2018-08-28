@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
 	OverlayBucket = "overlay"
 )
 

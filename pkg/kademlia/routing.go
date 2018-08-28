@@ -19,8 +19,10 @@ import (
 )
 
 const (
+	// KademliaBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
 	KademliaBucket = "kademlia"
-	NodeBucket     = "nodes"
+	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
+	NodeBucket = "nodes"
 )
 
 // RoutingErr is the class for all errors pertaining to routing table operations

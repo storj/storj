@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	// PointerBucket is the string representing the bucket used for `PointerEntries`
 	PointerBucket = "pointers"
 )
 
