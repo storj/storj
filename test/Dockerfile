@@ -1,12 +1,6 @@
-FROM golang:1.10-alpine
+FROM golang:1.11-alpine
 
 RUN apk -U add make git bash gcc musl-dev
-
-RUN cd / \
- && rm -rf /go \
- && git clone --recursive https://github.com/storj/storj-vendor.git /go \
- && cd /go \
- && ./setup.sh
 
 COPY . /go/src/storj.io/storj
 
