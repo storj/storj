@@ -136,3 +136,6 @@ func (a ListItem) Less(b ListItem) bool { return a.Key.Less(b.Key) }
 
 // Less returns whether a should be sorted before b
 func (a Key) Less(b Key) bool { return bytes.Compare([]byte(a), []byte(b)) < 0 }
+
+// Equal returns whether a and b are equal
+func (a Key) Equal(b Key) bool { return bytes.Equal([]byte(a), []byte(b)) }

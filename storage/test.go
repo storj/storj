@@ -46,77 +46,82 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 
 	defer cleanupItems(t, store, items)
 
-	// Put
-	for _, item := range items {
-		err := store.Put(item.Key, item.Value)
-		if err != nil {
-			t.Fatalf("failed to put %q = %v: %v", item.Key, item.Value, err)
+	t.Run("Put", func(t *testing.T) {
+		for _, item := range items {
+			err := store.Put(item.Key, item.Value)
+			if err != nil {
+				t.Fatalf("failed to put %q = %v: %v", item.Key, item.Value, err)
+			}
 		}
-	}
+	})
 
 	rand.Shuffle(len(items), items.Swap)
 
-	// Get
-	for _, item := range items {
-		value, err := store.Get(item.Key)
+	t.Run("Get", func(t *testing.T) {
+		for _, item := range items {
+			value, err := store.Get(item.Key)
+			if err != nil {
+				t.Fatalf("failed to get %q = %v: %v", item.Key, item.Value, err)
+			}
+			if !bytes.Equal([]byte(value), []byte(item.Value)) {
+				t.Fatalf("invalid value for %q = %v: got %v", item.Key, item.Value, value)
+			}
+		}
+	})
+
+	t.Run("GetAll", func(t *testing.T) {
+		subset := items[:len(items)/2]
+		keys := subset.GetKeys()
+		values, err := store.GetAll(keys)
 		if err != nil {
-			t.Fatalf("failed to get %q = %v: %v", item.Key, item.Value, err)
+			t.Fatalf("failed to GetAll %q: %v", keys, err)
 		}
-		if !bytes.Equal([]byte(value), []byte(item.Value)) {
-			t.Fatalf("invalid value for %q = %v: got %v", item.Key, item.Value, value)
+		if len(values) != len(keys) {
+			t.Fatalf("failed to GetAll %q: got %q", keys, values)
 		}
-	}
+		for i, item := range subset {
+			if !bytes.Equal([]byte(values[i]), []byte(item.Value)) {
+				t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[i])
+			}
+		}
+	})
 
-	// GetAll
-	subset := items[:len(items)/2]
-	keys := subset.GetKeys()
-	values, err := store.GetAll(keys)
-	if err != nil {
-		t.Fatalf("failed to GetAll %q: %v", keys, err)
-	}
-	if len(values) != len(keys) {
-		t.Fatalf("failed to GetAll %q: got %q", keys, values)
-	}
-	for i, item := range subset {
-		if !bytes.Equal([]byte(values[i]), []byte(item.Value)) {
-			t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[i])
+	t.Run("Update", func(t *testing.T) {
+		for i, item := range items {
+			next := items[(i+1)%len(items)]
+			err := store.Put(item.Key, next.Value)
+			if err != nil {
+				t.Fatalf("failed to update %q = %v: %v", item.Key, next.Value, err)
+			}
 		}
-	}
 
-	// Update
-	for i, item := range items {
-		next := items[(i+1)%len(items)]
-		err := store.Put(item.Key, next.Value)
-		if err != nil {
-			t.Fatalf("failed to update %q = %v: %v", item.Key, next.Value, err)
+		for i, item := range items {
+			next := items[(i+1)%len(items)]
+			value, err := store.Get(item.Key)
+			if err != nil {
+				t.Fatalf("failed to get updated %q = %v: %v", item.Key, next.Value, err)
+			}
+			if !bytes.Equal([]byte(value), []byte(next.Value)) {
+				t.Fatalf("invalid updated value for %q = %v: got %v", item.Key, next.Value, value)
+			}
 		}
-	}
+	})
 
-	for i, item := range items {
-		next := items[(i+1)%len(items)]
-		value, err := store.Get(item.Key)
-		if err != nil {
-			t.Fatalf("failed to get updated %q = %v: %v", item.Key, next.Value, err)
+	t.Run("Delete", func(t *testing.T) {
+		for _, item := range items {
+			err := store.Delete(item.Key)
+			if err != nil {
+				t.Fatalf("failed to delete %v: %v", item.Key, err)
+			}
 		}
-		if !bytes.Equal([]byte(value), []byte(next.Value)) {
-			t.Fatalf("invalid updated value for %q = %v: got %v", item.Key, next.Value, value)
-		}
-	}
 
-	// Delete
-	for _, item := range items {
-		err := store.Delete(item.Key)
-		if err != nil {
-			t.Fatalf("failed to delete %v: %v", item.Key, err)
+		for _, item := range items {
+			value, err := store.Get(item.Key)
+			if err == nil {
+				t.Fatalf("got deleted value %q = %v", item.Key, value)
+			}
 		}
-	}
-
-	for _, item := range items {
-		value, err := store.Get(item.Key)
-		if err == nil {
-			t.Fatalf("got deleted value %q = %v", item.Key, value)
-		}
-	}
+	})
 }
 
 func testList(t *testing.T, store KeyValueStore) {
