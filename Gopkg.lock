@@ -313,6 +313,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gtank/cryptopasta"
+  packages = ["."]
+  revision = "1f550f6f2f69009f6ae57347c188e0a67cd4e500"
+
+[[projects]]
+  branch = "master"
   digest = "1:a361611b8c8c75a1091f00027767f7779b29cb37c456a71b8f2604c88057ab40"
   name = "github.com/hashicorp/hcl"
   packages = [
@@ -988,7 +994,9 @@
   name = "golang.org/x/crypto"
   packages = [
     "argon2",
+    "bcrypt",
     "blake2b",
+    "blowfish",
     "chacha20poly1305",
     "internal/chacha20",
     "internal/subtle",

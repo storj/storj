@@ -92,12 +92,17 @@ build-dev-deps:
 test: lint
 	go install -v ./...
 	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
+	go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
 	gover
-	@echo done
+	@[ -z "$$COVERALLS_TOKEN" ] && echo "Skipping submission to coveralls.io" || goveralls -coverprofile=gover.coverprofile -service=jenkins-ci
 
 test-captplanet:
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
+
+test-captplanet-docker:
+	docker-compose up -d --remove-orphans test
+	docker-compose run test ./scripts/test-captplanet.sh
 
 test-docker:
 	docker-compose up -d --remove-orphans test
