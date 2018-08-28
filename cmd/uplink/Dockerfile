@@ -1,5 +1,4 @@
-# build
-ARG GO_VERSION=1.11rc2
+ARG GO_VERSION=1.11
 FROM golang:${GO_VERSION}-alpine AS build-env
 ARG GOOS=linux
 ARG GOARCH=amd64
