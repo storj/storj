@@ -1,4 +1,4 @@
-package inmemstore
+package teststore
 
 import (
 	"testing"

@@ -1,4 +1,4 @@
-package inmemstore
+package teststore
 
 import (
 	"errors"
@@ -12,25 +12,25 @@ var (
 	ErrNotExist = errors.New("does not exist")
 )
 
-// Store implements in-memory key value store
-type Store struct {
+// Client implements in-memory key value store
+type Client struct {
 	mu    sync.Mutex
 	items []keyvalue
 }
 
-func New() *Store { return &Store{} }
+func New() *Client { return &Client{} }
 
 type keyvalue struct {
 	key   storage.Key
 	value storage.Value
 }
 
-func (store *Store) locked() func() {
+func (store *Client) locked() func() {
 	store.mu.Lock()
 	return store.mu.Unlock
 }
 
-func (store *Store) indexOf(key storage.Key) (int, bool) {
+func (store *Client) indexOf(key storage.Key) (int, bool) {
 	i := sort.Search(len(store.items), func(k int) bool {
 		return !store.items[k].key.Less(key)
 	})
@@ -42,7 +42,7 @@ func (store *Store) indexOf(key storage.Key) (int, bool) {
 }
 
 // Put adds a value to store
-func (store *Store) Put(key storage.Key, value storage.Value) error {
+func (store *Client) Put(key storage.Key, value storage.Value) error {
 	defer store.locked()()
 
 	keyIndex, found := store.indexOf(key)
@@ -63,7 +63,7 @@ func (store *Store) Put(key storage.Key, value storage.Value) error {
 }
 
 // Get gets a value to store
-func (store *Store) Get(key storage.Key) (storage.Value, error) {
+func (store *Client) Get(key storage.Key) (storage.Value, error) {
 	defer store.locked()()
 
 	keyIndex, found := store.indexOf(key)
@@ -75,7 +75,7 @@ func (store *Store) Get(key storage.Key) (storage.Value, error) {
 }
 
 // GetAll gets all values from the store
-func (store *Store) GetAll(keys storage.Keys) (storage.Values, error) {
+func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	defer store.locked()()
 
 	values := storage.Values{}
@@ -90,7 +90,7 @@ func (store *Store) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Delete deletes key and the value
-func (store *Store) Delete(key storage.Key) error {
+func (store *Client) Delete(key storage.Key) error {
 	defer store.locked()()
 	keyIndex, found := store.indexOf(key)
 	if !found {
@@ -103,7 +103,7 @@ func (store *Store) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from start and upto limit items
-func (store *Store) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
 	defer store.locked()()
 
 	firstIndex, _ := store.indexOf(first)
@@ -121,12 +121,12 @@ func (store *Store) List(first storage.Key, limit storage.Limit) (storage.Keys, 
 }
 
 // ListV2 lists all keys corresponding to ListOptions
-func (store *Store) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
+func (store *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
 	return nil, false, errors.New("todo")
 }
 
 // ReverseList lists all keys in revers order
-func (store *Store) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
 	lastIndex, ok := store.indexOf(first)
 	if !ok {
 		lastIndex--
@@ -149,7 +149,7 @@ func (store *Store) ReverseList(first storage.Key, limit storage.Limit) (storage
 }
 
 // Close closes the store
-func (store *Store) Close() error {
+func (store *Client) Close() error {
 	return nil
 }
 

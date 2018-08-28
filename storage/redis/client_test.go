@@ -27,17 +27,17 @@ func TestCommon(t *testing.T) {
 	// wait for redis to start
 	time.Sleep(time.Second)
 
-	store, err := NewClient(testHost, "", testDatabase)
+	client, err := NewClient(testHost, "", testDatabase)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	storage.RunTests(t, storage.NewTestLogger(t, store))
+	storage.RunTests(t, storage.NewTestLogger(t, client))
 }
 
 func TestInvalidConnection(t *testing.T) {
 	_, err := NewClient("", "", testDatabase)
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal("expected connection error")
 	}
 }

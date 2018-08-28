@@ -186,7 +186,7 @@ func testKeysSorted(t *testing.T, keys Keys) {
 	a := keys[0]
 	for _, b := range keys[1:] {
 		if b.Less(a) {
-			t.Fatal("unsorted order: %v", keys)
+			t.Fatalf("unsorted order: %v", keys)
 		}
 	}
 }
