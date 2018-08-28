@@ -55,14 +55,21 @@ type ListItem struct {
 
 // KeyValueStore is an interface describing key/value stores like redis and boltdb
 type KeyValueStore interface {
-	// Put adds a value to the provided key in the KeyValueStore, returning an error on failure.
+	// Put adds a value to store
 	Put(Key, Value) error
+	// Get gets a value to store
 	Get(Key) (Value, error)
+	// GetAll gets all values from the store
 	GetAll(Keys) (Values, error)
-	List(Key, Limit) (Keys, error)
-	ListV2(opts ListOptions) (Items, More, error)
-	ReverseList(Key, Limit) (Keys, error)
+	// Delete deletes key and the value
 	Delete(Key) error
+	// List lists all keys starting from start and upto limit items
+	List(start Key, limit Limit) (Keys, error)
+	// ListV2 lists all keys corresponding to ListOptions
+	ListV2(opts ListOptions) (Items, More, error)
+	// ReverseList lists all keys in revers order
+	ReverseList(Key, Limit) (Keys, error)
+	// Close closes the store
 	Close() error
 }
 

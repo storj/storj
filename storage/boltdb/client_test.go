@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
 	"storj.io/storj/storage"
 )
 
@@ -20,10 +19,8 @@ func TestCommon(t *testing.T) {
 	}
 	defer os.RemoveAll(tempdir)
 
-	logger := zaptest.NewLogger(t)
-
 	dbname := filepath.Join(tempdir, "bolt.db")
-	client, err := NewClient(logger, dbname, "bucket")
+	client, err := NewClient(dbname, "bucket")
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}
@@ -33,5 +30,5 @@ func TestCommon(t *testing.T) {
 		}
 	}()
 
-	storage.RunTests(t, client)
+	storage.RunTests(t, storage.NewTestLogger(t, client))
 }

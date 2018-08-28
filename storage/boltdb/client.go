@@ -8,14 +8,12 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"go.uber.org/zap"
 
 	"storj.io/storj/storage"
 )
 
 // Client is the entrypoint into a bolt data store
 type Client struct {
-	logger *zap.Logger
 	db     *bolt.DB
 	Path   string
 	Bucket []byte
@@ -40,7 +38,7 @@ var (
 )
 
 // NewClient instantiates a new BoltDB client given a zap logger, db file path, and a bucket name
-func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
+func NewClient(path, bucket string) (*Client, error) {
 	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
 		return nil, err
@@ -56,7 +54,6 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 	}
 
 	return &Client{
-		logger: logger,
 		db:     db,
 		Path:   path,
 		Bucket: []byte(bucket),
@@ -65,7 +62,6 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (c *Client) Put(key storage.Key, value storage.Value) error {
-	c.logger.Debug("bolt put", zap.ByteString("key", []byte(key)), zap.ByteString("value", []byte(value)))
 	return c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		return b.Put(key, value)
@@ -74,7 +70,6 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 
 // Get looks up the provided key from boltdb returning either an error or the result.
 func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
-	c.logger.Debug("bolt put", zap.ByteString("key", []byte(pathKey)))
 	var pointerBytes []byte
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
@@ -97,14 +92,12 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 
 // List returns either a list of keys for which boltdb has values or an error.
 func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	c.logger.Debug("entering bolt list")
 	return c.listHelper(false, startingKey, limit)
 }
 
 // ReverseList returns either a list of keys for which boltdb has values or an error.
 // Starts from startingKey and iterates backwards
 func (c *Client) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	c.logger.Debug("entering bolt reverse list")
 	return c.listHelper(true, startingKey, limit)
 }
 
@@ -153,7 +146,6 @@ func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, 
 
 // Delete deletes a key/value pair from boltdb, for a given the key
 func (c *Client) Delete(pathKey storage.Key) error {
-	c.logger.Debug("entering bolt delete: " + string(pathKey))
 	return c.db.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket(c.Bucket).Delete(pathKey)
 	})
