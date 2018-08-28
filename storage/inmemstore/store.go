@@ -41,9 +41,6 @@ func (store *Store) indexOf(key storage.Key) (int, bool) {
 	return i, store.items[i].key.Equal(key)
 }
 
-func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
-func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }
-
 // Put adds a value to store
 func (store *Store) Put(key storage.Key, value storage.Value) error {
 	defer store.locked()()
@@ -155,3 +152,6 @@ func (store *Store) ReverseList(first storage.Key, limit storage.Limit) (storage
 func (store *Store) Close() error {
 	return nil
 }
+
+func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
+func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }

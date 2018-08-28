@@ -37,7 +37,7 @@ var (
 	defaultTimeout = 1 * time.Second
 )
 
-// NewClient instantiates a new BoltDB client given a zap logger, db file path, and a bucket name
+// NewClient instantiates a new BoltDB client given db file path, and a bucket name
 func NewClient(path, bucket string) (*Client, error) {
 	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
 	if err != nil {
