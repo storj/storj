@@ -92,7 +92,7 @@ func TestCopyObject(t *testing.T) {
 
 		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
 		r, err := rr.Range(ctx, 0, rr.Size())
-		if err != {
+		if err != nil {
 			t.Fatal(err)
 		}
 
