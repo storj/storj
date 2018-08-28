@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"bytes"
+
 	"github.com/zeebo/errs"
 )
 
@@ -111,3 +113,19 @@ func (i *Items) GetKeys() Keys {
 	}
 	return keys
 }
+
+// Len is the number of elements in the collection.
+func (items Items) Len() int { return len(items) }
+
+// Less reports whether the element with
+// index i should sort before the element with index j.
+func (items Items) Less(i, k int) bool { return items[i].Less(items[k]) }
+
+// Swap swaps the elements with indexes i and j.
+func (items Items) Swap(i, k int) { items[i], items[k] = items[k], items[i] }
+
+// Less returns whether a should be sorted before b
+func (a ListItem) Less(b ListItem) bool { return a.Key.Less(b.Key) }
+
+// Less returns whether a should be sorted before b
+func (a Key) Less(b Key) bool { return bytes.Compare([]byte(a), []byte(b)) < 0 }

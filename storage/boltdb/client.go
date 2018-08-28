@@ -65,7 +65,7 @@ func NewClient(logger *zap.Logger, path, bucket string) (*Client, error) {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (c *Client) Put(key storage.Key, value storage.Value) error {
-	c.logger.Debug("entering bolt put")
+	c.logger.Debug("bolt put", zap.ByteString("key", []byte(key)), zap.ByteString("value", []byte(value)))
 	return c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		return b.Put(key, value)
@@ -74,7 +74,7 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 
 // Get looks up the provided key from boltdb returning either an error or the result.
 func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
-	c.logger.Debug("entering bolt get: " + string(pathKey))
+	c.logger.Debug("bolt put", zap.ByteString("key", []byte(pathKey)))
 	var pointerBytes []byte
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
