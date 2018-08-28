@@ -28,33 +28,34 @@ endif
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
-    --deadline=10m \
-    --enable-all \
-    --enable=golint \
-    --enable=errcheck \
-    --enable=unconvert \
-    --enable=structcheck \
-    --enable=misspell \
-    --disable=goimports \
-    --enable=ineffassign \
-    --disable=gofmt \
-    --enable=nakedret \
-    --enable=megacheck \
-    --disable=unparam \
-    --disable=gosec \
-    --disable=vetshadow \
-    --disable=gochecknoinits \
-    --disable=gochecknoglobals \
-    --disable=dupl \
-    --disable=gocyclo \
-    --disable=lll \
-    --disable=gotype --disable=gotypex \
-    --disable=safesql \
-    --disable=interfacer \
+	--deadline=10m \
+	--concurrency=1 \
+	--enable-all \
+	--enable=golint \
+	--enable=errcheck \
+	--enable=unconvert \
+	--enable=structcheck \
+	--enable=misspell \
+	--disable=goimports \
+	--enable=ineffassign \
+	--disable=gofmt \
+	--enable=nakedret \
+	--enable=megacheck \
+	--disable=unparam \
+	--disable=gosec \
+	--disable=vetshadow \
+	--disable=gochecknoinits \
+	--disable=gochecknoglobals \
+	--disable=dupl \
+	--disable=gocyclo \
+	--disable=lll \
+	--disable=gotype --disable=gotypex \
+	--disable=safesql \
+	--disable=interfacer \
 	--skip=examples \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
-  ./...
+	./...
 
 check-copyrights:
 	@echo "Running ${@}"
