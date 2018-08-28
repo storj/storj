@@ -6,6 +6,10 @@ package miniogw
 import (
 	"context"
 	"io"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -249,7 +253,31 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
+	log.Printf("Inside PutObject")
+
 	defer mon.Task()(&ctx)(&err)
+	ctx, cancel := context.WithCancel(ctx)
+
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+
+	go func() (minio.ObjectInfo, error) {
+		select {
+		case <-c:
+			log.Printf("start the cleanup")
+			_ = s.DeleteObject(ctx, bucket, object)
+			cancel()
+			return objInfo, ctx.Err()
+		}
+	}()
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 	//metadata serialized
@@ -263,6 +291,9 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
+	//c <- syscall.SIGINT
+	//syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+
 	m, err := o.Put(ctx, paths.New(object), data, serMetaInfo, expTime)
 	return minio.ObjectInfo{
 		Name:        object,
