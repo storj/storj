@@ -19,13 +19,13 @@ retrieve those files!
 
 ## Table of Contents
 
-- [Contributing](#contributing)
-- [Using via Storj CLI](#storjcli)
-- [Using via AWS S3 CLI](#awscli)
-- [License](#license)
-- [Support](#support)
+- [Contributing](#Start-Contributing-to-Storj)
+- [Using via Storj CLI](#Start-Using-Storj-via-the-Storj-CLI)
+- [Using via AWS S3 CLI](#Start-Using-Storj-via-the-AWS-S3-CLI)
+- [License](#License)
+- [Support](#Support)
 
-# Start Contributing to Storj <a name="contributing"></a>
+# Start Contributing to Storj
 
 ### Install required packages
 
@@ -76,7 +76,7 @@ You can execute only a single test package if you like. For example:
 `go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
 tests.
 
-# Start Using Storj via the Storj CLI <a name="storjcli"></a>
+# Start Using Storj via the Storj CLI
 
 #### Configure the Storj CLI
 1) In a new terminal setup the Storj CLI: ```$ storj setup```
@@ -93,7 +93,7 @@ captplanet config file located at ```~/.storj/capt/config.yaml```
 6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
 
 
-# Start Using Storj via the AWS S3 CLI <a name="awscli"></a>
+# Start Using Storj via the AWS S3 CLI
 
 #### Configure AWS CLI
 
@@ -120,7 +120,7 @@ $ aws configure set default.s3.multipart_threshold 1TB  # until we support multi
 
 For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
 
-# License <a name="license"></a>
+# License
 
 The network under construction (this repo) is currently licensed with the 
 [AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license. Once the network 
@@ -131,7 +131,7 @@ For code released under the AGPLv3, we request that contributors sign
 [our Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
 code under Apache v2, or other licenses in the future.
 
-# Support <a name="support"></a>
+# Support
 
 If you have any questions or suggestions please reach out to us on
 [Rocketchat](https://community.storj.io/) or
