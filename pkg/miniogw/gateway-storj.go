@@ -331,8 +331,11 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	go func() (minio.ObjectInfo, error) {
 		select {
 		case <-c:
-			_ = s.DeleteObject(ctx, bucket, object)
 			cancel()
+			err = s.DeleteObject(ctx, bucket, object)
+			if err != nil {
+				return objInfo, err
+			}
 			return objInfo, ctx.Err()
 		default:
 			return objInfo, ctx.Err()
