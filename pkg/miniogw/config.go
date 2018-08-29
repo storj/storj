@@ -130,6 +130,7 @@ func (c Config) NewGateway(ctx context.Context,
 		return nil, err
 	}
 
+	// TODO (moby) pass in private key to ecclient
 	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {

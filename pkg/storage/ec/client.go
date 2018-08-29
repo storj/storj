@@ -60,6 +60,7 @@ type ecClient struct {
 
 // NewClient from the given TransportClient and max buffer memory
 func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Client {
+	// TODO (moby) take privatekey as constructor arg to use for encryption
 	d := defaultDialer{identity: identity, t: t}
 	return &ecClient{d: &d, mbm: mbm}
 }
@@ -74,8 +75,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	if !unique(nodes) {
 		return Error.New("duplicated nodes are not allowed")
 	}
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
+
+	// TODO (moby) add encryption from eestream store example
+	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
+	if err != nil {
+		return err
+	}
+	padded := eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize())
+	transformed := eestream.TransformReader(padded, encrypter, 0)
+	readers, err := eestream.EncodeReader(ctx, transformed, rs, ec.mbm)
 	if err != nil {
 		return err
 	}
@@ -162,6 +170,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			rrs[rri.i] = rri.rr
 		}
 	}
+	// TODO (moby) add decryption from eestream serve example
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
 		return nil, err
