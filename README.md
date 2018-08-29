@@ -19,11 +19,11 @@ retrieve those files!
 
 ## Table of Contents
 
-- [Contributing](#Start-Contributing-to-Storj)
-- [Using via Storj CLI](#Start-Using-Storj-via-the-Storj-CLI)
-- [Using via AWS S3 CLI](#Start-Using-Storj-via-the-AWS-S3-CLI)
-- [License](#License)
-- [Support](#Support)
+- [Contributing](#start-contributing-to-storj)
+- [Using via Storj CLI](#start-using-storj-via-the-storj-cli)
+- [Using via AWS S3 CLI](#start-using-storj-via-the-aws-s3-cli)
+- [License](#license)
+- [Support](#support)
 
 # Start Contributing to Storj
 
