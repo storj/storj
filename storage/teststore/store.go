@@ -226,8 +226,6 @@ func (it *iterator) Next(item *storage.ListItem) bool {
 		}
 	}
 
-	defer func() { it.lastIndex = index }()
-
 	// skip all other with the same prefix
 	if it.isPrefix {
 		for ; index < len(it.store.Items); index++ {
@@ -236,6 +234,8 @@ func (it *iterator) Next(item *storage.ListItem) bool {
 			}
 		}
 	}
+
+	it.lastIndex = index
 
 	// all done?
 	if index >= len(it.store.Items) {
