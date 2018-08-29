@@ -53,8 +53,6 @@ lint: check-copyrights
 	--disable=safesql \
 	--disable=interfacer \
 	--skip=examples \
-	--skip=$(go env GOROOT) \
-	--exclude=".*\.\./\.\./pkg.*" \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
 	./...
