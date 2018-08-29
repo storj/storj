@@ -22,6 +22,16 @@ before_install:
   - source scripts/travis-deps.sh
 
 install:
+  # install linters
+  - mkdir -p $HOME/linters
+  - ln -s $HOME/gopath/pkg $HOME/linters/pkg
+  - ln -s $HOME/gopath/bin $HOME/linters/bin
+  - export GOPATH=$HOME/linters
+  - pushd $HOME/linters
+  - make build-dev-deps
+  - export GOPATH=$HOME/gopath
+
+  - popd
   # download all modules
   - go get .
   # build dependencies
@@ -31,8 +41,7 @@ install:
   # flatten vendor to src
   - cp -r ./vendor/* $GOPATH/src/
   - rm -rf ./vendor
-  # install linters
-  - GO111MODULE=off make build-dev-deps
+
   
 script:
   - GO111MODULE=off make lint
