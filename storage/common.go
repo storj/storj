@@ -78,6 +78,7 @@ type KeyValueStore interface {
 
 type IterableStore interface {
 	KeyValueStore
+	// TODO: figure out whether to use after or first?
 	// Iterate iterates items skipping nested prefixes
 	Iterate(prefix, after Key, delimiter byte) Iterator
 	// IterateAll iterates everything
