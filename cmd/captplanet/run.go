@@ -24,7 +24,7 @@ const (
 	storagenodeCount = 50
 )
 
-// HeavyClient is for configuring client
+// Satellite is for configuring client
 type Satellite struct {
 	Identity    provider.IdentityConfig
 	Kademlia    kademlia.Config
