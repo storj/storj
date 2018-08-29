@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"os/signal"
@@ -54,7 +53,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 	go func() error {
 		select {
 		case <-c:
-			log.Printf("Handle any further clean up here...")
+			// Handle any storj cli specific clean up here...
 			cancel()
 			return storjCtx.Err()
 		}
