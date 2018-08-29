@@ -24,6 +24,7 @@ install:
   - GO111MODULE=off make build-dev-deps
   - go get .
   - go install -v ./...
+  - go mod vendor
 
 script:
   - make test
