@@ -5,14 +5,14 @@ go:
 env:
   - GO111MODULE=on
 
-#cache:
-#  directories:
-#    # cache built tools
-#    - "$GOPATH/bin"
-#    # cache go modules
-#    - "$GOPATH/pkg"
-#    # cache pip
-#    - "$HOME/.cache/pip"
+cache:
+  directories:
+    # cache built tools
+    - "$GOPATH/bin"
+    # cache go modules
+    - "$GOPATH/pkg"
+    # cache pip
+    - "$HOME/.cache/pip"
 
 services:
   - redis
@@ -23,16 +23,17 @@ before_install:
 
 install:
   # install linters
-  - mkdir -p $HOME/linters
+  - mkdir -p $HOME/linters/src/stub
   - ln -s $HOME/gopath/pkg $HOME/linters/pkg
   - ln -s $HOME/gopath/bin $HOME/linters/bin
   - export GOPATH=$HOME/linters
-  - pushd $HOME/linters
+  - pushd $HOME/linters/src/stub
 
-  - GO111MODULE=off go get github.com/mattn/goveralls
-  - GO111MODULE=off go get github.com/modocache/gover
-  - GO111MODULE=off go get github.com/alecthomas/gometalinter
-  - GO111MODULE=off gometalinter --install --force
+  - go mod init
+  - go get github.com/mattn/goveralls
+  - go get github.com/modocache/gover
+  - go get github.com/alecthomas/gometalinter
+  - gometalinter --install --force
   - export GOPATH=$HOME/gopath
 
   - popd
