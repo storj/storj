@@ -76,13 +76,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		address := runCfg.StorageNodes[i].Identity.Address
-		if runCfg.HeavyClient.MockOverlay.Enabled &&
-			runCfg.HeavyClient.MockOverlay.Host != "" {
+		if runCfg.Satellite.MockOverlay.Enabled &&
+			runCfg.Satellite.MockOverlay.Host != "" {
 			_, port, err := net.SplitHostPort(address)
 			if err != nil {
 				return err
 			}
-			address = net.JoinHostPort(runCfg.HeavyClient.MockOverlay.Host, port)
+			address = net.JoinHostPort(runCfg.Satellite.MockOverlay.Host, port)
 		}
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)

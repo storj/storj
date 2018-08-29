@@ -20,7 +20,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "satellite",
-		Short: "Satellie",
+		Short: "Satellite",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
