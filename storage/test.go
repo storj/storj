@@ -295,26 +295,24 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 	t.Helper()
 	t.Run(name, func(t *testing.T) {
 		defer func() {
-			if err := it.Err(); err != nil {
-				t.Fatalf("got error:", err)
-			}
 			if err := it.Close(); err != nil {
-				t.Fatalf("failed to close:", err)
+				t.Fatalf("failed to close: %v", err)
 			}
 		}()
 
+		var got ListItem
+
 		maxErrors := 5
-		for i, item := range items {
-			if !it.Next() {
+		for i, exp := range items {
+			if !it.Next(&got) {
 				t.Fatalf("%d: finished early", i)
 			}
 
-			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
-			if !key.Equal(item.Key) || !bytes.Equal(value, item.Value) || isPrefix != item.IsPrefix {
+			if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
 				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
 					i,
-					key, value, isPrefix,
-					item.Key, item.Value, item.IsPrefix)
+					got.Key, got.Value, got.IsPrefix,
+					exp.Key, exp.Value, exp.IsPrefix)
 				maxErrors--
 				if maxErrors <= 0 {
 					t.Fatal("too many errors")
@@ -323,9 +321,9 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 			}
 		}
 
-		if it.Next() {
-			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
-			t.Fatalf("%d: too many, got {%q,%q,%v}", len(items), key, value, isPrefix)
+		if it.Next(&got) {
+			t.Fatalf("%d: too many, got {%q,%q,%v}", len(items),
+				got.Key, got.Value, got.IsPrefix)
 		}
 	})
 }

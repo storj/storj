@@ -79,13 +79,10 @@ type IterableStore interface {
 }
 
 type Iterator interface {
-	Next() bool
-	Err() error
+	// Next prepares the next list item
+	Next(item *ListItem) bool
+	// Close closes any underlying resources and returns any error
 	Close() error
-
-	Key() Key
-	Value() Value
-	IsPrefix() bool
 }
 
 // IsZero returns true if the value struct is it's zero value

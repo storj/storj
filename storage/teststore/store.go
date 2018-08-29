@@ -163,7 +163,6 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 // Close closes the store
 func (store *Client) Close() error {
 	store.CallCount.Close++
-
 	return nil
 }
 
@@ -179,7 +178,6 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 		prefix:    prefix,
 		delimiter: delimiter,
 		head:      after,
-		value:     nil,
 		isPrefix:  false,
 	}
 }
@@ -192,11 +190,10 @@ type iterator struct {
 	delimiter byte
 
 	head     storage.Key
-	value    storage.Value
 	isPrefix bool
 }
 
-func (it *iterator) Next() bool {
+func (it *iterator) Next(item *storage.ListItem) bool {
 	var index int
 	var found bool
 
@@ -255,12 +252,14 @@ func (it *iterator) Next() bool {
 		}
 	}
 
-	// set value when it's a prefix
+	// update the value
+	item.Key = append(item.Key[:0], it.head...)
 	if !it.isPrefix {
-		it.value = next.Value
+		item.Value = append(item.Value[:0], it.store.Items[index].Value...)
 	} else {
-		it.value = nil
+		item.Value = nil
 	}
+	item.IsPrefix = it.isPrefix
 
 	return true
 }
@@ -268,7 +267,6 @@ func (it *iterator) Next() bool {
 func (it *iterator) cleanup() {
 	it.store = nil
 	it.head = nil
-	it.value = nil
 	it.isPrefix = false
 }
 
@@ -276,9 +274,3 @@ func (it *iterator) Close() error {
 	it.cleanup()
 	return nil
 }
-
-func (it *iterator) Key() storage.Key     { return it.head }
-func (it *iterator) IsPrefix() bool       { return it.isPrefix }
-func (it *iterator) Value() storage.Value { return it.value }
-
-func (it *iterator) Err() error { return nil }
