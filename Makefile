@@ -53,7 +53,6 @@ lint: check-copyrights
 	--disable=safesql \
 	--disable=interfacer \
 	--skip=examples \
-	--skip=vendor \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
 	./...
@@ -78,7 +77,7 @@ build-dev-deps:
 	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
-test: lint
+test:
 	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
 	gover
 	@echo done

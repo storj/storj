@@ -25,6 +25,11 @@ install:
   - go get .
   - go install -v ./...
   - go mod vendor
+  - cp -r ./vendor/* $GOPATH/src/
+  - rm -rf ./vendor
+  
+lint:
+  - GO111MODULE=off make lint
 
 script:
   - make test
