@@ -19,7 +19,7 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "hc",
+		Use:   "satellite",
 		Short: "Heavy client",
 	}
 	runCmd = &cobra.Command{
@@ -47,7 +47,7 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
-	defaultConfDir = "$HOME/.storj/hc"
+	defaultConfDir = "$HOME/.storj/satellite"
 )
 
 func init() {

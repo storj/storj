@@ -7,7 +7,7 @@ RUN apk update && \
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 COPY . /go/src/storj.io/storj
 RUN cd /go/src/storj.io/storj && dep ensure -vendor-only
-RUN cd /go/src/storj.io/storj/cmd/hc && go build -o satellite
+RUN cd /go/src/storj.io/storj/cmd/satellite && go build -o satellite
 
 
 # final stage
@@ -19,7 +19,7 @@ ENV REDIS_ADDR=redis:6379 \
     HTTP_PORT=:8080 \
     BOOTSTRAP_ADDR=bootstrap.storj.io:8080
 WORKDIR /app
-COPY --from=build-env /go/src/storj.io/storj/cmd/hc/satellite /app/
+COPY --from=build-env /go/src/storj.io/storj/cmd/satellite/satellite /app/
 COPY cmd/hc/entrypoint /entrypoint
 EXPOSE 8081/udp \
     8080 \
