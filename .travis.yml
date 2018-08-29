@@ -19,6 +19,11 @@ services:
 
 before_install:
   - source scripts/travis-deps.sh
+  - cd $GOPATH
+  - mkdir -a $GOPATH/src/storj.io
+  - mv $TRAVIS_BUILD_DIR $GOPATH/src/storj.io/storj
+  - export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
+  - cd $TRAVIS_BUILD_DIR
 
 install:
   - GO111MODULE=off make build-dev-deps
