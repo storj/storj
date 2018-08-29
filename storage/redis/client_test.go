@@ -32,7 +32,7 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	storage.RunTests(t, storage.NewTestLogger(t, client))
+	storage.RunTests(t, client)
 }
 
 func TestInvalidConnection(t *testing.T) {

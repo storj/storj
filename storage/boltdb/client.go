@@ -274,8 +274,8 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 
 type staticIterator struct {
 	err   error
-	next  int
 	items []storage.ListItem
+	next  int
 }
 
 func (it *staticIterator) Next(item *storage.ListItem) bool {

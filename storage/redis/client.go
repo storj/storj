@@ -4,7 +4,9 @@
 package redis
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -91,7 +93,7 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
 	var noOrderKeys []string
 	if startingKey != nil {
-		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
+		_, cursor, err := c.db.Scan(0, startingKey.String(), int64(limit)).Result()
 		if err != nil {
 			return nil, Error.New("list error with starting key: %v", err)
 		}
@@ -170,6 +172,82 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return values, nil
 }
 
-func (c *Client) Iterate(first storage.Key) storage.Iterator {
-	return nil
+func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+	var uncollapsedItems storage.Items
+	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
+	it := store.db.Scan(0, "", 0).Iterator()
+	for it.Next() {
+		key := it.Val()
+		if prefix != nil && !bytes.HasPrefix([]byte(key), prefix) {
+			continue
+		}
+		if !after.Less(storage.Key(key)) {
+			continue
+		}
+
+		value, err := store.db.Get(key).Bytes()
+		if err != nil {
+			return &staticIterator{err: err}
+		}
+
+		uncollapsedItems = append(uncollapsedItems, storage.ListItem{
+			Key:      storage.Key(key),
+			Value:    storage.Value(value),
+			IsPrefix: false,
+		})
+	}
+
+	sort.Sort(uncollapsedItems)
+
+	var items storage.Items
+
+	var dirPrefix []byte
+	var isPrefix bool
+	for _, item := range uncollapsedItems {
+		if isPrefix {
+			if bytes.HasPrefix(item.Key, dirPrefix) {
+				continue
+			}
+			isPrefix = false
+		}
+
+		if p := bytes.IndexByte(item.Key[len(prefix):], delimiter); p >= 0 {
+			dirPrefix = append(dirPrefix[:0], item.Key[:len(prefix)+p+1]...)
+			isPrefix = true
+			items = append(items, storage.ListItem{
+				Key:      storage.CloneKey(storage.Key(dirPrefix)),
+				IsPrefix: true,
+			})
+		} else {
+			items = append(items, item)
+		}
+	}
+
+	return &staticIterator{
+		items: items,
+	}
+}
+
+type staticIterator struct {
+	err   error
+	items storage.Items
+	next  int
+}
+
+func (it *staticIterator) Next(item *storage.ListItem) bool {
+	if it.next >= len(it.items) {
+		return false
+	}
+	*item = it.items[it.next]
+	it.next++
+	return true
+}
+
+func (it *staticIterator) cleanup() {
+	it.items = nil
+}
+
+func (it *staticIterator) Close() error {
+	it.cleanup()
+	return it.err
 }
