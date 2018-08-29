@@ -328,17 +328,12 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		cancel()
 	}()
 
-	go func() (minio.ObjectInfo, error) {
-		select {
-		case <-c:
-			cancel()
-			err = s.DeleteObject(ctx, bucket, object)
-			if err != nil {
-				return objInfo, err
-			}
-			return objInfo, ctx.Err()
-		default:
-			return objInfo, ctx.Err()
+	go func() {
+		<-c
+		cancel()
+		err = s.DeleteObject(ctx, bucket, object)
+		if err != nil {
+			return
 		}
 	}()
 	tempContType := metadata["content-type"]
