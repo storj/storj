@@ -18,15 +18,21 @@ services:
   - redis
 
 before_install:
+  # move things to the right location
   - source scripts/travis-deps.sh
 
 install:
-  - GO111MODULE=off make build-dev-deps
+  # download all modules
   - go get .
+  # build dependencies
   - go install -v ./...
+  # move all dependencies to vendor directory
   - go mod vendor
+  # flatten vendor to src
   - cp -r ./vendor/* $GOPATH/src/
   - rm -rf ./vendor
+  # install linters
+  - GO111MODULE=off make build-dev-deps
   
 script:
   - GO111MODULE=off make lint
