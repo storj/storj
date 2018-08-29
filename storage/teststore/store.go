@@ -3,7 +3,6 @@ package teststore
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sort"
 
 	"storj.io/storj/storage"
@@ -174,14 +173,9 @@ func cloneValue(value storage.Value) storage.Value { return append(value[:0], va
 var _ storage.Iterator = &iterator{}
 
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
-	fmt.Println("PREFIX ", after.Less(prefix), after, prefix)
-	if after.Less(prefix) {
-		fmt.Println("PREFIX ")
-		after = prefix
-	}
-
 	return &iterator{
 		store:     store,
+		first:     true,
 		prefix:    prefix,
 		delimiter: delimiter,
 		head:      after,
@@ -192,6 +186,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 
 type iterator struct {
 	store *Client
+	first bool
 
 	prefix    storage.Key
 	delimiter byte
@@ -202,9 +197,27 @@ type iterator struct {
 }
 
 func (it *iterator) Next() bool {
-	index, ok := it.store.indexOf(it.head)
-	if ok {
-		index++
+	var index int
+	var found bool
+
+	if it.prefix != nil && it.first {
+		headBeforePrefix := it.head == nil || it.head.Less(it.prefix)
+		if headBeforePrefix {
+			// position at the location of the prefix
+			// or the item that should follow
+			index, _ = it.store.indexOf(it.prefix)
+		} else {
+			index, found = it.store.indexOf(it.head)
+			if found {
+				index++
+			}
+		}
+		it.first = false
+	} else {
+		index, found = it.store.indexOf(it.head)
+		if found {
+			index++
+		}
 	}
 
 	// skip all other with the same prefix
@@ -235,12 +248,14 @@ func (it *iterator) Next() bool {
 	// check whether it is a nested item
 	for i, b := range it.head[len(it.prefix):] {
 		if b == it.delimiter {
+			// set head to prefix (including the trailing delimiter)
 			it.isPrefix = true
-			it.head = it.head[:i+1]
+			it.head = it.head[:len(it.prefix)+i+1]
 			break
 		}
 	}
 
+	// set value when it's a prefix
 	if !it.isPrefix {
 		it.value = next.Value
 	} else {

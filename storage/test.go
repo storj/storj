@@ -209,59 +209,65 @@ func testIterator(t *testing.T, store IterableStore) {
 		}
 	}
 
-	checkIterator(t, "no limits", store.Iterate(nil, nil, '/'), []ListItem{
-		mkitem("a", "a", false),
-		mkitem("b/", "", true),
-		mkitem("c", "c", false),
-		mkitem("c/", "", true),
-		mkitem("g", "g", false),
-		mkitem("h", "h", false),
-	})
+	checkIterator(t, "no limits",
+		store.Iterate(nil, nil, '/'), []ListItem{
+			mkitem("a", "a", false),
+			mkitem("b/", "", true),
+			mkitem("c", "c", false),
+			mkitem("c/", "", true),
+			mkitem("g", "g", false),
+			mkitem("h", "h", false),
+		})
 
-	checkIterator(t, "after a", store.Iterate(nil, Key("a"), '/'), []ListItem{
-		mkitem("b/", "", true),
-		mkitem("c", "c", false),
-		mkitem("c/", "", true),
-		mkitem("g", "g", false),
-		mkitem("h", "h", false),
-	})
+	checkIterator(t, "after a",
+		store.Iterate(nil, Key("a"), '/'), []ListItem{
+			mkitem("b/", "", true),
+			mkitem("c", "c", false),
+			mkitem("c/", "", true),
+			mkitem("g", "g", false),
+			mkitem("h", "h", false),
+		})
 
-	checkIterator(t, "after b", store.Iterate(nil, Key("b"), '/'), []ListItem{
-		mkitem("b/", "", true),
-		mkitem("c", "c", false),
-		mkitem("c/", "", true),
-		mkitem("g", "g", false),
-		mkitem("h", "h", false),
-	})
+	checkIterator(t, "after b",
+		store.Iterate(nil, Key("b"), '/'), []ListItem{
+			mkitem("b/", "", true),
+			mkitem("c", "c", false),
+			mkitem("c/", "", true),
+			mkitem("g", "g", false),
+			mkitem("h", "h", false),
+		})
 
-	checkIterator(t, "after c", store.Iterate(nil, Key("c"), '/'), []ListItem{
-		mkitem("c/", "", true),
-		mkitem("g", "g", false),
-		mkitem("h", "h", false),
-	})
+	checkIterator(t, "after c",
+		store.Iterate(nil, Key("c"), '/'), []ListItem{
+			mkitem("c/", "", true),
+			mkitem("g", "g", false),
+			mkitem("h", "h", false),
+		})
 
-	checkIterator(t, "after e", store.Iterate(nil, Key("e"), '/'), []ListItem{
-		mkitem("g", "g", false),
-		mkitem("h", "h", false),
-	})
+	checkIterator(t, "after e",
+		store.Iterate(nil, Key("e"), '/'), []ListItem{
+			mkitem("g", "g", false),
+			mkitem("h", "h", false),
+		})
 
-	checkIterator(t, "prefix b", store.Iterate(Key("b"), nil, '/'), []ListItem{
-		mkitem("b/1", "b/1", true),
-		mkitem("b/2", "b/2", true),
-		mkitem("b/3", "b/3", true),
-	})
+	checkIterator(t, "prefix b slash",
+		store.Iterate(Key("b/"), nil, '/'), []ListItem{
+			mkitem("b/1", "b/1", false),
+			mkitem("b/2", "b/2", false),
+			mkitem("b/3", "b/3", false),
+		})
 
-	checkIterator(t, "prefix c", store.Iterate(Key("c"), nil, '/'), []ListItem{
-		mkitem("c/", "c/", false),
-		mkitem("c//", "", true),
-		mkitem("c/1", "c/1", false),
-	})
+	checkIterator(t, "prefix c slash",
+		store.Iterate(Key("c/"), nil, '/'), []ListItem{
+			mkitem("c/", "c/", false),
+			mkitem("c//", "", true),
+			mkitem("c/1", "c/1", false),
+		})
 
-	checkIterator(t, "prefix c", store.Iterate(Key("c/"), nil, '/'), []ListItem{
-		mkitem("c/", "c/", false),
-		mkitem("c//", "", true),
-		mkitem("c/1", "c/1", false),
-	})
+	checkIterator(t, "prefix c slash slash",
+		store.Iterate(Key("c//"), nil, '/'), []ListItem{
+			mkitem("c//", "c//", false),
+		})
 }
 
 func newItem(key, value string) ListItem {
@@ -297,6 +303,7 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 			}
 		}()
 
+		maxErrors := 5
 		for i, item := range items {
 			if !it.Next() {
 				t.Fatalf("%d: finished early", i)
@@ -304,10 +311,15 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 
 			key, value, isPrefix := it.Key(), it.Value(), it.IsPrefix()
 			if !key.Equal(item.Key) || !bytes.Equal(value, item.Value) || isPrefix != item.IsPrefix {
-				t.Fatalf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
+				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
 					i,
 					key, value, isPrefix,
 					item.Key, item.Value, item.IsPrefix)
+				maxErrors--
+				if maxErrors <= 0 {
+					t.Fatal("too many errors")
+					return
+				}
 			}
 		}
 
