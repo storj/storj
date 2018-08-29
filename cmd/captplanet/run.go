@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/mock"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
@@ -101,7 +102,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.HeavyClient.Identity.Address)
 		var o provider.Responsibility = runCfg.HeavyClient.Overlay
 		if runCfg.HeavyClient.MockOverlay.Enabled {
-			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
+			o = mock.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.HeavyClient.Identity.Run(ctx,
 			runCfg.HeavyClient.Kademlia,

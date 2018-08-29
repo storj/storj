@@ -1,10 +1,11 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package mock
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -13,12 +14,12 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// MockOverlay is a mocked overlay implementation
+// MockOverlay __
 type MockOverlay struct {
 	nodes map[string]*proto.Node
 }
 
-// NewMockOverlay creates a new overlay mock
+// NewMockOverlay __
 func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 	rv := &MockOverlay{nodes: map[string]*proto.Node{}}
 	for _, node := range nodes {
@@ -27,7 +28,7 @@ func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 	return rv
 }
 
-// FindStorageNodes finds storage nodes based on the request
+// FindStorageNodes __
 func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
 	err error) {
@@ -42,24 +43,24 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 	return &proto.FindStorageNodesResponse{Nodes: nodes}, nil
 }
 
-// Lookup finds a single storage node based on the request
+// Lookup __
 func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 	*proto.LookupResponse, error) {
 	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
-// MockConfig specifies static nodes for mock overlay
+// MockConfig __
 type MockConfig struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
-// Run runs server with mock overlay
+// Run __
 func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
 	var nodes []*proto.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {
 		parts := strings.SplitN(nodestr, ":", 2)
 		if len(parts) != 2 {
-			return Error.New("malformed node config: %#v", nodestr)
+			return fmt.Errorf("malformed node config: %#v", nodestr)
 		}
 		id, addr := parts[0], parts[1]
 		nodes = append(nodes, &proto.Node{

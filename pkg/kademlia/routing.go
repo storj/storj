@@ -129,18 +129,6 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 // FindNear returns the node corresponding to the provided nodeID if present in the routing table
 // otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
-	//if id is in the routing table
-	n, err := rt.nodeBucketDB.Get(id.Bytes())
-	if n != nil && (rt.self.GetId() != id.String()) { // for bootstrapping, we don't want to stop when we find ourself
-		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
-		if err != nil {
-			return []*proto.Node{}, RoutingErr.New("could not unmarshal node %s", err)
-		}
-		return ns, nil
-	}
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
-	}
 	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {

@@ -120,30 +120,20 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 }
 
 func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) (*proto.Node, error) {
-	conc := opts.amount
 	kb := k.routingTable.K()
-	if conc <= 0 {
-		conc = kb
-	}
-
 	// look in routing table for targetID
 	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
 		return nil, err
 	}
 
-	// if we have the node in our routing table and that node is not this node (bootstrap) just return the node
-	if len(nodes) == 1 {
-		return nodes[0], nil
-	}
-
 	// begin the work looking for the node by spinning up alpha workers
 	// and asking for the node we want from nodes we know in our routing table
-	ch := make(chan []*proto.Node, conc)
-	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, kb)
+	ch := make(chan []*proto.Node, kb)
+	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
 	ctx, w.cancel = context.WithCancel(ctx)
 	defer w.cancel()
-	for i := 0; i < conc; i++ {
+	for i := 0; i < k.routingTable.K(); i++ {
 		go func(ctx context.Context, ch chan []*proto.Node) {
 			w.work(ctx, ch)
 		}(ctx, ch)

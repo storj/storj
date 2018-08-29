@@ -76,9 +76,9 @@ build-dev-deps:
 	go get github.com/alecthomas/gometalinter
 	gometalinter --install --force
 
-test: lint
+test:
 	go install -v ./...
-	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
+	go test -race -v -timeout 5s -covermode=atomic -coverprofile=coverage.out ./...
 	gover
 	@echo done
 

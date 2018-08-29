@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"storj.io/storj/internal/mock"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -38,7 +39,7 @@ var (
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
-		MockOverlay overlay.MockConfig
+		MockOverlay mock.MockConfig
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`

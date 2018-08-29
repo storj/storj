@@ -98,7 +98,7 @@ func (w *worker) work(ctx context.Context, ch chan []*proto.Node) {
 
 func (w *worker) getWork() *proto.Node {
 	w.mu.Lock()
-	if w.pq.Len() <= 0 {
+	if w.pq.Len() <= 0 && w.workInProgress <= 0 {
 		w.mu.Unlock()
 		timeout := defaultTimeout
 		if timeout < (2 * w.maxResponse) {
