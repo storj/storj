@@ -26,6 +26,7 @@ install:
   - mkdir -p $HOME/linters/src/stub
   - ln -s $HOME/gopath/pkg $HOME/linters/pkg
   - ln -s $HOME/gopath/bin $HOME/linters/bin
+  
   - export GOPATH=$HOME/linters
   - pushd $HOME/linters/src/stub
 
@@ -33,7 +34,8 @@ install:
   - go get github.com/mattn/goveralls
   - go get github.com/modocache/gover
   - go get github.com/alecthomas/gometalinter
-  - gometalinter --install --force
+  - GO111MODULE=off gometalinter --install --force
+  
   - export GOPATH=$HOME/gopath
 
   - popd
