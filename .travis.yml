@@ -32,7 +32,7 @@ install:
   - GO111MODULE=off go get github.com/mattn/goveralls
   - GO111MODULE=off go get github.com/modocache/gover
   - GO111MODULE=off go get github.com/alecthomas/gometalinter
-  - gometalinter --install --force
+  - GO111MODULE=off gometalinter --install --force
   - export GOPATH=$HOME/gopath
 
   - popd
