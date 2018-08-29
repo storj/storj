@@ -171,9 +171,18 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 		}
 	}
 	// TODO (moby) add decryption from eestream serve example
-	rr, err = eestream.Decode(rrs, es, ec.mbm)
+	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return nil, err
+	}
+	rc, err = eestream.Decode(rrs, es, ec.mbm)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	rr, err := eestream.Transform(rc, decrypter)
+	if err != nil {
+		return err
 	}
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
