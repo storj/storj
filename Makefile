@@ -1,4 +1,4 @@
-.PHONY: test lint proto check-copyrights build-dev-deps release release-osx release-windows release-linux
+.PHONY: test lint proto check-copyrights build-dev-deps
 
 
 GO_VERSION ?= 1.11
