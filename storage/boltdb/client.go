@@ -181,7 +181,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 
 		if prefix == nil {
 			var key, value []byte
-			var prefix []byte
+			var dirPrefix []byte
 			var isPrefix bool = false
 
 			// position to the first item
@@ -197,11 +197,11 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 			for key != nil {
 				if p := bytes.IndexByte(key, delimiter); p >= 0 {
 					key = key[:p+1]
-					prefix = append(prefix, key[:p+1]...)
+					dirPrefix = append(dirPrefix, key...) // copy
 					value = nil
 					isPrefix = true
 				} else {
-					prefix = nil
+					dirPrefix = nil
 					isPrefix = false
 				}
 
@@ -214,15 +214,53 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 				// next item
 				key, value = cursor.Next()
 				if isPrefix {
-					for bytes.HasPrefix(key, prefix) && key != nil {
+					for bytes.HasPrefix(key, dirPrefix) && key != nil {
 						key, value = cursor.Next()
 					}
 				}
 			}
 
 			return nil
-		} else {
+		}
 
+		var key, value []byte
+		var dirPrefix []byte
+		var isPrefix bool = false
+
+		// position to the first item
+		if after == nil || after.Less(prefix) {
+			key, value = cursor.Seek([]byte(prefix))
+		} else {
+			key, value = cursor.Seek([]byte(after))
+			if bytes.Equal(key, after) {
+				key, value = cursor.Next()
+			}
+		}
+
+		for key != nil && bytes.HasPrefix(key, prefix) {
+			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
+				key = key[:len(prefix)+p+1]
+				dirPrefix = append(dirPrefix, key...) // copy
+				value = nil
+				isPrefix = true
+			} else {
+				dirPrefix = nil
+				isPrefix = false
+			}
+
+			items = append(items, storage.ListItem{
+				Key:      storage.CloneKey(storage.Key(key)),
+				Value:    storage.CloneValue(storage.Value(value)),
+				IsPrefix: isPrefix,
+			})
+
+			// next item
+			key, value = cursor.Next()
+			if isPrefix {
+				for bytes.HasPrefix(key, dirPrefix) && key != nil {
+					key, value = cursor.Next()
+				}
+			}
 		}
 
 		return nil
