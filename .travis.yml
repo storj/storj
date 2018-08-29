@@ -29,9 +29,9 @@ install:
   - export GOPATH=$HOME/linters
   - pushd $HOME/linters
 
-  - go get github.com/mattn/goveralls
-  - go get github.com/modocache/gover
-  - go get github.com/alecthomas/gometalinter
+  - GO111MODULE=off go get github.com/mattn/goveralls
+  - GO111MODULE=off go get github.com/modocache/gover
+  - GO111MODULE=off go get github.com/alecthomas/gometalinter
   - gometalinter --install --force
   - export GOPATH=$HOME/gopath
 
