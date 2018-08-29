@@ -33,7 +33,7 @@ install:
   - go mod init
   - go get github.com/mattn/goveralls
   - go get github.com/modocache/gover
-  - go get github.com/alecthomas/gometalinter
+  - GO111MODULE=off go get github.com/alecthomas/gometalinter
   - GO111MODULE=off gometalinter --install --force
   
   - export GOPATH=$HOME/gopath
