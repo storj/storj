@@ -334,6 +334,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 			_ = s.DeleteObject(ctx, bucket, object)
 			cancel()
 			return objInfo, ctx.Err()
+		default:
+			return objInfo, ctx.Err()
 		}
 	}()
 	tempContType := metadata["content-type"]

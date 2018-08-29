@@ -4,13 +4,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/minio/minio/pkg/hash"
 	"github.com/spf13/cobra"
@@ -37,27 +34,6 @@ func init() {
 
 func copy(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-
-	storjCtx, cancel := context.WithCancel(ctx)
-	/* create a signal of type os.Signal */
-	c := make(chan os.Signal, 0x01)
-
-	/* register for the os signals */
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-
-	go func() error {
-		select {
-		case <-c:
-			// Handle any storj cli specific clean up here...
-			cancel()
-			return storjCtx.Err()
-		}
-	}()
 
 	if len(args) == 0 {
 		return errs.New("No file specified for copy")
