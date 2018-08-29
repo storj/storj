@@ -27,7 +27,7 @@ type Client struct {
 		ReverseList int
 		Delete      int
 		Close       int
-		Ping        int
+		Iterate     int
 	}
 }
 
@@ -175,9 +175,10 @@ func cloneValue(value storage.Value) storage.Value { return append(value[:0], va
 var _ storage.Iterator = &iterator{}
 
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+	store.CallCount.Iterate++
 	return &iterator{
 		store:     store,
-		first:     true,
+		lastIndex: -1,
 		prefix:    prefix,
 		delimiter: delimiter,
 		head:      after,
@@ -186,8 +187,8 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 }
 
 type iterator struct {
-	store *Client
-	first bool
+	store     *Client
+	lastIndex int
 
 	prefix    storage.Key
 	delimiter byte
@@ -197,28 +198,35 @@ type iterator struct {
 }
 
 func (it *iterator) Next(item *storage.ListItem) bool {
-	var index int
+	var index int = -1
 	var found bool
 
-	if it.prefix != nil && it.first {
+	if it.prefix != nil || it.lastIndex < 0 {
 		headBeforePrefix := it.head == nil || it.head.Less(it.prefix)
 		if headBeforePrefix {
 			// position at the location of the prefix
 			// or the item that should follow
 			index, _ = it.store.indexOf(it.prefix)
-		} else {
-			index, found = it.store.indexOf(it.head)
-			if found {
-				index++
-			}
 		}
-		it.first = false
-	} else {
+	} else if it.lastIndex < len(it.store.Items) {
+		// check whether something has changed in between
+		last := &it.store.Items[it.lastIndex]
+		hasPrefix := it.isPrefix && bytes.HasPrefix(last.Key, it.head)
+		isSameKey := !it.isPrefix && last.Key.Equal(it.head)
+		if hasPrefix || isSameKey {
+			index = it.lastIndex + 1
+		}
+	}
+
+	// default handling position to item after head
+	if index < 0 {
 		index, found = it.store.indexOf(it.head)
 		if found {
 			index++
 		}
 	}
+
+	defer func() { it.lastIndex = index }()
 
 	// skip all other with the same prefix
 	if it.isPrefix {
