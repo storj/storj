@@ -59,15 +59,15 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 	keyIndex, found := store.indexOf(key)
 	if found {
 		kv := &store.Items[keyIndex]
-		kv.Value = cloneValue(value)
+		kv.Value = storage.CloneValue(value)
 		return nil
 	}
 
 	store.Items = append(store.Items, KeyValue{})
 	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
 	store.Items[keyIndex] = KeyValue{
-		Key:   cloneKey(key),
-		Value: cloneValue(value),
+		Key:   storage.CloneKey(key),
+		Value: storage.CloneValue(value),
 	}
 
 	return nil
@@ -82,7 +82,7 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 		return nil, ErrNotExist
 	}
 
-	return cloneValue(store.Items[keyIndex].Value), nil
+	return storage.CloneValue(store.Items[keyIndex].Value), nil
 }
 
 // GetAll gets all values from the store
@@ -95,7 +95,7 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 		if !found {
 			return nil, ErrNotExist
 		}
-		values = append(values, cloneValue(store.Items[keyIndex].Value))
+		values = append(values, storage.CloneValue(store.Items[keyIndex].Value))
 	}
 	return values, nil
 }
@@ -125,7 +125,7 @@ func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys,
 
 	keys := make(storage.Keys, lastIndex-firstIndex)
 	for i, item := range store.Items[firstIndex:lastIndex] {
-		keys[i] = cloneKey(item.Key)
+		keys[i] = storage.CloneKey(item.Key)
 	}
 
 	return keys, nil
@@ -156,7 +156,7 @@ func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storag
 	k := 0
 	for i := lastIndex; i >= firstIndex; i-- {
 		item := store.Items[i]
-		keys[k] = cloneKey(item.Key)
+		keys[k] = storage.CloneKey(item.Key)
 		k++
 	}
 
@@ -168,11 +168,6 @@ func (store *Client) Close() error {
 	store.CallCount.Close++
 	return nil
 }
-
-func cloneKey(key storage.Key) storage.Key         { return append(key[:0], key...) }
-func cloneValue(value storage.Value) storage.Value { return append(value[:0], value...) }
-
-var _ storage.Iterator = &iterator{}
 
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
 	store.CallCount.Iterate++

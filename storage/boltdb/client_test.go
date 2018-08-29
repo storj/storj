@@ -30,5 +30,5 @@ func TestCommon(t *testing.T) {
 		}
 	}()
 
-	storage.RunTests(t, storage.NewTestLogger(t, store))
+	storage.RunTests(t, store)
 }

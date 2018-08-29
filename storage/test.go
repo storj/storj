@@ -323,8 +323,7 @@ func checkIterator(t *testing.T, name string, it Iterator, items []ListItem) {
 			}
 
 			if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
-				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}",
-					i,
+				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}", i,
 					got.Key, got.Value, got.IsPrefix,
 					exp.Key, exp.Value, exp.IsPrefix)
 				maxErrors--

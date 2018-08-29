@@ -4,6 +4,7 @@
 package boltdb
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -172,6 +173,108 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return vals, nil
 }
 
-func (c *Client) Iterate(first storage.Key) storage.Iterator {
+func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+	var items []storage.ListItem
+
+	store.db.View(func(tx *bolt.Tx) error {
+		cursor := tx.Bucket(store.Bucket).Cursor()
+
+		if prefix == nil {
+			var key, value []byte
+			var prefix []byte
+			var isPrefix bool = false
+
+			// position to the first item
+			if after == nil {
+				key, value = cursor.First()
+			} else {
+				key, value = cursor.Seek([]byte(after))
+				if bytes.Equal(key, after) {
+					key, value = cursor.Next()
+				}
+			}
+
+			for key != nil {
+				if p := bytes.IndexByte(key, delimiter); p >= 0 {
+					key = key[:p+1]
+					prefix = append(prefix, key[:p+1]...)
+					value = nil
+					isPrefix = true
+				} else {
+					prefix = nil
+					isPrefix = false
+				}
+
+				items = append(items, storage.ListItem{
+					Key:      storage.CloneKey(storage.Key(key)),
+					Value:    storage.CloneValue(storage.Value(value)),
+					IsPrefix: isPrefix,
+				})
+
+				// next item
+				key, value = cursor.Next()
+				if isPrefix {
+					for bytes.HasPrefix(key, prefix) && key != nil {
+						key, value = cursor.Next()
+					}
+				}
+			}
+
+			return nil
+		} else {
+
+		}
+
+		return nil
+	})
+
+	return &staticIterator{
+		items: items,
+	}
+}
+
+type staticIterator struct {
+	next  int
+	items []storage.ListItem
+}
+
+func (it *staticIterator) Next(item *storage.ListItem) bool {
+	if it.next >= len(it.items) {
+		return false
+	}
+	*item = it.items[it.next]
+	it.next++
+	return true
+}
+
+func (it *staticIterator) cleanup() {
+	it.items = nil
+}
+
+func (it *staticIterator) Close() error {
+	it.cleanup()
 	return nil
 }
+
+/*
+	var paths storage.Keys
+	err := c.db.Update(func(tx *bolt.Tx) error {
+		cur := tx.Bucket(c.Bucket).Cursor()
+		var k []byte
+		start := firstOrLast(reverseList, cur)
+		iterate := prevOrNext(reverseList, cur)
+		if startingKey == nil {
+			k, _ = start()
+		} else {
+			k, _ = cur.Seek(startingKey)
+		}
+		for ; k != nil; k, _ = iterate() {
+			paths = append(paths, k)
+			if limit > 0 && int(limit) == len(paths) {
+				break
+			}
+		}
+		return nil
+	})
+	return paths, err
+*/
