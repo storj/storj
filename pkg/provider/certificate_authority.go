@@ -90,7 +90,7 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 	kp, _ := pem.Decode(kb)
 	k, err := x509.ParseECPrivateKey(kp.Bytes)
 	if err != nil {
-		return nil, errs.New("unable to parse EC private key", err)
+		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
 
 	ec, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)

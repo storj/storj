@@ -1,19 +1,58 @@
 language: go
 
 go:
-  - 1.10.x
+  - 1.11.x
+env:
+  - GO111MODULE=on
+
+cache:
+  directories:
+    # cache built tools
+    - "$GOPATH/bin"
+    # cache go modules
+    - "$GOPATH/pkg"
+    # cache pip
+    - "$HOME/.cache/pip"
 
 services:
   - redis
 
 before_install:
+  # move things to the right location
   - source scripts/travis-deps.sh
 
 install:
-  - make build-dev-deps
+  # install linters
+  - mkdir -p $HOME/linters/src/stub
+  - ln -s $HOME/gopath/pkg $HOME/linters/pkg
+  - ln -s $HOME/gopath/bin $HOME/linters/bin
+  
+  - export GOPATH=$HOME/linters
+  - pushd $HOME/linters/src/stub
 
+  - go mod init
+  - go get github.com/mattn/goveralls
+  - go get github.com/modocache/gover
+  - GO111MODULE=off go get github.com/alecthomas/gometalinter
+  - GO111MODULE=off gometalinter --install --force
+  
+  - export GOPATH=$HOME/gopath
+
+  - popd
+  # download all modules
+  - go get .
+  # build dependencies
+  - go install -v ./...
+  # move all dependencies to vendor directory
+  - go mod vendor
+  # flatten vendor to src
+  - cp -r ./vendor/* $GOPATH/src/
+  - rm -rf ./vendor
+
+  
 script:
-  - make test
+  - GO111MODULE=off make lint
+  - GO111MODULE=off make test
   - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
   - gover
   - goveralls -coverprofile=gover.coverprofile -service=travis-ci
