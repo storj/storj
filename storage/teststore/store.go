@@ -235,6 +235,7 @@ func (it *iterator) Next(item *storage.ListItem) bool {
 		}
 	}
 
+	// save last index to avoid binary search on Next
 	it.lastIndex = index
 
 	// all done?
