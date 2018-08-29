@@ -176,7 +176,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
 	var items []storage.ListItem
 
-	store.db.View(func(tx *bolt.Tx) error {
+	err := store.db.View(func(tx *bolt.Tx) error {
 		cursor := tx.Bucket(store.Bucket).Cursor()
 
 		if prefix == nil {
@@ -268,10 +268,12 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 
 	return &staticIterator{
 		items: items,
+		err:   err,
 	}
 }
 
 type staticIterator struct {
+	err   error
 	next  int
 	items []storage.ListItem
 }
@@ -291,7 +293,7 @@ func (it *staticIterator) cleanup() {
 
 func (it *staticIterator) Close() error {
 	it.cleanup()
-	return nil
+	return it.err
 }
 
 /*
