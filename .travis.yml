@@ -5,14 +5,14 @@ go:
 env:
   - GO111MODULE=on
 
-cache:
-  directories:
-    # cache built tools
-    - "$GOPATH/bin"
-    # cache go modules
-    - "$GOPATH/pkg"
-    # cache pip
-    - "$HOME/.cache/pip"
+#cache:
+#  directories:
+#    # cache built tools
+#    - "$GOPATH/bin"
+#    # cache go modules
+#    - "$GOPATH/pkg"
+#    # cache pip
+#    - "$HOME/.cache/pip"
 
 services:
   - redis
