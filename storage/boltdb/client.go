@@ -54,6 +54,10 @@ func New(path, bucket string) (*Client, error) {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (c *Client) Put(key storage.Key, value storage.Value) error {
+	if key == nil {
+		return Error.New("invalid key")
+	}
+
 	return c.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.Bucket)
 		return b.Put(key, value)

@@ -8,6 +8,7 @@ import (
 
 func RunTests(t *testing.T, store KeyValueStore) {
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
+	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
 	t.Run("List", func(t *testing.T) { testList(t, store) })
 
 	t.Run("Iterator", func(t *testing.T) {
@@ -110,6 +111,19 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 			if err == nil {
 				t.Fatalf("got deleted value %q = %v", item.Key, value)
 			}
+		}
+	})
+}
+
+func testConstraints(t *testing.T, store KeyValueStore) {
+	t.Run("Put Empty", func(t *testing.T) {
+		var key Key
+		var val Value
+		defer store.Delete(key)
+
+		err := store.Put(key, val)
+		if err == nil {
+			t.Fatal("putting empty key should fail")
 		}
 	})
 }

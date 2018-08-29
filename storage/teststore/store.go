@@ -52,6 +52,9 @@ func (store *Client) indexOf(key storage.Key) (int, bool) {
 // Put adds a value to store
 func (store *Client) Put(key storage.Key, value storage.Value) error {
 	store.CallCount.Put++
+	if key == nil {
+		return storage.ErrEmptyKey
+	}
 
 	keyIndex, found := store.indexOf(key)
 	if found {

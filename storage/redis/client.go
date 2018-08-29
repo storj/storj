@@ -69,6 +69,10 @@ func (c *Client) Get(key storage.Key) (storage.Value, error) {
 
 // Put adds a value to the provided key in redis, returning an error on failure.
 func (c *Client) Put(key storage.Key, value storage.Value) error {
+	if key == nil {
+		return Error.New("invalid key")
+	}
+
 	v, err := value.MarshalBinary()
 
 	if err != nil {

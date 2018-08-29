@@ -5,12 +5,15 @@ package storage
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/zeebo/errs"
 )
 
 //ErrKeyNotFound used When something doesn't exist
 var ErrKeyNotFound = errs.Class("key not found")
+
+var ErrEmptyKey = errors.New("empty key")
 
 // Key is the type for the keys in a `KeyValueStore`
 type Key []byte
@@ -75,7 +78,10 @@ type KeyValueStore interface {
 
 type IterableStore interface {
 	KeyValueStore
+	// Iterate iterates items skipping nested prefixes
 	Iterate(prefix, after Key, delimiter byte) Iterator
+	// IterateAll iterates everything
+	// IterateAll(prefix, after Key) Iterator
 }
 
 type Iterator interface {
