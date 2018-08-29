@@ -28,11 +28,9 @@ install:
   - cp -r ./vendor/* $GOPATH/src/
   - rm -rf ./vendor
   
-lint:
-  - GO111MODULE=off make lint
-
 script:
-  - make test
+  - GO111MODULE=off make lint
+  - GO111MODULE=off make test
   - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
   - gover
   - goveralls -coverprofile=gover.coverprofile -service=travis-ci
