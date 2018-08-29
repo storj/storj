@@ -127,6 +127,10 @@ The network under construction (this repo) is currently licensed with the
 reaches beta phase, we will be licensing all client-side code via the 
 [Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
 
+For code released under the AGPLv3, we request that contributors sign 
+[our Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
+code under Apache v2, or other licenses in the future.
+
 # Support <a name="support"></a>
 
 If you have any questions or suggestions please reach out to us on
