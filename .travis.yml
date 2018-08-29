@@ -28,9 +28,8 @@ install:
   - ln -s $HOME/gopath/bin $HOME/linters/bin
   - export GOPATH=$HOME/linters
   - pushd $HOME/linters
-  - go get github.com/golang/protobuf/protoc-gen-go
+
   - go get github.com/mattn/goveralls
-  - go get golang.org/x/tools/cover
   - go get github.com/modocache/gover
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install --force
