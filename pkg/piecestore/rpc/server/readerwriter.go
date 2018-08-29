@@ -4,6 +4,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
@@ -23,6 +25,7 @@ func NewStreamWriter(s *Server, stream pb.PieceStoreRoutes_RetrieveServer) *Stre
 // Write -- Write method for piece upload to stream for Server.Retrieve
 func (s *StreamWriter) Write(b []byte) (int, error) {
 	// Write the buffer to the stream we opened earlier
+	fmt.Println("Retrieving data: ", len(b))
 	if err := s.stream.Send(&pb.PieceRetrievalStream{Size: int64(len(b)), Content: b}); err != nil {
 		return 0, err
 	}

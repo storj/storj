@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -117,6 +118,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
+			fmt.Println("Receiving ba: ", baData)
 			if err = s.verifySignature(ctx, ba); err != nil {
 				errChan <- err
 				return
