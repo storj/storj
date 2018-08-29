@@ -77,6 +77,7 @@ type StreamReader struct {
 	allocated int64
 	cond1     *sync.Cond
 	cond2     *sync.Cond
+	c         chan int
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
@@ -89,9 +90,12 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		max:    max,
 		cond1:  sync.NewCond(&mtx1),
 		cond2:  sync.NewCond(&mtx2),
+		c:      make(chan int),
 	}
 
 	go func() {
+		<-sr.c
+
 		for sr.totalRead < sr.max {
 			fmt.Println("Locking ba send")
 			sr.cond2.L.Lock()
@@ -143,12 +147,11 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 		sr.cond1.L.Lock()
-		fmt.Println("Locking retrieve")
 		for sr.totalRead <= sr.allocated {
+			sr.c <- 1
 			sr.cond1.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
 		}
 		sr.cond1.L.Unlock()
-		fmt.Println("Unlocking retrieve")
 
 		resp, err := stream.Recv()
 		if err != nil {
