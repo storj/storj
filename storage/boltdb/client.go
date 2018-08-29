@@ -295,26 +295,3 @@ func (it *staticIterator) Close() error {
 	it.cleanup()
 	return it.err
 }
-
-/*
-	var paths storage.Keys
-	err := c.db.Update(func(tx *bolt.Tx) error {
-		cur := tx.Bucket(c.Bucket).Cursor()
-		var k []byte
-		start := firstOrLast(reverseList, cur)
-		iterate := prevOrNext(reverseList, cur)
-		if startingKey == nil {
-			k, _ = start()
-		} else {
-			k, _ = cur.Seek(startingKey)
-		}
-		for ; k != nil; k, _ = iterate() {
-			paths = append(paths, k)
-			if limit > 0 && int(limit) == len(paths) {
-				break
-			}
-		}
-		return nil
-	})
-	return paths, err
-*/
