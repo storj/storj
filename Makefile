@@ -53,6 +53,7 @@ lint: check-copyrights
 	--disable=safesql \
 	--disable=interfacer \
 	--skip=examples \
+	--skip=vendor \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
 	./...
