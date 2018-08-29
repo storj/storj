@@ -311,28 +311,6 @@ func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r i
 	}, err
 }
 
-func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
-	meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// setting zero value means the object never expires
-	expTime := time.Time{}
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-	m, err := o.Put(ctx, paths.New(object), r, meta, expTime)
-	return minio.ObjectInfo{
-		Name:        object,
-		Bucket:      bucket,
-		ModTime:     m.Modified,
-		Size:        m.Size,
-		ETag:        m.Checksum,
-		ContentType: m.ContentType,
-		UserDefined: m.UserDefined,
-	}, err
-}
-
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
