@@ -13,7 +13,7 @@ var (
 
 // Client implements in-memory key value store
 type Client struct {
-	Items []KeyValue
+	Items []storage.ListItem
 
 	CallCount struct {
 		Get         int
@@ -29,11 +29,6 @@ type Client struct {
 }
 
 func New() *Client { return &Client{} }
-
-type KeyValue struct {
-	Key   storage.Key
-	Value storage.Value
-}
 
 func (store *Client) indexOf(key storage.Key) (int, bool) {
 	i := sort.Search(len(store.Items), func(k int) bool {
@@ -60,9 +55,9 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 		return nil
 	}
 
-	store.Items = append(store.Items, KeyValue{})
+	store.Items = append(store.Items, storage.ListItem{})
 	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
-	store.Items[keyIndex] = KeyValue{
+	store.Items[keyIndex] = storage.ListItem{
 		Key:   storage.CloneKey(key),
 		Value: storage.CloneValue(value),
 	}
@@ -171,14 +166,7 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 
 	index, _ := store.indexOf(first)
 
-	items := make(storage.Items, len(store.Items)-index)
-	for i, item := range store.Items[index:] {
-		items[i] = storage.ListItem{
-			Key:   storage.CloneKey(item.Key),
-			Value: storage.CloneValue(item.Value),
-		}
-	}
-
+	items := storage.CloneItems(store.Items[index:])
 	filtered := storage.FilterPrefix(items, prefix)
 	collapsed := storage.SortAndCollapse(filtered, prefix, delimiter)
 
