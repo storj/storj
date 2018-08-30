@@ -1,13 +1,16 @@
-package storage
+package testsuite
 
 import (
 	"bytes"
 	"math/rand"
 	"testing"
+
+	"storj.io/storj/storage"
+	"storj.io/storj/storage/storelogger"
 )
 
-func RunTests(t *testing.T, store KeyValueStore) {
-	// store = NewLogger(zaptest.NewLogger(t), store)
+func RunTests(t *testing.T, store storage.KeyValueStore) {
+	store = storelogger.NewTest(t, store)
 
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
 	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
@@ -17,8 +20,8 @@ func RunTests(t *testing.T, store KeyValueStore) {
 	t.Run("Prefix", func(t *testing.T) { testPrefix(t, store) })
 }
 
-func testCRUD(t *testing.T, store KeyValueStore) {
-	items := Items{
+func testCRUD(t *testing.T, store storage.KeyValueStore) {
+	items := storage.Items{
 		// newItem("0", ""), //TODO: broken
 		newItem("\x00", "\x00"),
 		newItem("a/b", "\x01\x00"),
@@ -112,10 +115,10 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 	})
 }
 
-func testConstraints(t *testing.T, store KeyValueStore) {
+func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Put Empty", func(t *testing.T) {
-		var key Key
-		var val Value
+		var key storage.Key
+		var val storage.Value
 		defer store.Delete(key)
 
 		err := store.Put(key, val)
@@ -125,8 +128,8 @@ func testConstraints(t *testing.T, store KeyValueStore) {
 	})
 }
 
-func testList(t *testing.T, store KeyValueStore) {
-	items := Items{
+func testList(t *testing.T, store storage.KeyValueStore) {
+	items := storage.Items{
 		newItem("path/0", "\x00\xFF\x00"),
 		newItem("path/1", "\x01\xFF\x01"),
 		newItem("path/2", "\x02\xFF\x02"),
@@ -145,7 +148,7 @@ func testList(t *testing.T, store KeyValueStore) {
 	}
 
 	t.Run("Without Key", func(t *testing.T) {
-		keys, err := store.List(Key(""), Limit(3))
+		keys, err := store.List(storage.Key(""), storage.Limit(3))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)
 		}
@@ -157,7 +160,7 @@ func testList(t *testing.T, store KeyValueStore) {
 
 	t.Run("Without Key, Limit 0", func(t *testing.T) {
 		t.Skip("unimplemented")
-		keys, err := store.List(Key(""), Limit(0))
+		keys, err := store.List(storage.Key(""), storage.Limit(0))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)
 		}
@@ -168,7 +171,7 @@ func testList(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("With Key", func(t *testing.T) {
-		keys, err := store.List(Key("path/2"), Limit(3))
+		keys, err := store.List(storage.Key("path/2"), storage.Limit(3))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)
 		}
@@ -179,7 +182,7 @@ func testList(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("Without Key 100", func(t *testing.T) {
-		keys, err := store.List(Key(""), Limit(100))
+		keys, err := store.List(storage.Key(""), storage.Limit(100))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)
 		}
@@ -190,8 +193,8 @@ func testList(t *testing.T, store KeyValueStore) {
 	})
 }
 
-func testIterate(t *testing.T, store KeyValueStore) {
-	items := Items{
+func testIterate(t *testing.T, store storage.KeyValueStore) {
+	items := storage.Items{
 		newItem("a", "a"),
 		newItem("b/1", "b/1"),
 		newItem("b/2", "b/2"),
@@ -214,7 +217,7 @@ func testIterate(t *testing.T, store KeyValueStore) {
 
 	t.Run("no limits", func(t *testing.T) {
 		store.Iterate(nil, nil, '/',
-			checkIterator(t, []ListItem{
+			checkIterator(t, storage.Items{
 				mkitem("a", "a", false),
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
@@ -225,8 +228,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at a", func(t *testing.T) {
-		store.Iterate(nil, Key("a"), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.Key("a"), '/',
+			checkIterator(t, storage.Items{
 				mkitem("a", "a", false),
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
@@ -237,8 +240,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after a", func(t *testing.T) {
-		store.Iterate(nil, NextKey(Key("a")), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.NextKey(storage.Key("a")), '/',
+			checkIterator(t, storage.Items{
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
 				mkitem("c/", "", true),
@@ -248,8 +251,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at b", func(t *testing.T) {
-		store.Iterate(nil, Key("b"), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.Key("b"), '/',
+			checkIterator(t, storage.Items{
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
 				mkitem("c/", "", true),
@@ -259,8 +262,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after b", func(t *testing.T) {
-		store.Iterate(nil, NextKey(Key("b")), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.NextKey(storage.Key("b")), '/',
+			checkIterator(t, storage.Items{
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
 				mkitem("c/", "", true),
@@ -270,8 +273,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at c", func(t *testing.T) {
-		store.Iterate(nil, Key("c"), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.Key("c"), '/',
+			checkIterator(t, storage.Items{
 				mkitem("c", "c", false),
 				mkitem("c/", "", true),
 				mkitem("g", "g", false),
@@ -280,8 +283,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after c", func(t *testing.T) {
-		store.Iterate(nil, NextKey(Key("c")), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.NextKey(storage.Key("c")), '/',
+			checkIterator(t, storage.Items{
 				mkitem("c/", "", true),
 				mkitem("g", "g", false),
 				mkitem("h", "h", false),
@@ -289,24 +292,24 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at e", func(t *testing.T) {
-		store.Iterate(nil, Key("e"), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.Key("e"), '/',
+			checkIterator(t, storage.Items{
 				mkitem("g", "g", false),
 				mkitem("h", "h", false),
 			}))
 	})
 
 	t.Run("after e", func(t *testing.T) {
-		store.Iterate(nil, NextKey(Key("e")), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(nil, storage.NextKey(storage.Key("e")), '/',
+			checkIterator(t, storage.Items{
 				mkitem("g", "g", false),
 				mkitem("h", "h", false),
 			}))
 	})
 
 	t.Run("prefix b slash", func(t *testing.T) {
-		store.Iterate(Key("b/"), nil, '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(storage.Key("b/"), nil, '/',
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
@@ -314,8 +317,8 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("prefix c slash", func(t *testing.T) {
-		store.Iterate(Key("c/"), nil, '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(storage.Key("c/"), nil, '/',
+			checkIterator(t, storage.Items{
 				mkitem("c/", "c/", false),
 				mkitem("c//", "", true),
 				mkitem("c/1", "c/1", false),
@@ -323,15 +326,15 @@ func testIterate(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("prefix c slash slash", func(t *testing.T) {
-		store.Iterate(Key("c//"), nil, '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(storage.Key("c//"), nil, '/',
+			checkIterator(t, storage.Items{
 				mkitem("c//", "c//", false),
 			}))
 	})
 }
 
-func testIterateAll(t *testing.T, store KeyValueStore) {
-	items := Items{
+func testIterateAll(t *testing.T, store storage.KeyValueStore) {
+	items := storage.Items{
 		newItem("a", "a"),
 		newItem("b/1", "b/1"),
 		newItem("b/2", "b/2"),
@@ -354,7 +357,7 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 
 	t.Run("no limits", func(t *testing.T) {
 		store.IterateAll(nil, nil,
-			checkIterator(t, []ListItem{
+			checkIterator(t, storage.Items{
 				mkitem("a", "a", false),
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
@@ -369,8 +372,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at a", func(t *testing.T) {
-		store.IterateAll(nil, Key("a"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.Key("a"),
+			checkIterator(t, storage.Items{
 				mkitem("a", "a", false),
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
@@ -385,8 +388,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after a", func(t *testing.T) {
-		store.IterateAll(nil, NextKey(Key("a")),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.NextKey(storage.Key("a")),
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
@@ -400,8 +403,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at b", func(t *testing.T) {
-		store.IterateAll(nil, Key("b"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.Key("b"),
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
@@ -415,8 +418,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after b", func(t *testing.T) {
-		store.IterateAll(nil, NextKey(Key("b")),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.NextKey(storage.Key("b")),
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
@@ -430,8 +433,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at c", func(t *testing.T) {
-		store.IterateAll(nil, Key("c"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.Key("c"),
+			checkIterator(t, storage.Items{
 				mkitem("c", "c", false),
 				mkitem("c/", "c/", false),
 				mkitem("c//", "c//", false),
@@ -442,8 +445,8 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("after c", func(t *testing.T) {
-		store.IterateAll(nil, NextKey(Key("c")),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.NextKey(storage.Key("c")),
+			checkIterator(t, storage.Items{
 				mkitem("c/", "c/", false),
 				mkitem("c//", "c//", false),
 				mkitem("c/1", "c/1", false),
@@ -453,38 +456,38 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("at e", func(t *testing.T) {
-		store.IterateAll(nil, Key("e"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(nil, storage.Key("e"),
+			checkIterator(t, storage.Items{
 				mkitem("g", "g", false),
 				mkitem("h", "h", false),
 			}))
 	})
 
 	t.Run("prefix b slash", func(t *testing.T) {
-		store.IterateAll(Key("b/"), nil,
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("b/"), nil,
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
 			}))
 
-		store.IterateAll(Key("b/"), Key("a"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("b/"), storage.Key("a"),
+			checkIterator(t, storage.Items{
 				mkitem("b/1", "b/1", false),
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
 			}))
 
-		store.IterateAll(Key("b/"), Key("b/2"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("b/"), storage.Key("b/2"),
+			checkIterator(t, storage.Items{
 				mkitem("b/2", "b/2", false),
 				mkitem("b/3", "b/3", false),
 			}))
 	})
 
 	t.Run("prefix c slash", func(t *testing.T) {
-		store.IterateAll(Key("c/"), nil,
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("c/"), nil,
+			checkIterator(t, storage.Items{
 				mkitem("c/", "c/", false),
 				mkitem("c//", "c//", false),
 				mkitem("c/1", "c/1", false),
@@ -492,15 +495,15 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("prefix c slash slash", func(t *testing.T) {
-		store.IterateAll(Key("c//"), nil,
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("c//"), nil,
+			checkIterator(t, storage.Items{
 				mkitem("c//", "c//", false),
 			}))
 	})
 }
 
-func testPrefix(t *testing.T, store KeyValueStore) {
-	items := Items{
+func testPrefix(t *testing.T, store storage.KeyValueStore) {
+	items := storage.Items{
 		newItem("x-a", "a"),
 		newItem("x-b/1", "b/1"),
 		newItem("x-b/2", "b/2"),
@@ -522,8 +525,8 @@ func testPrefix(t *testing.T, store KeyValueStore) {
 	}
 
 	t.Run("prefix x dash b slash", func(t *testing.T) {
-		store.IterateAll(Key("x-"), Key("x-b"),
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("x-"), storage.Key("x-b"),
+			checkIterator(t, storage.Items{
 				mkitem("x-b/1", "b/1", false),
 				mkitem("x-b/2", "b/2", false),
 				mkitem("x-b/3", "b/3", false),
@@ -531,15 +534,15 @@ func testPrefix(t *testing.T, store KeyValueStore) {
 	})
 
 	t.Run("prefix x dash b slash", func(t *testing.T) {
-		store.Iterate(Key("x-"), Key("x-b"), '/',
-			checkIterator(t, []ListItem{
+		store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
+			checkIterator(t, storage.Items{
 				mkitem("x-b/", "", true),
 			}))
 	})
 
 	t.Run("prefix y- slash", func(t *testing.T) {
-		store.IterateAll(Key("y-"), nil,
-			checkIterator(t, []ListItem{
+		store.IterateAll(storage.Key("y-"), nil,
+			checkIterator(t, storage.Items{
 				newItem("y-c", "c"),
 				newItem("y-c/", "c/"),
 				newItem("y-c//", "c//"),
@@ -549,22 +552,23 @@ func testPrefix(t *testing.T, store KeyValueStore) {
 			}))
 	})
 }
-func newItem(key, value string) ListItem {
-	return ListItem{
-		Key:   Key(key),
-		Value: Value(value),
+func newItem(key, value string) storage.ListItem {
+	return storage.ListItem{
+		Key:      storage.Key(key),
+		Value:    storage.Value(value),
+		IsPrefix: false,
 	}
 }
 
-func mkitem(key, value string, isPrefix bool) ListItem {
-	return ListItem{
-		Key:      Key(key),
-		Value:    Value(value),
+func mkitem(key, value string, isPrefix bool) storage.ListItem {
+	return storage.ListItem{
+		Key:      storage.Key(key),
+		Value:    storage.Value(value),
 		IsPrefix: isPrefix,
 	}
 }
 
-func testKeysSorted(t *testing.T, keys Keys) {
+func testKeysSorted(t *testing.T, keys storage.Keys) {
 	t.Helper()
 	if len(keys) == 0 {
 		return
@@ -578,12 +582,12 @@ func testKeysSorted(t *testing.T, keys Keys) {
 	}
 }
 
-func checkIterator(t *testing.T, items []ListItem) func(it Iterator) error {
+func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) error {
 	t.Helper()
-	return func(it Iterator) error {
+	return func(it storage.Iterator) error {
 		t.Helper()
 
-		var got ListItem
+		var got storage.ListItem
 		maxErrors := 5
 		for i, exp := range items {
 			if !it.Next(&got) {
@@ -610,7 +614,7 @@ func checkIterator(t *testing.T, items []ListItem) func(it Iterator) error {
 	}
 }
 
-func cleanupItems(store KeyValueStore, items Items) {
+func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	for _, item := range items {
 		store.Delete(item.Key)
 	}

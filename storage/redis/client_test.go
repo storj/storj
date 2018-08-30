@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/storage/testsuite"
 )
 
 const (
@@ -32,7 +32,7 @@ func TestCommon(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	storage.RunTests(t, client)
+	testsuite.RunTests(t, client)
 }
 
 func TestInvalidConnection(t *testing.T) {
@@ -57,5 +57,5 @@ func BenchmarkCommon(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	storage.RunBenchmarks(b, client)
+	testsuite.RunBenchmarks(b, client)
 }

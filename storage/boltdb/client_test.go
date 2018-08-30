@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/storage/testsuite"
 )
 
 func TestCommon(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCommon(t *testing.T) {
 		}
 	}()
 
-	storage.RunTests(t, store)
+	testsuite.RunTests(t, store)
 }
 
 func BenchmarkCommon(b *testing.B) {
@@ -51,5 +51,5 @@ func BenchmarkCommon(b *testing.B) {
 		}
 	}()
 
-	storage.RunBenchmarks(b, store)
+	testsuite.RunBenchmarks(b, store)
 }
