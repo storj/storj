@@ -1,5 +1,7 @@
 package storage
 
+import "errors"
+
 // More indicates if the result was truncated. If false
 // then the result []ListItem includes all requested keys.
 // If true then the caller must call List again to get more
@@ -18,6 +20,10 @@ type ListOptions struct {
 
 // ListV2 lists all keys corresponding to ListOptions
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
+	if opts.StartAfter == nil && opts.EndBefore != nil {
+		return nil, false, errors.New("not implemented")
+	}
+
 	more = More(true)
 	limit := opts.Limit
 	if limit == 0 {
