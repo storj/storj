@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package storage
 
 // ListKeys returns keys starting from first and upto limit
