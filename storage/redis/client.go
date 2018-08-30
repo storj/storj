@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"time"
@@ -145,13 +144,11 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 // Iterate iterates over collapsed items with prefix starting from first or the next key
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
 	var all storage.Items
-	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
-	it := store.db.Scan(0, "", 0).Iterator()
+
+	match := string(escapeMatch([]byte(prefix))) + "*"
+	it := store.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
-		if prefix != nil && !bytes.HasPrefix([]byte(key), prefix) {
-			continue
-		}
 		if storage.Key(key).Less(first) {
 			continue
 		}
@@ -176,13 +173,10 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	var all storage.Items
-	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
-	it := store.db.Scan(0, "", 0).Iterator()
+	match := string(escapeMatch([]byte(prefix))) + "*"
+	it := store.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
-		if prefix != nil && !bytes.HasPrefix([]byte(key), prefix) {
-			continue
-		}
 		if storage.Key(key).Less(first) {
 			continue
 		}
