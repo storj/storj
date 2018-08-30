@@ -20,6 +20,10 @@ type ListOptions struct {
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
 	more = More(true)
 	limit := opts.Limit
+	if limit == 0 {
+		limit = Limit(1 << 31)
+	}
+
 	iterate := func(it Iterator) error {
 		var item ListItem
 		for ; limit > 0; limit-- {
@@ -33,10 +37,14 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 			}
 
 			if opts.IncludeValue {
-				result = append(result, CloneItem(item))
+				result = append(result, ListItem{
+					Key:      CloneKey(item.Key[len(opts.Prefix):]),
+					Value:    CloneValue(item.Value),
+					IsPrefix: item.IsPrefix,
+				})
 			} else {
 				result = append(result, ListItem{
-					Key:      CloneKey(item.Key),
+					Key:      CloneKey(item.Key[len(opts.Prefix):]),
 					IsPrefix: item.IsPrefix,
 				})
 			}

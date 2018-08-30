@@ -10,12 +10,12 @@ import (
 
 func testListV2(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		newItem("sample.jpg", "1", false),
-		newItem("music/a-song1.mp3", "2", false),
-		newItem("music/a-song2.mp3", "3", false),
-		newItem("music/my-album/song3.mp3", "4", false),
-		newItem("music/my-album/song4.mp3", "5", false),
-		newItem("music/z-song5.mp3", "6", false),
+		newItem("music/a-song1.mp3", "1", false),
+		newItem("music/a-song2.mp3", "2", false),
+		newItem("music/my-album/song3.mp3", "3", false),
+		newItem("music/my-album/song4.mp3", "4", false),
+		newItem("music/z-song5.mp3", "5", false),
+		newItem("sample.jpg", "6", false),
 		newItem("videos/movie.mkv", "7", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
@@ -31,9 +31,9 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	sort.Sort(items)
 
 	t.Run("all", func(t *testing.T) {
-		t.Skip("broken")
 		got, more, err := storage.ListV2(store, storage.ListOptions{
-			Recursive: true,
+			Recursive:    true,
+			IncludeValue: true,
 		})
 		if more != false {
 			t.Errorf("more %v", more)
@@ -45,7 +45,6 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("music", func(t *testing.T) {
-		t.Skip("broken")
 		got, more, err := storage.ListV2(store,
 			storage.ListOptions{
 				Prefix: storage.Key("music/"),
@@ -57,17 +56,18 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			t.Fatal(err)
 		}
 		checkItems(t, got, storage.Items{
-			newItem("a-song1.mp3", "2", false),
-			newItem("a-song2.mp3", "3", false),
+			newItem("a-song1.mp3", "", false),
+			newItem("a-song2.mp3", "", false),
 			newItem("my-album/", "", true),
-			newItem("z-song5.mp3", "6", false),
+			newItem("z-song5.mp3", "", false),
 		})
 	})
 
 	t.Run("all non-recursive", func(t *testing.T) {
-		t.Skip("broken")
 		got, more, err := storage.ListV2(store,
-			storage.ListOptions{})
+			storage.ListOptions{
+				IncludeValue: true,
+			})
 		if more != false {
 			t.Errorf("more %v", more)
 		}
@@ -75,14 +75,14 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			t.Fatal(err)
 		}
 		checkItems(t, got, storage.Items{
-			newItem("sample.jpg", "1", false),
 			newItem("music/", "", true),
+			newItem("sample.jpg", "6", false),
 			newItem("videos/", "", true),
 		})
 	})
 
 	t.Run("end before 2", func(t *testing.T) {
-		t.Skip("broken")
+		t.Skip("not implemented")
 		got, more, err := storage.ListV2(store,
 			storage.ListOptions{
 				EndBefore: storage.Key("music/z-song5.mp3"),
@@ -95,7 +95,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			t.Fatal(err)
 		}
 		checkItems(t, got, storage.Items{
-			newItem("music/a-song2.mp3", "3", false),
+			newItem("music/a-song2.mp3", "", false),
 			newItem("music/my-album/", "", true),
 		})
 	})
