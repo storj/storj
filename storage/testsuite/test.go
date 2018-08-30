@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/storage/storelogger"
 )
 
+// RunTests runs common storage.KeyValueStore tests
 func RunTests(t *testing.T, store storage.KeyValueStore) {
 	store = storelogger.NewTest(t, store)
 
@@ -22,16 +23,16 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 
 func testCRUD(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		// newItem("0", ""), //TODO: broken
-		newItem("\x00", "\x00"),
-		newItem("a/b", "\x01\x00"),
-		newItem("a\\b", "\xFF"),
-		newItem("full/path/1", "\x00\xFF\xFF\x00"),
-		newItem("full/path/2", "\x00\xFF\xFF\x01"),
-		newItem("full/path/3", "\x00\xFF\xFF\x02"),
-		newItem("full/path/4", "\x00\xFF\xFF\x03"),
-		newItem("full/path/5", "\x00\xFF\xFF\x04"),
-		newItem("öö", "üü"),
+		// newItem("0", "", false), //TODO: broken
+		newItem("\x00", "\x00", false),
+		newItem("a/b", "\x01\x00", false),
+		newItem("a\\b", "\xFF", false),
+		newItem("full/path/1", "\x00\xFF\xFF\x00", false),
+		newItem("full/path/2", "\x00\xFF\xFF\x01", false),
+		newItem("full/path/3", "\x00\xFF\xFF\x02", false),
+		newItem("full/path/4", "\x00\xFF\xFF\x03", false),
+		newItem("full/path/5", "\x00\xFF\xFF\x04", false),
+		newItem("öö", "üü", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
 
@@ -130,12 +131,12 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 
 func testList(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		newItem("path/0", "\x00\xFF\x00"),
-		newItem("path/1", "\x01\xFF\x01"),
-		newItem("path/2", "\x02\xFF\x02"),
-		newItem("path/3", "\x03\xFF\x03"),
-		newItem("path/4", "\x04\xFF\x04"),
-		newItem("path/5", "\x05\xFF\x05"),
+		newItem("path/0", "\x00\xFF\x00", false),
+		newItem("path/1", "\x01\xFF\x01", false),
+		newItem("path/2", "\x02\xFF\x02", false),
+		newItem("path/3", "\x03\xFF\x03", false),
+		newItem("path/4", "\x04\xFF\x04", false),
+		newItem("path/5", "\x05\xFF\x05", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
 
@@ -195,16 +196,16 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 
 func testIterate(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		newItem("a", "a"),
-		newItem("b/1", "b/1"),
-		newItem("b/2", "b/2"),
-		newItem("b/3", "b/3"),
-		newItem("c", "c"),
-		newItem("c/", "c/"),
-		newItem("c//", "c//"),
-		newItem("c/1", "c/1"),
-		newItem("g", "g"),
-		newItem("h", "h"),
+		newItem("a", "a", false),
+		newItem("b/1", "b/1", false),
+		newItem("b/2", "b/2", false),
+		newItem("b/3", "b/3", false),
+		newItem("c", "c", false),
+		newItem("c/", "c/", false),
+		newItem("c//", "c//", false),
+		newItem("c/1", "c/1", false),
+		newItem("g", "g", false),
+		newItem("h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
@@ -218,133 +219,133 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 	t.Run("no limits", func(t *testing.T) {
 		store.Iterate(nil, nil, '/',
 			checkIterator(t, storage.Items{
-				mkitem("a", "a", false),
-				mkitem("b/", "", true),
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("a", "a", false),
+				newItem("b/", "", true),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at a", func(t *testing.T) {
 		store.Iterate(nil, storage.Key("a"), '/',
 			checkIterator(t, storage.Items{
-				mkitem("a", "a", false),
-				mkitem("b/", "", true),
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("a", "a", false),
+				newItem("b/", "", true),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after a", func(t *testing.T) {
 		store.Iterate(nil, storage.NextKey(storage.Key("a")), '/',
 			checkIterator(t, storage.Items{
-				mkitem("b/", "", true),
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/", "", true),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at b", func(t *testing.T) {
 		store.Iterate(nil, storage.Key("b"), '/',
 			checkIterator(t, storage.Items{
-				mkitem("b/", "", true),
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/", "", true),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after b", func(t *testing.T) {
 		store.Iterate(nil, storage.NextKey(storage.Key("b")), '/',
 			checkIterator(t, storage.Items{
-				mkitem("b/", "", true),
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/", "", true),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at c", func(t *testing.T) {
 		store.Iterate(nil, storage.Key("c"), '/',
 			checkIterator(t, storage.Items{
-				mkitem("c", "c", false),
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("c", "c", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after c", func(t *testing.T) {
 		store.Iterate(nil, storage.NextKey(storage.Key("c")), '/',
 			checkIterator(t, storage.Items{
-				mkitem("c/", "", true),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("c/", "", true),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at e", func(t *testing.T) {
 		store.Iterate(nil, storage.Key("e"), '/',
 			checkIterator(t, storage.Items{
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after e", func(t *testing.T) {
 		store.Iterate(nil, storage.NextKey(storage.Key("e")), '/',
 			checkIterator(t, storage.Items{
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("prefix b slash", func(t *testing.T) {
 		store.Iterate(storage.Key("b/"), nil, '/',
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
 			}))
 	})
 
 	t.Run("prefix c slash", func(t *testing.T) {
 		store.Iterate(storage.Key("c/"), nil, '/',
 			checkIterator(t, storage.Items{
-				mkitem("c/", "c/", false),
-				mkitem("c//", "", true),
-				mkitem("c/1", "c/1", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "", true),
+				newItem("c/1", "c/1", false),
 			}))
 	})
 
 	t.Run("prefix c slash slash", func(t *testing.T) {
 		store.Iterate(storage.Key("c//"), nil, '/',
 			checkIterator(t, storage.Items{
-				mkitem("c//", "c//", false),
+				newItem("c//", "c//", false),
 			}))
 	})
 }
 
 func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		newItem("a", "a"),
-		newItem("b/1", "b/1"),
-		newItem("b/2", "b/2"),
-		newItem("b/3", "b/3"),
-		newItem("c", "c"),
-		newItem("c/", "c/"),
-		newItem("c//", "c//"),
-		newItem("c/1", "c/1"),
-		newItem("g", "g"),
-		newItem("h", "h"),
+		newItem("a", "a", false),
+		newItem("b/1", "b/1", false),
+		newItem("b/2", "b/2", false),
+		newItem("b/3", "b/3", false),
+		newItem("c", "c", false),
+		newItem("c/", "c/", false),
+		newItem("c//", "c//", false),
+		newItem("c/1", "c/1", false),
+		newItem("g", "g", false),
+		newItem("h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
@@ -358,162 +359,162 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 	t.Run("no limits", func(t *testing.T) {
 		store.IterateAll(nil, nil,
 			checkIterator(t, storage.Items{
-				mkitem("a", "a", false),
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("a", "a", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at a", func(t *testing.T) {
 		store.IterateAll(nil, storage.Key("a"),
 			checkIterator(t, storage.Items{
-				mkitem("a", "a", false),
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("a", "a", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after a", func(t *testing.T) {
 		store.IterateAll(nil, storage.NextKey(storage.Key("a")),
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at b", func(t *testing.T) {
 		store.IterateAll(nil, storage.Key("b"),
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after b", func(t *testing.T) {
 		store.IterateAll(nil, storage.NextKey(storage.Key("b")),
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at c", func(t *testing.T) {
 		store.IterateAll(nil, storage.Key("c"),
 			checkIterator(t, storage.Items{
-				mkitem("c", "c", false),
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("after c", func(t *testing.T) {
 		store.IterateAll(nil, storage.NextKey(storage.Key("c")),
 			checkIterator(t, storage.Items{
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("at e", func(t *testing.T) {
 		store.IterateAll(nil, storage.Key("e"),
 			checkIterator(t, storage.Items{
-				mkitem("g", "g", false),
-				mkitem("h", "h", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
 			}))
 	})
 
 	t.Run("prefix b slash", func(t *testing.T) {
 		store.IterateAll(storage.Key("b/"), nil,
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
 			}))
 
 		store.IterateAll(storage.Key("b/"), storage.Key("a"),
 			checkIterator(t, storage.Items{
-				mkitem("b/1", "b/1", false),
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
 			}))
 
 		store.IterateAll(storage.Key("b/"), storage.Key("b/2"),
 			checkIterator(t, storage.Items{
-				mkitem("b/2", "b/2", false),
-				mkitem("b/3", "b/3", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
 			}))
 	})
 
 	t.Run("prefix c slash", func(t *testing.T) {
 		store.IterateAll(storage.Key("c/"), nil,
 			checkIterator(t, storage.Items{
-				mkitem("c/", "c/", false),
-				mkitem("c//", "c//", false),
-				mkitem("c/1", "c/1", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
 			}))
 	})
 
 	t.Run("prefix c slash slash", func(t *testing.T) {
 		store.IterateAll(storage.Key("c//"), nil,
 			checkIterator(t, storage.Items{
-				mkitem("c//", "c//", false),
+				newItem("c//", "c//", false),
 			}))
 	})
 }
 
 func testPrefix(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
-		newItem("x-a", "a"),
-		newItem("x-b/1", "b/1"),
-		newItem("x-b/2", "b/2"),
-		newItem("x-b/3", "b/3"),
-		newItem("y-c", "c"),
-		newItem("y-c/", "c/"),
-		newItem("y-c//", "c//"),
-		newItem("y-c/1", "c/1"),
-		newItem("y-g", "g"),
-		newItem("y-h", "h"),
+		newItem("x-a", "a", false),
+		newItem("x-b/1", "b/1", false),
+		newItem("x-b/2", "b/2", false),
+		newItem("x-b/3", "b/3", false),
+		newItem("y-c", "c", false),
+		newItem("y-c/", "c/", false),
+		newItem("y-c//", "c//", false),
+		newItem("y-c/1", "c/1", false),
+		newItem("y-g", "g", false),
+		newItem("y-h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
@@ -527,95 +528,28 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 	t.Run("prefix x dash b slash", func(t *testing.T) {
 		store.IterateAll(storage.Key("x-"), storage.Key("x-b"),
 			checkIterator(t, storage.Items{
-				mkitem("x-b/1", "b/1", false),
-				mkitem("x-b/2", "b/2", false),
-				mkitem("x-b/3", "b/3", false),
+				newItem("x-b/1", "b/1", false),
+				newItem("x-b/2", "b/2", false),
+				newItem("x-b/3", "b/3", false),
 			}))
 	})
 
 	t.Run("prefix x dash b slash", func(t *testing.T) {
 		store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
 			checkIterator(t, storage.Items{
-				mkitem("x-b/", "", true),
+				newItem("x-b/", "", true),
 			}))
 	})
 
 	t.Run("prefix y- slash", func(t *testing.T) {
 		store.IterateAll(storage.Key("y-"), nil,
 			checkIterator(t, storage.Items{
-				newItem("y-c", "c"),
-				newItem("y-c/", "c/"),
-				newItem("y-c//", "c//"),
-				newItem("y-c/1", "c/1"),
-				newItem("y-g", "g"),
-				newItem("y-h", "h"),
+				newItem("y-c", "c", false),
+				newItem("y-c/", "c/", false),
+				newItem("y-c//", "c//", false),
+				newItem("y-c/1", "c/1", false),
+				newItem("y-g", "g", false),
+				newItem("y-h", "h", false),
 			}))
 	})
-}
-func newItem(key, value string) storage.ListItem {
-	return storage.ListItem{
-		Key:      storage.Key(key),
-		Value:    storage.Value(value),
-		IsPrefix: false,
-	}
-}
-
-func mkitem(key, value string, isPrefix bool) storage.ListItem {
-	return storage.ListItem{
-		Key:      storage.Key(key),
-		Value:    storage.Value(value),
-		IsPrefix: isPrefix,
-	}
-}
-
-func testKeysSorted(t *testing.T, keys storage.Keys) {
-	t.Helper()
-	if len(keys) == 0 {
-		return
-	}
-
-	a := keys[0]
-	for _, b := range keys[1:] {
-		if b.Less(a) {
-			t.Fatalf("unsorted order: %v", keys)
-		}
-	}
-}
-
-func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) error {
-	t.Helper()
-	return func(it storage.Iterator) error {
-		t.Helper()
-
-		var got storage.ListItem
-		maxErrors := 5
-		for i, exp := range items {
-			if !it.Next(&got) {
-				t.Fatalf("%d: finished early", i)
-			}
-
-			if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
-				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}", i,
-					got.Key, got.Value, got.IsPrefix,
-					exp.Key, exp.Value, exp.IsPrefix)
-				maxErrors--
-				if maxErrors <= 0 {
-					t.Fatal("too many errors")
-					return nil
-				}
-			}
-		}
-
-		if it.Next(&got) {
-			t.Fatalf("%d: too many, got {%q,%q,%v}", len(items),
-				got.Key, got.Value, got.IsPrefix)
-		}
-		return nil
-	}
-}
-
-func cleanupItems(store storage.KeyValueStore, items storage.Items) {
-	for _, item := range items {
-		store.Delete(item.Key)
-	}
 }

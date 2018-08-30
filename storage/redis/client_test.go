@@ -17,7 +17,7 @@ const (
 	testDatabase = 1
 )
 
-func TestCommon(t *testing.T) {
+func Test(t *testing.T) {
 	cmd := exec.Command("redis-server")
 	if err := cmd.Start(); os.IsNotExist(err) {
 		t.Skip("redis not installed")
@@ -42,7 +42,7 @@ func TestInvalidConnection(t *testing.T) {
 	}
 }
 
-func BenchmarkCommon(b *testing.B) {
+func Benchmark(b *testing.B) {
 	cmd := exec.Command("redis-server")
 	if err := cmd.Start(); os.IsNotExist(err) {
 		b.Skip("redis not installed")

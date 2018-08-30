@@ -30,8 +30,10 @@ type Client struct {
 	version int
 }
 
+// New creates a new in-memory key-value store
 func New() *Client { return &Client{} }
 
+// indexOf finds index of key or where it could be inserted
 func (store *Client) indexOf(key storage.Key) (int, bool) {
 	i := sort.Search(len(store.Items), func(k int) bool {
 		return !store.Items[k].Key.Less(key)
@@ -229,6 +231,7 @@ func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.It
 	}))
 }
 
+// cursor implements iterating over items with basic repositioning when the items change
 type cursor struct {
 	done      bool
 	nextIndex int

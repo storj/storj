@@ -38,7 +38,9 @@ func New(path, bucket string) (*Client, error) {
 		_, err = tx.CreateBucketIfNotExists([]byte(bucket))
 		return err
 	})
+
 	if err != nil {
+		// TODO: don't hide error here
 		_ = db.Close()
 		return nil, err
 	}

@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func TestCommon(t *testing.T) {
+func Test(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "bolt")
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestCommon(t *testing.T) {
 	testsuite.RunTests(t, store)
 }
 
-func BenchmarkCommon(b *testing.B) {
+func Benchmark(b *testing.B) {
 	tempdir, err := ioutil.TempDir("", "bolt")
 	if err != nil {
 		b.Fatal(err)
