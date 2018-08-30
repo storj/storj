@@ -28,33 +28,34 @@ endif
 lint: check-copyrights
 	@echo "Running ${@}"
 	@gometalinter \
-    --deadline=10m \
-    --enable-all \
-    --enable=golint \
-    --enable=errcheck \
-    --enable=unconvert \
-    --enable=structcheck \
-    --enable=misspell \
-    --disable=goimports \
-    --enable=ineffassign \
-    --disable=gofmt \
-    --enable=nakedret \
-    --enable=megacheck \
-    --disable=unparam \
-    --disable=gosec \
-    --disable=vetshadow \
-    --disable=gochecknoinits \
-    --disable=gochecknoglobals \
-    --disable=dupl \
-    --disable=gocyclo \
-    --disable=lll \
-    --disable=gotype --disable=gotypex \
-    --disable=safesql \
-    --disable=interfacer \
+	--deadline=10m \
+	--concurrency=1 \
+	--enable-all \
+	--enable=golint \
+	--enable=errcheck \
+	--enable=unconvert \
+	--enable=structcheck \
+	--enable=misspell \
+	--disable=goimports \
+	--enable=ineffassign \
+	--disable=gofmt \
+	--enable=nakedret \
+	--enable=megacheck \
+	--disable=unparam \
+	--disable=gosec \
+	--disable=vetshadow \
+	--disable=gochecknoinits \
+	--disable=gochecknoglobals \
+	--disable=dupl \
+	--disable=gocyclo \
+	--disable=lll \
+	--disable=gotype --disable=gotypex \
+	--disable=safesql \
+	--disable=interfacer \
 	--skip=examples \
 	--exclude=".*\.pb\.go" \
 	--exclude=".*\.dbx\.go" \
-  ./...
+	./...
 
 check-copyrights:
 	@echo "Running ${@}"
@@ -83,9 +84,9 @@ test: lint
 	@echo done
 
 build-binaries:
-	docker build -t hc .
+	docker build -t satellite .
 
-run-hc:
+run-satellite:
 	docker network create test-net
 
 	docker run -d \
@@ -95,23 +96,23 @@ run-hc:
 		redis
 
 	docker run -d \
-		--name=hc \
+		--name=satellite \
 		--network test-net \
 		-p 127.0.0.1:8080:8080 \
 		-e REDIS_ADDRESS=redis:6379 \
 		-e REDIS_PASSWORD="" \
 		-e REDIS_DB=1 \
 		-e OVERLAY_PORT=7070 \
-		hc
+		satellite
 
 test-captplanet:
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
 
 clean-local:
-	# cleanup heavy client
-	docker stop hc || true
-	docker rm hc || true
+	# cleanup satellite
+	docker stop satellite || true
+	docker rm satellite || true
 	# cleanup redis
 	docker stop redis || true
 	docker rm redis || true
@@ -130,7 +131,7 @@ images: satellite-image storage-node-image uplink-image
 
 .PHONY: satellite-image
 satellite-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/hc/Dockerfile .
+	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/satellite/Dockerfile .
 .PHONY: storage-node-image
 storage-node-image:
 	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .

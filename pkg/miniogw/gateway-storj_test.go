@@ -32,6 +32,97 @@ var (
 	ctx = context.Background()
 )
 
+func TestCopyObject(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(ctrl)
+	b := Storj{bs: mockBS}
+
+	mockOS := NewMockStore(ctrl)
+
+	storjObj := storjObjects{storj: &b}
+
+	for i, example := range []struct {
+		bucket, srcObject string
+		destObject        string
+		data              string
+		getErr            error
+		putErr            error
+		errString         string
+	}{
+		// happy scenario
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", nil, nil, ""},
+		// error returned by the objects.Get()
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", errors.New("some Get err"), nil, "some Get err"},
+		// error returned by the objects.Put()
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", nil, errors.New("some Put err"), "some Put err"},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		metadata := map[string]string{
+			"content-type": "media/foo",
+			"userdef_key1": "userdef_val1",
+			"userdef_key2": "userdef_val2",
+		}
+
+		serMeta := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: map[string]string{
+				"userdef_key1": metadata["userdef_key1"],
+				"userdef_key2": metadata["userdef_key2"],
+			},
+		}
+
+		meta := objects.Meta{
+			SerializableMeta: serMeta,
+			Modified:         time.Time{},
+			Expiration:       time.Time{},
+			Size:             1234,
+			Checksum:         "test-checksum",
+		}
+
+		srcInfo := minio.ObjectInfo{
+			Bucket:      example.bucket,
+			Name:        example.srcObject,
+			Size:        1234,
+			ContentType: serMeta.ContentType,
+			UserDefined: serMeta.UserDefined,
+		}
+
+		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
+		r, err := rr.Range(ctx, 0, rr.Size())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// if o.Get returns an error, only expect GetObjectStore once, do not expect Put
+		if example.errString != "some Get err" {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil).Times(2)
+			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
+			mockOS.EXPECT().Put(gomock.Any(), paths.New(example.destObject), r, serMeta, time.Time{}).Return(meta, example.putErr)
+		} else {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
+			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
+		}
+
+		objInfo, err := storjObj.CopyObject(ctx, example.bucket, example.srcObject, example.bucket, example.destObject, srcInfo)
+
+		if err != nil {
+			assert.EqualError(t, err, example.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+			assert.NotNil(t, objInfo, errTag)
+			assert.Equal(t, example.bucket, objInfo.Bucket, errTag)
+			assert.Equal(t, example.destObject, objInfo.Name, errTag)
+			assert.Equal(t, meta.Modified, objInfo.ModTime, errTag)
+			assert.Equal(t, meta.Size, objInfo.Size, errTag)
+			assert.Equal(t, meta.Checksum, objInfo.ETag, errTag)
+			assert.Equal(t, meta.UserDefined, objInfo.UserDefined, errTag)
+		}
+	}
+}
+
 func TestGetObject(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
