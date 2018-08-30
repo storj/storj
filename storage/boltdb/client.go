@@ -174,90 +174,55 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	var items []storage.ListItem
-
-	err := store.db.View(func(tx *bolt.Tx) error {
+	return store.db.View(func(tx *bolt.Tx) error {
 		cursor := tx.Bucket(store.Bucket).Cursor()
-
-		if prefix == nil {
-			var key, value []byte
-			var dirPrefix []byte
-			var isPrefix bool = false
-
-			key, value = cursor.Seek([]byte(first))
-			for key != nil {
-				if p := bytes.IndexByte(key, delimiter); p >= 0 {
-					key = key[:p+1]
-					dirPrefix = append(dirPrefix, key...) // copy
-					value = nil
-					isPrefix = true
-				} else {
-					dirPrefix = nil
-					isPrefix = false
-				}
-
-				items = append(items, storage.ListItem{
-					Key:      storage.CloneKey(storage.Key(key)),
-					Value:    storage.CloneValue(storage.Value(value)),
-					IsPrefix: isPrefix,
-				})
-
-				// next item
-				key, value = cursor.Next()
-				if isPrefix {
-					for bytes.HasPrefix(key, dirPrefix) && key != nil {
-						key, value = cursor.Next()
-					}
-				}
-			}
-
-			return nil
-		}
-
-		var key, value []byte
-		var dirPrefix []byte
-		var isPrefix bool = false
 
 		// position to the first item
 		if first == nil || first.Less(prefix) {
 			first = prefix
 		}
-		key, value = cursor.Seek([]byte(first))
 
-		for key != nil && bytes.HasPrefix(key, prefix) {
-			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
-				key = key[:len(prefix)+p+1]
-				dirPrefix = append(dirPrefix, key...) // copy
-				value = nil
-				isPrefix = true
+		start := true
+		var lastPrefix []byte
+		var wasPrefix bool = false
+
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			var key, value []byte
+			if start {
+				key, value = cursor.Seek([]byte(first))
+				start = false
 			} else {
-				dirPrefix = nil
-				isPrefix = false
+				key, value = cursor.Next()
 			}
 
-			items = append(items, storage.ListItem{
-				Key:      storage.CloneKey(storage.Key(key)),
-				Value:    storage.CloneValue(storage.Value(value)),
-				IsPrefix: isPrefix,
-			})
-
-			// next item
-			key, value = cursor.Next()
-			if isPrefix {
-				for bytes.HasPrefix(key, dirPrefix) && key != nil {
+			if wasPrefix {
+				for key != nil && bytes.HasPrefix(key, lastPrefix) {
 					key, value = cursor.Next()
 				}
 			}
-		}
 
-		return nil
-	})
+			if key == nil || !bytes.HasPrefix(key, prefix) {
+				return false
+			}
 
-	if err != nil {
-		return err
-	}
+			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
+				key = key[:len(prefix)+p+1]
+				lastPrefix = append(lastPrefix[:0], key...) // copy
 
-	return fn(&storage.StaticIterator{
-		Items: items,
+				item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
+				item.Value = item.Value[:0]
+				item.IsPrefix = true
+
+				wasPrefix = true
+			} else {
+				item.Key = append(item.Key[:0], storage.Key(key)...)
+				item.Value = append(item.Value[:0], storage.Value(value)...)
+				item.IsPrefix = false
+
+				wasPrefix = false
+			}
+
+			return true
+		}))
 	})
 }
