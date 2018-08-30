@@ -20,7 +20,7 @@ import (
 
 const (
 	// KademliaBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
-	KademliaBucket = "kademlia"
+	KademliaBucket = "kbuckets"
 	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
 	NodeBucket = "nodes"
 )
