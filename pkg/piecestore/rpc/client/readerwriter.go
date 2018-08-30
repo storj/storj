@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
@@ -70,42 +71,40 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	stream    pb.PieceStoreRoutes_RetrieveClient
-	src       *utils.ReaderSource
-	totalRead int64
-	max       int64
-	allocated int64
-	cond1     *sync.Cond
-	cond2     *sync.Cond
-	c         chan int
+	stream        pb.PieceStoreRoutes_RetrieveClient
+	src           *utils.ReaderSource
+	totalRead     int64
+	max           int64
+	allocated     int64
+	dataSendCond  *sync.Cond
+	allocSendCond *sync.Cond
+	c             chan int
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
 func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, max int64) *StreamReader {
-	var mtx1 sync.Mutex
-	var mtx2 sync.Mutex
+	var mtx sync.Mutex
 
 	sr := &StreamReader{
-		stream: stream,
-		max:    max,
-		cond1:  sync.NewCond(&mtx1),
-		cond2:  sync.NewCond(&mtx2),
-		c:      make(chan int),
+		stream:        stream,
+		max:           max,
+		dataSendCond:  sync.NewCond(&mtx),
+		allocSendCond: sync.NewCond(&mtx),
+		c:             make(chan int),
 	}
 
 	go func() {
 		<-sr.c
-
 		for sr.totalRead < sr.max {
+			sr.allocSendCond.L.Lock()
 			fmt.Println("Locking ba send")
-			sr.cond2.L.Lock()
 			for sr.allocated-sr.totalRead >= int64(4*signer.bandwidthMsgSize) {
-				sr.cond2.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
+				sr.allocSendCond.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
 			}
-			sr.cond2.L.Unlock()
 			fmt.Println("Unlocking ba send")
+			sr.allocSendCond.L.Unlock()
 
-			fmt.Println(sr.allocated, sr.totalRead, signer.bandwidthMsgSize, sr.max)
+			fmt.Println(sr.allocated, sr.totalRead)
 
 			if sr.max-sr.allocated < int64(signer.bandwidthMsgSize) {
 				sr.allocated += sr.max - sr.allocated
@@ -140,18 +139,24 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			}
 
 			if sr.allocated-sr.totalRead >= int64(4*signer.bandwidthMsgSize) || sr.max-sr.allocated < int64(4*signer.bandwidthMsgSize) {
-				sr.cond1.Signal() // Signal the data send loop that it has available bandwidth
+				fmt.Println("Sending Signal to dataSendCond")
+				time.Sleep(time.Second * 10)
+				sr.dataSendCond.Signal() // Signal the data send loop that it has available bandwidth
+				fmt.Println("Sent Signal to dataSendCond")
 			}
 		}
 	}()
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		sr.cond1.L.Lock()
+		sr.dataSendCond.L.Lock()
+		fmt.Println("Locking data send")
 		for sr.totalRead <= sr.allocated {
 			sr.c <- 1
-			sr.cond1.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
+			fmt.Println("dataSendCond Wait")
+			sr.dataSendCond.Wait() // Wait for the bandwidth loop to send a new bandwidth allocation
 		}
-		sr.cond1.L.Unlock()
+		fmt.Println("Unlocking data send")
+		sr.dataSendCond.L.Unlock()
 
 		resp, err := stream.Recv()
 		if err != nil {
@@ -160,7 +165,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 		sr.totalRead += int64(len(resp.GetContent()))
 
-		sr.cond2.Signal()
+		sr.allocSendCond.Signal()
 
 		return resp.GetContent(), nil
 	})
