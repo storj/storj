@@ -15,6 +15,12 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 	}
 }
 
+func cleanupItems(store storage.KeyValueStore, items storage.Items) {
+	for _, item := range items {
+		store.Delete(item.Key)
+	}
+}
+
 func testKeysSorted(t *testing.T, keys storage.Keys) {
 	t.Helper()
 	if len(keys) == 0 {
@@ -61,8 +67,29 @@ func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) 
 	}
 }
 
-func cleanupItems(store storage.KeyValueStore, items storage.Items) {
-	for _, item := range items {
-		store.Delete(item.Key)
+func checkItems(t *testing.T, gotItems, expItems storage.Items) {
+	t.Helper()
+
+	maxErrors := 5
+	n := len(gotItems)
+	if n > len(expItems) {
+		n = len(expItems)
+	}
+
+	for i, exp := range expItems[:n] {
+		got := gotItems[i]
+		if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
+			t.Errorf("%d: mismatch {%q,%q,%v} exp {%q,%q,%v}", i,
+				got.Key, got.Value, got.IsPrefix,
+				exp.Key, exp.Value, exp.IsPrefix)
+			maxErrors--
+			if maxErrors <= 0 {
+				break
+			}
+		}
+	}
+
+	if len(gotItems) != len(expItems) {
+		t.Fatalf(" : invalid count, got %d exp %d", len(gotItems), len(expItems))
 	}
 }

@@ -27,7 +27,7 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 				more = false
 				return nil
 			}
-			if !item.Key.Less(opts.EndBefore) {
+			if opts.EndBefore != nil && !item.Key.Less(opts.EndBefore) {
 				more = false
 				return nil
 			}
