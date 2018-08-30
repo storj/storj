@@ -71,6 +71,19 @@ func (store *Logger) Iterate(prefix, first Key, delimiter byte, fn func(Iterator
 	})
 }
 
+func (store *Logger) IterateAll(prefix, first Key, fn func(Iterator) error) error {
+	store.log.Debug("IterateAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
+	return store.store.IterateAll(prefix, first, func(it Iterator) error {
+		return fn(IteratorFunc(func(item *ListItem) bool {
+			ok := it.Next(item)
+			if ok {
+				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+			}
+			return ok
+		}))
+	})
+}
+
 // ReverseList lists all keys in reverse order, starting from first
 func (store *Logger) ReverseList(first Key, limit Limit) (Keys, error) {
 	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)))

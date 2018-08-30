@@ -6,6 +6,7 @@ package redis
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -198,5 +199,37 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 
 	return fn(&storage.StaticIterator{
 		Items: storage.SortAndCollapse(all, prefix, delimiter),
+	})
+}
+
+func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
+	var all storage.Items
+	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
+	it := store.db.Scan(0, "", 0).Iterator()
+	for it.Next() {
+		key := it.Val()
+		if prefix != nil && !bytes.HasPrefix([]byte(key), prefix) {
+			continue
+		}
+		if storage.Key(key).Less(first) {
+			continue
+		}
+
+		value, err := store.db.Get(key).Bytes()
+		if err != nil {
+			return err
+		}
+
+		all = append(all, storage.ListItem{
+			Key:      storage.Key(key),
+			Value:    storage.Value(value),
+			IsPrefix: false,
+		})
+	}
+
+	sort.Sort(all)
+
+	return fn(&storage.StaticIterator{
+		Items: all,
 	})
 }

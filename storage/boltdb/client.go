@@ -207,7 +207,7 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 
 			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
 				key = key[:len(prefix)+p+1]
-				lastPrefix = append(lastPrefix[:0], key...) // copy
+				lastPrefix = append(lastPrefix[:0], key...)
 
 				item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
 				item.Value = item.Value[:0]
@@ -221,6 +221,38 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 
 				wasPrefix = false
 			}
+
+			return true
+		}))
+	})
+}
+
+func (store *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	return store.db.View(func(tx *bolt.Tx) error {
+		cursor := tx.Bucket(store.Bucket).Cursor()
+
+		// position to the first item
+		if first == nil || first.Less(prefix) {
+			first = prefix
+		}
+
+		start := true
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			var key, value []byte
+			if start {
+				key, value = cursor.Seek([]byte(first))
+				start = false
+			} else {
+				key, value = cursor.Next()
+			}
+
+			if key == nil || !bytes.HasPrefix(key, prefix) {
+				return false
+			}
+
+			item.Key = append(item.Key[:0], storage.Key(key)...)
+			item.Value = append(item.Value[:0], storage.Value(value)...)
+			item.IsPrefix = false
 
 			return true
 		}))

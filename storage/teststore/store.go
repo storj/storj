@@ -25,6 +25,7 @@ type Client struct {
 		Delete      int
 		Close       int
 		Iterate     int
+		IterateAll  int
 	}
 }
 
@@ -172,5 +173,19 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 
 	return fn(&storage.StaticIterator{
 		Items: collapsed,
+	})
+}
+
+func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
+	store.CallCount.IterateAll++
+
+	index, _ := store.indexOf(first)
+
+	items := storage.CloneItems(store.Items[index:])
+	filtered := storage.FilterPrefix(items, prefix)
+	sort.Sort(filtered)
+
+	return fn(&storage.StaticIterator{
+		Items: filtered,
 	})
 }

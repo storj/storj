@@ -72,9 +72,10 @@ type KeyValueStore interface {
 	ListV2(opts ListOptions) (Items, More, error)
 	// ReverseList lists all keys in revers order
 	ReverseList(Key, Limit) (Keys, error)
-	// Allows to iterate over collapsed items
-	// with prefix starting from first or the nearest next key
+	// Iterate iterates over collapsed items with prefix starting from first or the next key
 	Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error
+	// IterateAll iterates over all items with prefix starting from first or the next key
+	IterateAll(prefix, first Key, fn func(Iterator) error) error
 	// Close closes the store
 	Close() error
 }
