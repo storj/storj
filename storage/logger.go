@@ -7,6 +7,8 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// TODO: try not to depend on zap here
+
 type Logger struct {
 	log   *zap.Logger
 	store KeyValueStore
