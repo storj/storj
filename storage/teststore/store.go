@@ -1,6 +1,7 @@
 package teststore
 
 import (
+	"bytes"
 	"errors"
 	"sort"
 
@@ -13,8 +14,7 @@ var (
 
 // Client implements in-memory key value store
 type Client struct {
-	Items []storage.ListItem
-
+	Items     []storage.ListItem
 	CallCount struct {
 		Get         int
 		Put         int
@@ -27,6 +27,8 @@ type Client struct {
 		Iterate     int
 		IterateAll  int
 	}
+
+	version int
 }
 
 func New() *Client { return &Client{} }
@@ -44,6 +46,7 @@ func (store *Client) indexOf(key storage.Key) (int, bool) {
 
 // Put adds a value to store
 func (store *Client) Put(key storage.Key, value storage.Value) error {
+	store.version++
 	store.CallCount.Put++
 	if key == nil {
 		return storage.ErrEmptyKey
@@ -95,6 +98,7 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 // Delete deletes key and the value
 func (store *Client) Delete(key storage.Key) error {
+	store.version++
 	store.CallCount.Delete++
 	keyIndex, found := store.indexOf(key)
 	if !found {
@@ -155,28 +159,121 @@ func (store *Client) Close() error {
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
 
-	index, _ := store.indexOf(first)
+	if first.Less(prefix) {
+		first = prefix
+	}
 
-	items := storage.CloneItems(store.Items[index:])
-	filtered := storage.SelectPrefixed(items, prefix)
-	collapsed := storage.SortAndCollapse(filtered, prefix, delimiter)
+	var cur cursor
+	cur.positionTo(store, first)
 
-	return fn(&storage.StaticIterator{
-		Items: collapsed,
-	})
+	var lastPrefix storage.Key
+	var wasPrefix bool
+
+	return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+		next, ok := cur.next(store)
+		if !ok {
+			return false
+		}
+
+		if wasPrefix {
+			for bytes.HasPrefix([]byte(next.Key), []byte(lastPrefix)) {
+				next, ok = cur.next(store)
+				if !ok {
+					return false
+				}
+			}
+		}
+
+		if !bytes.HasPrefix(next.Key, prefix) {
+			cur.close()
+			return false
+		}
+
+		if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), delimiter); p >= 0 {
+			lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
+
+			item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
+			item.Value = item.Value[:0]
+			item.IsPrefix = true
+
+			wasPrefix = true
+		} else {
+			item.Key = append(item.Key[:0], next.Key...)
+			item.Value = append(item.Value[:0], next.Value...)
+			item.IsPrefix = false
+
+			wasPrefix = false
+		}
+
+		return true
+	}))
 }
 
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	store.CallCount.IterateAll++
 
-	index, _ := store.indexOf(first)
+	if first.Less(prefix) {
+		first = prefix
+	}
+	var cur cursor
+	cur.positionTo(store, first)
 
-	items := storage.CloneItems(store.Items[index:])
-	filtered := storage.SelectPrefixed(items, prefix)
-	sort.Sort(filtered)
+	return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+		next, ok := cur.next(store)
+		if !ok {
+			return false
+		}
+		if !bytes.HasPrefix(next.Key, prefix) {
+			cur.close()
+			return false
+		}
 
-	return fn(&storage.StaticIterator{
-		Items: filtered,
-	})
+		item.Key = append(item.Key[:0], next.Key...)
+		item.Value = append(item.Value[:0], next.Value...)
+		item.IsPrefix = false
+
+		return true
+	}))
+}
+
+type cursor struct {
+	done      bool
+	nextIndex int
+	version   int
+	lastKey   storage.Key
+}
+
+func (cursor *cursor) close() {
+	cursor.done = true
+}
+
+func (cursor *cursor) positionTo(store *Client, key storage.Key) {
+	cursor.version = store.version
+	cursor.nextIndex, _ = store.indexOf(key)
+	cursor.lastKey = storage.CloneKey(key)
+}
+
+func (cursor *cursor) next(store *Client) (*storage.ListItem, bool) {
+	if cursor.done {
+		return nil, false
+	}
+
+	if cursor.version != store.version {
+		cursor.version = store.version
+		var ok bool
+		cursor.nextIndex, ok = store.indexOf(cursor.lastKey)
+		if ok {
+			cursor.nextIndex++
+		}
+	}
+
+	if cursor.nextIndex >= len(store.Items) {
+		cursor.close()
+		return nil, false
+	}
+
+	cursor.lastKey = store.Items[cursor.nextIndex].Key
+	cursor.nextIndex++
+	return &store.Items[cursor.nextIndex-1], true
 }
