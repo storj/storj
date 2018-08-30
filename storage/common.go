@@ -72,27 +72,18 @@ type KeyValueStore interface {
 	ListV2(opts ListOptions) (Items, More, error)
 	// ReverseList lists all keys in revers order
 	ReverseList(Key, Limit) (Keys, error)
+	// Allows to iterate over collapsed items
+	// with prefix starting from first or the nearest next key
+	Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error
 	// Close closes the store
 	Close() error
 }
 
-type IterableStore interface {
-	KeyValueStore
-	// TODO: figure out whether to use after or first?
-	// Iterate iterates items skipping nested prefixes
-	Iterate(prefix, after Key, delimiter byte, fn func(Iterator) error) error
-	// IterateAll iterates everything
-	// IterateAll(prefix, after Key) Iterator
-}
-
 type Iterator interface {
 	// Next prepares the next list item
+	// returns false when you reach final item
 	Next(item *ListItem) bool
 }
-
-type IteratorFunc func(item *ListItem) bool
-
-func (next IteratorFunc) Next(item *ListItem) bool { return next(item) }
 
 // IsZero returns true if the value struct is it's zero value
 func (v *Value) IsZero() (_ bool) {

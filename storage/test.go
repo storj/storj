@@ -4,20 +4,17 @@ import (
 	"bytes"
 	"math/rand"
 	"testing"
+
+	"go.uber.org/zap/zaptest"
 )
 
 func RunTests(t *testing.T, store KeyValueStore) {
+	store = NewLogger(zaptest.NewLogger(t), store)
+
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
 	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
 	t.Run("List", func(t *testing.T) { testList(t, store) })
-
-	t.Run("Iterator", func(t *testing.T) {
-		iterable, ok := store.(IterableStore)
-		if !ok {
-			t.Skip("not implemented")
-		}
-		testIterator(t, iterable)
-	})
+	t.Run("Iterator", func(t *testing.T) { testIterator(t, store) })
 }
 
 func testCRUD(t *testing.T, store KeyValueStore) {
@@ -193,7 +190,7 @@ func testList(t *testing.T, store KeyValueStore) {
 	})
 }
 
-func testIterator(t *testing.T, store IterableStore) {
+func testIterator(t *testing.T, store KeyValueStore) {
 	items := Items{
 		newItem("a", "a"),
 		newItem("b/1", "b/1"),

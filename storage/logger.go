@@ -56,10 +56,19 @@ func (store *Logger) ListV2(opts ListOptions) (Items, More, error) {
 	return store.store.ListV2(opts)
 }
 
-// Iterate iterates over all items between first and last
-func (store *Logger) Iterate(first Key) Iterator {
-	store.log.Debug("List", zap.String("first", string(first)))
-	return nil
+// Allows to iterate over collapsed items
+// with prefix starting from first or the nearest next key
+func (store *Logger) Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error {
+	store.log.Debug("Iterate", zap.String("prefix", string(first)), zap.String("first", string(first)))
+	return store.store.Iterate(prefix, first, delimiter, func(it Iterator) error {
+		return fn(IteratorFunc(func(item *ListItem) bool {
+			ok := it.Next(item)
+			if ok {
+				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+			}
+			return ok
+		}))
+	})
 }
 
 // ReverseList lists all keys in reverse order, starting from first
