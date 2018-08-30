@@ -63,6 +63,7 @@ type KeyValueStore interface {
 	Close() error
 }
 
+// Iterator iterates over a sequence of ListItems
 type Iterator interface {
 	// Next prepares the next list item
 	// returns false when you reach final item
@@ -70,48 +71,46 @@ type Iterator interface {
 }
 
 // IsZero returns true if the value struct is it's zero value
-func (v *Value) IsZero() (_ bool) {
-	return len(*v) == 0
+func (value Value) IsZero() bool {
+	return len(value) == 0
 }
 
 // IsZero returns true if the key struct is it's zero value
-func (k *Key) IsZero() (_ bool) {
-	return len(*k) == 0
+func (key Key) IsZero() bool {
+	return len(key) == 0
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for the Value type
-func (v *Value) MarshalBinary() (_ []byte, _ error) {
-	return *v, nil
+func (value Value) MarshalBinary() ([]byte, error) {
+	return value, nil
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for the Key type
-func (k *Key) MarshalBinary() (_ []byte, _ error) {
-	return *k, nil
+func (key Key) MarshalBinary() ([]byte, error) {
+	return key, nil
 }
 
 // ByteSlices converts a `Keys` struct to a slice of byte-slices (i.e. `[][]byte`)
-func (k *Keys) ByteSlices() [][]byte {
-	result := make([][]byte, len(*k))
+func (keys Keys) ByteSlices() [][]byte {
+	result := make([][]byte, len(keys))
 
-	for _k, v := range *k {
-		result[_k] = []byte(v)
+	for key, val := range keys {
+		result[key] = []byte(val)
 	}
 
 	return result
 }
 
 // String implements the Stringer interface
-func (k *Key) String() string {
-	return string(*k)
-}
+func (key Key) String() string { return string(key) }
 
 // GetKeys gets all the Keys in []ListItem and converts them to Keys
-func (i *Items) GetKeys() Keys {
-	if len(*i) == 0 {
+func (items Items) GetKeys() Keys {
+	if len(items) == 0 {
 		return nil
 	}
 	var keys Keys
-	for _, item := range *i {
+	for _, item := range items {
 		keys = append(keys, item.Key)
 	}
 	return keys
@@ -127,11 +126,11 @@ func (items Items) Less(i, k int) bool { return items[i].Less(items[k]) }
 // Swap swaps the elements with indexes i and j.
 func (items Items) Swap(i, k int) { items[i], items[k] = items[k], items[i] }
 
-// Less returns whether a should be sorted before b
-func (a ListItem) Less(b ListItem) bool { return a.Key.Less(b.Key) }
+// Less returns whether item should be sorted before b
+func (item ListItem) Less(b ListItem) bool { return item.Key.Less(b.Key) }
 
-// Less returns whether a should be sorted before b
-func (a Key) Less(b Key) bool { return bytes.Compare([]byte(a), []byte(b)) < 0 }
+// Less returns whether key should be sorted before b
+func (key Key) Less(b Key) bool { return bytes.Compare([]byte(key), []byte(b)) < 0 }
 
-// Equal returns whether a and b are equal
-func (a Key) Equal(b Key) bool { return bytes.Equal([]byte(a), []byte(b)) }
+// Equal returns whether key and b are equal
+func (key Key) Equal(b Key) bool { return bytes.Equal([]byte(key), []byte(b)) }

@@ -33,23 +33,23 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	t.Run("prefix x dash b slash", func(t *testing.T) {
-		store.IterateAll(storage.Key("x-"), storage.Key("x-b"),
+		check(t, store.IterateAll(storage.Key("x-"), storage.Key("x-b"),
 			checkIterator(t, storage.Items{
 				newItem("x-b/1", "b/1", false),
 				newItem("x-b/2", "b/2", false),
 				newItem("x-b/3", "b/3", false),
-			}))
+			})))
 	})
 
 	t.Run("prefix x dash b slash", func(t *testing.T) {
-		store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
+		check(t, store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
 			checkIterator(t, storage.Items{
 				newItem("x-b/", "", true),
-			}))
+			})))
 	})
 
 	t.Run("prefix y- slash", func(t *testing.T) {
-		store.IterateAll(storage.Key("y-"), nil,
+		check(t, store.IterateAll(storage.Key("y-"), nil,
 			checkIterator(t, storage.Items{
 				newItem("y-c", "c", false),
 				newItem("y-c/", "c/", false),
@@ -57,6 +57,6 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 				newItem("y-c/1", "c/1", false),
 				newItem("y-g", "g", false),
 				newItem("y-h", "h", false),
-			}))
+			})))
 	})
 }

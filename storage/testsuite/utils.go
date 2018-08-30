@@ -20,7 +20,7 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 
 func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	for _, item := range items {
-		store.Delete(item.Key)
+		_ = store.Delete(item.Key)
 	}
 }
 

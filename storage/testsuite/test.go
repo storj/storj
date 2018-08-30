@@ -27,7 +27,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key
 		var val storage.Value
-		defer store.Delete(key)
+		defer func() { _ = store.Delete(key) }()
 
 		err := store.Put(key, val)
 		if err == nil {

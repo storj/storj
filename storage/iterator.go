@@ -17,7 +17,7 @@ func (next IteratorFunc) Next(item *ListItem) bool { return next(item) }
 // SelectPrefixed keeps only items that have prefix
 // items slice is modified
 func SelectPrefixed(items Items, prefix []byte) Items {
-	var result Items = items[:0]
+	result := items[:0]
 	for _, item := range items {
 		if bytes.HasPrefix(item.Key, prefix) {
 			result = append(result, item)
@@ -30,7 +30,7 @@ func SelectPrefixed(items Items, prefix []byte) Items {
 // items slice is modified
 func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
 	sort.Sort(items)
-	var result Items = items[:0]
+	result := items[:0]
 
 	var currentPrefix []byte
 	var prefixed bool

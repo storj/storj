@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	// ErrNotExist is returned when looked item does not exist
 	ErrNotExist = errors.New("does not exist")
 )
 

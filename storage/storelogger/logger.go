@@ -12,15 +12,18 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// Logger implements a zap.Logger for storage.KeyValueStore
 type Logger struct {
 	log   *zap.Logger
 	store storage.KeyValueStore
 }
 
+// New creates a new Logger with log and store
 func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	return &Logger{log, store}
 }
 
+// NewTest creates a logger for testing
 func NewTest(t *testing.T, store storage.KeyValueStore) *Logger {
 	return New(zaptest.NewLogger(t), store)
 }
@@ -55,8 +58,7 @@ func (store *Logger) List(first storage.Key, limit storage.Limit) (storage.Keys,
 	return store.store.List(first, limit)
 }
 
-// Allows to iterate over collapsed items
-// with prefix starting from first or the nearest next key
+// Iterate iterates over collapsed items with prefix starting from first or the next key
 func (store *Logger) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	store.log.Debug("Iterate", zap.String("prefix", string(first)), zap.String("first", string(first)))
 	return store.store.Iterate(prefix, first, delimiter, func(it storage.Iterator) error {
@@ -70,6 +72,7 @@ func (store *Logger) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 	})
 }
 
+// IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Logger) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.log.Debug("IterateAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
 	return store.store.IterateAll(prefix, first, func(it storage.Iterator) error {

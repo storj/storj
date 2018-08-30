@@ -168,8 +168,8 @@ func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func
 		}
 
 		start := true
-		var lastPrefix []byte
-		var wasPrefix bool = false
+		lastPrefix := []byte{}
+		wasPrefix := false
 
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			var key, value []byte
