@@ -88,8 +88,8 @@ func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	return c.listHelper(false, startingKey, limit)
+func (c *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ListKeys(c, first, limit)
 }
 
 // ReverseList returns either a list of keys for which boltdb has values or an error.
@@ -173,6 +173,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return vals, nil
 }
 
+// Iterate iterates over collapsed items with prefix starting from first or the next key
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	return store.db.View(func(tx *bolt.Tx) error {
 		cursor := tx.Bucket(store.Bucket).Cursor()
@@ -227,6 +228,7 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 	})
 }
 
+// IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	return store.db.View(func(tx *bolt.Tx) error {
 		cursor := tx.Bucket(store.Bucket).Cursor()

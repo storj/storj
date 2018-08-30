@@ -90,32 +90,8 @@ func (c *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	var noOrderKeys []string
-	if startingKey != nil {
-		_, cursor, err := c.db.Scan(0, startingKey.String(), int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
-		}
-		keys, _, err := c.db.Scan(cursor, "", int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
-		}
-		noOrderKeys = keys
-	} else if startingKey == nil {
-		keys, _, err := c.db.Scan(0, "", int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error without starting key: %v", err)
-		}
-		noOrderKeys = keys
-	}
-
-	listKeys := make(storage.Keys, len(noOrderKeys))
-	for i, k := range noOrderKeys {
-		listKeys[i] = storage.Key(k)
-	}
-
-	return listKeys, nil
+func (c *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ListKeys(c, first, limit)
 }
 
 //ListV2 is the new definition and will replace `List` definition
@@ -172,6 +148,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return values, nil
 }
 
+// Iterate iterates over collapsed items with prefix starting from first or the next key
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
 	var all storage.Items
 	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
@@ -202,6 +179,7 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 	})
 }
 
+// IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	var all storage.Items
 	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"

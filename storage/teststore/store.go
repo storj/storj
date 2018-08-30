@@ -110,18 +110,7 @@ func (store *Client) Delete(key storage.Key) error {
 func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
 	store.CallCount.List++
 
-	firstIndex, _ := store.indexOf(first)
-	lastIndex := firstIndex + int(limit)
-	if lastIndex > len(store.Items) {
-		lastIndex = len(store.Items)
-	}
-
-	keys := make(storage.Keys, lastIndex-firstIndex)
-	for i, item := range store.Items[firstIndex:lastIndex] {
-		keys[i] = storage.CloneKey(item.Key)
-	}
-
-	return keys, nil
+	return storage.ListKeys(store, first, limit)
 }
 
 // ListV2 lists all keys corresponding to ListOptions
@@ -162,13 +151,14 @@ func (store *Client) Close() error {
 	return nil
 }
 
+// Iterate iterates over collapsed items with prefix starting from first or the next key
 func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
 
 	index, _ := store.indexOf(first)
 
 	items := storage.CloneItems(store.Items[index:])
-	filtered := storage.FilterPrefix(items, prefix)
+	filtered := storage.SelectPrefixed(items, prefix)
 	collapsed := storage.SortAndCollapse(filtered, prefix, delimiter)
 
 	return fn(&storage.StaticIterator{
@@ -176,13 +166,14 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 	})
 }
 
+// IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	store.CallCount.IterateAll++
 
 	index, _ := store.indexOf(first)
 
 	items := storage.CloneItems(store.Items[index:])
-	filtered := storage.FilterPrefix(items, prefix)
+	filtered := storage.SelectPrefixed(items, prefix)
 	sort.Sort(filtered)
 
 	return fn(&storage.StaticIterator{

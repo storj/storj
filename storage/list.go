@@ -1,11 +1,12 @@
 package storage
 
-func List(store KeyValueStore, first Key, limit Limit) (Keys, error) {
+// ListKeys returns keys starting from first and upto limit
+func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 	var keys Keys
 
 	err := store.IterateAll(nil, first, func(it Iterator) error {
 		var item ListItem
-		for it.Next(&item) {
+		for ; limit > 0 && it.Next(&item); limit-- {
 			keys = append(keys, CloneKey(item.Key))
 		}
 		return nil

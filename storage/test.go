@@ -232,8 +232,31 @@ func testIterator(t *testing.T, store KeyValueStore) {
 			}))
 	})
 
+	t.Run("at a", func(t *testing.T) {
+		store.Iterate(nil, Key("a"), '/',
+			checkIterator(t, []ListItem{
+				mkitem("a", "a", false),
+				mkitem("b/", "", true),
+				mkitem("c", "c", false),
+				mkitem("c/", "", true),
+				mkitem("g", "g", false),
+				mkitem("h", "h", false),
+			}))
+	})
+
 	t.Run("after a", func(t *testing.T) {
 		store.Iterate(nil, NextKey(Key("a")), '/',
+			checkIterator(t, []ListItem{
+				mkitem("b/", "", true),
+				mkitem("c", "c", false),
+				mkitem("c/", "", true),
+				mkitem("g", "g", false),
+				mkitem("h", "h", false),
+			}))
+	})
+
+	t.Run("at b", func(t *testing.T) {
+		store.Iterate(nil, Key("b"), '/',
 			checkIterator(t, []ListItem{
 				mkitem("b/", "", true),
 				mkitem("c", "c", false),
@@ -254,10 +277,28 @@ func testIterator(t *testing.T, store KeyValueStore) {
 			}))
 	})
 
+	t.Run("at c", func(t *testing.T) {
+		store.Iterate(nil, Key("c"), '/',
+			checkIterator(t, []ListItem{
+				mkitem("c", "c", false),
+				mkitem("c/", "", true),
+				mkitem("g", "g", false),
+				mkitem("h", "h", false),
+			}))
+	})
+
 	t.Run("after c", func(t *testing.T) {
 		store.Iterate(nil, NextKey(Key("c")), '/',
 			checkIterator(t, []ListItem{
 				mkitem("c/", "", true),
+				mkitem("g", "g", false),
+				mkitem("h", "h", false),
+			}))
+	})
+
+	t.Run("at e", func(t *testing.T) {
+		store.Iterate(nil, Key("e"), '/',
+			checkIterator(t, []ListItem{
 				mkitem("g", "g", false),
 				mkitem("h", "h", false),
 			}))
