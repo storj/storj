@@ -169,17 +169,6 @@ func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it
 	})
 }
 
-func mapIntoSlice(data KvStore) []string {
-	keySlice := make([]string, len(data))
-	i := 0
-	for k := range data {
-		keySlice[i] = k
-		i++
-	}
-	sort.Strings(keySlice)
-	return keySlice
-}
-
 // Close closes the client
 func (store *MockKeyValueStore) Close() error {
 	store.CloseCalled++

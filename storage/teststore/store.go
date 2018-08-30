@@ -190,7 +190,7 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 		if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), delimiter); p >= 0 {
 			lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
 
-			item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
+			item.Key = append(item.Key[:0], lastPrefix...)
 			item.Value = item.Value[:0]
 			item.IsPrefix = true
 

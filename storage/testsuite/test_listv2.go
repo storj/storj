@@ -38,7 +38,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			Recursive:    true,
 			IncludeValue: true,
 		})
-		if more != false {
+		if more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
@@ -52,7 +52,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			storage.ListOptions{
 				Prefix: storage.Key("music/"),
 			})
-		if more != false {
+		if more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
@@ -71,7 +71,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			storage.ListOptions{
 				IncludeValue: true,
 			})
-		if more != false {
+		if more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
@@ -91,7 +91,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
 			})
-		if more != false {
+		if more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
