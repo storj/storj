@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"math/rand"
 	"testing"
-
-	"go.uber.org/zap/zaptest"
 )
 
 func RunTests(t *testing.T, store KeyValueStore) {
-	store = NewLogger(zaptest.NewLogger(t), store)
+	// store = NewLogger(zaptest.NewLogger(t), store)
 
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
 	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
