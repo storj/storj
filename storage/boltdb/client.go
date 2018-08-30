@@ -173,7 +173,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return vals, nil
 }
 
-func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	var items []storage.ListItem
 
 	err := store.db.View(func(tx *bolt.Tx) error {
@@ -184,16 +184,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 			var dirPrefix []byte
 			var isPrefix bool = false
 
-			// position to the first item
-			if after == nil {
-				key, value = cursor.First()
-			} else {
-				key, value = cursor.Seek([]byte(after))
-				if bytes.Equal(key, after) {
-					key, value = cursor.Next()
-				}
-			}
-
+			key, value = cursor.Seek([]byte(first))
 			for key != nil {
 				if p := bytes.IndexByte(key, delimiter); p >= 0 {
 					key = key[:p+1]
@@ -228,14 +219,10 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 		var isPrefix bool = false
 
 		// position to the first item
-		if after == nil || after.Less(prefix) {
-			key, value = cursor.Seek([]byte(prefix))
-		} else {
-			key, value = cursor.Seek([]byte(after))
-			if bytes.Equal(key, after) {
-				key, value = cursor.Next()
-			}
+		if first == nil || first.Less(prefix) {
+			first = prefix
 		}
+		key, value = cursor.Seek([]byte(first))
 
 		for key != nil && bytes.HasPrefix(key, prefix) {
 			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
@@ -265,6 +252,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 
 		return nil
 	})
+
 	if err != nil {
 		return err
 	}

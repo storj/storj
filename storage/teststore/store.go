@@ -1,7 +1,6 @@
 package teststore
 
 import (
-	"bytes"
 	"errors"
 	"sort"
 
@@ -167,116 +166,23 @@ func (store *Client) Close() error {
 	return nil
 }
 
-func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
 
-	return fn(&iterator{
-		store:     store,
-		lastIndex: -1,
-		prefix:    prefix,
-		delimiter: delimiter,
-		head:      after,
-		isPrefix:  false,
+	index, _ := store.indexOf(first)
+
+	items := make(storage.Items, len(store.Items)-index)
+	for i, item := range store.Items[index:] {
+		items[i] = storage.ListItem{
+			Key:   storage.CloneKey(item.Key),
+			Value: storage.CloneValue(item.Value),
+		}
+	}
+
+	filtered := storage.FilterPrefix(items, prefix)
+	collapsed := storage.SortAndCollapse(filtered, prefix, delimiter)
+
+	return fn(&storage.StaticIterator{
+		Items: collapsed,
 	})
-}
-
-type iterator struct {
-	store     *Client
-	lastIndex int
-
-	prefix    storage.Key
-	delimiter byte
-
-	head     storage.Key
-	isPrefix bool
-}
-
-func (it *iterator) Next(item *storage.ListItem) bool {
-	var index int = -1
-	var found bool
-
-	if it.prefix != nil || it.lastIndex < 0 {
-		headBeforePrefix := it.head == nil || it.head.Less(it.prefix)
-		if headBeforePrefix {
-			// position at the location of the prefix
-			// or the item that should follow
-			index, _ = it.store.indexOf(it.prefix)
-		}
-	} else if it.lastIndex < len(it.store.Items) {
-		// check whether something has changed in between
-		last := &it.store.Items[it.lastIndex]
-		hasPrefix := it.isPrefix && bytes.HasPrefix(last.Key, it.head)
-		isSameKey := !it.isPrefix && last.Key.Equal(it.head)
-		if hasPrefix || isSameKey {
-			index = it.lastIndex + 1
-		}
-	}
-
-	// default handling position to item after head
-	if index < 0 {
-		index, found = it.store.indexOf(it.head)
-		if found {
-			index++
-		}
-	}
-
-	// skip all other with the same prefix
-	if it.isPrefix {
-		for ; index < len(it.store.Items); index++ {
-			if !bytes.HasPrefix(it.store.Items[index].Key, it.head) {
-				break
-			}
-		}
-	}
-
-	// save last index to avoid binary search on Next
-	it.lastIndex = index
-
-	// all done?
-	if index >= len(it.store.Items) {
-		it.cleanup()
-		return false
-	}
-
-	// check whether we are still in the correct prefix
-	next := &it.store.Items[index]
-	if !bytes.HasPrefix(next.Key, it.prefix) {
-		return false
-	}
-
-	// update head
-	it.head = next.Key
-	it.isPrefix = false
-
-	// check whether it is a nested item
-	for i, b := range it.head[len(it.prefix):] {
-		if b == it.delimiter {
-			// set head to prefix (including the trailing delimiter)
-			it.isPrefix = true
-			it.head = it.head[:len(it.prefix)+i+1]
-			break
-		}
-	}
-
-	// update the value
-	item.Key = append(item.Key[:0], it.head...)
-	if !it.isPrefix {
-		item.Value = append(item.Value[:0], it.store.Items[index].Value...)
-	} else {
-		item.Value = nil
-	}
-	item.IsPrefix = it.isPrefix
-
-	return true
-}
-
-func (it *iterator) cleanup() {
-	it.store = nil
-	it.head = nil
-	it.isPrefix = false
-}
-
-func (it *iterator) Close() error {
-	it.cleanup()
-	return nil
 }

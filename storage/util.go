@@ -5,8 +5,37 @@ import (
 	"sort"
 )
 
+func NextKey(key Key) Key {
+	return append(append(key[:0:0], key...), 0)
+}
+
 func CloneKey(key Key) Key         { return append(key[:0:0], key...) }
 func CloneValue(value Value) Value { return append(value[:0:0], value...) }
+
+func CloneItem(item ListItem) ListItem {
+	return ListItem{
+		Key:   CloneKey(item.Key),
+		Value: CloneValue(item.Value),
+	}
+}
+
+func CloneItems(items Items) Items {
+	var result = make(Items, len(items))
+	for i, item := range items {
+		result[i] = CloneItem(item)
+	}
+	return result
+}
+
+func FilterPrefix(items Items, prefix []byte) Items {
+	var result Items = items[:0]
+	for _, item := range items {
+		if bytes.HasPrefix(item.Key, prefix) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
 
 func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
 	sort.Sort(items)

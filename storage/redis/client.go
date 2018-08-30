@@ -171,7 +171,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return values, nil
 }
 
-func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
+func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
 	var all storage.Items
 	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
 	it := store.db.Scan(0, "", 0).Iterator()
@@ -180,7 +180,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 		if prefix != nil && !bytes.HasPrefix([]byte(key), prefix) {
 			continue
 		}
-		if !after.Less(storage.Key(key)) {
+		if storage.Key(key).Less(first) {
 			continue
 		}
 
