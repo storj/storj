@@ -32,3 +32,24 @@ func TestCommon(t *testing.T) {
 
 	storage.RunTests(t, store)
 }
+
+func BenchmarkCommon(b *testing.B) {
+	tempdir, err := ioutil.TempDir("", "bolt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer os.RemoveAll(tempdir)
+
+	dbname := filepath.Join(tempdir, "bolt.db")
+	store, err := New(dbname, "bucket")
+	if err != nil {
+		b.Fatalf("failed to create db: %v", err)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			b.Fatalf("failed to close db: %v", err)
+		}
+	}()
+
+	storage.RunBenchmarks(b, store)
+}

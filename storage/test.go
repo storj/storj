@@ -32,7 +32,7 @@ func testCRUD(t *testing.T, store KeyValueStore) {
 	}
 	rand.Shuffle(len(items), items.Swap)
 
-	defer cleanupItems(t, store, items)
+	defer cleanupItems(store, items)
 
 	t.Run("Put", func(t *testing.T) {
 		for _, item := range items {
@@ -136,7 +136,7 @@ func testList(t *testing.T, store KeyValueStore) {
 	}
 	rand.Shuffle(len(items), items.Swap)
 
-	defer cleanupItems(t, store, items)
+	defer cleanupItems(store, items)
 
 	for _, item := range items {
 		if err := store.Put(item.Key, item.Value); err != nil {
@@ -204,7 +204,7 @@ func testIterate(t *testing.T, store KeyValueStore) {
 		newItem("h", "h"),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(t, store, items)
+	defer cleanupItems(store, items)
 
 	for _, item := range items {
 		if err := store.Put(item.Key, item.Value); err != nil {
@@ -344,7 +344,7 @@ func testIterateAll(t *testing.T, store KeyValueStore) {
 		newItem("h", "h"),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(t, store, items)
+	defer cleanupItems(store, items)
 
 	for _, item := range items {
 		if err := store.Put(item.Key, item.Value); err != nil {
@@ -513,7 +513,7 @@ func testPrefix(t *testing.T, store KeyValueStore) {
 		newItem("y-h", "h"),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(t, store, items)
+	defer cleanupItems(store, items)
 
 	for _, item := range items {
 		if err := store.Put(item.Key, item.Value); err != nil {
@@ -610,8 +610,7 @@ func checkIterator(t *testing.T, items []ListItem) func(it Iterator) error {
 	}
 }
 
-func cleanupItems(t *testing.T, store KeyValueStore, items Items) {
-	t.Helper()
+func cleanupItems(store KeyValueStore, items Items) {
 	for _, item := range items {
 		store.Delete(item.Key)
 	}

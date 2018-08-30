@@ -190,10 +190,9 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 				key, value = cursor.Next()
 			}
 
-			if wasPrefix {
-				for key != nil && bytes.HasPrefix(key, lastPrefix) {
-					key, value = cursor.Next()
-				}
+			if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
+				lastPrefix[len(lastPrefix)-1]++
+				key, value = cursor.Seek(lastPrefix)
 			}
 
 			if key == nil || !bytes.HasPrefix(key, prefix) {

@@ -41,3 +41,21 @@ func TestInvalidConnection(t *testing.T) {
 		t.Fatal("expected connection error")
 	}
 }
+
+func BenchmarkCommon(b *testing.B) {
+	cmd := exec.Command("redis-server")
+	if err := cmd.Start(); os.IsNotExist(err) {
+		b.Skip("redis not installed")
+	}
+	defer cmd.Process.Kill()
+
+	// wait for redis to start
+	time.Sleep(time.Second)
+
+	client, err := NewClient(testHost, "", testDatabase)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	storage.RunBenchmarks(b, client)
+}

@@ -167,12 +167,12 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 			return false
 		}
 
-		if wasPrefix {
-			for bytes.HasPrefix([]byte(next.Key), []byte(lastPrefix)) {
-				next, ok = cur.next(store)
-				if !ok {
-					return false
-				}
+		if wasPrefix && bytes.HasPrefix(next.Key, lastPrefix) {
+			lastPrefix[len(lastPrefix)-1]++
+			cur.positionTo(store, lastPrefix)
+			next, ok = cur.next(store)
+			if !ok {
+				return false
 			}
 		}
 
