@@ -13,6 +13,7 @@ import (
 //ErrKeyNotFound used When something doesn't exist
 var ErrKeyNotFound = errs.Class("key not found")
 
+// ErrEmptyKey is returned when an empty key is used in Put
 var ErrEmptyKey = errors.New("empty key")
 
 // Key is the type for the keys in a `KeyValueStore`

@@ -22,11 +22,8 @@ type Client struct {
 
 const (
 	// fileMode sets permissions so owner can read and write
-	fileMode     = 0600
-	maxKeyLookup = 100
-)
-
-var (
+	fileMode       = 0600
+	maxKeyLookup   = 100
 	defaultTimeout = 1 * time.Second
 )
 
@@ -53,124 +50,115 @@ func New(path, bucket string) (*Client, error) {
 	}, nil
 }
 
+func (client *Client) update(fn func(*bolt.Bucket) error) error {
+	return client.db.Update(func(tx *bolt.Tx) error {
+		return fn(tx.Bucket(client.Bucket))
+	})
+}
+
+func (client *Client) view(fn func(*bolt.Bucket) error) error {
+	return client.db.View(func(tx *bolt.Tx) error {
+		return fn(tx.Bucket(client.Bucket))
+	})
+}
+
 // Put adds a value to the provided key in boltdb, returning an error on failure.
-func (c *Client) Put(key storage.Key, value storage.Value) error {
-	if key == nil {
+func (client *Client) Put(key storage.Key, value storage.Value) error {
+	if len(key) == 0 {
 		return Error.New("invalid key")
 	}
-
-	return c.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(c.Bucket)
-		return b.Put(key, value)
+	return client.update(func(bucket *bolt.Bucket) error {
+		return bucket.Put(key, value)
 	})
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.
-func (c *Client) Get(pathKey storage.Key) (storage.Value, error) {
-	var pointerBytes []byte
-	err := c.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(c.Bucket)
-		v := b.Get(pathKey)
-		if len(v) == 0 {
-			return storage.ErrKeyNotFound.New(pathKey.String())
+func (client *Client) Get(key storage.Key) (storage.Value, error) {
+	var value storage.Value
+	err := client.view(func(bucket *bolt.Bucket) error {
+		data := bucket.Get([]byte(key))
+		if len(data) == 0 {
+			return storage.ErrKeyNotFound.New(key.String())
 		}
-
-		pointerBytes = v
+		value = storage.CloneValue(storage.Value(data))
 		return nil
 	})
-
-	if err != nil {
-		// TODO: log
-		return nil, err
-	}
-
-	return pointerBytes, nil
-}
-
-// List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	return storage.ListKeys(c, first, limit)
-}
-
-// ReverseList returns either a list of keys for which boltdb has values or an error.
-// Starts from startingKey and iterates backwards
-func (c *Client) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	return c.listHelper(true, startingKey, limit)
-}
-
-func (c *Client) listHelper(reverseList bool, startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	var paths storage.Keys
-	err := c.db.Update(func(tx *bolt.Tx) error {
-		cur := tx.Bucket(c.Bucket).Cursor()
-		var k []byte
-		start := firstOrLast(reverseList, cur)
-		iterate := prevOrNext(reverseList, cur)
-		if startingKey == nil {
-			k, _ = start()
-		} else {
-			k, _ = cur.Seek(startingKey)
-		}
-		for ; k != nil; k, _ = iterate() {
-			paths = append(paths, k)
-			if limit > 0 && int(limit) == len(paths) {
-				break
-			}
-		}
-		return nil
-	})
-	return paths, err
-}
-
-func firstOrLast(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
-	if reverseList {
-		return cur.Last
-	}
-	return cur.First
-}
-
-func prevOrNext(reverseList bool, cur *bolt.Cursor) func() ([]byte, []byte) {
-	if reverseList {
-		return cur.Prev
-	}
-	return cur.Next
+	return value, err
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key
-func (c *Client) Delete(pathKey storage.Key) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(c.Bucket).Delete(pathKey)
+func (client *Client) Delete(key storage.Key) error {
+	return client.update(func(bucket *bolt.Bucket) error {
+		return bucket.Delete(key)
 	})
 }
 
+// List returns either a list of keys for which boltdb has values or an error.
+func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ListKeys(client, first, limit)
+}
+
+// ReverseList returns either a list of keys for which boltdb has values or an error.
+// Starts from first and iterates backwards
+func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	if limit == 0 {
+		limit = storage.Limit(1 << 31)
+	}
+
+	var keys storage.Keys
+	err := client.view(func(bucket *bolt.Bucket) error {
+		cursor := bucket.Cursor()
+
+		var key []byte
+		if first == nil {
+			key, _ = cursor.Last()
+		} else {
+			key, _ = cursor.Seek(first)
+			if !bytes.Equal(key, []byte(first)) {
+				key, _ = cursor.Prev()
+			}
+		}
+
+		for ; limit > 0 && key != nil; limit-- {
+			keys = append(keys, storage.CloneKey(storage.Key(key)))
+			key, _ = cursor.Prev()
+		}
+
+		return nil
+	})
+
+	return keys, err
+}
+
 // Close closes a BoltDB client
-func (c *Client) Close() error {
-	return c.db.Close()
+func (client *Client) Close() error {
+	return client.db.Close()
 }
 
 // GetAll finds all values for the provided keys up to 100 keys
 // if more keys are provided than the maximum an error will be returned.
-func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	lk := len(keys)
 	if lk > maxKeyLookup {
 		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup))
 	}
 
-	vals := make(storage.Values, lk)
-	for i, v := range keys {
-		val, err := c.Get(v)
-		if err != nil {
-			return nil, err
+	vals := make(storage.Values, 0, lk)
+	err := client.view(func(bucket *bolt.Bucket) error {
+		for _, key := range keys {
+			val := bucket.Get([]byte(key))
+			vals = append(vals, storage.CloneValue(storage.Value(val)))
 		}
+		return nil
+	})
 
-		vals[i] = val
-	}
-	return vals, nil
+	return vals, err
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	return store.db.View(func(tx *bolt.Tx) error {
-		cursor := tx.Bucket(store.Bucket).Cursor()
+func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+	return client.view(func(bucket *bolt.Bucket) error {
+		cursor := bucket.Cursor()
 
 		// position to the first item
 		if first == nil || first.Less(prefix) {
@@ -222,9 +210,9 @@ func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(
 }
 
 // IterateAll iterates over all items with prefix starting from first or the next key
-func (store *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return store.db.View(func(tx *bolt.Tx) error {
-		cursor := tx.Bucket(store.Bucket).Cursor()
+func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	return client.view(func(bucket *bolt.Bucket) error {
+		cursor := bucket.Cursor()
 
 		// position to the first item
 		if first == nil || first.Less(prefix) {
