@@ -27,34 +27,19 @@ endif
 #   interfacer          # not that useful
 lint: check-copyrights
 	@echo "Running ${@}"
-	@gometalinter \
+	@golangci-lint run \
 	--deadline=10m \
 	--concurrency=1 \
 	--enable-all \
-	--enable=golint \
-	--enable=errcheck \
-	--enable=unconvert \
-	--enable=structcheck \
-	--enable=misspell \
-	--disable=goimports \
-	--enable=ineffassign \
-	--disable=gofmt \
-	--enable=nakedret \
-	--enable=megacheck \
 	--disable=unparam \
 	--disable=gosec \
-	--disable=vetshadow \
-	--disable=gochecknoinits \
-	--disable=gochecknoglobals \
 	--disable=dupl \
 	--disable=gocyclo \
 	--disable=lll \
-	--disable=gotype --disable=gotypex \
-	--disable=safesql \
 	--disable=interfacer \
-	--skip=examples \
-	--exclude=".*\.pb\.go" \
-	--exclude=".*\.dbx\.go" \
+	--skip-dirs=examples \
+	--skip-files=".*\.pb\.go" \
+	--skip-files=".*\.dbx\.go" \
 	./...
 
 check-copyrights:
@@ -70,15 +55,12 @@ proto:
 	./scripts/build-protos.sh
 
 build-dev-deps:
-	go get github.com/golang/protobuf/protoc-gen-go
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	go get github.com/alecthomas/gometalinter
-	gometalinter --install --force
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b $GOPATH/bin v1.10.1
 
-test: lint
-	go install -v ./...
+test:
 	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
 	gover
 	@echo done

@@ -11,8 +11,10 @@ before_install:
 
 install:
   - make build-dev-deps
+  - go install -v ./...
 
 script:
+  - make lint
   - make test
   - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
   - gover
