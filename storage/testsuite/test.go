@@ -7,12 +7,11 @@ import (
 	"testing"
 
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 )
 
 // RunTests runs common storage.KeyValueStore tests
 func RunTests(t *testing.T, store storage.KeyValueStore) {
-	store = storelogger.NewTest(t, store)
+	// store = storelogger.NewTest(t, store)
 
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
 	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
