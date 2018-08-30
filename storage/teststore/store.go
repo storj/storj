@@ -19,7 +19,6 @@ type Client struct {
 		Get         int
 		Put         int
 		List        int
-		ListV2      int
 		GetAll      int
 		ReverseList int
 		Delete      int
@@ -115,13 +114,6 @@ func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys,
 	store.CallCount.List++
 
 	return storage.ListKeys(store, first, limit)
-}
-
-// ListV2 lists all keys corresponding to ListOptions
-func (store *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	store.CallCount.ListV2++
-
-	return nil, false, errors.New("todo")
 }
 
 // ReverseList lists all keys in revers order

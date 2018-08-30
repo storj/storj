@@ -36,7 +36,6 @@ type MockKeyValueStore struct {
 	GetCalled         int
 	PutCalled         int
 	ListCalled        int
-	ListV2Called      int
 	ReverseListCalled int
 	DeleteCalled      int
 	CloseCalled       int
@@ -100,12 +99,6 @@ func (m *MockKeyValueStore) Delete(key storage.Key) error {
 func (m *MockKeyValueStore) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
 	m.ListCalled++
 	return storage.ListKeys(m, first, limit)
-}
-
-// ListV2 returns either a list of items for which the MockKeyValueStore has values and an error.
-func (m *MockKeyValueStore) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	m.ListV2Called++
-	panic("TODO")
 }
 
 // GetAll is a noop to adhere to the interface
@@ -202,15 +195,7 @@ func (m *MockKeyValueStore) Ping() error {
 // NewMockKeyValueStore returns a mocked `KeyValueStore` implementation for testing
 func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 	return &MockKeyValueStore{
-		Data:              d,
-		GetCalled:         0,
-		PutCalled:         0,
-		ListCalled:        0,
-		ListV2Called:      0,
-		ReverseListCalled: 0,
-		DeleteCalled:      0,
-		CloseCalled:       0,
-		PingCalled:        0,
+		Data: d,
 	}
 }
 

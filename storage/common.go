@@ -30,22 +30,6 @@ type Values []Value
 // Limit indicates how many keys to return when calling List
 type Limit int
 
-// More indicates if the result was truncated. If false
-// then the result []ListItem includes all requested keys.
-// If true then the caller must call List again to get more
-// results by setting `StartAfter` or `EndBefore` appropriately.
-type More bool
-
-// ListOptions are items that are optional for the LIST method
-type ListOptions struct {
-	Prefix       Key
-	StartAfter   Key
-	EndBefore    Key
-	Recursive    bool
-	IncludeValue bool
-	Limit        Limit
-}
-
 // Items keeps all ListItem
 type Items []ListItem
 
@@ -68,8 +52,6 @@ type KeyValueStore interface {
 	Delete(Key) error
 	// List lists all keys starting from start and upto limit items
 	List(start Key, limit Limit) (Keys, error)
-	// ListV2 lists all keys corresponding to ListOptions
-	ListV2(opts ListOptions) (Items, More, error)
 	// ReverseList lists all keys in revers order
 	ReverseList(Key, Limit) (Keys, error)
 	// Iterate iterates over collapsed items with prefix starting from first or the next key

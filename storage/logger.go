@@ -52,12 +52,6 @@ func (store *Logger) List(first Key, limit Limit) (Keys, error) {
 	return store.store.List(first, limit)
 }
 
-// ListV2 lists all keys corresponding to ListOptions
-func (store *Logger) ListV2(opts ListOptions) (Items, More, error) {
-	store.log.Debug("ListV2", zap.Any("opts", opts))
-	return store.store.ListV2(opts)
-}
-
 // Allows to iterate over collapsed items
 // with prefix starting from first or the nearest next key
 func (store *Logger) Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error {
