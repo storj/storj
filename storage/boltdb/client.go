@@ -269,21 +269,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 		return err
 	}
 
-	return fn(&staticIterator{
-		items: items,
+	return fn(&storage.StaticIterator{
+		Items: items,
 	})
-}
-
-type staticIterator struct {
-	items []storage.ListItem
-	next  int
-}
-
-func (it *staticIterator) Next(item *storage.ListItem) bool {
-	if it.next >= len(it.items) {
-		return false
-	}
-	*item = it.items[it.next]
-	it.next++
-	return true
 }

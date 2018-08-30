@@ -6,7 +6,6 @@ package redis
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -173,7 +172,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
-	var uncollapsedItems storage.Items
+	var all storage.Items
 	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
 	it := store.db.Scan(0, "", 0).Iterator()
 	for it.Next() {
@@ -190,54 +189,14 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(
 			return err
 		}
 
-		uncollapsedItems = append(uncollapsedItems, storage.ListItem{
+		all = append(all, storage.ListItem{
 			Key:      storage.Key(key),
 			Value:    storage.Value(value),
 			IsPrefix: false,
 		})
 	}
 
-	sort.Sort(uncollapsedItems)
-
-	var items storage.Items
-
-	var dirPrefix []byte
-	var isPrefix bool
-	for _, item := range uncollapsedItems {
-		if isPrefix {
-			if bytes.HasPrefix(item.Key, dirPrefix) {
-				continue
-			}
-			isPrefix = false
-		}
-
-		if p := bytes.IndexByte(item.Key[len(prefix):], delimiter); p >= 0 {
-			dirPrefix = append(dirPrefix[:0], item.Key[:len(prefix)+p+1]...)
-			isPrefix = true
-			items = append(items, storage.ListItem{
-				Key:      storage.CloneKey(storage.Key(dirPrefix)),
-				IsPrefix: true,
-			})
-		} else {
-			items = append(items, item)
-		}
-	}
-
-	return fn(&staticIterator{
-		items: items,
+	return fn(&storage.StaticIterator{
+		Items: storage.SortAndCollapse(all, prefix, delimiter),
 	})
-}
-
-type staticIterator struct {
-	items storage.Items
-	next  int
-}
-
-func (it *staticIterator) Next(item *storage.ListItem) bool {
-	if it.next >= len(it.items) {
-		return false
-	}
-	*item = it.items[it.next]
-	it.next++
-	return true
 }
