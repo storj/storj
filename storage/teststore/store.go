@@ -12,8 +12,6 @@ var (
 	ErrNotExist = errors.New("does not exist")
 )
 
-var _ storage.IterableStore = &Client{}
-
 // Client implements in-memory key value store
 type Client struct {
 	Items []KeyValue
@@ -169,16 +167,17 @@ func (store *Client) Close() error {
 	return nil
 }
 
-func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
-	return &iterator{
+
+	return fn(&iterator{
 		store:     store,
 		lastIndex: -1,
 		prefix:    prefix,
 		delimiter: delimiter,
 		head:      after,
 		isPrefix:  false,
-	}
+	})
 }
 
 type iterator struct {

@@ -172,7 +172,7 @@ func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return values, nil
 }
 
-func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.Iterator {
+func (store *Client) Iterate(prefix, after storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
 	var uncollapsedItems storage.Items
 	// match := strings.Replace(string(prefix), "*", "\\*", -1) + "*"
 	it := store.db.Scan(0, "", 0).Iterator()
@@ -187,7 +187,7 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 
 		value, err := store.db.Get(key).Bytes()
 		if err != nil {
-			return &staticIterator{err: err}
+			return err
 		}
 
 		uncollapsedItems = append(uncollapsedItems, storage.ListItem{
@@ -223,13 +223,12 @@ func (store *Client) Iterate(prefix, after storage.Key, delimiter byte) storage.
 		}
 	}
 
-	return &staticIterator{
+	return fn(&staticIterator{
 		items: items,
-	}
+	})
 }
 
 type staticIterator struct {
-	err   error
 	items storage.Items
 	next  int
 }
@@ -241,13 +240,4 @@ func (it *staticIterator) Next(item *storage.ListItem) bool {
 	*item = it.items[it.next]
 	it.next++
 	return true
-}
-
-func (it *staticIterator) cleanup() {
-	it.items = nil
-}
-
-func (it *staticIterator) Close() error {
-	it.cleanup()
-	return it.err
 }

@@ -80,7 +80,7 @@ type IterableStore interface {
 	KeyValueStore
 	// TODO: figure out whether to use after or first?
 	// Iterate iterates items skipping nested prefixes
-	Iterate(prefix, after Key, delimiter byte) Iterator
+	Iterate(prefix, after Key, delimiter byte, fn func(it Iterator) error) error
 	// IterateAll iterates everything
 	// IterateAll(prefix, after Key) Iterator
 }
@@ -88,8 +88,6 @@ type IterableStore interface {
 type Iterator interface {
 	// Next prepares the next list item
 	Next(item *ListItem) bool
-	// Close closes any underlying resources and returns any error
-	Close() error
 }
 
 // IsZero returns true if the value struct is it's zero value
