@@ -7,9 +7,9 @@ package storage
 func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 	const unlimited = Limit(1 << 31)
 
-	var keys Keys
-	// TODO: this shouldn't be probably the case
+	keys := make(Keys, 0, limit)
 	if limit == 0 {
+		// TODO: this shouldn't be probably the case
 		limit = unlimited
 	}
 
@@ -28,9 +28,9 @@ func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 	const unlimited = Limit(1 << 31)
 
-	var keys Keys
-	// TODO: this shouldn't be probably the case
+	keys := make(Keys, 0, limit)
 	if limit == 0 {
+		// TODO: this shouldn't be probably the case
 		limit = unlimited
 	}
 
@@ -42,5 +42,5 @@ func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) 
 		return nil
 	})
 
-	return keys, err
+	return ReverseKeys(keys), err
 }

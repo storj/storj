@@ -80,8 +80,7 @@ func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys
 // ReverseList returns either a list of keys for which redis has values or an error.
 // Starts from first and iterates backwards
 func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	// TODO
-	return storage.Keys{}, Error.New("not implemented")
+	return storage.ReverseListKeys(client, first, limit)
 }
 
 // Delete deletes a key/value pair from redis, for a given the key
@@ -176,9 +175,9 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage
 
 	match := string(escapeMatch([]byte(prefix))) + "*"
 	it := client.db.Scan(0, match, 0).Iterator()
-
 	for it.Next() {
 		key := it.Val()
+
 		if first != nil && storage.Key(key).Less(first) {
 			continue
 		}

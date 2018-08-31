@@ -216,12 +216,21 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, delimiter 
 }
 
 func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
-	if first == nil || prefix.Less(first) {
-		first = prefix
-	}
-
 	var cur cursor
-	cur.positionBackward(store, first)
+
+	if prefix == nil {
+		if first == nil {
+			cur.positionLast(store)
+		} else {
+			cur.positionBackward(store, first)
+		}
+	} else {
+		if first == nil || prefix.Less(first) {
+			cur.positionBefore(store, storage.NextKey(prefix))
+		} else {
+			cur.positionBackward(store, first)
+		}
+	}
 
 	var lastPrefix storage.Key
 	var wasPrefix bool
@@ -292,6 +301,13 @@ func (cursor *cursor) positionLast(store *Client) {
 	cursor.version = store.version
 	cursor.nextIndex = len(store.Items) - 1
 	cursor.lastKey = storage.NextKey(storage.CloneKey(store.Items[cursor.nextIndex].Key))
+}
+
+func (cursor *cursor) positionBefore(store *Client, key storage.Key) {
+	cursor.version = store.version
+	cursor.nextIndex, _ = store.indexOf(key)
+	cursor.nextIndex--
+	cursor.lastKey = storage.CloneKey(key) // TODO: probably not the right
 }
 
 func (cursor *cursor) positionBackward(store *Client, key storage.Key) {

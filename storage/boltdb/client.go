@@ -242,7 +242,7 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 
 		// position to the first item
 		if first == nil || prefix.Less(first) {
-			first = prefix
+			first = storage.NextKey(prefix)
 		}
 
 		start := true

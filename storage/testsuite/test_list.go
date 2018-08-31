@@ -63,7 +63,40 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("Without Key 100", func(t *testing.T) {
-		keys, err := store.List(storage.Key(""), storage.Limit(100))
+		keys, err := store.List(nil, storage.Limit(100))
+		if err != nil {
+			t.Fatalf("failed to list: %v", err)
+		}
+		if len(keys) != len(items) {
+			t.Fatalf("invalid number of keys %v expected %v: %q", len(keys), len(items), keys)
+		}
+		testKeysSorted(t, keys)
+	})
+
+	t.Run("Reverse Without Key", func(t *testing.T) {
+		keys, err := store.ReverseList(nil, storage.Limit(3))
+		if err != nil {
+			t.Fatalf("failed to list: %v", err)
+		}
+		if len(keys) != 3 {
+			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
+		}
+		testKeysSorted(t, keys)
+	})
+
+	t.Run("Reverse With Key", func(t *testing.T) {
+		keys, err := store.ReverseList(storage.Key("path/2"), storage.Limit(3))
+		if err != nil {
+			t.Fatalf("failed to list: %v", err)
+		}
+		if len(keys) != 3 {
+			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
+		}
+		testKeysSorted(t, keys)
+	})
+
+	t.Run("Reverse Without Key 100", func(t *testing.T) {
+		keys, err := store.ReverseList(nil, storage.Limit(100))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)
 		}
