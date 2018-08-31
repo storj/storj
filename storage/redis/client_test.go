@@ -17,7 +17,7 @@ func Test(t *testing.T) {
 	}
 	defer cleanup()
 
-	client, err := NewClient(addr, "", 0)
+	client, err := NewClient(addr, "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func Test(t *testing.T) {
 }
 
 func TestInvalidConnection(t *testing.T) {
-	_, err := NewClient("", "", 0)
+	_, err := NewClient("", "", 1)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
@@ -39,7 +39,7 @@ func Benchmark(b *testing.B) {
 	}
 	defer cleanup()
 
-	client, err := NewClient(addr, "", 0)
+	client, err := NewClient(addr, "", 1)
 	if err != nil {
 		b.Fatal(err)
 	}

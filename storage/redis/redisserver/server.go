@@ -6,8 +6,8 @@ package redisserver
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	fallbackAddr = "localhost:3780"
-	fallbackPort = 3780
+	fallbackAddr = "localhost:6379"
+	fallbackPort = 6379
 )
 
 func freeport() (addr string, port int) {
@@ -34,10 +34,11 @@ func freeport() (addr string, port int) {
 		return fallbackAddr, fallbackPort
 	}
 
-	addr = listener.Addr().String()
-	port = listener.Addr().(*net.TCPAddr).Port
-
+	netaddr := listener.Addr().(*net.TCPAddr)
+	addr = netaddr.String()
+	port = netaddr.Port
 	_ = listener.Close()
+	time.Sleep(time.Second)
 	return addr, port
 }
 
@@ -66,12 +67,14 @@ func Process() (addr string, cleanup func(), err error) {
 	confpath := filepath.Join(tmpdir, "test.conf")
 	arguments := []string{
 		"daemonize no",
+		"bind 127.0.0.1",
 		"port " + strconv.Itoa(port),
 		"timeout 0",
 		"databases 2",
 		"dbfilename dump.rdb",
 		"dir " + tmpdir,
 	}
+
 	conf := strings.Join(arguments, "\n") + "\n"
 	err = ioutil.WriteFile(confpath, []byte(conf), 0755)
 	if err != nil {
@@ -80,8 +83,13 @@ func Process() (addr string, cleanup func(), err error) {
 
 	// start the process
 	cmd := exec.Command("redis-server", confpath)
-	var redisout bytes.Buffer
-	cmd.Stdout = &redisout
+
+	read, write, err := os.Pipe()
+	if err != nil {
+		return "", nil, err
+	}
+
+	cmd.Stdout = write
 	if err := cmd.Start(); err != nil {
 		return "", nil, err
 	}
@@ -92,42 +100,46 @@ func Process() (addr string, cleanup func(), err error) {
 	}
 
 	// wait for redis to become ready
-	waitForReady := make(chan struct{}, 5)
+	waitForReady := make(chan error, 1)
 	go func() {
 		// wait for the message that looks like
-		//   "The server is now ready to accept connections on port 6379"
-		scanner := bufio.NewScanner(&redisout)
+		// v3  "The server is now ready to accept connections on port 6379"
+		// v4  "Ready to accept connections"
+		scanner := bufio.NewScanner(read)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.Contains(line, "now ready to accept") {
+			if strings.Contains(line, "to accept") {
 				break
 			}
 		}
-		waitForReady <- struct{}{}
-		close(waitForReady)
-		_, _ = io.Copy(ioutil.Discard, &redisout)
+		waitForReady <- scanner.Err()
+		_, _ = io.Copy(ioutil.Discard, read)
 	}()
 
 	select {
-	case <-waitForReady:
+	case err := <-waitForReady:
+		if err != nil {
+			cleanup()
+			return "", nil, err
+		}
 	case <-time.After(3 * time.Second):
 		cleanup()
 		return "", nil, errors.New("redis timeout")
 	}
 
 	// test whether we can actually connect
-	if !pingServer(addr) {
+	if err := pingServer(addr); err != nil {
 		cleanup()
-		return "", nil, errors.New("unable to ping")
+		return "", nil, fmt.Errorf("unable to ping: %v", err)
 	}
 
 	return addr, cleanup, nil
 }
 
-func pingServer(addr string) bool {
-	client := redis.NewClient(&redis.Options{Addr: addr, DB: 0})
+func pingServer(addr string) error {
+	client := redis.NewClient(&redis.Options{Addr: addr, DB: 1})
 	defer func() { _ = client.Close() }()
-	return client.Ping().Err() == nil
+	return client.Ping().Err()
 }
 
 // Mini starts miniredis server
