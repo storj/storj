@@ -4,30 +4,20 @@
 package redis
 
 import (
-	"os"
-	"os/exec"
 	"testing"
-	"time"
 
+	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testsuite"
 )
 
-const (
-	testHost     = "127.0.0.1:6379"
-	testDatabase = 1
-)
-
 func Test(t *testing.T) {
-	cmd := exec.Command("redis-server")
-	if err := cmd.Start(); os.IsNotExist(err) {
-		t.Skip("redis not installed")
+	addr, shutdown, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
 	}
-	defer cmd.Process.Kill()
+	defer shutdown()
 
-	// wait for redis to start
-	time.Sleep(time.Second)
-
-	client, err := NewClient(testHost, "", testDatabase)
+	client, err := NewClient(addr, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,23 +26,20 @@ func Test(t *testing.T) {
 }
 
 func TestInvalidConnection(t *testing.T) {
-	_, err := NewClient("", "", testDatabase)
+	_, err := NewClient("", "", 0)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
 }
 
 func Benchmark(b *testing.B) {
-	cmd := exec.Command("redis-server")
-	if err := cmd.Start(); os.IsNotExist(err) {
-		b.Skip("redis not installed")
+	addr, shutdown, err := redisserver.Start()
+	if err != nil {
+		b.Fatal(err)
 	}
-	defer cmd.Process.Kill()
+	defer shutdown()
 
-	// wait for redis to start
-	time.Sleep(time.Second)
-
-	client, err := NewClient(testHost, "", testDatabase)
+	client, err := NewClient(addr, "", 0)
 	if err != nil {
 		b.Fatal(err)
 	}
