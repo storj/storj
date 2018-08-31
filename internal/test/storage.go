@@ -110,33 +110,41 @@ func (store *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values
 	return result, nil
 }
 
-// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (store *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	panic("TODO")
-}
+func (store *MockKeyValueStore) allPrefixedItems(prefix, first, last storage.Key) storage.Items {
+	var all storage.Items
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	store.IterateCalled++
-
-	var items storage.Items
 	for key, value := range store.Data {
 		if !bytes.HasPrefix([]byte(key), prefix) {
 			continue
 		}
-		if storage.Key(key).Less(first) {
+		if first != nil && storage.Key(key).Less(first) {
+			continue
+		}
+		if last != nil && last.Less(storage.Key(key)) {
 			continue
 		}
 
-		items = append(items, storage.ListItem{
+		all = append(all, storage.ListItem{
 			Key:      storage.Key(key),
 			Value:    value,
 			IsPrefix: false,
 		})
 	}
 
-	items = storage.SortAndCollapse(items, prefix, delimiter)
+	sort.Sort(all)
+	return all
+}
 
+// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (store *MockKeyValueStore) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ReverseListKeys(store, first, limit)
+}
+
+// Iterate iterates over collapsed items with prefix starting from first or the next key
+func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+	store.IterateCalled++
+	items := store.allPrefixedItems(prefix, first, nil)
+	items = storage.SortAndCollapse(items, prefix, delimiter)
 	return fn(&storage.StaticIterator{
 		Items: items,
 	})
@@ -145,27 +153,28 @@ func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, delimiter byt
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	store.IterateAllCalled++
-
-	var items storage.Items
-	for key, value := range store.Data {
-		if !bytes.HasPrefix([]byte(key), prefix) {
-			continue
-		}
-		if storage.Key(key).Less(first) {
-			continue
-		}
-
-		items = append(items, storage.ListItem{
-			Key:      storage.Key(key),
-			Value:    value,
-			IsPrefix: false,
-		})
-	}
-
-	sort.Sort(items)
-
+	items := store.allPrefixedItems(prefix, first, nil)
 	return fn(&storage.StaticIterator{
 		Items: items,
+	})
+}
+
+// IterateReverse iterates over collapsed items with prefix starting from first or the next key
+func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+	store.IterateCalled++
+	items := store.allPrefixedItems(prefix, first, nil)
+	items = storage.SortAndCollapse(items, prefix, delimiter)
+	return fn(&storage.StaticIterator{
+		Items: storage.ReverseItems(items),
+	})
+}
+
+// IterateReverseAll iterates over all items with prefix starting from first or the next key
+func (store *MockKeyValueStore) IterateReverseAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
+	store.IterateAllCalled++
+	items := store.allPrefixedItems(prefix, first, nil)
+	return fn(&storage.StaticIterator{
+		Items: storage.ReverseItems(items),
 	})
 }
 
