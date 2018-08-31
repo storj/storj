@@ -10,6 +10,13 @@ import (
 	"storj.io/storj/storage"
 )
 
+func check(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func newItem(key, value string, isPrefix bool) storage.ListItem {
 	return storage.ListItem{
 		Key:      storage.Key(key),
