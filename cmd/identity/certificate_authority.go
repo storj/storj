@@ -47,7 +47,7 @@ func init() {
 	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
-func cmdNewCA(cmd *cobra.Command, args []string) (error) {
+func cmdNewCA(cmd *cobra.Command, args []string) error {
 	_, err := newCACfg.CA.Create(process.Ctx(cmd))
 	return err
 }
