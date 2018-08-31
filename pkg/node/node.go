@@ -44,7 +44,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 	}
 
 	c := proto.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Target: &find})
+	resp, err := c.Query(ctx, &proto.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
 		return nil, err
 	}

@@ -28,6 +28,7 @@ var (
 )
 
 type worker struct {
+	contacted      map[string]bool
 	pq             PriorityQueue
 	mu             *sync.Mutex
 	maxResponse    time.Duration
@@ -58,6 +59,7 @@ func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc no
 	}(nodes)
 
 	return &worker{
+		contacted:      map[string]bool{},
 		pq:             pq,
 		mu:             &sync.Mutex{},
 		maxResponse:    0 * time.Millisecond,
@@ -68,53 +70,58 @@ func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc no
 	}
 }
 
-func (w *worker) work(ctx context.Context, ch chan []*proto.Node) {
+// create x workers
+// have a worker that gets work off the queue
+// send that work on a channel
+// have workers get work available off channel
+// after queue is empty and no work is in progress, close channel.
+
+func (w *worker) work(ctx context.Context, ch chan *proto.Node) {
 	// grab uncontacted node from working set
 	// change status to inprogress
 	// ask node for target
 	// if node has target cancel ctx and send node
 	for {
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return
+		case n := <-ch:
+			// network lookup for nodes
+			nodes := w.lookup(ctx, n)
+			// update our priority queue
+			w.update(nodes)
 		}
-		n := w.getWork()
-		if n == nil {
-			continue
-		}
-
-		nodes := w.lookup(ctx, n)
-		if nodes == nil || len(nodes) == 0 {
-			continue
-		}
-
-		ch <- nodes
-
-		w.update(nodes)
-
-		continue
 	}
-
 }
 
-func (w *worker) getWork() *proto.Node {
-	w.mu.Lock()
-	if w.pq.Len() <= 0 && w.workInProgress <= 0 {
-		w.mu.Unlock()
-		timeout := defaultTimeout
-		if timeout < (2 * w.maxResponse) {
-			timeout = 2 * w.maxResponse
+func (w *worker) getWork(ch chan *proto.Node) {
+	for {
+		w.mu.Lock()
+		if w.pq.Len() <= 0 && w.workInProgress <= 0 {
+			w.mu.Unlock()
+			timeout := defaultTimeout
+			if timeout < (2 * w.maxResponse) {
+				timeout = 2 * w.maxResponse
+			}
+
+			time.AfterFunc(timeout, w.cancel)
+			return
 		}
 
-		time.AfterFunc(timeout, w.cancel)
-		return nil
-	}
-	defer w.mu.Unlock()
-	if w.pq.Len() <= 0 {
-		return nil
+		if w.pq.Len() <= 0 {
+			w.mu.Unlock()
+			// if there is nothing left to get off the queue
+			// and the work-in-progress is not empty
+			// let's wait a bit for the workers to populate the queue
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		w.workInProgress++
+		ch <- w.pq.Pop().(*Item).value
+		w.mu.Unlock()
 	}
 
-	w.workInProgress++
-	return w.pq.Pop().(*Item).value
 }
 
 func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
@@ -131,6 +138,11 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 		return []*proto.Node{}
 	}
 
+	// add node to the previously contacted list so we don't duplicate lookups
+	w.mu.Lock()
+	w.contacted[node.GetId()] = true
+	w.mu.Unlock()
+
 	latency := time.Since(start)
 	if latency > w.maxResponse {
 		w.maxResponse = latency
@@ -139,12 +151,18 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 	return nodes
 }
 
-func (w *worker) update(nodes []*proto.Node) error {
+func (w *worker) update(nodes []*proto.Node) {
 	t := new(big.Int).SetBytes(w.find.Bytes())
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	for _, v := range nodes {
-		w.pq.Push(&Item{
+		// if we have already done a lookup on this node we don't want to do it again for this lookup loop
+		if w.contacted[v.GetId()] {
+			continue
+		}
+		heap.Push(&w.pq, &Item{
 			value:    v,
 			priority: new(big.Int).Xor(t, new(big.Int).SetBytes(w.find.Bytes())),
 		})
@@ -154,9 +172,24 @@ func (w *worker) update(nodes []*proto.Node) error {
 	heap.Init(&w.pq)
 
 	// only keep the k closest nodes
-	if len(w.pq) > w.k {
-		w.pq = w.pq[:w.k]
+	if len(w.pq) <= w.k {
+		w.workInProgress--
+		return
 	}
+
+	pq := PriorityQueue{}
+	for i := 0; i < w.k; i++ {
+		if len(w.pq) > 0 {
+			item := heap.Pop(&w.pq)
+			heap.Push(&pq, item)
+		}
+	}
+
+	// reinitialize heap
+	heap.Init(&pq)
+	// set w.pq to the new pq with the k closest nodes
+	w.pq = pq
+
 	w.workInProgress--
-	return nil
+	return
 }

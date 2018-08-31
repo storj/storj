@@ -39,8 +39,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): an intro node shouldn't require an ID, and should only be an
-	// address
+	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
 	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err

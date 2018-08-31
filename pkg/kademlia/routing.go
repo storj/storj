@@ -126,8 +126,9 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
-// FindNear returns the node corresponding to the provided nodeID if present in the routing table
-// otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// FindNear returns the node corresponding to the provided nodeID
+// returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// always returns limit + self
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
 	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)

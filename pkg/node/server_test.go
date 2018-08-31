@@ -118,7 +118,7 @@ func TestQuery(t *testing.T) {
 				mockRT.EXPECT().FindNear(gomock.Any(), v.limit).Return(v.findNear, v.nearErr)
 			}
 		}
-		res, err := s.Query(context.Background(), req)
+		res, err := s.Query(context.Background(), &req)
 		if !assert.Equal(t, v.res, res) {
 			fmt.Printf("case %s (%v) failed\n", v.caseName, i)
 		}

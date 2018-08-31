@@ -27,11 +27,13 @@ func TestGetWork(t *testing.T) {
 		name     string
 		worker   *worker
 		expected *proto.Node
+		ch       chan *proto.Node
 	}{
 		{
 			name:     "test valid chore returned",
 			worker:   newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "1001"}}, nil, node.StringToID("1000"), 5),
 			expected: &proto.Node{Id: "1001"},
+			ch:       make(chan *proto.Node, 2),
 		},
 		{
 			name: "test no chore left",
@@ -44,15 +46,18 @@ func TestGetWork(t *testing.T) {
 				return w
 			}(),
 			expected: nil,
+			ch:       make(chan *proto.Node, 2),
 		},
 	}
 
 	for _, v := range cases {
-		actual := v.worker.getWork()
+
+		v.worker.getWork(v.ch)
+
 		if v.expected != nil {
-			assert.Equal(t, v.expected, actual)
+			assert.Equal(t, v.expected, <-v.ch)
 		} else {
-			assert.Nil(t, actual)
+			assert.Len(t, v.ch, 0)
 		}
 	}
 }
@@ -156,10 +161,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		err := v.worker.update(v.input)
-		if v.expectedErr != nil || err != nil {
-			assert.Equal(t, v.expectedErr.Error(), err.Error())
-		}
+		v.worker.update(v.input)
 
 		assert.Len(t, v.worker.pq, v.expectedQueueLength)
 

@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/zeebo/errs"
 
@@ -40,20 +41,20 @@ type lookupOpts struct {
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
 type Kademlia struct {
+	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
 	bootstrapNodes []proto.Node
 	address        string
 	stun           bool
 	nodeClient     node.Client
-	alpha          int
 }
 
 // NewKademlia returns a newly configured Kademlia instance
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
 	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        "kbucket.db",
-		npath:        "nbucket.db",
+		kpath:        fmt.Sprintf("kbucket_%s.db", id.String()[:5]),
+		npath:        fmt.Sprintf("nbucket_%s.db", id.String()[:5]),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,
@@ -115,48 +116,36 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	_, err := k.lookup(ctx, node.StringToID(k.routingTable.self.GetId()), lookupOpts{amount: 5})
-	return err
+	return k.lookup(ctx, node.StringToID(k.routingTable.self.GetId()), lookupOpts{amount: 5})
 }
 
-func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) (*proto.Node, error) {
+func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) error {
 	kb := k.routingTable.K()
 	// look in routing table for targetID
 	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// begin the work looking for the node by spinning up alpha workers
-	// and asking for the node we want from nodes we know in our routing table
-	ch := make(chan []*proto.Node, kb)
 	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
 	ctx, w.cancel = context.WithCancel(ctx)
-	defer w.cancel()
-	for i := 0; i < k.routingTable.K(); i++ {
-		go func(ctx context.Context, ch chan []*proto.Node) {
-			w.work(ctx, ch)
-		}(ctx, ch)
+	wch := make(chan *proto.Node, k.alpha)
+	// kick off go routine to fetch work and send on work channel
+	go w.getWork(wch)
+	// kick off alpha works to consume from work channel
+	for i := 0; i < k.alpha; i++ {
+		go w.work(ctx, wch)
 	}
 
-	for {
-		select {
-		case v := <-ch:
-			for _, node := range v {
-				if node.GetId() == target.String() {
-					return node, nil
-				}
-			}
-		case <-ctx.Done():
-			return nil, NodeNotFound
-		}
-	}
+	<-ctx.Done()
+
+	return nil
 }
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
 	// TODO(coyle)
-	return proto.Node{}, errors.New("TODO")
+	return proto.Node{}, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
