@@ -228,9 +228,8 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 						key, value = cursor.Last()
 					} else {
 						// theres a first item, so try to position on that or one before that
-						nextkey := storage.NextKey(first)
-						key, value = cursor.Seek(nextkey)
-						if !bytes.Equal(key, nextkey) {
+						key, value = cursor.Seek(first)
+						if !bytes.Equal(key, first) {
 							key, value = cursor.Prev()
 						}
 					}
@@ -238,18 +237,17 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 					// there's a prefix
 					if first == nil || prefix.Less(first) {
 						// there's no first, or it's after our prefix
-						// storage.NextKey("axxx/") is the next item after prefixes
+						// storage.AfterPrefix("axxx/") is the next item after prefixes
 						// so we position to the item before
-						nextkey := storage.NextKey(prefix)
+						nextkey := storage.AfterPrefix(prefix)
 						key, value = cursor.Seek(nextkey)
 						if bytes.Equal(key, nextkey) {
 							key, value = cursor.Prev()
 						}
 					} else {
 						// otherwise try to position on first or one before that
-						nextkey := storage.NextKey(first)
-						key, value = cursor.Seek(nextkey)
-						if !bytes.Equal(key, nextkey) {
+						key, value = cursor.Seek(first)
+						if !bytes.Equal(key, first) {
 							key, value = cursor.Prev()
 						}
 					}

@@ -8,6 +8,13 @@ func NextKey(key Key) Key {
 	return append(append(key[:0:0], key...), 0)
 }
 
+// AfterPrefix returns the key after prefix
+func AfterPrefix(key Key) Key {
+	after := CloneKey(key)
+	after[len(after)-1]++
+	return after
+}
+
 // CloneKey creates a copy of key
 func CloneKey(key Key) Key { return append(key[:0:0], key...) }
 
