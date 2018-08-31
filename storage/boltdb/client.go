@@ -103,33 +103,7 @@ func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys
 // ReverseList returns either a list of keys for which boltdb has values or an error.
 // Starts from first and iterates backwards
 func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	if limit == 0 {
-		limit = storage.Limit(1 << 31)
-	}
-
-	var keys storage.Keys
-	err := client.view(func(bucket *bolt.Bucket) error {
-		cursor := bucket.Cursor()
-
-		var key []byte
-		if first == nil {
-			key, _ = cursor.Last()
-		} else {
-			key, _ = cursor.Seek(first)
-			if !bytes.Equal(key, []byte(first)) {
-				key, _ = cursor.Prev()
-			}
-		}
-
-		for ; limit > 0 && key != nil; limit-- {
-			keys = append(keys, storage.CloneKey(storage.Key(key)))
-			key, _ = cursor.Prev()
-		}
-
-		return nil
-	})
-
-	return keys, err
+	return storage.ReverseListKeys(client, first, limit)
 }
 
 // Close closes a BoltDB client
@@ -246,6 +220,7 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			var key, value []byte
 			if start {
+				start = false
 				if prefix == nil {
 					// there's no prefix
 					if first == nil {
