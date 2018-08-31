@@ -41,7 +41,6 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("Without Key, Limit 0", func(t *testing.T) {
-		t.Skip("unimplemented")
 		keys, err := store.List(storage.Key(""), storage.Limit(0))
 		if err != nil {
 			t.Fatalf("failed to list: %v", err)

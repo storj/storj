@@ -129,28 +129,10 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
 func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
-	var all storage.Items
-
-	match := string(escapeMatch([]byte(prefix))) + "*"
-	it := client.db.Scan(0, match, 0).Iterator()
-	for it.Next() {
-		key := it.Val()
-		if storage.Key(key).Less(first) {
-			continue
-		}
-
-		value, err := client.db.Get(key).Bytes()
-		if err != nil {
-			return err
-		}
-
-		all = append(all, storage.ListItem{
-			Key:      storage.Key(key),
-			Value:    storage.Value(value),
-			IsPrefix: false,
-		})
+	all, err := client.allPrefixedItems(prefix, first, nil)
+	if err != nil {
+		return err
 	}
-
 	return fn(&storage.StaticIterator{
 		Items: storage.SortAndCollapse(all, prefix, delimiter),
 	})
@@ -158,18 +140,55 @@ func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func
 
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (client *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
+	all, err := client.allPrefixedItems(prefix, first, nil)
+	if err != nil {
+		return err
+	}
+	return fn(&storage.StaticIterator{
+		Items: all,
+	})
+}
+
+// IterateReverse iterates over collapsed items with prefix starting from first or the next key
+func (client *Client) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
+	all, err := client.allPrefixedItems(prefix, nil, first)
+	if err != nil {
+		return err
+	}
+	return fn(&storage.StaticIterator{
+		Items: storage.ReverseItems(storage.SortAndCollapse(all, prefix, delimiter)),
+	})
+}
+
+// IterateReverseAll iterates over all items with prefix starting from first or the next key
+func (client *Client) IterateReverseAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
+	all, err := client.allPrefixedItems(prefix, nil, first)
+	if err != nil {
+		return err
+	}
+	return fn(&storage.StaticIterator{
+		Items: storage.ReverseItems(all),
+	})
+}
+
+func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {
 	var all storage.Items
+
 	match := string(escapeMatch([]byte(prefix))) + "*"
 	it := client.db.Scan(0, match, 0).Iterator()
+
 	for it.Next() {
 		key := it.Val()
-		if storage.Key(key).Less(first) {
+		if first != nil && storage.Key(key).Less(first) {
+			continue
+		}
+		if last != nil && last.Less(storage.Key(key)) {
 			continue
 		}
 
 		value, err := client.db.Get(key).Bytes()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		all = append(all, storage.ListItem{
@@ -181,7 +200,5 @@ func (client *Client) IterateAll(prefix, first storage.Key, fn func(it storage.I
 
 	sort.Sort(all)
 
-	return fn(&storage.StaticIterator{
-		Items: all,
-	})
+	return all, nil
 }

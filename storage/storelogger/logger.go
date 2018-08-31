@@ -86,6 +86,34 @@ func (store *Logger) IterateAll(prefix, first storage.Key, fn func(storage.Itera
 	})
 }
 
+// IterateReverse iterates over collapsed items with prefix starting from first or the next key
+func (store *Logger) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+	store.log.Debug("IterateReverse", zap.String("prefix", string(first)), zap.String("first", string(first)))
+	return store.store.IterateReverse(prefix, first, delimiter, func(it storage.Iterator) error {
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			ok := it.Next(item)
+			if ok {
+				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+			}
+			return ok
+		}))
+	})
+}
+
+// IterateReverseAll iterates over all items with prefix starting from first or the previous key
+func (store *Logger) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	store.log.Debug("IterateReverseAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
+	return store.store.IterateReverseAll(prefix, first, func(it storage.Iterator) error {
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			ok := it.Next(item)
+			if ok {
+				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+			}
+			return ok
+		}))
+	})
+}
+
 // ReverseList lists all keys in reverse order, starting from first
 func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
 	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)))

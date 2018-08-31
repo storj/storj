@@ -59,6 +59,10 @@ type KeyValueStore interface {
 	Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error
 	// IterateAll iterates over all items with prefix starting from first or the next key
 	IterateAll(prefix, first Key, fn func(Iterator) error) error
+	// IterateReverse iterates over collapsed items with prefix starting from first or the key before
+	IterateReverse(prefix, first Key, delimiter byte, fn func(Iterator) error) error
+	// IterateReverseAll iterates over all items with prefix starting from first or the previous key
+	IterateReverseAll(prefix, first Key, fn func(Iterator) error) error
 	// Close closes the store
 	Close() error
 }
