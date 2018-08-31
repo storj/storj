@@ -63,19 +63,18 @@ func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
 // items will be reused and modified
 // TODO: remove this
 func ReverseItems(items Items) Items {
-	sort.Sort(items)
-	n := len(items)
-	for i := 0; i < len(items)/2; i++ {
-		items[i], items[n-1-i] = items[n-1-i], items[i]
+	for i := len(items)/2 - 1; i >= 0; i-- {
+		k := len(items) - 1 - i
+		items[i], items[k] = items[k], items[i]
 	}
 	return items
 }
 
 // ReverseKeys reverses the list of keys
 func ReverseKeys(keys Keys) Keys {
-	n := len(keys)
-	for i := 0; i < len(keys)/2; i++ {
-		keys[i], keys[n-1-i] = keys[n-1-i], keys[i]
+	for i := len(keys)/2 - 1; i >= 0; i-- {
+		k := len(keys) - 1 - i
+		keys[i], keys[k] = keys[k], keys[i]
 	}
 	return keys
 }

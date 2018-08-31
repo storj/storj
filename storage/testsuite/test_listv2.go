@@ -91,7 +91,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
 			})
-		if more {
+		if !more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
@@ -110,14 +110,14 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
 			})
-		if more {
+		if !more {
 			t.Errorf("more %v", more)
 		}
 		if err != nil {
 			t.Fatal(err)
 		}
 		checkItems(t, got, storage.Items{
-			newItem("a-song2.mp3", "", true),
+			newItem("a-song2.mp3", "", false),
 			newItem("my-album/", "", true),
 		})
 	})
