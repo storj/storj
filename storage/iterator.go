@@ -16,6 +16,7 @@ func (next IteratorFunc) Next(item *ListItem) bool { return next(item) }
 
 // SelectPrefixed keeps only items that have prefix
 // items will be reused and modified
+// TODO: remove this
 func SelectPrefixed(items Items, prefix []byte) Items {
 	result := items[:0]
 	for _, item := range items {
@@ -28,6 +29,7 @@ func SelectPrefixed(items Items, prefix []byte) Items {
 
 // SortAndCollapse sorts items and combines elements based on the delimiter
 // items will be reused and modified
+// TODO: remove this
 func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
 	sort.Sort(items)
 	result := items[:0]

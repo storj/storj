@@ -159,6 +159,15 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
 func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+	return client.iterate(prefix, first, false, delimiter, fn)
+}
+
+// IterateAll iterates over all items with prefix starting from first or the next key
+func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	return client.iterate(prefix, first, true, '/', fn)
+}
+
+func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
@@ -180,59 +189,32 @@ func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func
 				key, value = cursor.Next()
 			}
 
-			if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
-				lastPrefix[len(lastPrefix)-1]++
-				key, value = cursor.Seek(lastPrefix)
+			if !recurse {
+				// when non-recursive skip all items that have the same prefix
+				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
+					lastPrefix[len(lastPrefix)-1]++
+					key, value = cursor.Seek(lastPrefix)
+					wasPrefix = false
+				}
 			}
 
 			if key == nil || !bytes.HasPrefix(key, prefix) {
 				return false
 			}
 
-			if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
-				key = key[:len(prefix)+p+1]
-				lastPrefix = append(lastPrefix[:0], key...)
+			if !recurse {
+				// check whether the entry is a proper prefix
+				if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
+					key = key[:len(prefix)+p+1]
+					lastPrefix = append(lastPrefix[:0], key...)
 
-				item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
-				item.Value = item.Value[:0]
-				item.IsPrefix = true
+					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
+					item.Value = item.Value[:0]
+					item.IsPrefix = true
 
-				wasPrefix = true
-			} else {
-				item.Key = append(item.Key[:0], storage.Key(key)...)
-				item.Value = append(item.Value[:0], storage.Value(value)...)
-				item.IsPrefix = false
-
-				wasPrefix = false
-			}
-
-			return true
-		}))
-	})
-}
-
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.view(func(bucket *bolt.Bucket) error {
-		cursor := bucket.Cursor()
-
-		// position to the first item
-		if first == nil || first.Less(prefix) {
-			first = prefix
-		}
-
-		start := true
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			var key, value []byte
-			if start {
-				key, value = cursor.Seek([]byte(first))
-				start = false
-			} else {
-				key, value = cursor.Next()
-			}
-
-			if key == nil || !bytes.HasPrefix(key, prefix) {
-				return false
+					wasPrefix = true
+					return true
+				}
 			}
 
 			item.Key = append(item.Key[:0], storage.Key(key)...)
