@@ -59,6 +59,8 @@ func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) 
 					t.Fatal("too many errors")
 					return nil
 				}
+			} else {
+				t.Logf("%d:    match {%q,%q,%v}", i, got.Key, got.Value, got.IsPrefix)
 			}
 		}
 

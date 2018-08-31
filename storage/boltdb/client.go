@@ -235,7 +235,7 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 					}
 				} else {
 					// there's a prefix
-					if first == nil || prefix.Less(first) {
+					if first == nil || storage.AfterPrefix(prefix).Less(first) {
 						// there's no first, or it's after our prefix
 						// storage.AfterPrefix("axxx/") is the next item after prefixes
 						// so we position to the item before
