@@ -37,3 +37,7 @@ protos/google/*
 *.coverprofile
 
 /release/
+*.swp
+satellite_*
+storagenode_*
+uplink_*
