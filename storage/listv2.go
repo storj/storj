@@ -23,9 +23,11 @@ type ListOptions struct {
 
 // ListV2 lists all keys corresponding to ListOptions
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
-	if opts.StartAfter == nil && opts.EndBefore != nil {
-		return nil, false, errors.New("not implemented")
+	if opts.StartAfter != nil && opts.EndBefore != nil {
+		return nil, false, errors.New("start-after and end-before cannot be combined")
 	}
+
+	reverse := opts.EndBefore != nil
 
 	more = More(true)
 	limit := opts.Limit
@@ -33,16 +35,29 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 		limit = Limit(1 << 31)
 	}
 
+	var first Key
+	if !reverse {
+		first = opts.StartAfter
+	} else {
+		first = opts.EndBefore
+	}
+
 	iterate := func(it Iterator) error {
 		var item ListItem
+		skipFirst := true
 		for ; limit > 0; limit-- {
 			if !it.Next(&item) {
 				more = false
 				return nil
 			}
-			if opts.EndBefore != nil && !item.Key.Less(opts.EndBefore) {
-				more = false
-				return nil
+			if skipFirst {
+				skipFirst = false
+				if item.Key.Equal(first) {
+					// skip the first element in iteration
+					// if it matches the search key
+					limit++
+					continue
+				}
 			}
 
 			if opts.IncludeValue {
@@ -61,11 +76,19 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 		return nil
 	}
 
-	first := NextKey(opts.StartAfter)
-	if opts.Recursive {
-		err = store.IterateAll(opts.Prefix, first, iterate)
+	if !reverse {
+		if opts.Recursive {
+			err = store.IterateAll(opts.Prefix, opts.StartAfter, iterate)
+		} else {
+			err = store.Iterate(opts.Prefix, opts.StartAfter, '/', iterate)
+		}
 	} else {
-		err = store.Iterate(opts.Prefix, first, '/', iterate)
+		if opts.Recursive {
+			err = store.IterateReverseAll(opts.Prefix, opts.EndBefore, iterate)
+		} else {
+			err = store.IterateReverse(opts.Prefix, opts.EndBefore, '/', iterate)
+		}
+		result = ReverseItems(result)
 	}
 	return result, more, err
 }

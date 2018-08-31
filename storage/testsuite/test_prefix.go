@@ -41,8 +41,24 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 			})))
 	})
 
+	t.Run("reverse prefix x dash b slash", func(t *testing.T) {
+		check(t, store.IterateReverseAll(storage.Key("x-"), storage.Key("x-b/3"),
+			checkIterator(t, storage.Items{
+				newItem("x-b/3", "b/3", false),
+				newItem("x-b/2", "b/2", false),
+				newItem("x-b/1", "b/1", false),
+			})))
+	})
+
 	t.Run("prefix x dash b slash", func(t *testing.T) {
 		check(t, store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
+			checkIterator(t, storage.Items{
+				newItem("x-b/", "", true),
+			})))
+	})
+
+	t.Run("reverse x dash b slash", func(t *testing.T) {
+		check(t, store.IterateReverse(storage.Key("x-"), storage.Key("x-b/2"), '/',
 			checkIterator(t, storage.Items{
 				newItem("x-b/", "", true),
 			})))

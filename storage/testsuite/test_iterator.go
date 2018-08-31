@@ -186,6 +186,20 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			})))
+
+		check(t, store.IterateReverseAll(nil, nil,
+			checkIterator(t, storage.Items{
+				newItem("h", "h", false),
+				newItem("g", "g", false),
+				newItem("c/1", "c/1", false),
+				newItem("c//", "c//", false),
+				newItem("c/", "c/", false),
+				newItem("c", "c", false),
+				newItem("b/3", "b/3", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/1", "b/1", false),
+				newItem("a", "a", false),
+			})))
 	})
 
 	t.Run("at a", func(t *testing.T) {
@@ -201,6 +215,11 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("c/1", "c/1", false),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
+			})))
+
+		check(t, store.IterateReverseAll(nil, storage.Key("a"),
+			checkIterator(t, storage.Items{
+				newItem("a", "a", false),
 			})))
 	})
 
@@ -280,12 +299,33 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 			})))
 	})
 
+	t.Run("reverse at e", func(t *testing.T) {
+		check(t, store.IterateAll(nil, storage.Key("e"),
+			checkIterator(t, storage.Items{
+				newItem("c/1", "c/1", false),
+				newItem("c//", "c//", false),
+				newItem("c/", "c/", false),
+				newItem("c", "c", false),
+				newItem("b/3", "b/3", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/1", "b/1", false),
+				newItem("a", "a", false),
+			})))
+	})
+
 	t.Run("prefix b slash", func(t *testing.T) {
 		check(t, store.IterateAll(storage.Key("b/"), nil,
 			checkIterator(t, storage.Items{
 				newItem("b/1", "b/1", false),
 				newItem("b/2", "b/2", false),
 				newItem("b/3", "b/3", false),
+			})))
+
+		check(t, store.IterateReverseAll(storage.Key("b/"), nil,
+			checkIterator(t, storage.Items{
+				newItem("b/3", "b/3", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/1", "b/1", false),
 			})))
 
 		check(t, store.IterateAll(storage.Key("b/"), storage.Key("a"),
@@ -300,6 +340,12 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("b/2", "b/2", false),
 				newItem("b/3", "b/3", false),
 			})))
+
+		check(t, store.IterateReverseAll(storage.Key("b/"), storage.Key("b/2"),
+			checkIterator(t, storage.Items{
+				newItem("b/2", "b/2", false),
+				newItem("b/1", "b/1", false),
+			})))
 	})
 
 	t.Run("prefix c slash", func(t *testing.T) {
@@ -309,10 +355,22 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 				newItem("c//", "c//", false),
 				newItem("c/1", "c/1", false),
 			})))
+
+		check(t, store.IterateReverseAll(storage.Key("c/"), nil,
+			checkIterator(t, storage.Items{
+				newItem("c/1", "c/1", false),
+				newItem("c//", "c//", false),
+				newItem("c/", "c/", false),
+			})))
 	})
 
 	t.Run("prefix c slash slash", func(t *testing.T) {
 		check(t, store.IterateAll(storage.Key("c//"), nil,
+			checkIterator(t, storage.Items{
+				newItem("c//", "c//", false),
+			})))
+
+		check(t, store.IterateReverseAll(storage.Key("c//"), nil,
 			checkIterator(t, storage.Items{
 				newItem("c//", "c//", false),
 			})))

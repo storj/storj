@@ -84,10 +84,10 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		})
 	})
 
-	t.Run("end before 2", func(t *testing.T) {
-		t.Skip("not implemented")
+	t.Run("end before 2 recursive", func(t *testing.T) {
 		got, more, err := storage.ListV2(store,
 			storage.ListOptions{
+				Recursive: true,
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
 			})
@@ -98,8 +98,27 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			t.Fatal(err)
 		}
 		checkItems(t, got, storage.Items{
-			newItem("music/a-song2.mp3", "", false),
-			newItem("music/my-album/", "", true),
+			newItem("music/my-album/song3.mp3", "", false),
+			newItem("music/my-album/song4.mp3", "", false),
+		})
+	})
+
+	t.Run("end before 2", func(t *testing.T) {
+		got, more, err := storage.ListV2(store,
+			storage.ListOptions{
+				Prefix:    storage.Key("music/"),
+				EndBefore: storage.Key("music/z-song5.mp3"),
+				Limit:     2,
+			})
+		if more {
+			t.Errorf("more %v", more)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkItems(t, got, storage.Items{
+			newItem("a-song2.mp3", "", true),
+			newItem("my-album/", "", true),
 		})
 	})
 }
