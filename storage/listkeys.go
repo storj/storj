@@ -27,7 +27,7 @@ func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 	return keys, err
 }
 
-// ReverseListKeys returns keys starting from first and upto limit
+// ReverseListKeys returns keys starting from first and upto limit in reverse order
 func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 	const unlimited = Limit(1 << 31)
 
@@ -48,5 +48,5 @@ func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) 
 		return nil
 	})
 
-	return ReverseKeys(keys), err
+	return keys, err
 }

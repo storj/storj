@@ -45,6 +45,20 @@ func testKeysSorted(t *testing.T, keys storage.Keys) {
 	}
 }
 
+func testKeysSortedReverse(t *testing.T, keys storage.Keys) {
+	t.Helper()
+	if len(keys) == 0 {
+		return
+	}
+
+	a := keys[0]
+	for _, b := range keys[1:] {
+		if a.Less(b) {
+			t.Fatalf("unsorted reverse order: %v", keys)
+		}
+	}
+}
+
 func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) error {
 	t.Helper()
 	return func(it storage.Iterator) error {

@@ -81,7 +81,7 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		if len(keys) != 3 {
 			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
 		}
-		testKeysSorted(t, keys)
+		testKeysSortedReverse(t, keys)
 	})
 
 	t.Run("Reverse With Key", func(t *testing.T) {
@@ -92,7 +92,7 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		if len(keys) != 3 {
 			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
 		}
-		testKeysSorted(t, keys)
+		testKeysSortedReverse(t, keys)
 	})
 
 	t.Run("Reverse Without Key 100", func(t *testing.T) {
@@ -103,6 +103,6 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		if len(keys) != len(items) {
 			t.Fatalf("invalid number of keys %v expected %v: %q", len(keys), len(items), keys)
 		}
-		testKeysSorted(t, keys)
+		testKeysSortedReverse(t, keys)
 	})
 }
