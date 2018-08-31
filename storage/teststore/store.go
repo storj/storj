@@ -219,15 +219,23 @@ func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, del
 	var cur cursor
 
 	if prefix == nil {
+		// there's no prefix
 		if first == nil {
+			// and no first item, so start from the end
 			cur.positionLast(store)
 		} else {
+			// theres a first item, so try to position on that or one before that
 			cur.positionBackward(store, first)
 		}
 	} else {
+		// there's a prefix
 		if first == nil || prefix.Less(first) {
+			// there's no first, or it's after our prefix
+			// storage.NextKey("axxx/") is the next item after prefixes
+			// so we position to the item before
 			cur.positionBefore(store, storage.NextKey(prefix))
 		} else {
+			// otherwise try to position on first or one before that
 			cur.positionBackward(store, first)
 		}
 	}
@@ -291,18 +299,21 @@ func (cursor *cursor) close() {
 	cursor.done = true
 }
 
+// positionForward positions at key or the next item
 func (cursor *cursor) positionForward(store *Client, key storage.Key) {
 	cursor.version = store.version
 	cursor.nextIndex, _ = store.indexOf(key)
 	cursor.lastKey = storage.CloneKey(key)
 }
 
+// positionLast positions at the last item
 func (cursor *cursor) positionLast(store *Client) {
 	cursor.version = store.version
 	cursor.nextIndex = len(store.Items) - 1
 	cursor.lastKey = storage.NextKey(storage.CloneKey(store.Items[cursor.nextIndex].Key))
 }
 
+// positionBefore positions before key
 func (cursor *cursor) positionBefore(store *Client, key storage.Key) {
 	cursor.version = store.version
 	cursor.nextIndex, _ = store.indexOf(key)
@@ -310,6 +321,7 @@ func (cursor *cursor) positionBefore(store *Client, key storage.Key) {
 	cursor.lastKey = storage.CloneKey(key) // TODO: probably not the right
 }
 
+// positionBackward positions at key or before key
 func (cursor *cursor) positionBackward(store *Client, key storage.Key) {
 	cursor.version = store.version
 	var ok bool

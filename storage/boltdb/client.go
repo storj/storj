@@ -181,11 +181,6 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
-		// position to the first item
-		if first == nil || first.Less(prefix) {
-			first = prefix
-		}
-
 		start := true
 		lastPrefix := []byte{}
 		wasPrefix := false
@@ -193,7 +188,11 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			var key, value []byte
 			if start {
-				key, value = cursor.Seek([]byte(first))
+				if first == nil || first.Less(prefix) {
+					key, value = cursor.Seek([]byte(prefix))
+				} else {
+					key, value = cursor.Seek([]byte(first))
+				}
 				start = false
 			} else {
 				key, value = cursor.Next()
@@ -240,11 +239,6 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
-		// position to the first item
-		if first == nil || prefix.Less(first) {
-			first = storage.NextKey(prefix)
-		}
-
 		start := true
 		lastPrefix := []byte{}
 		wasPrefix := false
@@ -252,10 +246,38 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			var key, value []byte
 			if start {
-				key, value = cursor.Seek([]byte(first))
-				start = false
-				if !bytes.Equal(first, key) {
-					key, value = cursor.Prev()
+				if prefix == nil {
+					// there's no prefix
+					if first == nil {
+						// and no first item, so start from the end
+						key, value = cursor.Last()
+					} else {
+						// theres a first item, so try to position on that or one before that
+						nextkey := storage.NextKey(first)
+						key, value = cursor.Seek(nextkey)
+						if !bytes.Equal(key, nextkey) {
+							key, value = cursor.Prev()
+						}
+					}
+				} else {
+					// there's a prefix
+					if first == nil || prefix.Less(first) {
+						// there's no first, or it's after our prefix
+						// storage.NextKey("axxx/") is the next item after prefixes
+						// so we position to the item before
+						nextkey := storage.NextKey(prefix)
+						key, value = cursor.Seek(nextkey)
+						if bytes.Equal(key, nextkey) {
+							key, value = cursor.Prev()
+						}
+					} else {
+						// otherwise try to position on first or one before that
+						nextkey := storage.NextKey(first)
+						key, value = cursor.Seek(nextkey)
+						if !bytes.Equal(key, nextkey) {
+							key, value = cursor.Prev()
+						}
+					}
 				}
 			} else {
 				key, value = cursor.Prev()
