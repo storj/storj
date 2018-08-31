@@ -141,12 +141,12 @@ func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iter
 	return client.iterate(prefix, first, true, '/', fn)
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
+// IterateReverse iterates over collapsed items with prefix starting from first or the prev key
 func (client *Client) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
 	return client.iterateReverse(prefix, first, false, delimiter, fn)
 }
 
-// IterateAll iterates over all items with prefix starting from first or the next key
+// IterateReverseAll iterates over all items with prefix starting from first or the prev key
 func (client *Client) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	return client.iterateReverse(prefix, first, true, '/', fn)
 }
