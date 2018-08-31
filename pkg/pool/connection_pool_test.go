@@ -5,6 +5,7 @@ package pool
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,10 @@ func TestGet(t *testing.T) {
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
+			pool: ConnectionPool{
+				mu:    &sync.RWMutex{},
+				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}},
+			},
 			key:           "foo",
 			expected:      TestFoo{called: "hoot"},
 			expectedError: nil,
@@ -46,7 +50,9 @@ func TestAdd(t *testing.T) {
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{}},
+			pool: ConnectionPool{
+				mu:    &sync.RWMutex{},
+				cache: map[string]interface{}{}},
 			key:           "foo",
 			value:         TestFoo{called: "hoot"},
 			expected:      TestFoo{called: "hoot"},
@@ -74,7 +80,9 @@ func TestRemove(t *testing.T) {
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
+			pool: ConnectionPool{
+				mu:    &sync.RWMutex{},
+				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
 			key:           "foo",
 			expected:      nil,
 			expectedError: nil,

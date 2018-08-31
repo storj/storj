@@ -7,7 +7,7 @@
 *.so
 *.dylib
 *.db
-pkg/kademlia/*.db
+pkg/kademlia/db/*.db
 
 # Test binary, build with `go test -c`
 *.test

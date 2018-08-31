@@ -53,8 +53,8 @@ type Kademlia struct {
 func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
 	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("kbucket_%s.db", id.String()[:5]),
-		npath:        fmt.Sprintf("nbucket_%s.db", id.String()[:5]),
+		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
+		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,

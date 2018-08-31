@@ -37,7 +37,7 @@ func TestQuery(t *testing.T) {
 		findNear   []*proto.Node
 		limit      int
 		nearErr    error
-		res        proto.QueryResponse
+		res        *proto.QueryResponse
 		err        error
 	}{
 		{caseName: "ping success, return sender",
@@ -50,7 +50,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*proto.Node{target},
 			limit:      2,
 			nearErr:    nil,
-			res:        proto.QueryResponse{Sender: sender, Response: []*proto.Node{target}},
+			res:        &proto.QueryResponse{Sender: sender, Response: []*proto.Node{target}},
 			err:        nil,
 		},
 		{caseName: "ping success, return nearest",
@@ -63,7 +63,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*proto.Node{sender, node},
 			limit:      2,
 			nearErr:    nil,
-			res:        proto.QueryResponse{Sender: sender, Response: []*proto.Node{sender, node}},
+			res:        &proto.QueryResponse{Sender: sender, Response: []*proto.Node{sender, node}},
 			err:        nil,
 		},
 		{caseName: "ping success, connectionSuccess errors",
@@ -76,7 +76,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*proto.Node{},
 			limit:      2,
 			nearErr:    nil,
-			res:        proto.QueryResponse{},
+			res:        &proto.QueryResponse{},
 			err:        errors.New("query error"),
 		},
 		{caseName: "ping fails, return error",
@@ -89,7 +89,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*proto.Node{},
 			limit:      2,
 			nearErr:    nil,
-			res:        proto.QueryResponse{},
+			res:        &proto.QueryResponse{},
 			err:        errors.New("query error"),
 		},
 		{caseName: "ping fails, connectionFailed errors",
@@ -102,7 +102,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*proto.Node{},
 			limit:      2,
 			nearErr:    nil,
-			res:        proto.QueryResponse{},
+			res:        &proto.QueryResponse{},
 			err:        errors.New("query error"),
 		},
 	}
