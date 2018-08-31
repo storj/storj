@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -83,8 +84,8 @@ func Process() (addr string, shutdown func(), err error) {
 
 	waitForReady := make(chan struct{}, 5)
 	go func() {
-		// wreait for the message
-		// The server is now ready to accept connections on port 6379
+		// wait for the message that looks like
+		//   "The server is now ready to accept connections on port 6379"
 		scanner := bufio.NewScanner(&redisout)
 		for scanner.Scan() {
 			if strings.Contains(scanner.Text(), "ready") {
@@ -105,8 +106,7 @@ func Process() (addr string, shutdown func(), err error) {
 
 	return addr, func() {
 		cmd.Process.Kill()
-		println(tmpdir)
-		// os.RemoveAll(tmpdir)
+		os.RemoveAll(tmpdir)
 	}, nil
 }
 
