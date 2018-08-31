@@ -108,6 +108,15 @@ func (keys Keys) ByteSlices() [][]byte {
 // String implements the Stringer interface
 func (key Key) String() string { return string(key) }
 
+// Strings returns everything as strings
+func (keys Keys) Strings() []string {
+	strs := make([]string, 0, len(keys))
+	for _, key := range keys {
+		strs = append(strs, string(key))
+	}
+	return strs
+}
+
 // GetKeys gets all the Keys in []ListItem and converts them to Keys
 func (items Items) GetKeys() Keys {
 	if len(items) == 0 {

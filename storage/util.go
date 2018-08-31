@@ -5,7 +5,7 @@ package storage
 
 // NextKey returns the successive key
 func NextKey(key Key) Key {
-	return append(append(key[:0:0], key...), 0)
+	return append(CloneKey(key), 0)
 }
 
 // AfterPrefix returns the key after prefix
@@ -16,10 +16,10 @@ func AfterPrefix(key Key) Key {
 }
 
 // CloneKey creates a copy of key
-func CloneKey(key Key) Key { return append(key[:0:0], key...) }
+func CloneKey(key Key) Key { return append(Key{}, key...) }
 
 // CloneValue creates a copy of value
-func CloneValue(value Value) Value { return append(value[:0:0], value...) }
+func CloneValue(value Value) Value { return append(Value{}, value...) }
 
 // CloneItem creates a deep copy of item
 func CloneItem(item ListItem) ListItem {

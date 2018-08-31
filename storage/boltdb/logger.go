@@ -16,3 +16,11 @@ func NewClient(log *zap.Logger, path, bucket string) (storage.KeyValueStore, err
 	db := storelogger.New(log, client)
 	return db, err
 }
+
+// NewDebug instantiates a new BoltDB client given db file path, and a bucket name
+func NewDebug(path, bucket string) (storage.KeyValueStore, error) {
+	lg, _ := zap.NewDevelopment()
+	client, err := New(path, bucket)
+	db := storelogger.New(lg, client)
+	return db, err
+}

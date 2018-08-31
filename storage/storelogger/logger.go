@@ -4,6 +4,8 @@
 package storelogger
 
 import (
+	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -11,6 +13,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
+
+var id int64
 
 // Logger implements a zap.Logger for storage.KeyValueStore
 type Logger struct {
@@ -20,7 +24,9 @@ type Logger struct {
 
 // New creates a new Logger with log and store
 func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
-	return &Logger{log, store}
+	loggerid := atomic.AddInt64(&id, 1)
+	name := strconv.Itoa(int(loggerid))
+	return &Logger{log.Named(name), store}
 }
 
 // NewTest creates a logger for testing
@@ -54,8 +60,16 @@ func (store *Logger) Delete(key storage.Key) error {
 
 // List lists all keys starting from first and upto limit items
 func (store *Logger) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", int(limit)))
-	return store.store.List(first, limit)
+	keys, err := store.store.List(first, limit)
+	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	return keys, err
+}
+
+// ReverseList lists all keys in reverse order, starting from first
+func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	keys, err := store.store.ReverseList(first, limit)
+	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	return keys, err
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
@@ -112,12 +126,6 @@ func (store *Logger) IterateReverseAll(prefix, first storage.Key, fn func(storag
 			return ok
 		}))
 	})
-}
-
-// ReverseList lists all keys in reverse order, starting from first
-func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
-	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)))
-	return store.store.ReverseList(first, limit)
 }
 
 // Close closes the store
