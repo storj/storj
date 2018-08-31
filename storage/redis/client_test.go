@@ -11,11 +11,11 @@ import (
 )
 
 func Test(t *testing.T) {
-	addr, shutdown, err := redisserver.Start()
+	addr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer shutdown()
+	defer cleanup()
 
 	client, err := NewClient(addr, "", 0)
 	if err != nil {
@@ -33,11 +33,11 @@ func TestInvalidConnection(t *testing.T) {
 }
 
 func Benchmark(b *testing.B) {
-	addr, shutdown, err := redisserver.Start()
+	addr, cleanup, err := redisserver.Start()
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer shutdown()
+	defer cleanup()
 
 	client, err := NewClient(addr, "", 0)
 	if err != nil {

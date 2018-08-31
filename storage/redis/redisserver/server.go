@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// redisserver is package for starting a redis test server
+// Package redisserver is package for starting a redis test server
 package redisserver
 
 import (
@@ -40,16 +40,16 @@ func freeport() (addr string, port int) {
 }
 
 // Start starts a redis-server when available, otherwise falls back to miniredis
-func Start() (addr string, shutdown func(), err error) {
-	addr, shutdown, err = Process()
+func Start() (addr string, cleanup func(), err error) {
+	addr, cleanup, err = Process()
 	if err != nil {
 		return Mini()
 	}
-	return addr, shutdown, err
+	return addr, cleanup, err
 }
 
 // Process starts a redis-server test process
-func Process() (addr string, shutdown func(), err error) {
+func Process() (addr string, cleanup func(), err error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
 		return "", nil, err
@@ -111,7 +111,7 @@ func Process() (addr string, shutdown func(), err error) {
 }
 
 // Mini starts miniredis server
-func Mini() (addr string, shutdown func(), err error) {
+func Mini() (addr string, cleanup func(), err error) {
 	server, err := miniredis.Run()
 	if err != nil {
 		return "", nil, err
