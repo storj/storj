@@ -130,7 +130,7 @@ func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, delimiter byt
 
 		items = append(items, storage.ListItem{
 			Key:      storage.Key(key),
-			Value:    storage.Value(value),
+			Value:    value,
 			IsPrefix: false,
 		})
 	}
@@ -157,7 +157,7 @@ func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it
 
 		items = append(items, storage.ListItem{
 			Key:      storage.Key(key),
-			Value:    storage.Value(value),
+			Value:    value,
 			IsPrefix: false,
 		})
 	}
