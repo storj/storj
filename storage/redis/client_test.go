@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func Test(t *testing.T) {
+func TestSuite(t *testing.T) {
 	addr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestInvalidConnection(t *testing.T) {
 	}
 }
 
-func Benchmark(b *testing.B) {
+func BenchmarkSuite(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	if err != nil {
 		b.Fatal(err)

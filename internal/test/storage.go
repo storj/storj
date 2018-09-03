@@ -39,9 +39,12 @@ type MockKeyValueStore struct {
 	ReverseListCalled int
 	DeleteCalled      int
 	CloseCalled       int
-	IterateCalled     int
-	IterateAllCalled  int
 	PingCalled        int
+
+	IterateCalled           int
+	IterateAllCalled        int
+	IterateReverseCalled    int
+	IterateReverseAllCalled int
 }
 
 // RedisDone is a function type that describes the callback returned by `EnsureRedis`
@@ -161,7 +164,7 @@ func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the prev key
 func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	store.IterateCalled++
+	store.IterateReverseCalled++
 	items := store.allPrefixedItems(prefix, first, nil)
 	items = storage.SortAndCollapse(items, prefix, delimiter)
 	return fn(&storage.StaticIterator{
@@ -171,7 +174,7 @@ func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, delimi
 
 // IterateReverseAll iterates over all items with prefix starting from first or the prev key
 func (store *MockKeyValueStore) IterateReverseAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	store.IterateAllCalled++
+	store.IterateReverseAllCalled++
 	items := store.allPrefixedItems(prefix, first, nil)
 	return fn(&storage.StaticIterator{
 		Items: storage.ReverseItems(items),

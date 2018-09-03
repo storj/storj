@@ -9,5 +9,5 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func Test(t *testing.T)      { testsuite.RunTests(t, New()) }
-func Benchmark(b *testing.B) { testsuite.RunBenchmarks(b, New()) }
+func TestSuite(t *testing.T)      { testsuite.RunTests(t, New()) }
+func BenchmarkSuite(b *testing.B) { testsuite.RunBenchmarks(b, New()) }

@@ -175,8 +175,7 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter
 			if !recurse {
 				// when non-recursive skip all items that have the same prefix
 				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
-					lastPrefix[len(lastPrefix)-1]++
-					key, value = cursor.Seek(lastPrefix)
+					key, value = cursor.Seek(storage.AfterPrefix(lastPrefix))
 					wasPrefix = false
 				}
 			}
