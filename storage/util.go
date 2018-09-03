@@ -24,8 +24,9 @@ func CloneValue(value Value) Value { return append(Value{}, value...) }
 // CloneItem creates a deep copy of item
 func CloneItem(item ListItem) ListItem {
 	return ListItem{
-		Key:   CloneKey(item.Key),
-		Value: CloneValue(item.Value),
+		Key:      CloneKey(item.Key),
+		Value:    CloneValue(item.Value),
+		IsPrefix: item.IsPrefix,
 	}
 }
 

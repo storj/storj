@@ -4,18 +4,13 @@
 package testsuite
 
 import (
-	"bytes"
 	"testing"
 
 	"storj.io/storj/storage"
-)
 
-func check(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+)
 
 func newItem(key, value string, isPrefix bool) storage.ListItem {
 	return storage.ListItem{
@@ -31,34 +26,6 @@ func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	}
 }
 
-func testKeysSorted(t *testing.T, keys storage.Keys) {
-	t.Helper()
-	if len(keys) == 0 {
-		return
-	}
-
-	a := keys[0]
-	for _, b := range keys[1:] {
-		if b.Less(a) {
-			t.Fatalf("unsorted order: %v", keys)
-		}
-	}
-}
-
-func testKeysSortedReverse(t *testing.T, keys storage.Keys) {
-	t.Helper()
-	if len(keys) == 0 {
-		return
-	}
-
-	a := keys[0]
-	for _, b := range keys[1:] {
-		if a.Less(b) {
-			t.Fatalf("unsorted reverse order: %v", keys)
-		}
-	}
-}
-
 type IterationTest struct {
 	Name     string
 	Recurse  bool
@@ -71,89 +38,39 @@ type IterationTest struct {
 func testIterations(t *testing.T, store storage.KeyValueStore, tests []IterationTest) {
 	t.Helper()
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			var err error
-			if test.Recurse {
-				if !test.Reverse {
-					err = store.IterateAll(test.Prefix, test.First,
-						checkIterator(t, test.Expected))
-				} else {
-					err = store.IterateReverseAll(test.Prefix, test.First,
-						checkIterator(t, test.Expected))
-				}
+		var err error
+		collect := &Collect{}
+		if test.Recurse {
+			if !test.Reverse {
+				err = store.IterateAll(test.Prefix, test.First, collect.Include)
 			} else {
-				if !test.Reverse {
-					err = store.Iterate(test.Prefix, test.First, '/',
-						checkIterator(t, test.Expected))
-				} else {
-					err = store.IterateReverse(test.Prefix, test.First, '/',
-						checkIterator(t, test.Expected))
-				}
+				err = store.IterateReverseAll(test.Prefix, test.First, collect.Include)
 			}
-			if err != nil {
-				t.Fatal(err)
+		} else {
+			if !test.Reverse {
+				err = store.Iterate(test.Prefix, test.First, '/', collect.Include)
+			} else {
+				err = store.IterateReverse(test.Prefix, test.First, '/', collect.Include)
 			}
-		})
+		}
+		if err != nil {
+			t.Errorf("%s: %v", test.Name, err)
+			continue
+		}
+		if diff := cmp.Diff(test.Expected, collect.Items, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("%s: (-want +got)\n%s", test.Name, diff)
+		}
 	}
 }
 
-func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) error {
-	t.Helper()
-	return func(it storage.Iterator) error {
-		t.Helper()
-
-		var got storage.ListItem
-		maxErrors := 5
-		for i, exp := range items {
-			if !it.Next(&got) {
-				t.Fatalf("%d: finished early", i)
-			}
-
-			if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
-				t.Errorf("%d: mismatch {%q,%q,%v} expected {{%q,%q,%v}", i,
-					got.Key, got.Value, got.IsPrefix,
-					exp.Key, exp.Value, exp.IsPrefix)
-				maxErrors--
-				if maxErrors <= 0 {
-					t.Fatal("too many errors")
-					return nil
-				}
-			} else {
-				t.Logf("%d:    match {%q,%q,%v}", i, got.Key, got.Value, got.IsPrefix)
-			}
-		}
-
-		if it.Next(&got) {
-			t.Fatalf("%d: too many, got {%q,%q,%v}", len(items),
-				got.Key, got.Value, got.IsPrefix)
-		}
-		return nil
-	}
+type Collect struct {
+	Items storage.Items
 }
 
-func checkItems(t *testing.T, gotItems, expItems storage.Items) {
-	t.Helper()
-
-	maxErrors := 5
-	n := len(gotItems)
-	if n > len(expItems) {
-		n = len(expItems)
+func (collect *Collect) Include(it storage.Iterator) error {
+	var item storage.ListItem
+	for it.Next(&item) {
+		collect.Items = append(collect.Items, storage.CloneItem(item))
 	}
-
-	for i, exp := range expItems[:n] {
-		got := gotItems[i]
-		if !got.Key.Equal(exp.Key) || !bytes.Equal(got.Value, exp.Value) || got.IsPrefix != exp.IsPrefix {
-			t.Errorf("%d: mismatch {%q,%q,%v} exp {%q,%q,%v}", i,
-				got.Key, got.Value, got.IsPrefix,
-				exp.Key, exp.Value, exp.IsPrefix)
-			maxErrors--
-			if maxErrors <= 0 {
-				break
-			}
-		}
-	}
-
-	if len(gotItems) != len(expItems) {
-		t.Fatalf(" : invalid count, got %d exp %d", len(gotItems), len(expItems))
-	}
+	return nil
 }

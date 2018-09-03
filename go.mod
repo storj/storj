@@ -42,6 +42,7 @@ require (
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.1.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
+	github.com/google/go-cmp v0.2.0
 	github.com/google/shlex v0.0.0-20150127133951-6f45313302b9 // indirect
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
 	github.com/gorilla/handlers v1.4.0 // indirect

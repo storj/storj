@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"storj.io/storj/storage"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func testList(t *testing.T, store storage.KeyValueStore) {
@@ -29,80 +31,60 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		}
 	}
 
-	t.Run("Without Key", func(t *testing.T) {
-		keys, err := store.List(storage.Key(""), storage.Limit(3))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
-		}
-		if len(keys) != 3 {
-			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
-		}
-		testKeysSorted(t, keys)
-	})
+	type Test struct {
+		Name     string
+		Reverse  bool
+		First    storage.Key
+		Limit    storage.Limit
+		Expected storage.Keys
+	}
 
-	t.Run("Without Key, Limit 0", func(t *testing.T) {
-		keys, err := store.List(storage.Key(""), storage.Limit(0))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
+	newKeys := func(xs ...string) storage.Keys {
+		var keys storage.Keys
+		for _, x := range xs {
+			keys = append(keys, storage.Key(x))
 		}
-		if len(keys) != len(items) {
-			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
-		}
-		testKeysSorted(t, keys)
-	})
+		return keys
+	}
 
-	t.Run("With Key", func(t *testing.T) {
-		keys, err := store.List(storage.Key("path/2"), storage.Limit(3))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
-		}
-		if len(keys) != 3 {
-			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
-		}
-		testKeysSorted(t, keys)
-	})
+	tests := []Test{
+		{"without key", false,
+			nil, 3,
+			newKeys("path/0", "path/1", "path/2")},
+		{"without key, limit 0", false,
+			nil, 0,
+			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
+		{"with key", false,
+			storage.Key("path/2"), 3,
+			newKeys("path/2", "path/3", "path/4")},
+		{"without key 100", false,
+			nil, 100,
+			newKeys("path/0", "path/1", "path/2", "path/3", "path/4", "path/5")},
+		{"reverse without key", true,
+			nil, 3,
+			newKeys("path/5", "path/4", "path/3")},
+		{"reverse with key", true,
+			storage.Key("path/2"), 3,
+			newKeys("path/2", "path/1", "path/0")},
+		{"reverse without key 100", true,
+			nil, 100,
+			newKeys("path/5", "path/4", "path/3", "path/2", "path/1", "path/0")},
+	}
 
-	t.Run("Without Key 100", func(t *testing.T) {
-		keys, err := store.List(nil, storage.Limit(100))
+	for _, test := range tests {
+		var keys storage.Keys
+		var err error
+		if !test.Reverse {
+			keys, err = store.List(test.First, test.Limit)
+		} else {
+			keys, err = store.ReverseList(test.First, test.Limit)
+		}
 		if err != nil {
-			t.Fatalf("failed to list: %v", err)
+			t.Errorf("%s: %s", test.Name, err)
+			continue
 		}
-		if len(keys) != len(items) {
-			t.Fatalf("invalid number of keys %v expected %v: %q", len(keys), len(items), keys)
+		if diff := cmp.Diff(test.Expected, keys); diff != "" {
+			t.Errorf("%s: (-want +got)\n%s", test.Name, diff)
 		}
-		testKeysSorted(t, keys)
-	})
-
-	t.Run("Reverse Without Key", func(t *testing.T) {
-		keys, err := store.ReverseList(nil, storage.Limit(3))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
-		}
-		if len(keys) != 3 {
-			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
-		}
-		testKeysSortedReverse(t, keys)
-	})
-
-	t.Run("Reverse With Key", func(t *testing.T) {
-		keys, err := store.ReverseList(storage.Key("path/2"), storage.Limit(3))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
-		}
-		if len(keys) != 3 {
-			t.Fatalf("invalid number of keys %v: %v", len(keys), err)
-		}
-		testKeysSortedReverse(t, keys)
-	})
-
-	t.Run("Reverse Without Key 100", func(t *testing.T) {
-		keys, err := store.ReverseList(nil, storage.Limit(100))
-		if err != nil {
-			t.Fatalf("failed to list: %v", err)
-		}
-		if len(keys) != len(items) {
-			t.Fatalf("invalid number of keys %v expected %v: %q", len(keys), len(items), keys)
-		}
-		testKeysSortedReverse(t, keys)
-	})
+	}
 }

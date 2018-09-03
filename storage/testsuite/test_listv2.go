@@ -9,6 +9,9 @@ import (
 	"testing"
 
 	"storj.io/storj/storage"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func testListV2(t *testing.T, store storage.KeyValueStore) {
@@ -94,15 +97,16 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			got, more, err := storage.ListV2(store, test.Options)
-			if more != test.More {
-				t.Errorf("more %v expected %v", more, test.More)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			checkItems(t, got, test.Expected)
-		})
+		got, more, err := storage.ListV2(store, test.Options)
+		if err != nil {
+			t.Errorf("%v: %v", test.Name, err)
+			continue
+		}
+		if more != test.More {
+			t.Errorf("%v: more %v expected %v", test.Name, more, test.More)
+		}
+		if diff := cmp.Diff(test.Expected, got, cmpopts.EquateEmpty()); diff != "" {
+			t.Errorf("%s: (-want +got)\n%s", test.Name, diff)
+		}
 	}
 }
