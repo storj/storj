@@ -26,7 +26,7 @@ func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	}
 }
 
-type IterationTest struct {
+type iterationTest struct {
 	Name     string
 	Recurse  bool
 	Reverse  bool
@@ -35,22 +35,22 @@ type IterationTest struct {
 	Expected storage.Items
 }
 
-func testIterations(t *testing.T, store storage.KeyValueStore, tests []IterationTest) {
+func testIterations(t *testing.T, store storage.KeyValueStore, tests []iterationTest) {
 	t.Helper()
 	for _, test := range tests {
 		var err error
-		collect := &Collect{}
+		collect := &collector{}
 		if test.Recurse {
 			if !test.Reverse {
-				err = store.IterateAll(test.Prefix, test.First, collect.Include)
+				err = store.IterateAll(test.Prefix, test.First, collect.include)
 			} else {
-				err = store.IterateReverseAll(test.Prefix, test.First, collect.Include)
+				err = store.IterateReverseAll(test.Prefix, test.First, collect.include)
 			}
 		} else {
 			if !test.Reverse {
-				err = store.Iterate(test.Prefix, test.First, '/', collect.Include)
+				err = store.Iterate(test.Prefix, test.First, '/', collect.include)
 			} else {
-				err = store.IterateReverse(test.Prefix, test.First, '/', collect.Include)
+				err = store.IterateReverse(test.Prefix, test.First, '/', collect.include)
 			}
 		}
 		if err != nil {
@@ -63,11 +63,11 @@ func testIterations(t *testing.T, store storage.KeyValueStore, tests []Iteration
 	}
 }
 
-type Collect struct {
+type collector struct {
 	Items storage.Items
 }
 
-func (collect *Collect) Include(it storage.Iterator) error {
+func (collect *collector) include(it storage.Iterator) error {
 	var item storage.ListItem
 	for it.Next(&item) {
 		collect.Items = append(collect.Items, storage.CloneItem(item))

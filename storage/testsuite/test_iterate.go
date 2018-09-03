@@ -32,7 +32,7 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 		}
 	}
 
-	testIterations(t, store, []IterationTest{
+	testIterations(t, store, []iterationTest{
 		{"no limits", false, false,
 			nil, nil,
 			storage.Items{

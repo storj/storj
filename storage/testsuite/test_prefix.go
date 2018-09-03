@@ -32,7 +32,7 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 		}
 	}
 
-	testIterations(t, store, []IterationTest{
+	testIterations(t, store, []iterationTest{
 		{"prefix x dash b slash", true, false,
 			storage.Key("x-"), storage.Key("x-b"),
 			storage.Items{
