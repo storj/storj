@@ -30,95 +30,79 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			t.Fatalf("failed to put: %v", err)
 		}
 	}
-
 	sort.Sort(items)
 
-	t.Run("all", func(t *testing.T) {
-		got, more, err := storage.ListV2(store, storage.ListOptions{
-			Recursive:    true,
-			IncludeValue: true,
-		})
-		if more {
-			t.Errorf("more %v", more)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkItems(t, got, items)
-	})
+	type Test struct {
+		Name     string
+		Options  storage.ListOptions
+		More     storage.More
+		Expected storage.Items
+	}
 
-	t.Run("music", func(t *testing.T) {
-		got, more, err := storage.ListV2(store,
+	tests := []Test{
+		{"all",
+			storage.ListOptions{
+				Recursive:    true,
+				IncludeValue: true,
+			},
+			false, items,
+		},
+
+		{"music",
 			storage.ListOptions{
 				Prefix: storage.Key("music/"),
-			})
-		if more {
-			t.Errorf("more %v", more)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkItems(t, got, storage.Items{
-			newItem("a-song1.mp3", "", false),
-			newItem("a-song2.mp3", "", false),
-			newItem("my-album/", "", true),
-			newItem("z-song5.mp3", "", false),
-		})
-	})
-
-	t.Run("all non-recursive", func(t *testing.T) {
-		got, more, err := storage.ListV2(store,
+			},
+			false, storage.Items{
+				newItem("a-song1.mp3", "", false),
+				newItem("a-song2.mp3", "", false),
+				newItem("my-album/", "", true),
+				newItem("z-song5.mp3", "", false),
+			},
+		},
+		{"all non-recursive",
 			storage.ListOptions{
 				IncludeValue: true,
-			})
-		if more {
-			t.Errorf("more %v", more)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkItems(t, got, storage.Items{
-			newItem("music/", "", true),
-			newItem("sample.jpg", "6", false),
-			newItem("videos/", "", true),
-		})
-	})
-
-	t.Run("end before 2 recursive", func(t *testing.T) {
-		got, more, err := storage.ListV2(store,
+			},
+			false, storage.Items{
+				newItem("music/", "", true),
+				newItem("sample.jpg", "6", false),
+				newItem("videos/", "", true),
+			},
+		},
+		{"end before 2 recursive",
 			storage.ListOptions{
 				Recursive: true,
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
-			})
-		if !more {
-			t.Errorf("more %v", more)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkItems(t, got, storage.Items{
-			newItem("music/my-album/song3.mp3", "", false),
-			newItem("music/my-album/song4.mp3", "", false),
-		})
-	})
-
-	t.Run("end before 2", func(t *testing.T) {
-		got, more, err := storage.ListV2(store,
+			},
+			true, storage.Items{
+				newItem("music/my-album/song3.mp3", "", false),
+				newItem("music/my-album/song4.mp3", "", false),
+			},
+		},
+		{"end before 2",
 			storage.ListOptions{
 				Prefix:    storage.Key("music/"),
 				EndBefore: storage.Key("music/z-song5.mp3"),
 				Limit:     2,
-			})
-		if !more {
-			t.Errorf("more %v", more)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkItems(t, got, storage.Items{
-			newItem("a-song2.mp3", "", false),
-			newItem("my-album/", "", true),
+			},
+			true, storage.Items{
+				newItem("a-song2.mp3", "", false),
+				newItem("my-album/", "", true),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			got, more, err := storage.ListV2(store, test.Options)
+			if more != test.More {
+				t.Errorf("more %v expected %v", more, test.More)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkItems(t, got, test.Expected)
 		})
-	})
+	}
 }
