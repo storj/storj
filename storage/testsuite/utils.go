@@ -59,6 +59,44 @@ func testKeysSortedReverse(t *testing.T, keys storage.Keys) {
 	}
 }
 
+type IterationTest struct {
+	Name     string
+	Recurse  bool
+	Reverse  bool
+	Prefix   storage.Key
+	First    storage.Key
+	Expected storage.Items
+}
+
+func testIterations(t *testing.T, store storage.KeyValueStore, tests []IterationTest) {
+	t.Helper()
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			var err error
+			if test.Recurse {
+				if !test.Reverse {
+					err = store.IterateAll(test.Prefix, test.First,
+						checkIterator(t, test.Expected))
+				} else {
+					err = store.IterateReverseAll(test.Prefix, test.First,
+						checkIterator(t, test.Expected))
+				}
+			} else {
+				if !test.Reverse {
+					err = store.Iterate(test.Prefix, test.First, '/',
+						checkIterator(t, test.Expected))
+				} else {
+					err = store.IterateReverse(test.Prefix, test.First, '/',
+						checkIterator(t, test.Expected))
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func checkIterator(t *testing.T, items storage.Items) func(it storage.Iterator) error {
 	t.Helper()
 	return func(it storage.Iterator) error {

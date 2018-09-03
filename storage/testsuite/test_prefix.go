@@ -32,49 +32,42 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 		}
 	}
 
-	t.Run("prefix x dash b slash", func(t *testing.T) {
-		check(t, store.IterateAll(storage.Key("x-"), storage.Key("x-b"),
-			checkIterator(t, storage.Items{
+	testIterations(t, store, []IterationTest{
+		{"prefix x dash b slash", true, false,
+			storage.Key("x-"), storage.Key("x-b"),
+			storage.Items{
 				newItem("x-b/1", "b/1", false),
 				newItem("x-b/2", "b/2", false),
 				newItem("x-b/3", "b/3", false),
-			})))
-	})
-
-	t.Run("reverse prefix x dash b slash", func(t *testing.T) {
-		check(t, store.IterateReverseAll(storage.Key("x-"), storage.Key("x-b/3"),
-			checkIterator(t, storage.Items{
+			}},
+		{"reverse prefix x dash b slash", true, true,
+			storage.Key("x-"), storage.Key("x-b/3"),
+			storage.Items{
 				newItem("x-b/3", "b/3", false),
 				newItem("x-b/2", "b/2", false),
 				newItem("x-b/1", "b/1", false),
 				newItem("x-a", "a", false),
-			})))
-	})
-
-	t.Run("prefix x dash b slash", func(t *testing.T) {
-		check(t, store.Iterate(storage.Key("x-"), storage.Key("x-b"), '/',
-			checkIterator(t, storage.Items{
+			}},
+		{"prefix x dash b slash", false, false,
+			storage.Key("x-"), storage.Key("x-b"),
+			storage.Items{
 				newItem("x-b/", "", true),
-			})))
-	})
-
-	t.Run("reverse x dash b slash", func(t *testing.T) {
-		check(t, store.IterateReverse(storage.Key("x-"), storage.Key("x-b/2"), '/',
-			checkIterator(t, storage.Items{
+			}},
+		{"reverse x dash b slash", false, true,
+			storage.Key("x-"), storage.Key("x-b/2"),
+			storage.Items{
 				newItem("x-b/", "", true),
 				newItem("x-a", "a", false),
-			})))
-	})
-
-	t.Run("prefix y- slash", func(t *testing.T) {
-		check(t, store.IterateAll(storage.Key("y-"), nil,
-			checkIterator(t, storage.Items{
+			}},
+		{"prefix y- slash", true, false,
+			storage.Key("y-"), nil,
+			storage.Items{
 				newItem("y-c", "c", false),
 				newItem("y-c/", "c/", false),
 				newItem("y-c//", "c//", false),
 				newItem("y-c/1", "c/1", false),
 				newItem("y-g", "g", false),
 				newItem("y-h", "h", false),
-			})))
+			}},
 	})
 }

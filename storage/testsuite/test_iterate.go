@@ -32,17 +32,9 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 		}
 	}
 
-	type Test struct {
-		Name     string
-		Prefix   storage.Key
-		First    storage.Key
-		Reverse  bool
-		Expected storage.Items
-	}
-
-	tests := []Test{
-		{"no limits",
-			nil, nil, false,
+	testIterations(t, store, []IterationTest{
+		{"no limits", false, false,
+			nil, nil,
 			storage.Items{
 				newItem("a", "a", false),
 				newItem("b/", "", true),
@@ -51,8 +43,8 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"no limits reverse",
-			nil, nil, true,
+		{"no limits reverse", false, true,
+			nil, nil,
 			storage.Items{
 				newItem("h", "h", false),
 				newItem("g", "g", false),
@@ -62,8 +54,8 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("a", "a", false),
 			}},
 
-		{"at a",
-			nil, storage.Key("a"), false,
+		{"at a", false, false,
+			nil, storage.Key("a"),
 			storage.Items{
 				newItem("a", "a", false),
 				newItem("b/", "", true),
@@ -73,14 +65,14 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("h", "h", false),
 			}},
 
-		{"reverse at a",
-			nil, storage.Key("a"), true,
+		{"reverse at a", false, true,
+			nil, storage.Key("a"),
 			storage.Items{
 				newItem("a", "a", false),
 			}},
 
-		{"after a",
-			nil, storage.NextKey(storage.Key("a")), false,
+		{"after a", false, false,
+			nil, storage.NextKey(storage.Key("a")),
 			storage.Items{
 				newItem("b/", "", true),
 				newItem("c", "c", false),
@@ -88,8 +80,8 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"at b",
-			nil, storage.Key("b"), false,
+		{"at b", false, false,
+			nil, storage.Key("b"),
 			storage.Items{
 				newItem("b/", "", true),
 				newItem("c", "c", false),
@@ -97,8 +89,8 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"after b",
-			nil, storage.NextKey(storage.Key("b")), false,
+		{"after b", false, false,
+			nil, storage.NextKey(storage.Key("b")),
 			storage.Items{
 				newItem("b/", "", true),
 				newItem("c", "c", false),
@@ -106,68 +98,51 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"after c",
-			nil, storage.NextKey(storage.Key("c")), false,
+		{"after c", false, false,
+			nil, storage.NextKey(storage.Key("c")),
 			storage.Items{
 				newItem("c/", "", true),
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"at e",
-			nil, storage.Key("e"), false,
+		{"at e", false, false,
+			nil, storage.Key("e"),
 			storage.Items{
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"after e",
-			nil, storage.NextKey(storage.Key("e")), false,
+		{"after e", false, false,
+			nil, storage.NextKey(storage.Key("e")),
 			storage.Items{
 				newItem("g", "g", false),
 				newItem("h", "h", false),
 			}},
-		{"reverse after e",
-			nil, storage.NextKey(storage.Key("e")), true,
+		{"reverse after e", false, true,
+			nil, storage.NextKey(storage.Key("e")),
 			storage.Items{
 				newItem("c/", "", true),
 				newItem("c", "c", false),
 				newItem("b/", "", true),
 				newItem("a", "a", false),
 			}},
-		{"prefix b slash",
-			storage.Key("b/"), nil, false,
+		{"prefix b slash", false, false,
+			storage.Key("b/"), nil,
 			storage.Items{
 				newItem("b/1", "b/1", false),
 				newItem("b/2", "b/2", false),
 				newItem("b/3", "b/3", false),
 			}},
-		{"prefix c slash",
-			storage.Key("c/"), nil, false,
+		{"prefix c slash", false, false,
+			storage.Key("c/"), nil,
 			storage.Items{
 				newItem("c/", "c/", false),
 				newItem("c//", "", true),
 				newItem("c/1", "c/1", false),
 			}},
-		{"prefix c slash slash",
-			storage.Key("c//"), nil, false,
+		{"prefix c slash slash", false, false,
+			storage.Key("c//"), nil,
 			storage.Items{
 				newItem("c//", "c//", false),
 			}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			var err error
-			if !test.Reverse {
-				err = store.Iterate(test.Prefix, test.First, '/',
-					checkIterator(t, test.Expected))
-			} else {
-				err = store.IterateReverse(test.Prefix, test.First, '/',
-					checkIterator(t, test.Expected))
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-
+	})
 }
