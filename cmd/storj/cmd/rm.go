@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/utils"
 )
@@ -32,13 +33,18 @@ func init() {
 func delete(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	if len(args) == 0 {
-		return errs.New("No object specified for deletion")
-	}
-
-	so, err := getStorjObjects(ctx, rmCfg)
+	identity, err := rmCfg.Load()
 	if err != nil {
 		return err
+	}
+
+	bs, err := rmCfg.GetBucketStore(ctx, identity)
+	if err != nil {
+		return err
+	}
+
+	if len(args) == 0 {
+		return errs.New("No object specified for deletion")
 	}
 
 	u, err := utils.ParseURL(args[0])
@@ -46,12 +52,17 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = so.DeleteObject(ctx, u.Host, u.Path)
+	o, err := bs.GetObjectStore(ctx, u.Host)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Deleted %s from %s", u.Path, u.Host)
+	err = o.Delete(ctx, paths.New(u.Path))
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Deleted %s from %s\n", u.Path, u.Host)
 
 	return nil
 }
