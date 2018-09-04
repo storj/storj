@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/boltdb/bolt"
-
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
+
+	"github.com/boltdb/bolt"
 )
 
 // Client is the entrypoint into a bolt data store
@@ -40,8 +41,9 @@ func New(path, bucket string) (*Client, error) {
 	})
 
 	if err != nil {
-		// TODO: don't hide error here
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, utils.CombineErrors(err, closeErr)
+		}
 		return nil, err
 	}
 
