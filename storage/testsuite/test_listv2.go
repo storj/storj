@@ -72,10 +72,54 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				newItem("videos/", "", true),
 			},
 		},
+		{"start after 2 recursive",
+			storage.ListOptions{
+				Recursive:  true,
+				StartAfter: storage.Key("music/a-song1.mp3"),
+				Limit:      2,
+			},
+			true, storage.Items{
+				newItem("music/a-song2.mp3", "", false),
+				newItem("music/my-album/song3.mp3", "", false),
+			},
+		},
+		{"start after non-existing 2 recursive",
+			storage.ListOptions{
+				Recursive:  true,
+				StartAfter: storage.Key("music/a-song15.mp3"),
+				Limit:      2,
+			},
+			true, storage.Items{
+				newItem("music/a-song2.mp3", "", false),
+				newItem("music/my-album/song3.mp3", "", false),
+			},
+		},
+		{"start after 2",
+			storage.ListOptions{
+				Prefix:     storage.Key("music/"),
+				StartAfter: storage.Key("music/a-song1.mp3"),
+				Limit:      2,
+			},
+			true, storage.Items{
+				newItem("a-song2.mp3", "", false),
+				newItem("my-album/", "", true),
+			},
+		},
 		{"end before 2 recursive",
 			storage.ListOptions{
 				Recursive: true,
 				EndBefore: storage.Key("music/z-song5.mp3"),
+				Limit:     2,
+			},
+			true, storage.Items{
+				newItem("music/my-album/song3.mp3", "", false),
+				newItem("music/my-album/song4.mp3", "", false),
+			},
+		},
+		{"end before non-existing 2 recursive",
+			storage.ListOptions{
+				Recursive: true,
+				EndBefore: storage.Key("music/my-album/song5.mp3"),
 				Limit:     2,
 			},
 			true, storage.Items{
