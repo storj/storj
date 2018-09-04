@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
@@ -44,7 +43,8 @@ func delete(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return errs.New("No object specified for deletion")
+		fmt.Println("No object specified for deletion")
+		return nil
 	}
 
 	u, err := utils.ParseURL(args[0])

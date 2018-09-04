@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/utils"
@@ -39,7 +38,8 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return errs.New("No bucket specified for creation")
+		fmt.Println("No bucket specified for creation")
+		return nil
 	}
 
 	bs, err := mbCfg.GetBucketStore(ctx, identity)
@@ -54,7 +54,8 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	_, err = bs.Get(ctx, u.Host)
 	if err == nil {
-		return errs.New("Bucket already exists")
+		fmt.Println("Bucket already exists")
+		return nil
 	}
 	if !storage.ErrKeyNotFound.Has(err) {
 		return err
@@ -64,7 +65,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println(m, u.Host)
+	fmt.Println(m.Created, u.Host)
 
 	return nil
 }
