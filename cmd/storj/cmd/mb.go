@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/cfgstruct"
@@ -55,7 +54,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	_, err = bs.Get(ctx, u.Host)
 	if err == nil {
-		return minio.BucketAlreadyExists{Bucket: u.Host}
+		return errs.New("Bucket already exists")
 	}
 	if !storage.ErrKeyNotFound.Has(err) {
 		return err
