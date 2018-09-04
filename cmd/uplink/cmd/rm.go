@@ -18,7 +18,7 @@ var (
 	rmCfg Config
 	rmCmd = &cobra.Command{
 		Use:   "rm",
-		Short: "A brief description of your command",
+		Short: "Delete an object",
 		RunE:  delete,
 	}
 )

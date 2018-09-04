@@ -18,7 +18,7 @@ var (
 	lsCfg Config
 	lsCmd = &cobra.Command{
 		Use:   "ls",
-		Short: "A brief description of your command",
+		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
 	}
 )
