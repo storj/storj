@@ -97,7 +97,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		{"start after 2",
 			storage.ListOptions{
 				Prefix:     storage.Key("music/"),
-				StartAfter: storage.Key("music/a-song1.mp3"),
+				StartAfter: storage.Key("a-song1.mp3"),
 				Limit:      2,
 			},
 			true, storage.Items{
@@ -130,12 +130,22 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		{"end before 2",
 			storage.ListOptions{
 				Prefix:    storage.Key("music/"),
-				EndBefore: storage.Key("music/z-song5.mp3"),
+				EndBefore: storage.Key("z-song5.mp3"),
 				Limit:     2,
 			},
 			true, storage.Items{
 				newItem("a-song2.mp3", "", false),
 				newItem("my-album/", "", true),
+			},
+		},
+		{"end before 4 recursive prefixed",
+			storage.ListOptions{
+				Prefix:    storage.Key("music/my-album/"),
+				EndBefore: storage.Key("song4.mp3"),
+				Limit:     2,
+			},
+			false, storage.Items{
+				newItem("song3.mp3", "", false),
 			},
 		},
 	}

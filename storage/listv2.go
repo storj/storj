@@ -14,8 +14,8 @@ type More bool
 // ListOptions are items that are optional for the LIST method
 type ListOptions struct {
 	Prefix       Key
-	StartAfter   Key
-	EndBefore    Key
+	StartAfter   Key // StartAfter is relative to Prefix
+	EndBefore    Key // EndBefore is relative to Prefix
 	Recursive    bool
 	IncludeValue bool
 	Limit        Limit
@@ -50,9 +50,11 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 				more = false
 				return nil
 			}
+
+			relativeKey := item.Key[len(opts.Prefix):]
 			if skipFirst {
 				skipFirst = false
-				if item.Key.Equal(first) {
+				if relativeKey.Equal(first) {
 					// skip the first element in iteration
 					// if it matches the search key
 					limit++
@@ -62,13 +64,13 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 
 			if opts.IncludeValue {
 				result = append(result, ListItem{
-					Key:      CloneKey(item.Key[len(opts.Prefix):]),
+					Key:      CloneKey(relativeKey),
 					Value:    CloneValue(item.Value),
 					IsPrefix: item.IsPrefix,
 				})
 			} else {
 				result = append(result, ListItem{
-					Key:      CloneKey(item.Key[len(opts.Prefix):]),
+					Key:      CloneKey(relativeKey),
 					IsPrefix: item.IsPrefix,
 				})
 			}
@@ -77,18 +79,30 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 	}
 
 	if !reverse {
+		var first Key
+		if opts.StartAfter != nil {
+			first = joinKey(opts.Prefix, opts.StartAfter)
+		}
 		if opts.Recursive {
-			err = store.IterateAll(opts.Prefix, opts.StartAfter, iterate)
+			err = store.IterateAll(opts.Prefix, first, iterate)
 		} else {
-			err = store.Iterate(opts.Prefix, opts.StartAfter, iterate)
+			err = store.Iterate(opts.Prefix, first, iterate)
 		}
 	} else {
+		var first Key
+		if opts.EndBefore != nil {
+			first = joinKey(opts.Prefix, opts.EndBefore)
+		}
 		if opts.Recursive {
-			err = store.IterateReverseAll(opts.Prefix, opts.EndBefore, iterate)
+			err = store.IterateReverseAll(opts.Prefix, first, iterate)
 		} else {
-			err = store.IterateReverse(opts.Prefix, opts.EndBefore, iterate)
+			err = store.IterateReverse(opts.Prefix, first, iterate)
 		}
 		result = ReverseItems(result)
 	}
 	return result, more, err
+}
+
+func joinKey(a, b Key) Key {
+	return append(append(Key{}, a...), b...)
 }
