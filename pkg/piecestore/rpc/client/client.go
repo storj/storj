@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -101,6 +104,27 @@ func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 // Put uploads a Piece to a piece store Server
 func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
 	stream, err := client.route.Store(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		signal.Stop(c)
+		cancel()
+		return
+	}()
+
+	go func() {
+		<-ctx.Done()
+		_ = stream.CloseSend()
+		return
+	}()
+
 	if err != nil {
 		return err
 	}
