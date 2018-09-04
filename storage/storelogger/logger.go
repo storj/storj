@@ -73,63 +73,43 @@ func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storag
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *Logger) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Logger) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.log.Debug("Iterate", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.Iterate(prefix, first, delimiter, func(it storage.Iterator) error {
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			ok := it.Next(item)
-			if ok {
-				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
-			}
-			return ok
-		}))
-	})
+	return store.store.Iterate(prefix, first, store.loggedIterator(fn))
 }
 
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Logger) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.log.Debug("IterateAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateAll(prefix, first, func(it storage.Iterator) error {
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			ok := it.Next(item)
-			if ok {
-				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
-			}
-			return ok
-		}))
-	})
+	return store.store.IterateAll(prefix, first, store.loggedIterator(fn))
 }
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the next key
-func (store *Logger) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Logger) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.log.Debug("IterateReverse", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateReverse(prefix, first, delimiter, func(it storage.Iterator) error {
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			ok := it.Next(item)
-			if ok {
-				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
-			}
-			return ok
-		}))
-	})
+	return store.store.IterateReverse(prefix, first, store.loggedIterator(fn))
 }
 
 // IterateReverseAll iterates over all items with prefix starting from first or the previous key
 func (store *Logger) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.log.Debug("IterateReverseAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateReverseAll(prefix, first, func(it storage.Iterator) error {
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			ok := it.Next(item)
-			if ok {
-				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
-			}
-			return ok
-		}))
-	})
+	return store.store.IterateReverseAll(prefix, first, store.loggedIterator(fn))
 }
 
 // Close closes the store
 func (store *Logger) Close() error {
 	store.log.Debug("Close")
 	return store.store.Close()
+}
+
+func (store *Logger) loggedIterator(fn func(storage.Iterator) error) func(it storage.Iterator) error {
+	return func(it storage.Iterator) error {
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			ok := it.Next(item)
+			if ok {
+				store.log.Debug("  ", zap.String("key", string(item.Key)), zap.Binary("value", item.Value))
+			}
+			return ok
+		}))
+	}
 }

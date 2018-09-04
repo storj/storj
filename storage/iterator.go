@@ -27,10 +27,10 @@ func SelectPrefixed(items Items, prefix []byte) Items {
 	return result
 }
 
-// SortAndCollapse sorts items and combines elements based on the delimiter
+// SortAndCollapse sorts items and combines elements based on Delimiter
 // items will be reused and modified
 // TODO: remove this
-func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
+func SortAndCollapse(items Items, prefix []byte) Items {
 	sort.Sort(items)
 	result := items[:0]
 
@@ -44,7 +44,7 @@ func SortAndCollapse(items Items, prefix []byte, delimiter byte) Items {
 			prefixed = false
 		}
 
-		if p := bytes.IndexByte(item.Key[len(prefix):], delimiter); p >= 0 {
+		if p := bytes.IndexByte(item.Key[len(prefix):], Delimiter); p >= 0 {
 			currentPrefix = item.Key[:len(prefix)+p+1]
 			prefixed = true
 			result = append(result, ListItem{

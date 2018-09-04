@@ -80,13 +80,13 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 		if opts.Recursive {
 			err = store.IterateAll(opts.Prefix, opts.StartAfter, iterate)
 		} else {
-			err = store.Iterate(opts.Prefix, opts.StartAfter, '/', iterate)
+			err = store.Iterate(opts.Prefix, opts.StartAfter, iterate)
 		}
 	} else {
 		if opts.Recursive {
 			err = store.IterateReverseAll(opts.Prefix, opts.EndBefore, iterate)
 		} else {
-			err = store.IterateReverse(opts.Prefix, opts.EndBefore, '/', iterate)
+			err = store.IterateReverse(opts.Prefix, opts.EndBefore, iterate)
 		}
 		result = ReverseItems(result)
 	}

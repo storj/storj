@@ -137,30 +137,30 @@ func (store *Client) Close() error {
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
-	return store.iterate(prefix, first, false, delimiter, fn)
+	return store.iterate(prefix, first, false, fn)
 }
 
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	store.CallCount.IterateAll++
-	return store.iterate(prefix, first, true, '/', fn)
+	return store.iterate(prefix, first, true, fn)
 }
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the previous key
-func (store *Client) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.CallCount.IterateReverse++
-	return store.iterateReverse(prefix, first, false, delimiter, fn)
+	return store.iterateReverse(prefix, first, false, fn)
 }
 
 // IterateReverseAll iterates over all items with prefix starting from first or the next key
 func (store *Client) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.CallCount.IterateReverseAll++
-	return store.iterateReverse(prefix, first, true, '/', fn)
+	return store.iterateReverse(prefix, first, true, fn)
 }
 
-func (store *Client) iterate(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) iterate(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
 	if first == nil || first.Less(prefix) {
 		first = prefix
 	}
@@ -194,7 +194,7 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, delimiter 
 		}
 
 		if !recurse {
-			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), delimiter); p >= 0 {
+			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), storage.Delimiter); p >= 0 {
 				lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
 
 				item.Key = append(item.Key[:0], lastPrefix...)
@@ -214,7 +214,7 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, delimiter 
 	}))
 }
 
-func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
 	var cur cursor
 
 	if prefix == nil {
@@ -265,7 +265,7 @@ func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, del
 		}
 
 		if !recurse {
-			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), delimiter); p >= 0 {
+			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), storage.Delimiter); p >= 0 {
 				lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
 
 				item.Key = append(item.Key[:0], lastPrefix...)

@@ -48,9 +48,9 @@ func testIterations(t *testing.T, store storage.KeyValueStore, tests []iteration
 			}
 		} else {
 			if !test.Reverse {
-				err = store.Iterate(test.Prefix, test.First, '/', collect.include)
+				err = store.Iterate(test.Prefix, test.First, collect.include)
 			} else {
-				err = store.IterateReverse(test.Prefix, test.First, '/', collect.include)
+				err = store.IterateReverse(test.Prefix, test.First, collect.include)
 			}
 		}
 		if err != nil {

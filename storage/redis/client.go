@@ -127,13 +127,13 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
+func (client *Client) Iterate(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	all, err := client.allPrefixedItems(prefix, first, nil)
 	if err != nil {
 		return err
 	}
 	return fn(&storage.StaticIterator{
-		Items: storage.SortAndCollapse(all, prefix, delimiter),
+		Items: storage.SortAndCollapse(all, prefix),
 	})
 }
 
@@ -149,13 +149,13 @@ func (client *Client) IterateAll(prefix, first storage.Key, fn func(it storage.I
 }
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(it storage.Iterator) error) error {
+func (client *Client) IterateReverse(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
 	all, err := client.allPrefixedItems(prefix, nil, first)
 	if err != nil {
 		return err
 	}
 	return fn(&storage.StaticIterator{
-		Items: storage.ReverseItems(storage.SortAndCollapse(all, prefix, delimiter)),
+		Items: storage.ReverseItems(storage.SortAndCollapse(all, prefix)),
 	})
 }
 

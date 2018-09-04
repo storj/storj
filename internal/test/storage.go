@@ -144,10 +144,10 @@ func (store *MockKeyValueStore) ReverseList(first storage.Key, limit storage.Lim
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.IterateCalled++
 	items := store.allPrefixedItems(prefix, first, nil)
-	items = storage.SortAndCollapse(items, prefix, delimiter)
+	items = storage.SortAndCollapse(items, prefix)
 	return fn(&storage.StaticIterator{
 		Items: items,
 	})
@@ -163,10 +163,10 @@ func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it
 }
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the prev key
-func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
+func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
 	store.IterateReverseCalled++
 	items := store.allPrefixedItems(prefix, first, nil)
-	items = storage.SortAndCollapse(items, prefix, delimiter)
+	items = storage.SortAndCollapse(items, prefix)
 	return fn(&storage.StaticIterator{
 		Items: storage.ReverseItems(items),
 	})

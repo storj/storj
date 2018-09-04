@@ -132,26 +132,26 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Iterate iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) Iterate(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	return client.iterate(prefix, first, false, delimiter, fn)
+func (client *Client) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	return client.iterate(prefix, first, false, fn)
 }
 
 // IterateAll iterates over all items with prefix starting from first or the next key
 func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterate(prefix, first, true, '/', fn)
+	return client.iterate(prefix, first, true, fn)
 }
 
 // IterateReverse iterates over collapsed items with prefix starting from first or the prev key
-func (client *Client) IterateReverse(prefix, first storage.Key, delimiter byte, fn func(storage.Iterator) error) error {
-	return client.iterateReverse(prefix, first, false, delimiter, fn)
+func (client *Client) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+	return client.iterateReverse(prefix, first, false, fn)
 }
 
 // IterateReverseAll iterates over all items with prefix starting from first or the prev key
 func (client *Client) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterateReverse(prefix, first, true, '/', fn)
+	return client.iterateReverse(prefix, first, true, fn)
 }
 
-func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
+func (client *Client) iterate(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
@@ -186,7 +186,7 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter
 
 			if !recurse {
 				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
+				if p := bytes.IndexByte(key[len(prefix):], storage.Delimiter); p >= 0 {
 					key = key[:len(prefix)+p+1]
 					lastPrefix = append(lastPrefix[:0], key...)
 
@@ -208,7 +208,7 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, delimiter
 	})
 }
 
-func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, delimiter byte, fn func(storage.Iterator) error) error {
+func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
@@ -268,7 +268,7 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, de
 
 			if !recurse {
 				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(prefix):], delimiter); p >= 0 {
+				if p := bytes.IndexByte(key[len(prefix):], storage.Delimiter); p >= 0 {
 					key = key[:len(prefix)+p+1]
 					lastPrefix = append(lastPrefix[:0], key...)
 

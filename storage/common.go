@@ -10,6 +10,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// Delimiter separates nested paths in storage
+const Delimiter = '/'
+
 //ErrKeyNotFound used When something doesn't exist
 var ErrKeyNotFound = errs.Class("key not found")
 
@@ -56,11 +59,11 @@ type KeyValueStore interface {
 	// ReverseList lists all keys in revers order
 	ReverseList(Key, Limit) (Keys, error)
 	// Iterate iterates over collapsed items with prefix starting from first or the next key
-	Iterate(prefix, first Key, delimiter byte, fn func(Iterator) error) error
+	Iterate(prefix, first Key, fn func(Iterator) error) error
 	// IterateAll iterates over all items with prefix starting from first or the next key
 	IterateAll(prefix, first Key, fn func(Iterator) error) error
 	// IterateReverse iterates over collapsed items with prefix starting from first or the key before
-	IterateReverse(prefix, first Key, delimiter byte, fn func(Iterator) error) error
+	IterateReverse(prefix, first Key, fn func(Iterator) error) error
 	// IterateReverseAll iterates over all items with prefix starting from first or the previous key
 	IterateReverseAll(prefix, first Key, fn func(Iterator) error) error
 	// Close closes the store
