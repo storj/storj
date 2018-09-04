@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -32,19 +35,33 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	so, err := getStorjObjects(ctx, lsCfg)
+	identity, err := lsCfg.Load()
+	if err != nil {
+		return err
+	}
+
+	bs, err := lsCfg.GetBucketStore(ctx, identity)
 	if err != nil {
 		return err
 	}
 
 	if len(args) == 0 {
-		bi, err := so.ListBuckets(ctx)
-		if err != nil {
-			return err
+		startAfter := ""
+		var items []buckets.ListItem
+		for {
+			moreItems, more, err := bs.List(ctx, startAfter, "", 0)
+			if err != nil {
+				return err
+			}
+			items = append(items, moreItems...)
+			if !more {
+				break
+			}
+			startAfter = moreItems[len(moreItems)-1].Bucket
 		}
 
-		for _, bucket := range bi {
-			fmt.Println(bucket.Created, bucket.Name)
+		for _, bucket := range items {
+			fmt.Println(bucket.Meta.Created, bucket.Bucket)
 		}
 
 		return nil
@@ -55,26 +72,28 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	marker := ""
+	o, err := bs.GetObjectStore(ctx, u.Host)
+	if err != nil {
+		return err
+	}
+
+	startAfter := paths.New("")
 
 	for {
-		oi, err := so.ListObjects(ctx, u.Host, u.Path, marker, "", 1000)
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, true, 1000, meta.All)
 		if err != nil {
 			return err
 		}
 
-		for _, object := range oi.Objects {
-			fmt.Println(object.Name)
+		for _, object := range items {
+			fmt.Println(object.Meta.Modified, object.Path)
 		}
 
-		for _, prefix := range oi.Prefixes {
-			fmt.Println(prefix)
-		}
-
-		if !oi.IsTruncated {
+		if !more {
 			break
 		}
-		marker = oi.NextMarker
+
+		startAfter = items[len(items)-1].Path[len(paths.New(u.Path)):]
 	}
 
 	return nil
