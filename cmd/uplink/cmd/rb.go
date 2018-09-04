@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
@@ -45,7 +44,8 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) == 0 {
-		return errs.New("No bucket specified for deletion")
+		fmt.Println("No bucket specified for deletion")
+		return nil
 	}
 
 	u, err := utils.ParseURL(args[0])
@@ -56,7 +56,8 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	_, err = bs.Get(ctx, u.Host)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return errs.New("Bucket: %s not found", u.Host)
+			fmt.Printf("Bucket not found: %s\n", u.Host)
+			return nil
 		}
 		return err
 	}
@@ -72,7 +73,8 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(items) > 0 {
-		return errs.New("Bucket: %s not empty", u.Host)
+		fmt.Printf("Bucket not empty: %s\n", u.Host)
+		return nil
 	}
 
 	err = bs.Delete(ctx, u.Host)
@@ -80,7 +82,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Bucket: %s deleted\n", u.Host)
+	fmt.Printf("Bucket deleted: %s\n", u.Host)
 
 	return nil
 }

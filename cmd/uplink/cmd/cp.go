@@ -10,7 +10,6 @@ import (
 
 	"github.com/minio/minio/pkg/hash"
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -36,11 +35,13 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {
-		return errs.New("No file specified for copy")
+		fmt.Println("No file specified for copy")
+		return nil
 	}
 
 	if len(args) == 1 {
-		return errs.New("No destination specified")
+		fmt.Println("No destination specified")
+		return nil
 	}
 
 	so, err := getStorjObjects(ctx, cpCfg)
@@ -104,7 +105,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Printf("Downloaded %s to %s", oi.Bucket+oi.Name, args[1])
+	fmt.Printf("Downloaded %s to %s\n", oi.Bucket+oi.Name, args[1])
 
 	return nil
 }
