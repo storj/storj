@@ -50,7 +50,6 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 			},
 			false, items,
 		},
-
 		{"music",
 			storage.ListOptions{
 				Prefix: storage.Key("music/"),
@@ -60,6 +59,27 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				newItem("a-song2.mp3", "", false),
 				newItem("my-album/", "", true),
 				newItem("z-song5.mp3", "", false),
+			},
+		},
+		{"music recursive",
+			storage.ListOptions{
+				Recursive: true,
+				Prefix:    storage.Key("music/"),
+			},
+			false, storage.Items{
+				newItem("a-song1.mp3", "", false),
+				newItem("a-song2.mp3", "", false),
+				newItem("my-album/song3.mp3", "", false),
+				newItem("my-album/song4.mp3", "", false),
+				newItem("z-song5.mp3", "", false),
+			},
+		},
+		{"all non-recursive without value (default)",
+			storage.ListOptions{},
+			false, storage.Items{
+				newItem("music/", "", true),
+				newItem("sample.jpg", "", false),
+				newItem("videos/", "", true),
 			},
 		},
 		{"all non-recursive",
@@ -138,7 +158,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 				newItem("my-album/", "", true),
 			},
 		},
-		{"end before 4 recursive prefixed",
+		{"end before 2 prefixed",
 			storage.ListOptions{
 				Prefix:    storage.Key("music/my-album/"),
 				EndBefore: storage.Key("song4.mp3"),
