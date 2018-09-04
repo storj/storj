@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,11 +56,16 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if len(args) > 0x00 {
 <<<<<<< HEAD
+<<<<<<< HEAD
 		fmt.Println("Invalid arguments. Rerun with 'uplink run'")
 		return nil
 =======
 		return errors.New("Invalid arguments try 'uplink run'")
 >>>>>>> uplink handle invalid or more than needed arguments
+=======
+		fmt.Println("Invalid arguments. Rerun with 'uplink run'")
+		return nil
+>>>>>>> updated the error reporting
 	}
 	return runCfg.Run(process.Ctx(cmd))
 }
