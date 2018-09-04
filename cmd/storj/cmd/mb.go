@@ -60,7 +60,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	if !storage.ErrKeyNotFound.Has(err) {
 		return err
 	}
-	m, err = bs.Put(ctx, u.Host)
+	m, err := bs.Put(ctx, u.Host)
 	if err != nil {
 		return err
 	}
