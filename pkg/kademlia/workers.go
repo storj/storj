@@ -94,8 +94,12 @@ func (w *worker) work(ctx context.Context, ch chan *proto.Node) {
 	}
 }
 
-func (w *worker) getWork(ch chan *proto.Node) {
+func (w *worker) getWork(ctx context.Context, ch chan *proto.Node) {
 	for {
+		if ctx.Err() != nil {
+			return
+		}
+
 		w.mu.Lock()
 		if w.pq.Len() <= 0 && w.workInProgress <= 0 {
 			w.mu.Unlock()

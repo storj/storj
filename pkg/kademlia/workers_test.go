@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,7 @@ func TestGetWork(t *testing.T) {
 		name     string
 		worker   *worker
 		expected *proto.Node
+		ctx      context.Context
 		ch       chan *proto.Node
 	}{
 		{
@@ -42,7 +44,6 @@ func TestGetWork(t *testing.T) {
 				w.maxResponse = 0
 				w.pq.Pop()
 				assert.Len(t, w.pq, 0)
-				w.cancel = func() {}
 				return w
 			}(),
 			expected: nil,
@@ -51,14 +52,19 @@ func TestGetWork(t *testing.T) {
 	}
 
 	for _, v := range cases {
+		ctx, cf := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cf()
 
-		v.worker.getWork(v.ch)
+		v.worker.cancel = cf
+		v.worker.getWork(ctx, v.ch)
 
 		if v.expected != nil {
-			assert.Equal(t, v.expected, <-v.ch)
+			actual := <-v.ch
+			assert.Equal(t, v.expected, actual)
 		} else {
 			assert.Len(t, v.ch, 0)
 		}
+
 	}
 }
 

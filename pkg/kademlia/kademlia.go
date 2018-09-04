@@ -131,7 +131,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 	ctx, w.cancel = context.WithCancel(ctx)
 	wch := make(chan *proto.Node, k.alpha)
 	// kick off go routine to fetch work and send on work channel
-	go w.getWork(wch)
+	go w.getWork(ctx, wch)
 	// kick off alpha works to consume from work channel
 	for i := 0; i < k.alpha; i++ {
 		go w.work(ctx, wch)
