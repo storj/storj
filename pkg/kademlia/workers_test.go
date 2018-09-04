@@ -160,7 +160,7 @@ func TestUpdate(t *testing.T) {
 				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
 			}(),
 			expectedQueueLength: 2,
-			expected:            []*proto.Node{&proto.Node{Id: "0001"}, &proto.Node{Id: "1001"}},
+			expected:            []*proto.Node{&proto.Node{Id: "0100"}, &proto.Node{Id: "1001"}},
 			input:               []*proto.Node{&proto.Node{Id: "1001"}, &proto.Node{Id: "0100"}},
 			expectedErr:         nil,
 		},
