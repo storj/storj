@@ -110,7 +110,6 @@ func TestDefaultDialer(t *testing.T) {
 }
 
 func TestPut(t *testing.T) {
-	// TODO (moby) add encryption from eestream store example
 	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -197,7 +196,6 @@ TestLoop:
 }
 
 func TestGet(t *testing.T) {
-	// TODO (moby) add decryption from eestream serve example
 	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

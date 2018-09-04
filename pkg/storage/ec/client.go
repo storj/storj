@@ -5,7 +5,6 @@ package ecclient
 
 import (
 	"context"
-	"crypto/sha256"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -29,9 +28,9 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time, key *string) error
+		pieceID client.PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-		pieceID client.PieceID, size int64, key *string) (ranger.RangeCloser, error)
+		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
 	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
 }
 
@@ -66,7 +65,7 @@ func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Cli
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time, key *string) (err error) {
+	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
 		return Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme",
@@ -75,16 +74,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	if !unique(nodes) {
 		return Error.New("duplicated nodes are not allowed")
 	}
-
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
-	if err != nil {
-		return err
-	}
-	padded := eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize())
-	transformed := eestream.TransformReader(padded, encrypter, 0)
-	readers, err := eestream.EncodeReader(ctx, transformed, rs, ec.mbm)
+	
+	readers, err := eestream.EncodeReader(ctx, data, rs, ec.mbm)
 	if err != nil {
 		return err
 	}
@@ -126,7 +117,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-	pieceID client.PieceID, size int64, key *string) (rr ranger.RangeCloser, err error) {
+	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes do not match total count of erasure scheme")
@@ -171,22 +162,13 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			rrs[rri.i] = rri.rr
 		}
 	}
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, es.DecodedBlockSize())
+	
+	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
 		return nil, err
 	}
-	rc, err := eestream.Decode(rrs, es, ec.mbm)
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-	rr, err = eestream.Transform(rc, decrypter)
-	if err != nil {
-		return nil, err
-	}
-	return eestream.Unpad(rr, int(paddedSize-size))
+
+	return rr, nil
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {

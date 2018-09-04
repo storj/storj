@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
@@ -48,12 +49,18 @@ type Store interface {
 }
 
 type objStore struct {
-	s streams.Store
+	s   streams.Store
+	key *string
+	encryptedBlockSize int
 }
 
 // NewStore for objects
-func NewStore(store streams.Store) Store {
-	return &objStore{s: store}
+func NewStore(store streams.Store, key *string, encryptedBlockSize int) Store {
+	return &objStore{
+		s: store
+		key: key
+		encryptedBlockSize: encryptedBlockSize
+	}
 }
 
 func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
@@ -66,8 +73,22 @@ func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	rr, m, err := o.s.Get(ctx, path)
-	return rr, convertMeta(m), err
+
+	encKey := sha256.Sum256([]byte(*key))
+	var firstNonce [12]byte
+	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.encryptedBlockSize)
+	if err != nil {
+		return nil, nil, err
+	}
+	rd, err = eestream.Transform(rr, decrypter)
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO(moby) calculate paddedSize
+	rc, err := eestream.Unpad(rd, int(paddedSize-size))
+	return rc, convertMeta(m), err
 }
 
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
@@ -78,11 +99,21 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	// if metadata.GetContentType() == "" {}
 
 	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
+
+	encKey := sha256.Sum256([]byte(*o.key))
+	var firstNonce [12]byte
+	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, o.encryptedBlockSize)
+	if err != nil {
+		return nil, err
+	}
+	padded := eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize())
+	transformed := eestream.TransformReader(padded, encrypter, 0)
+
 	b, err := proto.Marshal(&metadata)
 	if err != nil {
 		return Meta{}, err
 	}
-	m, err := o.s.Put(ctx, path, data, b, expiration)
+	m, err := o.s.Put(ctx, path, transformed, b, expiration)
 	return convertMeta(m), err
 }
 
