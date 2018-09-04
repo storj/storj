@@ -5,13 +5,13 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -50,7 +50,7 @@ func list(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	u, err := url.Parse(args[0])
+	u, err := utils.ParseURL(args[0])
 	if err != nil {
 		return err
 	}

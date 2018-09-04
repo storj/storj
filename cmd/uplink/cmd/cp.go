@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -15,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -48,7 +48,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	u, err := url.Parse(args[0])
+	u, err := utils.ParseURL(args[0])
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 
 		defer func() { _ = f.Close() }()
 
-		u, err = url.Parse(args[1])
+		u, err = utils.ParseURL(args[1])
 		if err != nil {
 			return err
 		}
