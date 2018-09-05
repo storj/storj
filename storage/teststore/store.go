@@ -27,11 +27,7 @@ type Client struct {
 		ReverseList int
 		Delete      int
 		Close       int
-
-		Iterate           int
-		IterateAll        int
-		IterateReverse    int
-		IterateReverseAll int
+		Iterate     int
 	}
 
 	version int
@@ -136,37 +132,22 @@ func (store *Client) Close() error {
 	return nil
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *Client) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+// Iterate iterates over items based on opts
+func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
-	return store.iterate(prefix, first, false, fn)
-}
-
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (store *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	store.CallCount.IterateAll++
-	return store.iterate(prefix, first, true, fn)
-}
-
-// IterateReverse iterates over collapsed items with prefix starting from first or the previous key
-func (store *Client) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.CallCount.IterateReverse++
-	return store.iterateReverse(prefix, first, false, fn)
-}
-
-// IterateReverseAll iterates over all items with prefix starting from first or the next key
-func (store *Client) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.CallCount.IterateReverseAll++
-	return store.iterateReverse(prefix, first, true, fn)
-}
-
-func (store *Client) iterate(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
-	if first == nil || first.Less(prefix) {
-		first = prefix
+	if opts.Reverse {
+		return store.iterateReverse(opts, fn)
 	}
+	return store.iterate(opts, fn)
+}
 
+func (store *Client) iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	var cur cursor
-	cur.positionForward(store, first)
+	if opts.First == nil || opts.First.Less(opts.Prefix) {
+		cur.positionForward(store, opts.Prefix)
+	} else {
+		cur.positionForward(store, opts.First)
+	}
 
 	var lastPrefix storage.Key
 	var wasPrefix bool
@@ -177,7 +158,7 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, fn func(st
 			return false
 		}
 
-		if !recurse {
+		if !opts.Recurse {
 			if wasPrefix && bytes.HasPrefix(next.Key, lastPrefix) {
 				cur.positionForward(store, storage.AfterPrefix(lastPrefix))
 				next, ok = cur.next(store)
@@ -188,14 +169,14 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, fn func(st
 			}
 		}
 
-		if !bytes.HasPrefix(next.Key, prefix) {
+		if !bytes.HasPrefix(next.Key, opts.Prefix) {
 			cur.close()
 			return false
 		}
 
-		if !recurse {
-			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), storage.Delimiter); p >= 0 {
-				lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
+		if !opts.Recurse {
+			if p := bytes.IndexByte([]byte(next.Key[len(opts.Prefix):]), storage.Delimiter); p >= 0 {
+				lastPrefix = append(lastPrefix[:0], next.Key[:len(opts.Prefix)+p+1]...)
 
 				item.Key = append(item.Key[:0], lastPrefix...)
 				item.Value = item.Value[:0]
@@ -214,28 +195,28 @@ func (store *Client) iterate(prefix, first storage.Key, recurse bool, fn func(st
 	}))
 }
 
-func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
+func (store *Client) iterateReverse(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	var cur cursor
 
-	if prefix == nil {
+	if opts.Prefix == nil {
 		// there's no prefix
-		if first == nil {
+		if opts.First == nil {
 			// and no first item, so start from the end
 			cur.positionLast(store)
 		} else {
 			// theres a first item, so try to position on that or one before that
-			cur.positionBackward(store, first)
+			cur.positionBackward(store, opts.First)
 		}
 	} else {
 		// there's a prefix
-		if first == nil || storage.AfterPrefix(prefix).Less(first) {
+		if opts.First == nil || storage.AfterPrefix(opts.Prefix).Less(opts.First) {
 			// there's no first, or it's after our prefix
 			// storage.AfterPrefix("axxx/") is the next item after prefixes
 			// so we position to the item before
-			cur.positionBefore(store, storage.AfterPrefix(prefix))
+			cur.positionBefore(store, storage.AfterPrefix(opts.Prefix))
 		} else {
 			// otherwise try to position on first or one before that
-			cur.positionBackward(store, first)
+			cur.positionBackward(store, opts.First)
 		}
 	}
 
@@ -248,7 +229,7 @@ func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn 
 			return false
 		}
 
-		if !recurse {
+		if !opts.Recurse {
 			if wasPrefix && bytes.HasPrefix(next.Key, lastPrefix) {
 				cur.positionBefore(store, lastPrefix)
 				next, ok = cur.prev(store)
@@ -259,14 +240,14 @@ func (store *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn 
 			}
 		}
 
-		if !bytes.HasPrefix(next.Key, prefix) {
+		if !bytes.HasPrefix(next.Key, opts.Prefix) {
 			cur.close()
 			return false
 		}
 
-		if !recurse {
-			if p := bytes.IndexByte([]byte(next.Key[len(prefix):]), storage.Delimiter); p >= 0 {
-				lastPrefix = append(lastPrefix[:0], next.Key[:len(prefix)+p+1]...)
+		if !opts.Recurse {
+			if p := bytes.IndexByte([]byte(next.Key[len(opts.Prefix):]), storage.Delimiter); p >= 0 {
+				lastPrefix = append(lastPrefix[:0], next.Key[:len(opts.Prefix)+p+1]...)
 
 				item.Key = append(item.Key[:0], lastPrefix...)
 				item.Value = item.Value[:0]

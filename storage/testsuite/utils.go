@@ -38,21 +38,13 @@ type iterationTest struct {
 func testIterations(t *testing.T, store storage.KeyValueStore, tests []iterationTest) {
 	t.Helper()
 	for _, test := range tests {
-		var err error
 		collect := &collector{}
-		if test.Recurse {
-			if !test.Reverse {
-				err = store.IterateAll(test.Prefix, test.First, collect.include)
-			} else {
-				err = store.IterateReverseAll(test.Prefix, test.First, collect.include)
-			}
-		} else {
-			if !test.Reverse {
-				err = store.Iterate(test.Prefix, test.First, collect.include)
-			} else {
-				err = store.IterateReverse(test.Prefix, test.First, collect.include)
-			}
-		}
+		err := store.Iterate(storage.IterateOptions{
+			Prefix:  test.Prefix,
+			First:   test.First,
+			Recurse: test.Recurse,
+			Reverse: test.Reverse,
+		}, collect.include)
 		if err != nil {
 			t.Errorf("%s: %v", test.Name, err)
 			continue

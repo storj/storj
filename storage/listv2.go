@@ -78,28 +78,24 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 		return nil
 	}
 
-	if !reverse {
-		var first Key
-		if opts.StartAfter != nil {
-			first = joinKey(opts.Prefix, opts.StartAfter)
-		}
-		if opts.Recursive {
-			err = store.IterateAll(opts.Prefix, first, iterate)
-		} else {
-			err = store.Iterate(opts.Prefix, first, iterate)
-		}
-	} else {
-		var first Key
-		if opts.EndBefore != nil {
-			first = joinKey(opts.Prefix, opts.EndBefore)
-		}
-		if opts.Recursive {
-			err = store.IterateReverseAll(opts.Prefix, first, iterate)
-		} else {
-			err = store.IterateReverse(opts.Prefix, first, iterate)
-		}
+	var firstFull Key
+	if !reverse && opts.StartAfter != nil {
+		firstFull = joinKey(opts.Prefix, opts.StartAfter)
+	}
+	if reverse && opts.EndBefore != nil {
+		firstFull = joinKey(opts.Prefix, opts.EndBefore)
+	}
+	err = store.Iterate(IterateOptions{
+		Prefix:  opts.Prefix,
+		First:   firstFull,
+		Reverse: reverse,
+		Recurse: opts.Recursive,
+	}, iterate)
+
+	if reverse {
 		result = ReverseItems(result)
 	}
+
 	return result, more, err
 }
 

@@ -126,47 +126,26 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return values, nil
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) Iterate(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	all, err := client.allPrefixedItems(prefix, first, nil)
+// Iterate iterates over items based on opts
+func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.Iterator) error) error {
+	var all storage.Items
+	var err error
+	if !opts.Reverse {
+		all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
+	} else {
+		all, err = client.allPrefixedItems(opts.Prefix, nil, opts.First)
+	}
 	if err != nil {
 		return err
 	}
-	return fn(&storage.StaticIterator{
-		Items: storage.SortAndCollapse(all, prefix),
-	})
-}
-
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (client *Client) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	all, err := client.allPrefixedItems(prefix, first, nil)
-	if err != nil {
-		return err
+	if !opts.Recurse {
+		all = storage.SortAndCollapse(all, opts.Prefix)
+	}
+	if opts.Reverse {
+		all = storage.ReverseItems(all)
 	}
 	return fn(&storage.StaticIterator{
 		Items: all,
-	})
-}
-
-// IterateReverse iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) IterateReverse(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	all, err := client.allPrefixedItems(prefix, nil, first)
-	if err != nil {
-		return err
-	}
-	return fn(&storage.StaticIterator{
-		Items: storage.ReverseItems(storage.SortAndCollapse(all, prefix)),
-	})
-}
-
-// IterateReverseAll iterates over all items with prefix starting from first or the next key
-func (client *Client) IterateReverseAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	all, err := client.allPrefixedItems(prefix, nil, first)
-	if err != nil {
-		return err
-	}
-	return fn(&storage.StaticIterator{
-		Items: storage.ReverseItems(all),
 	})
 }
 

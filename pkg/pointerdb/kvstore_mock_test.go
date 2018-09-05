@@ -84,51 +84,15 @@ func (mr *MockKeyValueStoreMockRecorder) GetAll(arg0 interface{}) *gomock.Call {
 }
 
 // Iterate mocks base method
-func (m *MockKeyValueStore) Iterate(arg0, arg1 storage.Key, arg2 func(storage.Iterator) error) error {
-	ret := m.ctrl.Call(m, "Iterate", arg0, arg1, arg2)
+func (m *MockKeyValueStore) Iterate(arg0 storage.IterateOptions, arg1 func(storage.Iterator) error) error {
+	ret := m.ctrl.Call(m, "Iterate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Iterate indicates an expected call of Iterate
-func (mr *MockKeyValueStoreMockRecorder) Iterate(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Iterate", reflect.TypeOf((*MockKeyValueStore)(nil).Iterate), arg0, arg1, arg2)
-}
-
-// IterateAll mocks base method
-func (m *MockKeyValueStore) IterateAll(arg0, arg1 storage.Key, arg2 func(storage.Iterator) error) error {
-	ret := m.ctrl.Call(m, "IterateAll", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// IterateAll indicates an expected call of IterateAll
-func (mr *MockKeyValueStoreMockRecorder) IterateAll(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IterateAll", reflect.TypeOf((*MockKeyValueStore)(nil).IterateAll), arg0, arg1, arg2)
-}
-
-// IterateReverse mocks base method
-func (m *MockKeyValueStore) IterateReverse(arg0, arg1 storage.Key, arg2 func(storage.Iterator) error) error {
-	ret := m.ctrl.Call(m, "IterateReverse", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// IterateReverse indicates an expected call of IterateReverse
-func (mr *MockKeyValueStoreMockRecorder) IterateReverse(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IterateReverse", reflect.TypeOf((*MockKeyValueStore)(nil).IterateReverse), arg0, arg1, arg2)
-}
-
-// IterateReverseAll mocks base method
-func (m *MockKeyValueStore) IterateReverseAll(arg0, arg1 storage.Key, arg2 func(storage.Iterator) error) error {
-	ret := m.ctrl.Call(m, "IterateReverseAll", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// IterateReverseAll indicates an expected call of IterateReverseAll
-func (mr *MockKeyValueStoreMockRecorder) IterateReverseAll(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IterateReverseAll", reflect.TypeOf((*MockKeyValueStore)(nil).IterateReverseAll), arg0, arg1, arg2)
+func (mr *MockKeyValueStoreMockRecorder) Iterate(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Iterate", reflect.TypeOf((*MockKeyValueStore)(nil).Iterate), arg0, arg1)
 }
 
 // List mocks base method

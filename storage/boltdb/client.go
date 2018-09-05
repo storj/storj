@@ -133,27 +133,15 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	return vals, err
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (client *Client) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterate(prefix, first, false, fn)
+// Iterate iterates over items based on opts
+func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+	if opts.Reverse {
+		return client.iterateReverse(opts, fn)
+	}
+	return client.iterate(opts, fn)
 }
 
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (client *Client) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterate(prefix, first, true, fn)
-}
-
-// IterateReverse iterates over collapsed items with prefix starting from first or the prev key
-func (client *Client) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterateReverse(prefix, first, false, fn)
-}
-
-// IterateReverseAll iterates over all items with prefix starting from first or the prev key
-func (client *Client) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	return client.iterateReverse(prefix, first, true, fn)
-}
-
-func (client *Client) iterate(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
+func (client *Client) iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
@@ -164,17 +152,17 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, fn func(s
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			var key, value []byte
 			if start {
-				if first == nil || first.Less(prefix) {
-					key, value = cursor.Seek([]byte(prefix))
+				if opts.First == nil || opts.First.Less(opts.Prefix) {
+					key, value = cursor.Seek([]byte(opts.Prefix))
 				} else {
-					key, value = cursor.Seek([]byte(first))
+					key, value = cursor.Seek([]byte(opts.First))
 				}
 				start = false
 			} else {
 				key, value = cursor.Next()
 			}
 
-			if !recurse {
+			if !opts.Recurse {
 				// when non-recursive skip all items that have the same prefix
 				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
 					key, value = cursor.Seek(storage.AfterPrefix(lastPrefix))
@@ -182,14 +170,14 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, fn func(s
 				}
 			}
 
-			if key == nil || !bytes.HasPrefix(key, prefix) {
+			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
 				return false
 			}
 
-			if !recurse {
+			if !opts.Recurse {
 				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(prefix):], storage.Delimiter); p >= 0 {
-					key = key[:len(prefix)+p+1]
+				if p := bytes.IndexByte(key[len(opts.Prefix):], storage.Delimiter); p >= 0 {
+					key = key[:len(opts.Prefix)+p+1]
 					lastPrefix = append(lastPrefix[:0], key...)
 
 					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
@@ -210,7 +198,7 @@ func (client *Client) iterate(prefix, first storage.Key, recurse bool, fn func(s
 	})
 }
 
-func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn func(storage.Iterator) error) error {
+func (client *Client) iterateReverse(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	return client.view(func(bucket *bolt.Bucket) error {
 		cursor := bucket.Cursor()
 
@@ -222,31 +210,31 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn
 			var key, value []byte
 			if start {
 				start = false
-				if prefix == nil {
+				if opts.Prefix == nil {
 					// there's no prefix
-					if first == nil {
+					if opts.First == nil {
 						// and no first item, so start from the end
 						key, value = cursor.Last()
 					} else {
 						// theres a first item, so try to position on that or one before that
-						key, value = cursor.Seek(first)
-						if !bytes.Equal(key, first) {
+						key, value = cursor.Seek(opts.First)
+						if !bytes.Equal(key, opts.First) {
 							key, value = cursor.Prev()
 						}
 					}
 				} else {
 					// there's a prefix
-					if first == nil || storage.AfterPrefix(prefix).Less(first) {
+					if opts.First == nil || storage.AfterPrefix(opts.Prefix).Less(opts.First) {
 						// there's no first, or it's after our prefix
 						// storage.AfterPrefix("axxx/") is the next item after prefixes
 						// so we position to the item before
-						nextkey := storage.AfterPrefix(prefix)
+						nextkey := storage.AfterPrefix(opts.Prefix)
 						_, _ = cursor.Seek(nextkey)
 						key, value = cursor.Prev()
 					} else {
 						// otherwise try to position on first or one before that
-						key, value = cursor.Seek(first)
-						if !bytes.Equal(key, first) {
+						key, value = cursor.Seek(opts.First)
+						if !bytes.Equal(key, opts.First) {
 							key, value = cursor.Prev()
 						}
 					}
@@ -255,7 +243,7 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn
 				key, value = cursor.Prev()
 			}
 
-			if !recurse {
+			if !opts.Recurse {
 				// when non-recursive skip all items that have the same prefix
 				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
 					_, _ = cursor.Seek(lastPrefix)
@@ -264,14 +252,14 @@ func (client *Client) iterateReverse(prefix, first storage.Key, recurse bool, fn
 				}
 			}
 
-			if key == nil || !bytes.HasPrefix(key, prefix) {
+			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
 				return false
 			}
 
-			if !recurse {
+			if !opts.Recurse {
 				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(prefix):], storage.Delimiter); p >= 0 {
-					key = key[:len(prefix)+p+1]
+				if p := bytes.IndexByte(key[len(opts.Prefix):], storage.Delimiter); p >= 0 {
+					key = key[:len(opts.Prefix)+p+1]
 					lastPrefix = append(lastPrefix[:0], key...)
 
 					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)

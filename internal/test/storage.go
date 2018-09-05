@@ -41,10 +41,7 @@ type MockKeyValueStore struct {
 	CloseCalled       int
 	PingCalled        int
 
-	IterateCalled           int
-	IterateAllCalled        int
-	IterateReverseCalled    int
-	IterateReverseAllCalled int
+	IterateCalled int
 }
 
 // RedisDone is a function type that describes the callback returned by `EnsureRedis`
@@ -143,41 +140,25 @@ func (store *MockKeyValueStore) ReverseList(first storage.Key, limit storage.Lim
 	return storage.ReverseListKeys(store, first, limit)
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *MockKeyValueStore) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
+// Iterate iterates over items based on opts
+func (store *MockKeyValueStore) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	store.IterateCalled++
-	items := store.allPrefixedItems(prefix, first, nil)
-	items = storage.SortAndCollapse(items, prefix)
+	var items storage.Items
+	if !opts.Reverse {
+		items = store.allPrefixedItems(opts.Prefix, opts.First, nil)
+	} else {
+		items = store.allPrefixedItems(opts.Prefix, nil, opts.First)
+	}
+
+	if !opts.Recurse {
+		items = storage.SortAndCollapse(items, opts.Prefix)
+	}
+	if opts.Reverse {
+		items = storage.ReverseItems(items)
+	}
+
 	return fn(&storage.StaticIterator{
 		Items: items,
-	})
-}
-
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (store *MockKeyValueStore) IterateAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	store.IterateAllCalled++
-	items := store.allPrefixedItems(prefix, first, nil)
-	return fn(&storage.StaticIterator{
-		Items: items,
-	})
-}
-
-// IterateReverse iterates over collapsed items with prefix starting from first or the prev key
-func (store *MockKeyValueStore) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.IterateReverseCalled++
-	items := store.allPrefixedItems(prefix, first, nil)
-	items = storage.SortAndCollapse(items, prefix)
-	return fn(&storage.StaticIterator{
-		Items: storage.ReverseItems(items),
-	})
-}
-
-// IterateReverseAll iterates over all items with prefix starting from first or the prev key
-func (store *MockKeyValueStore) IterateReverseAll(prefix, first storage.Key, fn func(it storage.Iterator) error) error {
-	store.IterateReverseAllCalled++
-	items := store.allPrefixedItems(prefix, first, nil)
-	return fn(&storage.StaticIterator{
-		Items: storage.ReverseItems(items),
 	})
 }
 

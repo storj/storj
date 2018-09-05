@@ -72,38 +72,15 @@ func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storag
 	return keys, err
 }
 
-// Iterate iterates over collapsed items with prefix starting from first or the next key
-func (store *Logger) Iterate(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.log.Debug("Iterate", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.Iterate(prefix, first, store.loggedIterator(fn))
-}
-
-// IterateAll iterates over all items with prefix starting from first or the next key
-func (store *Logger) IterateAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.log.Debug("IterateAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateAll(prefix, first, store.loggedIterator(fn))
-}
-
-// IterateReverse iterates over collapsed items with prefix starting from first or the next key
-func (store *Logger) IterateReverse(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.log.Debug("IterateReverse", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateReverse(prefix, first, store.loggedIterator(fn))
-}
-
-// IterateReverseAll iterates over all items with prefix starting from first or the previous key
-func (store *Logger) IterateReverseAll(prefix, first storage.Key, fn func(storage.Iterator) error) error {
-	store.log.Debug("IterateReverseAll", zap.String("prefix", string(first)), zap.String("first", string(first)))
-	return store.store.IterateReverseAll(prefix, first, store.loggedIterator(fn))
-}
-
-// Close closes the store
-func (store *Logger) Close() error {
-	store.log.Debug("Close")
-	return store.store.Close()
-}
-
-func (store *Logger) loggedIterator(fn func(storage.Iterator) error) func(it storage.Iterator) error {
-	return func(it storage.Iterator) error {
+// Iterate iterates over items based on opts
+func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+	store.log.Debug("Iterate",
+		zap.String("prefix", string(opts.Prefix)),
+		zap.String("first", string(opts.First)),
+		zap.Bool("recurse", opts.Recurse),
+		zap.Bool("reverse", opts.Reverse),
+	)
+	return store.store.Iterate(opts, func(it storage.Iterator) error {
 		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
 			ok := it.Next(item)
 			if ok {
@@ -111,5 +88,11 @@ func (store *Logger) loggedIterator(fn func(storage.Iterator) error) func(it sto
 			}
 			return ok
 		}))
-	}
+	})
+}
+
+// Close closes the store
+func (store *Logger) Close() error {
+	store.log.Debug("Close")
+	return store.store.Close()
 }

@@ -13,7 +13,10 @@ func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 		limit = unlimited
 	}
 
-	err := store.IterateAll(nil, first, func(it Iterator) error {
+	err := store.Iterate(IterateOptions{
+		First:   first,
+		Recurse: true,
+	}, func(it Iterator) error {
 		var item ListItem
 		for ; limit > 0 && it.Next(&item); limit-- {
 			if item.Key == nil {
@@ -37,7 +40,11 @@ func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) 
 		limit = unlimited
 	}
 
-	err := store.IterateReverseAll(nil, first, func(it Iterator) error {
+	err := store.Iterate(IterateOptions{
+		First:   first,
+		Recurse: true,
+		Reverse: true,
+	}, func(it Iterator) error {
 		var item ListItem
 		for ; limit > 0 && it.Next(&item); limit-- {
 			if item.Key == nil {
