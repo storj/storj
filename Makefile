@@ -166,6 +166,8 @@ deploy:
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
+	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
+		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
 	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
@@ -189,8 +191,9 @@ uplink_%:
 
 COMPONENTLIST := uplink satellite storagenode
 OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64 windows_386
+BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
+binaries: ${BINARIES}
 
 .PHONY: binaries-upload
 binaries-upload:
