@@ -172,6 +172,7 @@ binary:
 	-w /go/src/storj.io/storj -v /tmp/go_pkg_cache:/go/pkg brimstone/golang \
 	-o app storj.io/storj/cmd/${COMPONENT} \
 	| tar -x ./app -O > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
 	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
