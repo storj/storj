@@ -80,7 +80,7 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 
 	encKey := sha256.Sum256([]byte(o.key))
 	var firstNonce [12]byte
-	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.es.DecodedBlockSize())
+	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, m.ErasureScheme.DecodedBlockSize())
 	if err != nil {
 		return nil, Meta{}, err
 	}

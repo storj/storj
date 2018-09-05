@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
@@ -23,10 +24,11 @@ var mon = monkit.Package()
 
 // Meta info about a segment
 type Meta struct {
-	Modified   time.Time
-	Expiration time.Time
-	Size       int64
-	Data       []byte
+	Modified      time.Time
+	Expiration    time.Time
+	Size          int64
+	ErasureScheme eestream.ErasureScheme
+	Data          []byte
 }
 
 // convertMeta converts segment metadata to stream metadata
@@ -38,10 +40,11 @@ func convertMeta(segmentMeta segments.Meta) (Meta, error) {
 	}
 
 	return Meta{
-		Modified:   segmentMeta.Modified,
-		Expiration: segmentMeta.Expiration,
-		Size:       ((msi.NumberOfSegments - 1) * msi.SegmentsSize) + msi.LastSegmentSize,
-		Data:       msi.Metadata,
+		Modified:      segmentMeta.Modified,
+		Expiration:    segmentMeta.Expiration,
+		Size:          ((msi.NumberOfSegments - 1) * msi.SegmentsSize) + msi.LastSegmentSize,
+		ErasureScheme: segmentMeta.ErasureScheme,
+		Data:          msi.Metadata,
 	}, nil
 }
 
