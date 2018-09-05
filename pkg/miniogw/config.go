@@ -155,7 +155,7 @@ func (c Config) NewGateway(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	obj := objects.NewStore(stream, c.EncryptionKey, rs)
+	obj := objects.NewStore(stream, c.EncryptionKey, c.ErasureShareSize)
 
 	return NewStorjGateway(buckets.NewStore(obj)), nil
 }

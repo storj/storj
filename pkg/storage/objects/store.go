@@ -51,17 +51,17 @@ type Store interface {
 }
 
 type objStore struct {
-	s   streams.Store
-	key string
-	es  eestream.ErasureScheme
+	s                  streams.Store
+	key                string
+	encryptedBlockSize int
 }
 
 // NewStore for objects
-func NewStore(store streams.Store, key string, es eestream.ErasureScheme) Store {
+func NewStore(store streams.Store, key string, encryptedBlockSize int) Store {
 	return &objStore{
-		s:   store,
-		key: key,
-		es:  es,
+		s:                  store,
+		key:                key,
+		encryptedBlockSize: encryptedBlockSize,
 	}
 }
 
@@ -80,7 +80,7 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 
 	encKey := sha256.Sum256([]byte(o.key))
 	var firstNonce [12]byte
-	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.es.DecodedBlockSize())
+	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.encryptedBlockSize)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -104,7 +104,7 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	encKey := sha256.Sum256([]byte(o.key))
 	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, o.es.DecodedBlockSize())
+	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, o.encryptedBlockSize)
 	if err != nil {
 		return Meta{}, err
 	}
