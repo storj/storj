@@ -43,7 +43,6 @@ var (
 		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
-		SecretKey     string `default:"" help:"the secret key to use for the uplink"`
 	}
 
 	defaultConfDir = "$HOME/.storj/uplink"
@@ -100,13 +99,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	o := map[string]interface{}{
-		"cert-path":         setupCfg.Identity.CertPath,
-		"key-path":          setupCfg.Identity.KeyPath,
-		"api-key":           setupCfg.APIKey,
-		"pointer-db-addr":   setupCfg.SatelliteAddr,
-		"overlay-addr":      setupCfg.SatelliteAddr,
-		"aws-access-key-id": awsAccessCreds,
-		"aws-secret-key":    awsSecretCreds,
+		"cert-path":       setupCfg.Identity.CertPath,
+		"key-path":        setupCfg.Identity.KeyPath,
+		"api-key":         setupCfg.APIKey,
+		"pointer-db-addr": setupCfg.SatelliteAddr,
+		"overlay-addr":    setupCfg.SatelliteAddr,
+		"access-key":      awsAccessCreds,
+		"secret-key":      awsSecretCreds,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
