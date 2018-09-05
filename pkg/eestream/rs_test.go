@@ -552,6 +552,7 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 
 	confs := []struct{ required, total int }{
 		{2, 4},
+		{20, 50},
 		{30, 60},
 		{50, 80},
 	}
@@ -560,6 +561,7 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 		name     string
 		dataSize int
 	}{
+		{"100B", 100},
 		{"1KB", 1 << 10},
 		{"256KB", 256 << 10},
 		{"1MB", 1 << 20},
