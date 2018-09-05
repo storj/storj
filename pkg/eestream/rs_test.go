@@ -545,3 +545,85 @@ func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
 	}
 	return pieces, nil
 }
+
+func BenchmarkReedSolomonErasureScheme(b *testing.B) {
+	data := randData(8 << 20)
+	output := make([]byte, 8<<20)
+
+	confs := []struct{ required, total int }{
+		{2, 4},
+		{30, 60},
+		{50, 80},
+	}
+
+	tests := []struct {
+		name     string
+		dataSize int
+	}{
+		{"1KB", 1 << 10},
+		{"256KB", 256 << 10},
+		{"1MB", 1 << 20},
+		{"4MB", 5 << 20},
+		{"8MB", 8 << 20},
+	}
+
+	for _, conf := range confs {
+		confname := fmt.Sprintf("r%dt%d/", conf.required, conf.total)
+		for _, test := range tests {
+			dataSize := (test.dataSize / conf.required) * conf.required
+			forwardErrorCode, _ := infectious.NewFEC(conf.required, conf.total)
+			erasureScheme := NewRSScheme(forwardErrorCode, 8*1024)
+
+			b.Run("Encode/"+confname+test.name, func(b *testing.B) {
+				b.SetBytes(int64(dataSize))
+				for i := 0; i < b.N; i++ {
+					err := erasureScheme.Encode(data[:dataSize], func(num int, data []byte) {
+						_, _ = num, data
+					})
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+
+			shares := []infectious.Share{}
+			err := erasureScheme.Encode(data[:dataSize], func(num int, data []byte) {
+				shares = append(shares, infectious.Share{
+					Number: num,
+					Data:   append([]byte{}, data...),
+				})
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			b.Run("Decode/"+confname+test.name, func(b *testing.B) {
+				b.SetBytes(int64(dataSize))
+				shareMap := make(map[int][]byte, conf.total*2)
+				for i := 0; i < b.N; i++ {
+					rand.Shuffle(len(shares), func(i, k int) {
+						shares[i], shares[k] = shares[k], shares[i]
+					})
+
+					offset := i % (conf.total / 4)
+					n := conf.required + 1 + offset
+					if n > conf.total {
+						n = conf.total
+					}
+
+					for k := range shareMap {
+						delete(shareMap, k)
+					}
+					for i := range shares[:n] {
+						shareMap[shares[i].Number] = shares[i].Data
+					}
+
+					_, err = erasureScheme.Decode(output[:dataSize], shareMap)
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
