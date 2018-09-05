@@ -6,7 +6,6 @@ package ecclient
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"sort"
 	"time"
 
