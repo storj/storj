@@ -557,26 +557,35 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 		{50, 80},
 	}
 
-	tests := []struct {
-		name     string
-		dataSize int
-	}{
-		{"100B", 100},
-		{"1KB", 1 << 10},
-		{"256KB", 256 << 10},
-		{"1MB", 1 << 20},
-		{"4MB", 5 << 20},
-		{"8MB", 8 << 20},
+	dataSizes := []int{
+		100,
+		1 << 10,
+		256 << 10,
+		1 << 20,
+		5 << 20,
+		8 << 20,
+	}
+
+	bytesToStr := func(bytes int) string {
+		switch {
+		case bytes > 10000000:
+			return fmt.Sprintf("%.fMB", float64(bytes)/float64(1<<20))
+		case bytes > 1000:
+			return fmt.Sprintf("%.fKB", float64(bytes)/float64(1<<10))
+		default:
+			return fmt.Sprintf("%dB", bytes)
+		}
 	}
 
 	for _, conf := range confs {
 		confname := fmt.Sprintf("r%dt%d/", conf.required, conf.total)
-		for _, test := range tests {
-			dataSize := (test.dataSize / conf.required) * conf.required
+		for _, expDataSize := range dataSizes {
+			dataSize := (expDataSize / conf.required) * conf.required
+			testname := bytesToStr(dataSize)
 			forwardErrorCode, _ := infectious.NewFEC(conf.required, conf.total)
 			erasureScheme := NewRSScheme(forwardErrorCode, 8*1024)
 
-			b.Run("Encode/"+confname+test.name, func(b *testing.B) {
+			b.Run("Encode/"+confname+testname, func(b *testing.B) {
 				b.SetBytes(int64(dataSize))
 				for i := 0; i < b.N; i++ {
 					err := erasureScheme.Encode(data[:dataSize], func(num int, data []byte) {
@@ -599,7 +608,7 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			b.Run("Decode/"+confname+test.name, func(b *testing.B) {
+			b.Run("Decode/"+confname+testname, func(b *testing.B) {
 				b.SetBytes(int64(dataSize))
 				shareMap := make(map[int][]byte, conf.total*2)
 				for i := 0; i < b.N; i++ {
