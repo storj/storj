@@ -6,6 +6,9 @@ package miniogw
 import (
 	"context"
 	"io"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -313,11 +316,28 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ctx, cancel := context.WithCancel(ctx)
+
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		<-ctx.Done()
-		_ = s.DeleteObject(ctx, bucket, object)
+		<-c
+		signal.Stop(c)
+		cancel()
 		return
 	}()
+
+	go func(ctx context.Context, bucket, object string) {
+		<-ctx.Done()
+		err = s.DeleteObject(ctx, bucket, object)
+		if err != nil {
+			return
+		}
+	}(ctx, bucket, object)
 
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")

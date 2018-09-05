@@ -4,14 +4,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/minio/minio/pkg/hash"
 	"github.com/spf13/cobra"
@@ -56,23 +52,6 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(ctx)
-
-	/* create a signal of type os.Signal */
-	c := make(chan os.Signal, 0x01)
-
-	/* register for the os signals */
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	defer func() {
-		signal.Stop(c)
-		cancel()
-	}()
-
-	go func() {
-		<-c
-		log.Printf("Cancelling...")
-	}()
 
 	if u.Scheme == "" {
 		f, err := os.Open(args[0])
