@@ -59,14 +59,17 @@ func (b ByteRanger) Range(ctx context.Context, offset, length int64) (io.ReadClo
 	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length])), nil
 }
 
+// Close is a no-op
+func (b ByteRanger) Close() error { return nil }
+
 // ByteRangeCloser turns a byte slice into a RangeCloser
 func ByteRangeCloser(data []byte) RangeCloser {
 	return NopCloser(ByteRanger(data))
 }
 
 type concatReader struct {
-	r1 Ranger
-	r2 Ranger
+	r1 RangeCloser
+	r2 RangeCloser
 }
 
 func (c *concatReader) Size() int64 {
@@ -92,12 +95,21 @@ func (c *concatReader) Range(ctx context.Context, offset, length int64) (io.Read
 		})), nil
 }
 
-func concat2(r1, r2 Ranger) Ranger {
+func (c *concatReader) Close() error {
+	err1 := c.r1.Close()
+	err2 := c.r2.Close()
+	if err1 != nil {
+		return err1
+	}
+	return err2
+}
+
+func concat2(r1, r2 RangeCloser) RangeCloser {
 	return &concatReader{r1: r1, r2: r2}
 }
 
 // Concat concatenates Rangers
-func Concat(r ...Ranger) Ranger {
+func Concat(r ...RangeCloser) RangeCloser {
 	switch len(r) {
 	case 0:
 		return ByteRanger(nil)
