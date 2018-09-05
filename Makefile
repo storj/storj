@@ -190,7 +190,7 @@ uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
 COMPONENTLIST := uplink satellite storagenode
-OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64 windows_386
+OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES}
