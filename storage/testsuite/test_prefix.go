@@ -33,35 +33,44 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	testIterations(t, store, []iterationTest{
-		{"prefix x dash b slash", true, false,
-			storage.Key("x-"), storage.Key("x-b"),
-			storage.Items{
+		{"prefix x dash b slash",
+			storage.IterateOptions{
+				Prefix: storage.Key("x-"), First: storage.Key("x-b"),
+				Recurse: true,
+			}, storage.Items{
 				newItem("x-b/1", "b/1", false),
 				newItem("x-b/2", "b/2", false),
 				newItem("x-b/3", "b/3", false),
 			}},
-		{"reverse prefix x dash b slash", true, true,
-			storage.Key("x-"), storage.Key("x-b/3"),
-			storage.Items{
+		{"reverse prefix x dash b slash",
+			storage.IterateOptions{
+				Prefix: storage.Key("x-"), First: storage.Key("x-b/3"),
+				Recurse: true, Reverse: true,
+			}, storage.Items{
 				newItem("x-b/3", "b/3", false),
 				newItem("x-b/2", "b/2", false),
 				newItem("x-b/1", "b/1", false),
 				newItem("x-a", "a", false),
 			}},
-		{"prefix x dash b slash", false, false,
-			storage.Key("x-"), storage.Key("x-b"),
-			storage.Items{
+		{"prefix x dash b slash",
+			storage.IterateOptions{
+				Prefix: storage.Key("x-"), First: storage.Key("x-b"),
+			}, storage.Items{
 				newItem("x-b/", "", true),
 			}},
-		{"reverse x dash b slash", false, true,
-			storage.Key("x-"), storage.Key("x-b/2"),
-			storage.Items{
+		{"reverse x dash b slash",
+			storage.IterateOptions{
+				Prefix: storage.Key("x-"), First: storage.Key("x-b/2"),
+				Reverse: true,
+			}, storage.Items{
 				newItem("x-b/", "", true),
 				newItem("x-a", "a", false),
 			}},
-		{"prefix y- slash", true, false,
-			storage.Key("y-"), nil,
-			storage.Items{
+		{"prefix y- slash",
+			storage.IterateOptions{
+				Prefix:  storage.Key("y-"),
+				Recurse: true,
+			}, storage.Items{
 				newItem("y-c", "c", false),
 				newItem("y-c/", "c/", false),
 				newItem("y-c//", "c//", false),

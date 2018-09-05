@@ -28,10 +28,7 @@ func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 
 type iterationTest struct {
 	Name     string
-	Recurse  bool
-	Reverse  bool
-	Prefix   storage.Key
-	First    storage.Key
+	Options  storage.IterateOptions
 	Expected storage.Items
 }
 
@@ -39,12 +36,7 @@ func testIterations(t *testing.T, store storage.KeyValueStore, tests []iteration
 	t.Helper()
 	for _, test := range tests {
 		collect := &collector{}
-		err := store.Iterate(storage.IterateOptions{
-			Prefix:  test.Prefix,
-			First:   test.First,
-			Recurse: test.Recurse,
-			Reverse: test.Reverse,
-		}, collect.include)
+		err := store.Iterate(test.Options, collect.include)
 		if err != nil {
 			t.Errorf("%s: %v", test.Name, err)
 			continue
