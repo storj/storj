@@ -135,147 +135,124 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	if opts.Reverse {
-		return client.iterateReverse(opts, fn)
+	return client.view(func(bucket *bolt.Bucket) error {
+		var cursor advancer
+		if !opts.Reverse {
+			cursor = forward{bucket.Cursor()}
+		} else {
+			cursor = backward{bucket.Cursor()}
+		}
+
+		start := true
+		lastPrefix := []byte{}
+		wasPrefix := false
+
+		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+			var key, value []byte
+			if start {
+				key, value = cursor.PositionToFirst(opts.Prefix, opts.First)
+				start = false
+			} else {
+				key, value = cursor.Advance()
+			}
+
+			if !opts.Recurse {
+				// when non-recursive skip all items that have the same prefix
+				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
+					key, value = cursor.SkipPrefix(lastPrefix)
+					wasPrefix = false
+				}
+			}
+
+			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
+				return false
+			}
+
+			if !opts.Recurse {
+				// check whether the entry is a proper prefix
+				if p := bytes.IndexByte(key[len(opts.Prefix):], storage.Delimiter); p >= 0 {
+					key = key[:len(opts.Prefix)+p+1]
+					lastPrefix = append(lastPrefix[:0], key...)
+
+					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
+					item.Value = item.Value[:0]
+					item.IsPrefix = true
+
+					wasPrefix = true
+					return true
+				}
+			}
+
+			item.Key = append(item.Key[:0], storage.Key(key)...)
+			item.Value = append(item.Value[:0], storage.Value(value)...)
+			item.IsPrefix = false
+
+			return true
+		}))
+	})
+}
+
+type advancer interface {
+	PositionToFirst(prefix, first storage.Key) (key, value []byte)
+	SkipPrefix(prefix storage.Key) (key, value []byte)
+	Advance() (key, value []byte)
+}
+
+type forward struct {
+	*bolt.Cursor
+}
+
+func (cursor forward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
+	if first == nil || first.Less(prefix) {
+		return cursor.Seek([]byte(prefix))
 	}
-	return client.iterate(opts, fn)
+	return cursor.Seek([]byte(first))
 }
 
-func (client *Client) iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	return client.view(func(bucket *bolt.Bucket) error {
-		cursor := bucket.Cursor()
-
-		start := true
-		lastPrefix := []byte{}
-		wasPrefix := false
-
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			var key, value []byte
-			if start {
-				if opts.First == nil || opts.First.Less(opts.Prefix) {
-					key, value = cursor.Seek([]byte(opts.Prefix))
-				} else {
-					key, value = cursor.Seek([]byte(opts.First))
-				}
-				start = false
-			} else {
-				key, value = cursor.Next()
-			}
-
-			if !opts.Recurse {
-				// when non-recursive skip all items that have the same prefix
-				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
-					key, value = cursor.Seek(storage.AfterPrefix(lastPrefix))
-					wasPrefix = false
-				}
-			}
-
-			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
-				return false
-			}
-
-			if !opts.Recurse {
-				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(opts.Prefix):], storage.Delimiter); p >= 0 {
-					key = key[:len(opts.Prefix)+p+1]
-					lastPrefix = append(lastPrefix[:0], key...)
-
-					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
-					item.Value = item.Value[:0]
-					item.IsPrefix = true
-
-					wasPrefix = true
-					return true
-				}
-			}
-
-			item.Key = append(item.Key[:0], storage.Key(key)...)
-			item.Value = append(item.Value[:0], storage.Value(value)...)
-			item.IsPrefix = false
-
-			return true
-		}))
-	})
+func (cursor forward) SkipPrefix(prefix storage.Key) (key, value []byte) {
+	return cursor.Seek(storage.AfterPrefix(prefix))
 }
 
-func (client *Client) iterateReverse(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
-	return client.view(func(bucket *bolt.Bucket) error {
-		cursor := bucket.Cursor()
+func (cursor forward) Advance() (key, value []byte) {
+	return cursor.Next()
+}
 
-		start := true
-		lastPrefix := []byte{}
-		wasPrefix := false
+type backward struct {
+	*bolt.Cursor
+}
 
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			var key, value []byte
-			if start {
-				start = false
-				if opts.Prefix == nil {
-					// there's no prefix
-					if opts.First == nil {
-						// and no first item, so start from the end
-						key, value = cursor.Last()
-					} else {
-						// theres a first item, so try to position on that or one before that
-						key, value = cursor.Seek(opts.First)
-						if !bytes.Equal(key, opts.First) {
-							key, value = cursor.Prev()
-						}
-					}
-				} else {
-					// there's a prefix
-					if opts.First == nil || storage.AfterPrefix(opts.Prefix).Less(opts.First) {
-						// there's no first, or it's after our prefix
-						// storage.AfterPrefix("axxx/") is the next item after prefixes
-						// so we position to the item before
-						nextkey := storage.AfterPrefix(opts.Prefix)
-						_, _ = cursor.Seek(nextkey)
-						key, value = cursor.Prev()
-					} else {
-						// otherwise try to position on first or one before that
-						key, value = cursor.Seek(opts.First)
-						if !bytes.Equal(key, opts.First) {
-							key, value = cursor.Prev()
-						}
-					}
-				}
-			} else {
-				key, value = cursor.Prev()
-			}
+func (cursor backward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
+	if prefix == nil {
+		// there's no prefix
+		if first == nil {
+			// and no first item, so start from the end
+			return cursor.Last()
+		}
+	} else {
+		// there's a prefix
+		if first == nil || storage.AfterPrefix(prefix).Less(first) {
+			// there's no first, or it's after our prefix
+			// storage.AfterPrefix("axxx/") is the next item after prefixes
+			// so we position to the item before
+			nextkey := storage.AfterPrefix(prefix)
+			_, _ = cursor.Seek(nextkey)
+			return cursor.Prev()
+		}
+	}
 
-			if !opts.Recurse {
-				// when non-recursive skip all items that have the same prefix
-				if wasPrefix && bytes.HasPrefix(key, lastPrefix) {
-					_, _ = cursor.Seek(lastPrefix)
-					key, value = cursor.Prev()
-					wasPrefix = false
-				}
-			}
+	// otherwise try to position on first or one before that
+	key, value = cursor.Seek(first)
+	if !bytes.Equal(key, first) {
+		key, value = cursor.Prev()
+	}
+	return key, value
+}
 
-			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
-				return false
-			}
+func (cursor backward) SkipPrefix(prefix storage.Key) (key, value []byte) {
+	_, _ = cursor.Seek(prefix)
+	return cursor.Prev()
+}
 
-			if !opts.Recurse {
-				// check whether the entry is a proper prefix
-				if p := bytes.IndexByte(key[len(opts.Prefix):], storage.Delimiter); p >= 0 {
-					key = key[:len(opts.Prefix)+p+1]
-					lastPrefix = append(lastPrefix[:0], key...)
-
-					item.Key = append(item.Key[:0], storage.Key(lastPrefix)...)
-					item.Value = item.Value[:0]
-					item.IsPrefix = true
-
-					wasPrefix = true
-					return true
-				}
-			}
-
-			item.Key = append(item.Key[:0], storage.Key(key)...)
-			item.Value = append(item.Value[:0], storage.Value(value)...)
-			item.IsPrefix = false
-
-			return true
-		}))
-	})
+func (cursor backward) Advance() (key, value []byte) {
+	return cursor.Prev()
 }
