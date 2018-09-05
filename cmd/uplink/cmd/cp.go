@@ -84,7 +84,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		defer f.Close()
+		defer utils.LogClose(f)
 
 		o, err := bs.GetObjectStore(ctx, u1.Host)
 		if err != nil {
@@ -116,7 +116,7 @@ func copy(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		defer f.Close()
+		defer utils.LogClose(f)
 
 		rr, _, err := o.Get(ctx, paths.New(u0.Path))
 		if err != nil {
