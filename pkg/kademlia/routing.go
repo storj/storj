@@ -18,6 +18,13 @@ import (
 	"storj.io/storj/storage/boltdb"
 )
 
+const (
+	// KademliaBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
+	KademliaBucket = "kbuckets"
+	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
+	NodeBucket = "nodes"
+)
+
 // RoutingErr is the class for all errors pertaining to routing table operations
 var RoutingErr = errs.Class("routing table error")
 
@@ -46,11 +53,12 @@ type RoutingOptions struct {
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTable, error) {
 	logger := zap.L()
-	kdb, err := boltdb.NewClient(logger, options.kpath, boltdb.KBucket)
+	kdb, err := boltdb.NewClient(logger, options.kpath, KademliaBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
 	}
-	ndb, err := boltdb.NewClient(logger, options.npath, boltdb.NodeBucket)
+
+	ndb, err := boltdb.NewClient(logger, options.npath, NodeBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}

@@ -36,11 +36,12 @@ type MockKeyValueStore struct {
 	GetCalled         int
 	PutCalled         int
 	ListCalled        int
-	ListV2Called      int
 	ReverseListCalled int
 	DeleteCalled      int
 	CloseCalled       int
 	PingCalled        int
+
+	IterateCalled int
 }
 
 // RedisDone is a function type that describes the callback returned by `EnsureRedis`
@@ -67,12 +68,12 @@ var (
 )
 
 // Get looks up the provided key from the MockKeyValueStore returning either an error or the result.
-func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
-	m.GetCalled++
+func (store *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
+	store.GetCalled++
 	if key.String() == "error" {
 		return nil, nil
 	}
-	v, ok := m.Data[key.String()]
+	v, ok := store.Data[key.String()]
 	if !ok {
 		return storage.Value{}, nil
 	}
@@ -81,100 +82,102 @@ func (m *MockKeyValueStore) Get(key storage.Key) (storage.Value, error) {
 }
 
 // Put adds a value to the provided key in the MockKeyValueStore, returning an error on failure.
-func (m *MockKeyValueStore) Put(key storage.Key, value storage.Value) error {
-	m.PutCalled++
-	m.Data[key.String()] = value
+func (store *MockKeyValueStore) Put(key storage.Key, value storage.Value) error {
+	store.PutCalled++
+	store.Data[key.String()] = value
 	return nil
 }
 
 // Delete deletes a key/value pair from the MockKeyValueStore, for a given the key
-func (m *MockKeyValueStore) Delete(key storage.Key) error {
-	m.DeleteCalled++
-	delete(m.Data, key.String())
+func (store *MockKeyValueStore) Delete(key storage.Key) error {
+	store.DeleteCalled++
+	delete(store.Data, key.String())
 	return nil
 }
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (m *MockKeyValueStore) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	m.ListCalled++
-	keys := storage.Keys{}
-	keySlice := mapIntoSlice(m.Data)
-	started := false
-
-	if startingKey == nil {
-		started = true
-	}
-	for _, key := range keySlice {
-		if !started && key == string(startingKey) {
-			keys = append(keys, storage.Key(key))
-			started = true
-			continue
-		}
-		if started {
-			if len(keys) == int(limit) {
-				break
-			}
-			keys = append(keys, storage.Key(key))
-		}
-	}
-	return keys, nil
-}
-
-// ListV2 returns either a list of items for which the MockKeyValueStore has values and an error.
-func (m *MockKeyValueStore) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	m.ListV2Called++
-	panic("TODO")
+func (store *MockKeyValueStore) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	store.ListCalled++
+	return storage.ListKeys(store, first, limit)
 }
 
 // GetAll is a noop to adhere to the interface
-func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
+func (store *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
 	result := storage.Values{}
 	for _, v := range keys {
-		result = append(result, m.Data[v.String()])
+		result = append(result, store.Data[v.String()])
 	}
 	return result, nil
 }
 
-// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (m *MockKeyValueStore) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	panic("TODO")
+func (store *MockKeyValueStore) allPrefixedItems(prefix, first, last storage.Key) storage.Items {
+	var all storage.Items
+
+	for key, value := range store.Data {
+		if !bytes.HasPrefix([]byte(key), prefix) {
+			continue
+		}
+		if first != nil && storage.Key(key).Less(first) {
+			continue
+		}
+		if last != nil && last.Less(storage.Key(key)) {
+			continue
+		}
+
+		all = append(all, storage.ListItem{
+			Key:      storage.Key(key),
+			Value:    value,
+			IsPrefix: false,
+		})
+	}
+
+	sort.Sort(all)
+	return all
 }
 
-func mapIntoSlice(data KvStore) []string {
-	keySlice := make([]string, len(data))
-	i := 0
-	for k := range data {
-		keySlice[i] = k
-		i++
+// ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
+func (store *MockKeyValueStore) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ReverseListKeys(store, first, limit)
+}
+
+// Iterate iterates over items based on opts
+func (store *MockKeyValueStore) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+	store.IterateCalled++
+	var items storage.Items
+	if !opts.Reverse {
+		items = store.allPrefixedItems(opts.Prefix, opts.First, nil)
+	} else {
+		items = store.allPrefixedItems(opts.Prefix, nil, opts.First)
 	}
-	sort.Strings(keySlice)
-	return keySlice
+
+	if !opts.Recurse {
+		items = storage.SortAndCollapse(items, opts.Prefix)
+	}
+	if opts.Reverse {
+		items = storage.ReverseItems(items)
+	}
+
+	return fn(&storage.StaticIterator{
+		Items: items,
+	})
 }
 
 // Close closes the client
-func (m *MockKeyValueStore) Close() error {
-	m.CloseCalled++
+func (store *MockKeyValueStore) Close() error {
+	store.CloseCalled++
 	return nil
 }
 
 // Ping is called by some redis client code
-func (m *MockKeyValueStore) Ping() error {
-	m.PingCalled++
+func (store *MockKeyValueStore) Ping() error {
+	store.PingCalled++
 	return nil
 }
 
 // NewMockKeyValueStore returns a mocked `KeyValueStore` implementation for testing
 func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 	return &MockKeyValueStore{
-		Data:              d,
-		GetCalled:         0,
-		PutCalled:         0,
-		ListCalled:        0,
-		ListV2Called:      0,
-		ReverseListCalled: 0,
-		DeleteCalled:      0,
-		CloseCalled:       0,
-		PingCalled:        0,
+		Data: d,
 	}
 }
 
