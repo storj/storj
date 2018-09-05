@@ -152,8 +152,10 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			if err != nil {
 				zap.S().Errorf("Failed getting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
+				ch <- rangerInfo{i: i, rr: nil, err: err}
+				return
 			}
-			ch <- rangerInfo{i: i, rr: rr, err: err}
+			ch <- rangerInfo{i: i, rr: rr, err: nil}
 		}(i, n)
 	}
 	for range nodes {
@@ -164,9 +166,17 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	}
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
+		for _, rr := range rrs {
+			_ = rr.Close()
+		}
 		return nil, err
 	}
-	return eestream.Unpad(rr, int(paddedSize-size))
+	uprr, err := eestream.Unpad(rr, int(paddedSize-size))
+	if err != nil {
+		_ = rr.Close()
+		return nil, err
+	}
+	return uprr, nil
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {

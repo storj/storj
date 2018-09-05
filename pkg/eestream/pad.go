@@ -33,7 +33,7 @@ func makePadding(dataLen int64, blockSize int) []byte {
 // Pad takes a Ranger and returns another Ranger that is a multiple of
 // blockSize in length. The return value padding is a convenience to report how
 // much padding was added.
-func Pad(data ranger.Ranger, blockSize int) (
+func Pad(data ranger.RangeCloser, blockSize int) (
 	rr ranger.Ranger, padding int) {
 	paddingBytes := makePadding(data.Size(), blockSize)
 	return ranger.Concat(data, ranger.ByteRanger(paddingBytes)), len(paddingBytes)

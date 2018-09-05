@@ -144,20 +144,26 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	msi := streamspb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
-	var rangers []ranger.Ranger
+	var rangers []ranger.RangeCloser
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
 		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
+			for _, ranger := range rangers {
+				_ = ranger.Close()
+			}
+			_ = lastRangerCloser.Close()
 			return nil, Meta{}, err
 		}
 
@@ -168,7 +174,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 	catRangers := ranger.Concat(rangers...)
 
-	return ranger.NopCloser(catRangers), newMeta, nil
+	return catRangers, newMeta, nil
 }
 
 // Meta implements Store.Meta
