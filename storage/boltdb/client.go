@@ -125,17 +125,14 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	err := client.view(func(bucket *bolt.Bucket) error {
 		for _, key := range keys {
 			val := bucket.Get([]byte(key))
-			vals = append(vals, storage.CloneValue(storage.Value(val)))
+			if val == nil {
+				vals = append(vals, nil)
+			} else {
+				vals = append(vals, storage.CloneValue(storage.Value(val)))
+			}
 		}
 		return nil
 	})
-	// vals := make(storage.Values, lk)
-	// for i, v := range keys {
-	// 	val, err := c.Get(v)
-	// 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-	// 		return nil, err
-	// 	}
-	// 	vals[i] = val
 	return vals, err
 }
 

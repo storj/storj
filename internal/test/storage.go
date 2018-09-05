@@ -103,12 +103,8 @@ func (store *MockKeyValueStore) List(first storage.Key, limit storage.Limit) (st
 }
 
 // GetAll is a noop to adhere to the interface
-<<<<<<< HEAD
 func (store *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
-=======
-func (m *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
-	m.GetAllCalled++
->>>>>>> 91f7d7fd... fixes tests
+	store.GetAllCalled++
 	result := storage.Values{}
 	for _, v := range keys {
 		result = append(result, store.Data[v.String()])

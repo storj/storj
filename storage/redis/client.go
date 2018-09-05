@@ -117,19 +117,17 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 
 	values := []storage.Value{}
 	for _, result := range results {
-		s, ok := result.(string)
-		if !ok {
-			return nil, Error.New("invalid result type %T", result)
+		if result == nil {
+			values = append(values, nil)
+		} else {
+			s, ok := result.(string)
+			if !ok {
+				return nil, Error.New("invalid result type %T", result)
+			}
+			values = append(values, storage.Value(s))
 		}
-		values = append(values, storage.Value(s))
+
 	}
-	// for _, v := range vs {
-	// 	if v == nil {
-	// 		values = append(values, nil)
-	// 	} else {
-	// 		values = append(values, storage.Value([]byte(v.(string))))
-	// 	}
-	// }
 	return values, nil
 }
 
