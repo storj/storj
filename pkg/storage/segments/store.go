@@ -32,11 +32,10 @@ var (
 
 // Meta info about a segment
 type Meta struct {
-	Modified      time.Time
-	Expiration    time.Time
-	Size          int64
-	ErasureScheme eestream.ErasureScheme
-	Data          []byte
+	Modified   time.Time
+	Expiration time.Time
+	Size       int64
+	Data       []byte
 }
 
 // ListItem is a single item in a listing
@@ -82,7 +81,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(pr)
+	return convertMeta(pr), nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -207,8 +206,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		rr = ranger.ByteRangeCloser(pr.InlineSegment)
 	}
 
-	m, err := convertMeta(pr)
-	return rr, m, err
+	return rr, convertMeta(pr), nil
 }
 
 func makeErasureScheme(rs *ppb.RedundancyScheme) (eestream.ErasureScheme, error) {
@@ -278,13 +276,9 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 
 	items = make([]ListItem, len(pdbItems))
 	for i, itm := range pdbItems {
-		m, err := convertMeta(itm.Pointer)
-		if err != nil {
-			return nil, false, err
-		}
 		items[i] = ListItem{
 			Path: itm.Path,
-			Meta: m,
+			Meta: convertMeta(itm.Pointer),
 		}
 	}
 
@@ -292,18 +286,13 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 }
 
 // convertMeta converts pointer to segment metadata
-func convertMeta(pr *ppb.Pointer) (Meta, error) {
-	es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
-	if err != nil {
-		return Meta{}, err
-	}
+func convertMeta(pr *ppb.Pointer) Meta {
 	return Meta{
 		Modified:   convertTime(pr.GetCreationDate()),
 		Expiration: convertTime(pr.GetExpirationDate()),
 		Size:       pr.GetSize(),
-		ErasureScheme: es,
 		Data:       pr.GetMetadata(),
-	}, nil
+	}
 }
 
 // convertTime converts gRPC timestamp to Go time
