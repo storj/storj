@@ -167,13 +167,13 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
 		for _, rr := range rrs {
-			rr.Close()
+			_ = rr.Close()
 		}
 		return nil, err
 	}
 	uprr, err := eestream.Unpad(rr, int(paddedSize-size))
 	if err != nil {
-		rr.Close()
+		_ = rr.Close()
 		return nil, err
 	}
 	return uprr, nil

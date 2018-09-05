@@ -144,13 +144,13 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	msi := streamspb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
-		lastRangerCloser.Close()
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
-		lastRangerCloser.Close()
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
@@ -161,9 +161,9 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
 			for _, ranger := range rangers {
-				ranger.Close()
+				_ = ranger.Close()
 			}
-			lastRangerCloser.Close()
+			_ = lastRangerCloser.Close()
 			return nil, Meta{}, err
 		}
 
