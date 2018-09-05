@@ -4,10 +4,12 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -41,6 +43,7 @@ var (
 		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
+		SecretKey     string `default:"" help:"the secret key to use for the uplink"`
 	}
 
 	defaultConfDir = "$HOME/.storj/uplink"
@@ -107,16 +110,32 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	awsAccessCreds, awsSecretCreds, err := getGeneralAwsCreds()
+	if err != nil {
+		return err
+	}
+
 	o := map[string]interface{}{
-		"cert-path":       setupCfg.Identity.CertPath,
-		"key-path":        setupCfg.Identity.KeyPath,
-		"api-key":         setupCfg.APIKey,
-		"pointer-db-addr": setupCfg.SatelliteAddr,
-		"overlay-addr":    setupCfg.SatelliteAddr,
+		"cert-path":         setupCfg.Identity.CertPath,
+		"key-path":          setupCfg.Identity.KeyPath,
+		"api-key":           setupCfg.APIKey,
+		"pointer-db-addr":   setupCfg.SatelliteAddr,
+		"overlay-addr":      setupCfg.SatelliteAddr,
+		"aws-access-key-id": awsAccessCreds,
+		"aws-secret-key":    awsSecretCreds,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+}
+
+func getGeneralAwsCreds() (string, string, error) {
+	var buf [20]byte
+	_, err := rand.Read(buf[:])
+	if err != nil {
+		return "", "", err
+	}
+	return base58.Encode(buf[:]), base58.Encode(buf[1:]), nil
 }
 
 func main() {
