@@ -5,7 +5,9 @@ package objects
 
 import (
 	"context"
+	"crypto/sha256"
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -49,17 +51,17 @@ type Store interface {
 }
 
 type objStore struct {
-	s   streams.Store
-	key *string
+	s                  streams.Store
+	key                string
 	encryptedBlockSize int
 }
 
 // NewStore for objects
-func NewStore(store streams.Store, key *string, encryptedBlockSize int) Store {
+func NewStore(store streams.Store, key string, encryptedBlockSize int) Store {
 	return &objStore{
-		s: store
-		key: key
-		encryptedBlockSize: encryptedBlockSize
+		s:                  store,
+		key:                key,
+		encryptedBlockSize: encryptedBlockSize,
 	}
 }
 
@@ -76,19 +78,19 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 
 	rr, m, err := o.s.Get(ctx, path)
 
-	encKey := sha256.Sum256([]byte(*key))
+	encKey := sha256.Sum256([]byte(o.key))
 	var firstNonce [12]byte
 	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.encryptedBlockSize)
 	if err != nil {
-		return nil, nil, err
+		return nil, Meta{}, err
 	}
-	rd, err = eestream.Transform(rr, decrypter)
+	rd, err := eestream.Transform(rr, decrypter)
 	if err != nil {
-		return nil, nil, err
+		return nil, Meta{}, err
 	}
 	// TODO(moby) calculate paddedSize
-	rc, err := eestream.Unpad(rd, int(paddedSize-size))
-	return rc, convertMeta(m), err
+	// rc, err := eestream.Unpad(rd, int(paddedSize-size))
+	return rd, convertMeta(m), err
 }
 
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
@@ -100,11 +102,11 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
 
-	encKey := sha256.Sum256([]byte(*o.key))
+	encKey := sha256.Sum256([]byte(o.key))
 	var firstNonce [12]byte
 	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, o.encryptedBlockSize)
 	if err != nil {
-		return nil, err
+		return Meta{}, err
 	}
 	padded := eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize())
 	transformed := eestream.TransformReader(padded, encrypter, 0)

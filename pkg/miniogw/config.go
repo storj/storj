@@ -35,6 +35,10 @@ type RSConfig struct {
 	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"50"`
 }
 
+type EncryptionConfig struct {
+	EncryptionKey string `help:"root key for encrypting the data"`
+}
+
 // MinioConfig is a configuration struct that keeps details about starting
 // Minio
 type MinioConfig struct {
@@ -62,6 +66,7 @@ type Config struct {
 	MinioConfig
 	ClientConfig
 	RSConfig
+	EncryptionConfig
 }
 
 // Run starts a Minio Gateway given proper config
@@ -150,7 +155,7 @@ func (c Config) NewGateway(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	obj := objects.NewStore(stream)
+	obj := objects.NewStore(stream, c.EncryptionKey, c.ErasureShareSize)
 
 	return NewStorjGateway(buckets.NewStore(obj)), nil
 }
