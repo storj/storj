@@ -169,7 +169,7 @@ binary:
 	mkdir -p release/${TAG}
 	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
-	-w /go/src/storj.io/storj -v /tmp/go_pkg_cache:/go/pkg brimstone/golang \
+	-w /go/src/storj.io/storj brimstone/golang \
 	-o app storj.io/storj/cmd/${COMPONENT} \
 	| tar -x ./app -O > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
