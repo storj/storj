@@ -157,17 +157,17 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage
 	it := client.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-
 		if first != nil && storage.Key(key).Less(first) {
 			continue
 		}
 		if last != nil && last.Less(storage.Key(key)) {
 			continue
 		}
+
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
 
 		value, err := client.db.Get(key).Bytes()
 		if err != nil {
