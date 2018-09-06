@@ -138,7 +138,7 @@ func (r *StripeReader) pendingReaders() bool {
 // a decode.
 func (r *StripeReader) hasEnoughShares() bool {
 	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
-		(len(r.inmap) >= r.scheme.RequiredCount() && !r.pendingReaders())
+		(len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
 }
 
 // shouldWaitForMore checks the returned decode error if it makes sense to wait
