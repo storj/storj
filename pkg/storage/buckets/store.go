@@ -77,7 +77,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return nil, errs.New("No bucket specified")
+		return Meta{}, errs.New("No bucket specified")
 	}
 
 	p := paths.New(bucket)
@@ -92,7 +92,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return nil, errs.New("No bucket specified")
+		return Meta{}, errs.New("No bucket specified")
 	}
 
 	p := paths.New(bucket)
@@ -109,7 +109,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return nil, errs.New("No bucket specified")
+		return errs.New("No bucket specified")
 	}
 
 	p := paths.New(bucket)
