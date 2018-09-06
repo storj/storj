@@ -3,7 +3,6 @@
 
 package main
 
-// todo (moby) figure out where exactly private key for encryption should be generated. Shouldn't just be for captplanet
 import (
 	"crypto/rand"
 	"fmt"

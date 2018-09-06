@@ -5,14 +5,17 @@ package streams
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
@@ -61,14 +64,15 @@ type Store interface {
 type streamStore struct {
 	segments    segments.Store
 	segmentSize int64
+	key         *string
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, key *string) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
-	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
+	return &streamStore{segments: segments, segmentSize: segmentSize, key: key}, nil
 }
 
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
@@ -84,12 +88,23 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var lastSegmentSize int64
 
 	awareLimitReader := EOFAwareReader(data)
+	encKey := sha256.Sum256([]byte(*s.key))
+	var firstNonce [12]byte
 
 	for !awareLimitReader.isEOF() {
+		// TODO (moby) should I create a new encrypter for each segment? Should the last arg be segmentSize?
+		// dangerous cast from int64 -> int below. Fix this
+		encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, int(s.segmentSize))
+		if err != nil {
+			return Meta{}, err
+		}
+
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
+		paddedData := eestream.PadReader(ioutil.NopCloser(segmentData), encrypter.InBlockSize())
+		transformedData := eestream.TransformReader(paddedData, encrypter, 0)
 
-		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData,
+		putMeta, err := s.segments.Put(ctx, segmentPath, transformedData,
 			nil, expiration)
 		if err != nil {
 			return Meta{}, err
