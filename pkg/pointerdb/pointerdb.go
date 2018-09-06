@@ -156,7 +156,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 		items = append(items, s.createListItem(rawItem, req.MetaFlags))
 	}
 
-	return &pb.ListResponse{Items: items, More: more == true}, nil
+	return &pb.ListResponse{Items: items, More: more == storage.More(true)}, nil
 }
 
 // createListItem creates a new list item with the given path. It also adds
