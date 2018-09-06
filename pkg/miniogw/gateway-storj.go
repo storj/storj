@@ -15,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -106,27 +107,40 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
-func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
-	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	rr, _, err := o.Get(ctx, paths.New(object))
+
+	rr, _, err = o.Get(ctx, paths.New(object))
+
+	return rr, err
+}
+
+func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
+	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rr, err := s.getObject(ctx, bucket, object)
 	if err != nil {
 		return err
 	}
+
 	defer utils.LogClose(rr)
 	if length == -1 {
 		length = rr.Size() - startOffset
 	}
+
 	r, err := rr.Range(ctx, startOffset, length)
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
+
 	_, err = io.Copy(writer, r)
+
 	return err
 }
 
@@ -246,6 +260,54 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	return err
 }
 
+func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket,
+	destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rr, err := s.getObject(ctx, srcBucket, srcObject)
+	if err != nil {
+		return objInfo, err
+	}
+
+	defer utils.LogClose(rr)
+
+	r, err := rr.Range(ctx, 0, rr.Size())
+	if err != nil {
+		return objInfo, err
+	}
+
+	defer utils.LogClose(r)
+
+	serMetaInfo := objects.SerializableMeta{
+		ContentType: srcInfo.ContentType,
+		UserDefined: srcInfo.UserDefined,
+	}
+
+	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
+}
+
+func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
+	meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// setting zero value means the object never expires
+	expTime := time.Time{}
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+	m, err := o.Put(ctx, paths.New(object), r, meta, expTime)
+	return minio.ObjectInfo{
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        m.Checksum,
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
+	}, err
+}
+
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
@@ -257,22 +319,8 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
-	// setting zero value means the object never expires
-	expTime := time.Time{}
-	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-	m, err := o.Put(ctx, paths.New(object), data, serMetaInfo, expTime)
-	return minio.ObjectInfo{
-		Name:        object,
-		Bucket:      bucket,
-		ModTime:     m.Modified,
-		Size:        m.Size,
-		ETag:        m.Checksum,
-		ContentType: m.ContentType,
-		UserDefined: m.UserDefined,
-	}, err
+
+	return s.putObject(ctx, bucket, object, data, serMetaInfo)
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {

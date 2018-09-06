@@ -8,8 +8,8 @@ services:
   test-redis:
     image: redis
 
-  storage-node:
-    image: storjlabs/storage-node:${VERSION}
+  storagenode:
+    image: storjlabs/storagenode:${VERSION}
     environment:
     - SATELLITE_ADDR=satellite:7777
     links:

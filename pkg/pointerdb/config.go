@@ -14,6 +14,11 @@ import (
 	"storj.io/storj/storage/boltdb"
 )
 
+const (
+	// PointerBucket is the string representing the bucket used for `PointerEntries`
+	PointerBucket = "pointers"
+)
+
 // Config is a configuration struct that is everything you need to start a
 // PointerDB responsibility
 type Config struct {
@@ -31,7 +36,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	if dburl.Scheme != "bolt" {
 		return Error.New("unsupported db scheme: %s", dburl.Scheme)
 	}
-	bdb, err := boltdb.NewClient(zap.L(), dburl.Path, boltdb.PointerBucket)
+
+	bdb, err := boltdb.NewClient(zap.L(), dburl.Path, PointerBucket)
 	if err != nil {
 		return err
 	}

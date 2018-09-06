@@ -545,3 +545,96 @@ func readAllStalled(readers []io.Reader, stalled int) ([][]byte, error) {
 	}
 	return pieces, nil
 }
+
+func BenchmarkReedSolomonErasureScheme(b *testing.B) {
+	data := randData(8 << 20)
+	output := make([]byte, 8<<20)
+
+	confs := []struct{ required, total int }{
+		{2, 4},
+		{20, 50},
+		{30, 60},
+		{50, 80},
+	}
+
+	dataSizes := []int{
+		100,
+		1 << 10,
+		256 << 10,
+		1 << 20,
+		5 << 20,
+		8 << 20,
+	}
+
+	bytesToStr := func(bytes int) string {
+		switch {
+		case bytes > 10000000:
+			return fmt.Sprintf("%.fMB", float64(bytes)/float64(1<<20))
+		case bytes > 1000:
+			return fmt.Sprintf("%.fKB", float64(bytes)/float64(1<<10))
+		default:
+			return fmt.Sprintf("%dB", bytes)
+		}
+	}
+
+	for _, conf := range confs {
+		confname := fmt.Sprintf("r%dt%d/", conf.required, conf.total)
+		for _, expDataSize := range dataSizes {
+			dataSize := (expDataSize / conf.required) * conf.required
+			testname := bytesToStr(dataSize)
+			forwardErrorCode, _ := infectious.NewFEC(conf.required, conf.total)
+			erasureScheme := NewRSScheme(forwardErrorCode, 8*1024)
+
+			b.Run("Encode/"+confname+testname, func(b *testing.B) {
+				b.SetBytes(int64(dataSize))
+				for i := 0; i < b.N; i++ {
+					err := erasureScheme.Encode(data[:dataSize], func(num int, data []byte) {
+						_, _ = num, data
+					})
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+
+			shares := []infectious.Share{}
+			err := erasureScheme.Encode(data[:dataSize], func(num int, data []byte) {
+				shares = append(shares, infectious.Share{
+					Number: num,
+					Data:   append([]byte{}, data...),
+				})
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			b.Run("Decode/"+confname+testname, func(b *testing.B) {
+				b.SetBytes(int64(dataSize))
+				shareMap := make(map[int][]byte, conf.total*2)
+				for i := 0; i < b.N; i++ {
+					rand.Shuffle(len(shares), func(i, k int) {
+						shares[i], shares[k] = shares[k], shares[i]
+					})
+
+					offset := i % (conf.total / 4)
+					n := conf.required + 1 + offset
+					if n > conf.total {
+						n = conf.total
+					}
+
+					for k := range shareMap {
+						delete(shareMap, k)
+					}
+					for i := range shares[:n] {
+						shareMap[shares[i].Number] = shares[i].Data
+					}
+
+					_, err = erasureScheme.Decode(output[:dataSize], shareMap)
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}

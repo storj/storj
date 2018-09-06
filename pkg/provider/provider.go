@@ -74,7 +74,7 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 	defer cancel()
 
 	// Load or create a certificate authority
-	ca, err := c.Create(ctx, 4)
+	ca, err := c.Create(ctx)
 	if err != nil {
 		return err
 	}

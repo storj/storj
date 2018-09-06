@@ -5,6 +5,7 @@ package redis
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -30,7 +31,7 @@ type Client struct {
 
 // NewClient returns a configured Client instance, verifying a successful connection to redis
 func NewClient(address, password string, db int) (*Client, error) {
-	c := &Client{
+	client := &Client{
 		db: redis.NewClient(&redis.Options{
 			Addr:     address,
 			Password: password,
@@ -40,128 +41,142 @@ func NewClient(address, password string, db int) (*Client, error) {
 	}
 
 	// ping here to verify we are able to connect to redis with the initialized client.
-	if err := c.db.Ping().Err(); err != nil {
+	if err := client.db.Ping().Err(); err != nil {
 		return nil, Error.New("ping failed: %v", err)
 	}
 
-	return c, nil
+	return client, nil
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
-func (c *Client) Get(key storage.Key) (storage.Value, error) {
-	b, err := c.db.Get(string(key)).Bytes()
-
-	if len(b) == 0 {
+func (client *Client) Get(key storage.Key) (storage.Value, error) {
+	value, err := client.db.Get(string(key)).Bytes()
+	if err == redis.Nil {
 		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
-
 	if err != nil {
-		if err.Error() == "redis: nil" {
-			return nil, nil
-		}
-
-		// TODO: log
 		return nil, Error.New("get error: %v", err)
 	}
-
-	return b, nil
+	return value, nil
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.
-func (c *Client) Put(key storage.Key, value storage.Value) error {
-	v, err := value.MarshalBinary()
-
+func (client *Client) Put(key storage.Key, value storage.Value) error {
+	if len(key) == 0 {
+		return Error.New("invalid key")
+	}
+	err := client.db.Set(key.String(), []byte(value), client.TTL).Err()
 	if err != nil {
 		return Error.New("put error: %v", err)
 	}
-
-	err = c.db.Set(key.String(), v, c.TTL).Err()
-	if err != nil {
-		return Error.New("put error: %v", err)
-	}
-
 	return nil
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (c *Client) List(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	var noOrderKeys []string
-	if startingKey != nil {
-		_, cursor, err := c.db.Scan(0, fmt.Sprintf("%s", startingKey), int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
-		}
-		keys, _, err := c.db.Scan(cursor, "", int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error with starting key: %v", err)
-		}
-		noOrderKeys = keys
-	} else if startingKey == nil {
-		keys, _, err := c.db.Scan(0, "", int64(limit)).Result()
-		if err != nil {
-			return nil, Error.New("list error without starting key: %v", err)
-		}
-		noOrderKeys = keys
-	}
-
-	listKeys := make(storage.Keys, len(noOrderKeys))
-	for i, k := range noOrderKeys {
-		listKeys[i] = storage.Key(k)
-	}
-
-	return listKeys, nil
-}
-
-//ListV2 is the new definition and will replace `List` definition
-func (c *Client) ListV2(opts storage.ListOptions) (storage.Items, storage.More, error) {
-	//TODO write the implementation
-	panic("to do")
+func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ListKeys(client, first, limit)
 }
 
 // ReverseList returns either a list of keys for which redis has values or an error.
-// Starts from startingKey and iterates backwards
-func (c *Client) ReverseList(startingKey storage.Key, limit storage.Limit) (storage.Keys, error) {
-	//TODO
-	return storage.Keys{}, nil
+// Starts from first and iterates backwards
+func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+	return storage.ReverseListKeys(client, first, limit)
 }
 
 // Delete deletes a key/value pair from redis, for a given the key
-func (c *Client) Delete(key storage.Key) error {
-	err := c.db.Del(key.String()).Err()
+func (client *Client) Delete(key storage.Key) error {
+	err := client.db.Del(key.String()).Err()
 	if err != nil {
 		return Error.New("delete error: %v", err)
 	}
-
-	return err
+	return nil
 }
 
 // Close closes a redis client
-func (c *Client) Close() error {
-	return c.db.Close()
+func (client *Client) Close() error {
+	return client.db.Close()
 }
 
 // GetAll is the bulk method for gets from the redis data store
 // The maximum keys returned will be 100. If more than that is requested an
 // error will be returned
-func (c *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	lk := len(keys)
-	if lk > maxKeyLookup {
-		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup))
+func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+	if len(keys) > maxKeyLookup {
+		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", len(keys), maxKeyLookup))
 	}
 
-	ks := make([]string, lk)
+	keyStrings := make([]string, len(keys))
 	for i, v := range keys {
-		ks[i] = v.String()
+		keyStrings[i] = v.String()
 	}
 
-	vs, err := c.db.MGet(ks...).Result()
+	results, err := client.db.MGet(keyStrings...).Result()
 	if err != nil {
-		return []storage.Value{}, err
+		return nil, err
 	}
 
 	values := []storage.Value{}
-	for _, v := range vs {
-		values = append(values, storage.Value([]byte(v.(string))))
+	for _, result := range results {
+		s, ok := result.(string)
+		if !ok {
+			return nil, Error.New("invalid result type %T", result)
+		}
+		values = append(values, storage.Value(s))
 	}
 	return values, nil
+}
+
+// Iterate iterates over items based on opts
+func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.Iterator) error) error {
+	var all storage.Items
+	var err error
+	if !opts.Reverse {
+		all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
+	} else {
+		all, err = client.allPrefixedItems(opts.Prefix, nil, opts.First)
+	}
+	if err != nil {
+		return err
+	}
+	if !opts.Recurse {
+		all = storage.SortAndCollapse(all, opts.Prefix)
+	}
+	if opts.Reverse {
+		all = storage.ReverseItems(all)
+	}
+	return fn(&storage.StaticIterator{
+		Items: all,
+	})
+}
+
+func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {
+	var all storage.Items
+
+	match := string(escapeMatch([]byte(prefix))) + "*"
+	it := client.db.Scan(0, match, 0).Iterator()
+	for it.Next() {
+		key := it.Val()
+
+		if first != nil && storage.Key(key).Less(first) {
+			continue
+		}
+		if last != nil && last.Less(storage.Key(key)) {
+			continue
+		}
+
+		value, err := client.db.Get(key).Bytes()
+		if err != nil {
+			return nil, err
+		}
+
+		all = append(all, storage.ListItem{
+			Key:      storage.Key(key),
+			Value:    storage.Value(value),
+			IsPrefix: false,
+		})
+	}
+
+	sort.Sort(all)
+
+	return all, nil
 }
