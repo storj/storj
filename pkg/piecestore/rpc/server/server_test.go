@@ -526,7 +526,7 @@ func NewTestServer(t *testing.T) *TestServer {
 }
 
 func (TS *TestServer) start() (addr string) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
