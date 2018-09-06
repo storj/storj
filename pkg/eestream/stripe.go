@@ -89,14 +89,11 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 	r.cond.L.Lock()
 	defer r.cond.L.Unlock()
 
-	for {
+	for r.pendingReaders() {
 		for r.readAvailableShares(num) == 0 {
 			r.cond.Wait()
 		}
 		if r.hasEnoughShares() {
-			if !r.canRead() {
-				return nil, r.combineErrs()
-			}
 			out, err := r.scheme.Decode(p, r.inmap)
 			if err != nil {
 				if r.shouldWaitForMore(err) {
@@ -107,6 +104,8 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 			return out, nil
 		}
 	}
+	// could not read enough shares to attempt a decode
+	return nil, r.combineErrs()
 }
 
 // readAvailableShares reads the available num-th erasure shares from the piece
@@ -130,15 +129,16 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 	return n
 }
 
+// pendingReaders checks if there are any pending readers to get a share from.
+func (r *StripeReader) pendingReaders() bool {
+	return len(r.inmap)+len(r.errmap) < r.scheme.TotalCount()
+}
+
 // hasEnoughShares check if there are enough erasure shares read to attempt
 // a decode.
 func (r *StripeReader) hasEnoughShares() bool {
-	return r.canRead() || len(r.inmap)+len(r.errmap) >= r.scheme.TotalCount()
-}
-
-// canRead returns if there's enough erasure shares for a successful decode
-func (r *StripeReader) canRead() bool {
-	return len(r.inmap) >= r.scheme.RequiredCount()+1
+	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
+		(len(r.inmap) >= r.scheme.RequiredCount() && !r.pendingReaders())
 }
 
 // shouldWaitForMore checks the returned decode error if it makes sense to wait
@@ -150,7 +150,7 @@ func (r *StripeReader) shouldWaitForMore(err error) bool {
 		return false
 	}
 	// check if there are more input buffers to wait for
-	return len(r.inmap)+len(r.errmap) < r.scheme.TotalCount()
+	return r.pendingReaders()
 }
 
 // combineErrs makes a useful error message from the errors in errmap.
