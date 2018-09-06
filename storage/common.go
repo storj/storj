@@ -41,7 +41,7 @@ type Limit int
 type Items []ListItem
 
 // LookupLimit is enforced by storage implementations
-const LookupLimit = 100
+const LookupLimit = 1000
 
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {

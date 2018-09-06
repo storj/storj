@@ -30,7 +30,7 @@ var (
 // ListPageLimit is the maximum number of items that will be returned by a list
 // request.
 // TODO(kaloyan): make it configurable
-const ListPageLimit = 1000
+const ListPageLimit = storage.LookupLimit
 
 // Server implements the network state RPC service
 type Server struct {
