@@ -37,6 +37,7 @@ type RSConfig struct {
 
 type EncryptionConfig struct {
 	EncryptionKey string `help:"root key for encrypting the data"`
+	EncryptionBlockSize int `help:"size (in bytes) of encrypted blocks`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
@@ -148,7 +149,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
 	// segment size 64MB
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize)
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncryptionKey, c.EncryptionBlockSize)
 	if err != nil {
 		return nil, err
 	}
