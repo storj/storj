@@ -24,11 +24,8 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	rand.Shuffle(len(items), items.Swap)
 
 	defer cleanupItems(store, items)
-
-	for _, item := range items {
-		if err := store.Put(item.Key, item.Value); err != nil {
-			t.Fatalf("failed to put: %v", err)
-		}
+	if err := storage.PutAll(store, items...); err != nil {
+		t.Fatalf("failed to setup: %v", err)
 	}
 
 	type Test struct {
