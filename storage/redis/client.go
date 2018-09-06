@@ -17,10 +17,7 @@ var (
 	Error = errs.Class("redis error")
 )
 
-const (
-	defaultNodeExpiration = 61 * time.Minute
-	maxKeyLookup          = 100
-)
+const defaultNodeExpiration = 61 * time.Minute
 
 // Client is the entrypoint into Redis
 type Client struct {
