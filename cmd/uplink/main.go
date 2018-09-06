@@ -4,10 +4,12 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -54,10 +56,16 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if len(args) > 0x00 {
-		fmt.Println("Invalid arguments. Rerun with 'uplink run'")
-		return nil
+	/* check for the supported flags */
+	flagsupported := cmd.Flags()
+	for _, flagname := range args {
+		f := flagsupported.Lookup(flagname)
+		if f == nil {
+			fmt.Println(flagname + " - Invalid flag. try 'uplink run'")
+			return nil
+		}
 	}
+
 	return runCfg.Run(process.Ctx(cmd))
 }
 
@@ -65,6 +73,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
 	if err != nil {
 		return err
+	}
+
+	/* check for the supported flags */
+	flagsupported := cmd.Flags()
+	for _, flagname := range args {
+		f := flagsupported.Lookup(flagname)
+		if f == nil {
+			fmt.Println(flagname + " - Invalid flag. Supported list use --help")
+			return nil
+		}
 	}
 
 	_, err = os.Stat(setupCfg.BasePath)
@@ -91,16 +109,37 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	accessKey, err := generateAWSKey()
+	if err != nil {
+		return err
+	}
+
+	secretKey, err := generateAWSKey()
+	if err != nil {
+		return err
+	}
+
 	o := map[string]interface{}{
 		"cert-path":       setupCfg.Identity.CertPath,
 		"key-path":        setupCfg.Identity.KeyPath,
 		"api-key":         setupCfg.APIKey,
 		"pointer-db-addr": setupCfg.SatelliteAddr,
 		"overlay-addr":    setupCfg.SatelliteAddr,
+		"access-key":      accessKey,
+		"secret-key":      secretKey,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+}
+
+func generateAWSKey() (key string, err error) {
+	var buf [20]byte
+	_, err = rand.Read(buf[:])
+	if err != nil {
+		return "", err
+	}
+	return base58.Encode(buf[:]), nil
 }
 
 func main() {
