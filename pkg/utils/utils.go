@@ -8,8 +8,6 @@ import (
 	"encoding/gob"
 	"net/url"
 	"strings"
-
-	proto "storj.io/storj/protos/overlay"
 )
 
 // GetBytes transforms an empty interface type into a byte slice
@@ -65,21 +63,3 @@ func (errs combinedError) Error() string {
 	return ""
 }
 
-//LookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
-func LookupRequestsToNodeIDs(reqs *proto.LookupRequests) []string {
-	var ids []string
-	for _, v := range reqs.Lookuprequest {
-		ids = append(ids, v.NodeID)
-	}
-	return ids
-}
-
-//NodesToLookupResponses returns LookupResponses from the nodes
-func NodesToLookupResponses(nodes []*proto.Node) *proto.LookupResponses {
-	var rs []*proto.LookupResponse
-	for _, v := range nodes {
-		r := &proto.LookupResponse{Node: v}
-		rs = append(rs, r)
-	}
-	return &proto.LookupResponses{Lookupresponse: rs}
-}

@@ -119,6 +119,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes do not match total count of erasure scheme")
 	}
