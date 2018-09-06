@@ -15,12 +15,17 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/storelogger"
+	"storj.io/storj/storage/teststore"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 //go:generate mockgen -destination kvstore_mock_test.go -package pointerdb storj.io/storj/storage KeyValueStore
@@ -143,92 +148,179 @@ func TestServiceDelete(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	db := storelogger.NewTest(t, teststore.New())
+	//db := teststore.New()
+	server := Server{DB: db, logger: zap.NewNop()}
 
-	keys := storage.Keys{
-		storage.Key(paths.New("sample.jpg").Bytes()),
-		storage.Key(paths.New("music").Bytes()),
-		storage.Key(paths.New("music/song1.mp3").Bytes()),
-		storage.Key(paths.New("music/song2.mp3").Bytes()),
-		storage.Key(paths.New("music/album/song3.mp3").Bytes()),
-		storage.Key(paths.New("music/song4.mp3").Bytes()),
-		storage.Key(paths.New("videos").Bytes()),
-		storage.Key(paths.New("videos/movie.mkv").Bytes()),
+	key := func(s string) storage.Key {
+		return storage.Key(paths.New(s).Bytes())
 	}
 
-	for i, tt := range []struct {
-		prefix       string
-		startAfter   string
-		endBefore    string
-		recursive    bool
-		limit        int
-		metaFlags    uint32
-		apiKey       []byte
-		returnedKeys storage.Keys
-		expectedKeys storage.Keys
-		expectedMore bool
-		err          error
-		errString    string
-	}{
-		{"", "", "", true, 0, meta.None, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.All, nil, keys, keys, false, nil, ""},
-		{"", "", "", true, 0, meta.None, []byte("wrong key"), keys, keys, false,
-			nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{"", "", "", true, 0, meta.None, nil, keys, keys, false,
-			errors.New("list error"), status.Errorf(codes.Internal, "list error").Error()},
-		{"", "", "", true, 2, meta.None, nil, keys, keys[:2], true, nil, ""},
-		{"", "", "", false, 0, meta.None, nil, keys, storage.Keys{keys[0], keys[1], keys[6]}, false, nil, ""},
-		{"", "", "videos", false, 0, meta.None, nil, keys, keys[:2], false, nil, ""},
-		{"music", "", "", false, 0, meta.None, nil, keys[2:], storage.Keys{keys[2], keys[3], keys[5]}, false, nil, ""},
-		{"music", "", "", true, 0, meta.None, nil, keys[2:], keys[2:6], false, nil, ""},
-		{"music", "song1.mp3", "", true, 0, meta.None, nil, keys, keys[3:6], false, nil, ""},
-		{"music", "song1.mp3", "album/song3.mp3", true, 0, meta.None, nil, keys, keys[3:4], false, nil, ""},
-		{"music", "", "song4.mp3", true, 0, meta.None, nil, keys, keys[2:5], false, nil, ""},
-		{"music", "", "song4.mp3", true, 1, meta.None, nil, keys, keys[4:5], true, nil, ""},
-		{"music", "", "song4.mp3", false, 0, meta.None, nil, keys, keys[2:4], false, nil, ""},
-		{"music", "song2.mp3", "song4.mp3", true, 0, meta.None, nil, keys, keys[4:5], false, nil, ""},
-		{"mus", "", "", true, 0, meta.None, nil, keys[1:], nil, false, nil, ""},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
+	pointer := &pb.Pointer{}
+	pointer.CreationDate = ptypes.TimestampNow()
 
-		db := NewMockKeyValueStore(ctrl)
-		s := Server{DB: db, logger: zap.NewNop()}
+	pointerBytes, err := proto.Marshal(pointer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pointerValue := storage.Value(pointerBytes)
 
-		if tt.err != nil || tt.errString == "" {
-			prefix := storage.Key([]byte(tt.prefix + "/"))
-			db.EXPECT().List(prefix, storage.Limit(0)).Return(tt.returnedKeys, tt.err)
+	err = storage.PutAll(db, []storage.ListItem{
+		{Key: key("sample.jpg"), Value: pointerValue},
+		{Key: key("music/song1.mp3"), Value: pointerValue},
+		{Key: key("music/song2.mp3"), Value: pointerValue},
+		{Key: key("music/album/song3.mp3"), Value: pointerValue},
+		{Key: key("music/song4.mp3"), Value: pointerValue},
+		{Key: key("videos/movie.mkv"), Value: pointerValue},
+	}...)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-			if tt.metaFlags != meta.None {
-				pr := pb.Pointer{}
-				b, err := proto.Marshal(&pr)
-				assert.NoError(t, err, errTag)
-				for _, key := range keys {
-					db.EXPECT().Get(key).Return(b, nil)
-				}
+	type Test struct {
+		Request  pb.ListRequest
+		Expected *pb.ListResponse
+		Error    func(i int, err error)
+	}
+
+	errorWithCode := func(code codes.Code) func(i int, err error) {
+		t.Helper()
+		return func(i int, err error) {
+			t.Helper()
+			if status.Code(err) != code {
+				t.Fatalf("%d: should fail with %v, got: %v", i, code, err)
 			}
 		}
+	}
 
-		req := pb.ListRequest{
-			Prefix:     tt.prefix,
-			StartAfter: tt.startAfter,
-			EndBefore:  tt.endBefore,
-			Recursive:  tt.recursive,
-			Limit:      int32(tt.limit),
-			MetaFlags:  tt.metaFlags,
-			APIKey:     tt.apiKey,
-		}
-		resp, err := s.List(ctx, &req)
+	tests := []Test{
+		{
+			Request: pb.ListRequest{Recursive: true},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "music/album/song3.mp3"},
+					{Path: "music/song1.mp3"},
+					{Path: "music/song2.mp3"},
+					{Path: "music/song4.mp3"},
+					{Path: "sample.jpg"},
+					{Path: "videos/movie.mkv"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "music/album/song3.mp3", Pointer: pointer},
+					{Path: "music/song1.mp3", Pointer: pointer},
+					{Path: "music/song2.mp3", Pointer: pointer},
+					{Path: "music/song4.mp3", Pointer: pointer},
+					{Path: "sample.jpg", Pointer: pointer},
+					{Path: "videos/movie.mkv", Pointer: pointer},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All, APIKey: []byte("wrong key")},
+			Error:   errorWithCode(codes.Unauthenticated),
+		}, {
+			Request: pb.ListRequest{Recursive: true, Limit: 2},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "music/album/song3.mp3"},
+					{Path: "music/song1.mp3"},
+				},
+				More: true,
+			},
+		}, {
+			Request: pb.ListRequest{MetaFlags: meta.All},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "music/", IsPrefix: true},
+					{Path: "sample.jpg", Pointer: pointer},
+					{Path: "videos/", IsPrefix: true},
+				},
+				More: false,
+			},
+		}, {
+			Request: pb.ListRequest{EndBefore: "videos"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "music/", IsPrefix: true},
+					{Path: "sample.jpg"},
+				},
+				More: false,
+			},
+		}, {
+			Request: pb.ListRequest{Recursive: true, Prefix: "music/"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "album/song3.mp3"},
+					{Path: "song1.mp3"},
+					{Path: "song2.mp3"},
+					{Path: "song4.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Recursive: true, Prefix: "music/", StartAfter: "album/song3.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "song1.mp3"},
+					{Path: "song2.mp3"},
+					{Path: "song4.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "music/"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "album/", IsPrefix: true},
+					{Path: "song1.mp3"},
+					{Path: "song2.mp3"},
+					{Path: "song4.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "music/", StartAfter: "song1.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "song2.mp3"},
+					{Path: "song4.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "music/", EndBefore: "song4.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "album/", IsPrefix: true},
+					{Path: "song1.mp3"},
+					{Path: "song2.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "mus", Recursive: true, EndBefore: "ic/song4.mp3", Limit: 1},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "ic/song2.mp3"},
+				},
+				More: true,
+			},
+		},
+	}
 
-		if err != nil {
-			assert.EqualError(t, err, tt.errString, errTag)
+	// TODO:
+	//    pb.ListRequest{Prefix: "music/", StartAfter: "song1.mp3", EndBefore: "song4.mp3"},
+	//    failing database
+	for i, test := range tests {
+		resp, err := server.List(ctx, &test.Request)
+		if test.Error == nil {
+			if err != nil {
+				t.Fatalf("%d: failed %v", i, err)
+			}
 		} else {
-			assert.NoError(t, err, errTag)
-			assert.Equal(t, tt.expectedMore, resp.GetMore(), errTag)
-			assert.Equal(t, len(tt.expectedKeys), len(resp.GetItems()), errTag)
-			for i, item := range resp.GetItems() {
-				assert.Equal(t, tt.expectedKeys[i].String(), item.Path, errTag)
-			}
+			test.Error(i, err)
+		}
+
+		if diff := cmp.Diff(test.Expected, resp, cmp.Comparer(proto.Equal)); diff != "" {
+			t.Errorf("%d: (-want +got)\n%s", i, diff)
 		}
 	}
 }

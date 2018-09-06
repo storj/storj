@@ -3,7 +3,9 @@
 
 package storage
 
-import "errors"
+import (
+	"errors"
+)
 
 // More indicates if the result was truncated. If false
 // then the result []ListItem includes all requested keys.
@@ -23,11 +25,14 @@ type ListOptions struct {
 
 // ListV2 lists all keys corresponding to ListOptions
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
-	if opts.StartAfter != nil && opts.EndBefore != nil {
+	if !opts.StartAfter.IsZero() && !opts.EndBefore.IsZero() {
 		return nil, false, errors.New("start-after and end-before cannot be combined")
 	}
 
-	reverse := opts.EndBefore != nil
+	var reverse bool
+	if !opts.EndBefore.IsZero() {
+		reverse = true
+	}
 
 	more = More(true)
 	limit := opts.Limit
@@ -75,14 +80,17 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 				})
 			}
 		}
+
+		// we still need to consume one item for the more flag
+		more = More(it.Next(&item))
 		return nil
 	}
 
 	var firstFull Key
-	if !reverse && opts.StartAfter != nil {
+	if !reverse && !opts.StartAfter.IsZero() {
 		firstFull = joinKey(opts.Prefix, opts.StartAfter)
 	}
-	if reverse && opts.EndBefore != nil {
+	if reverse && !opts.EndBefore.IsZero() {
 		firstFull = joinKey(opts.Prefix, opts.EndBefore)
 	}
 	err = store.Iterate(IterateOptions{

@@ -164,7 +164,7 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Itera
 				}
 			}
 
-			if key == nil || !bytes.HasPrefix(key, opts.Prefix) {
+			if len(key) == 0 || !bytes.HasPrefix(key, opts.Prefix) {
 				return false
 			}
 
@@ -203,7 +203,7 @@ type forward struct {
 }
 
 func (cursor forward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
-	if first == nil || first.Less(prefix) {
+	if first.IsZero() || first.Less(prefix) {
 		return cursor.Seek([]byte(prefix))
 	}
 	return cursor.Seek([]byte(first))
@@ -222,15 +222,15 @@ type backward struct {
 }
 
 func (cursor backward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
-	if prefix == nil {
+	if prefix.IsZero() {
 		// there's no prefix
-		if first == nil {
+		if first.IsZero() {
 			// and no first item, so start from the end
 			return cursor.Last()
 		}
 	} else {
 		// there's a prefix
-		if first == nil || storage.AfterPrefix(prefix).Less(first) {
+		if first.IsZero() || storage.AfterPrefix(prefix).Less(first) {
 			// there's no first, or it's after our prefix
 			// storage.AfterPrefix("axxx/") is the next item after prefixes
 			// so we position to the item before

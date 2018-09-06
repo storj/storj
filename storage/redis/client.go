@@ -157,10 +157,10 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage
 	for it.Next() {
 		key := it.Val()
 
-		if first != nil && storage.Key(key).Less(first) {
+		if !first.IsZero() && storage.Key(key).Less(first) {
 			continue
 		}
-		if last != nil && last.Less(storage.Key(key)) {
+		if !last.IsZero() && last.Less(storage.Key(key)) {
 			continue
 		}
 
