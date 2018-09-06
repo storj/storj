@@ -76,14 +76,9 @@ func (o *Overlay) Lookup(ctx context.Context, nodeID dht.NodeID) (*proto.Node, e
 //BulkLookup provides a list of Nodes with the given IDs
 func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*proto.Node, error) {
 	var reqs proto.LookupRequests
-	var rs []*proto.LookupRequest
 	for _, v := range nodeIDs {
-		rs = append(rs, &proto.LookupRequest{NodeID: v.String()})
+		reqs.Lookuprequest = append(reqs.Lookuprequest, &proto.LookupRequest{NodeID: v.String()})
 	}
-	reqs.Lookuprequest = rs
-	// for _, v := range nodeIDs {
-	// 	reqs.Lookuprequest = append(reqs.Lookuprequest, &proto.LookupRequest{NodeID: v.String()})
-	// }
 	resp, err := o.client.BulkLookup(ctx, &reqs)
 	if err != nil {
 		return nil, err
