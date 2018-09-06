@@ -20,6 +20,11 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
+const (
+	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
+	OverlayBucket = "overlay"
+)
+
 // ErrNodeNotFound error standardization
 var ErrNodeNotFound = errs.New("Node not found")
 
@@ -47,7 +52,7 @@ func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
 func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
-	bc, err := boltdb.NewClient(zap.L(), dbPath, boltdb.OverlayBucket)
+	bc, err := boltdb.NewClient(zap.L(), dbPath, OverlayBucket)
 	if err != nil {
 		return nil, err
 	}

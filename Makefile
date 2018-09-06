@@ -166,73 +166,34 @@ deploy:
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
+	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
+		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
-	CUSTOMTAG=$(CUSTOMTAG) $(MAKE) $(COMPONENT)-image
-	cid=$$(docker create storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}) \
-	&& docker cp $$cid:/app/$(COMPONENT) release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
-    && docker rm $$cid
-	docker rmi storjlabs/$(COMPONENT):${TAG}${CUSTOMTAG}
+	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
+	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
+	-w /go/src/storj.io/storj storjlabs/golang \
+	-o app storj.io/storj/cmd/${COMPONENT} \
+	| tar -O -x ./app > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
 	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 
-# To update this section, modify and run the following:
-# for c in satellite storagenode uplink; do \
-# for oa in "darwin amd64" "linux 386" \
-# "linux amd64" "windows 386" "windows amd64"; do \
-# echo "$c $oa"; done; done | while read -r c o a; do; \
-# printf ".PHONY: ${c}_${o}_${a}\n${c}_${o}_${a}:\n\tGOOS=${o} GOARCH=${a} COMPONENT=${c} \$(MAKE) binary\n"; \
-# done
-.PHONY: satellite_darwin_amd64
-satellite_darwin_amd64:
-	GOOS=darwin GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
-.PHONY: satellite_linux_386
-satellite_linux_386:
-	GOOS=linux GOARCH=386 COMPONENT=satellite $(MAKE) binary
-.PHONY: satellite_linux_amd64
-satellite_linux_amd64:
-	GOOS=linux GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
-.PHONY: satellite_windows_386
-satellite_windows_386:
-	GOOS=windows GOARCH=386 COMPONENT=satellite $(MAKE) binary
-.PHONY: satellite_windows_amd64
-satellite_windows_amd64:
-	GOOS=windows GOARCH=amd64 COMPONENT=satellite $(MAKE) binary
-.PHONY: storagenode_darwin_amd64
-storagenode_darwin_amd64:
-	GOOS=darwin GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
-.PHONY: storagenode_linux_386
-storagenode_linux_386:
-	GOOS=linux GOARCH=386 COMPONENT=storagenode $(MAKE) binary
-.PHONY: storagenode_linux_amd64
-storagenode_linux_amd64:
-	GOOS=linux GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
-.PHONY: storagenode_windows_386
-storagenode_windows_386:
-	GOOS=windows GOARCH=386 COMPONENT=storagenode $(MAKE) binary
-.PHONY: storagenode_windows_amd64
-storagenode_windows_amd64:
-	GOOS=windows GOARCH=amd64 COMPONENT=storagenode $(MAKE) binary
-.PHONY: uplink_darwin_amd64
-uplink_darwin_amd64:
-	GOOS=darwin GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
-.PHONY: uplink_linux_386
-uplink_linux_386:
-	GOOS=linux GOARCH=386 COMPONENT=uplink $(MAKE) binary
-.PHONY: uplink_linux_amd64
-uplink_linux_amd64:
-	GOOS=linux GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
-.PHONY: uplink_windows_386
-uplink_windows_386:
-	GOOS=windows GOARCH=386 COMPONENT=uplink $(MAKE) binary
-.PHONY: uplink_windows_amd64
-uplink_windows_amd64:
-	GOOS=windows GOARCH=amd64 COMPONENT=uplink $(MAKE) binary
+.PHONY: satellite_%
+satellite_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
+.PHONY: storagenode_%
+storagenode_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=storagenode $(MAKE) binary
+.PHONY: uplink_%
+uplink_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
-# To update this section, modify and run the following:
-# grep -Eo '^[a-z]*_[a-z]*_[a-z0-9]*' Makefile | tr '\n' ' '
+COMPONENTLIST := uplink satellite storagenode
+OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64
+BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: satellite_darwin_amd64 satellite_linux_386 satellite_linux_amd64 satellite_windows_386 satellite_windows_amd64 storagenode_darwin_amd64 storagenode_linux_386 storagenode_linux_amd64 storagenode_windows_386 storagenode_windows_amd64 uplink_darwin_amd64 uplink_linux_386 uplink_linux_amd64 uplink_windows_386 uplink_windows_amd64
+binaries: ${BINARIES}
 
 .PHONY: binaries-upload
 binaries-upload:

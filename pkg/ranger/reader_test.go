@@ -76,7 +76,7 @@ func TestConcatReader(t *testing.T) {
 		{[]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
 			12, 7, 3, "hij"},
 	} {
-		var readers []Ranger
+		var readers []RangeCloser
 		for _, data := range example.data {
 			readers = append(readers, ByteRanger([]byte(data)))
 		}
