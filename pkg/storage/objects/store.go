@@ -52,7 +52,7 @@ type objStore struct {
 }
 
 // NewStore for objects
-func NewStore(store streams.Store, key string, encryptedBlockSize int) Store {
+func NewStore(store streams.Store) Store {
 	return &objStore{s: store}
 }
 
