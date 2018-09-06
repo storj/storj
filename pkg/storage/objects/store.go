@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
+
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -59,6 +61,10 @@ func NewStore(store streams.Store) Store {
 func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(path) == 0 {
+		return Meta{}, errs.New("No path specified")
+	}
+
 	m, err := o.s.Meta(ctx, path)
 	return convertMeta(m), err
 }
@@ -66,6 +72,10 @@ func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(path) == 0 {
+		return nil, Meta{}, errs.New("No path specified")
+	}
+
 	rr, m, err := o.s.Get(ctx, path)
 	return rr, convertMeta(m), err
 }
@@ -73,6 +83,9 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(path) == 0 {
+		return Meta{}, errs.New("No path specified")
+	}
 
 	// TODO(kaloyan): autodetect content type
 	// if metadata.GetContentType() == "" {}
@@ -88,6 +101,10 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(path) == 0 {
+		return errs.New("No path specified")
+	}
+
 	return o.s.Delete(ctx, path)
 }
 
