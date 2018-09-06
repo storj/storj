@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/teststore"
 
 	"github.com/google/go-cmp/cmp"
@@ -148,8 +147,7 @@ func TestServiceDelete(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
-	db := storelogger.NewTest(t, teststore.New())
-	//db := teststore.New()
+	db := teststore.New()
 	server := Server{DB: db, logger: zap.NewNop()}
 
 	key := func(s string) storage.Key {
