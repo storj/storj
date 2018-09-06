@@ -77,20 +77,7 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	defer mon.Task()(&ctx)(&err)
 
 	rr, m, err := o.s.Get(ctx, path)
-
-	encKey := sha256.Sum256([]byte(o.key))
-	var firstNonce [12]byte
-	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, o.encryptedBlockSize)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-	rd, err := eestream.Transform(rr, decrypter)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-	// TODO(moby) calculate paddedSize
-	// rc, err := eestream.Unpad(rd, int(paddedSize-size))
-	return rd, convertMeta(m), err
+	return rr, convertMeta(m), err
 }
 
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
@@ -102,20 +89,11 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
 
-	encKey := sha256.Sum256([]byte(o.key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, o.encryptedBlockSize)
-	if err != nil {
-		return Meta{}, err
-	}
-	padded := eestream.PadReader(ioutil.NopCloser(data), encrypter.InBlockSize())
-	transformed := eestream.TransformReader(padded, encrypter, 0)
-
 	b, err := proto.Marshal(&metadata)
 	if err != nil {
 		return Meta{}, err
 	}
-	m, err := o.s.Put(ctx, path, transformed, b, expiration)
+	m, err := o.s.Put(ctx, path, data, b, expiration)
 	return convertMeta(m), err
 }
 

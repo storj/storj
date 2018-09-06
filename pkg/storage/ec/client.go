@@ -74,7 +74,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	if !unique(nodes) {
 		return Error.New("duplicated nodes are not allowed")
 	}
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())	
+	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
 	if err != nil {
 		return err
@@ -162,12 +162,10 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			rrs[rri.i] = rri.rr
 		}
 	}
-	
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
 		return nil, err
 	}
-
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 

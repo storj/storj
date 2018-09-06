@@ -168,6 +168,8 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	var rangers []ranger.Ranger
+	encKey := sha256.Sum256([]byte(*s.key))
+	var firstNonce [12]byte
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
@@ -176,7 +178,26 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		rangers = append(rangers, rangeCloser)
+		// TODO (moby) should this be segmentSize?
+		// dangerous int cast
+		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, int(s.segmentSize))
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		rd, err := eestream.Transform(rangeCloser, decrypter)
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		// TOOD (moby) should this be segmentSize?
+		// dangerous int cast
+		rc, err := eestream.Unpad(rd, int(s.segmentSize))
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		rangers = append(rangers, rc)
 	}
 
 	rangers = append(rangers, lastRangerCloser)
