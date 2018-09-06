@@ -54,10 +54,16 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	if len(args) > 0x00 {
-		fmt.Println("Invalid arguments. Rerun with 'uplink run'")
-		return nil
+	/* check for the supported flags */
+	flagsupported := cmd.Flags()
+	for _, flagname := range args {
+		f := flagsupported.Lookup(flagname)
+		if f == nil {
+			fmt.Println(flagname + " - Invalid flag. try 'uplink run'")
+			return nil
+		}
 	}
+
 	return runCfg.Run(process.Ctx(cmd))
 }
 
@@ -65,6 +71,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
 	if err != nil {
 		return err
+	}
+
+	/* check for the supported flags */
+	flagsupported := cmd.Flags()
+	for _, flagname := range args {
+		f := flagsupported.Lookup(flagname)
+		if f == nil {
+			fmt.Println(flagname + " - Invalid flag. Supported list use --help")
+			return nil
+		}
 	}
 
 	_, err = os.Stat(setupCfg.BasePath)
