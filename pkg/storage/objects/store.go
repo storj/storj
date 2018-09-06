@@ -5,16 +5,13 @@ package objects
 
 import (
 	"context"
-	"crypto/sha256"
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
@@ -51,18 +48,12 @@ type Store interface {
 }
 
 type objStore struct {
-	s                  streams.Store
-	key                string
-	encryptedBlockSize int
+	s streams.Store
 }
 
 // NewStore for objects
 func NewStore(store streams.Store, key string, encryptedBlockSize int) Store {
-	return &objStore{
-		s:                  store,
-		key:                key,
-		encryptedBlockSize: encryptedBlockSize,
-	}
+	return &objStore{s: store}
 }
 
 func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
@@ -75,7 +66,6 @@ func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	rr, m, err := o.s.Get(ctx, path)
 	return rr, convertMeta(m), err
 }
@@ -88,7 +78,6 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	// if metadata.GetContentType() == "" {}
 
 	// TODO(kaloyan): encrypt metadata.UserDefined before serializing
-
 	b, err := proto.Marshal(&metadata)
 	if err != nil {
 		return Meta{}, err
