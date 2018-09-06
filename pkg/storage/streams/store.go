@@ -62,19 +62,23 @@ type Store interface {
 
 // streamStore is a store for streams
 type streamStore struct {
-	segments           segments.Store
-	segmentSize        int64
-	key                string
-	encryptedBlockSize int
+	segments            segments.Store
+	segmentSize         int64
+	key                 string
+	encryptionBlockSize int
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, key string) (Store, error) {
-	// TODO (moby) initialize streamStore encryptedBlockSize
+func NewStreamStore(segments segments.Store, segmentSize int64, key string, encryptionBlockSize int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
-	return &streamStore{segments: segments, segmentSize: segmentSize, key: key}, nil
+	return &streamStore{
+		segments:            segments,
+		segmentSize:         segmentSize,
+		key:                 key,
+		encryptionBlockSize: encryptionBlockSize,
+	}, nil
 }
 
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
@@ -95,7 +99,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	for !awareLimitReader.isEOF() {
 		// TODO (moby) should I create a new encrypter for each segment?
-		encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptedBlockSize)
+		encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptionBlockSize)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -187,7 +191,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptedBlockSize)
+		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
 		if err != nil {
 			for _, ranger := range rangers {
 				_ = ranger.Close()
@@ -205,7 +209,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		paddedSize := rd.Size() 
+		paddedSize := rd.Size()
 		size := msi.SegmentsSize
 		if int64(i) == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
