@@ -53,15 +53,17 @@ func list(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			if len(moreItems) == 0 {
-				fmt.Println("No buckets")
-				return nil
-			}
+
 			items = append(items, moreItems...)
 			if !more {
 				break
 			}
 			startAfter = moreItems[len(moreItems)-1].Bucket
+		}
+
+		if len(items) == 0 {
+			fmt.Println("No buckets")
+			return nil
 		}
 
 		for _, bucket := range items {
