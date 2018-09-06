@@ -38,18 +38,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// identOpt, err := identity.DialOption()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// Set up connection with rpc server
-	// var conn *grpc.ClientConn
-	// conn, err = grpc.Dial(":7777", identOpt)
-	// if err != nil {
-	// 	log.Fatalf("did not connect: %s", err)
-	// }
-	// defer conn.Close()
 
 	t := transport.NewClient(identity)
 	nodeAddress := &proto.NodeAddress{Address: ":7777"}

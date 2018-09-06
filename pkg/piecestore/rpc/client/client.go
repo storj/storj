@@ -68,8 +68,6 @@ func NewPSClient(t transport.Client, node *proto.Node, bandwidthMsgSize int, pri
 	}
 
 	return &Client{
-		conn:             nil,
-		route:            nil,
 		t:                t,
 		node:             node,
 		bandwidthMsgSize: bandwidthMsgSize,
@@ -182,7 +180,7 @@ func (client *Client) sign(msg []byte) (signature []byte, err error) {
 
 // Route gets route
 func (client *Client) Route(ctx context.Context) (route pb.PieceStoreRoutesClient, err error) {
-	if client.route == nil && client.conn == nil {
+	if client.route == nil {
 		c, err := client.t.DialNode(ctx, client.node)
 		if err != nil {
 			return nil, err
