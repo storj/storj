@@ -4,6 +4,7 @@
 package testsuite
 
 import (
+	"strconv"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -24,15 +25,20 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 }
 
 func testConstraints(t *testing.T, store storage.KeyValueStore) {
-	testKey := storage.Key("test")
-	if err := store.Put(testKey, storage.Value("xyz")); err != nil {
-		t.Fatal(err)
+	var items storage.Items
+	for i := 0; i < storage.LookupLimit+5; i++ {
+		items = append(items, storage.ListItem{
+			Key:   storage.Key("test-" + strconv.Itoa(i)),
+			Value: storage.Value("xyz"),
+		})
 	}
-	defer func() {
-		if err := store.Delete(testKey); err != nil {
+
+	for _, item := range items {
+		if err := store.Put(item.Key, item.Value); err != nil {
 			t.Fatal(err)
 		}
-	}()
+	}
+	defer cleanupItems(store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key
@@ -46,39 +52,34 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("GetAll limit", func(t *testing.T) {
-		keys := make([]storage.Key, storage.LookupLimit+1)
-		for i := range keys {
-			keys[i] = testKey
-		}
-
-		_, err := store.GetAll(keys[:storage.LookupLimit])
+		_, err := store.GetAll(items[:storage.LookupLimit].GetKeys())
 		if err != nil {
 			t.Fatalf("GetAll LookupLimit should succeed: %v", err)
 		}
 
-		_, err = store.GetAll(keys[:storage.LookupLimit+1])
+		_, err = store.GetAll(items[:storage.LookupLimit+1].GetKeys())
 		if err == nil && err == storage.ErrLimitExceeded {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})
 
 	t.Run("List limit", func(t *testing.T) {
-		_, err := store.List(nil, storage.LookupLimit)
-		if err != nil {
-			t.Fatalf("List LookupLimit should succeed: %v", err)
+		keys, err := store.List(nil, storage.LookupLimit)
+		if err != nil || len(keys) != storage.LookupLimit {
+			t.Fatalf("List LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
-		_, err = store.ReverseList(nil, storage.LookupLimit)
-		if err != nil {
-			t.Fatalf("ReverseList LookupLimit should succeed: %v", err)
+		keys, err = store.ReverseList(nil, storage.LookupLimit)
+		if err != nil || len(keys) != storage.LookupLimit {
+			t.Fatalf("ReverseList LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
 
 		_, err = store.List(nil, storage.LookupLimit+1)
-		if err == nil && err == storage.ErrLimitExceeded {
-			t.Fatalf("List LookupLimit+1 should fail: %v", err)
+		if err != nil || len(keys) != storage.LookupLimit {
+			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}
 		_, err = store.ReverseList(nil, storage.LookupLimit+1)
-		if err == nil && err == storage.ErrLimitExceeded {
-			t.Fatalf("ReverseList LookupLimit+1 should fail: %v", err)
+		if err != nil || len(keys) != storage.LookupLimit {
+			t.Fatalf("ReverseList LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}
 	})
 }

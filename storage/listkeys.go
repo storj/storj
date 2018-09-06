@@ -4,10 +4,9 @@
 package storage
 
 // ListKeys returns keys starting from first and upto limit
+// limit is capped to LookupLimit
 func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
-	if limit > LookupLimit {
-		return nil, ErrLimitExceeded
-	} else if limit <= 0 {
+	if limit <= 0 || limit > LookupLimit {
 		limit = LookupLimit
 	}
 
@@ -30,10 +29,9 @@ func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 }
 
 // ReverseListKeys returns keys starting from first and upto limit in reverse order
+// limit is capped to LookupLimit
 func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
-	if limit > LookupLimit {
-		return nil, ErrLimitExceeded
-	} else if limit <= 0 {
+	if limit <= 0 || limit > LookupLimit {
 		limit = LookupLimit
 	}
 

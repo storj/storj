@@ -22,10 +22,9 @@ type ListOptions struct {
 }
 
 // ListV2 lists all keys corresponding to ListOptions
+// limit is capped to LookupLimit
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
-	if opts.Limit > LookupLimit {
-		return nil, false, ErrLimitExceeded
-	} else if opts.Limit <= 0 {
+	if opts.Limit <= 0 || opts.Limit > LookupLimit {
 		opts.Limit = LookupLimit
 	}
 
