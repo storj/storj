@@ -99,8 +99,7 @@ func (c Config) Run(ctx context.Context) (err error) {
 	return Error.New("unexpected minio exit")
 }
 
-func (c Config) action(ctx context.Context, cliCtx *cli.Context,
-	identity *provider.FullIdentity) (err error) {
+func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provider.FullIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gw, err := c.NewGateway(ctx, identity)
@@ -112,9 +111,8 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context,
 	return Error.New("unexpected minio exit")
 }
 
-// NewGateway creates a new minio Gateway
-func (c Config) NewGateway(ctx context.Context,
-	identity *provider.FullIdentity) (gw minio.Gateway, err error) {
+// GetBucketStore returns an implementation of buckets.Store
+func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdentity) (bs buckets.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	t := transport.NewClient(identity)
@@ -151,5 +149,17 @@ func (c Config) NewGateway(ctx context.Context,
 	}
 	obj := objects.NewStore(stream)
 
-	return NewStorjGateway(buckets.NewStore(obj)), nil
+	return buckets.NewStore(obj), nil
+}
+
+// NewGateway creates a new minio Gateway
+func (c Config) NewGateway(ctx context.Context, identity *provider.FullIdentity) (gw minio.Gateway, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bs, err := c.GetBucketStore(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStorjGateway(bs), nil
 }

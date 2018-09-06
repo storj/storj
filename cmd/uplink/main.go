@@ -54,6 +54,10 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	if len(args) > 0x00 {
+		fmt.Println("Invalid arguments. Rerun with 'uplink run'")
+		return nil
+	}
 	return runCfg.Run(process.Ctx(cmd))
 }
 

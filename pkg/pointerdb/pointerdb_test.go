@@ -23,6 +23,8 @@ import (
 	"storj.io/storj/storage"
 )
 
+//go:generate mockgen -destination kvstore_mock_test.go -package pointerdb storj.io/storj/storage KeyValueStore
+
 var (
 	ctx = context.Background()
 )

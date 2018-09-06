@@ -8,6 +8,8 @@ require (
 	github.com/Azure/go-autorest v10.15.2+incompatible // indirect
 	github.com/alecthomas/gometalinter v2.0.6+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
+	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
+	github.com/alicebob/miniredis v0.0.0-20180830063239-35be932987bc
 	github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20180615125516-36bf7aa2f916 // indirect
 	github.com/anacrolix/missinggo v0.0.0-20180525074307-ca16e9f398a9
 	github.com/anacrolix/sync v0.0.0-20180525101250-3870fa5b90c5
@@ -40,6 +42,7 @@ require (
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.1.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
+	github.com/google/go-cmp v0.2.0
 	github.com/google/shlex v0.0.0-20150127133951-6f45313302b9 // indirect
 	github.com/googleapis/gax-go v2.0.0+incompatible // indirect
 	github.com/gorilla/handlers v1.4.0 // indirect
@@ -132,6 +135,7 @@ require (
 	github.com/urfave/cli v1.20.0
 	github.com/vivint/infectious v0.0.0-20180510042615-a7f6b88306f8
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20180827083657-b942cacc89fe // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
 	github.com/zeebo/errs v0.1.0
 	github.com/zeebo/float16 v0.1.0
