@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
+
+	"storj.io/storj/internal/sync2"
 
 	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/pkg/utils"
@@ -71,6 +72,7 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
+	throttle      *sync2.Throttle
 	stream        pb.PieceStoreRoutes_RetrieveClient
 	src           *utils.ReaderSource
 	totalRead     int64
@@ -86,6 +88,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	var mtx sync.Mutex
 
 	sr := &StreamReader{
+		throttle:      sync2.NewThrottle(),
 		stream:        stream,
 		max:           max,
 		dataSendCond:  sync.NewCond(&mtx),
@@ -94,22 +97,10 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	}
 
 	go func() {
-		<-sr.c
-		for sr.totalRead < sr.max {
-			sr.allocSendCond.L.Lock()
-			fmt.Println("Locking ba send")
-			for sr.allocated-sr.totalRead >= int64(4*signer.bandwidthMsgSize) {
-				sr.allocSendCond.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
-			}
-			fmt.Println("Unlocking ba send")
-			sr.allocSendCond.L.Unlock()
-
-			fmt.Println(sr.allocated, sr.totalRead)
-
-			if sr.max-sr.allocated < int64(signer.bandwidthMsgSize) {
-				sr.allocated += sr.max - sr.allocated
-			} else {
-				sr.allocated += int64(signer.bandwidthMsgSize)
+		for {
+			err := sr.throttle.ProduceAndWaitUntilBelow(int64(signer.bandwidthMsgSize), max)
+			if err != nil {
+				// TODO what should we do about an error here?
 			}
 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
@@ -138,34 +129,17 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 				break
 			}
 
-			if sr.allocated-sr.totalRead >= int64(4*signer.bandwidthMsgSize) || sr.max-sr.allocated < int64(4*signer.bandwidthMsgSize) {
-				fmt.Println("Sending Signal to dataSendCond")
-				time.Sleep(time.Second * 10)
-				sr.dataSendCond.Signal() // Signal the data send loop that it has available bandwidth
-				fmt.Println("Sent Signal to dataSendCond")
-			}
 		}
 	}()
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		sr.dataSendCond.L.Lock()
-		fmt.Println("Locking data send")
-		for sr.totalRead <= sr.allocated {
-			sr.c <- 1
-			fmt.Println("dataSendCond Wait")
-			sr.dataSendCond.Wait() // Wait for the bandwidth loop to send a new bandwidth allocation
-		}
-		fmt.Println("Unlocking data send")
-		sr.dataSendCond.L.Unlock()
-
+		_, err := sr.throttle.ConsumeOrWait(int64(signer.bandwidthMsgSize))
 		resp, err := stream.Recv()
 		if err != nil {
 			return nil, err
 		}
 
 		sr.totalRead += int64(len(resp.GetContent()))
-
-		sr.allocSendCond.Signal()
 
 		return resp.GetContent(), nil
 	})
