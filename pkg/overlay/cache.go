@@ -94,15 +94,16 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, err
 	}
 	var ns []*overlay.Node
 	for _, v := range vs {
-		na := &overlay.Node{}
 		if v == nil {
 			ns = append(ns, nil)
-		} else if err := proto.Unmarshal(v, na); err == nil {
-			ns = append(ns, na)
-		} else {
-			//or we could append a nil value rather than returning an error. @team What do you think?
-			return nil, OverlayError.New("could not unmarshal non nil node: %s", err)
+			continue
+		} 
+		na := &overlay.Node{}
+		err := proto.Unmarshal(v, na)
+		if err != nil {
+			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
 		}
+		ns = append(ns, na)
 	}
 	return ns, nil
 }

@@ -127,9 +127,9 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 			val := bucket.Get([]byte(key))
 			if val == nil {
 				vals = append(vals, nil)
-			} else {
-				vals = append(vals, storage.CloneValue(storage.Value(val)))
+				continue
 			}
+			vals = append(vals, storage.CloneValue(storage.Value(val)))
 		}
 		return nil
 	})
