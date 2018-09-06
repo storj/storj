@@ -109,7 +109,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	awsAccessCreds, awsSecretCreds, err := getGeneralAwsCreds()
+	accessKey, err := generateAWSKey()
+	if err != nil {
+		return err
+	}
+
+	secretKey, err := generateAWSKey()
 	if err != nil {
 		return err
 	}
@@ -120,21 +125,21 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"api-key":         setupCfg.APIKey,
 		"pointer-db-addr": setupCfg.SatelliteAddr,
 		"overlay-addr":    setupCfg.SatelliteAddr,
-		"access-key":      awsAccessCreds,
-		"secret-key":      awsSecretCreds,
+		"access-key":      accessKey,
+		"secret-key":      secretKey,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
 }
 
-func getGeneralAwsCreds() (string, string, error) {
+func generateAWSKey() (key string, err error) {
 	var buf [20]byte
-	_, err := rand.Read(buf[:])
+	_, err = rand.Read(buf[:])
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return base58.Encode(buf[:]), base58.Encode(buf[1:]), nil
+	return base58.Encode(buf[:]), nil
 }
 
 func main() {
