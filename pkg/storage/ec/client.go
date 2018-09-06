@@ -45,12 +45,8 @@ type defaultDialer struct {
 
 func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
-	c, err := d.t.DialNode(ctx, node)
-	if err != nil {
-		return nil, err
-	}
 
-	return client.NewPSClient(c, 0, d.identity.Key)
+	return client.NewPSClient(d.t, node, 0, d.identity.Key)
 }
 
 type ecClient struct {

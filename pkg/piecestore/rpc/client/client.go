@@ -21,6 +21,8 @@ import (
 	"github.com/gtank/cryptopasta"
 
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/transport"
+	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -49,12 +51,14 @@ type PSClient interface {
 type Client struct {
 	route            pb.PieceStoreRoutesClient
 	conn             *grpc.ClientConn
+	t                transport.Client
+	node             *proto.Node
 	prikey           crypto.PrivateKey
 	bandwidthMsgSize int
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
+func NewPSClient(t transport.Client, node *proto.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -64,8 +68,10 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.Priv
 	}
 
 	return &Client{
-		conn:             conn,
-		route:            pb.NewPieceStoreRoutesClient(conn),
+		conn:             nil,
+		route:            nil,
+		t:                t,
+		node:             node,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
 	}, nil
@@ -95,12 +101,20 @@ func (client *Client) Close() error {
 
 // Meta requests info about a piece by Id
 func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
-	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
+	route, err := client.Route(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return route.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
 // Put uploads a Piece to a piece store Server
 func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
-	stream, err := client.route.Store(ctx)
+	route, err := client.Route(ctx)
+	if err != nil {
+		return err
+	}
+	stream, err := route.Store(ctx)
 	if err != nil {
 		return err
 	}
@@ -139,17 +153,16 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 // Get begins downloading a Piece from a piece store Server
 func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
-	stream, err := client.route.Retrieve(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return PieceRangerSize(client, stream, id, size, ba), nil
+	return PieceRangerSize(client, nil, id, size, ba), nil
 }
 
 // Delete a Piece from a piece store Server
 func (client *Client) Delete(ctx context.Context, id PieceID) error {
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
+	route, err := client.Route(ctx)
+	if err != nil {
+		return err
+	}
+	reply, err := route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
 	if err != nil {
 		return err
 	}
@@ -165,4 +178,17 @@ func (client *Client) sign(msg []byte) (signature []byte, err error) {
 
 	// use c.pkey to sign msg
 	return cryptopasta.Sign(msg, client.prikey.(*ecdsa.PrivateKey))
+}
+
+// Route gets route
+func (client *Client) Route(ctx context.Context) (route pb.PieceStoreRoutesClient, err error) {
+	if client.route == nil && client.conn == nil {
+		c, err := client.t.DialNode(ctx, client.node)
+		if err != nil {
+			return nil, err
+		}
+		client.conn = c
+		client.route = pb.NewPieceStoreRoutesClient(c)
+	}
+	return client.route, nil
 }

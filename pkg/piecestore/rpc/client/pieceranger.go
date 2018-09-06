@@ -67,10 +67,22 @@ func (r *pieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 		return ioutil.NopCloser(bytes.NewReader([]byte{})), nil
 	}
 
+	stream := r.stream
+	if stream == nil {
+		client, err := r.c.Route(ctx)
+		if err != nil {
+			return nil, err
+		}
+		stream, err = client.Retrieve(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// send piece data
-	if err := r.stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), Size: length, Offset: offset}}); err != nil {
+	if err := stream.Send(&pb.PieceRetrieval{PieceData: &pb.PieceRetrieval_PieceData{Id: r.id.String(), Size: length, Offset: offset}}); err != nil {
 		return nil, err
 	}
 
-	return NewStreamReader(r.c, r.stream, r.pba), nil
+	return NewStreamReader(r.c, stream, r.pba), nil
 }

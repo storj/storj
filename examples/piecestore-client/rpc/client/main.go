@@ -15,10 +15,11 @@ import (
 
 	"github.com/urfave/cli"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
+	proto "storj.io/storj/protos/overlay"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -37,20 +38,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	identOpt, err := identity.DialOption()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// identOpt, err := identity.DialOption()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Set up connection with rpc server
-	var conn *grpc.ClientConn
-	conn, err = grpc.Dial(":7777", identOpt)
-	if err != nil {
-		log.Fatalf("did not connect: %s", err)
-	}
-	defer conn.Close()
+	// var conn *grpc.ClientConn
+	// conn, err = grpc.Dial(":7777", identOpt)
+	// if err != nil {
+	// 	log.Fatalf("did not connect: %s", err)
+	// }
+	// defer conn.Close()
 
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
+	t := transport.NewClient(identity)
+	nodeAddress := &proto.NodeAddress{Address: ":7777"}
+	node := &proto.Node{Address: nodeAddress}
+	psClient, err := client.NewPSClient(t, node, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
