@@ -9,12 +9,14 @@ import (
 	"time"
 
 	minio "github.com/minio/minio/cmd"
-	"storj.io/storj/storage"
+	"github.com/zeebo/errs"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/storage"
 )
 
 var (
@@ -53,6 +55,10 @@ func NewStore(obj objects.Store) Store {
 
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
+	if bucket == "" {
+		return nil, errs.New("No bucket specified")
+	}
+
 	_, err := b.Get(ctx, bucket)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -70,6 +76,10 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 // Get calls objects store Get
 func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return nil, errs.New("No bucket specified")
+	}
+
 	p := paths.New(bucket)
 	objMeta, err := b.o.Meta(ctx, p)
 	if err != nil {
@@ -81,6 +91,10 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // Put calls objects store Put
 func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return nil, errs.New("No bucket specified")
+	}
+
 	p := paths.New(bucket)
 	r := bytes.NewReader(nil)
 	var exp time.Time
@@ -94,6 +108,10 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 // Delete calls objects store Delete
 func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return nil, errs.New("No bucket specified")
+	}
+
 	p := paths.New(bucket)
 	return b.o.Delete(ctx, p)
 }
