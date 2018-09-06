@@ -205,9 +205,12 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		paddedSize := decrypter.OutBlockSize()
-		size := int(rd.Size()) // int64 -> int; is this a problem?
-		rc, err := eestream.Unpad(rd, int(paddedSize-size))
+		paddedSize := rd.Size() 
+		size := msi.SegmentsSize
+		if int64(i) == msi.NumberOfSegments-1 {
+			size = msi.LastSegmentSize
+		}
+		rc, err := eestream.Unpad(rd, int(paddedSize-size)) // int64 -> int; is this a problem?
 		if err != nil {
 			for _, ranger := range rangers {
 				_ = ranger.Close()
