@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/storage"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func testList(t *testing.T, store storage.KeyValueStore) {
@@ -83,7 +84,7 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 			t.Errorf("%s: %s", test.Name, err)
 			continue
 		}
-		if diff := cmp.Diff(test.Expected, keys); diff != "" {
+		if diff := cmp.Diff(test.Expected, keys, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("%s: (-want +got)\n%s", test.Name, diff)
 		}
 	}

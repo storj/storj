@@ -88,6 +88,9 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 // GetAll gets all values from the store
 func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	store.CallCount.GetAll++
+	if len(keys) > storage.LookupLimit {
+		return nil, storage.ErrLimitExceeded
+	}
 
 	values := storage.Values{}
 	for _, key := range keys {
