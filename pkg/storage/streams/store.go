@@ -64,7 +64,7 @@ type Store interface {
 type streamStore struct {
 	segments            segments.Store
 	segmentSize         int64
-	key                 string
+	key                 []byte
 	encryptionBlockSize int
 }
 
@@ -73,10 +73,17 @@ func NewStreamStore(segments segments.Store, segmentSize int64, key string, encr
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
+	if key == "" {
+		return nil, errs.New("encryption key must not be empty")
+	}
+	if encryptionBlockSize <= 0 {
+		return nil, errs.New("encryption block size must be larger than 0")
+	}
+
 	return &streamStore{
 		segments:            segments,
 		segmentSize:         segmentSize,
-		key:                 key,
+		key:                 []byte(key),
 		encryptionBlockSize: encryptionBlockSize,
 	}, nil
 }
@@ -93,17 +100,16 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	awareLimitReader := EOFAwareReader(data)
-	encKey := sha256.Sum256([]byte(s.key))
+	encKey := sha256.Sum256(s.key)
 	var firstNonce [12]byte
+	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptionBlockSize)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	awareLimitReader := EOFAwareReader(data)
 
 	for !awareLimitReader.isEOF() {
-		// TODO (moby) should I create a new encrypter for each segment?
-		encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptionBlockSize)
-		if err != nil {
-			return Meta{}, err
-		}
-
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
 		paddedData := eestream.PadReader(ioutil.NopCloser(segmentData), encrypter.InBlockSize())
@@ -117,8 +123,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
 		totalSegments = totalSegments + 1
-
-		// TODO (moby) update nonce
 	}
 
 	lastSegmentPath := path.Prepend("l")
@@ -178,34 +182,31 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 	encKey := sha256.Sum256([]byte(s.key))
 	var firstNonce [12]byte
-	var rangers []ranger.RangeCloser
+	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
+	if err != nil {
+		_ = lastRangerCloser.Close()
+		return nil, Meta{}, err
+	}
 
-	for i := 0; i < int(msi.NumberOfSegments); i++ {
+	var rangers []ranger.RangeCloser
+	cleanupRangers := func() {
+		for _, r := range rangers {
+			_ = r.Close()
+		}
+		_ = lastRangerCloser.Close()
+	}
+
+	for i := int64(0); i < msi.NumberOfSegments; i++ {
 		currentPath := fmt.Sprintf("s%d", i)
 		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
-			for _, ranger := range rangers {
-				_ = ranger.Close()
-			}
-			_ = lastRangerCloser.Close()
-			return nil, Meta{}, err
-		}
-
-		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
-		if err != nil {
-			for _, ranger := range rangers {
-				_ = ranger.Close()
-			}
-			_ = lastRangerCloser.Close()
+			cleanupRangers()
 			return nil, Meta{}, err
 		}
 
 		rd, err := eestream.Transform(rangeCloser, decrypter)
 		if err != nil {
-			for _, ranger := range rangers {
-				_ = ranger.Close()
-			}
-			_ = lastRangerCloser.Close()
+			cleanupRangers()
 			return nil, Meta{}, err
 		}
 
@@ -216,16 +217,11 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		}
 		rc, err := eestream.Unpad(rd, int(paddedSize-size)) // int64 -> int; is this a problem?
 		if err != nil {
-			for _, ranger := range rangers {
-				_ = ranger.Close()
-			}
-			_ = lastRangerCloser.Close()
+			cleanupRangers()
 			return nil, Meta{}, err
 		}
 
 		rangers = append(rangers, rc)
-
-		// TODO (moby) update nonce
 	}
 
 	rangers = append(rangers, lastRangerCloser)

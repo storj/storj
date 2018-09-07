@@ -35,9 +35,11 @@ type RSConfig struct {
 	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"50"`
 }
 
+// EncryptionConfig is a configuration struct that keeps details about
+// encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey string `help:"root key for encrypting the data"`
-	EncryptionBlockSize int `help:"size (in bytes) of encrypted blocks`
+	EncryptionKey       string `help:"root key for encrypting the data"`
+	EncryptionBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
@@ -153,7 +155,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 	if err != nil {
 		return nil, err
 	}
-	obj := objects.NewStore(stream, c.EncryptionKey, c.ErasureShareSize)
+	obj := objects.NewStore(stream)
 
 	return buckets.NewStore(obj), nil
 }
