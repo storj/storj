@@ -231,7 +231,7 @@ func TestServiceList(t *testing.T) {
 				},
 				More: true,
 			},
-		}, /*{
+		}, {
 			Request: pb.ListRequest{MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
@@ -252,57 +252,59 @@ func TestServiceList(t *testing.T) {
 				},
 				More: false,
 			},
-		},*/{
-			Request: pb.ListRequest{Recursive: true, Prefix: "müsic"},
+		}, {
+			Request: pb.ListRequest{Recursive: true, Prefix: "müsic/"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "müsic/album/söng3.mp3"},
-					{Path: "müsic/söng1.mp3"},
-					{Path: "müsic/söng2.mp3"},
-					{Path: "müsic/söng4.mp3"},
+					{Path: "album/söng3.mp3"},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, Prefix: "müsic", StartAfter: "album/söng3.mp3"},
+			Request: pb.ListRequest{Recursive: true, Prefix: "müsic/", StartAfter: "album/söng3.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "müsic/söng1.mp3"},
-					{Path: "müsic/söng2.mp3"},
-					{Path: "müsic/söng4.mp3"},
-				},
-			},
-		}, /*{
-			Request: pb.ListRequest{Prefix: "müsic"},
-			Expected: &pb.ListResponse{
-				Items: []*pb.ListResponse_Item{
-					{Path: "müsic/album/", IsPrefix: true},
-					{Path: "müsic/söng1.mp3"},
-					{Path: "müsic/söng2.mp3"},
-					{Path: "müsic/söng4.mp3"},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "müsic", StartAfter: "söng1.mp3"},
+			Request: pb.ListRequest{Prefix: "müsic/"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "müsic/söng2.mp3"},
-					{Path: "müsic/söng4.mp3"},
+					{Path: "album/", IsPrefix: true},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "müsic", EndBefore: "söng4.mp3"},
+			Request: pb.ListRequest{Prefix: "müsic/", StartAfter: "söng1.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "müsic/album/", IsPrefix: true},
-					{Path: "müsic/söng1.mp3"},
-					{Path: "müsic/söng2.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
-		}, */{
+		}, {
+			Request: pb.ListRequest{Prefix: "müsic/", EndBefore: "söng4.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "album/", IsPrefix: true},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+				},
+			},
+		}, {
 			Request: pb.ListRequest{Prefix: "müs", Recursive: true, EndBefore: "ic/söng4.mp3", Limit: 1},
 			Expected: &pb.ListResponse{
-				Items: []*pb.ListResponse_Item{},
-				More:  false,
+				Items: []*pb.ListResponse_Item{
+					{Path: "ic/söng2.mp3"},
+				},
+				More: true,
 			},
 		},
 	}
