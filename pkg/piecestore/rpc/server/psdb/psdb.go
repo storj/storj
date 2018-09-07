@@ -48,6 +48,9 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
+	// try to enable write-ahead-logging
+	_, _ = sqlite.Exec(`PRAGMA journal_mode = WAL`)
+
 	defer func() {
 		if err != nil {
 			_ = sqlite.Close()
