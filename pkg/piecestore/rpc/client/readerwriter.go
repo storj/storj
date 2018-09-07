@@ -91,14 +91,14 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	// Send signed allocations to the piece store server
 	go func() {
 		for {
-			nextTotal := sr.allocated + int64(signer.bandwidthMsgSize)
-			if nextTotal > max {
-				nextTotal = max
+			nextAllocSize := int64(signer.bandwidthMsgSize)
+			if sr.allocated+int64(signer.bandwidthMsgSize) > max {
+				nextAllocSize = max - sr.allocated
 			}
 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
-				Total:           nextTotal,
+				Total:           sr.allocated + nextAllocSize,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
@@ -125,9 +125,9 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 				break
 			}
 
-			sr.allocated += nextTotal
+			sr.allocated += nextAllocSize
 
-			if err = sr.throttle.ProduceAndWaitUntilBelow(int64(signer.bandwidthMsgSize), max); err != nil {
+			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, max); err != nil {
 				sr.err = err
 				break
 			}
@@ -146,6 +146,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		}
 
 		sr.totalRead += int64(len(resp.GetContent()))
+
 		_, err = sr.throttle.ConsumeOrWait(int64(len(resp.GetContent())))
 		if err != nil {
 			return resp.GetContent(), err
