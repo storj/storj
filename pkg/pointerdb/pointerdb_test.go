@@ -16,6 +16,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
@@ -23,8 +24,6 @@ import (
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 //go:generate mockgen -destination kvstore_mock_test.go -package pointerdb storj.io/storj/storage KeyValueStore
