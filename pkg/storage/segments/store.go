@@ -4,8 +4,8 @@
 package segments
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -16,7 +16,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
@@ -191,7 +190,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
 		nodes, err := s.lookupNodes(ctx, seg)
-		fmt.Printf("num nodes %v", len(nodes))
+		fmt.Printf("num nodes %v\n", len(nodes))
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -251,18 +250,31 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 
 // lookupNodes calls Lookup to get node addresses from the overlay
 func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
-	pieces := seg.GetRemotePieces() 
-	fmt.Printf("number of pieces %v", len(pieces))
-	var nodeIds []dht.NodeID
-	for _, p := range pieces {
-		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+	// pieces := seg.GetRemotePieces()
+	// fmt.Printf("number of pieces %v\n", len(pieces))
+	// var nodeIds []dht.NodeID
+	// for _, p := range pieces {
+	// 	nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+	// }
+	// fmt.Printf("number of nodeids %v\n", len(nodeIds))
+	// nodes, err = s.oc.BulkLookup(ctx, nodeIds)
+	// fmt.Printf("number of nodes returned %v\n", len(nodes))
+	// if err != nil {
+	// 	return nil, Error.Wrap(err)
+	// }
+	// return nodes, nil
+	nodes = make([]*opb.Node, len(seg.GetRemotePieces()))
+	fmt.Printf("number of pieces %v\n", len(seg.GetRemotePieces()))
+	for i, p := range seg.GetRemotePieces() {
+		node, err := s.oc.Lookup(ctx, kademlia.StringToNodeID(p.GetNodeId()))
+		if err != nil {
+			// TODO(kaloyan): better error handling: failing to lookup a few
+			// nodes should not fail the request
+			return nil, Error.Wrap(err)
+		}
+		nodes[i] = node
 	}
-	fmt.Printf("number of nodeids %v", len(nodeIds))
-	nodes, err = s.oc.BulkLookup(ctx, nodeIds)
-	fmt.Printf("number of nodes returned %v", len(nodes))
-	if err != nil {
-		return nil, Error.Wrap(err)	
-	}
+	fmt.Printf("number of nodes returned %v\n", len(nodes))
 	return nodes, nil
 }
 
