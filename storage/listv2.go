@@ -30,20 +30,13 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err
 		return nil, false, errors.New("start-after and end-before cannot be combined")
 	}
 
-	if opts.Limit <= 0 || opts.Limit > LookupLimit {
-		opts.Limit = LookupLimit
-	}
-
-	var reverse bool
-	if !opts.EndBefore.IsZero() {
-		reverse = true
-	}
-
-	more = More(true)
 	limit := opts.Limit
-	if limit == 0 {
-		limit = Limit(1 << 31)
+	if limit <= 0 || limit > LookupLimit {
+		limit = LookupLimit
 	}
+
+	reverse := !opts.EndBefore.IsZero()
+	more = More(true)
 
 	var first Key
 	if !reverse {
