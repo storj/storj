@@ -93,7 +93,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	match, err := regexp.MatchString("[a-zA-Z0-9]{0,20}", in.GetId())
+	match, err := regexp.MatchString("[a-zA-Z0-9]{20}", in.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -113,19 +113,19 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Printf("Successfully retrieved meta for %s.", in.Id)
+	log.Printf("Successfully retrieved meta for %s.", in.GetId())
 	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Printf("Deleting %s...", in.Id)
+	log.Printf("Deleting %s...", in.GetId())
 
 	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
-	log.Printf("Successfully deleted %s.", in.Id)
+	log.Printf("Successfully deleted %s.", in.GetId())
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
