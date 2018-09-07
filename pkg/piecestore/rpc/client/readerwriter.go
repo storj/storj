@@ -77,7 +77,6 @@ type StreamReader struct {
 	totalRead    int64
 	MaxAllocSize int64
 	allocated    int64
-	err          error // TODO: This is a race condition. Fix this
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
@@ -107,14 +106,14 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 			serializedAllocation, err := proto.Marshal(allocationData)
 			if err != nil {
-				sr.err = err
-				break
+				sr.throttle.Fail(err)
+				return
 			}
 
 			sig, err := signer.sign(serializedAllocation)
 			if err != nil {
-				sr.err = err
-				break
+				sr.throttle.Fail(err)
+				return
 			}
 
 			msg := &pb.PieceRetrieval{
@@ -125,15 +124,15 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			}
 
 			if err = stream.Send(msg); err != nil {
-				sr.err = err
-				break
+				sr.throttle.Fail(err)
+				return
 			}
 
 			sr.allocated += trustedSize
 
 			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, MaxAllocSize*2); err != nil {
-				sr.err = err
-				break
+				sr.throttle.Fail(err)
+				return
 			}
 
 			// Speed up retrieval as server gives us more data
@@ -145,12 +144,9 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	}()
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		if sr.err != nil {
-			return nil, sr.err
-		}
-
 		resp, err := stream.Recv()
 		if err != nil {
+			sr.throttle.Fail(err)
 			return nil, err
 		}
 
@@ -158,6 +154,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 		err = sr.throttle.Consume(int64(len(resp.GetContent())))
 		if err != nil {
+			sr.throttle.Fail(err)
 			return resp.GetContent(), err
 		}
 
