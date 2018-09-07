@@ -140,7 +140,13 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 				return
 			}
 
-			rr := &lazyPieceRanger{dialer: ec.d, n: n, id: derivedPieceID, size: pieceSize, pba: &pb.PayerBandwidthAllocation{}}
+			rr := &lazyPieceRanger{
+				dialer: ec.d,
+				node:   n,
+				id:     derivedPieceID,
+				size:   pieceSize,
+				pba:    &pb.PayerBandwidthAllocation{},
+			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
 		}(i, n)
@@ -245,7 +251,7 @@ func calcPadded(size int64, blockSize int) int64 {
 type lazyPieceRanger struct {
 	ranger ranger.RangeCloser
 	dialer dialer
-	n      *proto.Node
+	node   *proto.Node
 	id     client.PieceID
 	size   int64
 	pba    *pb.PayerBandwidthAllocation
@@ -258,13 +264,16 @@ func (lr *lazyPieceRanger) Size() int64 {
 
 // Size implements Ranger.Close
 func (lr *lazyPieceRanger) Close() error {
+	if lr.ranger == nil {
+		return nil
+	}
 	return lr.ranger.Close()
 }
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if lr.ranger == nil {
-		ps, err := lr.dialer.dial(ctx, lr.n)
+		ps, err := lr.dialer.dial(ctx, lr.node)
 		if err != nil {
 			return nil, err
 		}
