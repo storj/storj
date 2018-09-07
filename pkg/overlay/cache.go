@@ -100,7 +100,7 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, err
 		if v == nil {
 			ns = append(ns, nil)
 			continue
-		} 
+		}
 		na := &overlay.Node{}
 		err := proto.Unmarshal(v, na)
 		if err != nil {

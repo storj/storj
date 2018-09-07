@@ -198,6 +198,34 @@ var (
 	}{
 		{testID: "valid GetAll",
 			expectedTimesCalled: 1,
+			keys:                []string{"key1"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*overlay.Node{n1}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: test.KvStore{
+				"key1": func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			},
+		},
+		{testID: "valid GetAll",
+			expectedTimesCalled: 1,
 			keys:                []string{"key1", "key2"},
 			expectedResponses: func() responsesB {
 				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}

@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	protob "github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -17,6 +19,9 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/storage"
 )
+
+// ServerError creates class of errors for stack traces
+var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
@@ -44,8 +49,7 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 func (o *Server) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
 	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
-		o.logger.Error("") //TODO
-		return nil, err
+		return nil, ServerError.New("could not get nodes requested %s", err)
 	}
 	return nodesToLookupResponses(ns), nil
 }
@@ -148,7 +152,6 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 
 	return result, nextStart, nil
 }
-
 
 //lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
 func lookupRequestsToNodeIDs(reqs *proto.LookupRequests) []string {

@@ -6,6 +6,8 @@ package overlay
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
@@ -18,6 +20,11 @@ import (
 // 	space is the storage and bandwidth requested consumption in bytes.
 //
 // Lookup finds a Node with the provided identifier.
+
+// ClientError creates class of errors for stack traces
+var ClientError = errs.Class("Client Error")
+
+//Client implements the Overlay Client interface
 type Client interface {
 	Choose(ctx context.Context, limit int, space int64) ([]*proto.Node, error)
 	Lookup(ctx context.Context, nodeID dht.NodeID) (*proto.Node, error)
@@ -81,7 +88,7 @@ func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*prot
 	}
 	resp, err := o.client.BulkLookup(ctx, &reqs)
 	if err != nil {
-		return nil, err
+		return nil, ClientError.Wrap(err)
 	}
 	var nodes []*proto.Node
 	for _, v := range resp.Lookupresponse {
