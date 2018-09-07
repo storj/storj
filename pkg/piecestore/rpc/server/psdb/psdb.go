@@ -98,11 +98,11 @@ func (db *DB) locked() func() {
 // DeleteExpired checks for expired TTLs in the DB and removes data from both the DB and the FS
 func (db *DB) DeleteExpired(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	var expired []string
-
 	err = func() error {
+		defer db.locked()()
+
 		tx, err := db.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return err
@@ -162,9 +162,13 @@ func (db *DB) garbageCollect(ctx context.Context) {
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
 func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
+	if ba.Data == nil {
+		return nil
+	}
+
 	defer db.locked()()
 
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.Data, ba.Signature)
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.Data, ba.GetSignature())
 	return err
 }
 
