@@ -5,18 +5,8 @@ package test
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
-	"log"
-	"net"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
-	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/storage"
@@ -44,15 +34,6 @@ type MockKeyValueStore struct {
 	IterateCalled int
 }
 
-// RedisDone is a function type that describes the callback returned by `EnsureRedis`
-type RedisDone func()
-
-// RedisServer is a struct which holds and manages the state of a `redis-server` process
-type RedisServer struct {
-	cmd     *exec.Cmd
-	started bool
-}
-
 var (
 	// ErrMissingKey is the error class returned if a key is not in the mock store
 	ErrMissingKey = errs.Class("missing")
@@ -60,11 +41,6 @@ var (
 	// ErrForced is the error class returned when the forced error flag is passed
 	// to mock an error
 	ErrForced = errs.Class("error forced by using 'error' key in mock")
-
-	redisRefs = map[string]bool{}
-	testRedis = &RedisServer{
-		started: false,
-	}
 )
 
 // Get looks up the provided key from the MockKeyValueStore returning either an error or the result.
@@ -179,111 +155,4 @@ func NewMockKeyValueStore(d KvStore) *MockKeyValueStore {
 	return &MockKeyValueStore{
 		Data: d,
 	}
-}
-
-// RedisAddress is the address used by redis for tests
-const RedisAddress = "127.0.0.1:6379"
-
-// EnsureRedis attempts to start the `redis-server` binary
-// Tests that want to use Redis should configure the application to use
-// the RedisAddress variable
-func EnsureRedis(t *testing.T) (_ RedisDone) {
-	index, _ := randomHex(5)
-	redisRefs[index] = true
-
-	if !testRedis.started {
-		conn, err := net.Dial("tcp", "127.0.0.1:6379")
-		if err != nil {
-			testRedis.start(t)
-		} else {
-			testRedis.started = true
-			_, err := conn.Write([]byte("*1\r\n$8\r\nflushall\r\n"))
-			if err != nil {
-				log.Fatalf("Failed to request flush of existing redis keys: error %s\n", err)
-			}
-			var n int
-			b := make([]byte, 5)
-			n, err = conn.Read(b)
-			if err != nil {
-				log.Fatalf("Failed to flush existing redis keys: error %s\n", err)
-			}
-			if n != len(b) || !bytes.Equal(b, []byte("+OK\r\n")) {
-				log.Fatalf("Failed to flush existing redis keys: Unexpected response %s\n", b)
-			}
-			err = conn.Close()
-			if err != nil {
-				log.Fatalf("Failed to close conn: %s\n", err)
-			}
-		}
-	}
-
-	return func() {
-		if v := recover(); v != nil {
-			testRedis.stop()
-			panic(v)
-		}
-
-		redisRefs[index] = false
-
-		if !(redisRefCount() > 0) {
-			testRedis.stop()
-		}
-	}
-}
-
-func redisRefCount() (_ int) {
-	count := 0
-	for _, ref := range redisRefs {
-		if ref {
-			count++
-		}
-	}
-
-	return count
-}
-
-func (r *RedisServer) start(t *testing.T) {
-	r.cmd = &exec.Cmd{}
-	cmd := r.cmd
-
-	logPath, err := filepath.Abs("test_redis-server.log")
-	assert.NoError(t, err)
-
-	binPath, err := exec.LookPath("redis-server")
-	assert.NoError(t, err)
-
-	log, err := os.Create(logPath)
-	assert.NoError(t, err)
-
-	cmd.Path = binPath
-	cmd.Stdout = log
-
-	go func() {
-		r.started = true
-
-		if err := cmd.Run(); err != nil {
-			// TODO(bryanchriswhite) error checking
-			t.Logf("unable to run redis: %v", err)
-		}
-	}()
-
-	time.Sleep(2 * time.Second)
-}
-
-func (r *RedisServer) stop() {
-	r.started = false
-	if r.cmd == nil {
-		return
-	}
-	if err := r.cmd.Process.Kill(); err != nil {
-		log.Printf("Failed to kill process: %s\n", err)
-	}
-}
-
-func randomHex(n int) (string, error) {
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }
