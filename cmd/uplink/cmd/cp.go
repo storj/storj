@@ -134,9 +134,11 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	}
 	defer utils.LogClose(r)
 
-	o, err = bs.GetObjectStore(ctx, destObj.Host)
-	if err != nil {
-		return err
+	if destObj.Host != srcObj.Host {
+		o, err = bs.GetObjectStore(ctx, destObj.Host)
+		if err != nil {
+			return err
+		}
 	}
 
 	meta := objects.SerializableMeta{}
