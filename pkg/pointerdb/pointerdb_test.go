@@ -164,12 +164,12 @@ func TestServiceList(t *testing.T) {
 	pointerValue := storage.Value(pointerBytes)
 
 	err = storage.PutAll(db, []storage.ListItem{
-		{Key: key("sample.jpg"), Value: pointerValue},
-		{Key: key("music/song1.mp3"), Value: pointerValue},
-		{Key: key("music/song2.mp3"), Value: pointerValue},
-		{Key: key("music/album/song3.mp3"), Value: pointerValue},
-		{Key: key("music/song4.mp3"), Value: pointerValue},
-		{Key: key("videos/movie.mkv"), Value: pointerValue},
+		{Key: key("sample.😶"), Value: pointerValue},
+		{Key: key("müsic/söng1.mp3"), Value: pointerValue},
+		{Key: key("müsic/söng2.mp3"), Value: pointerValue},
+		{Key: key("müsic/album/söng3.mp3"), Value: pointerValue},
+		{Key: key("müsic/söng4.mp3"), Value: pointerValue},
+		{Key: key("ビデオ/movie.mkv"), Value: pointerValue},
 	}...)
 	if err != nil {
 		t.Fatal(err)
@@ -196,24 +196,24 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{Recursive: true},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "music/album/song3.mp3"},
-					{Path: "music/song1.mp3"},
-					{Path: "music/song2.mp3"},
-					{Path: "music/song4.mp3"},
-					{Path: "sample.jpg"},
-					{Path: "videos/movie.mkv"},
+					{Path: "müsic/album/söng3.mp3"},
+					{Path: "müsic/söng1.mp3"},
+					{Path: "müsic/söng2.mp3"},
+					{Path: "müsic/söng4.mp3"},
+					{Path: "sample.😶"},
+					{Path: "ビデオ/movie.mkv"},
 				},
 			},
 		}, {
 			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "music/album/song3.mp3", Pointer: pointer},
-					{Path: "music/song1.mp3", Pointer: pointer},
-					{Path: "music/song2.mp3", Pointer: pointer},
-					{Path: "music/song4.mp3", Pointer: pointer},
-					{Path: "sample.jpg", Pointer: pointer},
-					{Path: "videos/movie.mkv", Pointer: pointer},
+					{Path: "müsic/album/söng3.mp3", Pointer: pointer},
+					{Path: "müsic/söng1.mp3", Pointer: pointer},
+					{Path: "müsic/söng2.mp3", Pointer: pointer},
+					{Path: "müsic/söng4.mp3", Pointer: pointer},
+					{Path: "sample.😶", Pointer: pointer},
+					{Path: "ビデオ/movie.mkv", Pointer: pointer},
 				},
 			},
 		}, {
@@ -223,8 +223,8 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{Recursive: true, Limit: 2},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "music/album/song3.mp3"},
-					{Path: "music/song1.mp3"},
+					{Path: "müsic/album/söng3.mp3"},
+					{Path: "müsic/söng1.mp3"},
 				},
 				More: true,
 			},
@@ -232,69 +232,69 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "music/", IsPrefix: true},
-					{Path: "sample.jpg", Pointer: pointer},
-					{Path: "videos/", IsPrefix: true},
+					{Path: "müsic/", IsPrefix: true},
+					{Path: "sample.😶", Pointer: pointer},
+					{Path: "ビデオ/", IsPrefix: true},
 				},
 				More: false,
 			},
 		}, {
-			Request: pb.ListRequest{EndBefore: "videos"},
+			Request: pb.ListRequest{EndBefore: "ビデオ"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "music/", IsPrefix: true},
-					{Path: "sample.jpg"},
+					{Path: "müsic/", IsPrefix: true},
+					{Path: "sample.😶"},
 				},
 				More: false,
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, Prefix: "music"},
+			Request: pb.ListRequest{Recursive: true, Prefix: "müsic"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "album/song3.mp3"},
-					{Path: "song1.mp3"},
-					{Path: "song2.mp3"},
-					{Path: "song4.mp3"},
+					{Path: "album/söng3.mp3"},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, Prefix: "music", StartAfter: "album/song3.mp3"},
+			Request: pb.ListRequest{Recursive: true, Prefix: "müsic", StartAfter: "album/söng3.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
-					{Path: "song1.mp3"},
-					{Path: "song2.mp3"},
-					{Path: "song4.mp3"},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "music"},
-			Expected: &pb.ListResponse{
-				Items: []*pb.ListResponse_Item{
-					{Path: "album/", IsPrefix: true},
-					{Path: "song1.mp3"},
-					{Path: "song2.mp3"},
-					{Path: "song4.mp3"},
-				},
-			},
-		}, {
-			Request: pb.ListRequest{Prefix: "music", StartAfter: "song1.mp3"},
-			Expected: &pb.ListResponse{
-				Items: []*pb.ListResponse_Item{
-					{Path: "song2.mp3"},
-					{Path: "song4.mp3"},
-				},
-			},
-		}, {
-			Request: pb.ListRequest{Prefix: "music", EndBefore: "song4.mp3"},
+			Request: pb.ListRequest{Prefix: "müsic"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "album/", IsPrefix: true},
-					{Path: "song1.mp3"},
-					{Path: "song2.mp3"},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "mus", Recursive: true, EndBefore: "ic/song4.mp3", Limit: 1},
+			Request: pb.ListRequest{Prefix: "müsic", StartAfter: "söng1.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "söng2.mp3"},
+					{Path: "söng4.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "müsic", EndBefore: "söng4.mp3"},
+			Expected: &pb.ListResponse{
+				Items: []*pb.ListResponse_Item{
+					{Path: "album/", IsPrefix: true},
+					{Path: "söng1.mp3"},
+					{Path: "söng2.mp3"},
+				},
+			},
+		}, {
+			Request: pb.ListRequest{Prefix: "mus", Recursive: true, EndBefore: "ic/söng4.mp3", Limit: 1},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{},
 				More:  false,
@@ -303,7 +303,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	// TODO:
-	//    pb.ListRequest{Prefix: "music/", StartAfter: "song1.mp3", EndBefore: "song4.mp3"},
+	//    pb.ListRequest{Prefix: "müsic/", StartAfter: "söng1.mp3", EndBefore: "söng4.mp3"},
 	//    failing database
 	for i, test := range tests {
 		resp, err := server.List(ctx, &test.Request)
