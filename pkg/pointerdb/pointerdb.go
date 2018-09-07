@@ -5,6 +5,7 @@ package pointerdb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -136,14 +137,16 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	var prefix storage.Key
 	if req.Prefix != "" {
 		// TODO: remove this special case
-		prefix = storage.Key(req.Prefix + "/")
+		if !strings.HasSuffix(req.Prefix, "/") {
+			prefix = storage.Key(req.Prefix + "/")
+		}
 	}
 
 	rawItems, more, err := storage.ListV2(s.DB, storage.ListOptions{
 		Prefix:       prefix,
 		StartAfter:   storage.Key(req.StartAfter),
 		EndBefore:    storage.Key(req.EndBefore),
-		Recursive:    true, // req.Recursive,
+		Recursive:    req.Recursive,
 		Limit:        storage.Limit(req.Limit),
 		IncludeValue: req.MetaFlags != meta.None,
 	})
