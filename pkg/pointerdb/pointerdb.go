@@ -140,6 +140,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 
 	var prefix storage.Key
 	if req.Prefix != "" {
+		// TODO: remove this special case
 		prefix = storage.Key(req.Prefix + "/")
 	}
 
