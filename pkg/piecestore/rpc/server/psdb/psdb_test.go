@@ -22,7 +22,7 @@ var ctx = context.Background()
 
 const concurrency = 10
 
-func TestHappyPath(t *testing.T) {
+func openTest(t testing.TB) (*DB, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb")
 	if err != nil {
 		t.Fatal(err)
@@ -34,6 +34,22 @@ func TestHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return db, func() {
+		err := db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = os.RemoveAll(tmpdir)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestHappyPath(t *testing.T) {
+	db, cleanup := openTest(t)
+	defer cleanup()
 
 	type TTL struct {
 		ID         string
@@ -109,16 +125,8 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	serialize := func(v proto.Message) []byte {
-		data, err := proto.Marshal(v)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return data
-	}
-
 	bandwidthAllocation := func(total int64) []byte {
-		return serialize(&pb.RenterBandwidthAllocation_Data{
+		return serialize(t, &pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: &pb.PayerBandwidthAllocation{},
 			Total:           total,
 		})
@@ -174,4 +182,35 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
+}
+
+func BenchmarkWriteBandwidthAllocation(b *testing.B) {
+	db, cleanup := openTest(b)
+	defer cleanup()
+
+	const WritesPerLoop = 10
+
+	data := serialize(b, &pb.RenterBandwidthAllocation_Data{
+		PayerAllocation: &pb.PayerBandwidthAllocation{},
+		Total:           156,
+	})
+
+	b.RunParallel(func(b *testing.PB) {
+		for b.Next() {
+			for i := 0; i < WritesPerLoop; i++ {
+				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
+					Signature: []byte("signed by test"),
+					Data:      data,
+				})
+			}
+		}
+	})
+}
+
+func serialize(t testing.TB, v proto.Message) []byte {
+	data, err := proto.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
