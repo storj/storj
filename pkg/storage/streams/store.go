@@ -180,7 +180,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	encKey := sha256.Sum256([]byte(s.key))
+	encKey := sha256.Sum256(s.key)
 	var firstNonce [12]byte
 	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
 	if err != nil {
