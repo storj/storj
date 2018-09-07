@@ -77,6 +77,7 @@ type StreamReader struct {
 	totalRead int64
 	max       int64
 	allocated int64
+	err       error
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
@@ -87,25 +88,28 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		max:      max,
 	}
 
+	// Send signed allocations to the piece store server
 	go func() {
 		for {
-			err := sr.throttle.ProduceAndWaitUntilBelow(int64(signer.bandwidthMsgSize), max)
-			if err != nil {
-				// TODO what should we do about an error here?
+			nextTotal := sr.allocated + int64(signer.bandwidthMsgSize)
+			if nextTotal > max {
+				nextTotal = max
 			}
 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
-				Total:           sr.allocated,
+				Total:           nextTotal,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
 			if err != nil {
+				sr.err = err
 				break
 			}
 
 			sig, err := signer.sign(serializedAllocation)
 			if err != nil {
+				sr.err = err
 				break
 			}
 
@@ -117,6 +121,14 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			}
 
 			if err = stream.Send(msg); err != nil {
+				sr.err = err
+				break
+			}
+
+			sr.allocated += nextTotal
+
+			if err = sr.throttle.ProduceAndWaitUntilBelow(int64(signer.bandwidthMsgSize), max); err != nil {
+				sr.err = err
 				break
 			}
 
@@ -124,13 +136,20 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	}()
 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		_, err := sr.throttle.ConsumeOrWait(int64(signer.bandwidthMsgSize))
+		if sr.err != nil {
+			return nil, sr.err
+		}
+
 		resp, err := stream.Recv()
 		if err != nil {
 			return nil, err
 		}
 
 		sr.totalRead += int64(len(resp.GetContent()))
+		_, err = sr.throttle.ConsumeOrWait(int64(len(resp.GetContent())))
+		if err != nil {
+			return resp.GetContent(), err
+		}
 
 		return resp.GetContent(), nil
 	})
