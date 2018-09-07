@@ -90,6 +90,9 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prike
 
 // Close closes the connection with piecestore
 func (client *Client) Close() error {
+	if client.conn == nil {
+		return ClientError.New("connection not established")
+	}
 	return client.conn.Close()
 }
 
