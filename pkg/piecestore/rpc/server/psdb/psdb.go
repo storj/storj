@@ -43,7 +43,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=private&mode=rwc&mutex=full", DBPath))
 	if err != nil {
 		return nil, err
 	}
