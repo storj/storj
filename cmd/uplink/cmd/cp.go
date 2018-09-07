@@ -76,6 +76,11 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
 func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
+	if srcObj.Scheme == "" {
+		fmt.Println("Invalid source")
+		return nil
+	}
+
 	o, err := bs.GetObjectStore(ctx, srcObj.Host)
 	if err != nil {
 		return err
