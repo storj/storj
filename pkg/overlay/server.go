@@ -132,7 +132,7 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	}
 
 	nextStart := keys[len(keys)-1]
-	if len(keys) < int(limit) {
+	if len(keys) < limit {
 		nextStart = nil
 	}
 
