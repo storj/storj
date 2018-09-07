@@ -118,13 +118,13 @@ func (store *Client) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from start and upto limit items
-func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.List++
 	return storage.ListKeys(store, first, limit)
 }
 
 // ReverseList lists all keys in revers order
-func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.ReverseList++
 	return storage.ReverseListKeys(store, first, limit)
 }

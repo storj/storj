@@ -33,7 +33,7 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 		Name     string
 		Reverse  bool
 		First    storage.Key
-		Limit    storage.Limit
+		Limit    int
 		Expected storage.Keys
 	}
 

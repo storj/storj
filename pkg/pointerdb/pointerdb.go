@@ -138,7 +138,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 		StartAfter:   storage.Key(req.StartAfter),
 		EndBefore:    storage.Key(req.EndBefore),
 		Recursive:    req.Recursive,
-		Limit:        storage.Limit(req.Limit),
+		Limit:        int(req.Limit),
 		IncludeValue: req.MetaFlags != meta.None,
 	})
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 		items = append(items, s.createListItem(rawItem, req.MetaFlags))
 	}
 
-	return &pb.ListResponse{Items: items, More: more == storage.More(true)}, nil
+	return &pb.ListResponse{Items: items, More: more}, nil
 }
 
 // createListItem creates a new list item with the given path. It also adds

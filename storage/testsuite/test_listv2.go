@@ -35,7 +35,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	type Test struct {
 		Name     string
 		Options  storage.ListOptions
-		More     storage.More
+		More     bool
 		Expected storage.Items
 	}
 
