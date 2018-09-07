@@ -147,7 +147,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 		sr.totalRead += int64(len(resp.GetContent()))
 
-		_, err = sr.throttle.ConsumeOrWait(int64(len(resp.GetContent())))
+		err = sr.throttle.Consume(int64(len(resp.GetContent())))
 		if err != nil {
 			return resp.GetContent(), err
 		}

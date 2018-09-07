@@ -27,6 +27,15 @@ func NewThrottle() *Throttle {
 	return &throttle
 }
 
+// Consume subtracts amount from the throttle
+func (throttle *Throttle) Consume(amount int64) error {
+	throttle.mu.Lock()
+	defer throttle.mu.Unlock()
+	throttle.available -= amount
+	throttle.producer.Signal()
+	return throttle.combinedError()
+}
+
 // ConsumeOrWait tries to consume at most maxAmount
 func (throttle *Throttle) ConsumeOrWait(maxAmount int64) (int64, error) {
 	throttle.mu.Lock()
