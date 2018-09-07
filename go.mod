@@ -133,7 +133,7 @@ require (
 	github.com/tpng/gopkgs v0.0.0-20180428091733-81e90e22e204 // indirect
 	github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716
 	github.com/urfave/cli v1.20.0
-	github.com/vivint/infectious v0.0.0-20180510042615-a7f6b88306f8
+	github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20180827083657-b942cacc89fe // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c

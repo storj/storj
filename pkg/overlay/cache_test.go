@@ -5,14 +5,11 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +23,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 var (
@@ -225,8 +223,8 @@ var (
 	}
 )
 
-func redisTestClient(t *testing.T, data test.KvStore) storage.KeyValueStore {
-	client, err := redis.NewClient("127.0.0.1:6379", "", 1)
+func redisTestClient(t *testing.T, addr string, data test.KvStore) storage.KeyValueStore {
+	client, err := redis.NewClient(addr, "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,12 +266,15 @@ func populateStorage(t *testing.T, client storage.KeyValueStore, data test.KvSto
 }
 
 func TestRedisGet(t *testing.T) {
-	done := test.EnsureRedis(t)
-	defer done()
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
 
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db := redisTestClient(t, c.data)
+			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
 			resp, err := oc.Get(ctx, c.key)
@@ -292,12 +293,15 @@ func assertErrClass(t *testing.T, class *errs.Class, err error) {
 }
 
 func TestRedisPut(t *testing.T) {
-	done := test.EnsureRedis(t)
-	defer done()
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
 
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db := redisTestClient(t, c.data)
+			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
 			err := oc.Put(c.key, c.value)
@@ -409,13 +413,19 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestNewRedisOverlayCache(t *testing.T) {
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+
 	cases := []struct {
 		testName, address string
 		testFunc          func(string)
 	}{
 		{
 			testName: "NewRedisOverlayCache valid",
-			address:  "127.0.0.1:6379",
+			address:  redisAddr,
 			testFunc: func(address string) {
 				cache, err := NewRedisOverlayCache(address, "", 1, nil)
 
@@ -440,25 +450,4 @@ func TestNewRedisOverlayCache(t *testing.T) {
 			c.testFunc(c.address)
 		})
 	}
-}
-func TestMain(m *testing.M) {
-	cmd := exec.Command("redis-server")
-
-	err := cmd.Start()
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	//waiting for "redis-server command" to start
-	time.Sleep(time.Second)
-
-	retCode := m.Run()
-
-	err = cmd.Process.Kill()
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	os.Exit(retCode)
 }
