@@ -86,7 +86,7 @@ func TestPiece(t *testing.T) {
 			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
 		{ // server should err with invalid TTL
-			id:         ";DELETE*FROM TTL;;;;",
+			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
 			size:       5,
 			expiration: 9999999999,
 			err:        "rpc error: code = Unknown desc = PSServer error: Invalid ID",
