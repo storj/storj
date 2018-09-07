@@ -84,6 +84,9 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 
 // GetAll looks up the provided nodeIDs from the overlay cache
 func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, error) {
+	if len(keys) == 0 {
+		return nil, OverlayError.New("no keys provided")
+	}
 	var ks storage.Keys
 	for _, v := range keys {
 		ks = append(ks, storage.Key(v))

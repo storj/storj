@@ -164,6 +164,34 @@ func TestBulkLookup(t *testing.T) {
 	}
 }
 
+func TestBulkLookupV2(t *testing.T) {
+	//setup
+	//add node set to db
+	// nodes := []*proto.Node{}
+
+
+	// cases := []struct {
+	// 	testID string
+	// 	nodeIDs []dht.NodeID
+	// 	responses []*proto.Node
+	// }{
+	// 	{testID: "valid ids"},
+	// 	{testID: "invalid ids"},
+	// 	{testID: "missing ids"},
+	// 	{testID: "empty id"},
+	// 	{testID: "random order"},
+	// 	{testID: "random order and missing and invalid ids"},
+
+	// }
+	// for _, v := range cases {
+		
+	// }
+}
+
+
+
+
+
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {

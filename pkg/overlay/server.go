@@ -44,7 +44,7 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 func (o *Server) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
 	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
 	if err != nil {
-		o.logger.Error("")
+		o.logger.Error("") //TODO
 		return nil, err
 	}
 	return nodesToLookupResponses(ns), nil

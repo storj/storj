@@ -261,6 +261,39 @@ var (
 				}(),
 			},
 		},
+		{testID: "empty string keys",
+			expectedTimesCalled: 1,
+			keys:                []string{"", ""},
+			expectedResponses: func() responsesB {
+				ns := []*overlay.Node{nil, nil}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+		},
+		{testID: "empty keys",
+			expectedTimesCalled: 0,
+			keys:                []string{},
+			expectedResponses: func() responsesB {
+				return responsesB{
+					mock:   nil,
+					bolt:   nil,
+					_redis: nil,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   &OverlayError,
+				bolt:   &OverlayError,
+				_redis: &OverlayError,
+			},
+		},
 	}
 	putCases = []struct {
 		testID              string
