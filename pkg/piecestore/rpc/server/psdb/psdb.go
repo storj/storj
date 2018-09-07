@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
+
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -61,7 +62,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
@@ -110,7 +111,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback()
+		defer func(){ _ = tx.Rollback() }
 
 		now := time.Now().Unix()
 
@@ -171,7 +172,7 @@ func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 	return err
 }
 
-// GetBandwidthAllocationBySignature fidn
+// GetBandwidthAllocationBySignature finds allocation info by signature
 func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, error) {
 	defer db.locked()()
 
