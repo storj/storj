@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -18,10 +17,7 @@ var (
 	Error = errs.Class("redis error")
 )
 
-const (
-	defaultNodeExpiration = 61 * time.Minute
-	maxKeyLookup          = 100
-)
+const defaultNodeExpiration = 61 * time.Minute
 
 // Client is the entrypoint into Redis
 type Client struct {
@@ -101,8 +97,8 @@ func (client *Client) Close() error {
 // The maximum keys returned will be 100. If more than that is requested an
 // error will be returned
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	if len(keys) > maxKeyLookup {
-		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", len(keys), maxKeyLookup))
+	if len(keys) > storage.LookupLimit {
+		return nil, storage.ErrLimitExceeded
 	}
 
 	keyStrings := make([]string, len(keys))

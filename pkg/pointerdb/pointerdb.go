@@ -25,11 +25,6 @@ var (
 	segmentError = errs.Class("segment error")
 )
 
-// ListPageLimit is the maximum number of items that will be returned by a list
-// request.
-// TODO(kaloyan): make it configurable
-const ListPageLimit = 1000
-
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore

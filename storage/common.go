@@ -19,6 +19,9 @@ var ErrKeyNotFound = errs.Class("key not found")
 // ErrEmptyKey is returned when an empty key is used in Put
 var ErrEmptyKey = errors.New("empty key")
 
+// ErrLimitExceeded is returned when request limit is exceeded
+var ErrLimitExceeded = errors.New("limit exceeded")
+
 // Key is the type for the keys in a `KeyValueStore`
 type Key []byte
 
@@ -36,6 +39,9 @@ type Limit int
 
 // Items keeps all ListItem
 type Items []ListItem
+
+// LookupLimit is enforced by storage implementations
+const LookupLimit = 1000
 
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {

@@ -5,7 +5,6 @@ package boltdb
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
 	"storj.io/storj/pkg/utils"
@@ -24,7 +23,6 @@ type Client struct {
 const (
 	// fileMode sets permissions so owner can read and write
 	fileMode       = 0600
-	maxKeyLookup   = 100
 	defaultTimeout = 1 * time.Second
 )
 
@@ -116,12 +114,11 @@ func (client *Client) Close() error {
 // GetAll finds all values for the provided keys up to 100 keys
 // if more keys are provided than the maximum an error will be returned.
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	lk := len(keys)
-	if lk > maxKeyLookup {
-		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", lk, maxKeyLookup))
+	if len(keys) > storage.LookupLimit {
+		return nil, storage.ErrLimitExceeded
 	}
 
-	vals := make(storage.Values, 0, lk)
+	vals := make(storage.Values, 0, len(keys))
 	err := client.view(func(bucket *bolt.Bucket) error {
 		for _, key := range keys {
 			val := bucket.Get([]byte(key))
