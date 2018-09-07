@@ -124,16 +124,13 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 				},
 			}
 
-			fmt.Println("Before send")
 			if err = stream.Send(msg); err != nil {
 				sr.err = err
 				break
 			}
-			fmt.Println("After send")
 
 			sr.allocated += trustedSize
 
-			fmt.Printf("Before ProduceAndWaitUntilBelow(%v, %v)\n", nextAllocSize, MaxAllocSize)
 			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, MaxAllocSize*2); err != nil {
 				sr.err = err
 				break
@@ -144,8 +141,6 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			if trustedSize > MaxAllocSize {
 				trustedSize = MaxAllocSize
 			}
-
-			fmt.Printf("After ProduceAndWaitUntilBelow(%v, %v)\n", nextAllocSize, MaxAllocSize)
 		}
 	}()
 
@@ -154,21 +149,17 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			return nil, sr.err
 		}
 
-		fmt.Println("Before recv")
 		resp, err := stream.Recv()
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("After recv")
 
 		sr.totalRead += int64(len(resp.GetContent()))
 
-		fmt.Printf("Before Consume(%v)\n", int64(len(resp.GetContent())))
 		err = sr.throttle.Consume(int64(len(resp.GetContent())))
 		if err != nil {
 			return resp.GetContent(), err
 		}
-		fmt.Printf("After Consume(%v)\n", int64(len(resp.GetContent())))
 
 		return resp.GetContent(), nil
 	})
