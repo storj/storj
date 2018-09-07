@@ -5,7 +5,7 @@ if [[ ! -f "${CONF_PATH}" ]]; then
 	./storagenode setup
 fi
 
-RUN_PARAMS="${RUN_PARAMS:-} --config \"${CONF_PATH}\""
+RUN_PARAMS="${RUN_PARAMS:-} --config ${CONF_PATH}"
 
 if [ -n "${SATELLITE_ADDR:-}" ]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr $SATELLITE_ADDR"
