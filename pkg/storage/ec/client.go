@@ -278,6 +278,8 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 			return nil, err
 		}
 		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
+		// no ps.CloseConn() here, the connection will be closed by
+		// the caller using RangeCloser.Close
 		if err != nil {
 			return nil, err
 		}
