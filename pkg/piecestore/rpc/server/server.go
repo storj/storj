@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
@@ -85,11 +86,20 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Printf("Getting Meta for %s...", in.Id)
+	log.Printf("Getting Meta for %s...", in.GetId())
 
 	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
 		return nil, err
+	}
+
+	match, err := regexp.MatchString("[a-zA-Z0-9]{0,20}", in.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	if match == false {
+		return nil, ServerError.New("Invalid ID")
 	}
 
 	fileInfo, err := os.Stat(path)

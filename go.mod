@@ -39,6 +39,7 @@ require (
 	github.com/go-redis/redis v0.0.0-20180417061816-9ccc23344a52
 	github.com/go-sql-driver/mysql v1.4.0 // indirect
 	github.com/gogo/protobuf v1.0.0
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.1.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
