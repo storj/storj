@@ -30,8 +30,9 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path paths.Path
-	Meta Meta
+	Path     paths.Path
+	Meta     Meta
+	IsPrefix bool
 }
 
 // Store for objects
@@ -105,8 +106,9 @@ func (o *objStore) List(ctx context.Context, prefix, startAfter,
 	items = make([]ListItem, len(strItems))
 	for i, itm := range strItems {
 		items[i] = ListItem{
-			Path: itm.Path,
-			Meta: convertMeta(itm.Meta),
+			Path:     itm.Path,
+			Meta:     convertMeta(itm.Meta),
+			IsPrefix: itm.IsPrefix,
 		}
 	}
 

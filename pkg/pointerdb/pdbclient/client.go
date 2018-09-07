@@ -33,8 +33,9 @@ var _ Client = (*PointerDB)(nil)
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path    p.Path
-	Pointer *pb.Pointer
+	Path     p.Path
+	Pointer  *pb.Pointer
+	IsPrefix bool
 }
 
 // Client services offerred for the interface
@@ -130,8 +131,9 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items = make([]ListItem, len(list))
 	for i, itm := range list {
 		items[i] = ListItem{
-			Path:    p.New(itm.GetPath()),
-			Pointer: itm.GetPointer(),
+			Path:     p.New(itm.GetPath()),
+			Pointer:  itm.GetPointer(),
+			IsPrefix: itm.IsPrefix,
 		}
 	}
 

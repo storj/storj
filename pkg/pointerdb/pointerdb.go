@@ -133,8 +133,16 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 		return nil, err
 	}
 
+	var prefix storage.Key
+	if req.Prefix != "" {
+		prefix = storage.Key(req.Prefix)
+		if prefix[len(prefix)-1] != storage.Delimiter {
+			prefix = append(prefix, storage.Delimiter)
+		}
+	}
+
 	rawItems, more, err := storage.ListV2(s.DB, storage.ListOptions{
-		Prefix:       storage.Key(req.Prefix),
+		Prefix:       prefix, //storage.Key(req.Prefix),
 		StartAfter:   storage.Key(req.StartAfter),
 		EndBefore:    storage.Key(req.EndBefore),
 		Recursive:    req.Recursive,
@@ -147,7 +155,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 
 	var items []*pb.ListResponse_Item
 	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(rawItem, req.MetaFlags))
+		items = append(items, s.createListItem(prefix, rawItem, req.MetaFlags))
 	}
 
 	return &pb.ListResponse{Items: items, More: more}, nil
@@ -155,9 +163,9 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
-func (s *Server) createListItem(rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+func (s *Server) createListItem(prefix storage.Key, rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
 	item := &pb.ListResponse_Item{
-		Path:     rawItem.Key.String(),
+		Path:     append(prefix, rawItem.Key...).String(),
 		IsPrefix: rawItem.IsPrefix,
 	}
 	if item.IsPrefix {
