@@ -59,16 +59,16 @@ func (store *Logger) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from first and upto limit items
-func (store *Logger) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Logger) List(first storage.Key, limit int) (storage.Keys, error) {
 	keys, err := store.store.List(first, limit)
-	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 
 // ReverseList lists all keys in reverse order, starting from first
-func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Logger) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	keys, err := store.store.ReverseList(first, limit)
-	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 

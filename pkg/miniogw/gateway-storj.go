@@ -216,6 +216,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		for i, fi := range items {
 			f[i] = minio.ObjectInfo{
 				Bucket:      bucket,
+				IsDir:       fi.IsPrefix,
 				Name:        fi.Path.String(),
 				ModTime:     fi.Meta.Modified,
 				Size:        fi.Meta.Size,

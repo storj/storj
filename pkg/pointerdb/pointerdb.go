@@ -5,7 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -15,7 +14,6 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pointerdb/auth"
 	pb "storj.io/storj/protos/pointerdb"
@@ -126,132 +124,55 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	}, nil
 }
 
-// List calls the bolt client's List function and returns all Path keys in the Pointers bucket
+// List returns all Path keys in the Pointers bucket
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb list")
 
-	limit := int(req.GetLimit())
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(req.APIKey); err != nil {
 		return nil, err
 	}
 
-	prefix := paths.New(req.GetPrefix())
+	var prefix storage.Key
+	if req.Prefix != "" {
+		prefix = storage.Key(req.Prefix)
+		if prefix[len(prefix)-1] != storage.Delimiter {
+			prefix = append(prefix, storage.Delimiter)
+		}
+	}
 
-	// TODO(kaloyan): here we query the DB without limit. We must optimize it!
-	keys, err := s.DB.List([]byte(req.GetPrefix()+"/"), 0)
+	rawItems, more, err := storage.ListV2(s.DB, storage.ListOptions{
+		Prefix:       prefix, //storage.Key(req.Prefix),
+		StartAfter:   storage.Key(req.StartAfter),
+		EndBefore:    storage.Key(req.EndBefore),
+		Recursive:    req.Recursive,
+		Limit:        int(req.Limit),
+		IncludeValue: req.MetaFlags != meta.None,
+	})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}
 
-	var more bool
 	var items []*pb.ListResponse_Item
-	if req.GetEndBefore() != "" && req.GetStartAfter() == "" {
-		items, more = s.processKeysBackwards(ctx, keys, prefix,
-			req.GetEndBefore(), req.GetRecursive(), limit, req.GetMetaFlags())
-	} else {
-		items, more = s.processKeysForwards(ctx, keys, prefix, req.GetStartAfter(),
-			req.GetEndBefore(), req.GetRecursive(), limit, req.GetMetaFlags())
+	for _, rawItem := range rawItems {
+		items = append(items, s.createListItem(prefix, rawItem, req.MetaFlags))
 	}
 
-	s.logger.Debug("path keys retrieved")
 	return &pb.ListResponse{Items: items, More: more}, nil
-}
-
-// processKeysForwards iterates forwards through given keys, and returns them
-// as list items
-func (s *Server) processKeysForwards(ctx context.Context, keys storage.Keys,
-	prefix paths.Path, startAfter, endBefore string, recursive bool, limit int,
-	metaFlags uint32) (items []*pb.ListResponse_Item, more bool) {
-	skip := startAfter != ""
-	startAfterPath := prefix.Append(startAfter)
-	endBeforePath := prefix.Append(endBefore)
-
-	for _, key := range keys {
-		p := paths.New(string(key))
-
-		if skip {
-			if reflect.DeepEqual(p, startAfterPath) {
-				// TODO(kaloyan): Better check - what if there is no path equal to startAfter?
-				// TODO(kaloyan): Add Equal method in Path type
-				skip = false
-			}
-			continue
-		}
-
-		// TODO(kaloyan): Better check - what if there is no path equal to endBefore?
-		// TODO(kaloyan): Add Equal method in Path type
-		if reflect.DeepEqual(p, endBeforePath) {
-			break
-		}
-
-		if !p.HasPrefix(prefix) {
-			// We went through all keys that start with the prefix
-			break
-		}
-
-		if !recursive && len(p) > len(prefix)+1 {
-			continue
-		}
-
-		item := s.createListItem(ctx, p, metaFlags)
-		items = append(items, item)
-
-		if len(items) == limit {
-			more = true
-			break
-		}
-	}
-	return items, more
-}
-
-// processKeysBackwards iterates backwards through given keys, and returns them
-// as list items
-func (s *Server) processKeysBackwards(ctx context.Context, keys storage.Keys,
-	prefix paths.Path, endBefore string, recursive bool, limit int,
-	metaFlags uint32) (items []*pb.ListResponse_Item, more bool) {
-	skip := endBefore != ""
-	endBeforePath := prefix.Append(endBefore)
-
-	for i := len(keys) - 1; i >= 0; i-- {
-		key := keys[i]
-		p := paths.New(string(key))
-
-		if skip {
-			if reflect.DeepEqual(p, endBeforePath) {
-				// TODO(kaloyan): Better check - what if there is no path equal to endBefore?
-				// TODO(kaloyan): Add Equal method in Path type
-				skip = false
-			}
-			continue
-		}
-
-		if !p.HasPrefix(prefix) || len(p) <= len(prefix) {
-			// We went through all keys that start with the prefix
-			break
-		}
-
-		if !recursive && len(p) > len(prefix)+1 {
-			continue
-		}
-
-		item := s.createListItem(ctx, p, metaFlags)
-		items = append([]*pb.ListResponse_Item{item}, items...)
-
-		if len(items) == limit {
-			more = true
-			break
-		}
-	}
-	return items, more
 }
 
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
-func (s *Server) createListItem(ctx context.Context, p paths.Path,
-	metaFlags uint32) *pb.ListResponse_Item {
-	item := &pb.ListResponse_Item{Path: p.String()}
-	err := s.getMetadata(ctx, item, metaFlags)
+func (s *Server) createListItem(prefix storage.Key, rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+	item := &pb.ListResponse_Item{
+		Path:     append(prefix, rawItem.Key...).String(),
+		IsPrefix: rawItem.IsPrefix,
+	}
+	if item.IsPrefix {
+		return item
+	}
+
+	err := s.setMetadata(item, rawItem.Value, metaFlags)
 	if err != nil {
 		s.logger.Warn("err retrieving metadata", zap.Error(err))
 	}
@@ -260,21 +181,13 @@ func (s *Server) createListItem(ctx context.Context, p paths.Path,
 
 // getMetadata adds the metadata to the given item pointer according to the
 // given metaFlags
-func (s *Server) getMetadata(ctx context.Context, item *pb.ListResponse_Item,
-	metaFlags uint32) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if metaFlags == meta.None {
+func (s *Server) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags uint32) (err error) {
+	if metaFlags == meta.None || len(data) == 0 {
 		return nil
 	}
 
-	b, err := s.DB.Get([]byte(item.GetPath()))
-	if err != nil {
-		return err
-	}
-
 	pr := &pb.Pointer{}
-	err = proto.Unmarshal(b, pr)
+	err = proto.Unmarshal(data, pr)
 	if err != nil {
 		return err
 	}

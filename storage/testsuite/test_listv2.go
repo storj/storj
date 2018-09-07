@@ -25,20 +25,17 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 		newItem("videos/movie.mkv", "7", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-
 	defer cleanupItems(store, items)
-
-	for _, item := range items {
-		if err := store.Put(item.Key, item.Value); err != nil {
-			t.Fatalf("failed to put: %v", err)
-		}
+	if err := storage.PutAll(store, items...); err != nil {
+		t.Fatalf("failed to setup: %v", err)
 	}
+
 	sort.Sort(items)
 
 	type Test struct {
 		Name     string
 		Options  storage.ListOptions
-		More     storage.More
+		More     bool
 		Expected storage.Items
 	}
 

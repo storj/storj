@@ -34,9 +34,6 @@ type Keys []Key
 // Values is the type for a slice of Values in a `KeyValueStore`
 type Values []Value
 
-// Limit indicates how many keys to return when calling List
-type Limit int
-
 // Items keeps all ListItem
 type Items []ListItem
 
@@ -61,9 +58,9 @@ type KeyValueStore interface {
 	// Delete deletes key and the value
 	Delete(Key) error
 	// List lists all keys starting from start and upto limit items
-	List(start Key, limit Limit) (Keys, error)
+	List(start Key, limit int) (Keys, error)
 	// ReverseList lists all keys in revers order
-	ReverseList(Key, Limit) (Keys, error)
+	ReverseList(Key, int) (Keys, error)
 	// Iterate iterates over items based on opts
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
 	// Close closes the store

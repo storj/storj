@@ -63,8 +63,9 @@ func (o *prefixedObjStore) List(ctx context.Context, prefix, startAfter,
 			continue
 		}
 		items[i] = objects.ListItem{
-			Path: itm.Path[1:],
-			Meta: itm.Meta,
+			Path:     itm.Path[1:],
+			Meta:     itm.Meta,
+			IsPrefix: itm.IsPrefix,
 		}
 	}
 	return items, more, nil

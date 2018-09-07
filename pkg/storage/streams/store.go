@@ -220,8 +220,9 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path paths.Path
-	Meta Meta
+	Path     paths.Path
+	Meta     Meta
+	IsPrefix bool
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
@@ -230,18 +231,18 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lItems, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
 
-	items = make([]ListItem, len(lItems))
-	for i, item := range lItems {
+	items = make([]ListItem, len(segments))
+	for i, item := range segments {
 		newMeta, err := convertMeta(item.Meta)
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path[1:], Meta: newMeta}
+		items[i] = ListItem{Path: item.Path[1:], Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil

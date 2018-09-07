@@ -52,7 +52,7 @@ func (store *Client) indexOf(key storage.Key) (int, bool) {
 func (store *Client) Put(key storage.Key, value storage.Value) error {
 	store.version++
 	store.CallCount.Put++
-	if key == nil {
+	if key.IsZero() {
 		return storage.ErrEmptyKey
 	}
 
@@ -118,13 +118,13 @@ func (store *Client) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from start and upto limit items
-func (store *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.List++
 	return storage.ListKeys(store, first, limit)
 }
 
 // ReverseList lists all keys in revers order
-func (store *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.ReverseList++
 	return storage.ReverseListKeys(store, first, limit)
 }
@@ -202,7 +202,7 @@ type advancer interface {
 type forward struct{ cursor }
 
 func (cursor *forward) PositionToFirst(prefix, first storage.Key) {
-	if first == nil || first.Less(prefix) {
+	if first.IsZero() || first.Less(prefix) {
 		cursor.positionForward(prefix)
 	} else {
 		cursor.positionForward(first)
@@ -221,9 +221,9 @@ func (cursor *forward) Advance() (*storage.ListItem, bool) {
 type backward struct{ cursor }
 
 func (cursor *backward) PositionToFirst(prefix, first storage.Key) {
-	if prefix == nil {
+	if prefix.IsZero() {
 		// there's no prefix
-		if first == nil {
+		if first.IsZero() {
 			// and no first item, so start from the end
 			cursor.positionLast()
 		} else {
@@ -232,7 +232,7 @@ func (cursor *backward) PositionToFirst(prefix, first storage.Key) {
 		}
 	} else {
 		// there's a prefix
-		if first == nil || storage.AfterPrefix(prefix).Less(first) {
+		if first.IsZero() || storage.AfterPrefix(prefix).Less(first) {
 			// there's no first, or it's after our prefix
 			// storage.AfterPrefix("axxx/") is the next item after prefixes
 			// so we position to the item before

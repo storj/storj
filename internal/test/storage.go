@@ -72,7 +72,7 @@ func (store *MockKeyValueStore) Delete(key storage.Key) error {
 }
 
 // List returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (store *MockKeyValueStore) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *MockKeyValueStore) List(first storage.Key, limit int) (storage.Keys, error) {
 	store.ListCalled++
 	return storage.ListKeys(store, first, limit)
 }
@@ -112,7 +112,7 @@ func (store *MockKeyValueStore) allPrefixedItems(prefix, first, last storage.Key
 }
 
 // ReverseList returns either a list of keys for which the MockKeyValueStore has values or an error.
-func (store *MockKeyValueStore) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *MockKeyValueStore) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ReverseListKeys(store, first, limit)
 }
 

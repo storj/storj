@@ -96,7 +96,7 @@ func (mr *MockKeyValueStoreMockRecorder) Iterate(arg0, arg1 interface{}) *gomock
 }
 
 // List mocks base method
-func (m *MockKeyValueStore) List(arg0 storage.Key, arg1 storage.Limit) (storage.Keys, error) {
+func (m *MockKeyValueStore) List(arg0 storage.Key, arg1 int) (storage.Keys, error) {
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
 	ret0, _ := ret[0].(storage.Keys)
 	ret1, _ := ret[1].(error)
@@ -121,7 +121,7 @@ func (mr *MockKeyValueStoreMockRecorder) Put(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // ReverseList mocks base method
-func (m *MockKeyValueStore) ReverseList(arg0 storage.Key, arg1 storage.Limit) (storage.Keys, error) {
+func (m *MockKeyValueStore) ReverseList(arg0 storage.Key, arg1 int) (storage.Keys, error) {
 	ret := m.ctrl.Call(m, "ReverseList", arg0, arg1)
 	ret0, _ := ret[0].(storage.Keys)
 	ret1, _ := ret[1].(error)

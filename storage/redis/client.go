@@ -69,13 +69,13 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
 }
 
 // ReverseList returns either a list of keys for which redis has values or an error.
 // Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ReverseListKeys(client, first, limit)
 }
 
@@ -153,10 +153,10 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage
 	it := client.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
-		if first != nil && storage.Key(key).Less(first) {
+		if !first.IsZero() && storage.Key(key).Less(first) {
 			continue
 		}
-		if last != nil && last.Less(storage.Key(key)) {
+		if !last.IsZero() && last.Less(storage.Key(key)) {
 			continue
 		}
 
