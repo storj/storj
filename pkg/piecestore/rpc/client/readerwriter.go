@@ -71,29 +71,33 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	throttle  *sync2.Throttle
-	stream    pb.PieceStoreRoutes_RetrieveClient
-	src       *utils.ReaderSource
-	totalRead int64
-	max       int64
-	allocated int64
-	err       error
+	throttle     *sync2.Throttle
+	stream       pb.PieceStoreRoutes_RetrieveClient
+	src          *utils.ReaderSource
+	totalRead    int64
+	MaxAllocSize int64
+	allocated    int64
+	err          error
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, max int64) *StreamReader {
+func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, MaxAllocSize int64) *StreamReader {
 	sr := &StreamReader{
-		throttle: sync2.NewThrottle(),
-		stream:   stream,
-		max:      max,
+		throttle:     sync2.NewThrottle(),
+		stream:       stream,
+		MaxAllocSize: MaxAllocSize,
 	}
 
 	// Send signed allocations to the piece store server
 	go func() {
-		for {
-			nextAllocSize := int64(signer.bandwidthMsgSize)
-			if sr.allocated+int64(signer.bandwidthMsgSize) > max {
-				nextAllocSize = max - sr.allocated
+		trustedSize := int64(signer.bandwidthMsgSize)
+
+		// Allocate until we've reached the file size
+		for sr.allocated < MaxAllocSize {
+
+			nextAllocSize := trustedSize
+			if sr.allocated+trustedSize > MaxAllocSize {
+				nextAllocSize = MaxAllocSize - sr.allocated
 			}
 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
@@ -120,18 +124,28 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 				},
 			}
 
+			fmt.Println("Before send")
 			if err = stream.Send(msg); err != nil {
 				sr.err = err
 				break
 			}
+			fmt.Println("After send")
 
-			sr.allocated += nextAllocSize
+			sr.allocated += trustedSize
 
-			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, max); err != nil {
+			fmt.Printf("Before ProduceAndWaitUntilBelow(%v, %v)\n", nextAllocSize, MaxAllocSize)
+			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, nextAllocSize*2); err != nil {
 				sr.err = err
 				break
 			}
 
+			// Speed up retrieval as server gives us more data
+			trustedSize *= 2
+			if trustedSize > MaxAllocSize {
+				trustedSize = MaxAllocSize
+			}
+
+			fmt.Printf("After ProduceAndWaitUntilBelow(%v, %v)\n", nextAllocSize, MaxAllocSize)
 		}
 	}()
 
@@ -140,17 +154,21 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			return nil, sr.err
 		}
 
+		fmt.Println("Before recv")
 		resp, err := stream.Recv()
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("After recv")
 
 		sr.totalRead += int64(len(resp.GetContent()))
 
+		fmt.Printf("Before Consume(%v)\n", int64(len(resp.GetContent())))
 		err = sr.throttle.Consume(int64(len(resp.GetContent())))
 		if err != nil {
 			return resp.GetContent(), err
 		}
+		fmt.Printf("After Consume(%v)\n", int64(len(resp.GetContent())))
 
 		return resp.GetContent(), nil
 	})
