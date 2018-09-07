@@ -9,10 +9,11 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/miniogw"
 )
 
-const defaultConfDir = "$HOME/.storj/cli"
+const defaultConfDir = "$HOME/.storj/uplink"
 
 // Config is miniogw.Config configuration
 type Config struct {
@@ -45,6 +46,6 @@ func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "storj",
-	Short: "A brief description of your application",
+	Use:   "uplink",
+	Short: "The Storj client-side S3 gateway and CLI",
 }

@@ -6,12 +6,10 @@ package storelogger
 import (
 	"strconv"
 	"sync/atomic"
-	"testing"
 
 	"storj.io/storj/storage"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 )
 
 var id int64
@@ -27,11 +25,6 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	loggerid := atomic.AddInt64(&id, 1)
 	name := strconv.Itoa(int(loggerid))
 	return &Logger{log.Named(name), store}
-}
-
-// NewTest creates a logger for testing
-func NewTest(t *testing.T, store storage.KeyValueStore) *Logger {
-	return New(zaptest.NewLogger(t), store)
 }
 
 // Put adds a value to store
