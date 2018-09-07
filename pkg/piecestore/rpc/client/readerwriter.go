@@ -6,7 +6,6 @@ package client
 import (
 	"fmt"
 	"log"
-	"sync"
 
 	"storj.io/storj/internal/sync2"
 
@@ -72,28 +71,20 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	throttle      *sync2.Throttle
-	stream        pb.PieceStoreRoutes_RetrieveClient
-	src           *utils.ReaderSource
-	totalRead     int64
-	max           int64
-	allocated     int64
-	dataSendCond  *sync.Cond
-	allocSendCond *sync.Cond
-	c             chan int
+	throttle  *sync2.Throttle
+	stream    pb.PieceStoreRoutes_RetrieveClient
+	src       *utils.ReaderSource
+	totalRead int64
+	max       int64
+	allocated int64
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
 func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, max int64) *StreamReader {
-	var mtx sync.Mutex
-
 	sr := &StreamReader{
-		throttle:      sync2.NewThrottle(),
-		stream:        stream,
-		max:           max,
-		dataSendCond:  sync.NewCond(&mtx),
-		allocSendCond: sync.NewCond(&mtx),
-		c:             make(chan int),
+		throttle: sync2.NewThrottle(),
+		stream:   stream,
+		max:      max,
 	}
 
 	go func() {
