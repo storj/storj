@@ -77,7 +77,7 @@ type StreamReader struct {
 	totalRead    int64
 	MaxAllocSize int64
 	allocated    int64
-	err          error
+	err          error // TODO: This is a race condition. Fix this
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
@@ -134,7 +134,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			sr.allocated += trustedSize
 
 			fmt.Printf("Before ProduceAndWaitUntilBelow(%v, %v)\n", nextAllocSize, MaxAllocSize)
-			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, nextAllocSize*2); err != nil {
+			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, MaxAllocSize*2); err != nil {
 				sr.err = err
 				break
 			}

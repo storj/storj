@@ -59,7 +59,7 @@ func (throttle *Throttle) ConsumeOrWait(maxAmount int64) (int64, error) {
 func (throttle *Throttle) WaitUntilAbove(limit int64) error {
 	throttle.mu.Lock()
 	defer throttle.mu.Unlock()
-	for throttle.alive() && throttle.available >= limit {
+	for throttle.alive() && throttle.available <= limit {
 		throttle.consumer.Wait()
 	}
 	return throttle.combinedError()
@@ -80,7 +80,7 @@ func (throttle *Throttle) ProduceAndWaitUntilBelow(amount, limit int64) error {
 	defer throttle.mu.Unlock()
 	throttle.available += amount
 	throttle.consumer.Signal()
-	for throttle.alive() && throttle.available <= limit {
+	for throttle.alive() && throttle.available >= limit {
 		throttle.producer.Wait()
 	}
 	return throttle.combinedError()
@@ -90,7 +90,7 @@ func (throttle *Throttle) ProduceAndWaitUntilBelow(amount, limit int64) error {
 func (throttle *Throttle) WaitUntilBelow(limit int64) error {
 	throttle.mu.Lock()
 	defer throttle.mu.Unlock()
-	for throttle.alive() && throttle.available <= limit {
+	for throttle.alive() && throttle.available >= limit {
 		throttle.producer.Wait()
 	}
 	return throttle.combinedError()
