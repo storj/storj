@@ -27,11 +27,6 @@ var (
 	segmentError = errs.Class("segment error")
 )
 
-// ListPageLimit is the maximum number of items that will be returned by a list
-// request.
-// TODO(kaloyan): make it configurable
-const ListPageLimit = 1000
-
 // Server implements the network state RPC service
 type Server struct {
 	DB     storage.KeyValueStore
@@ -137,10 +132,6 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	s.logger.Debug("entering pointerdb list")
 
 	limit := int(req.GetLimit())
-	if limit <= 0 || limit > ListPageLimit {
-		limit = ListPageLimit
-	}
-
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
 	}

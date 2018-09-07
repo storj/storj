@@ -22,7 +22,12 @@ type ListOptions struct {
 }
 
 // ListV2 lists all keys corresponding to ListOptions
+// limit is capped to LookupLimit
 func ListV2(store KeyValueStore, opts ListOptions) (result Items, more More, err error) {
+	if opts.Limit <= 0 || opts.Limit > LookupLimit {
+		opts.Limit = LookupLimit
+	}
+
 	if opts.StartAfter != nil && opts.EndBefore != nil {
 		return nil, false, errors.New("start-after and end-before cannot be combined")
 	}

@@ -4,15 +4,13 @@
 package storage
 
 // ListKeys returns keys starting from first and upto limit
+// limit is capped to LookupLimit
 func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
-	const unlimited = Limit(1 << 31)
-
-	keys := make(Keys, 0, limit)
-	if limit == 0 {
-		// TODO: this shouldn't be probably the case
-		limit = unlimited
+	if limit <= 0 || limit > LookupLimit {
+		limit = LookupLimit
 	}
 
+	keys := make(Keys, 0, limit)
 	err := store.Iterate(IterateOptions{
 		First:   first,
 		Recurse: true,
@@ -31,15 +29,13 @@ func ListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
 }
 
 // ReverseListKeys returns keys starting from first and upto limit in reverse order
+// limit is capped to LookupLimit
 func ReverseListKeys(store KeyValueStore, first Key, limit Limit) (Keys, error) {
-	const unlimited = Limit(1 << 31)
-
-	keys := make(Keys, 0, limit)
-	if limit == 0 {
-		// TODO: this shouldn't be probably the case
-		limit = unlimited
+	if limit <= 0 || limit > LookupLimit {
+		limit = LookupLimit
 	}
 
+	keys := make(Keys, 0, limit)
 	err := store.Iterate(IterateOptions{
 		First:   first,
 		Recurse: true,
