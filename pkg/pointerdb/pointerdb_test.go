@@ -248,7 +248,7 @@ func TestServiceList(t *testing.T) {
 				More: false,
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, Prefix: "music/"},
+			Request: pb.ListRequest{Recursive: true, Prefix: "music"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "album/song3.mp3"},
@@ -258,7 +258,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, Prefix: "music/", StartAfter: "album/song3.mp3"},
+			Request: pb.ListRequest{Recursive: true, Prefix: "music", StartAfter: "album/song3.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "song1.mp3"},
@@ -267,7 +267,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "music/"},
+			Request: pb.ListRequest{Prefix: "music"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "album/", IsPrefix: true},
@@ -277,7 +277,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "music/", StartAfter: "song1.mp3"},
+			Request: pb.ListRequest{Prefix: "music", StartAfter: "song1.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "song2.mp3"},
@@ -285,7 +285,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Prefix: "music/", EndBefore: "song4.mp3"},
+			Request: pb.ListRequest{Prefix: "music", EndBefore: "song4.mp3"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
 					{Path: "album/", IsPrefix: true},
@@ -296,10 +296,8 @@ func TestServiceList(t *testing.T) {
 		}, {
 			Request: pb.ListRequest{Prefix: "mus", Recursive: true, EndBefore: "ic/song4.mp3", Limit: 1},
 			Expected: &pb.ListResponse{
-				Items: []*pb.ListResponse_Item{
-					{Path: "ic/song2.mp3"},
-				},
-				More: true,
+				Items: []*pb.ListResponse_Item{},
+				More:  false,
 			},
 		},
 	}

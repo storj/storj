@@ -135,17 +135,21 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 	s.logger.Debug("entering pointerdb list")
 
 	if err = s.validateAuth(req.APIKey); err != nil {
-		s.logger.Error("authentication failed", zap.Error(err))
 		return nil, err
 	}
 
+	var prefix storage.Key
+	if req.Prefix != "" {
+		prefix = storage.Key(req.Prefix + "/")
+	}
+
 	rawItems, more, err := storage.ListV2(s.DB, storage.ListOptions{
-		Prefix:       storage.Key(req.Prefix),
+		Prefix:       prefix,
 		StartAfter:   storage.Key(req.StartAfter),
 		EndBefore:    storage.Key(req.EndBefore),
 		Recursive:    req.Recursive,
 		Limit:        storage.Limit(req.Limit),
-		IncludeValue: true,
+		IncludeValue: req.MetaFlags != meta.None,
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
@@ -180,7 +184,7 @@ func (s *Server) createListItem(rawItem storage.ListItem, metaFlags uint32) *pb.
 // getMetadata adds the metadata to the given item pointer according to the
 // given metaFlags
 func (s *Server) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags uint32) (err error) {
-	if metaFlags == meta.None {
+	if metaFlags == meta.None || len(data) == 0 {
 		return nil
 	}
 
