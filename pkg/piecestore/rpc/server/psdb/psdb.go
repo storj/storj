@@ -44,7 +44,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=private&mode=rwc&mutex=full", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (db *DB) DeleteExpired(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		defer func(){ _ = tx.Rollback() }
+		defer func() { _ = tx.Rollback() }()
 
 		now := time.Now().Unix()
 
