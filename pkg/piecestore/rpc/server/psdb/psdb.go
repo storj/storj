@@ -162,13 +162,9 @@ func (db *DB) garbageCollect(ctx context.Context) {
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
 func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
-	if ba.Data == nil {
-		return nil
-	}
-
 	defer db.locked()()
 
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.Data, ba.GetSignature())
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.GetData(), ba.GetSignature())
 	return err
 }
 
