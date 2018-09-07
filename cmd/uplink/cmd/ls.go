@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/utils"
 )
@@ -47,27 +46,28 @@ func list(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		startAfter := ""
-		var items []buckets.ListItem
+		noBuckets := true
+
 		for {
-			moreItems, more, err := bs.List(ctx, startAfter, "", 0)
+			items, more, err := bs.List(ctx, startAfter, "", 0)
 			if err != nil {
 				return err
 			}
-
-			items = append(items, moreItems...)
+			if len(items) > 0 {
+				noBuckets = false
+				for _, bucket := range items {
+					fmt.Println(bucket.Meta.Created, bucket.Bucket)
+				}
+			}
 			if !more {
 				break
 			}
-			startAfter = moreItems[len(moreItems)-1].Bucket
+			startAfter = items[len(items)-1].Bucket
 		}
 
-		if len(items) == 0 {
+		if noBuckets {
 			fmt.Println("No buckets")
 			return nil
-		}
-
-		for _, bucket := range items {
-			fmt.Println(bucket.Meta.Created, bucket.Bucket)
 		}
 
 		return nil
