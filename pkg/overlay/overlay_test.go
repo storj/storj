@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -18,7 +17,7 @@ import (
 )
 
 func TestFindStorageNodes(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	id, err := kademlia.NewID()
@@ -44,7 +43,7 @@ func TestFindStorageNodes(t *testing.T) {
 }
 
 func TestOverlayLookup(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	id, err := kademlia.NewID()
