@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -45,8 +46,8 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	}
 
 	// if object name not specified, default to filename
-	if destObj.Path == "" || destObj.Path == "/" {
-		destObj.Path = filepath.Base(srcFile)
+	if len(destObj.Path) == 0 || strings.HasSuffix(destObj.Path, "/") {
+		destObj.Path = destObj.Path + filepath.Base(srcFile)
 	}
 
 	f, err := os.Open(srcFile)
@@ -145,13 +146,18 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	expTime := time.Time{}
 
 	// if destination object name not specified, default to source object name
-	if destObj.Path == "" || destObj.Path == "/" {
-		destObj.Path = srcObj.Path
+	if len(destObj.Path) == 0 || strings.HasSuffix(destObj.Path, "/") {
+		destObj.Path = destObj.Path + filepath.Base(srcObj.Path)
 	}
 
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
+	}
+
+	// append "/" to destination path for print if need
+	if !strings.HasPrefix(destObj.Path, "/") {
+		destObj.Path = "/" + destObj.Path
 	}
 
 	fmt.Printf("%s copied to %s\n", srcObj.Host+srcObj.Path, destObj.Host+destObj.Path)
