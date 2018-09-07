@@ -6,7 +6,7 @@ FROM brimstone/golang as build-env
 # final stage
 FROM alpine
 ENV CONF_PATH=/root/.storj/uplink/config.yaml \
-	API_KEY= \
+    API_KEY= \
     SATELLITE_ADDR=
 EXPOSE 7776/udp \
        7777
