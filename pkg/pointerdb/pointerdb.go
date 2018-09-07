@@ -148,7 +148,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 		Prefix:       prefix,
 		StartAfter:   storage.Key(req.StartAfter),
 		EndBefore:    storage.Key(req.EndBefore),
-		Recursive:    req.Recursive,
+		Recursive:    true, // req.Recursive,
 		Limit:        storage.Limit(req.Limit),
 		IncludeValue: req.MetaFlags != meta.None,
 	})
