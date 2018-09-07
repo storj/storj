@@ -164,6 +164,7 @@ func TestServiceList(t *testing.T) {
 
 	err = storage.PutAll(db, []storage.ListItem{
 		{Key: key("sample.😶"), Value: pointerValue},
+		{Key: key("müsic"), Value: pointerValue},
 		{Key: key("müsic/söng1.mp3"), Value: pointerValue},
 		{Key: key("müsic/söng2.mp3"), Value: pointerValue},
 		{Key: key("müsic/album/söng3.mp3"), Value: pointerValue},
@@ -195,6 +196,7 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{Recursive: true},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
+					{Path: "müsic"},
 					{Path: "müsic/album/söng3.mp3"},
 					{Path: "müsic/söng1.mp3"},
 					{Path: "müsic/söng2.mp3"},
@@ -207,6 +209,7 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
+					{Path: "müsic", Pointer: pointer},
 					{Path: "müsic/album/söng3.mp3", Pointer: pointer},
 					{Path: "müsic/söng1.mp3", Pointer: pointer},
 					{Path: "müsic/söng2.mp3", Pointer: pointer},
@@ -219,9 +222,10 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All, APIKey: []byte("wrong key")},
 			Error:   errorWithCode(codes.Unauthenticated),
 		}, {
-			Request: pb.ListRequest{Recursive: true, Limit: 2},
+			Request: pb.ListRequest{Recursive: true, Limit: 3},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
+					{Path: "müsic"},
 					{Path: "müsic/album/söng3.mp3"},
 					{Path: "müsic/söng1.mp3"},
 				},
@@ -231,6 +235,7 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{MetaFlags: meta.All},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
+					{Path: "müsic", Pointer: pointer},
 					{Path: "müsic/", IsPrefix: true},
 					{Path: "sample.😶", Pointer: pointer},
 					{Path: "ビデオ/", IsPrefix: true},
@@ -241,6 +246,7 @@ func TestServiceList(t *testing.T) {
 			Request: pb.ListRequest{EndBefore: "ビデオ"},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{
+					{Path: "müsic"},
 					{Path: "müsic/", IsPrefix: true},
 					{Path: "sample.😶"},
 				},
@@ -293,7 +299,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, */{
-			Request: pb.ListRequest{Prefix: "mus", Recursive: true, EndBefore: "ic/söng4.mp3", Limit: 1},
+			Request: pb.ListRequest{Prefix: "müs", Recursive: true, EndBefore: "ic/söng4.mp3", Limit: 1},
 			Expected: &pb.ListResponse{
 				Items: []*pb.ListResponse_Item{},
 				More:  false,
@@ -315,7 +321,7 @@ func TestServiceList(t *testing.T) {
 		}
 
 		if diff := cmp.Diff(test.Expected, resp, cmp.Comparer(proto.Equal)); diff != "" {
-			t.Errorf("%d: (-want +got)\n%s", i, diff)
+			t.Errorf("%d: (-want +got) %v\n%s", i, test.Request.String(), diff)
 		}
 	}
 }
