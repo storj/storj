@@ -6,7 +6,7 @@ package process
 import (
 	"context"
 	"flag"
-	"log"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -173,7 +173,10 @@ func cleanup(cmd *cobra.Command) {
 
 		err = internalRun(cmd, args)
 		if err != nil {
-			log.Fatalf("%+v", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+			logger.Sugar().Debugf("%+v", err)
+			_ = logger.Sync()
+			os.Exit(1)
 		}
 		return err
 	}

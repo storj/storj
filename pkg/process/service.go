@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	logDisposition = flag.String("log.disp", "dev",
-		"switch to 'prod' to get less output")
+	logDisposition = flag.String("log.disp", "prod",
+		"switch to 'dev' to get more output")
 
 	// Error is a process error class
 	Error = errs.Class("proc error")
