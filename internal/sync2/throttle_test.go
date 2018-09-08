@@ -57,19 +57,21 @@ func ExampleThrottle() {
 func TestThrottleBasic(t *testing.T) {
 	throttle := NewThrottle()
 	var stage int64
+	c := make(chan error)
 
 	// consumer
 	go func() {
 		consume, _ := throttle.ConsumeOrWait(4)
 		if v := atomic.LoadInt64(&stage); v != 1 || consume != 4 {
-			t.Fatalf("did not block in time: %d / %d", v, consume)
+			c <- fmt.Errorf("did not block in time: %d / %d", v, consume)
 		}
 
 		consume, _ = throttle.ConsumeOrWait(4)
 		if v := atomic.LoadInt64(&stage); v != 1 || consume != 4 {
-			t.Fatalf("did not block in time: %d / %d", v, consume)
+			c <- fmt.Errorf("did not block in time: %d / %d", v, consume)
 		}
 		atomic.AddInt64(&stage, 2)
+		c <- nil
 	}()
 
 	// slowly produce
@@ -84,5 +86,9 @@ func TestThrottleBasic(t *testing.T) {
 
 	if v := atomic.LoadInt64(&stage); v != 3 {
 		t.Fatalf("did not unblock in time: %d", v)
+	}
+
+	if err := <-c; err != nil {
+		t.Fatalf(err.Error())
 	}
 }
