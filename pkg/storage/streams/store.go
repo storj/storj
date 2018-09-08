@@ -85,18 +85,20 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	awareLimitReader := EOFAwareReader(data)
 
-	for !awareLimitReader.isEOF() {
+	for !awareLimitReader.isEOF() && !awareLimitReader.hasError() {
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
 
-		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData,
-			nil, expiration)
+		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData, nil, expiration)
 		if err != nil {
 			return Meta{}, err
 		}
 		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
 		totalSegments = totalSegments + 1
+	}
+	if awareLimitReader.hasError() {
+		return Meta{}, awareLimitReader.err
 	}
 
 	lastSegmentPath := path.Prepend("l")
