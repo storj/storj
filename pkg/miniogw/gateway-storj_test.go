@@ -388,7 +388,7 @@ func TestListObjects(t *testing.T) {
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), bucket).Return(mockOS, nil)
 		mockOS.EXPECT().List(gomock.Any(), paths.New(prefix), paths.New(example.startAfter),
-			nil, true, maxKeys, meta.All).Return(items, example.more, example.err)
+			nil, false, maxKeys, meta.All).Return(items, example.more, example.err)
 
 		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, delimiter, maxKeys)
 
