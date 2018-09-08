@@ -98,7 +98,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	if match == false {
+	if !match {
 		return nil, ServerError.New("Invalid ID")
 	}
 
