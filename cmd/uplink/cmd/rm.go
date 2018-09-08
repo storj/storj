@@ -32,6 +32,9 @@ func delete(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if u.Host == "" {
+		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+	}
 
 	bs, err := cfg.BucketStore(ctx)
 	if err != nil {

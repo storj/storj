@@ -191,11 +191,19 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if uploading
 	if u0.Scheme == "" {
+		if u1.Host == "" {
+			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+		}
+
 		return upload(ctx, bs, args[0], u1)
 	}
 
 	// if downloading
 	if u1.Scheme == "" {
+		if u0.Host == "" {
+			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+		}
+
 		return download(ctx, bs, u0, args[1])
 	}
 

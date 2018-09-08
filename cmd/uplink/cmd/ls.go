@@ -48,6 +48,9 @@ func list(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		if u.Host == "" {
+			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+		}
 
 		return listFiles(ctx, bs, u)
 	}
