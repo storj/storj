@@ -113,7 +113,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 				path = filepath.Base(object.Path.String())
 			}
 			if object.IsPrefix {
-				fmt.Println("PRE", path)
+				fmt.Println("PRE", path+"/")
 			} else {
 				fmt.Println("OBJ", object.Meta.Modified, path)
 			}

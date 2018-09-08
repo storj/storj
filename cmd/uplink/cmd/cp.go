@@ -30,13 +30,22 @@ var (
 	})
 )
 
+func cleanAbsPath(path string) string {
+	prefix := strings.HasSuffix(path, "/")
+	path = filepath.Join("/", path)
+	if !strings.HasSuffix(path, "/") && prefix {
+		path += "/"
+	}
+	return path
+}
+
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
 	if destObj.Scheme == "" {
 		return fmt.Errorf("Invalid destination")
 	}
 
-	destObj.Path = filepath.Join("/", destObj.Path)
+	destObj.Path = cleanAbsPath(destObj.Path)
 	// if object name not specified, default to filename
 	if strings.HasSuffix(destObj.Path, "/") {
 		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcFile))
@@ -138,7 +147,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	destObj.Path = filepath.Join("/", destObj.Path)
+	destObj.Path = cleanAbsPath(destObj.Path)
 	// if destination object name not specified, default to source object name
 	if strings.HasSuffix(destObj.Path, "/") {
 		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcObj.Path))
