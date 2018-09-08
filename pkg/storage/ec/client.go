@@ -139,22 +139,15 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 				ch <- rangerInfo{i: i, rr: nil, err: err}
 				return
 			}
-			ps, err := ec.d.dial(ctx, n)
-			if err != nil {
-				zap.S().Errorf("Failed getting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
-				ch <- rangerInfo{i: i, rr: nil, err: err}
-				return
+
+			rr := &lazyPieceRanger{
+				dialer: ec.d,
+				node:   n,
+				id:     derivedPieceID,
+				size:   pieceSize,
+				pba:    &pb.PayerBandwidthAllocation{},
 			}
-			rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
-			// no ps.CloseConn() here, the connection will be closed by
-			// the caller using RangeCloser.Close
-			if err != nil {
-				zap.S().Errorf("Failed getting piece %s -> %s from node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
-				ch <- rangerInfo{i: i, rr: nil, err: err}
-				return
-			}
+
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
 		}(i, n)
 	}
@@ -253,4 +246,44 @@ func calcPadded(size int64, blockSize int) int64 {
 		return size
 	}
 	return size + int64(blockSize) - mod
+}
+
+type lazyPieceRanger struct {
+	ranger ranger.RangeCloser
+	dialer dialer
+	node   *proto.Node
+	id     client.PieceID
+	size   int64
+	pba    *pb.PayerBandwidthAllocation
+}
+
+// Size implements Ranger.Size
+func (lr *lazyPieceRanger) Size() int64 {
+	return lr.size
+}
+
+// Size implements Ranger.Close
+func (lr *lazyPieceRanger) Close() error {
+	if lr.ranger == nil {
+		return nil
+	}
+	return lr.ranger.Close()
+}
+
+// Range implements Ranger.Range to be lazily connected
+func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	if lr.ranger == nil {
+		ps, err := lr.dialer.dial(ctx, lr.node)
+		if err != nil {
+			return nil, err
+		}
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
+		// no ps.CloseConn() here, the connection will be closed by
+		// the caller using RangeCloser.Close
+		if err != nil {
+			return nil, err
+		}
+		lr.ranger = ranger
+	}
+	return lr.ranger.Range(ctx, offset, length)
 }
