@@ -64,11 +64,13 @@ func TestThrottleBasic(t *testing.T) {
 		consume, _ := throttle.ConsumeOrWait(4)
 		if v := atomic.LoadInt64(&stage); v != 1 || consume != 4 {
 			c <- fmt.Errorf("did not block in time: %d / %d", v, consume)
+			return
 		}
 
 		consume, _ = throttle.ConsumeOrWait(4)
 		if v := atomic.LoadInt64(&stage); v != 1 || consume != 4 {
 			c <- fmt.Errorf("did not block in time: %d / %d", v, consume)
+			return
 		}
 		atomic.AddInt64(&stage, 2)
 		c <- nil
