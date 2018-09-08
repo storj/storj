@@ -220,18 +220,18 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 		for _, item := range items {
 			if item.IsPrefix {
 				prefixes = append(prefixes, item.Path.String()+"/")
-			} else {
-				objects = append(objects, minio.ObjectInfo{
-					Bucket:      bucket,
-					IsDir:       false,
-					Name:        item.Path.String(),
-					ModTime:     item.Meta.Modified,
-					Size:        item.Meta.Size,
-					ContentType: item.Meta.ContentType,
-					UserDefined: item.Meta.UserDefined,
-					ETag:        item.Meta.Checksum,
-				})
+				continue
 			}
+			objects = append(objects, minio.ObjectInfo{
+				Bucket:      bucket,
+				IsDir:       false,
+				Name:        item.Path.String(),
+				ModTime:     item.Meta.Modified,
+				Size:        item.Meta.Size,
+				ContentType: item.Meta.ContentType,
+				UserDefined: item.Meta.UserDefined,
+				ETag:        item.Meta.Checksum,
+			})
 		}
 		startAfter = items[len(items)-1].Path[len(paths.New(prefix)):]
 	}
