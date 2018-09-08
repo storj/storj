@@ -21,8 +21,7 @@ func (r *EOFAwareLimitReader) Read(p []byte) (n int, err error) {
 	n, err = r.reader.Read(p)
 	if err == io.EOF {
 		r.eof = true
-	}
-	if err != nil && r.err == nil {
+	} else if err != nil && r.err == nil {
 		r.err = err
 	}
 	return n, err

@@ -97,6 +97,9 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		totalSize = totalSize + putMeta.Size
 		totalSegments = totalSegments + 1
 	}
+	if awareLimitReader.hasError() {
+		return Meta{}, awareLimitReader.err
+	}
 
 	lastSegmentPath := path.Prepend("l")
 
