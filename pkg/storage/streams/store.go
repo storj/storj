@@ -244,7 +244,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path[1:], Meta: newMeta, IsPrefix: item.IsPrefix}
+		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil
