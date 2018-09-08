@@ -465,7 +465,7 @@ func newTestServerStruct() *Server {
 	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().Format("2006-01-02T15-04-05.999999999Z07-00")))
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 
-	psDB, err := psdb.OpenPSDB(ctx, tempDir, tempDBPath)
+	psDB, err := psdb.Open(ctx, tempDir, tempDBPath)
 	if err != nil {
 		log.Fatalf("failed open psdb: %v", err)
 	}

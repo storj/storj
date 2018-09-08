@@ -12,12 +12,11 @@ import (
 
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
@@ -44,11 +43,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 
-	go func() {
-		err := s.DB.DeleteExpiredLoop(ctx)
-		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
-	}()
-
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	defer func() {
@@ -61,7 +55,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	DataDir string
-	DB      *psdb.PSDB
+	DB      *psdb.DB
 	pkey    crypto.PrivateKey
 }
 
@@ -70,12 +64,12 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
-	psDB, err := psdb.OpenPSDB(ctx, dataDir, dbPath)
+	db, err := psdb.Open(ctx, dataDir, dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: psDB, pkey: pkey}, nil
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey}, nil
 }
 
 // Stop the piececstore node
