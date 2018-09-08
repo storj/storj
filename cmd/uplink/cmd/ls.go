@@ -4,80 +4,93 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/utils"
 )
 
+const (
+	pagination = 1000
+)
+
 var (
-	lsCfg Config
-	lsCmd = &cobra.Command{
+	lsCmd = addCmd(&cobra.Command{
 		Use:   "ls",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
-	}
+	})
+
+	recursiveFlag *bool
 )
 
 func init() {
-	RootCmd.AddCommand(lsCmd)
-	cfgstruct.Bind(lsCmd.Flags(), &lsCfg, cfgstruct.ConfDir(defaultConfDir))
-	lsCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	identity, err := lsCfg.Load()
+	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
 		return err
 	}
 
-	bs, err := lsCfg.GetBucketStore(ctx, identity)
-	if err != nil {
-		return err
+	if len(args) > 0 {
+		u, err := utils.ParseURL(args[0])
+		if err != nil {
+			return err
+		}
+
+		return listFiles(ctx, bs, u)
 	}
 
-	if len(args) == 0 {
-		startAfter := ""
-		noBuckets := true
+	startAfter := ""
+	noBuckets := true
 
-		for {
-			items, more, err := bs.List(ctx, startAfter, "", 0)
-			if err != nil {
-				return err
-			}
-			if len(items) > 0 {
-				noBuckets = false
-				for _, bucket := range items {
-					fmt.Println(bucket.Meta.Created, bucket.Bucket)
+	for {
+		items, more, err := bs.List(ctx, startAfter, "", pagination)
+		if err != nil {
+			return err
+		}
+		if len(items) > 0 {
+			noBuckets = false
+			for _, bucket := range items {
+				name := bucket.Bucket
+				if *recursiveFlag {
+					name = fmt.Sprintf("sj://%s", bucket.Bucket)
+				}
+				fmt.Println("BKT", bucket.Meta.Created, name)
+				if *recursiveFlag {
+					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"})
+					if err != nil {
+						return err
+					}
 				}
 			}
-			if !more {
-				break
-			}
-			startAfter = items[len(items)-1].Bucket
 		}
-
-		if noBuckets {
-			fmt.Println("No buckets")
-			return nil
+		if !more {
+			break
 		}
-
-		return nil
+		startAfter = items[len(items)-1].Bucket
 	}
 
-	u, err := utils.ParseURL(args[0])
-	if err != nil {
-		return err
+	if noBuckets {
+		return fmt.Errorf("No buckets")
 	}
 
+	return nil
+}
+
+func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 	o, err := bs.GetObjectStore(ctx, u.Host)
 	if err != nil {
 		return err
@@ -86,13 +99,24 @@ func list(cmd *cobra.Command, args []string) error {
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, true, 1000, meta.All)
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, pagination, meta.Modified)
 		if err != nil {
 			return err
 		}
 
 		for _, object := range items {
-			fmt.Println(object.Meta.Modified, object.Path)
+			// TODO: should list be doing this for us?
+			path := object.Path.String()
+			if *recursiveFlag {
+				path = "sj:/" + filepath.Join(fmt.Sprintf("/%s", u.Host), path)
+			} else {
+				path = filepath.Base(object.Path.String())
+			}
+			if object.IsPrefix {
+				fmt.Println("PRE", path)
+			} else {
+				fmt.Println("OBJ", object.Meta.Modified, path)
+			}
 		}
 
 		if !more {

@@ -5,49 +5,35 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/cfgstruct"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/utils"
 )
 
 var (
-	rmCfg Config
-	rmCmd = &cobra.Command{
+	rmCmd = addCmd(&cobra.Command{
 		Use:   "rm",
 		Short: "Delete an object",
 		RunE:  delete,
-	}
+	})
 )
-
-func init() {
-	RootCmd.AddCommand(rmCmd)
-	cfgstruct.Bind(rmCmd.Flags(), &rmCfg, cfgstruct.ConfDir(defaultConfDir))
-	rmCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-}
 
 func delete(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	identity, err := rmCfg.Load()
-	if err != nil {
-		return err
-	}
-
-	bs, err := rmCfg.GetBucketStore(ctx, identity)
-	if err != nil {
-		return err
-	}
-
 	if len(args) == 0 {
-		fmt.Println("No object specified for deletion")
-		return nil
+		return fmt.Errorf("No object specified for deletion")
 	}
 
 	u, err := utils.ParseURL(args[0])
+	if err != nil {
+		return err
+	}
+
+	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
 		return err
 	}

@@ -5,10 +5,9 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/cfgstruct"
+
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/utils"
@@ -16,36 +15,18 @@ import (
 )
 
 var (
-	rbCfg Config
-	rbCmd = &cobra.Command{
+	rbCmd = addCmd(&cobra.Command{
 		Use:   "rb",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
-	}
+	})
 )
-
-func init() {
-	RootCmd.AddCommand(rbCmd)
-	cfgstruct.Bind(rbCmd.Flags(), &rbCfg, cfgstruct.ConfDir(defaultConfDir))
-	rbCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-}
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	identity, err := rbCfg.Load()
-	if err != nil {
-		return err
-	}
-
-	bs, err := rbCfg.GetBucketStore(ctx, identity)
-	if err != nil {
-		return err
-	}
-
 	if len(args) == 0 {
-		fmt.Println("No bucket specified for deletion")
-		return nil
+		return fmt.Errorf("No bucket specified for deletion")
 	}
 
 	u, err := utils.ParseURL(args[0])
@@ -53,11 +34,15 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	bs, err := cfg.BucketStore(ctx)
+	if err != nil {
+		return err
+	}
+
 	_, err = bs.Get(ctx, u.Host)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			fmt.Printf("Bucket not found: %s\n", u.Host)
-			return nil
+			return fmt.Errorf("Bucket not found: %s", u.Host)
 		}
 		return err
 	}
@@ -73,8 +58,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(items) > 0 {
-		fmt.Printf("Bucket not empty: %s\n", u.Host)
-		return nil
+		return fmt.Errorf("Bucket not empty: %s", u.Host)
 	}
 
 	err = bs.Delete(ctx, u.Host)

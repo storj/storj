@@ -15,7 +15,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
@@ -24,37 +23,29 @@ import (
 )
 
 var (
-	cpCfg Config
-	cpCmd = &cobra.Command{
+	cpCmd = addCmd(&cobra.Command{
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
-	}
+	})
 )
-
-func init() {
-	RootCmd.AddCommand(cpCmd)
-	cfgstruct.Bind(cpCmd.Flags(), &cpCfg, cfgstruct.ConfDir(defaultConfDir))
-	cpCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
-}
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
 	if destObj.Scheme == "" {
-		fmt.Println("Invalid destination")
-		return nil
+		return fmt.Errorf("Invalid destination")
 	}
 
+	destObj.Path = filepath.Join("/", destObj.Path)
 	// if object name not specified, default to filename
-	if len(destObj.Path) == 0 || strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = destObj.Path + filepath.Base(srcFile)
+	if strings.HasSuffix(destObj.Path, "/") {
+		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcFile))
 	}
 
 	f, err := os.Open(srcFile)
 	if err != nil {
 		return err
 	}
-
 	defer utils.LogClose(f)
 
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
@@ -78,8 +69,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 // download downloads s3 compatible object args[0] to args[1] on local machine
 func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
 	if srcObj.Scheme == "" {
-		fmt.Println("Invalid source")
-		return nil
+		return fmt.Errorf("Invalid source")
 	}
 
 	o, err := bs.GetObjectStore(ctx, srcObj.Host)
@@ -87,11 +77,14 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		return err
 	}
 
+	if fi, err := os.Stat(destFile); err == nil && fi.IsDir() {
+		destFile = filepath.Join(destFile, filepath.Base(srcObj.Path))
+	}
+
 	f, err := os.Create(destFile)
 	if err != nil {
 		return err
 	}
-
 	defer utils.LogClose(f)
 
 	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
@@ -145,19 +138,15 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
+	destObj.Path = filepath.Join("/", destObj.Path)
 	// if destination object name not specified, default to source object name
-	if len(destObj.Path) == 0 || strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = destObj.Path + filepath.Base(srcObj.Path)
+	if strings.HasSuffix(destObj.Path, "/") {
+		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcObj.Path))
 	}
 
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
-	}
-
-	// append "/" to destination path for print if need
-	if !strings.HasPrefix(destObj.Path, "/") {
-		destObj.Path = "/" + destObj.Path
 	}
 
 	fmt.Printf("%s copied to %s\n", srcObj.Host+srcObj.Path, destObj.Host+destObj.Path)
@@ -168,25 +157,13 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 // copyMain is the function executed when cpCmd is called
 func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		fmt.Println("No object specified for copy")
-		return nil
+		return fmt.Errorf("No object specified for copy")
 	}
 	if len(args) == 1 {
-		fmt.Println("No destination specified")
-		return nil
+		return fmt.Errorf("No destination specified")
 	}
 
 	ctx := process.Ctx(cmd)
-
-	identity, err := cpCfg.Load()
-	if err != nil {
-		return err
-	}
-
-	bs, err := cpCfg.GetBucketStore(ctx, identity)
-	if err != nil {
-		return err
-	}
 
 	u0, err := utils.ParseURL(args[0])
 	if err != nil {
@@ -194,6 +171,11 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	u1, err := utils.ParseURL(args[1])
+	if err != nil {
+		return err
+	}
+
+	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
 		return err
 	}
