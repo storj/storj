@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
@@ -79,11 +80,20 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Printf("Getting Meta for %s...", in.Id)
+	log.Printf("Getting Meta for %s...", in.GetId())
 
 	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
 		return nil, err
+	}
+
+	match, err := regexp.MatchString("^[A-Za-z0-9]{20,32}$", in.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	if !match {
+		return nil, ServerError.New("Invalid ID")
 	}
 
 	fileInfo, err := os.Stat(path)
@@ -97,19 +107,19 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Printf("Successfully retrieved meta for %s.", in.Id)
+	log.Printf("Successfully retrieved meta for %s.", in.GetId())
 	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Printf("Deleting %s...", in.Id)
+	log.Printf("Deleting %s...", in.GetId())
 
 	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
-	log.Printf("Successfully deleted %s.", in.Id)
+	log.Printf("Successfully deleted %s.", in.GetId())
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
