@@ -13,13 +13,13 @@ import (
 	"storj.io/storj/storage"
 )
 
-var (
-	mbCmd = addCmd(&cobra.Command{
+func init() {
+	addCmd(&cobra.Command{
 		Use:   "mb",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
 	})
-)
+}
 
 func makeBucket(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)

@@ -23,16 +23,15 @@ const (
 )
 
 var (
-	lsCmd = addCmd(&cobra.Command{
-		Use:   "ls",
-		Short: "List objects and prefixes or all buckets",
-		RunE:  list,
-	})
-
 	recursiveFlag *bool
 )
 
 func init() {
+	lsCmd := addCmd(&cobra.Command{
+		Use:   "ls",
+		Short: "List objects and prefixes or all buckets",
+		RunE:  list,
+	})
 	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 

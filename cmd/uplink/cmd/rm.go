@@ -13,13 +13,13 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-var (
-	rmCmd = addCmd(&cobra.Command{
+func init() {
+	addCmd(&cobra.Command{
 		Use:   "rm",
 		Short: "Delete an object",
 		RunE:  delete,
 	})
-)
+}
 
 func delete(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)

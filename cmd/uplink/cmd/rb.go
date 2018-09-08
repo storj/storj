@@ -14,13 +14,13 @@ import (
 	"storj.io/storj/storage"
 )
 
-var (
-	rbCmd = addCmd(&cobra.Command{
+func init() {
+	addCmd(&cobra.Command{
 		Use:   "rb",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
 	})
-)
+}
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
