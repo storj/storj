@@ -173,7 +173,7 @@ func cleanup(cmd *cobra.Command) {
 
 		err = internalRun(cmd, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
 			os.Exit(1)
 		}
 		return err
