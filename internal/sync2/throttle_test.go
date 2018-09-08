@@ -57,7 +57,7 @@ func ExampleThrottle() {
 func TestThrottleBasic(t *testing.T) {
 	throttle := NewThrottle()
 	var stage int64
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	// consumer
 	go func() {

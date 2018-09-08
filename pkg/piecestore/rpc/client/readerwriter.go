@@ -130,7 +130,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 
 			sr.allocated += trustedSize
 
-			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, MaxAllocSize*2); err != nil {
+			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, int64(signer.bandwidthMsgSize*2)); err != nil {
 				sr.throttle.Fail(err)
 				return
 			}
