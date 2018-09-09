@@ -122,6 +122,8 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 				return
 			}
 
+			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
+
 			if lastTotal > allocData.GetTotal() {
 				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
 			}
