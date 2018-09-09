@@ -155,7 +155,7 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 
 	var items []*pb.ListResponse_Item
 	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(prefix, rawItem, req.MetaFlags))
+		items = append(items, s.createListItem(rawItem, req.MetaFlags))
 	}
 
 	return &pb.ListResponse{Items: items, More: more}, nil
@@ -163,9 +163,9 @@ func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListRe
 
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
-func (s *Server) createListItem(prefix storage.Key, rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+func (s *Server) createListItem(rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
 	item := &pb.ListResponse_Item{
-		Path:     append(prefix, rawItem.Key...).String(),
+		Path:     rawItem.Key.String(),
 		IsPrefix: rawItem.IsPrefix,
 	}
 	if item.IsPrefix {

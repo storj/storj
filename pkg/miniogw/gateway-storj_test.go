@@ -352,31 +352,21 @@ func TestListObjects(t *testing.T) {
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		{
-			Path: paths.New(prefix, "test-file-1.txt"),
-		},
-		{
-			Path: paths.New(prefix, "test-file-2.txt"),
-		},
+		{Path: paths.New("test-file-1.txt")},
+		{Path: paths.New("test-file-2.txt")},
 	}
 
 	objInfos := []minio.ObjectInfo{
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-1.txt"),
-		},
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-2.txt"),
-		},
+		{Bucket: bucket, Name: path.Join("test-file-1.txt")},
+		{Bucket: bucket, Name: path.Join("test-file-2.txt")},
 	}
 
 	for i, example := range []struct {
 		more       bool
 		startAfter string
 		nextMarker string
-		delimiter string
-		recursive bool
+		delimiter  string
+		recursive  bool
 		err        error
 		errString  string
 	}{

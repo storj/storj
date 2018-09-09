@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"go.uber.org/zap"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/objects"
@@ -49,24 +48,5 @@ func (o *prefixedObjStore) List(ctx context.Context, prefix, startAfter,
 	endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (
 	items []objects.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	objItems, more, err := o.o.List(ctx, prefix.Prepend(o.prefix), startAfter, endBefore,
-		recursive, limit, metaFlags)
-	if err != nil {
-		return nil, false, err
-	}
-
-	items = make([]objects.ListItem, len(objItems))
-	for i, itm := range objItems {
-		if len(itm.Path) == 0 {
-			zap.S().Warnf("empty path in list item, skipping from results")
-			continue
-		}
-		items[i] = objects.ListItem{
-			Path:     itm.Path[1:],
-			Meta:     itm.Meta,
-			IsPrefix: itm.IsPrefix,
-		}
-	}
-	return items, more, nil
+	return o.o.List(ctx, prefix.Prepend(o.prefix), startAfter, endBefore, recursive, limit, metaFlags)
 }
