@@ -19,9 +19,10 @@ import (
 	"storj.io/storj/storage"
 )
 
-var (
-	mon = monkit.Package()
-)
+var mon = monkit.Package()
+
+// NoBucketError is an error class for missing bucket name
+var NoBucketError = errs.Class("no bucket specified")
 
 // Store creates an interface for interacting with buckets
 type Store interface {
@@ -56,7 +57,7 @@ func NewStore(obj objects.Store) Store {
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
 	if bucket == "" {
-		return nil, errs.New("No bucket specified")
+		return nil, NoBucketError.New("")
 	}
 
 	_, err := b.Get(ctx, bucket)
@@ -77,7 +78,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return Meta{}, errs.New("No bucket specified")
+		return Meta{}, NoBucketError.New("")
 	}
 
 	p := paths.New(bucket)
@@ -92,7 +93,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return Meta{}, errs.New("No bucket specified")
+		return Meta{}, NoBucketError.New("")
 	}
 
 	p := paths.New(bucket)
@@ -109,7 +110,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
-		return errs.New("No bucket specified")
+		return NoBucketError.New("")
 	}
 
 	p := paths.New(bucket)
