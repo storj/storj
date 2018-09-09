@@ -233,7 +233,7 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 				ETag:        item.Meta.Checksum,
 			})
 		}
-		startAfter = items[len(items)-1].Path[len(paths.New(prefix)):]
+		startAfter = items[len(items)-1].Path
 	}
 
 	result = minio.ListObjectsInfo{
