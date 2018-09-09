@@ -18,10 +18,6 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
-const (
-	pagination = 1000
-)
-
 var (
 	recursiveFlag *bool
 )
@@ -59,7 +55,7 @@ func list(cmd *cobra.Command, args []string) error {
 	noBuckets := true
 
 	for {
-		items, more, err := bs.List(ctx, startAfter, "", pagination)
+		items, more, err := bs.List(ctx, startAfter, "", 0)
 		if err != nil {
 			return err
 		}
@@ -101,7 +97,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, pagination, meta.Modified)
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified)
 		if err != nil {
 			return err
 		}
