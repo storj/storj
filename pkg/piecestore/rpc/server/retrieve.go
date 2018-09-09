@@ -9,15 +9,14 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
+	"sync/atomic"
 
-	
 	"github.com/gogo/protobuf/proto"
-	"github.com/zeebo/errs"	
-	
-	"storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/utils"
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/sync2"
+	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
@@ -87,13 +86,16 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 	writer := NewStreamWriter(s, stream)
 	allocationTracking := sync2.NewThrottle()
+	totalAllocated := int64(0)
 
 	// Bandwidth Allocation recv loop
-	go func() {	
+	go func() {
 		var lastTotal int64
 		var lastAllocation *pb.RenterBandwidthAllocation
 		defer func() {
-			if lastAllocation == nil { return }
+			if lastAllocation == nil {
+				return
+			}
 			err := s.DB.WriteBandwidthAllocToDB(lastAllocation)
 			if err != nil {
 				// TODO: handle error properly
@@ -123,19 +125,21 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			if lastTotal > allocData.GetTotal() {
 				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
 			}
+			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
 
 			err = allocationTracking.Produce(allocData.GetTotal() - lastTotal)
 			if err != nil {
 				return
 			}
-			
+
 			lastAllocation = alloc
 			lastTotal = allocData.GetTotal()
 		}
 	}()
 
 	// Data send loop
-	messageSize := 8 << 10
+	messageSize := int64(8 << 10)
+	used := int64(0)
 
 	for {
 		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
@@ -144,15 +148,21 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			break
 		}
 
+		used += nextMessageSize
 		n, err := io.CopyN(writer, storeFile, nextMessageSize)
 		if err != nil {
 			allocationTracking.Fail(err)
 			break
 		}
+		// correct errors when needed
+		if n != nextMessageSize {
+			allocationTracking.Produce(nextMessageSize - n)
+			used -= nextMessageSize - n
+		}
 	}
 
 	// TODO: handle errors
-	_ = stream.Close()
+	// _ = stream.Close()
 
-	return am.Used, am.TotalAllocated, allocationTracking.Err()
+	return used, atomic.LoadInt64(&totalAllocated), allocationTracking.Err()
 }
