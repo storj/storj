@@ -125,7 +125,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 			break
 		}
 
-		startAfter = items[len(items)-1].Path[len(paths.New(u.Path)):]
+		startAfter = items[len(items)-1].Path
 	}
 
 	return nil
