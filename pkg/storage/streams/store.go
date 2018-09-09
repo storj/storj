@@ -116,7 +116,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		paddedData := eestream.PadReader(ioutil.NopCloser(segmentData), encrypter.InBlockSize())
 		transformedData := eestream.TransformReader(paddedData, encrypter, 0)
 
-		_, err := s.segments.Put(ctx, segmentPath, transformedData, nil, expiration)
+		_, err = s.segments.Put(ctx, segmentPath, transformedData, nil, expiration)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -216,7 +216,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 		paddedSize := rd.Size()
 		size := msi.SegmentsSize
-		if int64(i) == msi.NumberOfSegments-1 {
+		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
 		}
 		rc, err := eestream.Unpad(rd, int(paddedSize-size)) // int64 -> int; is this a problem?
