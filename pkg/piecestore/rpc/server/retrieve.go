@@ -9,11 +9,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
+	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/piecestore"
+
+	"storj.io/storj/internal/sync2"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -83,92 +85,84 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	defer utils.LogClose(storeFile)
 
 	writer := NewStreamWriter(s, stream)
-	am := NewAllocationManager()
-	var latestBA *pb.RenterBandwidthAllocation
-	var mtx sync.Mutex
-	cond := sync.NewCond(&mtx)
-
-	errChan := make(chan error)
-
-	// Save latest bandwidth allocation even if we fail
-	defer func() {
-		baWriteErr := s.DB.WriteBandwidthAllocToDB(latestBA)
-		if latestBA != nil && baWriteErr != nil {
-			log.Println("WriteBandwidthAllocToDB Error:", baWriteErr)
-		}
-	}()
+	allocationTracking := sync2.NewThrottle()
+	totalAllocated := int64(0)
 
 	// Bandwidth Allocation recv loop
 	go func() {
-		var latestTotal int64
+		var lastTotal int64
+		var lastAllocation *pb.RenterBandwidthAllocation
+		defer func() {
+			if lastAllocation == nil {
+				return
+			}
+			err := s.DB.WriteBandwidthAllocToDB(lastAllocation)
+			if err != nil {
+				// TODO: handle error properly
+				log.Println("WriteBandwidthAllocToDB Error:", err)
+			}
+		}()
 
-		for am.Used < length {
+		for {
 			recv, err := stream.Recv()
 			if err != nil {
-				errChan <- err
+				allocationTracking.Fail(err)
 				return
 			}
 
-			ba := recv.GetBandwidthallocation()
-
-			baData := &pb.RenterBandwidthAllocation_Data{}
-
-			if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
-				errChan <- err
+			alloc := recv.GetBandwidthallocation()
+			allocData := &pb.RenterBandwidthAllocation_Data{}
+			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
+				allocationTracking.Fail(err)
 				return
 			}
 
-			fmt.Println("Receiving ba: ", baData)
-			if err = s.verifySignature(ctx, ba); err != nil {
-				errChan <- err
+			if err = s.verifySignature(ctx, alloc); err != nil {
+				allocationTracking.Fail(err)
 				return
 			}
 
-			mtx.Lock() // Lock when updating bandwidth allocation
-			am.NewTotal(baData.GetTotal())
-			cond.Signal() // Signal the data send loop that it has available bandwidth
-			mtx.Unlock()
-
-			if baData.GetTotal() > latestTotal {
-				latestBA = ba
-				latestTotal = baData.GetTotal()
+			if lastTotal > allocData.GetTotal() {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
 			}
+			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
+
+			err = allocationTracking.Produce(allocData.GetTotal() - lastTotal)
+			if err != nil {
+				return
+			}
+
+			lastAllocation = alloc
+			lastTotal = allocData.GetTotal()
 		}
-
-		errChan <- nil
 	}()
 
 	// Data send loop
-	go func() {
-		for am.Used < length {
+	messageSize := int64(8 << 10)
+	used := int64(0)
 
-			cond.L.Lock()
-			for am.NextReadSize() <= 0 {
-				cond.Wait() // Wait for the bandwidth loop to get a new bandwidth allocation
-			}
-			cond.L.Unlock()
-
-			sizeToRead := am.NextReadSize()
-
-			// Write the buffer to the stream we opened earlier
-			n, err := io.CopyN(writer, storeFile, sizeToRead)
-			if n > 0 {
-				mtx.Lock()
-				if allocErr := am.UseAllocation(n); allocErr != nil {
-					log.Println(allocErr)
-				}
-				mtx.Unlock()
-			}
-
-			if err != nil {
-				errChan <- err
-				return
-			}
+	for {
+		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
+		if err != nil {
+			allocationTracking.Fail(err)
+			break
 		}
 
-		errChan <- nil
-	}()
+		used += nextMessageSize
+		n, err := io.CopyN(writer, storeFile, nextMessageSize)
+		if err != nil {
+			allocationTracking.Fail(err)
+			break
+		}
+		// correct errors when needed
+		if n != nextMessageSize {
+			allocationTracking.Produce(nextMessageSize - n)
+			used -= nextMessageSize - n
+		}
+	}
 
-	err = <-errChan
-	return am.Used, am.TotalAllocated, err
+	// TODO: handle errors
+	// _ = stream.Close()
+
+	return used, atomic.LoadInt64(&totalAllocated), allocationTracking.Err()
 }

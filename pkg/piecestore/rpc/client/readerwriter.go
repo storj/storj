@@ -71,48 +71,50 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	throttle     *sync2.Throttle
-	stream       pb.PieceStoreRoutes_RetrieveClient
-	src          *utils.ReaderSource
-	totalRead    int64
-	MaxAllocSize int64
-	allocated    int64
+	pendingAllocs *sync2.Throttle
+	stream        pb.PieceStoreRoutes_RetrieveClient
+	src           *utils.ReaderSource
+	downloaded    int64
+	allocated     int64
+	size          int64
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, MaxAllocSize int64) *StreamReader {
+func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
-		throttle:     sync2.NewThrottle(),
-		stream:       stream,
-		MaxAllocSize: MaxAllocSize,
+		pendingAllocs: sync2.NewThrottle(),
+		stream:        stream,
+		size:          size,
 	}
+
+	trustLimit := int64(signer.bandwidthMsgSize * 8)
+	sendThreshold := int64(signer.bandwidthMsgSize * 2)
 
 	// Send signed allocations to the piece store server
 	go func() {
 		trustedSize := int64(signer.bandwidthMsgSize)
 
 		// Allocate until we've reached the file size
-		for sr.allocated < MaxAllocSize {
-
-			nextAllocSize := trustedSize
-			if sr.allocated+trustedSize > MaxAllocSize {
-				nextAllocSize = MaxAllocSize - sr.allocated
+		for sr.allocated < trustLimit {
+			allocate := trustedSize
+			if sr.allocated+trustedSize > size {
+				allocate = size - sr.allocated
 			}
 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
-				Total:           sr.allocated + nextAllocSize,
+				Total:           sr.allocated + allocate,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
 			if err != nil {
-				sr.throttle.Fail(err)
+				sr.pendingAllocs.Fail(err)
 				return
 			}
 
 			sig, err := signer.sign(serializedAllocation)
 			if err != nil {
-				sr.throttle.Fail(err)
+				sr.pendingAllocs.Fail(err)
 				return
 			}
 
@@ -124,21 +126,21 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			}
 
 			if err = stream.Send(msg); err != nil {
-				sr.throttle.Fail(err)
+				sr.pendingAllocs.Fail(err)
 				return
 			}
 
 			sr.allocated += trustedSize
 
-			if err = sr.throttle.ProduceAndWaitUntilBelow(nextAllocSize, int64(signer.bandwidthMsgSize*2)); err != nil {
-				sr.throttle.Fail(err)
+			if err = sr.pendingAllocs.ProduceAndWaitUntilBelow(allocate, sendThreshold); err != nil {
+				sr.pendingAllocs.Fail(err)
 				return
 			}
 
 			// Speed up retrieval as server gives us more data
 			trustedSize *= 2
-			if trustedSize > MaxAllocSize {
-				trustedSize = MaxAllocSize
+			if trustedSize > trustLimit {
+				trustedSize = trustLimit
 			}
 		}
 	}()
@@ -146,15 +148,15 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		if err != nil {
-			sr.throttle.Fail(err)
+			sr.pendingAllocs.Fail(err)
 			return nil, err
 		}
 
-		sr.totalRead += int64(len(resp.GetContent()))
+		sr.downloaded += int64(len(resp.GetContent()))
 
-		err = sr.throttle.Consume(int64(len(resp.GetContent())))
+		err = sr.pendingAllocs.Consume(int64(len(resp.GetContent())))
 		if err != nil {
-			sr.throttle.Fail(err)
+			sr.pendingAllocs.Fail(err)
 			return resp.GetContent(), err
 		}
 
