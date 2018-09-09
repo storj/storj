@@ -126,11 +126,12 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 
 			if lastTotal > allocData.GetTotal() {
 				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
+				return
 			}
+
 			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
 
-			err = allocationTracking.Produce(allocData.GetTotal() - lastTotal)
-			if err != nil {
+			if err = allocationTracking.Produce(allocData.GetTotal() - lastTotal); err != nil {
 				return
 			}
 
