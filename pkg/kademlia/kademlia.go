@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -152,7 +151,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, err
 		if string(v.ID) == ID.String() {
 			return proto.Node{Id: string(v.ID), Address: &proto.NodeAddress{
 				Transport: defaultTransport,
-				Address:   fmt.Sprintf("%s:%d", v.IP.String(), v.Port),
+				Address:   net.JoinHostPort(v.IP.String(), strconv.Itoa(v.Port)),
 			},
 			}, nil
 		}

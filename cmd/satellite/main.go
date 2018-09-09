@@ -19,12 +19,12 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "hc",
-		Short: "Heavy client",
+		Use:   "satellite",
+		Short: "Satellite",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the heavy client",
+		Short: "Run the satellite",
 		RunE:  cmdRun,
 	}
 	setupCmd = &cobra.Command{
@@ -47,7 +47,7 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 
-	defaultConfDir = "$HOME/.storj/hc"
+	defaultConfDir = "$HOME/.storj/satellite"
 )
 
 func init() {
@@ -74,7 +74,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("An hc configuration already exists. Rerun with --overwrite")
+		fmt.Println("An satellite configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 

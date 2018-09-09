@@ -85,18 +85,20 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	awareLimitReader := EOFAwareReader(data)
 
-	for !awareLimitReader.isEOF() {
+	for !awareLimitReader.isEOF() && !awareLimitReader.hasError() {
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
 
-		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData,
-			nil, expiration)
+		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData, nil, expiration)
 		if err != nil {
 			return Meta{}, err
 		}
 		lastSegmentSize = putMeta.Size
 		totalSize = totalSize + putMeta.Size
 		totalSegments = totalSegments + 1
+	}
+	if awareLimitReader.hasError() {
+		return Meta{}, awareLimitReader.err
 	}
 
 	lastSegmentPath := path.Prepend("l")
@@ -144,20 +146,26 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	msi := streamspb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
+		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
-	var rangers []ranger.Ranger
+	var rangers []ranger.RangeCloser
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
 		currentPath := fmt.Sprintf("s%d", i)
 		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
+			for _, ranger := range rangers {
+				_ = ranger.Close()
+			}
+			_ = lastRangerCloser.Close()
 			return nil, Meta{}, err
 		}
 
@@ -168,7 +176,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 	catRangers := ranger.Concat(rangers...)
 
-	return ranger.NopCloser(catRangers), newMeta, nil
+	return catRangers, newMeta, nil
 }
 
 // Meta implements Store.Meta
@@ -214,8 +222,9 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path paths.Path
-	Meta Meta
+	Path     paths.Path
+	Meta     Meta
+	IsPrefix bool
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
@@ -224,18 +233,18 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lItems, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
 
-	items = make([]ListItem, len(lItems))
-	for i, item := range lItems {
+	items = make([]ListItem, len(segments))
+	for i, item := range segments {
 		newMeta, err := convertMeta(item.Meta)
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path[1:], Meta: newMeta}
+		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil

@@ -85,6 +85,12 @@ func TestPiece(t *testing.T) {
 			expiration: 9999999999,
 			err:        fmt.Sprintf("rpc error: code = Unknown desc = stat %s: no such file or directory", path.Join(TS.s.DataDir, "/22/22/2222222222222222")),
 		},
+		{ // server should err with invalid TTL
+			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
+			size:       5,
+			expiration: 9999999999,
+			err:        "rpc error: code = Unknown desc = PSServer error: Invalid ID",
+		},
 	}
 
 	for _, tt := range tests {
@@ -465,7 +471,7 @@ func newTestServerStruct() *Server {
 	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().Format("2006-01-02T15-04-05.999999999Z07-00")))
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 
-	psDB, err := psdb.OpenPSDB(ctx, tempDir, tempDBPath)
+	psDB, err := psdb.Open(ctx, tempDir, tempDBPath)
 	if err != nil {
 		log.Fatalf("failed open psdb: %v", err)
 	}
@@ -526,7 +532,7 @@ func NewTestServer(t *testing.T) *TestServer {
 }
 
 func (TS *TestServer) start() (addr string) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

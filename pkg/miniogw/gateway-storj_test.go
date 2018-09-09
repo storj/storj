@@ -32,6 +32,97 @@ var (
 	ctx = context.Background()
 )
 
+func TestCopyObject(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockBS := mock_buckets.NewMockStore(ctrl)
+	b := Storj{bs: mockBS}
+
+	mockOS := NewMockStore(ctrl)
+
+	storjObj := storjObjects{storj: &b}
+
+	for i, example := range []struct {
+		bucket, srcObject string
+		destObject        string
+		data              string
+		getErr            error
+		putErr            error
+		errString         string
+	}{
+		// happy scenario
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", nil, nil, ""},
+		// error returned by the objects.Get()
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", errors.New("some Get err"), nil, "some Get err"},
+		// error returned by the objects.Put()
+		{"mybucket", "mySrcObj", "myDestObj", "abcdef", nil, errors.New("some Put err"), "some Put err"},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		metadata := map[string]string{
+			"content-type": "media/foo",
+			"userdef_key1": "userdef_val1",
+			"userdef_key2": "userdef_val2",
+		}
+
+		serMeta := objects.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: map[string]string{
+				"userdef_key1": metadata["userdef_key1"],
+				"userdef_key2": metadata["userdef_key2"],
+			},
+		}
+
+		meta := objects.Meta{
+			SerializableMeta: serMeta,
+			Modified:         time.Time{},
+			Expiration:       time.Time{},
+			Size:             1234,
+			Checksum:         "test-checksum",
+		}
+
+		srcInfo := minio.ObjectInfo{
+			Bucket:      example.bucket,
+			Name:        example.srcObject,
+			Size:        1234,
+			ContentType: serMeta.ContentType,
+			UserDefined: serMeta.UserDefined,
+		}
+
+		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
+		r, err := rr.Range(ctx, 0, rr.Size())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// if o.Get returns an error, only expect GetObjectStore once, do not expect Put
+		if example.errString != "some Get err" {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil).Times(2)
+			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
+			mockOS.EXPECT().Put(gomock.Any(), paths.New(example.destObject), r, serMeta, time.Time{}).Return(meta, example.putErr)
+		} else {
+			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
+			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
+		}
+
+		objInfo, err := storjObj.CopyObject(ctx, example.bucket, example.srcObject, example.bucket, example.destObject, srcInfo)
+
+		if err != nil {
+			assert.EqualError(t, err, example.errString, errTag)
+		} else {
+			assert.NoError(t, err, errTag)
+			assert.NotNil(t, objInfo, errTag)
+			assert.Equal(t, example.bucket, objInfo.Bucket, errTag)
+			assert.Equal(t, example.destObject, objInfo.Name, errTag)
+			assert.Equal(t, meta.Modified, objInfo.ModTime, errTag)
+			assert.Equal(t, meta.Size, objInfo.Size, errTag)
+			assert.Equal(t, meta.Checksum, objInfo.ETag, errTag)
+			assert.Equal(t, meta.UserDefined, objInfo.UserDefined, errTag)
+		}
+	}
+}
+
 func TestGetObject(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -258,48 +349,39 @@ func TestListObjects(t *testing.T) {
 
 	bucket := "test-bucket"
 	prefix := "test-prefix"
-	delimiter := "test-delimiter"
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		{
-			Path: paths.New(prefix, "test-file-1.txt"),
-		},
-		{
-			Path: paths.New(prefix, "test-file-2.txt"),
-		},
+		{Path: paths.New("test-file-1.txt")},
+		{Path: paths.New("test-file-2.txt")},
 	}
 
 	objInfos := []minio.ObjectInfo{
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-1.txt"),
-		},
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-2.txt"),
-		},
+		{Bucket: bucket, Name: path.Join("test-file-1.txt")},
+		{Bucket: bucket, Name: path.Join("test-file-2.txt")},
 	}
 
 	for i, example := range []struct {
 		more       bool
 		startAfter string
 		nextMarker string
+		delimiter  string
+		recursive  bool
 		err        error
 		errString  string
 	}{
-		{false, "", "", nil, ""},
-		{true, "test-start-after", "test-file-2.txt", nil, ""},
+		{false, "", "", "", true, nil, ""},
+		{true, "test-start-after", "test-file-2.txt", "/", false, nil, ""},
 		// mock returning non-nil error
-		{false, "", "", Error.New("error"), "Storj Gateway error: error"},
+		{false, "", "", "", true, Error.New("error"), "Storj Gateway error: error"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), bucket).Return(mockOS, nil)
 		mockOS.EXPECT().List(gomock.Any(), paths.New(prefix), paths.New(example.startAfter),
-			nil, true, maxKeys, meta.All).Return(items, example.more, example.err)
+			nil, example.recursive, maxKeys, meta.All).Return(items, example.more, example.err)
 
-		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, delimiter, maxKeys)
+		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, example.delimiter, maxKeys)
 
 		if err != nil {
 			assert.EqualError(t, err, example.errString, errTag)

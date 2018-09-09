@@ -26,8 +26,7 @@ type Store interface {
 	Get(ctx context.Context, bucket string) (meta Meta, err error)
 	Put(ctx context.Context, bucket string) (meta Meta, err error)
 	Delete(ctx context.Context, bucket string) (err error)
-	List(ctx context.Context, startAfter, endBefore string, limit int) (
-		items []ListItem, more bool, err error)
+	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
 	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
 }
 
@@ -104,12 +103,15 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objItems, more, err := b.o.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
-	items = make([]ListItem, len(objItems))
-	for i, itm := range objItems {
-		items[i] = ListItem{
+	items = make([]ListItem, 0, len(objItems))
+	for _, itm := range objItems {
+		if itm.IsPrefix {
+			continue
+		}
+		items = append(items, ListItem{
 			Bucket: itm.Path.String(),
 			Meta:   convertMeta(itm.Meta),
-		}
+		})
 	}
 	return items, more, nil
 }
