@@ -19,9 +19,7 @@ FILEEXT := .exe
 endif
 
 DOCKER_BUILD := docker build \
-	--build-arg GO_VERSION=${GO_VERSION} \
-	--build-arg GOOS=${GOOS} \
-	--build-arg GOARCH=${GOARCH}
+	--build-arg GO_VERSION=${GO_VERSION}
 
 # currently disabled linters:
 #   gofmt               # enable after switch to go1.11

@@ -16,11 +16,11 @@ services:
     - satellite
   satellite:
     image: storjlabs/satellite:${VERSION}
-    command: --mock-overlay.nodes INTENTIONALLY:LEFT:BLANK
     environment:
     - API_KEY=abc123
-    - IDENTITY_ADDR=:7777
     - BOOTSTRAP_ADDR=localhost:8080
+    - IDENTITY_ADDR=:7777
+    - MOCK_OVERLAY_NODES=INTENTIONALLY:LEFT:BLANK
     links:
     - redis
     depends_on:
@@ -31,7 +31,7 @@ services:
     image: storjlabs/uplink:${VERSION}
     command: --min-threshold 1 --max-threshold 1 --repair-threshold 1 --success-threshold 1
     environment:
-    - SATELLITE_ADDR=satellite:7777
     - API_KEY=abc123
+    - SATELLITE_ADDR=satellite:7777
     ports:
     - 7777:7777

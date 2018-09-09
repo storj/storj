@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -18,10 +17,7 @@ var (
 	Error = errs.Class("redis error")
 )
 
-const (
-	defaultNodeExpiration = 61 * time.Minute
-	maxKeyLookup          = 100
-)
+const defaultNodeExpiration = 61 * time.Minute
 
 // Client is the entrypoint into Redis
 type Client struct {
@@ -73,13 +69,13 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (client *Client) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ListKeys(client, first, limit)
 }
 
 // ReverseList returns either a list of keys for which redis has values or an error.
 // Starts from first and iterates backwards
-func (client *Client) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	return storage.ReverseListKeys(client, first, limit)
 }
 
@@ -101,8 +97,8 @@ func (client *Client) Close() error {
 // The maximum keys returned will be 100. If more than that is requested an
 // error will be returned
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	if len(keys) > maxKeyLookup {
-		return nil, Error.New(fmt.Sprintf("requested %d keys, maximum is %d", len(keys), maxKeyLookup))
+	if len(keys) > storage.LookupLimit {
+		return nil, storage.ErrLimitExceeded
 	}
 
 	keyStrings := make([]string, len(keys))
@@ -151,18 +147,23 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.It
 
 func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {
 	var all storage.Items
+	seen := map[string]struct{}{}
 
 	match := string(escapeMatch([]byte(prefix))) + "*"
 	it := client.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
+		if !first.IsZero() && storage.Key(key).Less(first) {
+			continue
+		}
+		if !last.IsZero() && last.Less(storage.Key(key)) {
+			continue
+		}
 
-		if first != nil && storage.Key(key).Less(first) {
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		if last != nil && last.Less(storage.Key(key)) {
-			continue
-		}
+		seen[key] = struct{}{}
 
 		value, err := client.db.Get(key).Bytes()
 		if err != nil {

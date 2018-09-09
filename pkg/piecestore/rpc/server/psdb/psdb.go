@@ -8,62 +8,63 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
+
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	_ "github.com/mattn/go-sqlite3" // sqlite is weird and needs underscore
-
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
 
 var (
 	mon                  = monkit.Package()
-	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval",
-		time.Hour, "number of seconds to sleep between ttl checks")
+	defaultCheckInterval = flag.Duration("piecestore.ttl.check_interval", time.Hour, "number of seconds to sleep between ttl checks")
 )
 
-// PSDB -- Piecestore database
-type PSDB struct {
-	DB            *sql.DB
-	mtx           sync.Mutex
-	dataPath      string
-	checkInterval time.Duration
+// DB is a piece store database
+type DB struct {
+	dataPath string
+	mu       sync.Mutex
+	DB       *sql.DB // TODO: hide
+	check    *time.Ticker
 }
 
-// OpenPSDB -- opens PSDB at DBPath
-func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err error) {
+// Open opens DB at DBPath
+func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
+	sqlite, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc&mutex=full", DBPath))
 	if err != nil {
 		return nil, err
 	}
+
+	// try to enable write-ahead-logging
+	_, _ = sqlite.Exec(`PRAGMA journal_mode = WAL`)
 
 	defer func() {
 		if err != nil {
-			_ = db.Close()
+			_ = sqlite.Close()
 		}
 	}()
 
-	tx, err := db.Begin()
+	tx, err := sqlite.Begin()
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = tx.Rollback() }()
 
-	defer rollback(tx)
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` TEXT UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10));")
 	if err != nil {
 		return nil, err
 	}
@@ -78,185 +79,147 @@ func OpenPSDB(ctx context.Context, DataPath, DBPath string) (psdb *PSDB, err err
 		return nil, err
 	}
 
-	return &PSDB{
-		DB:            db,
-		dataPath:      DataPath,
-		checkInterval: *defaultCheckInterval}, nil
-}
-
-// deleteEntries -- checks for and deletes expired TTL entries
-func deleteEntriesFromFS(dir string, rows *sql.Rows) error {
-	for rows.Next() {
-		var expID string
-
-		err := rows.Scan(&expID)
-		if err != nil {
-			return err
-		}
-
-		// delete file on local machine
-		err = pstore.Delete(expID, dir)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Deleted file: %s\n", expID)
+	db = &DB{
+		DB:       sqlite,
+		dataPath: DataPath,
+		check:    time.NewTicker(*defaultCheckInterval),
 	}
+	go db.garbageCollect(ctx)
 
-	return rows.Err()
+	return db, nil
 }
 
 // Close the database
-func (psdb *PSDB) Close() error {
-	return psdb.DB.Close()
+func (db *DB) Close() error {
+	return db.DB.Close()
+}
+
+func (db *DB) locked() func() {
+	db.mu.Lock()
+	return db.mu.Unlock
 }
 
 // DeleteExpired checks for expired TTLs in the DB and removes data from both the DB and the FS
-func (psdb *PSDB) DeleteExpired(ctx context.Context) (err error) {
+func (db *DB) DeleteExpired(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().Unix()
+	var expired []string
+	err = func() error {
+		defer db.locked()()
 
-	rows, err := psdb.DB.Query(fmt.Sprintf("SELECT id FROM ttl WHERE expires < %d AND expires > 0", now))
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if rowErr := rows.Close(); rowErr != nil {
-			log.Printf("failed to close Rows: %s\n", rowErr)
+		tx, err := db.DB.BeginTx(ctx, nil)
+		if err != nil {
+			return err
 		}
-	}()
+		defer func() { _ = tx.Rollback() }()
 
-	if err = deleteEntriesFromFS(psdb.dataPath, rows); err != nil {
-		return err
-	}
+		now := time.Now().Unix()
 
-	_, err = psdb.DB.Exec(fmt.Sprintf("DELETE FROM ttl WHERE expires < %d AND expires > 0", now))
-	return err
-}
+		rows, err := tx.Query("SELECT id FROM ttl WHERE 0 < expires AND ? < expires", now)
+		if err != nil {
+			return err
+		}
 
-// DeleteExpiredLoop will periodically run DeleteExpired
-func (psdb *PSDB) DeleteExpiredLoop(ctx context.Context) (err error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			time.Sleep(psdb.checkInterval)
-			err = ctx.Err()
-			if err != nil {
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
 				return err
 			}
-			err = psdb.DeleteExpired(ctx)
-			if err != nil {
-				zap.S().Errorf("failed checking entries: %+v", err)
-			}
+			expired = append(expired, id)
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`DELETE FROM ttl WHERE 0 < expires AND ? < expires`, now)
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}()
+
+	var errs []error
+	for _, id := range expired {
+		err := pstore.Delete(id, db.dataPath)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return utils.CombineErrors(errs...)
+	}
+
+	return nil
+}
+
+// garbageCollect will periodically run DeleteExpired
+func (db *DB) garbageCollect(ctx context.Context) {
+	for range db.check.C {
+		err := db.DeleteExpired(ctx)
+		if err != nil {
+			zap.S().Errorf("failed checking entries: %+v", err)
 		}
 	}
 }
 
 // WriteBandwidthAllocToDB -- Insert bandwidth agreement into DB
-func (psdb *PSDB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
-	psdb.mtx.Lock()
-	defer psdb.mtx.Unlock()
+func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
+	defer db.locked()()
 
-	data := ba.GetData()
-	if data == nil {
-		return nil
-	}
-
-	tx, err := psdb.DB.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer rollback(tx)
-
-	stmt, err := psdb.DB.Prepare(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`)
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = stmt.Close() }()
-
-	_, err = tx.Stmt(stmt).Exec(data, ba.GetSignature())
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.GetData(), ba.GetSignature())
+	return err
 }
 
-// AddTTLToDB -- Insert TTL into database by id
-func (psdb *PSDB) AddTTLToDB(id string, expiration int64) error {
-	psdb.mtx.Lock()
-	defer psdb.mtx.Unlock()
+// GetBandwidthAllocationBySignature finds allocation info by signature
+func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, error) {
+	defer db.locked()()
 
-	tx, err := psdb.DB.Begin()
+	rows, err := db.DB.Query(`SELECT agreement FROM bandwidth_agreements WHERE signature = ?`, signature)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	defer func() {
+		_ = rows.Close()
+	}()
 
-	defer rollback(tx)
-
-	stmt, err := psdb.DB.Prepare("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)")
-	if err != nil {
-		return err
+	agreements := [][]byte{}
+	for rows.Next() {
+		var agreement []byte
+		err := rows.Scan(&agreement)
+		if err != nil {
+			return agreements, err
+		}
+		agreements = append(agreements, agreement)
 	}
-
-	defer func() { _ = stmt.Close() }()
-
-	_, err = tx.Stmt(stmt).Exec(id, time.Now().Unix(), expiration)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return agreements, nil
 }
 
-// GetTTLByID -- Find the TTL in the database by id and return it
-func (psdb *PSDB) GetTTLByID(id string) (expiration int64, err error) {
-	psdb.mtx.Lock()
-	defer psdb.mtx.Unlock()
+// AddTTLToDB adds TTL into database by id
+func (db *DB) AddTTLToDB(id string, expiration int64) error {
+	defer db.locked()()
 
-	err = psdb.DB.QueryRow(fmt.Sprintf(`SELECT expires FROM ttl WHERE id="%s"`, id)).Scan(&expiration)
-	if err != nil {
-		return 0, err
-	}
-
-	return expiration, nil
+	created := time.Now().Unix()
+	_, err := db.DB.Exec("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)", id, created, expiration)
+	return err
 }
 
-// DeleteTTLByID -- Find the TTL in the database by id and delete it
-func (psdb *PSDB) DeleteTTLByID(id string) error {
-	psdb.mtx.Lock()
-	defer psdb.mtx.Unlock()
+// GetTTLByID finds the TTL in the database by id and return it
+func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
+	defer db.locked()()
 
-	tx, err := psdb.DB.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer rollback(tx)
-
-	stmt, err := tx.Prepare("DELETE FROM ttl WHERE id=?")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = stmt.Close() }()
-
-	_, err = tx.Stmt(stmt).Exec(id)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	err = db.DB.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
+	return expiration, err
 }
 
-func rollback(tx *sql.Tx) {
-	err := tx.Rollback()
-	if err != nil && err != sql.ErrTxDone {
-		log.Printf("%s\n", err)
+// DeleteTTLByID finds the TTL in the database by id and delete it
+func (db *DB) DeleteTTLByID(id string) error {
+	defer db.locked()()
+
+	_, err := db.DB.Exec(`DELETE FROM ttl WHERE id=?`, id)
+	if err == sql.ErrNoRows {
+		err = nil
 	}
+	return err
 }

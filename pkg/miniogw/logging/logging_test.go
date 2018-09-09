@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockgen -destination logger_mock_test.go -package logging storj.io/storj/pkg/miniogw/logging ErrorLogger
+
 const (
 	testError  = "test error"
 	bucket     = "test-bucket"
@@ -115,6 +117,7 @@ func TestShutdown(t *testing.T) {
 	// Error returned
 	mol.EXPECT().Shutdown(ctx).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.Shutdown(ctx)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -152,6 +155,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 	// Error returned
 	mol.EXPECT().MakeBucketWithLocation(ctx, bucket, location).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.MakeBucketWithLocation(ctx, bucket, location)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -176,6 +180,7 @@ func TestGetBucketInfo(t *testing.T) {
 	// Error returned
 	mol.EXPECT().GetBucketInfo(ctx, bucket).Return(minio.BucketInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.GetBucketInfo(ctx, bucket)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.BucketInfo{}, info)
@@ -202,6 +207,7 @@ func TestListBuckets(t *testing.T) {
 	// Error returned
 	mol.EXPECT().ListBuckets(ctx).Return([]minio.BucketInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListBuckets(ctx)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, []minio.BucketInfo{}, list)
@@ -227,6 +233,7 @@ func TestDeleteBucket(t *testing.T) {
 	// Error returned
 	mol.EXPECT().DeleteBucket(ctx, bucket).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.DeleteBucket(ctx, bucket)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -253,6 +260,7 @@ func TestListObjects(t *testing.T) {
 	mol.EXPECT().ListObjects(ctx, bucket, prefix, marker, delimiter, maxKeys).
 		Return(minio.ListObjectsInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListObjects(ctx, bucket, prefix, marker, delimiter, maxKeys)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ListObjectsInfo{}, list)
@@ -287,6 +295,7 @@ func TestListObjectsV2(t *testing.T) {
 	mol.EXPECT().ListObjectsV2(ctx, bucket, prefix, marker, delimiter, maxKeys,
 		owner, startAfter).Return(minio.ListObjectsV2Info{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListObjectsV2(ctx, bucket, prefix, marker, delimiter,
 		maxKeys, owner, startAfter)
 	assert.Error(t, err, ErrTest.Error())
@@ -318,6 +327,7 @@ func TestGetObject(t *testing.T) {
 	// Error returned
 	mol.EXPECT().GetObject(ctx, bucket, object, offset, length, w, etag).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.GetObject(ctx, bucket, object, offset, length, w, etag)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -342,6 +352,7 @@ func TestGetObjectInfo(t *testing.T) {
 	// Error returned
 	mol.EXPECT().GetObjectInfo(ctx, bucket, object).Return(minio.ObjectInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.GetObjectInfo(ctx, bucket, object)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ObjectInfo{}, info)
@@ -370,6 +381,7 @@ func TestPutObject(t *testing.T) {
 	// Error returned
 	mol.EXPECT().PutObject(ctx, bucket, object, data, metadata).Return(minio.ObjectInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.PutObject(ctx, bucket, object, data, metadata)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ObjectInfo{}, info)
@@ -398,6 +410,7 @@ func TestCopyObject(t *testing.T) {
 	mol.EXPECT().CopyObject(ctx, bucket, object, destBucket, destObject, objInfo).
 		Return(minio.ObjectInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.CopyObject(ctx, bucket, object, destBucket, destObject, objInfo)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ObjectInfo{}, info)
@@ -424,6 +437,7 @@ func TestDeleteObject(t *testing.T) {
 	// Error returned
 	mol.EXPECT().DeleteObject(ctx, bucket, object).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.DeleteObject(ctx, bucket, object)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -455,6 +469,7 @@ func TestListMultipartUploads(t *testing.T) {
 	mol.EXPECT().ListMultipartUploads(ctx, bucket, prefix, marker, uidMarker,
 		delimiter, maxKeys).Return(minio.ListMultipartsInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListMultipartUploads(ctx, bucket, prefix, marker, uidMarker,
 		delimiter, maxKeys)
 	assert.Error(t, err, ErrTest.Error())
@@ -484,6 +499,7 @@ func TestNewMultipartUpload(t *testing.T) {
 	// Error returned
 	mol.EXPECT().NewMultipartUpload(ctx, bucket, object, metadata).Return("", ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	id, err = ol.NewMultipartUpload(ctx, bucket, object, metadata)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, "", id)
@@ -513,6 +529,7 @@ func TestCopyObjectPart(t *testing.T) {
 	mol.EXPECT().CopyObjectPart(ctx, bucket, object, destBucket, destObject,
 		uploadID, partID, offset, length, objInfo).Return(minio.PartInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.CopyObjectPart(ctx, bucket, object, destBucket, destObject,
 		uploadID, partID, offset, length, objInfo)
 	assert.Error(t, err, ErrTest.Error())
@@ -546,6 +563,7 @@ func TestPutObjectPart(t *testing.T) {
 	mol.EXPECT().PutObjectPart(ctx, bucket, object, uploadID, partID, data).
 		Return(minio.PartInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.PutObjectPart(ctx, bucket, object, uploadID, partID, data)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.PartInfo{}, info)
@@ -575,6 +593,7 @@ func TestListObjectParts(t *testing.T) {
 	mol.EXPECT().ListObjectParts(ctx, bucket, object, uploadID, partMarker, maxKeys).
 		Return(minio.ListPartsInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListObjectParts(ctx, bucket, object, uploadID, partMarker, maxKeys)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ListPartsInfo{}, list)
@@ -601,6 +620,7 @@ func TestAbortMultipartUpload(t *testing.T) {
 	// Error returned
 	mol.EXPECT().AbortMultipartUpload(ctx, bucket, object, uploadID).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.AbortMultipartUpload(ctx, bucket, object, uploadID)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -629,6 +649,7 @@ func TestCompleteMultipartUpload(t *testing.T) {
 	mol.EXPECT().CompleteMultipartUpload(ctx, bucket, object, uploadID, parts).
 		Return(minio.ObjectInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	info, err = ol.CompleteMultipartUpload(ctx, bucket, object, uploadID, parts)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ObjectInfo{}, info)
@@ -655,6 +676,7 @@ func TestReloadFormat(t *testing.T) {
 	// Error returned
 	mol.EXPECT().ReloadFormat(ctx, dryRun).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.ReloadFormat(ctx, dryRun)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -679,6 +701,7 @@ func TestHealFormat(t *testing.T) {
 	// Error returned
 	mol.EXPECT().HealFormat(ctx, dryRun).Return(madmin.HealResultItem{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	item, err = ol.HealFormat(ctx, dryRun)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, madmin.HealResultItem{}, item)
@@ -705,6 +728,7 @@ func TestHealBucket(t *testing.T) {
 	// Error returned
 	mol.EXPECT().HealBucket(ctx, bucket, dryRun).Return([]madmin.HealResultItem{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.HealBucket(ctx, bucket, dryRun)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, []madmin.HealResultItem{}, list)
@@ -731,6 +755,7 @@ func TestHealObject(t *testing.T) {
 	// Error returned
 	mol.EXPECT().HealObject(ctx, bucket, object, dryRun).Return(madmin.HealResultItem{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	item, err = ol.HealObject(ctx, bucket, object, dryRun)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, madmin.HealResultItem{}, item)
@@ -757,6 +782,7 @@ func TestListBucketsHeal(t *testing.T) {
 	// Error returned
 	mol.EXPECT().ListBucketsHeal(ctx).Return([]minio.BucketInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListBucketsHeal(ctx)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, []minio.BucketInfo{}, list)
@@ -785,6 +811,7 @@ func TestListObjectsHeal(t *testing.T) {
 	mol.EXPECT().ListObjectsHeal(ctx, bucket, prefix, marker, delimiter, maxKeys).
 		Return(minio.ListObjectsInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListObjectsHeal(ctx, bucket, prefix, marker, delimiter, maxKeys)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, minio.ListObjectsInfo{}, list)
@@ -813,6 +840,7 @@ func TestListLocks(t *testing.T) {
 	mol.EXPECT().ListLocks(ctx, bucket, prefix, duration).
 		Return([]minio.VolumeLockInfo{}, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	list, err = ol.ListLocks(ctx, bucket, prefix, duration)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Equal(t, []minio.VolumeLockInfo{}, list)
@@ -839,6 +867,7 @@ func TestClearLocks(t *testing.T) {
 	// Error returned
 	mol.EXPECT().ClearLocks(ctx, lockList).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.ClearLocks(ctx, lockList)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -862,6 +891,7 @@ func TestSetBucketPolicy(t *testing.T) {
 	// Error returned
 	mol.EXPECT().SetBucketPolicy(ctx, n, plcy).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.SetBucketPolicy(ctx, n, plcy)
 	assert.Error(t, err, ErrTest.Error())
 
@@ -886,6 +916,7 @@ func TestGetBucketPolicy(t *testing.T) {
 	// Error returned
 	mol.EXPECT().GetBucketPolicy(ctx, n).Return(nil, ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	p, err = ol.GetBucketPolicy(ctx, n)
 	assert.Error(t, err, ErrTest.Error())
 	assert.Nil(t, p)
@@ -911,6 +942,7 @@ func TestDeleteBucketPolicy(t *testing.T) {
 	// Error returned
 	mol.EXPECT().DeleteBucketPolicy(ctx, n).Return(ErrTest)
 	logger.EXPECT().Errorf(errTemplate, ErrTest)
+	logger.EXPECT().Debugf(debugTemplate, ErrTest)
 	err = ol.DeleteBucketPolicy(ctx, n)
 	assert.Error(t, err, ErrTest.Error())
 

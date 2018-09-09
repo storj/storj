@@ -6,12 +6,10 @@ package storelogger
 import (
 	"strconv"
 	"sync/atomic"
-	"testing"
 
 	"storj.io/storj/storage"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 )
 
 var id int64
@@ -27,11 +25,6 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	loggerid := atomic.AddInt64(&id, 1)
 	name := strconv.Itoa(int(loggerid))
 	return &Logger{log.Named(name), store}
-}
-
-// NewTest creates a logger for testing
-func NewTest(t *testing.T, store storage.KeyValueStore) *Logger {
-	return New(zaptest.NewLogger(t), store)
 }
 
 // Put adds a value to store
@@ -59,16 +52,16 @@ func (store *Logger) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from first and upto limit items
-func (store *Logger) List(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Logger) List(first storage.Key, limit int) (storage.Keys, error) {
 	keys, err := store.store.List(first, limit)
-	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 
 // ReverseList lists all keys in reverse order, starting from first
-func (store *Logger) ReverseList(first storage.Key, limit storage.Limit) (storage.Keys, error) {
+func (store *Logger) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	keys, err := store.store.ReverseList(first, limit)
-	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", int(limit)), zap.Any("keys", keys.Strings()))
+	store.log.Debug("ReverseList", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 

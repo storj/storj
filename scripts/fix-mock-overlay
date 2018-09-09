@@ -9,4 +9,4 @@ for cid in $(docker ps -a | awk '/storagenode/{print $1}'); do
 	echo $id:$ip:7777
 done | tr '\n' ','
 )"
-sed -i'' -e "s/nodes .*$/nodes ${ids%,}/" docker-compose.yaml
+sed -i'' -e "s/NODES=.*$/NODES=${ids%,}/" docker-compose.yaml

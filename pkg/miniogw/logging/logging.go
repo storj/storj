@@ -17,7 +17,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var errTemplate = "gateway error: %+v"
+const (
+	errTemplate   = "gateway error: %v"
+	debugTemplate = "gateway error: %+v"
+)
 
 type gwLogWrap struct {
 	gw minio.Gateway
@@ -45,6 +48,7 @@ type olLogWrap struct {
 // ErrorLogger logs a templated error message.
 type ErrorLogger interface {
 	Errorf(template string, args ...interface{})
+	Debugf(template string, args ...interface{})
 }
 
 // minioError checks if the given error is a minio error.
@@ -57,6 +61,7 @@ func minioError(err error) bool {
 func (ol *olLogWrap) log(err error) error {
 	if err != nil && !minioError(err) {
 		ol.logger.Errorf(errTemplate, err)
+		ol.logger.Debugf(debugTemplate, err)
 	}
 	return err
 }

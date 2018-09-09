@@ -40,8 +40,9 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path paths.Path
-	Meta Meta
+	Path     paths.Path
+	Meta     Meta
+	IsPrefix bool
 }
 
 // Store for segments
@@ -268,8 +269,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore,
-		recursive, limit, metaFlags)
+	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -279,6 +279,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 		items[i] = ListItem{
 			Path: itm.Path,
 			Meta: convertMeta(itm.Pointer),
+			IsPrefix: itm.IsPrefix,
 		}
 	}
 

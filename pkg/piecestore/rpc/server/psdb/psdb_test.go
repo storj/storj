@@ -4,311 +4,213 @@
 package psdb
 
 import (
-	"fmt"
+	"bytes"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/stretchr/testify/assert"
 	pb "storj.io/storj/protos/piecestore"
 
 	"golang.org/x/net/context"
 )
 
 var ctx = context.Background()
-var concurrency = 10
 
-func TestOpenPSDB(t *testing.T) {
-	tests := []struct {
-		it  string
-		err string
-	}{
-		{
-			it:  "should successfully create database",
-			err: "",
-		},
-	}
+const concurrency = 10
 
-	for _, tt := range tests {
-		t.Run(tt.it, func(t *testing.T) {
-			assert := assert.New(t)
-
-			tmp, err := ioutil.TempDir("", "example")
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer os.RemoveAll(tmp)
-
-			dbpath := filepath.Join(tmp, "test.db")
-
-			DB, err := OpenPSDB(ctx, "", dbpath)
-			if tt.err != "" {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				return
-			}
-			assert.NoError(err)
-			assert.NotNil(DB)
-			assert.NotNil(DB.DB)
-		})
-	}
-}
-
-func TestAddTTLToDB(t *testing.T) {
-	tests := []struct {
-		it         string
-		id         string
-		expiration int64
-		err        string
-	}{
-		{
-			it:         "should successfully Put TTL",
-			id:         "Butts",
-			expiration: 666,
-			err:        "",
-		},
-	}
-
-	tmp, err := ioutil.TempDir("", "example")
+func openTest(t testing.TB) (*DB, func()) {
+	tmpdir, err := ioutil.TempDir("", "storj-psdb")
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmp)
+	defer os.RemoveAll(tmpdir)
+	dbpath := filepath.Join(tmpdir, "psdb.db")
 
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
+	db, err := Open(ctx, "", dbpath)
 	if err != nil {
-		t.Errorf("Failed to create database")
-		return
+		t.Fatal(err)
 	}
-	defer os.Remove(dbpath)
+	return db, func() {
+		err := db.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	for _, tt := range tests {
-		for i := 0; i < concurrency; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				assert := assert.New(t)
-
-				err := db.AddTTLToDB(tt.id, tt.expiration)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
-				}
-				assert.NoError(err)
-
-				db.mtx.Lock()
-				rows, err := db.DB.Query(fmt.Sprintf(`SELECT * FROM ttl WHERE id="%s"`, tt.id))
-				assert.NoError(err)
-
-				rows.Next()
-				var expiration int64
-				var id string
-				var time int64
-				err = rows.Scan(&id, &time, &expiration)
-				assert.NoError(err)
-				rows.Close()
-
-				db.mtx.Unlock()
-
-				assert.Equal(tt.id, id)
-				assert.True(time > 0)
-				assert.Equal(tt.expiration, expiration)
-			})
+		err = os.RemoveAll(tmpdir)
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }
 
-// This test depends on AddTTLToDB to pass
-func TestDeleteTTLByID(t *testing.T) {
-	tests := []struct {
-		it  string
-		id  string
-		err string
-	}{
-		{
-			it:  "should successfully Delete TTL by ID",
-			id:  "butts",
-			err: "",
-		},
+func TestHappyPath(t *testing.T) {
+	db, cleanup := openTest(t)
+	defer cleanup()
+
+	type TTL struct {
+		ID         string
+		Expiration int64
 	}
 
-	tmp, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
+	tests := []TTL{
+		{ID: "", Expiration: 0},
+		{ID: "\x00", Expiration: ^int64(0)},
+		{ID: "test", Expiration: 666},
 	}
-	defer os.RemoveAll(tmp)
 
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
-	if err != nil {
-		t.Errorf("Failed to create database")
-		return
-	}
-	defer os.Remove(dbpath)
-
-	for _, tt := range tests {
-		for i := 0; i < concurrency; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				assert := assert.New(t)
-				err := db.AddTTLToDB(tt.id, 0)
-				assert.NoError(err)
-
-				err = db.DeleteTTLByID(tt.id)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
+	t.Run("Add", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, ttl := range tests {
+					err := db.AddTTLToDB(ttl.ID, ttl.Expiration)
+					if err != nil {
+						t.Fatal(err)
+					}
 				}
-				assert.NoError(err)
-
 			})
 		}
-	}
-}
-
-// This test depends on AddTTLToDB to pass
-func TestGetTTLByID(t *testing.T) {
-	tests := []struct {
-		it         string
-		id         string
-		expiration int64
-		err        string
-	}{
-		{
-			it:         "should successfully Get TTL by ID",
-			id:         "butts",
-			expiration: 666,
-			err:        "",
-		},
-	}
-
-	tmp, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
-
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
-	if err != nil {
-		t.Errorf("Failed to create database")
-		return
-	}
-	defer os.Remove(dbpath)
-
-	for _, tt := range tests {
-		for i := 0; i < concurrency; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				assert := assert.New(t)
-				err := db.AddTTLToDB(tt.id, tt.expiration)
-				assert.NoError(err)
-
-				expiration, err := db.GetTTLByID(tt.id)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
-				}
-				assert.NoError(err)
-				assert.Equal(tt.expiration, expiration)
-			})
-		}
-	}
-
-	t.Run("should return 0 if ttl doesn't exist", func(t *testing.T) {
-		assert := assert.New(t)
-		expiration, err := db.GetTTLByID("fake-id")
-		assert.NotNil(err)
-		assert.Equal(int64(0), expiration)
 	})
 
-}
+	t.Run("Get", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, ttl := range tests {
+					expiration, err := db.GetTTLByID(ttl.ID)
+					if err != nil {
+						t.Fatal(err)
+					}
 
-func TestWriteBandwidthAllocToDB(t *testing.T) {
-	tests := []struct {
-		it              string
-		payerAllocation *pb.PayerBandwidthAllocation
-		total           int64
-		err             string
-	}{
+					if ttl.Expiration != expiration {
+						t.Fatalf("expected %d got %d", ttl.Expiration, expiration)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("Delete", func(t *testing.T) {
+				t.Parallel()
+				for _, ttl := range tests {
+					err := db.DeleteTTLByID(ttl.ID)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("Get Deleted", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, ttl := range tests {
+					expiration, err := db.GetTTLByID(ttl.ID)
+					if err == nil {
+						t.Fatal(err)
+					}
+					if expiration != 0 {
+						t.Fatalf("expected expiration 0 got %d", expiration)
+					}
+				}
+			})
+		}
+	})
+
+	bandwidthAllocation := func(total int64) []byte {
+		return serialize(t, &pb.RenterBandwidthAllocation_Data{
+			PayerAllocation: &pb.PayerBandwidthAllocation{},
+			Total:           total,
+		})
+	}
+
+	//TODO: use better data
+	allocationTests := []*pb.RenterBandwidthAllocation{
 		{
-			it:              "should successfully Put Bandwidth Allocation",
-			payerAllocation: &pb.PayerBandwidthAllocation{},
-			total:           5,
-			err:             "",
+			Signature: []byte("signed by test"),
+			Data:      bandwidthAllocation(0),
+		},
+		{
+			Signature: []byte("signed by sigma"),
+			Data:      bandwidthAllocation(10),
+		},
+		{
+			Signature: []byte("signed by sigma"),
+			Data:      bandwidthAllocation(98),
+		},
+		{
+			Signature: []byte("signed by test"),
+			Data:      bandwidthAllocation(3),
 		},
 	}
 
-	tmp, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
+	t.Run("Bandwidth Allocation", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, test := range allocationTests {
+					err := db.WriteBandwidthAllocToDB(test)
+					if err != nil {
+						t.Fatal(err)
+					}
 
-	dbpath := filepath.Join(tmp, "test.db")
-	db, err := OpenPSDB(ctx, "", dbpath)
-	if err != nil {
-		t.Errorf("Failed to create database")
-		return
-	}
-	defer os.Remove(dbpath)
+					agreements, err := db.GetBandwidthAllocationBySignature(test.Signature)
+					if err != nil {
+						t.Fatal(err)
+					}
 
-	for _, tt := range tests {
-		for i := 0; i < concurrency; i++ {
-			t.Run(tt.it, func(t *testing.T) {
-				assert := assert.New(t)
-				ba := &pb.RenterBandwidthAllocation{
-					Signature: []byte{'A', 'B'},
-					Data: serializeData(&pb.RenterBandwidthAllocation_Data{
-						PayerAllocation: tt.payerAllocation,
-						Total:           tt.total,
-					}),
+					found := false
+					for _, agreement := range agreements {
+						if bytes.Equal(agreement, test.Data) {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						t.Fatal("did not find added bandwidth allocation")
+					}
 				}
-				err = db.WriteBandwidthAllocToDB(ba)
-				if tt.err != "" {
-					assert.NotNil(err)
-					assert.Equal(tt.err, err.Error())
-					return
-				}
-				assert.NoError(err)
-				// check db to make sure agreement and signature were stored correctly
-				db.mtx.Lock()
-				rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements Limit 1`)
-				assert.NoError(err)
-
-				for rows.Next() {
-					var (
-						agreement []byte
-						signature []byte
-					)
-
-					err = rows.Scan(&agreement, &signature)
-					assert.NoError(err)
-
-					decodedRow := &pb.RenterBandwidthAllocation_Data{}
-					err = proto.Unmarshal(agreement, decodedRow)
-					assert.NoError(err)
-
-					assert.Equal(ba.GetSignature(), signature)
-					assert.Equal(tt.payerAllocation, decodedRow.GetPayerAllocation())
-					assert.Equal(tt.total, decodedRow.GetTotal())
-
-				}
-				rows.Close()
-				db.mtx.Unlock()
-				err = rows.Err()
-				assert.NoError(err)
 			})
 		}
-	}
+	})
 }
 
-func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
-	data, _ := proto.Marshal(ba)
+func BenchmarkWriteBandwidthAllocation(b *testing.B) {
+	db, cleanup := openTest(b)
+	defer cleanup()
 
+	const WritesPerLoop = 10
+
+	data := serialize(b, &pb.RenterBandwidthAllocation_Data{
+		PayerAllocation: &pb.PayerBandwidthAllocation{},
+		Total:           156,
+	})
+
+	b.RunParallel(func(b *testing.PB) {
+		for b.Next() {
+			for i := 0; i < WritesPerLoop; i++ {
+				_ = db.WriteBandwidthAllocToDB(&pb.RenterBandwidthAllocation{
+					Signature: []byte("signed by test"),
+					Data:      data,
+				})
+			}
+		}
+	})
+}
+
+func serialize(t testing.TB, v proto.Message) []byte {
+	data, err := proto.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return data
 }

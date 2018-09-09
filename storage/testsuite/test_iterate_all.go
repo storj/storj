@@ -25,17 +25,30 @@ func testIterateAll(t *testing.T, store storage.KeyValueStore) {
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
-
-	for _, item := range items {
-		if err := store.Put(item.Key, item.Value); err != nil {
-			t.Fatalf("failed to put: %v", err)
-		}
+	if err := storage.PutAll(store, items...); err != nil {
+		t.Fatalf("failed to setup: %v", err)
 	}
 
 	testIterations(t, store, []iterationTest{
 		{"no limits",
 			storage.IterateOptions{
 				Recurse: true,
+			}, storage.Items{
+				newItem("a", "a", false),
+				newItem("b/1", "b/1", false),
+				newItem("b/2", "b/2", false),
+				newItem("b/3", "b/3", false),
+				newItem("c", "c", false),
+				newItem("c/", "c/", false),
+				newItem("c//", "c//", false),
+				newItem("c/1", "c/1", false),
+				newItem("g", "g", false),
+				newItem("h", "h", false),
+			}},
+		{"no limits with non-nil first",
+			storage.IterateOptions{
+				Recurse: true,
+				First:   storage.Key(""),
 			}, storage.Items{
 				newItem("a", "a", false),
 				newItem("b/1", "b/1", false),

@@ -19,6 +19,9 @@ var ErrKeyNotFound = errs.Class("key not found")
 // ErrEmptyKey is returned when an empty key is used in Put
 var ErrEmptyKey = errors.New("empty key")
 
+// ErrLimitExceeded is returned when request limit is exceeded
+var ErrLimitExceeded = errors.New("limit exceeded")
+
 // Key is the type for the keys in a `KeyValueStore`
 type Key []byte
 
@@ -31,11 +34,11 @@ type Keys []Key
 // Values is the type for a slice of Values in a `KeyValueStore`
 type Values []Value
 
-// Limit indicates how many keys to return when calling List
-type Limit int
-
 // Items keeps all ListItem
 type Items []ListItem
+
+// LookupLimit is enforced by storage implementations
+const LookupLimit = 1000
 
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {
@@ -55,9 +58,9 @@ type KeyValueStore interface {
 	// Delete deletes key and the value
 	Delete(Key) error
 	// List lists all keys starting from start and upto limit items
-	List(start Key, limit Limit) (Keys, error)
+	List(start Key, limit int) (Keys, error)
 	// ReverseList lists all keys in revers order
-	ReverseList(Key, Limit) (Keys, error)
+	ReverseList(Key, int) (Keys, error)
 	// Iterate iterates over items based on opts
 	Iterate(opts IterateOptions, fn func(Iterator) error) error
 	// Close closes the store

@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/storage"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func testList(t *testing.T, store storage.KeyValueStore) {
@@ -24,18 +25,15 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 	rand.Shuffle(len(items), items.Swap)
 
 	defer cleanupItems(store, items)
-
-	for _, item := range items {
-		if err := store.Put(item.Key, item.Value); err != nil {
-			t.Fatalf("failed to put: %v", err)
-		}
+	if err := storage.PutAll(store, items...); err != nil {
+		t.Fatalf("failed to setup: %v", err)
 	}
 
 	type Test struct {
 		Name     string
 		Reverse  bool
 		First    storage.Key
-		Limit    storage.Limit
+		Limit    int
 		Expected storage.Keys
 	}
 
@@ -83,7 +81,7 @@ func testList(t *testing.T, store storage.KeyValueStore) {
 			t.Errorf("%s: %s", test.Name, err)
 			continue
 		}
-		if diff := cmp.Diff(test.Expected, keys); diff != "" {
+		if diff := cmp.Diff(test.Expected, keys, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("%s: (-want +got)\n%s", test.Name, diff)
 		}
 	}
