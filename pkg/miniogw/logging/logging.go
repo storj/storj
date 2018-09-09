@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
+const (
 	errTemplate   = "gateway error: %v"
 	debugTemplate = "gateway error: %+v"
 )
