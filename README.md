@@ -6,80 +6,26 @@
 
 <img src="https://github.com/storj/storj/raw/master/logo/logo.png" width="100">
 
-Storj is in the midst of a rearchitecture. Please stay tuned for our v3 whitepaper!
+Storj is building a decentralized cloud storage network and is launching in 
+early 2019.
 
 ----
 
-Storj is a platform, token, and suite of decentralized applications that allows
-you to store data in a secure and decentralized manner. Your files are
-encrypted, shredded into little pieces and stored in a global decentralized
+Storj is an S3 compatible platform and suite of decentralized applications that 
+allows you to store data in a secure and decentralized manner. Your files are
+encrypted, broken into little pieces and stored in a global decentralized
 network of computers. Luckily, we also support allowing you (and only you) to
-recover them!
+retrieve those files!
 
 ## Table of Contents
 
-- [Storj CLI](#storjcli)
-- [AWS S3 CLI](#awss3cli)
-- [Run Storj Locally](#storjlocal)
+- [Contributing](#start-contributing-to-storj)
+- [Using via Storj CLI](#start-using-storj-via-the-storj-cli)
+- [Using via AWS S3 CLI](#start-using-storj-via-the-aws-s3-cli)
+- [License](#license)
 - [Support](#support)
 
-
-# Start Using Storj
-
-
-#### Download, setup, and run the latest release
-
-Go here to download the latest build
- * TODO: add link when a build is released
- * TODO for how to run the release
-
-## Using Storj via the Storj CLI <a name="storjcli"></a>
-
-#### Configure the Storj CLI
-1) In a new terminal setup the Storj CLI: ```$ storj setup```
-2) Edit the API Key, overlay address, and pointer db address fields in the Storj
-CLI config file located at ```~/.storj/cli/config.yaml``` with values from the
-captplanet config file located at ```~/.storj/capt/config.yaml```
-
-#### Test out some Storj CLI commands!
-
-1) Create a bucket: ```$ storj mb s3://bucket-name```
-2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
-3) List objects in a bucket: ```$ storj ls s3://bucket-name/ ```
-4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
-6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
-
----
-
-## Using Storj via the AWS S3 CLI <a name="awss3cli"></a>
-
-#### Configure AWS CLI
-
-Download and install the AWS S3 CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
-
-In a new terminal session configure the AWS S3 CLI:
-```bash
-$ aws configure
-AWS Access Key ID [None]: insecure-dev-access-key
-AWS Secret Access Key [None]: insecure-dev-secret-key
-Default region name [None]: us-east-1
-Default output format [None]:
-$ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
-```
-
-#### Test out some AWS S3 CLI commands!
-
-1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
-2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
-3) List objects in a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ ls s3://bucket-name/ ```
-4) Download an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
-5) Generate a URL for an object: ``` $ aws s3 --endpoint=http://localhost:7777/ presign s3://bucket-name/your-large-file.mp4```
-6) Delete an object: ```$ aws s3 --endpoint=http://localhost:7777/ rm s3://bucket-name/your-large-file.mp4```
-
-For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
-
-
-# Start Contributing to Storj <a name="storjlocal"></a>
+# Start Contributing to Storj
 
 ### Install required packages
 
@@ -120,8 +66,6 @@ go install -v ./cmd/...
 ~/go/bin/captplanet run
 ```
 
-### Try out some commands via Storj CLI or AWS CLI
-
 ### Run unit tests
 
 ```bash
@@ -132,7 +76,62 @@ You can execute only a single test package if you like. For example:
 `go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
 tests.
 
-## Support <a name="support"></a>
+# Start Using Storj via the Storj CLI
+
+#### Configure the Storj CLI
+1) In a new terminal setup the Storj CLI: ```$ storj setup```
+2) Edit the API Key, overlay address, and pointer db address fields in the Storj
+CLI config file located at ```~/.storj/cli/config.yaml``` with values from the
+captplanet config file located at ```~/.storj/capt/config.yaml```
+
+#### Test out some Storj CLI commands!
+
+1) Create a bucket: ```$ storj mb s3://bucket-name```
+2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
+3) List objects in a bucket: ```$ storj ls s3://bucket-name/ ```
+4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
+6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
+
+
+# Start Using Storj via the AWS S3 CLI
+
+#### Configure AWS CLI
+
+Download and install the AWS S3 CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
+
+In a new terminal session configure the AWS S3 CLI:
+```bash
+$ aws configure
+AWS Access Key ID [None]: insecure-dev-access-key
+AWS Secret Access Key [None]: insecure-dev-secret-key
+Default region name [None]: us-east-1
+Default output format [None]:
+$ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
+```
+
+#### Test out some AWS S3 CLI commands!
+
+1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
+2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
+3) List objects in a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ ls s3://bucket-name/ ```
+4) Download an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
+5) Generate a URL for an object: ``` $ aws s3 --endpoint=http://localhost:7777/ presign s3://bucket-name/your-large-file.mp4```
+6) Delete an object: ```$ aws s3 --endpoint=http://localhost:7777/ rm s3://bucket-name/your-large-file.mp4```
+
+For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
+
+# License
+
+The network under construction (this repo) is currently licensed with the 
+[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license. Once the network 
+reaches beta phase, we will be licensing all client-side code via the 
+[Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
+
+For code released under the AGPLv3, we request that contributors sign 
+[our Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
+code under Apache v2, or other licenses in the future.
+
+# Support
 
 If you have any questions or suggestions please reach out to us on
 [Rocketchat](https://community.storj.io/) or

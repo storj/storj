@@ -10,6 +10,7 @@
 
 # Test binary, build with `go test -c`
 *.test
+*.prof
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -35,3 +36,9 @@ protos/google/*
 *test_bolt.db
 
 *.coverprofile
+
+/release/
+*.swp
+satellite_*
+storagenode_*
+uplink_*

@@ -60,7 +60,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	hcPath := filepath.Join(setupCfg.BasePath, "hc")
+	hcPath := filepath.Join(setupCfg.BasePath, "satellite")
 	err = os.MkdirAll(hcPath, 0700)
 	if err != nil {
 		return err
@@ -117,18 +117,18 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	overrides := map[string]interface{}{
-		"heavy-client.identity.cert-path": setupCfg.HCIdentity.CertPath,
-		"heavy-client.identity.key-path":  setupCfg.HCIdentity.KeyPath,
-		"heavy-client.identity.address": joinHostPort(
+		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
+		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
+		"satellite.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
-		"heavy-client.kademlia.todo-listen-addr": joinHostPort(
+		"satellite.kademlia.todo-listen-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+2),
-		"heavy-client.kademlia.bootstrap-addr": joinHostPort(
+		"satellite.kademlia.bootstrap-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+4),
-		"heavy-client.pointer-db.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "hc", "pointerdb.db"),
-		"heavy-client.overlay.database-url": "bolt://" + filepath.Join(
-			setupCfg.BasePath, "hc", "overlay.db"),
+		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
+			setupCfg.BasePath, "satellite", "pointerdb.db"),
+		"satellite.overlay.database-url": "bolt://" + filepath.Join(
+			setupCfg.BasePath, "satellite", "overlay.db"),
 		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
 		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
 		"uplink.address": joinHostPort(

@@ -4,11 +4,14 @@
 package cmd
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -21,10 +24,12 @@ var (
 		RunE:  cmdSetup,
 	}
 	setupCfg struct {
-		CA        provider.CASetupConfig
-		Identity  provider.IdentitySetupConfig
-		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
-		Overwrite bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		CA            provider.CASetupConfig
+		Identity      provider.IdentitySetupConfig
+		BasePath      string `default:"$CONFDIR" help:"base path for setup"`
+		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
+		APIKey        string `default:"" help:"the api key to use for the satellite"`
 	}
 )
 
@@ -34,9 +39,18 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	setupCfg.BasePath, err = filepath.Abs(setupCfg.BasePath)
+	if err != nil {
+		return err
+	}
+
+	for _, flagname := range args {
+		return fmt.Errorf("%s - Invalid flag. Pleas see --help", flagname)
+	}
+
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("A cli configuration already exists. Rerun with --overwrite")
+		fmt.Println("An uplink configuration already exists. Rerun with --overwrite")
 		return nil
 	}
 
@@ -58,11 +72,35 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	o := map[string]interface{}{
-		"cert-path": setupCfg.Identity.CertPath,
-		"key-path":  setupCfg.Identity.KeyPath,
+	accessKey, err := generateAWSKey()
+	if err != nil {
+		return err
 	}
 
-	return process.SaveConfig(cpCmd.Flags(),
+	secretKey, err := generateAWSKey()
+	if err != nil {
+		return err
+	}
+
+	o := map[string]interface{}{
+		"cert-path":       setupCfg.Identity.CertPath,
+		"key-path":        setupCfg.Identity.KeyPath,
+		"api-key":         setupCfg.APIKey,
+		"pointer-db-addr": setupCfg.SatelliteAddr,
+		"overlay-addr":    setupCfg.SatelliteAddr,
+		"access-key":      accessKey,
+		"secret-key":      secretKey,
+	}
+
+	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+}
+
+func generateAWSKey() (key string, err error) {
+	var buf [20]byte
+	_, err = rand.Read(buf[:])
+	if err != nil {
+		return "", err
+	}
+	return base58.Encode(buf[:]), nil
 }

@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -66,7 +65,7 @@ func TestChoose(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
 		srv, mock, err := newTestServer(ctx)
@@ -103,7 +102,7 @@ func TestLookup(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
 		srv, mock, err := newTestServer(ctx)
