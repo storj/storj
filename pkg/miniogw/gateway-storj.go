@@ -206,26 +206,32 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	}
 
 	startAfter := paths.New(marker)
+	recursive := delimiter == ""
+
 	var objects []minio.ObjectInfo
 	var prefixes []string
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return minio.ListObjectsInfo{}, err
 	}
-	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, delimiter == "", maxKeys, meta.All)
+	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, recursive, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
 	if len(items) > 0 {
 		for _, item := range items {
+			path := item.Path
+			if recursive {
+				path = path.Prepend(prefix)
+			}
 			if item.IsPrefix {
-				prefixes = append(prefixes, item.Path.String()+"/")
+				prefixes = append(prefixes, path.String()+"/")
 				continue
 			}
 			objects = append(objects, minio.ObjectInfo{
 				Bucket:      bucket,
 				IsDir:       false,
-				Name:        item.Path.String(),
+				Name:        path.String(),
 				ModTime:     item.Meta.Modified,
 				Size:        item.Meta.Size,
 				ContentType: item.Meta.ContentType,
