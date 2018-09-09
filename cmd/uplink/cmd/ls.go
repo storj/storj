@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -49,7 +48,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
 
-		return listFiles(ctx, bs, u)
+		return listFiles(ctx, bs, u, false)
 	}
 
 	startAfter := ""
@@ -63,13 +62,9 @@ func list(cmd *cobra.Command, args []string) error {
 		if len(items) > 0 {
 			noBuckets = false
 			for _, bucket := range items {
-				name := bucket.Bucket
+				fmt.Println("BKT", formatTime(bucket.Meta.Created), bucket.Bucket)
 				if *recursiveFlag {
-					name = fmt.Sprintf("sj://%s", bucket.Bucket)
-				}
-				fmt.Println("BKT", formatTime(bucket.Meta.Created), name)
-				if *recursiveFlag {
-					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"})
+					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"}, true)
 					if err != nil {
 						return err
 					}
@@ -89,7 +84,7 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
+func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket bool) error {
 	o, err := bs.GetObjectStore(ctx, u.Host)
 	if err != nil {
 		return err
@@ -104,12 +99,9 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 		}
 
 		for _, object := range items {
-			// TODO: should list be doing this for us?
 			path := object.Path.String()
-			if *recursiveFlag {
-				path = "sj:/" + filepath.Join(fmt.Sprintf("/%s", u.Host), path)
-			} else {
-				path = filepath.Base(object.Path.String())
+			if prependBucket {
+				path = fmt.Sprintf("%s/%s", u.Host, path)
 			}
 			if object.IsPrefix {
 				fmt.Println("PRE", path+"/")
