@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -66,7 +67,7 @@ func list(cmd *cobra.Command, args []string) error {
 				if *recursiveFlag {
 					name = fmt.Sprintf("sj://%s", bucket.Bucket)
 				}
-				fmt.Println("BKT", bucket.Meta.Created, name)
+				fmt.Println("BKT", formatTime(bucket.Meta.Created), name)
 				if *recursiveFlag {
 					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"})
 					if err != nil {
@@ -113,7 +114,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 			if object.IsPrefix {
 				fmt.Println("PRE", path+"/")
 			} else {
-				fmt.Println("OBJ", object.Meta.Modified, path)
+				fmt.Println("OBJ", formatTime(object.Meta.Modified), path)
 			}
 		}
 
@@ -125,4 +126,8 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL) error {
 	}
 
 	return nil
+}
+
+func formatTime(t time.Time) string {
+	return t.Local().Format("2006-01-02 15:04:05")
 }
