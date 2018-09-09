@@ -87,7 +87,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	match, err := regexp.MatchString("^[A-Za-z0-9]{20,32}$", in.GetId())
+	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", in.GetId())
 	if err != nil {
 		return nil, err
 	}
