@@ -94,8 +94,9 @@ func (c Config) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	minio.Main([]string{"storj", "gateway", "storj",
-		"--address", c.Address, "--config-dir", c.MinioDir})
+		"--address", c.Address, "--config-dir", c.MinioDir, "--quiet"})
 	return Error.New("unexpected minio exit")
 }
 
