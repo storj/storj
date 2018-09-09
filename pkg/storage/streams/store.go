@@ -107,11 +107,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		return Meta{}, err
 	}
 
-	awareLimitReader := EOFAwareReader(data)
+	eofReader := NewEOFReader(data)
 
-	for !awareLimitReader.isEOF() {
+	for !eofReader.isEOF() && !eofReader.hasError() {
+		sizeReader := NewSizeReader(eofReader)
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
-		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
+		segmentData := io.LimitReader(sizeReader, s.segmentSize)
 		paddedData := eestream.PadReader(ioutil.NopCloser(segmentData), encrypter.InBlockSize())
 		transformedData := eestream.TransformReader(paddedData, encrypter, 0)
 
@@ -119,9 +120,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		if err != nil {
 			return Meta{}, err
 		}
-		lastSegmentSize = putMeta.Size
-		totalSize = totalSize + putMeta.Size
+
+		lastSegmentSize = sizeReader.Size()
+		totalSize = totalSize + lastSegmentSize
 		totalSegments = totalSegments + 1
+	}
+	if eofReader.hasError() {
+		return Meta{}, eofReader.err
 	}
 
 	lastSegmentPath := path.Prepend("l")
