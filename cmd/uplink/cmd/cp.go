@@ -70,7 +70,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		return err
 	}
 
-	fmt.Printf("Created: %s\n", destObj.Path)
+	fmt.Printf("Created %s\n", destObj)
 
 	return nil
 }
@@ -113,7 +113,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		return err
 	}
 
-	fmt.Printf("Downloaded %s to %s\n", srcObj.Path, destFile)
+	fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
 
 	return nil
 }
@@ -158,7 +158,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		return err
 	}
 
-	fmt.Printf("%s copied to %s\n", srcObj.Host+srcObj.Path, destObj.Host+destObj.Path)
+	fmt.Printf("%s copied to %s\n", srcObj, destObj)
 
 	return nil
 }

@@ -51,7 +51,7 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Deleted %s from %s\n", u.Path, u.Host)
+	fmt.Printf("Deleted %s\n", u)
 
 	return nil
 }
