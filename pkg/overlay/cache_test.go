@@ -14,11 +14,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -240,10 +240,7 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 	boltPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
 
-	logger, err := utils.NewLogger("dev")
-	assert.NoError(t, err)
-
-	client, err := boltdb.NewClient(logger, boltPath, "testBoltdb")
+	client, err := boltdb.NewClient(zap.L(), boltPath, "testBoltdb")
 	assert.NoError(t, err)
 
 	cleanup := func() {

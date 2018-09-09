@@ -18,7 +18,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
-	"storj.io/storj/pkg/utils"
 )
 
 // ExecuteWithConfig runs a Cobra command with the provided default config
@@ -135,13 +134,15 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		logger, err := utils.NewLogger(*logDisposition)
+		logger, err := newLogger()
 		if err != nil {
 			return err
 		}
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
+
+		logger.Debug("logging initialized")
 
 		// okay now that logging is working, inform about the broken keys
 		for _, key := range brokenKeys {
