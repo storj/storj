@@ -20,7 +20,7 @@ import (
 var (
 	setupCmd = &cobra.Command{
 		Use:   "setup",
-		Short: "A brief description of your command",
+		Short: "Create an uplink config file",
 		RunE:  cmdSetup,
 	}
 	setupCfg struct {
@@ -50,8 +50,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	_, err = os.Stat(setupCfg.BasePath)
 	if !setupCfg.Overwrite && err == nil {
-		fmt.Println("An uplink configuration already exists. Rerun with --overwrite")
-		return nil
+		return fmt.Errorf("An uplink configuration already exists. Rerun with --overwrite")
 	}
 
 	err = os.MkdirAll(setupCfg.BasePath, 0700)

@@ -8,24 +8,24 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 )
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "rm",
-		Short: "Delete an object",
-		RunE:  delete,
+		Use:   "mb",
+		Short: "Create a new bucket",
+		RunE:  makeBucket,
 	})
 }
 
-func delete(cmd *cobra.Command, args []string) error {
+func makeBucket(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for deletion")
+		return fmt.Errorf("No bucket specified for creation")
 	}
 
 	u, err := utils.ParseURL(args[0])
@@ -41,17 +41,19 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	o, err := bs.GetObjectStore(ctx, u.Host)
+	_, err = bs.Get(ctx, u.Host)
+	if err == nil {
+		return fmt.Errorf("Bucket already exists")
+	}
+	if !storage.ErrKeyNotFound.Has(err) {
+		return err
+	}
+	_, err = bs.Put(ctx, u.Host)
 	if err != nil {
 		return err
 	}
 
-	err = o.Delete(ctx, paths.New(u.Path))
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Deleted %s\n", u)
+	fmt.Printf("Bucket %s created\n", u.Host)
 
 	return nil
 }
