@@ -138,10 +138,10 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}()
 
 	// Data send loop
-	messageSize := int64(8 << 10)
+	messageSize := int64(32 << 10)
 	used := int64(0)
 
-	for {
+	for used < length {
 		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
 		if err != nil {
 			allocationTracking.Fail(err)

@@ -87,12 +87,12 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		size:          size,
 	}
 
-	trustLimit := int64(signer.bandwidthMsgSize * 8)
-	sendThreshold := int64(signer.bandwidthMsgSize * 2)
+	trustLimit := int64(signer.bandwidthMsgSize * 64)
+	sendThreshold := int64(signer.bandwidthMsgSize * 8)
 
 	// Send signed allocations to the piece store server
 	go func() {
-		trustedSize := int64(signer.bandwidthMsgSize)
+		trustedSize := int64(signer.bandwidthMsgSize * 8)
 
 		// Allocate until we've reached the file size
 		for sr.allocated < size {
