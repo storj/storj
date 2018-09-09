@@ -95,7 +95,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		trustedSize := int64(signer.bandwidthMsgSize)
 
 		// Allocate until we've reached the file size
-		for sr.allocated < trustLimit {
+		for sr.allocated < size {
 			allocate := trustedSize
 			if sr.allocated+trustedSize > size {
 				allocate = size - sr.allocated
