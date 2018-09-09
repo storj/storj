@@ -133,7 +133,6 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			sr.allocated += trustedSize
 
 			if err = sr.pendingAllocs.ProduceAndWaitUntilBelow(allocate, sendThreshold); err != nil {
-				sr.pendingAllocs.Fail(err)
 				return
 			}
 
