@@ -68,7 +68,7 @@ build-dev-deps:
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b $GOPATH/bin v1.10.1
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b $GOPATH/bin v1.10.2
 
 test:
 	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
