@@ -113,8 +113,8 @@ linters-settings:
     for-loops: false # Report preallocation suggestions on for loops, false by default
 
 
-
 issues:
   max-per-linter: 0
   max-same: 0
   new: false
+  exclude-use-default: false
