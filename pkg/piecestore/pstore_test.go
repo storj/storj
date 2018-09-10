@@ -55,7 +55,7 @@ func TestStore(t *testing.T) {
 			_, err = storeFile.Write(tt.content)
 			assert.NoError(err)
 
-			storeFile.Close()
+			assert.NoError(storeFile.Close())
 
 			folder1 := tt.id[0:2]
 			folder2 := tt.id[2:4]
@@ -72,8 +72,8 @@ func TestStore(t *testing.T) {
 			_, _ = createdFile.Seek(0, 0)
 			_, _ = createdFile.Read(buffer)
 
-			createdFile.Close()
-			os.RemoveAll(path.Join(os.TempDir(), folder1))
+			assert.NoError(createdFile.Close())
+			assert.NoError(os.RemoveAll(path.Join(os.TempDir(), folder1)))
 
 			if string(buffer) != string(tt.expectedContent) {
 				t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
@@ -161,13 +161,14 @@ func TestRetrieve(t *testing.T) {
 				return
 			}
 
-			createdFile.Seek(tt.offset, 0)
+			_, err = createdFile.Seek(tt.offset, 0)
+			assert.NoError(err)
 			_, err = createdFile.Write(tt.content)
 			if err != nil {
 				t.Errorf("Error: %s writing to created file", err.Error())
 				return
 			}
-			createdFile.Close()
+			assert.NoError(createdFile.Close())
 
 			storeFile, err := RetrieveReader(context.Background(), tt.id, tt.offset, tt.size, os.TempDir())
 			if tt.err != "" {
@@ -185,10 +186,11 @@ func TestRetrieve(t *testing.T) {
 				size = int64(len(tt.content))
 			}
 			buffer := make([]byte, size)
-			_, _ = storeFile.Read(buffer)
-			_ = storeFile.Close()
+			_, err = storeFile.Read(buffer)
+			assert.NoError(err)
+			assert.NoError(storeFile.Close())
 
-			os.RemoveAll(path.Join(os.TempDir(), folder1))
+			assert.NoError(os.RemoveAll(path.Join(os.TempDir(), folder1)))
 
 			if string(buffer) != string(tt.expectedContent) {
 				t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
@@ -242,7 +244,7 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			createdFile.Close()
+			assert.NoError(createdFile.Close())
 
 			err = Delete(tt.id, os.TempDir())
 			if tt.err != "" {

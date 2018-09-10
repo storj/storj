@@ -111,3 +111,10 @@ linters-settings:
     simple: true
     range-loops: true # Report preallocation suggestions on range loops, true by default
     for-loops: false # Report preallocation suggestions on for loops, false by default
+
+
+
+issues:
+  max-per-linter: 0
+  max-same: 0
+  new: false
