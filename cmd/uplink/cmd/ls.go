@@ -4,78 +4,122 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net/url"
-	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
-	lsCfg Config
-	lsCmd = &cobra.Command{
-		Use:   "ls",
-		Short: "A brief description of your command",
-		RunE:  list,
-	}
+	recursiveFlag *bool
 )
 
 func init() {
-	RootCmd.AddCommand(lsCmd)
-	cfgstruct.Bind(lsCmd.Flags(), &lsCfg, cfgstruct.ConfDir(defaultConfDir))
-	lsCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	lsCmd := addCmd(&cobra.Command{
+		Use:   "ls",
+		Short: "List objects and prefixes or all buckets",
+		RunE:  list,
+	})
+	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	so, err := getStorjObjects(ctx, lsCfg)
+	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
 		return err
 	}
 
-	if len(args) == 0 {
-		bi, err := so.ListBuckets(ctx)
+	if len(args) > 0 {
+		u, err := utils.ParseURL(args[0])
 		if err != nil {
 			return err
 		}
-
-		for _, bucket := range bi {
-			fmt.Println(bucket.Created, bucket.Name)
+		if u.Host == "" {
+			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
 
-		return nil
+		return listFiles(ctx, bs, u, false)
 	}
 
-	u, err := url.Parse(args[0])
-	if err != nil {
-		return err
-	}
-
-	marker := ""
+	startAfter := ""
+	noBuckets := true
 
 	for {
-		oi, err := so.ListObjects(ctx, u.Host, u.Path, marker, "", 1000)
+		items, more, err := bs.List(ctx, startAfter, "", 0)
 		if err != nil {
 			return err
 		}
-
-		for _, object := range oi.Objects {
-			fmt.Println(object.Name)
+		if len(items) > 0 {
+			noBuckets = false
+			for _, bucket := range items {
+				fmt.Println("BKT", formatTime(bucket.Meta.Created), bucket.Bucket)
+				if *recursiveFlag {
+					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"}, true)
+					if err != nil {
+						return err
+					}
+				}
+			}
 		}
-
-		for _, prefix := range oi.Prefixes {
-			fmt.Println(prefix)
-		}
-
-		if !oi.IsTruncated {
+		if !more {
 			break
 		}
-		marker = oi.NextMarker
+		startAfter = items[len(items)-1].Bucket
+	}
+
+	if noBuckets {
+		return fmt.Errorf("No buckets")
 	}
 
 	return nil
+}
+
+func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket bool) error {
+	o, err := bs.GetObjectStore(ctx, u.Host)
+	if err != nil {
+		return err
+	}
+
+	startAfter := paths.New("")
+
+	for {
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified)
+		if err != nil {
+			return err
+		}
+
+		for _, object := range items {
+			path := object.Path.String()
+			if prependBucket {
+				path = fmt.Sprintf("%s/%s", u.Host, path)
+			}
+			if object.IsPrefix {
+				fmt.Println("PRE", path+"/")
+			} else {
+				fmt.Println("OBJ", formatTime(object.Meta.Modified), path)
+			}
+		}
+
+		if !more {
+			break
+		}
+
+		startAfter = items[len(items)-1].Path
+	}
+
+	return nil
+}
+
+func formatTime(t time.Time) string {
+	return t.Local().Format("2006-01-02 15:04:05")
 }

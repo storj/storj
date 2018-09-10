@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
+
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -18,6 +20,9 @@ import (
 )
 
 var mon = monkit.Package()
+
+// NoPathError is an error class for missing object path
+var NoPathError = errs.Class("no object path specified")
 
 // Meta is the full object metadata
 type Meta struct {
@@ -60,6 +65,11 @@ func NewStore(store streams.Store) Store {
 func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 	err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return Meta{}, NoPathError.New("")
+	}
+
 	m, err := o.s.Meta(ctx, path)
 	return convertMeta(m), err
 }
@@ -67,6 +77,11 @@ func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.RangeCloser, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return nil, Meta{}, NoPathError.New("")
+	}
+
 	rr, m, err := o.s.Get(ctx, path)
 	return rr, convertMeta(m), err
 }
@@ -74,6 +89,10 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return Meta{}, NoPathError.New("")
+	}
 
 	// TODO(kaloyan): autodetect content type
 	// if metadata.GetContentType() == "" {}
@@ -89,6 +108,11 @@ func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 func (o *objStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(path) == 0 {
+		return NoPathError.New("")
+	}
+
 	return o.s.Delete(ctx, path)
 }
 
