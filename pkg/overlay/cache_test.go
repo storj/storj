@@ -14,6 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
@@ -252,7 +253,7 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		populateStorage(t, client, data)
 	}
 
-	return storelogger.NewTest(t, client), cleanup
+	return storelogger.New(zaptest.NewLogger(t), client), cleanup
 }
 
 func populateStorage(t *testing.T, client storage.KeyValueStore, data test.KvStore) {
