@@ -37,20 +37,7 @@ DOCKER_BUILD := docker build \
 #   interfacer          # not that useful
 lint: check-copyrights
 	@echo "Running ${@}"
-	@golangci-lint run \
-	--deadline=10m \
-	--concurrency=1 \
-	--enable-all \
-	--disable=unparam \
-	--disable=gosec \
-	--disable=dupl \
-	--disable=gocyclo \
-	--disable=lll \
-	--disable=interfacer \
-	--skip-dirs=examples \
-	--skip-files=".*\.pb\.go" \
-	--skip-files=".*\.dbx\.go" \
-	./...
+	@golangci-lint run ./...
 
 check-copyrights:
 	@echo "Running ${@}"

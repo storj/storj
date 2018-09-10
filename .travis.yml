@@ -3,6 +3,9 @@ language: go
 go:
   - 1.10.x
 
+git:
+  depth: 1
+
 services:
   - redis
 
