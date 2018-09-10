@@ -100,6 +100,10 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
+	// TODO(moby) Wrap io.Reader in PeekThresholdReader to determine if data < encryptionBlockSize
+	//     if so, don't use eestream.NewAESGMEncrypter and manually encrypt data in single block
+
+	// TODO(moby) randomly generate key to be used for transform stream
 	encKey := sha256.Sum256(s.key)
 	var firstNonce [12]byte
 	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptionBlockSize)
@@ -131,6 +135,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	lastSegmentPath := path.Prepend("l")
 
+	// TODO(moby) using path + root encKey, derive a key to encrypt the key used to store this file
+	//     save the encrypted random key to this metadata
 	md := streamspb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
@@ -184,6 +190,10 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
+	// TODO(moby) Cover special case where the decrypted file is smaller than encryptionBlockSize
+
+	// TODO(moby) using the path and root encKey, derive a key to decrypt the key stored in the metadata
+	//     Use this key to decrypt the file
 	encKey := sha256.Sum256(s.key)
 	var firstNonce [12]byte
 	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
