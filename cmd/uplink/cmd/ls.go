@@ -78,7 +78,7 @@ func list(cmd *cobra.Command, args []string) error {
 	}
 
 	if noBuckets {
-		return fmt.Errorf("No buckets")
+		fmt.Println("No buckets")
 	}
 
 	return nil

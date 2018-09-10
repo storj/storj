@@ -132,7 +132,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 			Meta:   convertMeta(itm.Meta),
 		})
 	}
-	return items, more, nil
+	return items, more, err
 }
 
 // convertMeta converts stream metadata to object metadata
