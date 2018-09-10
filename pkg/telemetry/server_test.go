@@ -26,7 +26,7 @@ func TestServe_ReturnErrorOnConnFail(t *testing.T) {
 	server, _ := Listen("127.0.0.1:0")
 	defer func() {
 		if server != nil && server.conn != nil {
-			server.Close()
+			assert.NoError(t, server.Close())
 		}
 	}()
 

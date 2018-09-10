@@ -27,13 +27,13 @@ func openTest(t testing.TB) (*DB, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpdir)
 	dbpath := filepath.Join(tmpdir, "psdb.db")
 
 	db, err := Open(ctx, "", dbpath)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return db, func() {
 		err := db.Close()
 		if err != nil {

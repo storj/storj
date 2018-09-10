@@ -42,11 +42,12 @@ func writeFileToDir(name, dir string) error {
 	}
 
 	// Close when finished
-	defer file.Close()
-
 	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-
-	return err
+	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 func TestPiece(t *testing.T) {
@@ -371,7 +372,7 @@ func TestStore(t *testing.T) {
 			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
 			assert.NoError(err)
 
-			defer rows.Close()
+			defer func() { assert.NoError(rows.Close()) }()
 			for rows.Next() {
 				var (
 					agreement []byte
@@ -558,9 +559,13 @@ func (TS *TestServer) start() (addr string) {
 }
 
 func (TS *TestServer) Stop() {
-	TS.conn.Close()
+	if err := TS.conn.Close(); err != nil {
+		panic(err)
+	}
 	TS.grpcs.Stop()
-	os.RemoveAll(TS.s.DataDir)
+	if err := os.RemoveAll(TS.s.DataDir); err != nil {
+		panic(err)
+	}
 }
 
 func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
