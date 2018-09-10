@@ -354,7 +354,10 @@ func TestStore(t *testing.T) {
 			msg.Bandwidthallocation.Signature = s
 
 			// Write the buffer to the stream we opened earlier
-			assert.NoError(stream.Send(msg))
+			err := stream.Send(msg)
+			if err != io.EOF && err != nil {
+				assert.NoError(err)
+			}
 
 			resp, err := stream.CloseAndRecv()
 			if tt.err != "" {

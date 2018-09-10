@@ -24,7 +24,7 @@ func TestMetrics(t *testing.T) {
 
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer func() { assert.NoError(t, s.Close()) }()
+	defer func() { _ = s.Close() }()
 
 	c, err := NewClient(s.Addr(), ClientOpts{
 		Application: "testapp",
@@ -61,6 +61,7 @@ func TestMetrics(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	assert.NoError(t, s.Close())
+
 	err = <-errs
 	assert.Error(t, err)
 }
