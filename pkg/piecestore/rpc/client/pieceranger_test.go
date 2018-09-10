@@ -49,11 +49,9 @@ func TestPieceRanger(t *testing.T) {
 
 		route := pb.NewMockPieceStoreRoutesClient(ctrl)
 
-		calls := []*gomock.Call{
-			route.EXPECT().Piece(
-				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return(&pb.PieceSummary{Size: int64(len(tt.data))}, nil),
-		}
+		route.EXPECT().Piece(
+			gomock.Any(), gomock.Any(), gomock.Any(),
+		).Return(&pb.PieceSummary{Size: int64(len(tt.data))}, nil)
 
 		stream := pb.NewMockPieceStoreRoutes_RetrieveClient(ctrl)
 		pid := NewPieceID()
@@ -65,19 +63,15 @@ func TestPieceRanger(t *testing.T) {
 				},
 			}
 
-			calls = append(calls,
-				stream.EXPECT().Send(msg1).Return(nil),
-				stream.EXPECT().Send(gomock.Any()).Return(nil),
-				stream.EXPECT().Recv().Return(
-					&pb.PieceRetrievalStream{
-						Size:    tt.length,
-						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
-					}, nil),
-				stream.EXPECT().Send(gomock.Any()).Return(nil),
-				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
-			)
+			stream.EXPECT().Send(msg1).Return(nil)
+			stream.EXPECT().Send(gomock.Any()).Return(nil).MinTimes(0).MaxTimes(1)
+			stream.EXPECT().Recv().Return(
+				&pb.PieceRetrievalStream{
+					Size:    tt.length,
+					Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
+				}, nil)
+			stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF)
 		}
-		gomock.InOrder(calls...)
 
 		ctx := context.Background()
 
@@ -140,17 +134,14 @@ func TestPieceRangerSize(t *testing.T) {
 				},
 			}
 
-			gomock.InOrder(
-				stream.EXPECT().Send(msg1).Return(nil),
-				stream.EXPECT().Send(gomock.Any()).Return(nil),
-				stream.EXPECT().Recv().Return(
-					&pb.PieceRetrievalStream{
-						Size:    tt.length,
-						Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
-					}, nil),
-				stream.EXPECT().Send(gomock.Any()).Return(nil),
-				stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF),
-			)
+			stream.EXPECT().Send(msg1).Return(nil)
+			stream.EXPECT().Send(gomock.Any()).Return(nil).MinTimes(0).MaxTimes(1)
+			stream.EXPECT().Recv().Return(
+				&pb.PieceRetrievalStream{
+					Size:    tt.length,
+					Content: []byte(tt.data)[tt.offset : tt.offset+tt.length],
+				}, nil)
+			stream.EXPECT().Recv().Return(&pb.PieceRetrievalStream{}, io.EOF)
 		}
 
 		ctx := context.Background()

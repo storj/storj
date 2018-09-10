@@ -5,13 +5,17 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/piecestore"
+
+	"storj.io/storj/internal/sync2"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -81,59 +85,90 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	defer utils.LogClose(storeFile)
 
 	writer := NewStreamWriter(s, stream)
-	am := NewAllocationManager()
-	var latestBA *pb.RenterBandwidthAllocation
-	var latestTotal int64
+	allocationTracking := sync2.NewThrottle()
+	totalAllocated := int64(0)
 
-	// Save latest bandwidth allocation even if we fail
-	defer func() {
-		baWriteErr := s.DB.WriteBandwidthAllocToDB(latestBA)
-		if latestBA != nil && baWriteErr != nil {
-			log.Println("WriteBandwidthAllocToDB Error:", baWriteErr)
+	// Bandwidth Allocation recv loop
+	go func() {
+		var lastTotal int64
+		var lastAllocation *pb.RenterBandwidthAllocation
+		defer func() {
+			if lastAllocation == nil {
+				return
+			}
+			err := s.DB.WriteBandwidthAllocToDB(lastAllocation)
+			if err != nil {
+				// TODO: handle error properly
+				log.Println("WriteBandwidthAllocToDB Error:", err)
+			}
+		}()
+
+		for {
+			recv, err := stream.Recv()
+			if err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			alloc := recv.GetBandwidthallocation()
+			allocData := &pb.RenterBandwidthAllocation_Data{}
+			if err = proto.Unmarshal(alloc.GetData(), allocData); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			if err = s.verifySignature(ctx, alloc); err != nil {
+				allocationTracking.Fail(err)
+				return
+			}
+
+			// TODO: break when lastTotal >= allocData.GetPayer_allocation().GetData().GetMax_size()
+
+			if lastTotal > allocData.GetTotal() {
+				allocationTracking.Fail(fmt.Errorf("got lower allocation was %v got %v", lastTotal, allocData.GetTotal()))
+				return
+			}
+
+			atomic.StoreInt64(&totalAllocated, allocData.GetTotal())
+
+			if err = allocationTracking.Produce(allocData.GetTotal() - lastTotal); err != nil {
+				return
+			}
+
+			lastAllocation = alloc
+			lastTotal = allocData.GetTotal()
 		}
 	}()
 
-	for am.Used < length {
-		// Receive Bandwidth allocation
-		recv, err := stream.Recv()
+	// Data send loop
+	messageSize := int64(32 << 10)
+	used := int64(0)
+
+	for used < length {
+		nextMessageSize, err := allocationTracking.ConsumeOrWait(messageSize)
 		if err != nil {
-			return am.Used, am.TotalAllocated, err
+			allocationTracking.Fail(err)
+			break
 		}
 
-		ba := recv.GetBandwidthallocation()
-
-		baData := &pb.RenterBandwidthAllocation_Data{}
-
-		if err = proto.Unmarshal(ba.GetData(), baData); err != nil {
-			return am.Used, am.TotalAllocated, err
-		}
-
-		if err = s.verifySignature(ctx, ba); err != nil {
-			return am.Used, am.TotalAllocated, err
-		}
-
-		am.NewTotal(baData.GetTotal())
-
-		// The bandwidthallocation with the higher total is what I want to earn the most money
-		if baData.GetTotal() > latestTotal {
-			latestBA = ba
-			latestTotal = baData.GetTotal()
-		}
-
-		sizeToRead := am.NextReadSize()
-
-		// Write the buffer to the stream we opened earlier
-		n, err := io.CopyN(writer, storeFile, sizeToRead)
-		if n > 0 {
-			if allocErr := am.UseAllocation(n); allocErr != nil {
-				log.Println(allocErr)
+		used += nextMessageSize
+		n, err := io.CopyN(writer, storeFile, nextMessageSize)
+		// correct errors when needed
+		if n != nextMessageSize {
+			if pErr := allocationTracking.Produce(nextMessageSize - n); pErr != nil {
+				break
 			}
+			used -= nextMessageSize - n
 		}
-
+		// break on error
 		if err != nil {
-			return am.Used, am.TotalAllocated, err
+			allocationTracking.Fail(err)
+			break
 		}
 	}
 
-	return am.Used, am.TotalAllocated, nil
+	// TODO: handle errors
+	// _ = stream.Close()
+
+	return used, atomic.LoadInt64(&totalAllocated), allocationTracking.Err()
 }
