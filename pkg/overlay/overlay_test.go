@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"storj.io/storj/storage"
 )
 
 func TestFindStorageNodes(t *testing.T) {
@@ -25,7 +25,15 @@ func TestFindStorageNodes(t *testing.T) {
 	id2, err := kademlia.NewID()
 	assert.NoError(t, err)
 
-	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
+	srv := NewMockServer([]storage.ListItem{
+		{
+			Key:   storage.Key(id.String()),
+			Value: storage.Value(NewNodeAddressValue(t, "127.0.0.1:9090")),
+		}, {
+			Key:   storage.Key(id2.String()),
+			Value: storage.Value(NewNodeAddressValue(t, "127.0.0.1:9090")),
+		},
+	})
 	assert.NotNil(t, srv)
 
 	go srv.Serve(lis)
@@ -50,7 +58,12 @@ func TestOverlayLookup(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
+	srv := NewMockServer([]storage.ListItem{
+		{
+			Key:   storage.Key(id.String()),
+			Value: storage.Value(NewNodeAddressValue(t, "127.0.0.1:9090")),
+		},
+	})
 	go srv.Serve(lis)
 	defer srv.Stop()
 
