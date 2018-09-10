@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
@@ -26,16 +25,11 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-//go:generate mockgen -destination kvstore_mock_test.go -package pointerdb storj.io/storj/storage KeyValueStore
-
 var (
 	ctx = context.Background()
 )
 
 func TestServicePut(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
@@ -43,18 +37,18 @@ func TestServicePut(t *testing.T) {
 	}{
 		{nil, nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("put error"), status.Errorf(codes.Internal, "put error").Error()},
+		{nil, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		db := NewMockKeyValueStore(ctrl)
+		db := teststore.New()
 		s := Server{DB: db, logger: zap.NewNop()}
 
 		path := "a/b/c"
 		pr := pb.Pointer{}
 
-		if tt.err != nil || tt.errString == "" {
-			db.EXPECT().Put(storage.Key([]byte(path)), gomock.Any()).Return(tt.err)
+		if tt.err != nil {
+			db.ForceError++
 		}
 
 		req := pb.PutRequest{Path: path, Pointer: &pr, APIKey: tt.apiKey}
@@ -69,9 +63,6 @@ func TestServicePut(t *testing.T) {
 }
 
 func TestServiceGet(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
@@ -79,20 +70,23 @@ func TestServiceGet(t *testing.T) {
 	}{
 		{nil, nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("get error"), status.Errorf(codes.Internal, "get error").Error()},
+		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		db := NewMockKeyValueStore(ctrl)
+		db := teststore.New()
 		s := Server{DB: db, logger: zap.NewNop()}
 
 		path := "a/b/c"
-		pr := pb.Pointer{}
-		prBytes, err := proto.Marshal(&pr)
+
+		pr := &pb.Pointer{Size: 123}
+		prBytes, err := proto.Marshal(pr)
 		assert.NoError(t, err, errTag)
 
-		if tt.err != nil || tt.errString == "" {
-			db.EXPECT().Get(storage.Key([]byte(path))).Return(prBytes, tt.err)
+		_ = db.Put(storage.Key(path), storage.Value(prBytes))
+
+		if tt.err != nil {
+			db.ForceError++
 		}
 
 		req := pb.GetRequest{Path: path, APIKey: tt.apiKey}
@@ -102,18 +96,15 @@ func TestServiceGet(t *testing.T) {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
 			assert.NoError(t, err, errTag)
-			respPr := pb.Pointer{}
-			err := proto.Unmarshal(resp.GetPointer(), &respPr)
+			respPr := &pb.Pointer{}
+			err := proto.Unmarshal(resp.GetPointer(), respPr)
 			assert.NoError(t, err, errTag)
-			assert.Equal(t, pr, respPr, errTag)
+			assert.True(t, proto.Equal(pr, respPr), errTag)
 		}
 	}
 }
 
 func TestServiceDelete(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
@@ -121,17 +112,18 @@ func TestServiceDelete(t *testing.T) {
 	}{
 		{nil, nil, ""},
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "delete error").Error()},
+		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		db := NewMockKeyValueStore(ctrl)
-		s := Server{DB: db, logger: zap.NewNop()}
-
 		path := "a/b/c"
 
-		if tt.err != nil || tt.errString == "" {
-			db.EXPECT().Delete(storage.Key([]byte(path))).Return(tt.err)
+		db := teststore.New()
+		_ = db.Put(storage.Key(path), storage.Value("hello"))
+		s := Server{DB: db, logger: zap.NewNop()}
+
+		if tt.err != nil {
+			db.ForceError++
 		}
 
 		req := pb.DeleteRequest{Path: path, APIKey: tt.apiKey}
