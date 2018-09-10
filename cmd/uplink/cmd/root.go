@@ -5,12 +5,13 @@ package cmd
 
 import (
 	"context"
+	"path/filepath"
 
-	minio "github.com/minio/minio/cmd"
-	"github.com/minio/minio/pkg/auth"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
+	"storj.io/storj/pkg/storage/buckets"
 )
 
 const defaultConfDir = "$HOME/.storj/uplink"
@@ -20,32 +21,27 @@ type Config struct {
 	miniogw.Config
 }
 
-func getStorjObjects(ctx context.Context, cfg Config) (minio.ObjectLayer, error) {
-	identity, err := cfg.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	uplink, err := cfg.NewGateway(ctx, identity)
-	if err != nil {
-		return nil, err
-	}
-
-	credentials, err := auth.CreateCredentials(cfg.AccessKey, cfg.SecretKey)
-	if err != nil {
-		return nil, err
-	}
-
-	storjObjects, err := uplink.NewGatewayLayer(credentials)
-	if err != nil {
-		return nil, err
-	}
-
-	return storjObjects, nil
-}
+var cfg Config
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "uplink",
 	Short: "The Storj client-side S3 gateway and CLI",
+}
+
+func addCmd(cmd *cobra.Command) *cobra.Command {
+	RootCmd.AddCommand(cmd)
+	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
+	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	return cmd
+}
+
+// BucketStore loads the buckets.Store
+func (c *Config) BucketStore(ctx context.Context) (buckets.Store, error) {
+	identity, err := c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return c.GetBucketStore(ctx, identity)
 }

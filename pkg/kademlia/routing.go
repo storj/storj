@@ -16,6 +16,7 @@ import (
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -52,21 +53,20 @@ type RoutingOptions struct {
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTable, error) {
-	logger := zap.L()
-	kdb, err := boltdb.NewClient(logger, options.kpath, KademliaBucket)
+	kdb, err := boltdb.New(options.kpath, KademliaBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
 	}
 
-	ndb, err := boltdb.NewClient(logger, options.npath, NodeBucket)
+	ndb, err := boltdb.New(options.npath, NodeBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
 	rp := make(map[string][]*proto.Node)
 	rt := &RoutingTable{
 		self:             localNode,
-		kadBucketDB:      kdb,
-		nodeBucketDB:     ndb,
+		kadBucketDB:      storelogger.New(zap.L(), kdb),
+		nodeBucketDB:     storelogger.New(zap.L(), ndb),
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: rp,

@@ -1,3 +1,28 @@
 {
-  "contributors": ["coyle", "mobyvb", "littleskunk", "kaloyan-raev", "bryanchriswhite", "brimstone", "navillasa", "jtolds", "cam-a", "jhagans3", "dylanlott", "aligeti", "iglesiasbrandon", "aleitner", "nfarah86", "rikysya", "crawter", "NikolaiYurchenko", "Barterio", "jenlij", "phutchins", "egonelbre", "mniewrzal", "stefanbenten"]
+  "contributors": [
+    "aleitner",
+    "aligeti",
+    "Barterio",
+    "brimstone",
+    "bryanchriswhite",
+    "cam-a",
+    "coyle",
+    "crawter",
+    "dylanlott",
+    "egonelbre",
+    "iglesiasbrandon",
+    "jenlij",
+    "jhagans3",
+    "jtolds",
+    "kaloyan-raev",
+    "littleskunk",
+    "mniewrzal",
+    "mobyvb",
+    "navillasa",
+    "nfarah86",
+    "NikolaiYurchenko",
+    "phutchins",
+    "rikysya",
+    "stefanbenten",
+    "thepaul"]
 }

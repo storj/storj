@@ -5,53 +5,71 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
-)
 
-var (
-	rbCfg Config
-	rbCmd = &cobra.Command{
-		Use:   "rb",
-		Short: "Remove an empty bucket",
-		RunE:  deleteBucket,
-	}
+	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 )
 
 func init() {
-	RootCmd.AddCommand(rbCmd)
-	cfgstruct.Bind(rbCmd.Flags(), &rbCfg, cfgstruct.ConfDir(defaultConfDir))
-	rbCmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
+	addCmd(&cobra.Command{
+		Use:   "rb",
+		Short: "Remove an empty bucket",
+		RunE:  deleteBucket,
+	})
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
 	if len(args) == 0 {
-		return errs.New("No bucket specified for deletion")
+		return fmt.Errorf("No bucket specified for deletion")
 	}
 
-	so, err := getStorjObjects(ctx, rbCfg)
+	u, err := utils.ParseURL(args[0])
+	if err != nil {
+		return err
+	}
+	if u.Host == "" {
+		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+	}
+
+	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
 		return err
 	}
 
-	u, err := url.Parse(args[0])
+	_, err = bs.Get(ctx, u.Host)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return fmt.Errorf("Bucket not found: %s", u.Host)
+		}
+		return err
+	}
+
+	o, err := bs.GetObjectStore(ctx, u.Host)
 	if err != nil {
 		return err
 	}
 
-	err = so.DeleteBucket(ctx, u.Host)
+	items, _, err := o.List(ctx, nil, nil, nil, true, 1, meta.None)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Deleted %s", u.Host)
+	if len(items) > 0 {
+		return fmt.Errorf("Bucket not empty: %s", u.Host)
+	}
+
+	err = bs.Delete(ctx, u.Host)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Bucket %s deleted\n", u.Host)
 
 	return nil
 }
