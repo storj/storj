@@ -143,7 +143,7 @@ func tempIdentityConfig() (*IdentityConfig, func(), error) {
 		return nil, nil, err
 	}
 
-	cleanup := func() { os.RemoveAll(tmpDir) }
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 
 	return &IdentityConfig{
 		CertPath: filepath.Join(tmpDir, "chain.pem"),
