@@ -155,7 +155,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 		n, err := io.CopyN(writer, storeFile, nextMessageSize)
 		// correct errors when needed
 		if n != nextMessageSize {
-			if err := allocationTracking.Produce(nextMessageSize - n); err != nil {
+			if pErr := allocationTracking.Produce(nextMessageSize - n); pErr != nil {
 				break
 			}
 			used -= nextMessageSize - n

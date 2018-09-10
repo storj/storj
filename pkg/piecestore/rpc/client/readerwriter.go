@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 
-	"storj.io/storj/internal/sync2"
-
 	"github.com/gogo/protobuf/proto"
+
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -87,11 +87,13 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 		size:          size,
 	}
 
+	// TODO: make these flag/config-file configurable
 	trustLimit := int64(signer.bandwidthMsgSize * 64)
 	sendThreshold := int64(signer.bandwidthMsgSize * 8)
 
 	// Send signed allocations to the piece store server
 	go func() {
+		// TODO: make this flag/config-file configurable
 		trustedSize := int64(signer.bandwidthMsgSize * 8)
 
 		// Allocate until we've reached the file size
