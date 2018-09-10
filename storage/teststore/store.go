@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-var internalError = errors.New("internal error")
+var errInternal = errors.New("internal error")
 
 // Client implements in-memory key value store
 type Client struct {
@@ -60,7 +60,7 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 	store.version++
 	store.CallCount.Put++
 	if store.forcedError() {
-		return internalError
+		return errInternal
 	}
 
 	if key.IsZero() {
@@ -128,7 +128,7 @@ func (store *Client) Delete(key storage.Key) error {
 	store.CallCount.Delete++
 
 	if store.forcedError() {
-		return internalError
+		return errInternal
 	}
 
 	keyIndex, found := store.indexOf(key)
@@ -163,7 +163,7 @@ func (store *Client) ReverseList(first storage.Key, limit int) (storage.Keys, er
 func (store *Client) Close() error {
 	store.CallCount.Close++
 	if store.forcedError() {
-		return internalError
+		return errInternal
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func (store *Client) Close() error {
 func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
 	if store.forcedError() {
-		return internalError
+		return errInternal
 	}
 
 	var cursor advancer
