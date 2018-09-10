@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -37,13 +38,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 		return Error.New("unsupported db scheme: %s", dburl.Scheme)
 	}
 
-	bdb, err := boltdb.NewClient(zap.L(), dburl.Path, PointerBucket)
+	bdb, err := boltdb.New(dburl.Path, PointerBucket)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = bdb.Close() }()
 
-	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdb, zap.L(), c))
+	bdblogged := storelogger.New(zap.L(), bdb)
+	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
 
 	return server.Run(ctx)
 }

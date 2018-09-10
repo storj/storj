@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
+	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -52,13 +53,13 @@ func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
 func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
-	bc, err := boltdb.NewClient(zap.L(), dbPath, OverlayBucket)
+	bc, err := boltdb.New(dbPath, OverlayBucket)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Cache{
-		DB:  bc,
+		DB:  storelogger.New(zap.L(), bc),
 		DHT: DHT,
 	}, nil
 }

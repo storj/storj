@@ -14,7 +14,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/storelogger"
 )
 
 var (
@@ -240,7 +241,7 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 	boltPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
 
-	client, err := boltdb.NewClient(zap.L(), boltPath, "testBoltdb")
+	client, err := boltdb.New(boltPath, "testBoltdb")
 	assert.NoError(t, err)
 
 	cleanup := func() {
@@ -252,7 +253,7 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		populateStorage(t, client, data)
 	}
 
-	return client, cleanup
+	return storelogger.New(zaptest.NewLogger(t), client), cleanup
 }
 
 func populateStorage(t *testing.T, client storage.KeyValueStore, data test.KvStore) {
