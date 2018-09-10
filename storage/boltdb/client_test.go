@@ -17,7 +17,7 @@ func TestSuite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	store, err := New(dbname, "bucket")
@@ -38,7 +38,7 @@ func BenchmarkSuite(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	store, err := New(dbname, "bucket")

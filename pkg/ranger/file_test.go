@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -47,7 +48,6 @@ func TestFileRanger(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed opening tempfile")
 		}
-		defer rr.Close()
 		if rr.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
@@ -67,6 +67,14 @@ func TestFileRanger(t *testing.T) {
 		}
 		if !bytes.Equal(data, []byte(example.substr)) {
 			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
+		}
+
+		if err := rr.Close(); err != nil {
+			t.Fatalf("unable to close file %q: %v", name, err)
+		}
+
+		if err := os.Remove(name); err != nil {
+			t.Fatalf("unable to remove file %q: %v", name, err)
 		}
 	}
 }
