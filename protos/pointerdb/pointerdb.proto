@@ -111,8 +111,9 @@ message GetResponse {
 // ListResponse is a response message for the List rpc call
 message ListResponse {
   message Item {
-    string path = 1;
+    string  path = 1;
     Pointer pointer = 2;
+    bool    is_prefix = 3;
   }
   
   repeated Item items = 1;

@@ -9,25 +9,27 @@ import (
 	"time"
 
 	minio "github.com/minio/minio/cmd"
-	"storj.io/storj/storage"
+	"github.com/zeebo/errs"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/storage"
 )
 
-var (
-	mon = monkit.Package()
-)
+var mon = monkit.Package()
+
+// NoBucketError is an error class for missing bucket name
+var NoBucketError = errs.Class("no bucket specified")
 
 // Store creates an interface for interacting with buckets
 type Store interface {
 	Get(ctx context.Context, bucket string) (meta Meta, err error)
 	Put(ctx context.Context, bucket string) (meta Meta, err error)
 	Delete(ctx context.Context, bucket string) (err error)
-	List(ctx context.Context, startAfter, endBefore string, limit int) (
-		items []ListItem, more bool, err error)
+	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
 	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
 }
 
@@ -54,6 +56,10 @@ func NewStore(obj objects.Store) Store {
 
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
+	if bucket == "" {
+		return nil, NoBucketError.New("")
+	}
+
 	_, err := b.Get(ctx, bucket)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -71,6 +77,10 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 // Get calls objects store Get
 func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return Meta{}, NoBucketError.New("")
+	}
+
 	p := paths.New(bucket)
 	objMeta, err := b.o.Meta(ctx, p)
 	if err != nil {
@@ -82,6 +92,10 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // Put calls objects store Put
 func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return Meta{}, NoBucketError.New("")
+	}
+
 	p := paths.New(bucket)
 	r := bytes.NewReader(nil)
 	var exp time.Time
@@ -95,6 +109,10 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 // Delete calls objects store Delete
 func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if bucket == "" {
+		return NoBucketError.New("")
+	}
+
 	p := paths.New(bucket)
 	return b.o.Delete(ctx, p)
 }
@@ -104,12 +122,15 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objItems, more, err := b.o.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
-	items = make([]ListItem, len(objItems))
-	for i, itm := range objItems {
-		items[i] = ListItem{
+	items = make([]ListItem, 0, len(objItems))
+	for _, itm := range objItems {
+		if itm.IsPrefix {
+			continue
+		}
+		items = append(items, ListItem{
 			Bucket: itm.Path.String(),
 			Meta:   convertMeta(itm.Meta),
-		}
+		})
 	}
 	return items, more, nil
 }

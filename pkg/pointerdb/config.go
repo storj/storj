@@ -12,6 +12,12 @@ import (
 	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
+)
+
+const (
+	// PointerBucket is the string representing the bucket used for `PointerEntries`
+	PointerBucket = "pointers"
 )
 
 // Config is a configuration struct that is everything you need to start a
@@ -31,13 +37,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	if dburl.Scheme != "bolt" {
 		return Error.New("unsupported db scheme: %s", dburl.Scheme)
 	}
-	bdb, err := boltdb.NewClient(zap.L(), dburl.Path, boltdb.PointerBucket)
+
+	bdb, err := boltdb.New(dburl.Path, PointerBucket)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = bdb.Close() }()
 
-	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdb, zap.L(), c))
+	bdblogged := storelogger.New(zap.L(), bdb)
+	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
 
 	return server.Run(ctx)
 }

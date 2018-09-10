@@ -9,15 +9,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/protos/piecestore"
@@ -44,11 +44,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 
-	go func() {
-		err := s.DB.DeleteExpiredLoop(ctx)
-		zap.S().Fatal("Error in DeleteExpiredLoop: %v\n", err)
-	}()
-
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
 
 	defer func() {
@@ -61,7 +56,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
 	DataDir string
-	DB      *psdb.PSDB
+	DB      *psdb.DB
 	pkey    crypto.PrivateKey
 }
 
@@ -70,12 +65,12 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	dbPath := filepath.Join(config.Path, "piecestore.db")
 	dataDir := filepath.Join(config.Path, "piece-store-data")
 
-	psDB, err := psdb.OpenPSDB(ctx, dataDir, dbPath)
+	db, err := psdb.Open(ctx, dataDir, dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Server{DataDir: dataDir, DB: psDB, pkey: pkey}, nil
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey}, nil
 }
 
 // Stop the piececstore node
@@ -85,11 +80,20 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Printf("Getting Meta for %s...", in.Id)
+	log.Printf("Getting Meta for %s...", in.GetId())
 
 	path, err := pstore.PathByID(in.GetId(), s.DataDir)
 	if err != nil {
 		return nil, err
+	}
+
+	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", in.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	if !match {
+		return nil, ServerError.New("Invalid ID")
 	}
 
 	fileInfo, err := os.Stat(path)
@@ -103,19 +107,19 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Printf("Successfully retrieved meta for %s.", in.Id)
+	log.Printf("Successfully retrieved meta for %s.", in.GetId())
 	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Printf("Deleting %s...", in.Id)
+	log.Printf("Deleting %s...", in.GetId())
 
 	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err
 	}
 
-	log.Printf("Successfully deleted %s.", in.Id)
+	log.Printf("Successfully deleted %s.", in.GetId())
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
@@ -134,6 +138,7 @@ func (s *Server) deleteByID(id string) error {
 }
 
 func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
+	// TODO(security): detect replay attacks
 	pi, err := provider.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return err

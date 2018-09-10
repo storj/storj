@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -28,15 +27,17 @@ func TestLookup(t *testing.T) {
 	}{
 		{
 			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
-			to:          proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":8080"}},
+			to:          proto.Node{}, // filled after server has been started
 			find:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
+
+		v.to = proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)

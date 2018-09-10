@@ -1,7 +1,9 @@
-.PHONY: test lint proto check-copyrights build-dev-deps release release-osx release-windows release-linux
+.PHONY: test lint proto check-copyrights build-dev-deps
 
 
-GO_VERSION ?= 1.10
+GO_VERSION ?= 1.11
+GOOS ?= linux
+GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ifeq (${BRANCH},master)
@@ -9,7 +11,15 @@ TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 else
 TAG    	:= $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
 endif
+CUSTOMTAG ?=
 
+FILEEXT :=
+ifeq (${GOOS},windows)
+FILEEXT := .exe
+endif
+
+DOCKER_BUILD := docker build \
+	--build-arg GO_VERSION=${GO_VERSION}
 
 # currently disabled linters:
 #   gofmt               # enable after switch to go1.11
@@ -65,41 +75,9 @@ test:
 	gover
 	@echo done
 
-build-binaries:
-	docker build -t satellite .
-
-run-satellite:
-	docker network create test-net
-
-	docker run -d \
-		--name redis \
-		--network test-net \
-		-p 127.0.0.1:6379:6379 \
-		redis
-
-	docker run -d \
-		--name=satellite \
-		--network test-net \
-		-p 127.0.0.1:8080:8080 \
-		-e REDIS_ADDRESS=redis:6379 \
-		-e REDIS_PASSWORD="" \
-		-e REDIS_DB=1 \
-		-e OVERLAY_PORT=7070 \
-		satellite
-
 test-captplanet:
 	@echo "Running ${@}"
 	@./scripts/test-captplanet.sh
-
-clean-local:
-	# cleanup satellite
-	docker stop satellite || true
-	docker rm satellite || true
-	# cleanup redis
-	docker stop redis || true
-	docker rm redis || true
-	# cleanup docker network
-	docker network rm test-net || true
 
 test-docker:
 	docker-compose up -d --remove-orphans test
@@ -108,18 +86,18 @@ test-docker:
 test-docker-clean:
 	-docker-compose down --rmi all
 
-images: satellite-image storage-node-image uplink-image
+images: satellite-image storagenode-image uplink-image
 	echo Built version: ${TAG}
 
 .PHONY: satellite-image
 satellite-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/satellite:${TAG} -f cmd/satellite/Dockerfile .
-.PHONY: storage-node-image
-storage-node-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/storage-node:${TAG} -f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} -t storjlabs/satellite:${TAG}${CUSTOMTAG} -f cmd/satellite/Dockerfile .
+.PHONY: storagenode-image
+storagenode-image:
+	${DOCKER_BUILD} -t storjlabs/storagenode:${TAG}${CUSTOMTAG} -f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image:
-	docker build --build-arg GO_VERSION=${GO_VERSION} -t storjlabs/uplink:${TAG} -f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} -t storjlabs/uplink:${TAG}${CUSTOMTAG} -f cmd/uplink/Dockerfile .
 
 .PHONY: all-in-one
 all-in-one:
@@ -127,17 +105,17 @@ all-in-one:
 		$(MAKE) images -j 3 \
 		&& export VERSION="${TAG}"; \
 	fi \
-	&& docker-compose up -d storage-node \
+	&& docker-compose up -d storagenode \
 	&& scripts/fix-mock-overlay \
-	&& docker-compose up storage-node satellite uplink
+	&& docker-compose up storagenode satellite uplink
 
 push-images:
 	docker tag storjlabs/satellite:${TAG} storjlabs/satellite:latest
 	docker push storjlabs/satellite:${TAG}
 	docker push storjlabs/satellite:latest
-	docker tag storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
-	docker push storjlabs/storage-node:${TAG}
-	docker push storjlabs/storage-node:latest
+	docker tag storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
+	docker push storjlabs/storagenode:${TAG}
+	docker push storjlabs/storagenode:latest
 	docker tag storjlabs/uplink:${TAG} storjlabs/uplink:latest
 	docker push storjlabs/uplink:${TAG}
 	docker push storjlabs/uplink:latest
@@ -145,12 +123,12 @@ push-images:
 ifeq (${BRANCH},master)
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG} storjlabs/satellite:latest
-	-docker rmi storjlabs/storage-node:${TAG} storjlabs/storage-node:latest
+	-docker rmi storjlabs/storagenode:${TAG} storjlabs/storagenode:latest
 	-docker rmi storjlabs/uplink:${TAG} storjlabs/uplink:latest
 else
 clean-images:
 	-docker rmi storjlabs/satellite:${TAG}
-	-docker rmi storjlabs/storage-node:${TAG}
+	-docker rmi storjlabs/storagenode:${TAG}
 	-docker rmi storjlabs/uplink:${TAG}
 endif
 
@@ -162,22 +140,47 @@ install-deps:
 deploy:
 	./scripts/deploy.staging.sh satellite storjlabs/satellite:${TAG}
 	for i in $(shell seq 1 60); do \
-		./scripts/deploy.staging.sh storage-node-$$i storjlabs/storage-node:${TAG}; \
+		./scripts/deploy.staging.sh storagenode-$$i storjlabs/storagenode:${TAG}; \
 	done
 
-release-osx:
-	GOOS=darwin GOARCH=amd64 go build -o release/uplink-osx-amd64/uplink ./cmd/uplink
-	cd release; tar czvf uplink-osx-amd64.tar.gz uplink-osx-amd64
-	rm -rf release/uplink-osx-amd64
+.PHONY: binary
+binary: CUSTOMTAG = -${GOOS}-${GOARCH}
+binary:
+	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
+		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
+	mkdir -p release/${TAG}
+	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
+	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
+	-w /go/src/storj.io/storj storjlabs/golang \
+	-o app storj.io/storj/cmd/${COMPONENT} \
+	| tar -O -x ./app > release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
+	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
+	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
+	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 
-release-linux:
-	GOOS=linux GOARCH=amd64 go build -o release/uplink-linux-amd64/uplink ./cmd/uplink
-	cd release; tar czvf uplink-linux-amd64.tar.gz uplink-linux-amd64
-	rm -rf release/uplink-linux-amd64
+.PHONY: satellite_%
+satellite_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
+.PHONY: storagenode_%
+storagenode_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=storagenode $(MAKE) binary
+.PHONY: uplink_%
+uplink_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
-release-windows:
-	GOOS=windows GOARCH=amd64 go build -o release/uplink-windows-amd64/uplink ./cmd/uplink
-	cd release; zip uplink-windows-amd64.zip uplink-windows-amd64
-	rm -rf release/uplink-windows-amd64
+COMPONENTLIST := uplink satellite storagenode
+OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64
+BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
+.PHONY: binaries
+binaries: ${BINARIES}
 
-release: release-osx release-linux release-windows
+.PHONY: binaries-upload
+binaries-upload:
+	cd release; gsutil -m cp -r . gs://storj-v3-alpha-builds
+
+.PHONY: binaries-clean
+binaries-clean:
+	rm -rf release
+
+clean: test-docker-clean binaries-clean clean-images

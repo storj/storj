@@ -1,28 +1,20 @@
-ARG GO_VERSION=1.10
-FROM golang:${GO_VERSION}-alpine AS build-env
-RUN apk update && \
-    apk upgrade && \
-    apk add curl && \
-    apk add git
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-COPY . /go/src/storj.io/storj
-RUN cd /go/src/storj.io/storj && dep ensure -vendor-only
-RUN cd /go/src/storj.io/storj/cmd/satellite && go build -o satellite
-
+ARG CGO_ENABLED=1
+ARG REPOSITORY=../storj.io/storj
+ARG PACKAGE=storj.io/storj/cmd/satellite
+FROM brimstone/golang as build-env
 
 # final stage
 FROM alpine
-ENV REDIS_ADDR=redis:6379 \
-    REDIS_PASSWORD= \
-    REDIS_DB=0 \
+ENV API_KEY= \
+    CONF_PATH=/root/.storj/satellite/config.yaml \
+    OVERLAY_URL=redis://redis:6379/?db=0 \
     IDENTITY_ADDR=:7777 \
-    HTTP_PORT=:8080 \
-    BOOTSTRAP_ADDR=bootstrap.storj.io:8080
+    BOOTSTRAP_ADDR=bootstrap.storj.io:8080 \
+    MOCK_OVERLAY_NODES=
+EXPOSE 7776/udp \
+       7777 \
+       8080
 WORKDIR /app
-COPY --from=build-env /go/src/storj.io/storj/cmd/satellite/satellite /app/
+COPY --from=build-env /app /app/satellite
 COPY cmd/satellite/entrypoint /entrypoint
-EXPOSE 8081/udp \
-    8080 \
-    7070
-
 ENTRYPOINT ["/entrypoint"]

@@ -1,6 +1,7 @@
-FROM golang:1.10-alpine
+FROM golang:1.10
 
-RUN apk -U add make git bash gcc musl-dev
+RUN apt-get update \
+ && apt-get install -y build-essential
 
 RUN cd / \
  && rm -rf /go \
