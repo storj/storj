@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"log"
-
+	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -85,6 +85,7 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 
 // GetAll looks up the provided nodeIDs from the overlay cache
 func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, error) {
+	fmt.Printf("Im in GetAll len(keys) %v\n", len(keys))
 	if len(keys) == 0 {
 		return nil, OverlayError.New("no keys provided")
 	}
@@ -109,6 +110,7 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, err
 		}
 		ns = append(ns, na)
 	}
+	fmt.Printf("len(ns)\n %v", len(ns))
 	return ns, nil
 }
 
