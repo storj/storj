@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/pointerdb/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
-	"storj.io/storj/pointerdb/auth"
 )
 
 // Server implements the statdb RPC service
