@@ -89,13 +89,13 @@ func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*prot
 	}
 	fmt.Printf("overlay/client BulkLookup nodeIDs count #%v\n", len(nodeIDs))
 	resp, err := o.client.BulkLookup(ctx, &reqs)
-	fmt.Printf("overlay/client BulkLookup response %v\n", resp)
-	fmt.Printf("overlay/client BulkLookup Lookupresponse %v\n", resp.Lookupresponse)
-	fmt.Printf("overlay/client BulkLookup responses %v", len(resp.Lookupresponse))
 
 	if err != nil {
 		return nil, ClientError.Wrap(err)
 	}
+	fmt.Printf("overlay/client BulkLookup Lookupresponse %v\n", resp.Lookupresponse)
+	fmt.Printf("overlay/client BulkLookup responses %v", len(resp.Lookupresponse))
+
 	var nodes []*proto.Node
 	for _, v := range resp.Lookupresponse {
 		nodes = append(nodes, v.Node)
