@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pointerdb/auth"
 	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 )
