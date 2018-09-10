@@ -21,7 +21,7 @@ func TestNewServer(t *testing.T) {
 	srv := newMockServer()
 	assert.NotNil(t, srv)
 
-	go srv.Serve(lis)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	srv.Stop()
 }
 

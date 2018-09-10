@@ -28,7 +28,7 @@ func TestFindStorageNodes(t *testing.T) {
 	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
 	assert.NotNil(t, srv)
 
-	go srv.Serve(lis)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	address := lis.Addr().String()
@@ -51,7 +51,7 @@ func TestOverlayLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
-	go srv.Serve(lis)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	address := lis.Addr().String()

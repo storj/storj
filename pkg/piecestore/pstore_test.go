@@ -69,7 +69,7 @@ func TestStore(t *testing.T) {
 				return
 			}
 			buffer := make([]byte, int64(len(tt.content)))
-			createdFile.Seek(0, 0)
+			_, _ = createdFile.Seek(0, 0)
 			_, _ = createdFile.Read(buffer)
 
 			createdFile.Close()
@@ -185,8 +185,8 @@ func TestRetrieve(t *testing.T) {
 				size = int64(len(tt.content))
 			}
 			buffer := make([]byte, size)
-			storeFile.Read(buffer)
-			storeFile.Close()
+			_, _ = storeFile.Read(buffer)
+			_ = storeFile.Close()
 
 			os.RemoveAll(path.Join(os.TempDir(), folder1))
 
