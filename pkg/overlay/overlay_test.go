@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -79,7 +80,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	address := lis.Addr().String()
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
-	
+
 	req1 := &proto.LookupRequest{NodeID: id.String()}
 	req2 := &proto.LookupRequest{NodeID: id2.String()}
 	rs := &proto.LookupRequests{Lookuprequest: []*proto.LookupRequest{req1, req2}}

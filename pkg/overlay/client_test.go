@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -158,13 +159,12 @@ func TestBulkLookup(t *testing.T) {
 
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
-		_, err = oc.BulkLookup(ctx, v.nodeIDs)
 
+		_, err = oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.bulkLookupCalled, v.expectedCalls)
 	}
 }
-
 func TestBulkLookupV2(t *testing.T) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
 	assert.NoError(t, err)
@@ -268,7 +268,6 @@ func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
 
 	return grpcServer, s, nil
 }
-
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {

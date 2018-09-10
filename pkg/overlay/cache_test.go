@@ -418,12 +418,14 @@ func TestRedisGet(t *testing.T) {
 }
 
 func TestRedisGetAll(t *testing.T) {
-	done := test.EnsureRedis(t)
-	defer done()
-
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
 	for _, c := range getAllCases {
 		t.Run(c.testID, func(t *testing.T) {
-			db := redisTestClient(t, c.data)
+			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
 			resp, err := oc.GetAll(ctx, c.keys)
