@@ -13,7 +13,6 @@ run:
 
 
 linters:
-  enable-all: true
   enable:
     - govet       # check standard vet rules
     - golint      # check standard linting rules
@@ -23,15 +22,15 @@ linters:
     - varcheck    # find unused global variables and constants
     - structcheck # check for unused struct parameters
     - deadcode    # find code that is not used
-    - unparam     # check for unused parameters
+    #TODO#- unparam     # check for unused parameters
     - nakedret    # check for naked returns
-    - maligned    # check for better memory usage
     - goimports   # fix import order
-    - goconst     # check for things that could be replaced by constants
-    - prealloc    # easy optimizations
     - misspell    # check spelling
     - unconvert   # remove unnecessary conversions
+    #TODO#- maligned    # check for better memory usage
+    #TODO#- prealloc    # easy optimizations
   disable:
+    - goconst     # check for things that could be replaced by constants
     - gocyclo     # needs tweaking
     - depguard    # unused
     - gosec       # needs tweaking
@@ -59,7 +58,7 @@ linters-settings:
     check-blank: false
   govet:
     # report about shadowed variables
-    check-shadowing: true
+    #TODO# check-shadowing: true
 
     # Obtain type information from installed (to $GOPATH/pkg) package files:
     # golangci-lint will execute `go install -i` and `go test -i` for analyzed packages
