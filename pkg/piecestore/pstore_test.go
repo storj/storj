@@ -95,7 +95,7 @@ func TestRetrieve(t *testing.T) {
 	}{
 		{
 			it:              "should successfully retrieve data",
-			id:              "0123456789ABCDEFGHIJ",
+			id:              "0123456789ABCDEFGHIJ1",
 			size:            5,
 			offset:          0,
 			content:         []byte("butts"),
@@ -104,7 +104,7 @@ func TestRetrieve(t *testing.T) {
 		},
 		{
 			it:              "should successfully retrieve data by offset",
-			id:              "0123456789ABCDEFGHIJ",
+			id:              "0123456789ABCDEFGHIJ2",
 			size:            5,
 			offset:          5,
 			content:         []byte("butts"),
@@ -113,7 +113,7 @@ func TestRetrieve(t *testing.T) {
 		},
 		{
 			it:              "should successfully retrieve data by chunk",
-			id:              "0123456789ABCDEFGHIJ",
+			id:              "0123456789ABCDEFGHIJ3",
 			size:            2,
 			offset:          5,
 			content:         []byte("bu"),
@@ -122,7 +122,7 @@ func TestRetrieve(t *testing.T) {
 		},
 		{
 			it:              "should return an error when given negative offset",
-			id:              "0123456789ABCDEFGHIJ",
+			id:              "0123456789ABCDEFGHIJ4",
 			size:            0,
 			offset:          -1337,
 			content:         []byte("butts"),
@@ -131,7 +131,7 @@ func TestRetrieve(t *testing.T) {
 		},
 		{
 			it:              "should successfully retrieve data with negative length",
-			id:              "0123456789ABCDEFGHIJ",
+			id:              "0123456789ABCDEFGHIJ5",
 			size:            -1,
 			offset:          0,
 			content:         []byte("butts"),
@@ -148,7 +148,12 @@ func TestRetrieve(t *testing.T) {
 			folder2 := tt.id[2:4]
 			fileName := tt.id[4:]
 
-			createdFilePath := path.Join(os.TempDir(), folder1, folder2, fileName)
+			tmpdir := filepath.Join(os.TempDir(), folder1)
+			defer func() {
+				assert.NoError(os.RemoveAll(tmpdir))
+			}()
+
+			createdFilePath := path.Join(tmpdir, folder2, fileName)
 
 			if err := os.MkdirAll(filepath.Dir(createdFilePath), 0700); err != nil {
 				t.Errorf("Error: %s when creating dir", err.Error())
@@ -162,7 +167,9 @@ func TestRetrieve(t *testing.T) {
 			}
 
 			_, err = createdFile.Seek(tt.offset, 0)
-			assert.NoError(err)
+			if tt.offset < 0 {
+				assert.Error(err)
+			}
 			_, err = createdFile.Write(tt.content)
 			if err != nil {
 				t.Errorf("Error: %s writing to created file", err.Error())
@@ -189,8 +196,6 @@ func TestRetrieve(t *testing.T) {
 			_, err = storeFile.Read(buffer)
 			assert.NoError(err)
 			assert.NoError(storeFile.Close())
-
-			assert.NoError(os.RemoveAll(path.Join(os.TempDir(), folder1)))
 
 			if string(buffer) != string(tt.expectedContent) {
 				t.Errorf("Expected data butts does not equal Actual data %s", string(buffer))
