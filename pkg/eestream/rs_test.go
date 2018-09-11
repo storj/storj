@@ -43,7 +43,7 @@ func TestRS(t *testing.T) {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
-	defer decoder.Close()
+	defer func() { assert.NoError(t, decoder.Close()) }()
 	data2, err := ioutil.ReadAll(decoder)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 		readerMap[i] = ioutil.NopCloser(reader)
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0)
-	defer decoder.Close()
+	defer func() { assert.NoError(t, decoder.Close()) }()
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
 	_, err = io.ReadFull(decoder, data2)
@@ -121,7 +121,11 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rc.Close()
+	defer func() {
+		if err := rc.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	rr, err := Transform(rc, decrypter)
 	if err != nil {
 		t.Fatal(err)
@@ -459,7 +463,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
 	decoder := DecodeReaders(ctx, readerMap, rs, int64(tt.dataSize), 3*1024)
-	defer decoder.Close()
+	defer func() { assert.NoError(t, decoder.Close()) }()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
 		if err == nil && bytes.Equal(data, data2) {

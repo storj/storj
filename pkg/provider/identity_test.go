@@ -73,8 +73,8 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.NotEmpty(t, l)
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	pem.Encode(chainPEM, peertls.NewCertBlock(l.Raw))
-	pem.Encode(chainPEM, peertls.NewCertBlock(c.Raw))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(l.Raw)))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(c.Raw)))
 
 	lkE, ok := lk.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
@@ -85,7 +85,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	assert.NotEmpty(t, lkB)
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	pem.Encode(keyPEM, peertls.NewKeyBlock(lkB))
+	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(lkB)))
 
 	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
 	assert.NoError(t, err)
@@ -99,8 +99,8 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	defer done()
 
 	chainPEM := bytes.NewBuffer([]byte{})
-	pem.Encode(chainPEM, peertls.NewCertBlock(fi.Leaf.Raw))
-	pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Raw))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(fi.Leaf.Raw)))
+	assert.NoError(t, pem.Encode(chainPEM, peertls.NewCertBlock(fi.CA.Raw)))
 
 	privateKey, ok := fi.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
@@ -111,7 +111,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 	assert.NotEmpty(t, keyBytes)
 
 	keyPEM := bytes.NewBuffer([]byte{})
-	pem.Encode(keyPEM, peertls.NewKeyBlock(keyBytes))
+	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(keyBytes)))
 
 	err = ic.Save(fi)
 	assert.NoError(t, err)
@@ -143,7 +143,7 @@ func tempIdentityConfig() (*IdentityConfig, func(), error) {
 		return nil, nil, err
 	}
 
-	cleanup := func() { os.RemoveAll(tmpDir) }
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 
 	return &IdentityConfig{
 		CertPath: filepath.Join(tmpDir, "chain.pem"),

@@ -14,7 +14,7 @@ import (
 func TestNewClient_IntervalIsZero(t *testing.T) {
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer s.Close()
+	defer func() { assert.NoError(t, s.Close()) }()
 
 	client, err := NewClient(s.Addr(), ClientOpts{
 		Application: "testapp",
@@ -33,7 +33,7 @@ func TestNewClient_ApplicationAndArgsAreEmpty(t *testing.T) {
 	oldArgs := os.Args
 
 	defer func() {
-		s.Close()
+		assert.NoError(t, s.Close())
 		os.Args = oldArgs
 	}()
 
@@ -53,7 +53,7 @@ func TestNewClient_ApplicationAndArgsAreEmpty(t *testing.T) {
 func TestNewClient_ApplicationIsEmpty(t *testing.T) {
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer s.Close()
+	defer func() { assert.NoError(t, s.Close()) }()
 
 	client, err := NewClient(s.Addr(), ClientOpts{
 		Application: "",
@@ -69,7 +69,7 @@ func TestNewClient_ApplicationIsEmpty(t *testing.T) {
 func TestNewClient_InstanceIsEmpty(t *testing.T) {
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer s.Close()
+	defer func() { assert.NoError(t, s.Close()) }()
 
 	client, err := NewClient(s.Addr(), ClientOpts{
 		Application: "qwe",
@@ -88,7 +88,7 @@ func TestNewClient_InstanceIsEmpty(t *testing.T) {
 func TestNewClient_RegistryIsNil(t *testing.T) {
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer s.Close()
+	defer func() { assert.NoError(t, s.Close()) }()
 
 	client, err := NewClient(s.Addr(), ClientOpts{
 		Application: "qwe",
@@ -107,7 +107,7 @@ func TestNewClient_RegistryIsNil(t *testing.T) {
 func TestNewClient_PacketSizeIsZero(t *testing.T) {
 	s, err := Listen("127.0.0.1:0")
 	assert.NoError(t, err)
-	defer s.Close()
+	defer func() { assert.NoError(t, s.Close()) }()
 
 	client, err := NewClient(s.Addr(), ClientOpts{
 		Application: "qwe",

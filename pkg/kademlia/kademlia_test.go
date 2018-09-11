@@ -88,7 +88,7 @@ func TestBootstrap(t *testing.T) {
 
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			v.Disconnect()
+			_ = v.Disconnect()
 		}
 	}(dhts)
 
@@ -101,7 +101,7 @@ func TestBootstrap(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		defer v.k.Disconnect()
+		defer func() { assert.NoError(t, v.k.Disconnect()) }()
 		err := v.k.ListenAndServe()
 		assert.NoError(t, err)
 		err = v.k.Bootstrap(context.Background())
@@ -117,7 +117,8 @@ func TestBootstrap(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, node)
 		assert.Equal(t, localID, node.Id)
-		v.k.dht.Disconnect()
+
+		assert.NoError(t, v.k.dht.Disconnect())
 	}
 
 }
@@ -127,8 +128,7 @@ func TestGetNodes(t *testing.T) {
 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			err := v.Disconnect()
-			assert.NoError(t, err)
+			assert.NoError(t, v.Disconnect())
 		}
 	}(dhts)
 
@@ -146,7 +146,7 @@ func TestGetNodes(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		defer v.k.Disconnect()
+		defer func() { assert.NoError(t, v.k.Disconnect()) }()
 		ctx := context.Background()
 		err := v.k.ListenAndServe()
 		assert.Equal(t, v.expectedErr, err)
@@ -162,7 +162,7 @@ func TestGetNodes(t *testing.T) {
 		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions...)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Len(t, nodes, v.limit)
-		v.k.dht.Disconnect()
+		assert.NoError(t, v.k.dht.Disconnect())
 	}
 
 }
@@ -172,8 +172,7 @@ func TestFindNode(t *testing.T) {
 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "5001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			err := v.Disconnect()
-			assert.NoError(t, err)
+			assert.NoError(t, v.Disconnect())
 		}
 	}(dhts)
 
@@ -188,12 +187,11 @@ func TestFindNode(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		defer v.k.Disconnect()
+		defer func() { assert.NoError(t, v.k.Disconnect()) }()
 		ctx := context.Background()
-		go v.k.ListenAndServe()
+		go func() { assert.NoError(t, v.k.ListenAndServe()) }()
 		time.Sleep(time.Second)
-		err := v.k.Bootstrap(ctx)
-		assert.NoError(t, err)
+		assert.NoError(t, v.k.Bootstrap(ctx))
 
 		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
 		assert.NoError(t, err)
@@ -212,7 +210,7 @@ func TestPing(t *testing.T) {
 	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "4001")
 	defer func(d []dht.DHT) {
 		for _, v := range d {
-			v.Disconnect()
+			assert.NoError(t, v.Disconnect())
 		}
 	}(dhts)
 
@@ -240,9 +238,9 @@ func TestPing(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		defer v.k.Disconnect()
+		defer func() { assert.NoError(t, v.k.Disconnect()) }()
 		ctx := context.Background()
-		go v.k.ListenAndServe()
+		go func() { assert.NoError(t, v.k.ListenAndServe()) }()
 		time.Sleep(time.Second)
 		err := v.k.Bootstrap(ctx)
 		assert.NoError(t, err)
@@ -251,7 +249,7 @@ func TestPing(t *testing.T) {
 		assert.Equal(t, v.expectedErr, err)
 		assert.NotEmpty(t, node)
 		assert.Equal(t, v.input, node)
-		v.k.dht.Disconnect()
+		assert.NoError(t, v.k.dht.Disconnect())
 	}
 
 }
