@@ -16,6 +16,8 @@ enum NodeTransport {
 service Overlay {
     // Lookup finds a nodes address from the network
     rpc Lookup(LookupRequest) returns (LookupResponse);
+    // BulkLookup finds nodes addresses from the network
+    rpc BulkLookup(LookupRequests) returns (LookupResponses);
     // FindStorageNodes finds a list of nodes in the network that meet the specified request parameters
     rpc FindStorageNodes(FindStorageNodesRequest) returns (FindStorageNodesResponse);
 }
@@ -33,6 +35,17 @@ message LookupRequest {
 message LookupResponse {
     Node node = 1;
 }
+
+//LookupRequests is a list of LookupRequest
+message LookupRequests {
+    repeated LookupRequest lookuprequest = 1;
+}
+
+//LookupResponse is a list of LookupResponse
+message LookupResponses {
+    repeated LookupResponse lookupresponse = 1;
+}
+
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 message FindStorageNodesResponse {

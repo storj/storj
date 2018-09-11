@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
 )
@@ -26,9 +26,9 @@ func TestLookup(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			self:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
+			self:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":7070"}},
 			to:          proto.Node{}, // filled after server has been started
-			find:        proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
+			find:        proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
@@ -37,7 +37,7 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		v.to = proto.Node{Id: test.NewNodeID(t), Address: &proto.NodeAddress{Address: lis.Addr().String()}}
+		v.to = proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
@@ -88,4 +88,12 @@ type mockNodeServer struct {
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
 	mn.queryCalled++
 	return &proto.QueryResponse{}, nil
+}
+
+// NewNodeID returns the string representation of a dht node ID
+func NewNodeID(t *testing.T) string {
+	id, err := kademlia.NewID()
+	assert.NoError(t, err)
+
+	return id.String()
 }

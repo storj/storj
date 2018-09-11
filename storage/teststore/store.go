@@ -11,14 +11,13 @@ import (
 	"storj.io/storj/storage"
 )
 
-var (
-	// ErrNotExist is returned when looked item does not exist
-	ErrNotExist = errors.New("does not exist")
-)
+var errInternal = errors.New("internal error")
 
 // Client implements in-memory key value store
 type Client struct {
-	Items     []storage.ListItem
+	Items      []storage.ListItem
+	ForceError int
+
 	CallCount struct {
 		Get         int
 		Put         int
@@ -48,10 +47,22 @@ func (store *Client) indexOf(key storage.Key) (int, bool) {
 	return i, store.Items[i].Key.Equal(key)
 }
 
+func (store *Client) forcedError() bool {
+	if store.ForceError > 0 {
+		store.ForceError--
+		return true
+	}
+	return false
+}
+
 // Put adds a value to store
 func (store *Client) Put(key storage.Key, value storage.Value) error {
 	store.version++
 	store.CallCount.Put++
+	if store.forcedError() {
+		return errInternal
+	}
+
 	if key.IsZero() {
 		return storage.ErrEmptyKey
 	}
@@ -77,9 +88,13 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 func (store *Client) Get(key storage.Key) (storage.Value, error) {
 	store.CallCount.Get++
 
+	if store.forcedError() {
+		return nil, errors.New("internal error")
+	}
+
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return nil, ErrNotExist
+		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
 
 	return storage.CloneValue(store.Items[keyIndex].Value), nil
@@ -92,11 +107,16 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 		return nil, storage.ErrLimitExceeded
 	}
 
+	if store.forcedError() {
+		return nil, errors.New("internal error")
+	}
+
 	values := storage.Values{}
 	for _, key := range keys {
 		keyIndex, found := store.indexOf(key)
 		if !found {
-			return nil, ErrNotExist
+			values = append(values, nil)
+			continue
 		}
 		values = append(values, storage.CloneValue(store.Items[keyIndex].Value))
 	}
@@ -107,9 +127,14 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 func (store *Client) Delete(key storage.Key) error {
 	store.version++
 	store.CallCount.Delete++
+
+	if store.forcedError() {
+		return errInternal
+	}
+
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return ErrNotExist
+		return storage.ErrKeyNotFound.New(key.String())
 	}
 
 	copy(store.Items[keyIndex:], store.Items[keyIndex+1:])
@@ -120,24 +145,37 @@ func (store *Client) Delete(key storage.Key) error {
 // List lists all keys starting from start and upto limit items
 func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.List++
+	if store.forcedError() {
+		return nil, errors.New("internal error")
+	}
 	return storage.ListKeys(store, first, limit)
 }
 
 // ReverseList lists all keys in revers order
 func (store *Client) ReverseList(first storage.Key, limit int) (storage.Keys, error) {
 	store.CallCount.ReverseList++
+	if store.forcedError() {
+		return nil, errors.New("internal error")
+	}
 	return storage.ReverseListKeys(store, first, limit)
 }
 
 // Close closes the store
 func (store *Client) Close() error {
 	store.CallCount.Close++
+	if store.forcedError() {
+		return errInternal
+	}
 	return nil
 }
 
 // Iterate iterates over items based on opts
 func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
 	store.CallCount.Iterate++
+	if store.forcedError() {
+		return errInternal
+	}
+
 	var cursor advancer
 	if !opts.Reverse {
 		cursor = &forward{newCursor(store)}
