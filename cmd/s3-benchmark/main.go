@@ -213,6 +213,17 @@ func (m *Measurement) PrintStats(w io.Writer) {
 	}
 
 	for _, hist := range hists {
+		if hist.L == "Delete" {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+				m.Size, hist.L,
+				sec(hist.H.Average), "",
+				sec(hist.H.Maximum), "",
+				sec(hist.H.P50), "",
+				sec(hist.H.P90), "",
+				sec(hist.H.P99), "",
+			)
+			continue
+		}
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			m.Size, hist.L,
 			sec(hist.H.Average), speed(hist.H.Average),
