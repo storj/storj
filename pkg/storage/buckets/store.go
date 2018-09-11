@@ -122,6 +122,9 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objItems, more, err := b.o.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
+	if err != nil {
+		return items, more, err
+	}
 	items = make([]ListItem, 0, len(objItems))
 	for _, itm := range objItems {
 		if itm.IsPrefix {
@@ -132,7 +135,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 			Meta:   convertMeta(itm.Meta),
 		})
 	}
-	return items, more, err
+	return items, more, nil
 }
 
 // convertMeta converts stream metadata to object metadata
