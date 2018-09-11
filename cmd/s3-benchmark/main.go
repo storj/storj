@@ -41,21 +41,20 @@ func main() {
 	}
 
 	bucket := time.Now().Format("bucket-2006-01-02-150405")
-	log.Println("creating bucket", bucket)
+	log.Println("Creating bucket", bucket)
 	err = client.MakeBucket(bucket, *location)
 	if err != nil {
 		log.Fatal("failed to create bucket: ", bucket, ": ", err)
 	}
 
 	defer func() {
-		log.Println("removing bucket")
+		log.Println("Removing bucket")
 		err := client.RemoveBucket(bucket)
 		if err != nil {
 			log.Fatal("failed to remove bucket: ", bucket)
 		}
 	}()
 
-	log.Println("Benchmarking:")
 	measurements := []Measurement{}
 	for _, size := range sizes.Sizes() {
 		measurement, err := Benchmark(client, bucket, size, *count)
