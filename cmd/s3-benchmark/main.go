@@ -11,6 +11,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"text/tabwriter"
 	"time"
 
 	"github.com/loov/hrtime"
@@ -24,11 +25,11 @@ func main() {
 	secretkey := flag.String("secretkey", "insecure-dev-secret-key", "secret key")
 	useSSL := flag.Bool("use-ssl", true, "use ssl")
 	location := flag.String("location", "", "bucket location")
-	count := flag.Int("count", 10, "run each benchmark n times")
+	count := flag.Int("count", 50, "run each benchmark n times")
 	plotname := flag.String("plot", "", "plot results")
 
 	sizes := &Sizes{
-		Default: []Size{{1 << 10}, {256 << 10}}, //, {1 << 20}, {32 << 20}, {63 << 20}},
+		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {63 << 20}},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
 
@@ -65,9 +66,23 @@ func main() {
 	}
 
 	fmt.Print("\n\n")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		"Size", "",
+		"Avg", "",
+		"Max", "",
+		"P50", "", "P90", "", "P99", "",
+	)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		"", "",
+		"s", "MB/s",
+		"s", "MB/s",
+		"s", "MB/s", "s", "MB/s", "s", "MB/s",
+	)
 	for _, m := range measurements {
-		m.PrintHistograms()
+		m.PrintHistograms(w)
 	}
+	w.Flush()
 
 	if *plotname != "" {
 		p := plot.New()
@@ -174,20 +189,39 @@ type Measurement struct {
 	Delete   []time.Duration
 }
 
-func (m *Measurement) PrintHistograms() {
+func (m *Measurement) PrintHistograms(w io.Writer) {
 	const binCount = 10
 
-	fmt.Println("Upload", m.Size)
 	upload := hrtime.NewDurationHistogram(m.Upload, binCount)
-	upload.WriteStatsTo(os.Stdout)
-
-	fmt.Println("Download", m.Size)
 	download := hrtime.NewDurationHistogram(m.Download, binCount)
-	download.WriteStatsTo(os.Stdout)
-
-	fmt.Println("Delete", m.Size)
 	delete := hrtime.NewDurationHistogram(m.Delete, binCount)
-	delete.WriteStatsTo(os.Stdout)
+
+	hists := []struct {
+		L string
+		H *hrtime.Histogram
+	}{
+		{"Upload", upload},
+		{"Download", download},
+		{"Delete", delete},
+	}
+
+	sec := func(ns float64) string {
+		return fmt.Sprintf("%.2f", ns/1e9)
+	}
+	speed := func(ns float64) string {
+		return fmt.Sprintf("%.2f", (float64(m.Size.bytes)/(1<<20))/(ns/1e9))
+	}
+
+	for _, hist := range hists {
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+			m.Size, hist.L,
+			sec(hist.H.Average), speed(hist.H.Average),
+			sec(hist.H.Maximum), speed(hist.H.Maximum),
+			sec(hist.H.P50), speed(hist.H.P50),
+			sec(hist.H.P90), speed(hist.H.P90),
+			sec(hist.H.P99), speed(hist.H.P99),
+		)
+	}
 }
 
 func Benchmark(client *minio.Client, bucket string, size Size, count int) (Measurement, error) {
