@@ -138,7 +138,7 @@ func TestIdentityConfig_SaveIdentity(t *testing.T) {
 }
 
 func tempIdentityConfig() (*IdentityConfig, func(), error) {
-	tmpDir, err := ioutil.TempDir("", "tempIdentity")
+	tmpDir, err := ioutil.TempDir("", "storj-identity")
 	if err != nil {
 		return nil, nil, err
 	}

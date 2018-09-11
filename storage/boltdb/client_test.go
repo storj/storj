@@ -13,7 +13,7 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	tempdir, err := ioutil.TempDir("", "bolt")
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestSuite(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	tempdir, err := ioutil.TempDir("", "bolt")
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
 		b.Fatal(err)
 	}

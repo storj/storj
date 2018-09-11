@@ -17,7 +17,7 @@ import (
 )
 
 func tempdir(t testing.TB) (dir string, cleanup func()) {
-	dir, err := ioutil.TempDir("", "kademlia")
+	dir, err := ioutil.TempDir("", "storj-kademlia")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,12 +11,14 @@ import (
 	"syscall"
 )
 
+// Setup sets up exec.Cmd such that it can be properly terminated
 func Setup(c *exec.Cmd) {
 	c.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
 }
 
+// Kill tries to forcefully kill the process
 func Kill(cmd *exec.Cmd) {
 	proc := cmd.Process
 	if proc == nil {
@@ -25,10 +27,10 @@ func Kill(cmd *exec.Cmd) {
 
 	pgid, err := syscall.Getpgid(proc.Pid)
 	if err != nil {
-		syscall.Kill(-pgid, 15)
+		_ = syscall.Kill(-pgid, 15)
 	}
 
 	// just in case
-	proc.Signal(os.Interrupt)
-	proc.Signal(os.Kill)
+	_ = proc.Signal(os.Interrupt)
+	_ = proc.Signal(os.Kill)
 }
