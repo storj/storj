@@ -21,6 +21,7 @@ import (
 
 	"github.com/alicebob/miniredis"
 	"github.com/go-redis/redis"
+	"storj.io/storj/internal/processgroup"
 )
 
 const (
@@ -83,6 +84,7 @@ func Process() (addr string, cleanup func(), err error) {
 
 	// start the process
 	cmd := exec.Command("redis-server", confpath)
+	processgroup.Setup(cmd)
 
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -95,7 +97,7 @@ func Process() (addr string, cleanup func(), err error) {
 	}
 
 	cleanup = func() {
-		_ = cmd.Process.Kill()
+		processgroup.Kill(cmd)
 		_ = os.RemoveAll(tmpdir)
 	}
 
