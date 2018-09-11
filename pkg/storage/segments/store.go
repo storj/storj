@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
