@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -40,8 +41,9 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path paths.Path
-	Meta Meta
+	Path     paths.Path
+	Meta     Meta
+	IsPrefix bool
 }
 
 // Store for segments
@@ -247,17 +249,15 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (
-	nodes []*opb.Node, err error) {
-	nodes = make([]*opb.Node, len(seg.GetRemotePieces()))
-	for i, p := range seg.GetRemotePieces() {
-		node, err := s.oc.Lookup(ctx, node.StringToID(p.GetNodeId()))
-		if err != nil {
-			// TODO(kaloyan): better error handling: failing to lookup a few
-			// nodes should not fail the request
-			return nil, Error.Wrap(err)
-		}
-		nodes[i] = node
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
+	pieces := seg.GetRemotePieces()
+	var nodeIds []dht.NodeID
+	for _, p := range pieces {
+		nodeIds = append(nodeIds, node.StringToID(p.GetNodeId()))
+	}
+	nodes, err = s.oc.BulkLookup(ctx, nodeIds)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 	return nodes, nil
 }
@@ -268,8 +268,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore,
-		recursive, limit, metaFlags)
+	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -277,8 +276,9 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items = make([]ListItem, len(pdbItems))
 	for i, itm := range pdbItems {
 		items[i] = ListItem{
-			Path: itm.Path,
-			Meta: convertMeta(itm.Pointer),
+			Path:     itm.Path,
+			Meta:     convertMeta(itm.Pointer),
+			IsPrefix: itm.IsPrefix,
 		}
 	}
 

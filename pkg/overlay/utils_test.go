@@ -12,14 +12,14 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/kademlia"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/teststore"
 )
 
 // NewMockServer provides a mock grpc server for testing
-func NewMockServer(kv test.KvStore) *grpc.Server {
+func NewMockServer(items []storage.ListItem) *grpc.Server {
 	grpcServer := grpc.NewServer()
 
 	registry := monkit.Default
@@ -27,9 +27,11 @@ func NewMockServer(kv test.KvStore) *grpc.Server {
 	k := kademlia.NewMockKademlia()
 
 	c := &Cache{
-		DB:  test.NewMockKeyValueStore(kv),
+		DB:  teststore.New(),
 		DHT: k,
 	}
+
+	_ = storage.PutAll(c.DB, items...)
 
 	s := Server{
 		dht:     k,

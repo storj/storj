@@ -102,7 +102,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Identity.Address)
 		var o provider.Responsibility = runCfg.Satellite.Overlay
 		if runCfg.Satellite.MockOverlay.Enabled {
-			o = mock.MockConfig{Nodes: strings.Join(storagenodes, ",")}
+			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			runCfg.Satellite.Kademlia,
@@ -112,8 +112,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// start s3 uplink
 	go func() {
-		_, _ = fmt.Printf("starting minio uplink on %s\n",
-			runCfg.Uplink.IdentityConfig.Address)
+		_, _ = fmt.Printf("Starting s3-gateway on %s\nAccess key: %s\nSecret key: %s\n",
+			runCfg.Uplink.IdentityConfig.Address, runCfg.Uplink.AccessKey, runCfg.Uplink.SecretKey)
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 

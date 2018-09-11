@@ -5,20 +5,19 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/node"
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"storj.io/storj/storage"
 )
 
 func TestFindStorageNodes(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	id, err := node.NewID()
@@ -26,10 +25,18 @@ func TestFindStorageNodes(t *testing.T) {
 	id2, err := node.NewID()
 	assert.NoError(t, err)
 
-	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090"), id2.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
+	srv := NewMockServer([]storage.ListItem{
+		{
+			Key:   storage.Key(id.String()),
+			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+		}, {
+			Key:   storage.Key(id2.String()),
+			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+		},
+	})
 	assert.NotNil(t, srv)
 
-	go srv.Serve(lis)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	address := lis.Addr().String()
@@ -44,15 +51,20 @@ func TestFindStorageNodes(t *testing.T) {
 }
 
 func TestOverlayLookup(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	id, err := node.NewID()
 
 	assert.NoError(t, err)
 
-	srv := NewMockServer(test.KvStore{id.String(): NewNodeAddressValue(t, "127.0.0.1:9090")})
-	go srv.Serve(lis)
+	srv := NewMockServer([]storage.ListItem{
+		{
+			Key:   storage.Key(id.String()),
+			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+		},
+	})
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	address := lis.Addr().String()
@@ -60,6 +72,36 @@ func TestOverlayLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &proto.LookupRequest{NodeID: id.String()})
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+}
+
+func TestOverlayBulkLookup(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+
+	id, err := node.NewID()
+	assert.NoError(t, err)
+	id2, err := node.NewID()
+	assert.NoError(t, err)
+
+	srv := NewMockServer([]storage.ListItem{
+		{
+			Key:   storage.Key(id.String()),
+			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+		},
+	})
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
+	defer srv.Stop()
+
+	address := lis.Addr().String()
+	c, err := NewClient(address, grpc.WithInsecure())
+	assert.NoError(t, err)
+
+	req1 := &proto.LookupRequest{NodeID: id.String()}
+	req2 := &proto.LookupRequest{NodeID: id2.String()}
+	rs := &proto.LookupRequests{Lookuprequest: []*proto.LookupRequest{req1, req2}}
+	r, err := c.BulkLookup(context.Background(), rs)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 }

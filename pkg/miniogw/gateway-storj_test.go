@@ -349,48 +349,52 @@ func TestListObjects(t *testing.T) {
 
 	bucket := "test-bucket"
 	prefix := "test-prefix"
-	delimiter := "test-delimiter"
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		{
-			Path: paths.New(prefix, "test-file-1.txt"),
-		},
-		{
-			Path: paths.New(prefix, "test-file-2.txt"),
-		},
-	}
-
-	objInfos := []minio.ObjectInfo{
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-1.txt"),
-		},
-		{
-			Bucket: bucket,
-			Name:   path.Join(prefix, "test-file-2.txt"),
-		},
+		{Path: paths.New("test-file-1.txt")},
+		{Path: paths.New("test-file-2.txt")},
 	}
 
 	for i, example := range []struct {
 		more       bool
 		startAfter string
 		nextMarker string
+		delimiter  string
+		recursive  bool
+		objInfos   []minio.ObjectInfo
 		err        error
 		errString  string
 	}{
-		{false, "", "", nil, ""},
-		{true, "test-start-after", "test-file-2.txt", nil, ""},
-		// mock returning non-nil error
-		{false, "", "", Error.New("error"), "Storj Gateway error: error"},
+		{
+			more: false, startAfter: "", nextMarker: "", delimiter: "", recursive: true,
+			objInfos: []minio.ObjectInfo{
+				{Bucket: bucket, Name: path.Join("test-prefix/test-file-1.txt")},
+				{Bucket: bucket, Name: path.Join("test-prefix/test-file-2.txt")},
+			}, err: nil, errString: "",
+		},
+		{
+			more: true, startAfter: "test-start-after", nextMarker: "test-file-2.txt", delimiter: "/", recursive: false,
+			objInfos: []minio.ObjectInfo{
+				{Bucket: bucket, Name: path.Join("test-file-1.txt")},
+				{Bucket: bucket, Name: path.Join("test-file-2.txt")},
+			}, err: nil, errString: "",
+		},
+		{
+			more: false, startAfter: "", nextMarker: "", delimiter: "", recursive: true,
+			objInfos: []minio.ObjectInfo{
+				{Bucket: bucket, Name: path.Join("test-prefix/test-file-1.txt")},
+				{Bucket: bucket, Name: path.Join("test-prefix/test-file-2.txt")},
+			}, err: Error.New("error"), errString: "Storj Gateway error: error",
+		},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), bucket).Return(mockOS, nil)
 		mockOS.EXPECT().List(gomock.Any(), paths.New(prefix), paths.New(example.startAfter),
-			nil, true, maxKeys, meta.All).Return(items, example.more, example.err)
+			nil, example.recursive, maxKeys, meta.All).Return(items, example.more, example.err)
 
-		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, delimiter, maxKeys)
+		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, example.delimiter, maxKeys)
 
 		if err != nil {
 			assert.EqualError(t, err, example.errString, errTag)
@@ -402,7 +406,7 @@ func TestListObjects(t *testing.T) {
 			assert.NotNil(t, listInfo, errTag)
 			assert.Equal(t, example.more, listInfo.IsTruncated, errTag)
 			assert.Equal(t, example.nextMarker, listInfo.NextMarker, errTag)
-			assert.Equal(t, objInfos, listInfo.Objects, errTag)
+			assert.Equal(t, example.objInfos, listInfo.Objects, errTag)
 			assert.Nil(t, listInfo.Prefixes, errTag)
 		}
 	}

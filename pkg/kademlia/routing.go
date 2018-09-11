@@ -13,9 +13,18 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/storelogger"
+)
+
+const (
+	// KademliaBucket is the string representing the bucket used for the kademlia routing table k-bucket ids
+	KademliaBucket = "kbuckets"
+	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
+	NodeBucket = "nodes"
 )
 
 // RoutingErr is the class for all errors pertaining to routing table operations
@@ -45,20 +54,20 @@ type RoutingOptions struct {
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTable, error) {
-	logger := zap.L()
-	kdb, err := boltdb.NewClient(logger, options.kpath, boltdb.KBucket)
+	kdb, err := boltdb.New(options.kpath, KademliaBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
 	}
-	ndb, err := boltdb.NewClient(logger, options.npath, boltdb.NodeBucket)
+
+	ndb, err := boltdb.New(options.npath, NodeBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
 	rp := make(map[string][]*proto.Node)
 	rt := &RoutingTable{
 		self:             localNode,
-		kadBucketDB:      kdb,
-		nodeBucketDB:     ndb,
+		kadBucketDB:      storelogger.New(zap.L(), kdb),
+		nodeBucketDB:     storelogger.New(zap.L(), ndb),
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: rp,
@@ -71,6 +80,13 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
 	return rt, nil
+}
+
+// Close closes underlying databases
+func (rt *RoutingTable) Close() error {
+	kerr := rt.kadBucketDB.Close()
+	nerr := rt.nodeBucketDB.Close()
+	return utils.CombineErrors(kerr, nerr)
 }
 
 // Local returns the local nodes ID

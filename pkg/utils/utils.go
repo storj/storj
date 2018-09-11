@@ -35,3 +35,43 @@ func ParseURL(s string) (*url.URL, error) {
 
 	return url.Parse(s)
 }
+
+// CombineErrors combines multiple errors to a single error
+func CombineErrors(errs ...error) error {
+	var errlist combinedError
+	for _, err := range errs {
+		if err != nil {
+			errlist = append(errlist, err)
+		}
+	}
+	if len(errlist) == 0 {
+		return nil
+	} else if len(errlist) == 1 {
+		return errlist[0]
+	}
+	return errlist
+}
+
+type combinedError []error
+
+func (errs combinedError) Cause() error {
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
+}
+
+func (errs combinedError) Error() string {
+	if len(errs) > 0 {
+		limit := 5
+		if len(errs) < limit {
+			limit = len(errs)
+		}
+		allErrors := errs[0].Error()
+		for _, err := range errs[1:limit] {
+			allErrors += "\n" + err.Error()
+		}
+		return allErrors
+	}
+	return ""
+}

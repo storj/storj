@@ -8,6 +8,8 @@ import (
 	"log"
 
 	"github.com/gogo/protobuf/proto"
+
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/utils"
 	pb "storj.io/storj/protos/piecestore"
 )
@@ -69,51 +71,96 @@ func (s *StreamWriter) Close() error {
 
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
-	stream    pb.PieceStoreRoutes_RetrieveClient
-	src       *utils.ReaderSource
-	totalRead int64
+	pendingAllocs *sync2.Throttle
+	stream        pb.PieceStoreRoutes_RetrieveClient
+	src           *utils.ReaderSource
+	downloaded    int64
+	allocated     int64
+	size          int64
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation) *StreamReader {
+func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
-		stream: stream,
+		pendingAllocs: sync2.NewThrottle(),
+		stream:        stream,
+		size:          size,
 	}
 
+	// TODO: make these flag/config-file configurable
+	trustLimit := int64(signer.bandwidthMsgSize * 64)
+	sendThreshold := int64(signer.bandwidthMsgSize * 8)
+
+	// Send signed allocations to the piece store server
+	go func() {
+		// TODO: make this flag/config-file configurable
+		trustedSize := int64(signer.bandwidthMsgSize * 8)
+
+		// Allocate until we've reached the file size
+		for sr.allocated < size {
+			allocate := trustedSize
+			if sr.allocated+trustedSize > size {
+				allocate = size - sr.allocated
+			}
+
+			allocationData := &pb.RenterBandwidthAllocation_Data{
+				PayerAllocation: pba,
+				Total:           sr.allocated + allocate,
+			}
+
+			serializedAllocation, err := proto.Marshal(allocationData)
+			if err != nil {
+				sr.pendingAllocs.Fail(err)
+				return
+			}
+
+			sig, err := signer.sign(serializedAllocation)
+			if err != nil {
+				sr.pendingAllocs.Fail(err)
+				return
+			}
+
+			msg := &pb.PieceRetrieval{
+				Bandwidthallocation: &pb.RenterBandwidthAllocation{
+					Signature: sig,
+					Data:      serializedAllocation,
+				},
+			}
+
+			if err = stream.Send(msg); err != nil {
+				sr.pendingAllocs.Fail(err)
+				return
+			}
+
+			sr.allocated += trustedSize
+
+			if err = sr.pendingAllocs.ProduceAndWaitUntilBelow(allocate, sendThreshold); err != nil {
+				return
+			}
+
+			// Speed up retrieval as server gives us more data
+			trustedSize *= 2
+			if trustedSize > trustLimit {
+				trustedSize = trustLimit
+			}
+		}
+	}()
+
 	sr.src = utils.NewReaderSource(func() ([]byte, error) {
-		updatedAllocation := int64(signer.bandwidthMsgSize) + sr.totalRead
-		allocationData := &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: pba,
-			Total:           updatedAllocation,
-		}
-
-		serializedAllocation, err := proto.Marshal(allocationData)
-		if err != nil {
-			return nil, err
-		}
-
-		sig, err := signer.sign(serializedAllocation)
-		if err != nil {
-			return nil, err
-		}
-
-		msg := &pb.PieceRetrieval{
-			Bandwidthallocation: &pb.RenterBandwidthAllocation{
-				Signature: sig,
-				Data:      serializedAllocation,
-			},
-		}
-
-		sr.totalRead = updatedAllocation
-
-		if err = stream.Send(msg); err != nil {
-			return nil, err
-		}
-
 		resp, err := stream.Recv()
 		if err != nil {
+			sr.pendingAllocs.Fail(err)
 			return nil, err
 		}
+
+		sr.downloaded += int64(len(resp.GetContent()))
+
+		err = sr.pendingAllocs.Consume(int64(len(resp.GetContent())))
+		if err != nil {
+			sr.pendingAllocs.Fail(err)
+			return resp.GetContent(), err
+		}
+
 		return resp.GetContent(), nil
 	})
 

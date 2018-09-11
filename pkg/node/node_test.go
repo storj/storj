@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -37,12 +36,14 @@ func TestLookup(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
+
+		v.to = proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
-		go srv.Serve(lis)
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 		ctrl := gomock.NewController(t)
 
@@ -96,4 +97,12 @@ type mockNodeServer struct {
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
 	mn.queryCalled++
 	return &proto.QueryResponse{}, nil
+}
+
+// NewNodeID returns the string representation of a dht node ID
+func NewNodeID(t *testing.T) string {
+	id, err := NewID()
+	assert.NoError(t, err)
+
+	return id.String()
 }

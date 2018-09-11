@@ -39,7 +39,7 @@ var (
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
-		MockOverlay mock.MockConfig
+		MockOverlay mock.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`

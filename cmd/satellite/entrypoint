@@ -1,13 +1,17 @@
 #!/bin/sh
 set -euo pipefail
 
-RUN_PARAMS="${RUN_PARAMS:-} --overlay.database-url redis://:${REDIS_PASSWORD}@${REDIS_ADDR}/?db=${REDIS_DB} --debug.addr=${HTTP_PORT} --identity.address=${IDENTITY_ADDR}"
-
-if [[ -f "${CONF_PATH:-}" ]]; then
-  RUN_PARAMS="${RUN_PARAMS} --config \"${CONF_PATH}\""
-else
-  ./satellite setup
+if [[ ! -f "${CONF_PATH}" ]]; then
+	./satellite setup
 fi
+
+RUN_PARAMS="${RUN_PARAMS:-} --config ${CONF_PATH}"
+
+if [[ -n "${OVERLAY_URL:-}" ]]; then
+	RUN_PARAMS="${RUN_PARAMS} --overlay.database-url ${OVERLAY_URL}"
+fi
+
+RUN_PARAMS="${RUN_PARAMS} --identity.address=${IDENTITY_ADDR}"
 
 if [[ -n "${API_KEY}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --pointer-db.auth.api-key ${API_KEY}"
@@ -15,6 +19,10 @@ fi
 
 if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
 	RUN_PARAMS="${RUN_PARAMS} --kademlia.bootstrap-addr ${BOOTSTRAP_ADDR}"
+fi
+
+if [[ -n "${MOCK_OVERLAY_NODES:-}" ]]; then
+	RUN_PARAMS="${RUN_PARAMS} --mock-overlay.nodes ${MOCK_OVERLAY_NODES}"
 fi
 
 exec ./satellite run $RUN_PARAMS "$@"

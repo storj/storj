@@ -133,7 +133,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*proto.Node{}, 0, 0, true, []error{},
-			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%d) of erasure scheme", n)},
+			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%v) of erasure scheme", n)},
 		{[]*proto.Node{node0, node1, node2, node3}, 0, -1, true,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -217,7 +217,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*proto.Node{}, 0, []error{}, "ecclient error: " +
-			"number of nodes do not match total count of erasure scheme"},
+			fmt.Sprintf("number of nodes (0) do not match total count (%v) of erasure scheme", n)},
 		{[]*proto.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -228,11 +228,9 @@ TestLoop:
 		{[]*proto.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, ErrOpFailed, nil, nil}, ""},
 		{[]*proto.Node{node0, node1, node2, node3}, 0,
-			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
-			"eestream error: not enough readers to reconstruct data!"},
+			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed}, ""},
 		{[]*proto.Node{node0, node1, node2, node3}, 0,
-			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed},
-			"eestream error: not enough readers to reconstruct data!"},
+			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -245,7 +243,7 @@ TestLoop:
 
 		m := make(map[*proto.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if errs[n] != ErrDialFailed {
+			if errs[n] == ErrOpFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
@@ -258,7 +256,10 @@ TestLoop:
 		}
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
 		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size))
-
+		if err == nil {
+			_, err := rr.Range(ctx, 0, 0)
+			assert.NoError(t, err, errTag)
+		}
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {

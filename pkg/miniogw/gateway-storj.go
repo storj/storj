@@ -200,37 +200,52 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if delimiter != "" && delimiter != "/" {
+		return minio.ListObjectsInfo{}, Error.New("delimiter %s not supported", delimiter)
+	}
+
 	startAfter := paths.New(marker)
-	var fl []minio.ObjectInfo
+	recursive := delimiter == ""
+
+	var objects []minio.ObjectInfo
+	var prefixes []string
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return minio.ListObjectsInfo{}, err
 	}
-	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, true, maxKeys, meta.All)
+	items, more, err := o.List(ctx, paths.New(prefix), startAfter, nil, recursive, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
 	if len(items) > 0 {
-		//Populate the objectlist (aka filelist)
-		f := make([]minio.ObjectInfo, len(items))
-		for i, fi := range items {
-			f[i] = minio.ObjectInfo{
-				Bucket:      bucket,
-				Name:        fi.Path.String(),
-				ModTime:     fi.Meta.Modified,
-				Size:        fi.Meta.Size,
-				ContentType: fi.Meta.ContentType,
-				UserDefined: fi.Meta.UserDefined,
-				ETag:        fi.Meta.Checksum,
+		for _, item := range items {
+			path := item.Path
+			if recursive {
+				path = path.Prepend(prefix)
 			}
+			if item.IsPrefix {
+				prefixes = append(prefixes, path.String()+"/")
+				continue
+			}
+			objects = append(objects, minio.ObjectInfo{
+				Bucket:      bucket,
+				IsDir:       false,
+				Name:        path.String(),
+				ModTime:     item.Meta.Modified,
+				Size:        item.Meta.Size,
+				ContentType: item.Meta.ContentType,
+				UserDefined: item.Meta.UserDefined,
+				ETag:        item.Meta.Checksum,
+			})
 		}
-		startAfter = items[len(items)-1].Path[len(paths.New(prefix)):]
-		fl = f
+		startAfter = items[len(items)-1].Path
 	}
 
 	result = minio.ListObjectsInfo{
 		IsTruncated: more,
-		Objects:     fl,
+		Objects:     objects,
+		Prefixes:    prefixes,
 	}
 	if more {
 		result.NextMarker = startAfter.String()

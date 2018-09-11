@@ -196,7 +196,7 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 	mn := &mockNodeServer{queryCalled: 0}
 
 	proto.RegisterNodesServer(grpcServer, mn)
-	proto.RegisterOverlayServer(grpcServer, mock.NewMockOverlay(nn))
+	proto.RegisterOverlayServer(grpcServer, mock.NewOverlay(nn))
 
 	return grpcServer, mn
 }

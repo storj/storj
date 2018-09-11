@@ -14,14 +14,14 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// MockOverlay __
-type MockOverlay struct {
+// Overlay __
+type Overlay struct {
 	nodes map[string]*proto.Node
 }
 
-// NewMockOverlay __
-func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
-	rv := &MockOverlay{nodes: map[string]*proto.Node{}}
+// NewOverlay __
+func NewOverlay(nodes []*proto.Node) *Overlay {
+	rv := &Overlay{nodes: map[string]*proto.Node{}}
 	for _, node := range nodes {
 		rv.nodes[node.Id] = node
 	}
@@ -29,7 +29,7 @@ func NewMockOverlay(nodes []*proto.Node) *MockOverlay {
 }
 
 // FindStorageNodes __
-func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
+func (mo *Overlay) FindStorageNodes(ctx context.Context,
 	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
 	err error) {
 	nodes := make([]*proto.Node, 0, len(mo.nodes))
@@ -44,18 +44,30 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 }
 
 // Lookup __
-func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
+func (mo *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 	*proto.LookupResponse, error) {
 	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
-// MockConfig __
-type MockConfig struct {
+//BulkLookup finds multiple storage nodes based on the requests
+func (mo *Overlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (
+	*proto.LookupResponses, error) {
+	var responses []*proto.LookupResponse
+	for _, r := range reqs.Lookuprequest {
+		n := *mo.nodes[r.NodeID]
+		resp := &proto.LookupResponse{Node: &n}
+		responses = append(responses, resp)
+	}
+	return &proto.LookupResponses{Lookupresponse: responses}, nil
+}
+
+// Config specifies static nodes for mock overlay
+type Config struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
 // Run __
-func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
+func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	var nodes []*proto.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {
 		parts := strings.SplitN(nodestr, ":", 2)
@@ -71,6 +83,6 @@ func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
 			}})
 	}
 
-	proto.RegisterOverlayServer(server.GRPC(), NewMockOverlay(nodes))
+	proto.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
 	return server.Run(ctx)
 }

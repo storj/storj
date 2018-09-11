@@ -44,7 +44,7 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 
 func NewCABenchmark(b *testing.B, difficulty uint16, concurrency uint) {
 	for i := 0; i < b.N; i++ {
-		NewCA(context.Background(), difficulty, concurrency)
+		_, _ = NewCA(context.Background(), difficulty, concurrency)
 	}
 }
 
