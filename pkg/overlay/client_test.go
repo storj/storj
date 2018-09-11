@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 type mockNodeID struct {
@@ -141,7 +141,7 @@ func TestBulkLookup(t *testing.T) {
 		},
 	}
 	for _, v := range cases {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
 		srv, mock, err := newTestServer(ctx)
@@ -166,10 +166,16 @@ func TestBulkLookup(t *testing.T) {
 	}
 }
 func TestBulkLookupV2(t *testing.T) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 0))
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
-	srv, s, err := newServer(ctx)
+	srv, s, err := newServer(ctx, redisAddr)
 
 	assert.NoError(t, err)
 	go srv.Serve(lis)
@@ -246,7 +252,7 @@ func TestBulkLookupV2(t *testing.T) {
 	}
 }
 
-func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
+func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		return nil, nil, err
@@ -261,7 +267,7 @@ func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	cache, err := NewRedisOverlayCache("127.0.0.1:6379", "", 1, nil)
+	cache, err := NewRedisOverlayCache(redisAddr, "", 1, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -271,6 +277,7 @@ func newServer(ctx context.Context) (*grpc.Server, *Server, error) {
 
 	return grpcServer, s, nil
 }
+
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {

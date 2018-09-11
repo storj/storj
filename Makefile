@@ -31,7 +31,7 @@ DOCKER_BUILD := docker build \
 #   gochecknoglobals    # enable later
 #   dupl                # needs tuning
 #   gocyclo             # needs tuning
-#   lll                 # long lines, not relevant
+#   lll                 # long lines
 #   gotype, gotypex     # already done by compiling
 #   safesql             # no sql
 #   interfacer          # not that useful
