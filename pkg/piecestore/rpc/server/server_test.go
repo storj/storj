@@ -18,7 +18,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
@@ -479,21 +478,31 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func newTestServerStruct() *Server {
-	tmp, err := ioutil.TempDir("", "example")
+func newTestServerStruct(t *testing.T) (*Server, func()) {
+	tmp, err := ioutil.TempDir("", "storj-piecestore")
 	if err != nil {
 		log.Fatalf("failed temp-dir: %v", err)
 	}
 
-	tempDBPath := filepath.Join(tmp, fmt.Sprintf("%s-test.db", time.Now().Format("2006-01-02T15-04-05.999999999Z07-00")))
+	tempDBPath := filepath.Join(tmp, "test.db")
 	tempDir := filepath.Join(tmp, "test-data", "3000")
 
 	psDB, err := psdb.Open(ctx, tempDir, tempDBPath)
 	if err != nil {
-		log.Fatalf("failed open psdb: %v", err)
+		t.Fatalf("failed open psdb: %v", err)
 	}
 
-	return &Server{DataDir: tempDir, DB: psDB}
+	server := &Server{DataDir: tempDir, DB: psDB}
+	return server, func() {
+		if serr := server.Stop(ctx); serr != nil {
+			t.Fatal(serr)
+		}
+		// TODO:fix this error check
+		_ = os.RemoveAll(tmp)
+		// if err := os.RemoveAll(tmp); err != nil {
+		// 	t.Fatal(err)
+		// }
+	}
 }
 
 func connect(addr string, o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grpc.ClientConn) {
@@ -508,11 +517,12 @@ func connect(addr string, o ...grpc.DialOption) (pb.PieceStoreRoutesClient, *grp
 }
 
 type TestServer struct {
-	s     *Server
-	grpcs *grpc.Server
-	conn  *grpc.ClientConn
-	c     pb.PieceStoreRoutesClient
-	k     crypto.PrivateKey
+	s        *Server
+	scleanup func()
+	grpcs    *grpc.Server
+	conn     *grpc.ClientConn
+	c        pb.PieceStoreRoutesClient
+	k        crypto.PrivateKey
 }
 
 func NewTestServer(t *testing.T) *TestServer {
@@ -536,12 +546,12 @@ func NewTestServer(t *testing.T) *TestServer {
 	co, err := fiC.DialOption()
 	check(err)
 
-	s := newTestServerStruct()
+	s, cleanup := newTestServerStruct(t)
 	grpcs := grpc.NewServer(so)
 
 	k, ok := fiC.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
-	ts := &TestServer{s: s, grpcs: grpcs, k: k}
+	ts := &TestServer{s: s, scleanup: cleanup, grpcs: grpcs, k: k}
 	addr := ts.start()
 	ts.c, ts.conn = connect(addr, co)
 
@@ -568,9 +578,7 @@ func (TS *TestServer) Stop() {
 		panic(err)
 	}
 	TS.grpcs.Stop()
-	if err := os.RemoveAll(TS.s.DataDir); err != nil {
-		panic(err)
-	}
+	TS.scleanup()
 }
 
 func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {

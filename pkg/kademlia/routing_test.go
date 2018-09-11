@@ -15,27 +15,31 @@ import (
 )
 
 func TestLocal(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	local := rt.Local()
 	assert.Equal(t, *rt.self, local)
 }
 
 func TestK(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	k := rt.K()
 	assert.Equal(t, rt.bucketSize, k)
 
 }
 
 func TestCacheSize(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	expected := rt.rcBucketSize
 	result := rt.CacheSize()
 	assert.Equal(t, expected, result)
 }
 
 func TestGetBucket(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	node := mockNode("AA")
 	node2 := mockNode("BB")
 	ok, err := rt.addNode(node2)
@@ -70,7 +74,8 @@ func TestGetBucket(t *testing.T) {
 }
 
 func TestGetBuckets(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	node := mockNode("AA")
 	node2 := mockNode("BB")
 	ok, err := rt.addNode(node2)
@@ -87,7 +92,8 @@ func TestGetBuckets(t *testing.T) {
 }
 
 func TestFindNear(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	node := mockNode("AA")
 	node2 := mockNode("BB")
 	ok, err := rt.addNode(node2)
@@ -118,7 +124,8 @@ func TestFindNear(t *testing.T) {
 
 func TestConnectionSuccess(t *testing.T) {
 	id := "AA"
-	rt := createRT([]byte(id))
+	rt, cleanup := createRoutingTable(t, []byte(id))
+	defer cleanup()
 	id2 := "BB"
 	address1 := &proto.NodeAddress{Address: "a"}
 	address2 := &proto.NodeAddress{Address: "b"}
@@ -147,7 +154,8 @@ func TestConnectionSuccess(t *testing.T) {
 func TestConnectionFailed(t *testing.T) {
 	id := "AA"
 	node := mockNode(id)
-	rt := createRT([]byte(id))
+	rt, cleanup := createRoutingTable(t, []byte(id))
+	defer cleanup()
 	err := rt.ConnectionFailed(node)
 	assert.NoError(t, err)
 	v, err := rt.nodeBucketDB.Get([]byte(id))
@@ -158,7 +166,8 @@ func TestConnectionFailed(t *testing.T) {
 func TestSetBucketTimestamp(t *testing.T) {
 	id := []byte("AA")
 	idStr := string(id)
-	rt := createRT(id)
+	rt, cleanup := createRoutingTable(t, id)
+	defer cleanup()
 	now := time.Now().UTC()
 
 	err := rt.createOrUpdateKBucket(id, now)
@@ -175,7 +184,8 @@ func TestSetBucketTimestamp(t *testing.T) {
 }
 
 func TestGetBucketTimestamp(t *testing.T) {
-	rt := createRT([]byte("AA"))
+	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	defer cleanup()
 	now := time.Now().UTC()
 	id := "AA"
 	err := rt.createOrUpdateKBucket([]byte(id), now)

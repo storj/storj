@@ -8,11 +8,26 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strconv"
+
 	"testing"
 )
 
 func TestFileRanger(t *testing.T) {
-	for _, example := range []struct {
+	tempdir, err := ioutil.TempDir("", "storj-fileranger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err := os.RemoveAll(tempdir)
+		if err != nil {
+			_ = err // TODO: figure out what is holding the folder open
+			// t.Fatal(err)
+		}
+	}()
+
+	for i, example := range []struct {
 		data                 string
 		size, offset, length int64
 		substr               string
@@ -31,7 +46,7 @@ func TestFileRanger(t *testing.T) {
 		{"abcdef", 6, -1, 7, "abcde", true},
 		{"abcdef", 6, 0, -1, "abcde", true},
 	} {
-		fh, err := ioutil.TempFile("", "test")
+		fh, err := os.Create(filepath.Join(tempdir, "test"+strconv.Itoa(i)))
 		if err != nil {
 			t.Fatalf("failed making tempfile")
 		}
@@ -44,6 +59,7 @@ func TestFileRanger(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed closing data")
 		}
+
 		rr, err := FileRanger(name)
 		if err != nil {
 			t.Fatalf("failed opening tempfile")
@@ -51,6 +67,7 @@ func TestFileRanger(t *testing.T) {
 		if rr.Size() != example.size {
 			t.Fatalf("invalid size: %v != %v", rr.Size(), example.size)
 		}
+
 		r, err := rr.Range(context.Background(), example.offset, example.length)
 		if example.fail {
 			if err == nil {
@@ -58,23 +75,22 @@ func TestFileRanger(t *testing.T) {
 			}
 			return
 		}
+
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
+
 		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if !bytes.Equal(data, []byte(example.substr)) {
 			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}
 
 		if err := rr.Close(); err != nil {
 			t.Fatalf("unable to close file %q: %v", name, err)
-		}
-
-		if err := os.Remove(name); err != nil {
-			t.Fatalf("unable to remove file %q: %v", name, err)
 		}
 	}
 }
