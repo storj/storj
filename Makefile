@@ -44,8 +44,7 @@ build-dev-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
 
 test:
-	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
-	gover
+	go test -race -v -covermode=atomic -coverprofile=.coverprofile ./...
 	@echo done
 
 test-captplanet:
