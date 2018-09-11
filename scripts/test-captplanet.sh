@@ -1,10 +1,9 @@
-#!/bin/bash
-
+#!/bin/bash 
+set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
-ls $GOPATH/bin
 
-captplanet setup
-captplanet run &
+~/go/bin/captplanet setup --overwrite
+~/go/bin/captplanet run &
 CAPT_PID=$!
 
 aws configure set aws_access_key_id insecure-dev-access-key

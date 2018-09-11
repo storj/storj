@@ -4,7 +4,6 @@
 package overlay
 
 import (
-	"fmt"
 	"context"
 
 	"github.com/zeebo/errs"
@@ -87,19 +86,15 @@ func (o *Overlay) BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*prot
 	for _, v := range nodeIDs {
 		reqs.Lookuprequest = append(reqs.Lookuprequest, &proto.LookupRequest{NodeID: v.String()})
 	}
-	fmt.Printf("overlay/client BulkLookup nodeIDs count #%v\n", len(nodeIDs))
 	resp, err := o.client.BulkLookup(ctx, &reqs)
 
 	if err != nil {
 		return nil, ClientError.Wrap(err)
 	}
-	fmt.Printf("overlay/client BulkLookup Lookupresponse %v\n", resp.Lookupresponse)
-	fmt.Printf("overlay/client BulkLookup responses %v", len(resp.Lookupresponse))
 
 	var nodes []*proto.Node
 	for _, v := range resp.Lookupresponse {
 		nodes = append(nodes, v.Node)
 	}
-	fmt.Printf("overlay/client BulkLookup nodes %v", len(nodes))
 	return nodes, nil
 }

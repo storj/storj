@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -111,7 +110,6 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("redis GETALL %#v\n keystrings %#v\n", results, keyStrings)
 	values := []storage.Value{}
 	for _, result := range results {
 		if result == nil {

@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	// "fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -51,9 +52,13 @@ func (mo *MockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
 //BulkLookup finds multiple storage nodes based on the requests
 func (mo *MockOverlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (
 	*proto.LookupResponses, error) {
-		node := *mo.nodes[reqs.Lookuprequest[0].NodeID]
-		resp := &proto.LookupResponse{Node: &node}
-	return &proto.LookupResponses{Lookupresponse: []*proto.LookupResponse{resp}}, nil
+	var responses []*proto.LookupResponse
+	for _, r := range reqs.Lookuprequest {
+		n := *mo.nodes[r.NodeID]
+		resp := &proto.LookupResponse{Node: &n}
+		responses = append(responses, resp)
+	}	
+	return &proto.LookupResponses{Lookupresponse: responses}, nil
 }
 
 // MockConfig specifies static nodes for mock overlay

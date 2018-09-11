@@ -6,7 +6,7 @@ package overlay
 import (
 	"context"
 	"fmt"
-
+	
 	protob "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -47,12 +47,10 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 
 //BulkLookup finds the addresses of nodes in our overlay network
 func (o *Server) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
-	fmt.Printf("overlay/server len(reqs.Lookuprequest) %v\n", len(reqs.Lookuprequest))
 	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
-	fmt.Printf("overlay/server len(ns) %v\n", len(ns))
 
 	if err != nil {
-		return nil, ServerError.New("could not get nodes requested %s", err)
+		return nil, ServerError.New("could not get nodes requested %s\n", err)
 	}
 	return nodesToLookupResponses(ns), nil
 }
@@ -162,7 +160,6 @@ func lookupRequestsToNodeIDs(reqs *proto.LookupRequests) []string {
 	for _, v := range reqs.Lookuprequest {
 		ids = append(ids, v.NodeID)
 	}
-	fmt.Printf("lookupRequestsToNodeIDs %v\n",len(ids))
 	return ids
 }
 
