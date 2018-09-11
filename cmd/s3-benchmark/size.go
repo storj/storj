@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
+// Sizes implements flag.Value for collecting byte counts
 type Sizes struct {
 	Default []Size
 	Custom  []Size
 }
 
+// Sizes returns the loaded values
 func (sizes Sizes) Sizes() []Size {
 	if len(sizes.Custom) > 0 {
 		return sizes.Custom
@@ -18,6 +20,7 @@ func (sizes Sizes) Sizes() []Size {
 	return sizes.Default
 }
 
+// String converts values to a string
 func (sizes Sizes) String() string {
 	sz := sizes.Sizes()
 	xs := make([]string, len(sz))
@@ -27,6 +30,7 @@ func (sizes Sizes) String() string {
 	return strings.Join(xs, " ")
 }
 
+// Set adds values from byte values
 func (sizes *Sizes) Set(s string) error {
 	for _, x := range strings.Fields(s) {
 		var size Size
@@ -38,6 +42,7 @@ func (sizes *Sizes) Set(s string) error {
 	return nil
 }
 
+// Size represents a value of bytes
 type Size struct {
 	bytes int64
 }
@@ -56,6 +61,7 @@ var units = []unit{
 	{"", 0},
 }
 
+// String converts size to a string
 func (size Size) String() string {
 	if size.bytes <= 0 {
 		return "0"
@@ -73,6 +79,7 @@ func (size Size) String() string {
 	return strconv.Itoa(int(size.bytes)) + "B"
 }
 
+// Set updates value from string
 func (size *Size) Set(s string) error {
 	if s == "" {
 		return errors.New("empty size")

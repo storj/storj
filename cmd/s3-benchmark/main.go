@@ -80,9 +80,9 @@ func main() {
 		"s", "MB/s", "s", "MB/s", "s", "MB/s",
 	)
 	for _, m := range measurements {
-		m.PrintHistograms(w)
+		m.PrintStats(w)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	if *plotname != "" {
 		p := plot.New()
@@ -174,7 +174,6 @@ func asSeconds(durations []time.Duration) []float64 {
 
 func asSpeed(durations []time.Duration, size int64) []float64 {
 	const MB = 1 << 20
-	const KB = 1 << 10
 	xs := make([]float64, 0, len(durations))
 	for _, dur := range durations {
 		xs = append(xs, (float64(size)/MB)/dur.Seconds())
@@ -182,6 +181,7 @@ func asSpeed(durations []time.Duration, size int64) []float64 {
 	return xs
 }
 
+// Measurement contains measurements for different requests
 type Measurement struct {
 	Size     Size
 	Upload   []time.Duration
@@ -189,7 +189,8 @@ type Measurement struct {
 	Delete   []time.Duration
 }
 
-func (m *Measurement) PrintHistograms(w io.Writer) {
+// PrintStats prints important valueas about the measurement
+func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
 
 	upload := hrtime.NewDurationHistogram(m.Upload, binCount)
@@ -224,6 +225,7 @@ func (m *Measurement) PrintHistograms(w io.Writer) {
 	}
 }
 
+// Benchmark runs benchmarks on bucket with given size
 func Benchmark(client *minio.Client, bucket string, size Size, count int) (Measurement, error) {
 	log.Print("Benchmarking size ", size.String(), " ")
 
