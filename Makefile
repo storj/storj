@@ -23,7 +23,7 @@ DOCKER_BUILD := docker build \
 
 lint: check-copyrights
 	@echo "Running ${@}"
-	@golangci-lint run ./...
+	@golangci-lint run
 
 check-copyrights:
 	@echo "Running ${@}"
