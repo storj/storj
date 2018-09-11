@@ -24,6 +24,7 @@ func (k *KvStore) Empty() bool {
 type MockKeyValueStore struct {
 	Data              KvStore
 	GetCalled         int
+	GetAllCalled      int
 	PutCalled         int
 	ListCalled        int
 	ReverseListCalled int
@@ -79,6 +80,7 @@ func (store *MockKeyValueStore) List(first storage.Key, limit int) (storage.Keys
 
 // GetAll is a noop to adhere to the interface
 func (store *MockKeyValueStore) GetAll(keys storage.Keys) (values storage.Values, err error) {
+	store.GetAllCalled++
 	result := storage.Values{}
 	for _, v := range keys {
 		result = append(result, store.Data[v.String()])

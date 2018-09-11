@@ -119,8 +119,9 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
 	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(nodes) != es.TotalCount() {
-		return nil, Error.New("number of nodes do not match total count of erasure scheme")
+		return nil, Error.New("number of nodes (%v) do not match total count (%v) of erasure scheme", len(nodes), es.TotalCount())
 	}
 	paddedSize := calcPadded(size, es.DecodedBlockSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
