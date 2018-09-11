@@ -200,7 +200,7 @@ var (
 		keys                []string
 		expectedResponses   responsesB
 		expectedErrors      errors
-		data                test.KvStore
+		data                []storage.ListItem
 	}{
 		{testID: "valid GetAll",
 			expectedTimesCalled: 1,
@@ -219,15 +219,18 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{
-				"key1": func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-					d, err := proto.Marshal(na)
-					if err != nil {
-						panic(err)
-					}
-					return d
-				}(),
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
 			},
 		},
 		{testID: "valid GetAll",
@@ -248,23 +251,28 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{
-				"key1": func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-					d, err := proto.Marshal(na)
-					if err != nil {
-						panic(err)
-					}
-					return d
-				}(),
-				"key2": func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
-					d, err := proto.Marshal(na)
-					if err != nil {
-						panic(err)
-					}
-					return d
-				}(),
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				}, {
+					Key: storage.Key("key2"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
 			},
 		},
 		{testID: "mix of valid and nil nodes returned",
@@ -284,15 +292,18 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{
-				"key1": func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-					d, err := proto.Marshal(na)
-					if err != nil {
-						panic(err)
-					}
-					return d
-				}(),
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
 			},
 		},
 		{testID: "empty string keys",
@@ -548,15 +559,18 @@ func TestMockGetAll(t *testing.T) {
 	for _, c := range getAllCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := test.NewMockKeyValueStore(c.data)
+			db := teststore.New()
+			if err := storage.PutAll(db, c.data...); err != nil {
+				t.Fatal(err)
+			}
 			oc := Cache{DB: db}
 
-			assert.Equal(t, 0, db.GetAllCalled)
+			assert.Equal(t, 0, db.CallCount.GetAll)
 
 			resp, err := oc.GetAll(ctx, c.keys)
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedResponses[mock], resp)
-			assert.Equal(t, c.expectedTimesCalled, db.GetAllCalled)
+			assert.Equal(t, c.expectedTimesCalled, db.CallCount.GetAll)
 		})
 	}
 }
@@ -590,7 +604,7 @@ func TestRefresh(t *testing.T) {
 	t.Skip()
 	for _, c := range refreshCases {
 		t.Run(c.testID, func(t *testing.T) {
-			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "3000")
+			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "0")
 			ctx := context.Background()
 
 			db := teststore.New()
@@ -598,7 +612,7 @@ func TestRefresh(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			dht := newTestKademlia(t, "127.0.0.1", "2999", dhts[rand.Intn(testNetSize)], b)
+			dht := newTestKademlia(t, "127.0.0.1", "0", dhts[rand.Intn(testNetSize)], b)
 
 			_cache := &Cache{
 				DB:  db,
