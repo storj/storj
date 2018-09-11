@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
 	streamspb "storj.io/storj/protos/streams"
 )
@@ -232,6 +233,12 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	recursive bool, limit int, metaFlags uint32) (items []ListItem,
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if metaFlags&meta.Size != 0 {
+		// Calculating the stream's size require also the user-defined metadata,
+		// where stream store keeps info about the number of segments and their size.
+		metaFlags |= meta.UserDefined
+	}
 
 	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {

@@ -93,7 +93,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket 
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.All)
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified|meta.Size)
 		if err != nil {
 			return err
 		}
