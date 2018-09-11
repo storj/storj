@@ -21,51 +21,9 @@ endif
 DOCKER_BUILD := docker build \
 	--build-arg GO_VERSION=${GO_VERSION}
 
-# currently disabled linters:
-#   gofmt               # enable after switch to go1.11
-#   goimpor             # enable after switch to go1.11
-#   unparam             # enable later
-#   gosec               # enable later
-#   vetshadow           # enable later
-#   gochecknoinits      # enable later
-#   gochecknoglobals    # enable later
-#   dupl                # needs tuning
-#   gocyclo             # needs tuning
-#   lll                 # long lines
-#   gotype, gotypex     # already done by compiling
-#   safesql             # no sql
-#   interfacer          # not that useful
 lint: check-copyrights
 	@echo "Running ${@}"
-	@gometalinter \
-	--deadline=10m \
-	--concurrency=1 \
-	--enable-all \
-	--enable=golint \
-	--enable=errcheck \
-	--enable=unconvert \
-	--enable=structcheck \
-	--enable=misspell \
-	--disable=goimports \
-	--enable=ineffassign \
-	--disable=gofmt \
-	--enable=nakedret \
-	--enable=megacheck \
-	--disable=unparam \
-	--disable=gosec \
-	--disable=vetshadow \
-	--disable=gochecknoinits \
-	--disable=gochecknoglobals \
-	--disable=dupl \
-	--disable=gocyclo \
-	--disable=lll \
-	--disable=gotype --disable=gotypex \
-	--disable=safesql \
-	--disable=interfacer \
-	--skip=examples \
-	--exclude=".*\.pb\.go" \
-	--exclude=".*\.dbx\.go" \
-	./...
+	@golangci-lint run
 
 check-copyrights:
 	@echo "Running ${@}"
@@ -80,17 +38,13 @@ proto:
 	./scripts/build-protos.sh
 
 build-dev-deps:
-	go get github.com/golang/protobuf/protoc-gen-go
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	go get github.com/alecthomas/gometalinter
-	gometalinter --install --force
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
 
-test: lint
-	go install -v ./...
-	go test -race -v -covermode=atomic -coverprofile=coverage.out ./...
-	gover
+test:
+	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
 test-captplanet:

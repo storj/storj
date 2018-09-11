@@ -10,7 +10,7 @@ import (
 	proto "storj.io/storj/protos/overlay"
 )
 
-// NodeID is the unique identifer used for Nodes in the DHT
+// NodeID is the unique identifier used for Nodes in the DHT
 type NodeID interface {
 	String() string
 	Bytes() []byte

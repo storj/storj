@@ -64,12 +64,17 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10));")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));")
 	if err != nil {
 		return nil, err
 	}
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec("CREATE INDEX idx_ttl_expires ON ttl (expires);")
 	if err != nil {
 		return nil, err
 	}
@@ -205,12 +210,28 @@ func (db *DB) AddTTLToDB(id string, expiration int64) error {
 	return err
 }
 
+// UpdateTTLSize adds stored data size into database by id
+func (db *DB) UpdateTTLSize(id string, size int64) error {
+	defer db.locked()()
+
+	_, err := db.DB.Exec("UPDATE ttl SET size=? WHERE id=?", size, id)
+	return err
+}
+
 // GetTTLByID finds the TTL in the database by id and return it
 func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
 	defer db.locked()()
 
 	err = db.DB.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
 	return expiration, err
+}
+
+// SumTTLSizes sums the size column on the ttl table
+func (db *DB) SumTTLSizes() (sum int64, err error) {
+	defer db.locked()()
+
+	err = db.DB.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
+	return sum, err
 }
 
 // DeleteTTLByID finds the TTL in the database by id and delete it

@@ -13,11 +13,11 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	tempdir, err := ioutil.TempDir("", "bolt")
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	store, err := New(dbname, "bucket")
@@ -34,11 +34,11 @@ func TestSuite(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	tempdir, err := ioutil.TempDir("", "bolt")
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
+	defer func() { _ = os.RemoveAll(tempdir) }()
 
 	dbname := filepath.Join(tempdir, "bolt.db")
 	store, err := New(dbname, "bucket")

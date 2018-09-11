@@ -111,6 +111,18 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
+// Stats will return statistics about the Server
+func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
+	log.Printf("Getting Stats...\n")
+
+	totalUsed, err := s.DB.SumTTLSizes()
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: 0}, nil
+}
+
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.GetId())

@@ -11,7 +11,8 @@ import (
 )
 
 func TestAddToReplacementCache(t *testing.T) {
-	rt := createRT([]byte{244, 255})
+	rt, cleanup := createRoutingTable(t, []byte{244, 255})
+	defer cleanup()
 	kadBucketID := []byte{255, 255}
 	node1 := mockNode(string([]byte{233, 255}))
 	rt.addToReplacementCache(kadBucketID, node1)
