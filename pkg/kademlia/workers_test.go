@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 	"time"
-
+	"sync/atomic"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -108,7 +108,7 @@ func TestWorkerLookup(t *testing.T) {
 		mockRT.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 		actual := v.worker.lookup(context.Background(), v.work)
 		assert.Equal(t, v.expected, actual)
-		assert.Equal(t, 1, mock.queryCalled)
+		assert.Equal(t, int32(1), mock.queryCalled)
 	}
 }
 
@@ -202,14 +202,13 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 }
 
 type mockNodeServer struct {
-	queryCalled int
+	queryCalled int32
 	returnValue []*proto.Node
 	listener    net.Addr
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
-	mn.queryCalled++
-
+	atomic.AddInt32(&mn.queryCalled, 1)
 	return &proto.QueryResponse{Response: mn.returnValue}, nil
 
 }
