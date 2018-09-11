@@ -6,9 +6,11 @@ package overlay
 import (
 	"context"
 	"fmt"
-
+	
 	protob "github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -17,6 +19,9 @@ import (
 	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
 	"storj.io/storj/storage"
 )
+
+// ServerError creates class of errors for stack traces
+var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
@@ -38,6 +43,16 @@ func (o *Server) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.L
 	return &proto.LookupResponse{
 		Node: na,
 	}, nil
+}
+
+//BulkLookup finds the addresses of nodes in our overlay network
+func (o *Server) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
+	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
+
+	if err != nil {
+		return nil, ServerError.New("could not get nodes requested %s\n", err)
+	}
+	return nodesToLookupResponses(ns), nil
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -137,4 +152,23 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	}
 
 	return result, nextStart, nil
+}
+
+//lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
+func lookupRequestsToNodeIDs(reqs *proto.LookupRequests) []string {
+	var ids []string
+	for _, v := range reqs.Lookuprequest {
+		ids = append(ids, v.NodeID)
+	}
+	return ids
+}
+
+//nodesToLookupResponses returns LookupResponses from the nodes
+func nodesToLookupResponses(nodes []*proto.Node) *proto.LookupResponses {
+	var rs []*proto.LookupResponse
+	for _, v := range nodes {
+		r := &proto.LookupResponse{Node: v}
+		rs = append(rs, r)
+	}
+	return &proto.LookupResponses{Lookupresponse: rs}
 }

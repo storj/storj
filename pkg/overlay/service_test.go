@@ -42,6 +42,10 @@ func (o *TestMockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) 
 	return &proto.LookupResponse{}, nil
 }
 
+func (o *TestMockOverlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
+	return &proto.LookupResponses{}, nil
+}
+
 func TestNewServerNilArgs(t *testing.T) {
 
 	server := NewServer(nil, nil, nil, nil)

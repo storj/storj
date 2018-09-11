@@ -6,9 +6,8 @@ package mock_overlay
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 	dht "storj.io/storj/pkg/dht"
 	overlay "storj.io/storj/protos/overlay"
 )
@@ -34,6 +33,19 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
+}
+
+// BulkLookup mocks base method
+func (m *MockClient) BulkLookup(arg0 context.Context, arg1 []dht.NodeID) ([]*overlay.Node, error) {
+	ret := m.ctrl.Call(m, "BulkLookup", arg0, arg1)
+	ret0, _ := ret[0].([]*overlay.Node)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BulkLookup indicates an expected call of BulkLookup
+func (mr *MockClientMockRecorder) BulkLookup(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BulkLookup", reflect.TypeOf((*MockClient)(nil).BulkLookup), arg0, arg1)
 }
 
 // Choose mocks base method
