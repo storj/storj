@@ -5,6 +5,11 @@ services:
       context: .
       dockerfile: test/Dockerfile
     network_mode: service:test-redis
+    environment:
+    - COVERALLS_TOKEN
+    - BRANCH_NAME
+    - PULL_REQUEST_NUMBER=${CHANGE_ID}
+    - BUILD_NUMBER
   test-redis:
     image: redis
 

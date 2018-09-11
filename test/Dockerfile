@@ -1,7 +1,7 @@
 FROM golang:1.10
 
 RUN apt-get update \
- && apt-get install -y build-essential
+ && apt-get install -y build-essential awscli
 
 RUN cd / \
  && rm -rf /go \
