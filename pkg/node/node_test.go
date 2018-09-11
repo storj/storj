@@ -41,7 +41,7 @@ func TestLookup(t *testing.T) {
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
-		go srv.Serve(lis)
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
 		ca, err := provider.NewCA(ctx, 12, 4)

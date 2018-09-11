@@ -54,6 +54,11 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return err
 	}
 
+	// If we put in the database first then that checks if the data already exists
+	if err = s.DB.UpdateTTLSize(pd.GetId(), total); err != nil {
+		return StoreError.New("Failed to write total data to ttl database")
+	}
+
 	log.Printf("Successfully stored %s.", pd.GetId())
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})

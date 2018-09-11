@@ -73,7 +73,7 @@ func TestChoose(t *testing.T) {
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
-		go srv.Serve(lis)
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
 		ca, err := provider.NewCA(ctx, 12, 4)
@@ -110,7 +110,7 @@ func TestLookup(t *testing.T) {
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
-		go srv.Serve(lis)
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
 		ca, err := provider.NewCA(ctx, 12, 4)
@@ -146,7 +146,7 @@ func TestBulkLookup(t *testing.T) {
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
-		go srv.Serve(lis)
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
 		ca, err := provider.NewCA(ctx, 12, 4)
@@ -178,7 +178,7 @@ func TestBulkLookupV2(t *testing.T) {
 	srv, s, err := newServer(ctx, redisAddr)
 
 	assert.NoError(t, err)
-	go srv.Serve(lis)
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	ca, err := provider.NewCA(ctx, 12, 4)
@@ -196,7 +196,7 @@ func TestBulkLookupV2(t *testing.T) {
 	n3 := &proto.Node{Id: "n3"}
 	nodes := []*proto.Node{n1, n2, n3}
 	for _, n := range nodes {
-		s.cache.Put(n.Id, *n)
+		assert.NoError(t, s.cache.Put(n.Id, *n))
 	}
 
 	cases := []struct {

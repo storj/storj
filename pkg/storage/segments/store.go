@@ -276,8 +276,8 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items = make([]ListItem, len(pdbItems))
 	for i, itm := range pdbItems {
 		items[i] = ListItem{
-			Path: itm.Path,
-			Meta: convertMeta(itm.Pointer),
+			Path:     itm.Path,
+			Meta:     convertMeta(itm.Pointer),
 			IsPrefix: itm.IsPrefix,
 		}
 	}
