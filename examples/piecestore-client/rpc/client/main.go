@@ -182,6 +182,14 @@ func main() {
 				return err
 			},
 		},
+		{
+			Name:    "stat",
+			Aliases: []string{"s"},
+			Usage:   "retrieve stats",
+			Action: func(c *cli.Context) error {
+				return psClient.Stats(context.Background())
+			},
+		},
 	}
 
 	err = app.Run(os.Args)
