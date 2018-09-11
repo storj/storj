@@ -94,7 +94,7 @@ func main() {
 		speed.Y.Min = 0
 		speed.Y.Max = 1
 		speed.X.Min = 0
-		speed.X.Max = 5
+		speed.X.Max = 30
 		speed.X.MajorTicks = 10
 		speed.X.MinorTicks = 10
 
