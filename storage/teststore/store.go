@@ -115,7 +115,8 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	for _, key := range keys {
 		keyIndex, found := store.indexOf(key)
 		if !found {
-			return nil, storage.ErrKeyNotFound.New(key.String())
+			values = append(values, nil)
+			continue
 		}
 		values = append(values, storage.CloneValue(store.Items[keyIndex].Value))
 	}
