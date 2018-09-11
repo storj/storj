@@ -73,6 +73,8 @@ require (
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/kurin/blazer v0.5.1 // indirect
 	github.com/lib/pq v0.0.0-20180523175426-90697d60dd84 // indirect
+	github.com/loov/hrtime v0.0.0-20180911122900-a9e82bc6c180
+	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/magiconair/properties v1.7.6 // indirect
 	github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5 // indirect
 	github.com/marstr/guid v1.1.0 // indirect
@@ -88,7 +90,7 @@ require (
 	github.com/minio/lsync v0.0.0-20180328070428-f332c3883f63 // indirect
 	github.com/minio/mc v0.0.0-20180820172331-a1110bc0223c // indirect
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
-	github.com/minio/minio-go v6.0.3-0.20180613230128-10531abd0af1+incompatible // indirect
+	github.com/minio/minio-go v6.0.6+incompatible
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
