@@ -28,7 +28,7 @@ func main() {
 	plotname := flag.String("plot", "", "plot results")
 
 	sizes := &Sizes{
-		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {63 << 20}},
+		Default: []Size{{1 << 10}, {256 << 10}}, //, {1 << 20}, {32 << 20}, {63 << 20}},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
 
@@ -76,28 +76,67 @@ func main() {
 		p.X.MajorTicks = 10
 		p.X.MinorTicks = 10
 
-		stack := plot.NewVStack()
-		stack.Margin = plot.R(5, 5, 5, 5)
-		p.Add(stack)
+		speed := plot.NewAxisGroup()
+		speed.Y.Min = 0
+		speed.Y.Max = 1
+		speed.X.Min = 0
+		speed.X.Max = 5
+		speed.X.MajorTicks = 10
+		speed.X.MinorTicks = 10
+
+		rows := plot.NewVStack()
+		rows.Margin = plot.R(5, 5, 5, 5)
+		p.Add(rows)
 
 		for _, m := range measurements {
-			upload := plot.NewDensity("s", asSeconds(m.Upload))
-			upload.Stroke = color.NRGBA{0, 200, 0, 255}
-			download := plot.NewDensity("s", asSeconds(m.Download))
-			download.Stroke = color.NRGBA{0, 0, 200, 255}
-			delete := plot.NewDensity("s", asSeconds(m.Delete))
-			delete.Stroke = color.NRGBA{200, 0, 0, 255}
+			row := plot.NewHFlex()
+			rows.Add(row)
+			row.Add(35, plot.NewTextbox(m.Size.String()))
 
-			flex := plot.NewHFlex()
-			flex.Add(100, plot.NewTextbox(m.Size.String()))
-			flex.AddGroup(0,
-				plot.NewGrid(),
-				upload,
-				download,
-				delete,
-				plot.NewTickLabels(),
-			)
-			stack.Add(flex)
+			plots := plot.NewVStack()
+			row.Add(0, plots)
+
+			{ // time plotting
+				uploadTime := plot.NewDensity("s", asSeconds(m.Upload))
+				uploadTime.Stroke = color.NRGBA{0, 200, 0, 255}
+				downloadTime := plot.NewDensity("s", asSeconds(m.Download))
+				downloadTime.Stroke = color.NRGBA{0, 0, 200, 255}
+				deleteTime := plot.NewDensity("s", asSeconds(m.Delete))
+				deleteTime.Stroke = color.NRGBA{200, 0, 0, 255}
+
+				flexTime := plot.NewHFlex()
+				plots.Add(flexTime)
+				flexTime.Add(70, plot.NewTextbox("time (s)"))
+				flexTime.AddGroup(0,
+					plot.NewGrid(),
+					uploadTime,
+					downloadTime,
+					deleteTime,
+					plot.NewTickLabels(),
+				)
+			}
+
+			{ // speed plotting
+				uploadSpeed := plot.NewDensity("MB/s", asSpeed(m.Upload, m.Size.bytes))
+				uploadSpeed.Stroke = color.NRGBA{0, 200, 0, 255}
+				downloadSpeed := plot.NewDensity("MB/s", asSpeed(m.Download, m.Size.bytes))
+				downloadSpeed.Stroke = color.NRGBA{0, 0, 200, 255}
+
+				flexSpeed := plot.NewHFlex()
+				plots.Add(flexSpeed)
+
+				speedGroup := plot.NewAxisGroup()
+				speedGroup.X, speedGroup.Y = speed.X, speed.Y
+				speedGroup.AddGroup(
+					plot.NewGrid(),
+					uploadSpeed,
+					downloadSpeed,
+					plot.NewTickLabels(),
+				)
+
+				flexSpeed.Add(70, plot.NewTextbox("speed (MB/s)"))
+				flexSpeed.AddGroup(0, speedGroup)
+			}
 		}
 
 		svgcanvas := plot.NewSVG(1500, 150*float64(len(measurements)))
@@ -114,6 +153,16 @@ func asSeconds(durations []time.Duration) []float64 {
 	xs := make([]float64, 0, len(durations))
 	for _, dur := range durations {
 		xs = append(xs, dur.Seconds())
+	}
+	return xs
+}
+
+func asSpeed(durations []time.Duration, size int64) []float64 {
+	const MB = 1 << 20
+	const KB = 1 << 10
+	xs := make([]float64, 0, len(durations))
+	for _, dur := range durations {
+		xs = append(xs, (float64(size)/MB)/dur.Seconds())
 	}
 	return xs
 }
