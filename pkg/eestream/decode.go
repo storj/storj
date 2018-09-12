@@ -7,15 +7,16 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"sync"
 
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/utils"
 )
 
 type decodedReader struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
-	closed          bool
 	readers         map[int]io.ReadCloser
 	scheme          ErasureScheme
 	stripeReader    *StripeReader
@@ -23,6 +24,8 @@ type decodedReader struct {
 	err             error
 	currentStripe   int64
 	expectedStripes int64
+	close           sync.Once
+	closeErr        error
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
@@ -94,24 +97,17 @@ func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	// avoid double close of readers
-	if dr.closed {
-		return nil
-	}
-	dr.closed = true
-	// close the readers
-	var firstErr error
-	for _, c := range dr.readers {
-		err := c.Close()
-		if err != nil && firstErr == nil {
-			firstErr = err
+	dr.close.Do(func() {
+		errs := make([]error, len(dr.readers)+1)
+		// close the readers
+		for i, r := range dr.readers {
+			errs[i] = r.Close()
 		}
-	}
-	// close the stripe reader
-	err := dr.stripeReader.Close()
-	if firstErr == nil {
-		firstErr = err
-	}
-	return firstErr
+		// close the stripe reader
+		errs[len(dr.readers)] = dr.stripeReader.Close()
+		dr.closeErr = utils.CombineErrors(errs...)
+	})
+	return dr.closeErr
 }
 
 type decodedRanger struct {
