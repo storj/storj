@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"os"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
@@ -44,13 +45,13 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Piece ID not specified")
 	}
 
-	exists, err := s.DB.DoesTTLExist(pd.GetId())
+	dataPath, err := pstore.PathByID(pd.GetId(), s.DataDir)
 	if err != nil {
-		return StoreError.New("Failed to chcek if piece already exists in database")
+		return err
 	}
 
-	if exists {
-		return StoreError.New("Piece already exists in database")
+	if _, err = os.Stat(dataPath); os.IsExist(err) {
+		return StoreError.New("Piece already exists ")
 	}
 
 	total, err := s.storeData(ctx, reqStream, pd.GetId())
@@ -58,7 +59,10 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return err
 	}
 
-	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetExpirationUnixSec(), total); err != nil {
+	if err = s.DB.AddTTL(pd.GetId(), pd.GetExpirationUnixSec(), total); err != nil {
+		if deleteErr := s.deleteByID(pd.GetId()); deleteErr != nil {
+			log.Printf("Failed on deleteByID in Store: %s", deleteErr.Error())
+		}
 		return StoreError.New("Failed to write piece meta data to database")
 	}
 

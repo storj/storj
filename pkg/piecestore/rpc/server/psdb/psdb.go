@@ -201,12 +201,12 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 	return agreements, nil
 }
 
-// AddTTLToDB adds TTL into database by id
-func (db *DB) AddTTLToDB(id string, expiration, size int64) error {
+// AddTTL adds TTL into database by id
+func (db *DB) AddTTL(id string, expiration, size int64) error {
 	defer db.locked()()
 
 	created := time.Now().Unix()
-	_, err := db.DB.Exec("INSERT or REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
+	_, err := db.DB.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
 	return err
 }
 
