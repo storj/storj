@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"os"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/piecestore"
@@ -73,15 +72,6 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 			}
 		}
 	}()
-
-	dataPath, err := pstore.PathByID(id, s.DataDir)
-	if err != nil {
-		return 0, err
-	}
-
-	if _, err = os.Stat(dataPath); os.IsExist(err) {
-		return 0, StoreError.New("Piece already exists ")
-	}
 
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.DataDir)
