@@ -30,7 +30,7 @@ type Client interface {
 	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
 	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
+		pieceID client.PieceID, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
 }
 
@@ -117,7 +117,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
+	pieceID client.PieceID, size int64) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -125,10 +125,10 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	}
 	paddedSize := calcPadded(size, es.DecodedBlockSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
-	rrs := map[int]ranger.RangeCloser{}
+	rrs := map[int]ranger.Ranger{}
 	type rangerInfo struct {
 		i   int
-		rr  ranger.RangeCloser
+		rr  ranger.Ranger
 		err error
 	}
 	ch := make(chan rangerInfo, len(nodes))
@@ -160,17 +160,9 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	}
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
-		for _, rr := range rrs {
-			_ = rr.Close()
-		}
 		return nil, err
 	}
-	uprr, err := eestream.Unpad(rr, int(paddedSize-size))
-	if err != nil {
-		_ = rr.Close()
-		return nil, err
-	}
-	return uprr, nil
+	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
@@ -250,7 +242,7 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	ranger ranger.RangeCloser
+	ranger ranger.Ranger
 	dialer dialer
 	node   *proto.Node
 	id     client.PieceID
@@ -263,14 +255,6 @@ func (lr *lazyPieceRanger) Size() int64 {
 	return lr.size
 }
 
-// Size implements Ranger.Close
-func (lr *lazyPieceRanger) Close() error {
-	if lr.ranger == nil {
-		return nil
-	}
-	return lr.ranger.Close()
-}
-
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if lr.ranger == nil {
@@ -279,8 +263,6 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 			return nil, err
 		}
 		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
-		// no ps.CloseConn() here, the connection will be closed by
-		// the caller using RangeCloser.Close
 		if err != nil {
 			return nil, err
 		}

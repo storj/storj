@@ -249,8 +249,7 @@ TestLoop:
 					continue TestLoop
 				}
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(
-					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
 				m[n] = ps
 			}
 		}

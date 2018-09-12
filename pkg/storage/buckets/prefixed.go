@@ -31,7 +31,7 @@ func (o *prefixedObjStore) Meta(ctx context.Context, path paths.Path) (meta obje
 }
 
 func (o *prefixedObjStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta objects.Meta, err error) {
+	rr ranger.Ranger, meta objects.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {

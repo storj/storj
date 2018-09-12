@@ -100,7 +100,6 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
@@ -129,7 +128,6 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {

@@ -90,7 +90,7 @@ func TestCopyObject(t *testing.T) {
 			UserDefined: serMeta.UserDefined,
 		}
 
-		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
+		rr := ranger.ByteRanger([]byte(example.data))
 		r, err := rr.Range(ctx, 0, rr.Size())
 		if err != nil {
 			t.Fatal(err)
@@ -156,7 +156,7 @@ func TestGetObject(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		rr := ranger.NopCloser(ranger.ByteRanger([]byte(example.data)))
+		rr := ranger.ByteRanger([]byte(example.data))
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
 		mockOS.EXPECT().Get(gomock.Any(), paths.New(example.object)).Return(rr, meta, example.err)
