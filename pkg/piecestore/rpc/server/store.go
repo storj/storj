@@ -45,15 +45,6 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Piece ID not specified")
 	}
 
-	dataPath, err := pstore.PathByID(pd.GetId(), s.DataDir)
-	if err != nil {
-		return err
-	}
-
-	if _, err = os.Stat(dataPath); os.IsExist(err) {
-		return StoreError.New("Piece already exists ")
-	}
-
 	total, err := s.storeData(ctx, reqStream, pd.GetId())
 	if err != nil {
 		return err
@@ -82,6 +73,15 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 			}
 		}
 	}()
+
+	dataPath, err := pstore.PathByID(id, s.DataDir)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err = os.Stat(dataPath); os.IsExist(err) {
+		return 0, StoreError.New("Piece already exists ")
+	}
 
 	// Initialize file for storing data
 	storeFile, err := pstore.StoreWriter(id, s.DataDir)
