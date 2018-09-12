@@ -196,7 +196,8 @@ func GetIntroNode(addr string) (*proto.Node, error) {
 	}, nil
 }
 
-func restrict(r proto.Restriction, n []*proto.Node) []*proto.Node {
+// Restrict is used to limit nodes returned that don't match the miniumum storage requirements
+func Restrict(r proto.Restriction, n []*proto.Node) []*proto.Node {
 	oper := r.GetOperand()
 	op := r.GetOperator()
 	val := r.GetValue()
