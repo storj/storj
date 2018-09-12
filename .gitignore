@@ -44,3 +44,5 @@ satellite_*
 storagenode_*
 uplink_*
 *.svg
+big-upload-testfile
+small-upload-testfile

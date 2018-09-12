@@ -62,8 +62,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here
-	err = kad.Bootstrap(ctx)
-	if err != nil {
+	if err = kad.Bootstrap(ctx); err != nil {
 		return err
 	}
 
