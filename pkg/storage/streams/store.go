@@ -17,6 +17,7 @@ import (
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/utils"
 	streamspb "storj.io/storj/protos/streams"
 )
 
@@ -147,30 +148,30 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	msi := streamspb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
-		_ = lastRangerCloser.Close()
+		utils.LogClose(lastRangerCloser)
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
-		_ = lastRangerCloser.Close()
+		utils.LogClose(lastRangerCloser)
 		return nil, Meta{}, err
 	}
 
 	var rangers []ranger.RangeCloser
 
-	for i := 0; i < int(msi.NumberOfSegments); i++ {
+	for i := int64(0); i < msi.NumberOfSegments; i++ {
 		currentPath := fmt.Sprintf("s%d", i)
-		rangeCloser, _, err := s.segments.Get(ctx, path.Prepend(currentPath))
-		if err != nil {
-			for _, ranger := range rangers {
-				_ = ranger.Close()
-			}
-			_ = lastRangerCloser.Close()
-			return nil, Meta{}, err
+		size := msi.SegmentsSize
+		if i == msi.NumberOfSegments-1 {
+			size = msi.LastSegmentSize
 		}
-
-		rangers = append(rangers, rangeCloser)
+		rr := &lazySegmentRanger{
+			segments: s.segments,
+			path:     path.Prepend(currentPath),
+			size:     size,
+		}
+		rangers = append(rangers, rr)
 	}
 
 	rangers = append(rangers, lastRangerCloser)
@@ -255,4 +256,36 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	}
 
 	return items, more, nil
+}
+
+type lazySegmentRanger struct {
+	ranger   ranger.RangeCloser
+	segments segments.Store
+	path     paths.Path
+	size     int64
+}
+
+// Size implements Ranger.Size
+func (lr *lazySegmentRanger) Size() int64 {
+	return lr.size
+}
+
+// Size implements Ranger.Close
+func (lr *lazySegmentRanger) Close() error {
+	if lr.ranger == nil {
+		return nil
+	}
+	return lr.ranger.Close()
+}
+
+// Range implements Ranger.Range to be lazily connected
+func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	if lr.ranger == nil {
+		rr, _, err := lr.segments.Get(ctx, lr.path)
+		if err != nil {
+			return nil, err
+		}
+		lr.ranger = rr
+	}
+	return lr.ranger.Range(ctx, offset, length)
 }
