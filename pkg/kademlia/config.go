@@ -37,6 +37,7 @@ type Config struct {
 // Run implements provider.Responsibility
 func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
@@ -56,10 +57,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	// TODO(jt): ListenAndServe should probably be blocking and we should kick
 	// it off in a goroutine here
-	err = kad.ListenAndServe()
-	if err != nil {
-		return err
-	}
+	go kad.ListenAndServe()
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here

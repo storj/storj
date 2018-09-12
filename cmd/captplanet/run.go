@@ -79,8 +79,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
-			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Kademlia,
 			o)
 	}()
 
@@ -116,6 +116,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Uplink.IdentityConfig.Address, runCfg.Uplink.AccessKey, runCfg.Uplink.SecretKey)
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
+	for v := range errch {
+		fmt.Printf("ERROR== %s\n", v)
+	}
 
-	return <-errch
+	return nil
 }

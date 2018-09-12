@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
@@ -47,6 +49,7 @@ type Kademlia struct {
 	address        string
 	stun           bool
 	nodeClient     node.Client
+	identity       *provider.FullIdentity
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -76,6 +79,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, ide
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
 		stun:           true,
+		identity:       identity,
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -91,14 +95,14 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, ide
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
 	// TODO(coyle)
-	return errors.New("TODO")
+	return errors.New("TODO Disconnect")
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
 	// TODO(coyle)
-	return []*proto.Node{}, errors.New("TODO")
+	return []*proto.Node{}, errors.New("TODO GetNodes")
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
@@ -152,14 +156,31 @@ func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
 	//TODO(coyle)
-	return proto.Node{}, NodeErr.New("TODO")
+	return proto.Node{}, NodeErr.New("TODO FindNode")
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
 func (k *Kademlia) ListenAndServe() error {
-	//TODO(coyle)
+	identOpt, err := k.identity.ServerOption()
+	if err != nil {
+		return err
+	}
 
-	return errors.New("TODO")
+	grpcServer := grpc.NewServer(identOpt)
+	mn := node.NewServer(k)
+
+	proto.RegisterNodesServer(grpcServer, mn)
+	fmt.Printf("listening on %s\n", k.address)
+	lis, err := net.Listen("tcp", k.address)
+	if err != nil {
+		return err
+	}
+	if err := grpcServer.Serve(lis); err != nil {
+		return err
+	}
+	defer grpcServer.Stop()
+
+	return nil
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network

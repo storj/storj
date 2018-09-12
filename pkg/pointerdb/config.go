@@ -5,6 +5,7 @@ package pointerdb
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -30,6 +31,7 @@ type Config struct {
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
+	fmt.Printf("\nIN THE CONFIG!!!\n")
 	dburl, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return err
@@ -45,6 +47,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	defer func() { _ = bdb.Close() }()
 
 	bdblogged := storelogger.New(zap.L(), bdb)
+	// fmt.Printf("%#v\n", server.GRPC().GetServiceInfo())
 	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
 
 	return server.Run(ctx)
