@@ -218,18 +218,6 @@ func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
 	return expiration, err
 }
 
-// DoesTTLExist finds the TTL in the database by id and returns if it exists or not
-func (db *DB) DoesTTLExist(id string) (exists bool, err error) {
-	defer db.locked()()
-
-	err = db.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM ttl WHERE id=? LIMIT 1);`, id).Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
-		return exists, err
-	}
-
-	return exists, nil
-}
-
 // SumTTLSizes sums the size column on the ttl table
 func (db *DB) SumTTLSizes() (sum int64, err error) {
 	defer db.locked()()

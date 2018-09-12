@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -51,7 +52,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 
 	if err = s.DB.AddTTL(pd.GetId(), pd.GetExpirationUnixSec(), total); err != nil {
 		if deleteErr := s.deleteByID(pd.GetId()); deleteErr != nil {
-			log.Printf("Failed on deleteByID in Store: %s", deleteErr.Error())
+			return utils.CombineErrors(StoreError.Wrap(fmt.Errorf("Failed on deleteByID in Store: %s", deleteErr.Error())))
 		}
 		return StoreError.New("Failed to write piece meta data to database")
 	}
