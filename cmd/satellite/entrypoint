@@ -14,7 +14,7 @@ fi
 RUN_PARAMS="${RUN_PARAMS} --identity.address=${IDENTITY_ADDR}"
 
 if [[ -n "${API_KEY}" ]]; then
-	RUN_PARAMS="${RUN_PARAMS} --pointer-db.auth.api-key ${API_KEY}"
+	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
 fi
 
 if [[ -n "${BOOTSTRAP_ADDR:-}" ]]; then
