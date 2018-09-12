@@ -70,20 +70,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	errch := make(chan error, len(runCfg.StorageNodes)+2)
 	var storagenodes []string
 
-	// start satellite
-	go func() {
-		_, _ = fmt.Printf("starting satellite on %s\n",
-			runCfg.Satellite.Identity.Address)
-		var o provider.Responsibility = runCfg.Satellite.Overlay
-		if runCfg.Satellite.MockOverlay.Enabled {
-			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
-		}
-		errch <- runCfg.Satellite.Identity.Run(ctx,
-			runCfg.Satellite.PointerDB,
-			runCfg.Satellite.Kademlia,
-			o)
-	}()
-
 	// start the storagenodes
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		identity, err := runCfg.StorageNodes[i].Identity.Load()
@@ -109,6 +95,21 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
 	}
+
+	// start satellite
+	go func() {
+		_, _ = fmt.Printf("starting satellite on %s\n",
+			runCfg.Satellite.Identity.Address)
+		var o provider.Responsibility = runCfg.Satellite.Overlay
+		if runCfg.Satellite.MockOverlay.Enabled {
+			fmt.Printf("STORAGE NODES = %#v\n", storagenodes)
+			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
+		}
+		errch <- runCfg.Satellite.Identity.Run(ctx,
+			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Kademlia,
+			o)
+	}()
 
 	// start s3 uplink
 	go func() {

@@ -5,7 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -105,7 +104,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	fmt.Printf("HELP!!!\n\n\n")
+
 	s.logger.Debug("entering pointerdb get")
 
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {

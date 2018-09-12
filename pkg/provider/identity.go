@@ -239,7 +239,6 @@ func (ic IdentityConfig) Run(ctx context.Context,
 		return err
 	}
 	defer func() { _ = s.Close() }()
-	fmt.Printf("HEREizzle\n")
 	zap.S().Infof("Node %s started", s.Identity().ID)
 
 	return s.Run(ctx)

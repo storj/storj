@@ -5,7 +5,6 @@ package pdbclient
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -55,7 +54,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("CONNECTION == %v\n", address)
+
 	c, err := clientConnection(address, dialOpt)
 
 	if err != nil {
@@ -92,13 +91,12 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 // Get is the interface to make a GET request, needs PATH and APIKey
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	fmt.Printf("%#v\n%#v\n", path.String(), pdb.APIKey)
+
 	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
-		fmt.Printf("HERE!!!\n ")
 		return nil, Error.Wrap(err)
 	}
 
