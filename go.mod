@@ -51,6 +51,7 @@ require (
 	github.com/gorilla/mux v1.6.2 // indirect
 	github.com/gorilla/rpc v1.1.0 // indirect
 	github.com/gtank/cryptopasta v0.0.0-20170601214702-1f550f6f2f69
+	github.com/hanwen/go-fuse v0.0.0-20180831115513-1d35017e9701
 	github.com/hashicorp/errwrap v0.0.0-20180715044906-d6c0cd880357 // indirect
 	github.com/hashicorp/go-cleanhttp v0.0.0-20171218145408-d5fe4b57a186 // indirect
 	github.com/hashicorp/go-multierror v0.0.0-20180717150148-3d5d8f294aa0 // indirect
