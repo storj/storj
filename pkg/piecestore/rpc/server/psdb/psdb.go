@@ -74,7 +74,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec("CREATE INDEX idx_ttl_expires ON ttl (expires);")
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
 	if err != nil {
 		return nil, err
 	}
