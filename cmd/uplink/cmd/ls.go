@@ -93,7 +93,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket 
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified)
+		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified|meta.Size)
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket 
 			if object.IsPrefix {
 				fmt.Println("PRE", path+"/")
 			} else {
-				fmt.Println("OBJ", formatTime(object.Meta.Modified), path)
+				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Meta.Modified), object.Meta.Size, path)
 			}
 		}
 
