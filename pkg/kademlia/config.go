@@ -47,6 +47,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
+	in.Id = "foo"
 	kad, err := NewKademlia(server.Identity().ID, []proto.Node{*in}, c.TODOListenAddr, server.Identity())
 	if err != nil {
 		return err
