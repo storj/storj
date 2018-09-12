@@ -7,6 +7,8 @@ import (
 	"context"
 	"io"
 	"os"
+
+	"storj.io/storj/pkg/utils"
 )
 
 type fileRanger struct {
@@ -34,7 +36,7 @@ func (rr *fileRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	if length < 0 {
 		return nil, Error.New("negative length")
 	}
-	if offset+length > int64(rr.size) {
+	if offset+length > rr.size {
 		return nil, Error.New("range beyond end")
 	}
 
@@ -42,9 +44,9 @@ func (rr *fileRanger) Range(ctx context.Context, offset, length int64) (io.ReadC
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	_, err = fh.Seek(offset, os.SEEK_SET)
+	_, err = fh.Seek(offset, io.SeekStart)
 	if err != nil {
-		fh.Close()
+		err = utils.CombineErrors(err, fh.Close())
 		return nil, Error.Wrap(err)
 	}
 	return struct {
