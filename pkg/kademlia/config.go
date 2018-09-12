@@ -57,7 +57,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	// TODO(jt): ListenAndServe should probably be blocking and we should kick
 	// it off in a goroutine here
-	go kad.ListenAndServe()
+	go func() {
+		// ignore error for now
+		_ = kad.ListenAndServe()
+	}()
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here

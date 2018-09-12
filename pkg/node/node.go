@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"log"
 
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht"
@@ -38,7 +39,7 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 		}
 
 		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
-			// ignore
+			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
 		}
 		conn = c
 	}

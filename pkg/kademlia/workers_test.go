@@ -6,9 +6,10 @@ package kademlia
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
-	"sync/atomic"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -28,7 +29,6 @@ func TestGetWork(t *testing.T) {
 		name     string
 		worker   *worker
 		expected *proto.Node
-		ctx      context.Context
 		ch       chan *proto.Node
 	}{
 		{
@@ -78,7 +78,7 @@ func TestWorkerLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, mock := newTestServer(nil)
-	go srv.Serve(lis)
+	go assert.NoError(t, srv.Serve(lis))
 	defer srv.Stop()
 	cases := []struct {
 		name     string
@@ -121,7 +121,7 @@ func TestUpdate(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, _ := newTestServer(nil)
-	go srv.Serve(lis)
+	go assert.NoError(t, srv.Serve(lis))
 	defer srv.Stop()
 
 	cases := []struct {
@@ -204,7 +204,6 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 type mockNodeServer struct {
 	queryCalled int32
 	returnValue []*proto.Node
-	listener    net.Addr
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {

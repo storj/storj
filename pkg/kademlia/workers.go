@@ -195,5 +195,4 @@ func (w *worker) update(nodes []*proto.Node) {
 	w.pq = pq
 
 	w.workInProgress--
-	return
 }

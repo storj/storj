@@ -55,7 +55,7 @@ func TestLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, mns := newTestServer([]*proto.Node{&proto.Node{Id: "foo"}})
-	go srv.Serve(lis)
+	go assert.NoError(t, srv.Serve(lis))
 	defer srv.Stop()
 
 	k := func() *Kademlia {
@@ -133,6 +133,7 @@ func TestBootstrap(t *testing.T) {
 	time.Sleep(time.Second)
 
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 
 }
@@ -160,48 +161,8 @@ func testNode(t *testing.T, bn []proto.Node) (*Kademlia, *grpc.Server) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	proto.RegisterNodesServer(grpcServer, s)
-	go grpcServer.Serve(lis)
+	go assert.NoError(t, grpcServer.Serve(lis))
 
 	return k, grpcServer
 
 }
-
-// func testServer() (*grpc.Server, *mockNodeServer, error) {
-// 	lis, err := net.Listen("tcp", ":0")
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	srv, mns := newTestServer([]*proto.Node{})
-
-// 	mns.listener = lis.Addr()
-
-// 	go srv.Serve(lis)
-
-// 	return srv, mns, nil
-// }
-
-// func createTestNodes(n int) map[*grpc.Server]*mockNodeServer {
-// 	m := map[*grpc.Server]*mockNodeServer{}
-
-// 	for i := 0; i < n; i++ {
-// 		srv, mns, err := testServer()
-// 		if err != nil {
-// 			log.Printf("Error=%s", err)
-// 		}
-// 		m[srv] = mns
-// 	}
-
-// 	return m
-// }
-
-func cleanup(n []*grpc.Server) {
-	for _, v := range n {
-		v.Stop()
-	}
-}
-
-// bootstrap node
-// want bootstrap node to tell it about two nodes
-// each of the two nodes to tell it about a node
-// each of those nodes to return empty
-// routing table should contain all contacted nodes
