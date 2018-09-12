@@ -44,9 +44,13 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Piece ID not specified")
 	}
 
-	// If we put in the database first then that checks if the data already exists
-	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetExpirationUnixSec()); err != nil {
-		return StoreError.New("Failed to write expiration data to database")
+	exists, err := s.DB.DoesTTLExist(pd.GetId())
+	if err != nil {
+		return StoreError.New("Failed to chcek if piece already exists in database")
+	}
+
+	if exists {
+		return StoreError.New("Piece already exists in database")
 	}
 
 	total, err := s.storeData(ctx, reqStream, pd.GetId())
@@ -54,9 +58,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return err
 	}
 
-	// If we put in the database first then that checks if the data already exists
-	if err = s.DB.UpdateTTLSize(pd.GetId(), total); err != nil {
-		return StoreError.New("Failed to write total data to ttl database")
+	if err = s.DB.AddTTLToDB(pd.GetId(), pd.GetExpirationUnixSec(), total); err != nil {
+		return StoreError.New("Failed to write piece meta data to database")
 	}
 
 	log.Printf("Successfully stored %s.", pd.GetId())
