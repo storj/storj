@@ -44,7 +44,7 @@ build-dev-deps:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
 
 test:
-	go test -race -v -cover -coverprofile=.coverprofile ./...
+	go test -timeout 30s -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
 test-captplanet:
