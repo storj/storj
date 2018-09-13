@@ -8,6 +8,7 @@ git:
 
 services:
   - redis
+  - docker
 
 before_install:
   - source scripts/travis-deps.sh
