@@ -176,7 +176,8 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 
 // Close the piece store server Read Stream
 func (s *StreamReader) Close() error {
-	err1 := s.stream.CloseSend()
-	err2 := s.client.Close()
-	return utils.CombineErrors(err1, err2)
+	return utils.CombineErrors(
+		s.stream.CloseSend(),
+		s.client.Close(),
+	)
 }
