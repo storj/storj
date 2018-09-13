@@ -151,8 +151,10 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
-	// segment size 64MB
-	// TODO(moby) verify EncryptionBlockSize = n * erasureShareSize * RSCfg.MinThreshold, where n is an int >= 1
+	if c.ErasureShareSize * c.MinThreshold % c.EncryptionBlockSize != 0 {
+		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
+		return nil, err
+	}
 	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncryptionKey, c.EncryptionBlockSize)
 	if err != nil {
 		return nil, err

@@ -5,7 +5,11 @@ package streams
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha512"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -64,7 +68,7 @@ type Store interface {
 type streamStore struct {
 	segments            segments.Store
 	segmentSize         int64
-	key                 []byte
+	rootKey             []byte
 	encryptionBlockSize int
 }
 
@@ -83,7 +87,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, key string, encr
 	return &streamStore{
 		segments:            segments,
 		segmentSize:         segmentSize,
-		key:                 []byte(key),
+		rootKey:             []byte(key),
 		encryptionBlockSize: encryptionBlockSize,
 	}, nil
 }
@@ -103,10 +107,21 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	// TODO(moby) Wrap io.Reader in PeekThresholdReader to determine if data < encryptionBlockSize
 	//     if so, don't use eestream.NewAESGMEncrypter and manually encrypt data in single block
 
-	// TODO(moby) randomly generate key to be used for transform stream
-	encKey := sha256.Sum256(s.key)
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &firstNonce, s.encryptionBlockSize)
+	var encKey [32]byte
+	_, err = rand.Read(encKey[:])
+	if err != nil {
+		return Meta{}, err
+	}
+
+	var startingNonce [12]byte
+	_, err = rand.Read(startingNonce[:])
+	if err != nil {
+		return Meta{}, err
+	}
+	var nonce [12]byte
+	copy(nonce[:], startingNonce[:])
+
+	encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &nonce, s.encryptionBlockSize)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -135,13 +150,24 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	lastSegmentPath := path.Prepend("l")
 
-	// TODO(moby) using path + root encKey, derive a key to encrypt the key used to store this file
-	//     save the encrypted random key to this metadata
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	encryptedEncKey, err := encrypt(encKey[:], derivedKey)
+	if err != nil {
+		return Meta{}, err
+	}
+	// TODO(moby) should starting nonce be encrypted?
+
 	md := streamspb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
 		Metadata:         metadata,
+		EncryptedEncKey:  encryptedEncKey,
+		StartingNonce:    startingNonce[:],
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
 	if err != nil {
@@ -191,11 +217,22 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	// TODO(moby) Cover special case where the decrypted file is smaller than encryptionBlockSize
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
 
-	// TODO(moby) using the path and root encKey, derive a key to decrypt the key stored in the metadata
-	//     Use this key to decrypt the file
-	encKey := sha256.Sum256(s.key)
+	e, err := decrypt(msi.EncryptedEncKey, derivedKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	var encKey [32]byte
+	copy(encKey[:], e)
+
+	nonce := msi.StartingNonce
 	var firstNonce [12]byte
+	copy(firstNonce[:], nonce)
+
 	decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
 	if err != nil {
 		_ = lastRangerCloser.Close()
@@ -314,4 +351,65 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	}
 
 	return items, more, nil
+}
+
+// TODO(moby) encrypt, decrypt, and getAESGCMKeyAndNonce are almost identical to functions in paths.go
+//     they should probably be abstracted from both stream store and paths
+func encrypt(data []byte, secret []byte) (cipherData []byte, err error) {
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	cipherData = aesgcm.Seal(nil, nonce, data, nil)
+	return cipherData, nil
+}
+
+func decrypt(cipherData []byte, secret []byte) (data []byte, err error) {
+	if len(cipherData) == 0 {
+		return []byte{}, errs.New("empty cipher data")
+	}
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	key, nonce, err := getAESGCMKeyAndNonce(secret)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	decrypted, err := aesgcm.Open(nil, nonce, cipherData, nil)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	return decrypted, nil
+}
+
+func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte, err error) {
+	mac := hmac.New(sha512.New, secret)
+	_, err = mac.Write([]byte("enc"))
+	if err != nil {
+		return nil, nil, err
+	}
+	key = mac.Sum(nil)[:32]
+	mac.Reset()
+	_, err = mac.Write([]byte("nonce"))
+	if err != nil {
+		return nil, nil, err
+	}
+	nonce = mac.Sum(nil)[:12]
+	return key, nonce, nil
 }
