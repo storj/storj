@@ -1,7 +1,7 @@
 ARG CGO_ENABLED=1
 ARG REPOSITORY=../storj.io/storj
 ARG PACKAGE=storj.io/storj/cmd/satellite
-FROM brimstone/golang as build-env
+FROM storjlabs/golang as build-env
 
 # final stage
 FROM alpine
@@ -10,7 +10,7 @@ ENV API_KEY= \
     OVERLAY_URL=redis://redis:6379/?db=0 \
     IDENTITY_ADDR=:7777 \
     BOOTSTRAP_ADDR=bootstrap.storj.io:8080 \
-    MOCK_OVERLAY_NODES=
+    STORJ_MOCK_OVERLAY_NODES=
 EXPOSE 7776/udp \
        7777 \
        8080

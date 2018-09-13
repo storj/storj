@@ -1,7 +1,7 @@
 ARG CGO_ENABLED=1
 ARG REPOSITORY=../storj.io/storj
 ARG PACKAGE=storj.io/storj/cmd/uplink
-FROM brimstone/golang as build-env
+FROM storjlabs/golang as build-env
 
 # final stage
 FROM alpine
