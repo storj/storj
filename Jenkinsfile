@@ -9,7 +9,7 @@ node('node') {
     }
 
     stage('Build Images') {
-      sh 'make test-docker images'
+      sh 'make images'
 
       echo "Current build result: ${currentBuild.result}"
     }
@@ -58,7 +58,7 @@ node('node') {
   finally {
 
     stage('Cleanup') {
-      sh 'make test-docker-clean clean-images'
+      sh 'make clean-images'
       deleteDir()
     }
 
