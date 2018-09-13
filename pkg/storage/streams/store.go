@@ -4,12 +4,11 @@
 package streams
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha512"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -104,9 +103,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	// TODO(moby) Wrap io.Reader in PeekThresholdReader to determine if data < encryptionBlockSize
-	//     if so, don't use eestream.NewAESGMEncrypter and manually encrypt data in single block
-
 	var startingNonce [12]byte
 	_, err = rand.Read(startingNonce[:])
 	if err != nil {
@@ -134,18 +130,36 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		encryptedEncKey, err := encrypt(encKey[:], derivedKey)
+		encryptedEncKey, err := encrypt(encKey[:], derivedKey[:32], nonce[:])
 		if err != nil {
 			return Meta{}, err
 		}
 
 		sizeReader := NewSizeReader(eofReader)
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
-		segmentData := io.LimitReader(sizeReader, s.segmentSize)
-		paddedData := eestream.PadReader(ioutil.NopCloser(segmentData), encrypter.InBlockSize())
-		transformedData := eestream.TransformReader(paddedData, encrypter, 0)
+		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
+		peekReader := segments.NewPeekThresholdReader(segmentReader)
+		largerThan, err := peekReader.IsLargerThan(encrypter.InBlockSize())
+		if err != nil {
+			return Meta{}, err
+		}
+		var transformedReader io.Reader
+		if largerThan {
+			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+			transformedReader = eestream.TransformReader(paddedReader, encrypter, 0)
+		} else {
+			data, err := ioutil.ReadAll(peekReader)
+			if err != nil {
+				return Meta{}, err
+			}
+			cipherData, err := encrypt(data, encKey[:], nonce[:])
+			if err != nil {
+				return Meta{}, err
+			}
+			transformedReader = bytes.NewReader(cipherData)
+		}
 
-		_, err = s.segments.Put(ctx, segmentPath, transformedData, encryptedEncKey, expiration)
+		_, err = s.segments.Put(ctx, segmentPath, transformedReader, encryptedEncKey, expiration)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -216,7 +230,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	// TODO(moby) Cover special case where the decrypted file is smaller than encryptionBlockSize
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
@@ -225,8 +238,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	nonce := msi.StartingNonce
 	var firstNonce [12]byte
 	copy(firstNonce[:], nonce)
-
-	
 
 	var rangers []ranger.RangeCloser
 	cleanupRangers := func() {
@@ -237,7 +248,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
-		currentPath := fmt.Sprintf("s%d", i)
 		rangeCloser, segmentMeta, err := s.segments.Get(ctx, path.Prepend(currentPath))
 		if err != nil {
 			cleanupRangers()
@@ -245,8 +255,9 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		}
 
 		encryptedEncKey := segmentMeta.Data
-		e, err := decrypt(encryptedEncKey, derivedKey)
+		e, err := decrypt(encryptedEncKey, derivedKey[:32], firstNonce[:])
 		if err != nil {
+			cleanupRangers()
 			return nil, Meta{}, err
 		}
 		var encKey [32]byte
@@ -254,14 +265,35 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
 		if err != nil {
-			_ = lastRangerCloser.Close()
+			cleanupRangers()
 			return nil, Meta{}, err
 		}
 
-		rd, err := eestream.Transform(rangeCloser, decrypter)
-		if err != nil {
-			cleanupRangers()
-			return nil, Meta{}, err
+		var rd ranger.RangeCloser
+
+		if rangeCloser.Size()%int64(decrypter.InBlockSize()) != 0 {
+			reader, err := rangeCloser.Range(ctx, 0, rangeCloser.Size())
+			if err != nil {
+				cleanupRangers()
+				return nil, Meta{}, err
+			}
+			cipherData, err := ioutil.ReadAll(reader)
+			if err != nil {
+				cleanupRangers()
+				return nil, Meta{}, err
+			}
+			data, err := decrypt(cipherData, encKey[:], firstNonce[:])
+			if err != nil {
+				cleanupRangers()
+				return nil, Meta{}, err
+			}
+			rd = ranger.ByteRanger(data)
+		} else {
+			rd, err = eestream.Transform(rangeCloser, decrypter)
+			if err != nil {
+				cleanupRangers()
+				return nil, Meta{}, err
+			}
 		}
 
 		paddedSize := rd.Size()
@@ -316,7 +348,6 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
-		currentPath := fmt.Sprintf("s%d", i)
 		err := s.segments.Delete(ctx, path.Prepend(currentPath))
 		if err != nil {
 			return err
@@ -358,11 +389,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 
 // TODO(moby) encrypt, decrypt, and getAESGCMKeyAndNonce are almost identical to functions in paths.go
 //     they should probably be abstracted from both stream store and paths
-func encrypt(data []byte, secret []byte) (cipherData []byte, err error) {
-	key, nonce, err := getAESGCMKeyAndNonce(secret)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
+func encrypt(data, key, nonce []byte) (cipherData []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
@@ -375,14 +402,13 @@ func encrypt(data []byte, secret []byte) (cipherData []byte, err error) {
 	return cipherData, nil
 }
 
-func decrypt(cipherData []byte, secret []byte) (data []byte, err error) {
+func decrypt(cipherData, key, nonce []byte) (data []byte, err error) {
 	if len(cipherData) == 0 {
 		return []byte{}, errs.New("empty cipher data")
 	}
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
-	key, nonce, err := getAESGCMKeyAndNonce(secret)
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
@@ -399,20 +425,4 @@ func decrypt(cipherData []byte, secret []byte) (data []byte, err error) {
 		return []byte{}, errs.Wrap(err)
 	}
 	return decrypted, nil
-}
-
-func getAESGCMKeyAndNonce(secret []byte) (key, nonce []byte, err error) {
-	mac := hmac.New(sha512.New, secret)
-	_, err = mac.Write([]byte("enc"))
-	if err != nil {
-		return nil, nil, err
-	}
-	key = mac.Sum(nil)[:32]
-	mac.Reset()
-	_, err = mac.Write([]byte("nonce"))
-	if err != nil {
-		return nil, nil, err
-	}
-	nonce = mac.Sum(nil)[:12]
-	return key, nonce, nil
 }

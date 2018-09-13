@@ -116,7 +116,10 @@ func (p Path) DeriveKey(key []byte, depth int) (derivedKey []byte, err error) {
 // DeriveContentKey derives the key for the encrypted object data using the root key
 // This method must be called on an unencrypted path.
 func (p Path) DeriveContentKey(key []byte) (derivedKey []byte, err error) {
-	derivedKey, err = p.DeriveKey(key, len(p))
+	if len(p) == 0 {
+		return nil, Error.New("path is empty")
+	}
+	derivedKey, err = p.DeriveKey(key, len(p)-1)
 	if err != nil {
 		return nil, err
 	}
