@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"image/color"
@@ -277,7 +276,7 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int) (Measu
 			finish := hrtime.Now()
 
 			if !bytes.Equal(data, result[:n]) {
-				return measurement, errors.New("upload/download do not match")
+				return measurement, fmt.Errorf("upload/download do not match: length %d != %d", len(data), n)
 			}
 
 			measurement.Download = append(measurement.Download, (finish - start))
