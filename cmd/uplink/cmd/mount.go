@@ -1,6 +1,8 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// +build linux darwin netbsd freebsd openbsd
+
 package cmd
 
 import (
