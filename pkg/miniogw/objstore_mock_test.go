@@ -56,9 +56,9 @@ func (mr *MockStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Get mocks base method
-func (m *MockStore) Get(arg0 context.Context, arg1 paths.Path) (ranger.RangeCloser, objects.Meta, error) {
+func (m *MockStore) Get(arg0 context.Context, arg1 paths.Path) (ranger.Ranger, objects.Meta, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
-	ret0, _ := ret[0].(ranger.RangeCloser)
+	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(objects.Meta)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

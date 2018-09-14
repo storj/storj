@@ -61,7 +61,7 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	rrs := map[int]ranger.RangeCloser{}
+	rrs := map[int]ranger.Ranger{}
 	for _, piece := range pieces {
 		piecenum, err := strconv.Atoi(strings.TrimSuffix(piece.Name(), ".piece"))
 		if err != nil {
@@ -77,7 +77,6 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
 	rr, err := eestream.Transform(rc, decrypter)
 	if err != nil {
 		return err

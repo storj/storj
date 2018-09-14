@@ -107,7 +107,7 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
-func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.RangeCloser, err error) {
+func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
@@ -128,7 +128,6 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 
-	defer utils.LogClose(rr)
 	if length == -1 {
 		length = rr.Size() - startOffset
 	}
@@ -283,8 +282,6 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	if err != nil {
 		return objInfo, err
 	}
-
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {

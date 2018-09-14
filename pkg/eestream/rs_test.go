@@ -109,9 +109,9 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rrs := map[int]ranger.RangeCloser{}
+	rrs := map[int]ranger.Ranger{}
 	for i, piece := range pieces {
-		rrs[i] = ranger.ByteRangeCloser(piece)
+		rrs[i] = ranger.ByteRanger(piece)
 	}
 	decrypter, err := NewAESGCMDecrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
 	if err != nil {
@@ -121,11 +121,6 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := rc.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}()
 	rr, err := Transform(rc, decrypter)
 	if err != nil {
 		t.Fatal(err)
