@@ -25,12 +25,17 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+var (
+	progress *bool
+)
+
 func init() {
-	addCmd(&cobra.Command{
+	cpCmd := addCmd(&cobra.Command{
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	})
+	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
 func cleanAbsPath(p string) string {
@@ -71,11 +76,12 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		return err
 	}
 
-	bar := pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
-	bar.Start()
-
-	reader := bar.NewProxyReader(f)
-	defer utils.LogClose(reader)
+	r := io.Reader(f)
+	if *progress {
+		bar := pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
 
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
 	if err != nil {
@@ -85,7 +91,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), reader, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -127,19 +133,19 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		return err
 	}
 
-	bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
-	bar.Start()
-
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
 
-	reader := bar.NewProxyReader(r)
-	defer utils.LogClose(reader)
+	if *progress {
+		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
 
-	_, err = io.Copy(f, reader)
+	_, err = io.Copy(f, r)
 	if err != nil {
 		return err
 	}
@@ -163,17 +169,17 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		return err
 	}
 
-	bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
-	bar.Start()
-
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
 
-	reader := bar.NewProxyReader(r)
-	defer utils.LogClose(reader)
+	if *progress {
+		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
 
 	if destObj.Host != srcObj.Host {
 		o, err = bs.GetObjectStore(ctx, destObj.Host)
@@ -191,7 +197,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
 	}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), reader, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
 	}
