@@ -110,14 +110,18 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	values := []storage.Value{}
 	for _, result := range results {
-		s, ok := result.(string)
-		if !ok {
-			return nil, Error.New("invalid result type %T", result)
+		if result == nil {
+			values = append(values, nil)
+		} else {
+			s, ok := result.(string)
+			if !ok {
+				return nil, Error.New("invalid result type %T", result)
+			}
+			values = append(values, storage.Value(s))
 		}
-		values = append(values, storage.Value(s))
+
 	}
 	return values, nil
 }

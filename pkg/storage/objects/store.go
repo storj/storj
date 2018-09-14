@@ -43,7 +43,7 @@ type ListItem struct {
 // Store for objects
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
-	Get(ctx context.Context, path paths.Path) (rr ranger.RangeCloser,
+	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger,
 		meta Meta, err error)
 	Put(ctx context.Context, path paths.Path, data io.Reader,
 		metadata SerializableMeta, expiration time.Time) (meta Meta, err error)
@@ -75,7 +75,7 @@ func (o *objStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 }
 
 func (o *objStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta Meta, err error) {
+	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {

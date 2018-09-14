@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
 	streamspb "storj.io/storj/protos/streams"
 )
@@ -54,7 +55,7 @@ func convertMeta(segmentMeta segments.Meta) (Meta, error) {
 // Store interface methods for streams to satisfy to be a store
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
-	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser, Meta, error)
+	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
 	Put(ctx context.Context, path paths.Path, data io.Reader,
 		metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
@@ -209,10 +210,10 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta Meta, err error) {
+	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -220,13 +221,11 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	msi := streamspb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
-		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
-		_ = lastRangerCloser.Close()
 		return nil, Meta{}, err
 	}
 
@@ -236,81 +235,26 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	nonce := msi.StartingNonce
-	var firstNonce [12]byte
-	copy(firstNonce[:], nonce)
+	var startingNonce [12]byte
+	copy(startingNonce[:], nonce)
 
-	var rangers []ranger.RangeCloser
-	cleanupRangers := func() {
-		for _, r := range rangers {
-			_ = r.Close()
-		}
-		_ = lastRangerCloser.Close()
-	}
-
+	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
-		rangeCloser, segmentMeta, err := s.segments.Get(ctx, path.Prepend(currentPath))
-		if err != nil {
-			cleanupRangers()
-			return nil, Meta{}, err
-		}
-
-		encryptedEncKey := segmentMeta.Data
-		e, err := decrypt(encryptedEncKey, derivedKey[:32], firstNonce[:])
-		if err != nil {
-			cleanupRangers()
-			return nil, Meta{}, err
-		}
-		var encKey [32]byte
-		copy(encKey[:], e)
-
-		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, &firstNonce, s.encryptionBlockSize)
-		if err != nil {
-			cleanupRangers()
-			return nil, Meta{}, err
-		}
-
-		var rd ranger.RangeCloser
-
-		if rangeCloser.Size()%int64(decrypter.InBlockSize()) != 0 {
-			reader, err := rangeCloser.Range(ctx, 0, rangeCloser.Size())
-			if err != nil {
-				cleanupRangers()
-				return nil, Meta{}, err
-			}
-			cipherData, err := ioutil.ReadAll(reader)
-			if err != nil {
-				cleanupRangers()
-				return nil, Meta{}, err
-			}
-			data, err := decrypt(cipherData, encKey[:], firstNonce[:])
-			if err != nil {
-				cleanupRangers()
-				return nil, Meta{}, err
-			}
-			rd = ranger.ByteRanger(data)
-		} else {
-			rd, err = eestream.Transform(rangeCloser, decrypter)
-			if err != nil {
-				cleanupRangers()
-				return nil, Meta{}, err
-			}
-		}
-
-		paddedSize := rd.Size()
+		currentPath := fmt.Sprintf("s%d", i)
 		size := msi.SegmentsSize
 		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
 		}
-		rc, err := eestream.Unpad(rd, int(paddedSize-size)) // int64 -> int; is this a problem?
-		if err != nil {
-			cleanupRangers()
-			return nil, Meta{}, err
+		rr := &lazySegmentRanger{
+			segments:            s.segments,
+			path:                path.Prepend(currentPath),
+			size:                size,
+			derivedKey:          derivedKey,
+			startingNonce:       &startingNonce,
+			encryptionBlockSize: s.encryptionBlockSize,
 		}
-
-		rangers = append(rangers, rc)
+		rangers = append(rangers, rr)
 	}
-
-	rangers = append(rangers, lastRangerCloser)
 
 	catRangers := ranger.Concat(rangers...)
 
@@ -348,6 +292,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
+		currentPath := fmt.Sprintf("s%d", i)
 		err := s.segments.Delete(ctx, path.Prepend(currentPath))
 		if err != nil {
 			return err
@@ -369,6 +314,12 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	recursive bool, limit int, metaFlags uint32) (items []ListItem,
 	more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if metaFlags&meta.Size != 0 {
+		// Calculating the stream's size require also the user-defined metadata,
+		// where stream store keeps info about the number of segments and their size.
+		metaFlags |= meta.UserDefined
+	}
 
 	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
@@ -425,4 +376,70 @@ func decrypt(cipherData, key, nonce []byte) (data []byte, err error) {
 		return []byte{}, errs.Wrap(err)
 	}
 	return decrypted, nil
+}
+
+type lazySegmentRanger struct {
+	ranger              ranger.Ranger
+	segments            segments.Store
+	path                paths.Path
+	size                int64
+	derivedKey          []byte
+	startingNonce       *[12]byte
+	encryptionBlockSize int
+}
+
+// Size implements Ranger.Size
+func (lr *lazySegmentRanger) Size() int64 {
+	return lr.size
+}
+
+// Range implements Ranger.Range to be lazily connected
+func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	if lr.ranger == nil {
+		rr, m, err := lr.segments.Get(ctx, lr.path)
+		if err != nil {
+			return nil, err
+		}
+		encryptedEncKey := m.Data
+		e, err := decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce[:])
+		if err != nil {
+			return nil, err
+		}
+		var encKey [32]byte
+		copy(encKey[:], e)
+		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, lr.startingNonce, lr.encryptionBlockSize)
+		if err != nil {
+			return nil, err
+		}
+
+		var rd ranger.Ranger
+		if rr.Size()%int64(decrypter.InBlockSize()) != 0 {
+			reader, err := rr.Range(ctx, 0, rr.Size())
+			if err != nil {
+				return nil, err
+			}
+			cipherData, err := ioutil.ReadAll(reader)
+			if err != nil {
+				return nil, err
+			}
+			data, err := decrypt(cipherData, encKey[:], lr.startingNonce[:])
+			if err != nil {
+				return nil, err
+			}
+			rd = ranger.ByteRanger(data)
+		} else {
+			rd, err = eestream.Transform(rr, decrypter)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		paddedSize := rd.Size()
+		rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size())) // int64 -> int; is this a problem?
+		if err != nil {
+			return nil, err
+		}
+		lr.ranger = rc
+	}
+	return lr.ranger.Range(ctx, offset, length)
 }

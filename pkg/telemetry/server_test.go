@@ -14,7 +14,7 @@ func TestListen_NilOnBadAddress(t *testing.T) {
 	server, errListen := Listen("11")
 	defer func() {
 		if server != nil {
-			server.Close()
+			assert.NoError(t, server.Close())
 		}
 	}()
 
@@ -26,11 +26,11 @@ func TestServe_ReturnErrorOnConnFail(t *testing.T) {
 	server, _ := Listen("127.0.0.1:0")
 	defer func() {
 		if server != nil && server.conn != nil {
-			server.Close()
+			assert.NoError(t, server.Close())
 		}
 	}()
 
-	server.conn.Close()
+	assert.NoError(t, server.conn.Close())
 	server.conn = nil
 
 	errServe := server.Serve(context.Background(), nil)
@@ -40,6 +40,5 @@ func TestServe_ReturnErrorOnConnFail(t *testing.T) {
 
 func TestListenAndServe_ReturnErrorOnListenFails(t *testing.T) {
 	err := ListenAndServe(context.Background(), "1", nil)
-
 	assert.Error(t, err)
 }

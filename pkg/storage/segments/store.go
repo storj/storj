@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/storage/ec"
 	opb "storj.io/storj/protos/overlay"
 	ppb "storj.io/storj/protos/pointerdb"
@@ -48,7 +49,7 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
-	Get(ctx context.Context, path paths.Path) (rr ranger.RangeCloser,
+	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger,
 		meta Meta, err error)
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
 		expiration time.Time) (meta Meta, err error)
@@ -178,7 +179,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta Meta, err error) {
+	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pr, err := s.pdb.Get(ctx, path)
@@ -204,7 +205,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 	} else {
-		rr = ranger.ByteRangeCloser(pr.InlineSegment)
+		rr = ranger.ByteRanger(pr.InlineSegment)
 	}
 
 	return rr, convertMeta(pr), nil
@@ -248,17 +249,15 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (
-	nodes []*opb.Node, err error) {
-	nodes = make([]*opb.Node, len(seg.GetRemotePieces()))
-	for i, p := range seg.GetRemotePieces() {
-		node, err := s.oc.Lookup(ctx, kademlia.StringToNodeID(p.GetNodeId()))
-		if err != nil {
-			// TODO(kaloyan): better error handling: failing to lookup a few
-			// nodes should not fail the request
-			return nil, Error.Wrap(err)
-		}
-		nodes[i] = node
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
+	pieces := seg.GetRemotePieces()
+	var nodeIds []dht.NodeID
+	for _, p := range pieces {
+		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+	}
+	nodes, err = s.oc.BulkLookup(ctx, nodeIds)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 	return nodes, nil
 }
@@ -277,8 +276,8 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 	items = make([]ListItem, len(pdbItems))
 	for i, itm := range pdbItems {
 		items[i] = ListItem{
-			Path: itm.Path,
-			Meta: convertMeta(itm.Pointer),
+			Path:     itm.Path,
+			Meta:     convertMeta(itm.Pointer),
 			IsPrefix: itm.IsPrefix,
 		}
 	}

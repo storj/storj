@@ -5,7 +5,7 @@ package kademlia
 
 import base58 "github.com/jbenet/go-base58"
 
-// NodeID is the unique identifer of a Node in the overlay network
+// NodeID is the unique identifier of a Node in the overlay network
 type NodeID string
 
 // String transforms the nodeID to a string type

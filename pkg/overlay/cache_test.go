@@ -16,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/protos/overlay"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/storelogger"
+	"storj.io/storj/storage/teststore"
 )
 
 var (
@@ -33,6 +33,7 @@ var (
 
 type dbClient int
 type responses map[dbClient]*overlay.Node
+type responsesB map[dbClient][]*overlay.Node
 type errors map[dbClient]*errs.Class
 
 const (
@@ -107,7 +108,7 @@ var (
 		key                 string
 		expectedResponses   responses
 		expectedErrors      errors
-		data                test.KvStore
+		data                []storage.ListItem
 	}{
 		{
 			testID:              "valid Get",
@@ -126,16 +127,18 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{"foo": func() storage.Value {
-				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				d, err := proto.Marshal(na)
-				if err != nil {
-					panic(err)
-				}
-				return d
-			}()},
-		},
-		{
+			data: []storage.ListItem{{
+				Key: storage.Key("foo"),
+				Value: func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			}},
+		}, {
 			testID:              "forced get error",
 			expectedTimesCalled: 1,
 			key:                 "error",
@@ -152,14 +155,17 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{"error": func() storage.Value {
-				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				d, err := proto.Marshal(na)
-				if err != nil {
-					panic(err)
-				}
-				return d
-			}()},
+			data: []storage.ListItem{{
+				Key: storage.Key("error"),
+				Value: func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			}},
 		},
 		{
 			testID:              "get missing key",
@@ -170,30 +176,177 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			// TODO(bryanchriswhite): compare actual errors
 			expectedErrors: errors{
-				mock:   nil,
+				mock:   &storage.ErrKeyNotFound,
 				bolt:   &storage.ErrKeyNotFound,
 				_redis: &storage.ErrKeyNotFound,
 			},
-			data: test.KvStore{"foo": func() storage.Value {
-				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				d, err := proto.Marshal(na)
-				if err != nil {
-					panic(err)
-				}
-				return d
-			}()},
+			data: []storage.ListItem{{
+				Key: storage.Key("foo"),
+				Value: func() storage.Value {
+					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					d, err := proto.Marshal(na)
+					if err != nil {
+						panic(err)
+					}
+					return d
+				}(),
+			}},
 		},
 	}
-
+	getAllCases = []struct {
+		testID              string
+		expectedTimesCalled int
+		keys                []string
+		expectedResponses   responsesB
+		expectedErrors      errors
+		data                []storage.ListItem
+	}{
+		{testID: "valid GetAll",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*overlay.Node{n1}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
+			},
+		},
+		{testID: "valid GetAll",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1", "key2"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				n2 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+				ns := []*overlay.Node{n1, n2}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				}, {
+					Key: storage.Key("key2"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
+			},
+		},
+		{testID: "mix of valid and nil nodes returned",
+			expectedTimesCalled: 1,
+			keys:                []string{"key1", "key3"},
+			expectedResponses: func() responsesB {
+				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*overlay.Node{n1, nil}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+			data: []storage.ListItem{
+				{
+					Key: storage.Key("key1"),
+					Value: func() storage.Value {
+						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						d, err := proto.Marshal(na)
+						if err != nil {
+							panic(err)
+						}
+						return d
+					}(),
+				},
+			},
+		},
+		{testID: "empty string keys",
+			expectedTimesCalled: 1,
+			keys:                []string{"", ""},
+			expectedResponses: func() responsesB {
+				ns := []*overlay.Node{nil, nil}
+				return responsesB{
+					mock:   ns,
+					bolt:   ns,
+					_redis: ns,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   nil,
+				bolt:   nil,
+				_redis: nil,
+			},
+		},
+		{testID: "empty keys",
+			expectedTimesCalled: 0,
+			keys:                []string{},
+			expectedResponses: func() responsesB {
+				return responsesB{
+					mock:   nil,
+					bolt:   nil,
+					_redis: nil,
+				}
+			}(),
+			expectedErrors: errors{
+				mock:   &OverlayError,
+				bolt:   &OverlayError,
+				_redis: &OverlayError,
+			},
+		},
+	}
 	putCases = []struct {
 		testID              string
 		expectedTimesCalled int
 		key                 string
 		value               overlay.Node
 		expectedErrors      errors
-		data                test.KvStore
+		data                []storage.ListItem
 	}{
 		{
 			testID:              "valid Put",
@@ -205,7 +358,7 @@ var (
 				bolt:   nil,
 				_redis: nil,
 			},
-			data: test.KvStore{},
+			data: []storage.ListItem{},
 		},
 	}
 
@@ -213,31 +366,31 @@ var (
 		testID              string
 		expectedTimesCalled int
 		expectedErr         error
-		data                test.KvStore
+		data                []storage.ListItem
 	}{
 		{
 			testID:              "valid update",
 			expectedTimesCalled: 1,
 			expectedErr:         nil,
-			data:                test.KvStore{},
+			data:                []storage.ListItem{},
 		},
 	}
 )
 
-func redisTestClient(t *testing.T, addr string, data test.KvStore) storage.KeyValueStore {
+func redisTestClient(t *testing.T, addr string, items []storage.ListItem) storage.KeyValueStore {
 	client, err := redis.NewClient(addr, "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !(data.Empty()) {
-		populateStorage(t, client, data)
+	if err := storage.PutAll(client, items...); err != nil {
+		t.Fatal(err)
 	}
 
 	return client
 }
 
-func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _ func()) {
+func boltTestClient(t *testing.T, items []storage.ListItem) (_ storage.KeyValueStore, _ func()) {
 	boltPath, err := filepath.Abs("test_bolt.db")
 	assert.NoError(t, err)
 
@@ -249,18 +402,11 @@ func boltTestClient(t *testing.T, data test.KvStore) (_ storage.KeyValueStore, _
 		assert.NoError(t, os.Remove(boltPath))
 	}
 
-	if !(data.Empty()) {
-		populateStorage(t, client, data)
+	if err := storage.PutAll(client, items...); err != nil {
+		t.Fatal(err)
 	}
 
 	return storelogger.New(zaptest.NewLogger(t), client), cleanup
-}
-
-func populateStorage(t *testing.T, client storage.KeyValueStore, data test.KvStore) {
-	for k, v := range data {
-		err := client.Put(storage.Key(k), v)
-		assert.NoError(t, err)
-	}
 }
 
 func TestRedisGet(t *testing.T) {
@@ -282,7 +428,26 @@ func TestRedisGet(t *testing.T) {
 	}
 }
 
+func TestRedisGetAll(t *testing.T) {
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db := redisTestClient(t, redisAddr, c.data)
+			oc := Cache{DB: db}
+
+			resp, err := oc.GetAll(ctx, c.keys)
+			assertErrClass(t, c.expectedErrors[_redis], err)
+			assert.Equal(t, c.expectedResponses[_redis], resp)
+		})
+	}
+}
+
 func assertErrClass(t *testing.T, class *errs.Class, err error) {
+	t.Helper()
 	if class != nil {
 		assert.True(t, class.Has(err))
 	} else {
@@ -330,6 +495,18 @@ func TestBoltGet(t *testing.T) {
 	}
 }
 
+func TestBoltGetAll(t *testing.T) {
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+			db, cleanup := boltTestClient(t, c.data)
+			defer cleanup()
+			oc := Cache{DB: db}
+			resp, err := oc.GetAll(ctx, c.keys)
+			assertErrClass(t, c.expectedErrors[bolt], err)
+			assert.Equal(t, c.expectedResponses[bolt], resp)
+		})
+	}
+}
 func TestBoltPut(t *testing.T) {
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
@@ -355,15 +532,45 @@ func TestMockGet(t *testing.T) {
 	for _, c := range getCases {
 		t.Run(c.testID, func(t *testing.T) {
 
-			db := test.NewMockKeyValueStore(c.data)
+			db := teststore.New()
+			if err := storage.PutAll(db, c.data...); err != nil {
+				t.Fatal(err)
+			}
 			oc := Cache{DB: db}
 
-			assert.Equal(t, 0, db.GetCalled)
+			if c.key == "error" {
+				db.ForceError = 1
+			}
+			assert.Equal(t, 0, db.CallCount.Get)
 
 			resp, err := oc.Get(ctx, c.key)
+			if c.key == "error" {
+				assert.Error(t, err)
+			} else {
+				assertErrClass(t, c.expectedErrors[mock], err)
+			}
+			assert.Equal(t, c.expectedResponses[mock], resp)
+			assert.Equal(t, c.expectedTimesCalled, db.CallCount.Get)
+		})
+	}
+}
+
+func TestMockGetAll(t *testing.T) {
+	for _, c := range getAllCases {
+		t.Run(c.testID, func(t *testing.T) {
+
+			db := teststore.New()
+			if err := storage.PutAll(db, c.data...); err != nil {
+				t.Fatal(err)
+			}
+			oc := Cache{DB: db}
+
+			assert.Equal(t, 0, db.CallCount.GetAll)
+
+			resp, err := oc.GetAll(ctx, c.keys)
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedResponses[mock], resp)
-			assert.Equal(t, c.expectedTimesCalled, db.GetCalled)
+			assert.Equal(t, c.expectedTimesCalled, db.CallCount.GetAll)
 		})
 	}
 }
@@ -371,19 +578,22 @@ func TestMockGet(t *testing.T) {
 func TestMockPut(t *testing.T) {
 	for _, c := range putCases {
 		t.Run(c.testID, func(t *testing.T) {
+			db := teststore.New()
+			if err := storage.PutAll(db, c.data...); err != nil {
+				t.Fatal(err)
+			}
+			db.CallCount.Put = 0
 
-			db := test.NewMockKeyValueStore(c.data)
 			oc := Cache{DB: db}
-
-			assert.Equal(t, 0, db.PutCalled)
 
 			err := oc.Put(c.key, c.value)
 			assertErrClass(t, c.expectedErrors[mock], err)
-			assert.Equal(t, c.expectedTimesCalled, db.PutCalled)
+			assert.Equal(t, c.expectedTimesCalled, db.CallCount.Put)
 
-			v := db.Data[c.key]
+			v, err := db.Get(storage.Key(c.key))
+			assert.NoError(t, err)
+
 			na := &overlay.Node{}
-
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.True(t, proto.Equal(na, &c.value))
 		})
@@ -394,10 +604,15 @@ func TestRefresh(t *testing.T) {
 	t.Skip()
 	for _, c := range refreshCases {
 		t.Run(c.testID, func(t *testing.T) {
-			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "3000")
+			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "0")
 			ctx := context.Background()
-			db := test.NewMockKeyValueStore(c.data)
-			dht := newTestKademlia(t, "127.0.0.1", "2999", dhts[rand.Intn(testNetSize)], b)
+
+			db := teststore.New()
+			if err := storage.PutAll(db, c.data...); err != nil {
+				t.Fatal(err)
+			}
+
+			dht := newTestKademlia(t, "127.0.0.1", "0", dhts[rand.Intn(testNetSize)], b)
 
 			_cache := &Cache{
 				DB:  db,

@@ -26,8 +26,8 @@ type pieceRanger struct {
 	pba    *pb.PayerBandwidthAllocation
 }
 
-// PieceRanger PieceRanger returns a RangeCloser from a PieceID.
-func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+// PieceRanger PieceRanger returns a Ranger from a PieceID.
+func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
 	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
@@ -38,18 +38,13 @@ func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_Retr
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.PayerBandwidthAllocation) ranger.RangeCloser {
+func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.PayerBandwidthAllocation) ranger.Ranger {
 	return &pieceRanger{c: c, id: id, size: size, stream: stream, pba: pba}
 }
 
 // Size implements Ranger.Size
 func (r *pieceRanger) Size() int64 {
 	return r.size
-}
-
-// Size implements Ranger.Size
-func (r *pieceRanger) Close() error {
-	return r.c.Close()
 }
 
 // Range implements Ranger.Range

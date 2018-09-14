@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/utils"
 	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -79,6 +80,13 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
 	return rt, nil
+}
+
+// Close closes underlying databases
+func (rt *RoutingTable) Close() error {
+	kerr := rt.kadBucketDB.Close()
+	nerr := rt.nodeBucketDB.Close()
+	return utils.CombineErrors(kerr, nerr)
 }
 
 // Local returns the local nodes ID

@@ -127,7 +127,7 @@ func (p Path) DeriveContentKey(key []byte) (derivedKey []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return derivedKey, nil
+	return derivedKey[:32], nil
 }
 
 func encrypt(text string, secret []byte) (cipherText string, err error) {

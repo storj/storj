@@ -133,7 +133,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*proto.Node{}, 0, 0, true, []error{},
-			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%d) of erasure scheme", n)},
+			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%v) of erasure scheme", n)},
 		{[]*proto.Node{node0, node1, node2, node3}, 0, -1, true,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -217,7 +217,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*proto.Node{}, 0, []error{}, "ecclient error: " +
-			"number of nodes do not match total count of erasure scheme"},
+			fmt.Sprintf("number of nodes (0) do not match total count (%v) of erasure scheme", n)},
 		{[]*proto.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -249,8 +249,7 @@ TestLoop:
 					continue TestLoop
 				}
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(
-					ranger.NopCloser(ranger.ByteRanger(nil)), errs[n])
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
 				m[n] = ps
 			}
 		}

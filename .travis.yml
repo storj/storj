@@ -3,18 +3,23 @@ language: go
 go:
   - 1.10.x
 
+git:
+  depth: 1
+
 services:
   - redis
+  - docker
 
 before_install:
   - source scripts/travis-deps.sh
 
 install:
   - make build-dev-deps
+  - go install -v ./...
 
 script:
+  - make lint
   - make test
-  - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' ./... | xargs -L 1 sh -c
-  - gover
-  - goveralls -coverprofile=gover.coverprofile -service=travis-ci
+  - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet
+  - make binaries
