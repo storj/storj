@@ -16,6 +16,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"gopkg.in/cheggaaa/pb.v1"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
@@ -64,6 +66,17 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		defer utils.LogClose(f)
 	}
 
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	bar := pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+	bar.Start()
+
+	reader := bar.NewProxyReader(f)
+	defer utils.LogClose(reader)
+
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
 	if err != nil {
 		return err
@@ -72,7 +85,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), f, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), reader, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -114,13 +127,19 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		return err
 	}
 
+	bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+	bar.Start()
+
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
 
-	_, err = io.Copy(f, r)
+	reader := bar.NewProxyReader(r)
+	defer utils.LogClose(reader)
+
+	_, err = io.Copy(f, reader)
 	if err != nil {
 		return err
 	}
@@ -144,11 +163,17 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		return err
 	}
 
+	bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+	bar.Start()
+
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
+
+	reader := bar.NewProxyReader(r)
+	defer utils.LogClose(reader)
 
 	if destObj.Host != srcObj.Host {
 		o, err = bs.GetObjectStore(ctx, destObj.Host)
@@ -166,7 +191,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
 	}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), reader, meta, expTime)
 	if err != nil {
 		return err
 	}
