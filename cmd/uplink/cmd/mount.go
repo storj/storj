@@ -8,7 +8,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sync"
+	"io"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage/boltdb"
 )
 
 func init() {
@@ -68,10 +69,8 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 }
 
 type storjFs struct {
-	lock  sync.RWMutex
 	ctx   context.Context
 	store objects.Store
-	items map[string]objects.ListItem
 	pathfs.FileSystem
 }
 
@@ -80,37 +79,28 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
-	sf.lock.RLock()
-	defer sf.lock.RUnlock()
-
-	item, has := sf.items[name]
-
-	if has {
-		return &fuse.Attr{
-			Owner: *fuse.CurrentOwner(),
-			Mode:  fuse.S_IFREG | 0644,
-			Size:  uint64(item.Meta.Size),
-			Mtime: uint64(item.Meta.Modified.Unix()),
-		}, fuse.OK
+	meta, err := sf.store.Meta(sf.ctx, paths.New(name))
+	if err != nil {
+		if boltdb.ErrKeyNotFound.Has(err) {
+			fmt.Println(err)
+		}
+		return nil, fuse.ENOENT
 	}
 
-	return nil, fuse.ENOENT
+	return &fuse.Attr{
+		Owner: *fuse.CurrentOwner(),
+		Mode:  fuse.S_IFREG | 0644,
+		Size:  uint64(meta.Size),
+		Mtime: uint64(meta.Modified.Unix()),
+	}, fuse.OK
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
 	if name == "" {
-		err := sf.loadFiles(sf.ctx, sf.store)
+		entries, err := sf.listFiles(sf.ctx, sf.store)
 		if err != nil {
-			fmt.Print(err)
+			fmt.Println(err)
 			return nil, fuse.EIO
-		}
-
-		entries := make([]fuse.DirEntry, len(sf.items))
-		for k := range sf.items {
-			var d fuse.DirEntry
-			d.Name = k
-			d.Mode = fuse.S_IFLNK
-			entries = append(entries, fuse.DirEntry(d))
 		}
 
 		return entries, fuse.OK
@@ -120,30 +110,31 @@ func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 
 func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	return &storjFile{
-		ctx:   sf.ctx,
 		name:  name,
+		ctx:   sf.ctx,
 		store: sf.store,
 		File:  nodefs.NewDefaultFile(),
 	}, fuse.OK
 }
 
-func (sf *storjFs) loadFiles(ctx context.Context, store objects.Store) (err error) {
-	sf.lock.RLock()
-	defer sf.lock.RUnlock()
-
-	sf.items = make(map[string]objects.ListItem)
+func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse.DirEntry, err error) {
+	var entries []fuse.DirEntry
 
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := store.List(ctx, paths.New(""), startAfter, nil, false, 0, meta.Modified|meta.Size)
+		items, more, err := store.List(ctx, paths.New(""), startAfter, nil, false, 0, meta.Modified)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, object := range items {
 			path := object.Path.String()
-			sf.items[path] = object
+
+			var d fuse.DirEntry
+			d.Name = path
+			d.Mode = fuse.S_IFREG
+			entries = append(entries, fuse.DirEntry(d))
 		}
 
 		if !more {
@@ -153,7 +144,7 @@ func (sf *storjFs) loadFiles(ctx context.Context, store objects.Store) (err erro
 		startAfter = items[len(items)-1].Path
 	}
 
-	return nil
+	return entries, nil
 }
 
 type storjFile struct {
@@ -166,7 +157,7 @@ type storjFile struct {
 func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
 	rr, _, err := f.store.Get(f.ctx, paths.New(f.name))
 	if err != nil {
-		fmt.Print(err)
+		fmt.Println(err)
 		return nil, fuse.EIO
 	}
 	defer utils.LogClose(rr)
@@ -177,16 +168,23 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	}
 	r, err := rr.Range(f.ctx, off, length)
 	if err != nil {
-		fmt.Print(err)
+		fmt.Println(err)
 		return nil, fuse.EIO
 	}
 	defer utils.LogClose(r)
 
-	_, err = r.Read(buf)
-	if err != nil {
-		fmt.Print(err)
-		return nil, fuse.EIO
+	var n int
+	for {
+		nn, err := r.Read(buf[n:])
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println(err)
+				return nil, fuse.EIO
+			}
+			break
+		}
+		n += nn
 	}
 
-	return fuse.ReadResultData(buf), fuse.OK
+	return fuse.ReadResultData(buf[:n]), fuse.OK
 }
