@@ -24,11 +24,12 @@ func main() {
 	secretkey := flag.String("secretkey", "insecure-dev-secret-key", "secret key")
 	useSSL := flag.Bool("use-ssl", true, "use ssl")
 	location := flag.String("location", "", "bucket location")
-	count := flag.Int("count", 50, "run each benchmark n times")
+	count := flag.Int("count", 50, "benchmark count")
+	duration := flag.Duration("time", time.Duration(2*time.Minute), "maximum benchmark time per size")
 	plotname := flag.String("plot", "", "plot results")
 
 	sizes := &Sizes{
-		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {63 << 20}},
+		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {64 << 20}, {256 << 20}},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
 
@@ -56,7 +57,7 @@ func main() {
 
 	measurements := []Measurement{}
 	for _, size := range sizes.Sizes() {
-		measurement, err := Benchmark(client, bucket, size, *count)
+		measurement, err := Benchmark(client, bucket, size, *count, *duration)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -152,10 +153,10 @@ func main() {
 			}
 		}
 
-		svgcanvas := plot.NewSVG(1500, 150*float64(len(measurements)))
-		p.Draw(svgcanvas)
+		svgCanvas := plot.NewSVG(1500, 150*float64(len(measurements)))
+		p.Draw(svgCanvas)
 
-		err := ioutil.WriteFile(*plotname, svgcanvas.Bytes(), 0755)
+		err := ioutil.WriteFile(*plotname, svgCanvas.Bytes(), 0755)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -235,7 +236,7 @@ func (m *Measurement) PrintStats(w io.Writer) {
 }
 
 // Benchmark runs benchmarks on bucket with given size
-func Benchmark(client *minio.Client, bucket string, size Size, count int) (Measurement, error) {
+func Benchmark(client *minio.Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking size ", size.String(), " ")
 
 	data := make([]byte, size.bytes)
@@ -245,7 +246,11 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int) (Measu
 
 	measurement := Measurement{}
 	measurement.Size = size
+	start := time.Now()
 	for k := 0; k < count; k++ {
+		if time.Since(start) > duration {
+			break
+		}
 		fmt.Print(".")
 
 		rand.Read(data[:])
