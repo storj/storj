@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -666,54 +667,94 @@ func TestDetermineLeafDepth(t *testing.T) {
 func TestDetermineDifferingBitIndex(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, nil)
 	defer cleanup()
-	diff, err := rt.determineDifferingBitIndex([]byte{191, 255}, []byte{255, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
+	cases := []struct {
+		testID   string
+		bucketID []byte
+		key      []byte
+		expected int
+		err      *errs.Class
+	}{
+		{testID: "A",
+			bucketID: []byte{191, 255},
+			key:      []byte{255, 255},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "B",
+			bucketID: []byte{255, 255},
+			key:      []byte{191, 255},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "C",
+			bucketID: []byte{95, 255},
+			key:      []byte{127, 255},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "D",
+			bucketID: []byte{95, 255},
+			key:      []byte{79, 255},
+			expected: 3,
+			err:      nil,
+		},
+		{testID: "E",
+			bucketID: []byte{95, 255},
+			key:      []byte{63, 255},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "F",
+			bucketID: []byte{95, 255},
+			key:      []byte{79, 255},
+			expected: 3,
+			err:      nil,
+		},
+		{testID: "G",
+			bucketID: []byte{255, 255},
+			key:      []byte{255, 255},
+			expected: -2,
+			err:      &RoutingErr,
+		},
+		{testID: "H",
+			bucketID: []byte{255, 255},
+			key:      []byte{0, 0},
+			expected: -1,
+			err:      nil,
+		},
+		{testID: "I",
+			bucketID: []byte{127, 255},
+			key:      []byte{0, 0},
+			expected: 0,
+			err:      nil,
+		},
+		{testID: "J",
+			bucketID: []byte{63, 255},
+			key:      []byte{0, 0},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "K",
+			bucketID: []byte{31, 255},
+			key:      []byte{0, 0},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "L",
+			bucketID: []byte{95, 255},
+			key:      []byte{63, 255},
+			expected: 2,
+			err:      nil,
+		},
+	}
 
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{191, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{127, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 3, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{63, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 3, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{255, 255})
-	assert.Error(t, err)
-	assert.Equal(t, -2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, -1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{127, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 0, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{63, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{31, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{63, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			diff, err := rt.determineDifferingBitIndex(c.bucketID, c.key)
+			assertErrClass(t, c.err, err)
+			assert.Equal(t, c.expected, diff)
+		})
+	}
 }
 
 func TestSplitBucket(t *testing.T) {
@@ -759,7 +800,16 @@ func TestSplitBucket(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
 			newID := rt.splitBucket(c.idA, c.depth)
-			assert.Equal(t, c.idB, newID)	
+			assert.Equal(t, c.idB, newID)
 		})
+	}
+}
+
+func assertErrClass(t *testing.T, class *errs.Class, err error) {
+	t.Helper()
+	if class != nil {
+		assert.True(t, class.Has(err))
+	} else {
+		assert.NoError(t, err)
 	}
 }
