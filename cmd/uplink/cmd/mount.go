@@ -6,22 +6,20 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sync"
 
-	"github.com/spf13/cobra"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/process"
-
-	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storage/objects"
-	"storj.io/storj/pkg/utils"
-
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
+	"github.com/spf13/cobra"
+
+	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/utils"
 )
 
 func init() {
@@ -63,7 +61,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	nfs := pathfs.NewPathNodeFs(&storjFs{FileSystem: pathfs.NewDefaultFileSystem(), ctx: ctx, store: store}, nil)
 	server, _, err := nodefs.MountRoot(args[1], nfs.Root(), nil)
 	if err != nil {
-		return fmt.Errorf("Mount fail: %v", err)
+		return fmt.Errorf("Mount failed: %v", err)
 	}
 	server.Serve()
 	return nil
@@ -138,7 +136,7 @@ func (sf *storjFs) loadFiles(ctx context.Context, store objects.Store) (err erro
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := store.List(ctx, paths.New(""), startAfter, nil, true, 0, meta.Modified|meta.Size)
+		items, more, err := store.List(ctx, paths.New(""), startAfter, nil, false, 0, meta.Modified|meta.Size)
 		if err != nil {
 			return err
 		}
@@ -184,13 +182,11 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	}
 	defer utils.LogClose(r)
 
-	bytesBuf := new(bytes.Buffer)
-	_, err = bytesBuf.ReadFrom(r)
-
+	_, err = r.Read(buf)
 	if err != nil {
 		fmt.Print(err)
 		return nil, fuse.EIO
 	}
 
-	return fuse.ReadResultData(bytesBuf.Bytes()), fuse.OK
+	return fuse.ReadResultData(buf), fuse.OK
 }
