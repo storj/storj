@@ -94,32 +94,47 @@ func TestGetBuckets(t *testing.T) {
 func TestFindNear(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, []byte("AA"))
 	defer cleanup()
-	node := mockNode("AA")
+	node1 := mockNode("AA")
 	node2 := mockNode("BB")
+	node3 := mockNode("CC")
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*pb.Node{node}
-	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
 
-	node3 := mockNode("CC")
-	expected = []*pb.Node{node2, node}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 2)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
-	expected = []*pb.Node{node2}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
-	expected = []*pb.Node{node2, node}
-	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
+	cases := []struct {
+		testID string
+		node pb.Node
+		expectedNodes []*pb.Node
+		limit int
+	}{
+		{testID: "limit 1 on node1: return node1",
+		node: *node1,
+		expectedNodes: []*pb.Node{node1},
+		limit: 1,
+		},
+		{testID: "limit 2 on node3: return nodes2, node1",
+		node: *node3,
+		expectedNodes: []*pb.Node{node2, node1},
+		limit: 2,
+		},
+		{testID: "limit 1 on node3: return node2",
+		node: *node3,
+		expectedNodes: []*pb.Node{node2},
+		limit: 1,
+		},
+		{testID: "limit 3 on node3: return node2, node1",
+		node: *node3,
+		expectedNodes: []*pb.Node{node2, node1},
+		limit: 3,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			ns, err := rt.FindNear(StringToNodeID(c.node.Id), c.limit)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expectedNodes, ns)
+		})
+	}
 }
 
 func TestConnectionSuccess(t *testing.T) {
