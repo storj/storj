@@ -1,37 +1,27 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"bytes"
-	"crypto/rand"
 	"io/ioutil"
 	"testing"
 )
 
-func randData(amount int) []byte {
-	buf := make([]byte, amount)
-	_, err := rand.Read(buf)
-	if err != nil {
-		panic(err)
-	}
-	return buf
-}
-
-func TestSecretbox(t *testing.T) {
+func TestAesGcm(t *testing.T) {
 	var key [32]byte
 	copy(key[:], randData(32))
-	var firstNonce [24]byte
-	copy(firstNonce[:], randData(24))
-	encrypter, err := NewSecretboxEncrypter(&key, &firstNonce, 4*1024)
+	var firstNonce [12]byte
+	copy(firstNonce[:], randData(12))
+	encrypter, err := NewAESGCMEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data := randData(encrypter.InBlockSize() * 10)
 	encrypted := TransformReader(
 		ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
-	decrypter, err := NewSecretboxDecrypter(&key, &firstNonce, 4*1024)
+	decrypter, err := NewAESGCMDecrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}

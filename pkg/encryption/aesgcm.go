@@ -1,11 +1,14 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
+
+	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/eestream"
 )
 
 type aesgcmEncrypter struct {
@@ -30,7 +33,7 @@ type aesgcmEncrypter struct {
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
 func NewAESGCMEncrypter(key *[32]byte, startingNonce *[12]byte,
-	encryptedBlockSize int) (Transformer, error) {
+	encryptedBlockSize int) (eestream.Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err
@@ -91,7 +94,7 @@ type aesgcmDecrypter struct {
 // through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
 func NewAESGCMDecrypter(key *[32]byte, startingNonce *[12]byte,
-	encryptedBlockSize int) (Transformer, error) {
+	encryptedBlockSize int) (eestream.Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err
@@ -127,4 +130,42 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	}
 
 	return s.aesgcm.Open(out, n[:], in, nil)
+}
+
+func EncryptAESGCM(data, key, nonce []byte) (cipherData []byte, err error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	cipherData = aesgcm.Seal(nil, nonce, data, nil)
+	return cipherData, nil
+}
+
+func DecryptAESGCM(cipherData, key, nonce []byte) (data []byte, err error) {
+	if len(cipherData) == 0 {
+		return []byte{}, errs.New("empty cipher data")
+	}
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	decrypted, err := aesgcm.Open(nil, nonce, cipherData, nil)
+	if err != nil {
+		return []byte{}, errs.Wrap(err)
+	}
+	return decrypted, nil
 }

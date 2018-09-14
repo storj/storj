@@ -31,6 +31,20 @@ type transformedReader struct {
 	bytesRead    int
 }
 
+type NoopTransformer struct{}
+
+func (t *NoopTransformer) InBlockSize() int {
+	return 1
+}
+
+func (t *NoopTransformer) OutBlockSize() int {
+	return 1
+}
+
+func (t *NoopTransformer) Transform(out, in []byte, blockNum int64) ([]byte, error) {
+	return append(out, in...), nil
+}
+
 // TransformReader applies a Transformer to a Reader. startingBlockNum should
 // probably be 0 unless you know you're already starting at a block offset.
 func TransformReader(r io.ReadCloser, t Transformer,

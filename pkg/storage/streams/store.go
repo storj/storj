@@ -6,8 +6,6 @@ package streams
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -19,6 +17,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
@@ -66,29 +65,31 @@ type Store interface {
 
 // streamStore is a store for streams
 type streamStore struct {
-	segments            segments.Store
-	segmentSize         int64
-	rootKey             []byte
-	encryptionBlockSize int
+	segments     segments.Store
+	segmentSize  int64
+	rootKey      []byte
+	encBlockSize int
+	encType      int
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, encryptionBlockSize int) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, encBlockSize int, encType int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
 	if rootKey == "" {
 		return nil, errs.New("encryption key must not be empty")
 	}
-	if encryptionBlockSize <= 0 {
+	if encBlockSize <= 0 {
 		return nil, errs.New("encryption block size must be larger than 0")
 	}
 
 	return &streamStore{
-		segments:            segments,
-		segmentSize:         segmentSize,
-		rootKey:             []byte(rootKey),
-		encryptionBlockSize: encryptionBlockSize,
+		segments:     segments,
+		segmentSize:  segmentSize,
+		rootKey:      []byte(rootKey),
+		encBlockSize: encBlockSize,
+		encType:      encType,
 	}, nil
 }
 
@@ -104,13 +105,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	var startingNonce [12]byte
+	var startingNonce [24]byte
 	_, err = rand.Read(startingNonce[:])
 	if err != nil {
 		return Meta{}, err
 	}
 	// copy startingNonce so that startingNonce is not modified by the encrypter before it is saved to lastSegmentMeta
-	var nonce [12]byte
+	var nonce [24]byte
 	copy(nonce[:], startingNonce[:])
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
@@ -126,12 +127,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		if err != nil {
 			return Meta{}, err
 		}
-		encrypter, err := eestream.NewAESGCMEncrypter(&encKey, &nonce, s.encryptionBlockSize)
+
+		var encrypter eestream.Transformer
+
+		encrypter, err := encryption.NewEncrypter(&encKey, &nonce, s.encBlockSize, s.encType)
 		if err != nil {
 			return Meta{}, err
 		}
 
-		encryptedEncKey, err := encrypt(encKey[:], derivedKey[:32], nonce[:])
+		var d *[32]byte
+		copy((*d)[:], (*derivedKey)[:])
+		encryptedEncKey, err := encryption.Encrypt(encKey[:], d, &nonce, s.encType)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -153,7 +159,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			if err != nil {
 				return Meta{}, err
 			}
-			cipherData, err := encrypt(data, encKey[:], nonce[:])
+			cipherData, err := encryption.Encrypt(data, &encKey, &nonce, s.encType)
 			if err != nil {
 				return Meta{}, err
 			}
@@ -175,13 +181,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	lastSegmentPath := path.Prepend("l")
 
-	// TODO(moby) should starting nonce be encrypted?
-
 	md := streamspb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
 		Metadata:         metadata,
+		EncryptionType:   int64(s.encType),
 		StartingNonce:    startingNonce[:],
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
@@ -235,7 +240,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	nonce := msi.StartingNonce
-	var startingNonce [12]byte
+	var startingNonce [24]byte
 	copy(startingNonce[:], nonce)
 
 	var rangers []ranger.Ranger
@@ -246,12 +251,13 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			size = msi.LastSegmentSize
 		}
 		rr := &lazySegmentRanger{
-			segments:            s.segments,
-			path:                path.Prepend(currentPath),
-			size:                size,
-			derivedKey:          derivedKey,
-			startingNonce:       &startingNonce,
-			encryptionBlockSize: s.encryptionBlockSize,
+			segments:      s.segments,
+			path:          path.Prepend(currentPath),
+			size:          size,
+			derivedKey:    derivedKey,
+			startingNonce: &startingNonce,
+			encBlockSize:  s.encBlockSize,
+			encType:       s.encType,
 		}
 		rangers = append(rangers, rr)
 	}
@@ -338,54 +344,15 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	return items, more, nil
 }
 
-// TODO(moby) encrypt, decrypt, and getAESGCMKeyAndNonce are almost identical to functions in paths.go
-//     they should probably be abstracted from both stream store and paths
-func encrypt(data, key, nonce []byte) (cipherData []byte, err error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	cipherData = aesgcm.Seal(nil, nonce, data, nil)
-	return cipherData, nil
-}
-
-func decrypt(cipherData, key, nonce []byte) (data []byte, err error) {
-	if len(cipherData) == 0 {
-		return []byte{}, errs.New("empty cipher data")
-	}
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	decrypted, err := aesgcm.Open(nil, nonce, cipherData, nil)
-	if err != nil {
-		return []byte{}, errs.Wrap(err)
-	}
-	return decrypted, nil
-}
-
 type lazySegmentRanger struct {
-	ranger              ranger.Ranger
-	segments            segments.Store
-	path                paths.Path
-	size                int64
-	derivedKey          []byte
-	startingNonce       *[12]byte
-	encryptionBlockSize int
+	ranger        ranger.Ranger
+	segments      segments.Store
+	path          paths.Path
+	size          int64
+	derivedKey    *[32]byte
+	startingNonce *[24]byte
+	encBlockSize  int
+	encType       int
 }
 
 // Size implements Ranger.Size
@@ -401,13 +368,13 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			return nil, err
 		}
 		encryptedEncKey := m.Data
-		e, err := decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce[:])
+		e, err := encryption.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce, lr.encType)
 		if err != nil {
 			return nil, err
 		}
 		var encKey [32]byte
 		copy(encKey[:], e)
-		decrypter, err := eestream.NewAESGCMDecrypter(&encKey, lr.startingNonce, lr.encryptionBlockSize)
+		decrypter, err := encryption.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize, lr.encType)
 		if err != nil {
 			return nil, err
 		}
@@ -422,7 +389,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			if err != nil {
 				return nil, err
 			}
-			data, err := decrypt(cipherData, encKey[:], lr.startingNonce[:])
+			data, err := encryption.Decrypt(cipherData, &encKey, lr.startingNonce, lr.encType)
 			if err != nil {
 				return nil, err
 			}

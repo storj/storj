@@ -38,8 +38,9 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey       string `help:"root key for encrypting the data"`
-	EncryptionBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
+	EncKey       string `help:"root key for encrypting the data"`
+	EncBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
+	EncType		int    `help:"Type of encryption to use" default:"1"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
@@ -151,11 +152,11 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 
 	segments := segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize)
 
-	if c.ErasureShareSize * c.MinThreshold % c.EncryptionBlockSize != 0 {
+	if c.ErasureShareSize * c.MinThreshold % c.EncBlockSize != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, err
 	}
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncryptionKey, c.EncryptionBlockSize)
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncKey, c.EncBlockSize, c.EncType)
 	if err != nil {
 		return nil, err
 	}

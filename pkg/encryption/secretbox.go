@@ -1,10 +1,12 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
+	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
+	"storj.io/storj/pkg/eestream"
 )
 
 type secretboxEncrypter struct {
@@ -27,7 +29,7 @@ type secretboxEncrypter struct {
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
 func NewSecretboxEncrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (Transformer, error) {
+	encryptedBlockSize int) (eestream.Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -74,7 +76,7 @@ type secretboxDecrypter struct {
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
 func NewSecretboxDecrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (Transformer, error) {
+	encryptedBlockSize int) (eestream.Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -104,4 +106,16 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) (
 		return nil, Error.New("failed decrypting")
 	}
 	return rv, nil
+}
+
+func EncryptSecretBox(data []byte, key *[32]byte, nonce *[24]byte) (cipherData []byte, err error) {
+	return secretbox.Seal(nil, data, nonce, key), nil
+}
+
+func DecryptSecretBox(cipherData []byte, key *[32]byte, nonce *[24]byte) (data []byte, err error) {
+	data, success := secretbox.Open(nil, cipherData, nonce, key)
+	if !success {
+		return nil, errs.New("Failed decrypting")
+	}
+	return data, nil
 }
