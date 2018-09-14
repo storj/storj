@@ -25,7 +25,7 @@ func main() {
 	useSSL := flag.Bool("use-ssl", true, "use ssl")
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
-	duration := flag.Duration("time", time.Duration(2*time.Minute), "maximum benchmark time per size")
+	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per size")
 	plotname := flag.String("plot", "", "plot results")
 
 	sizes := &Sizes{
