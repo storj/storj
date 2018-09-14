@@ -8,7 +8,6 @@ git:
 
 services:
   - redis
-  - docker
 
 before_install:
   - source scripts/travis-deps.sh
@@ -22,4 +21,3 @@ script:
   - make test
   - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet
-  - make binaries
