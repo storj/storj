@@ -31,13 +31,13 @@ var (
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
 func NewStorjGateway(bs buckets.Store) *Storj {
-	return &Storj{bs: bs, Multipart: NewMultipartUploads()}
+	return &Storj{bs: bs, multipart: NewMultipartUploads()}
 }
 
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
 	bs        buckets.Store
-	Multipart *MultipartUploads
+	multipart *MultipartUploads
 }
 
 // Name implements cmd.Gateway

@@ -2,7 +2,6 @@ package miniogw
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sort"
 	"strconv"
@@ -16,212 +15,15 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 )
 
-type MultipartUploads struct {
-	mu      sync.RWMutex
-	id      int
-	pending map[string]*MultipartUpload
-}
-
-func NewMultipartUploads() *MultipartUploads {
-	return &MultipartUploads{
-		pending: map[string]*MultipartUpload{},
-	}
-}
-
-type MultipartUpload struct {
-	Bucket   string
-	Object   string
-	Metadata map[string]string
-	Done     chan (*MultipartUploadResult)
-	Stream   *MultipartStream
-}
-
-func (upload *MultipartUpload) Fail(err error) {
-	upload.Done <- &MultipartUploadResult{Error: err}
-	close(upload.Done)
-}
-
-func (upload *MultipartUpload) Complete(info minio.ObjectInfo) {
-	upload.Done <- &MultipartUploadResult{Info: info}
-	close(upload.Done)
-}
-
-type MultipartUploadResult struct {
-	Error error
-	Info  minio.ObjectInfo
-}
-
-func NewMultipartUpload(bucket, object string, metadata map[string]string) *MultipartUpload {
-	upload := &MultipartUpload{
-		Bucket:   bucket,
-		Object:   object,
-		Metadata: metadata,
-		Done:     make(chan *MultipartUploadResult, 1),
-		Stream:   &MultipartStream{},
-	}
-	upload.Stream.blocked.L = &upload.Stream.mu
-	upload.Stream.nextId = 1
-	return upload
-}
-
-type MultipartStream struct {
-	mu         sync.Mutex
-	blocked    sync.Cond
-	err        error
-	closed     bool
-	nextId     int
-	nextNumber int
-	parts      []*StreamPart
-}
-
-type StreamPart struct {
-	Number int
-	ID     int
-	Size   int64
-	Reader *hash.Reader
-	Done   chan error
-}
-
-func (stream *MultipartStream) Abort(err error) {
-	stream.blocked.L.Lock()
-	defer stream.blocked.L.Unlock()
-
-	stream.err = err
-	stream.closed = true
-
-	for _, part := range stream.parts {
-		part.Done <- err
-		close(part.Done)
-	}
-	stream.parts = nil
-
-	stream.blocked.Broadcast()
-}
-
-func (stream *MultipartStream) Close() {
-	stream.blocked.L.Lock()
-	defer stream.blocked.L.Unlock()
-
-	stream.closed = true
-	stream.blocked.Broadcast()
-}
-
-func (stream *MultipartStream) Read(data []byte) (n int, err error) {
-	var part *StreamPart
-	stream.blocked.L.Lock()
-	for {
-		if stream.err != nil {
-			stream.blocked.L.Unlock()
-			return 0, err
-		}
-		if len(stream.parts) > 0 && stream.nextId == stream.parts[0].ID {
-			part = stream.parts[0]
-			break
-		}
-
-		if stream.closed {
-			stream.blocked.L.Unlock()
-			return 0, io.EOF
-		}
-
-		// blocked for more parts
-		stream.blocked.Wait()
-	}
-	stream.blocked.L.Unlock()
-
-	n, err = part.Reader.Read(data)
-	atomic.AddInt64(&part.Size, int64(n))
-
-	if err == io.EOF {
-		err = nil
-		stream.blocked.L.Lock()
-		stream.parts = stream.parts[1:]
-		stream.nextId++
-		stream.blocked.L.Unlock()
-
-		close(part.Done)
-	} else if err != nil {
-		stream.Abort(err)
-	}
-
-	return n, err
-}
-
-func (stream *MultipartStream) AddPart(partID int, data *hash.Reader) (*StreamPart, error) {
-	stream.blocked.L.Lock()
-	defer stream.blocked.L.Unlock()
-
-	stream.nextNumber++
-	part := &StreamPart{
-		Number: stream.nextNumber - 1,
-		ID:     partID,
-		Size:   0,
-		Reader: data,
-		Done:   make(chan error, 1),
-	}
-
-	// TODO: check for duplicate
-
-	stream.parts = append(stream.parts, part)
-	sort.Slice(stream.parts, func(i, k int) bool {
-		return stream.parts[i].ID < stream.parts[k].ID
-	})
-
-	stream.blocked.Broadcast()
-
-	return part, nil
-}
-
-func (uploads *MultipartUploads) lookupUpload(bucket, object, uploadID string) (*MultipartUpload, error) {
-	uploads.mu.Lock()
-	defer uploads.mu.Unlock()
-
-	upload, ok := uploads.pending[uploadID]
-	if !ok {
-		return nil, errors.New("pending upload " + uploadID + " missing")
-	}
-
-	if upload.Bucket != bucket || upload.Object != object {
-		return nil, errors.New("pending upload " + uploadID + " bucket/object name mismatch")
-	}
-
-	return upload, nil
-}
-
-func (uploads *MultipartUploads) lookupAndRemoveUpload(bucket, object, uploadID string) (*MultipartUpload, error) {
-	uploads.mu.RLock()
-	defer uploads.mu.RUnlock()
-
-	upload, ok := uploads.pending[uploadID]
-	if !ok {
-		return nil, errors.New("pending upload " + uploadID + " missing")
-	}
-
-	if upload.Bucket != bucket || upload.Object != object {
-		return nil, errors.New("pending upload " + uploadID + " bucket/object name mismatch")
-	}
-
-	delete(uploads.pending, uploadID)
-
-	return upload, nil
-}
-
 func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
-	uploads := s.storj.Multipart
-	uploads.mu.Lock()
-	defer uploads.mu.Unlock()
+	defer mon.Task()(&ctx)(&err)
 
-	for _, upload := range uploads.pending {
-		if upload.Bucket == bucket && upload.Object == object {
-			return "", errors.New("duplicate upload")
-		}
+	uploads := s.storj.multipart
+
+	upload, err := uploads.create(bucket, object, metadata)
+	if err != nil {
+		return "", err
 	}
-
-	uploads.id++
-	uploadID = "Upload" + strconv.Itoa(uploads.id)
-
-	upload := NewMultipartUpload(bucket, object, metadata)
-	uploads.pending[uploadID] = upload
 
 	objectStore, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
@@ -234,6 +36,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 
 		tempContType := metadata["content-type"]
 		delete(metadata, "content-type")
+
 		//metadata serialized
 		serMetaInfo := objects.SerializableMeta{
 			ContentType: tempContType,
@@ -243,7 +46,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		result, err := objectStore.Put(ctx, paths.New(object), upload.Stream, serMetaInfo, expTime)
 
 		uploads.mu.Lock()
-		delete(uploads.pending, uploadID)
+		delete(uploads.pending, upload.ID)
 		uploads.mu.Unlock()
 
 		if err != nil {
@@ -261,13 +64,15 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		}
 	}()
 
-	return uploadID, nil
+	return upload.ID, nil
 }
 
 func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID string, partID int, data *hash.Reader) (info minio.PartInfo, err error) {
-	uploads := s.storj.Multipart
+	defer mon.Task()(&ctx)(&err)
 
-	upload, err := uploads.lookupUpload(bucket, object, uploadID)
+	uploads := s.storj.multipart
+
+	upload, err := uploads.get(bucket, object, uploadID)
 	if err != nil {
 		return minio.PartInfo{}, err
 	}
@@ -290,15 +95,17 @@ func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, upload
 	}, nil
 }
 
-func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) error {
-	uploads := s.storj.Multipart
+func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	upload, err := uploads.lookupAndRemoveUpload(bucket, object, uploadID)
+	uploads := s.storj.multipart
+
+	upload, err := uploads.remove(bucket, object, uploadID)
 	if err != nil {
 		return err
 	}
 
-	errAbort := errors.New("abort")
+	errAbort := Error.New("abort")
 	upload.Stream.Abort(errAbort)
 	r := <-upload.Done
 	if r.Error != errAbort {
@@ -308,15 +115,19 @@ func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object,
 }
 
 func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, object, uploadID string, uploadedParts []minio.CompletePart) (objInfo minio.ObjectInfo, err error) {
-	uploads := s.storj.Multipart
-	upload, err := uploads.lookupAndRemoveUpload(bucket, object, uploadID)
+	defer mon.Task()(&ctx)(&err)
+
+	uploads := s.storj.multipart
+	upload, err := uploads.remove(bucket, object, uploadID)
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
 
+	// notify stream that there aren't more parts coming
 	upload.Stream.Close()
-
+	// wait for completion
 	result := <-upload.Done
+	// return the final info
 	return result.Info, result.Error
 }
 
@@ -331,3 +142,241 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 // func (s *storjObjects) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
 // 	return
 // }
+
+// MultipartUploads manages pending multipart uploads
+type MultipartUploads struct {
+	mu      sync.RWMutex
+	lastId  int
+	pending map[string]*MultipartUpload
+}
+
+// NewMultipartUploads creates new MultipartUploads
+func NewMultipartUploads() *MultipartUploads {
+	return &MultipartUploads{
+		pending: map[string]*MultipartUpload{},
+	}
+}
+
+func (uploads *MultipartUploads) create(bucket, object string, metadata map[string]string) (*MultipartUpload, error) {
+	uploads.mu.Lock()
+	defer uploads.mu.Unlock()
+
+	for _, upload := range uploads.pending {
+		if upload.Bucket == bucket && upload.Object == object {
+			return nil, Error.New("duplicate upload to %q %q", bucket, object)
+		}
+	}
+
+	uploads.lastId++
+	uploadID := "Upload" + strconv.Itoa(uploads.lastId)
+
+	upload := NewMultipartUpload(uploadID, bucket, object, metadata)
+	uploads.pending[uploadID] = upload
+
+	return upload, nil
+}
+
+func (uploads *MultipartUploads) get(bucket, object, uploadID string) (*MultipartUpload, error) {
+	uploads.mu.Lock()
+	defer uploads.mu.Unlock()
+
+	upload, ok := uploads.pending[uploadID]
+	if !ok {
+		return nil, Error.New("pending upload %q missing", uploadID)
+	}
+	if upload.Bucket != bucket || upload.Object != object {
+		return nil, Error.New("pending upload %q bucket/object name mismatch", uploadID)
+	}
+
+	return upload, nil
+}
+
+func (uploads *MultipartUploads) remove(bucket, object, uploadID string) (*MultipartUpload, error) {
+	uploads.mu.RLock()
+	defer uploads.mu.RUnlock()
+
+	upload, ok := uploads.pending[uploadID]
+	if !ok {
+		return nil, Error.New("pending upload %q missing", uploadID)
+	}
+	if upload.Bucket != bucket || upload.Object != object {
+		return nil, Error.New("pending upload %q bucket/object name mismatch", uploadID)
+	}
+
+	delete(uploads.pending, uploadID)
+
+	return upload, nil
+}
+
+// MultipartUpload is partial info about a pending upload
+type MultipartUpload struct {
+	ID       string
+	Bucket   string
+	Object   string
+	Metadata map[string]string
+	Done     chan (*MultipartUploadResult)
+	Stream   *MultipartStream
+}
+
+// MultipartUploadResult contains either an Error or the uploaded ObjectInfo
+type MultipartUploadResult struct {
+	Error error
+	Info  minio.ObjectInfo
+}
+
+// NewMultipartUpload creates a new MultipartUpload
+func NewMultipartUpload(uploadID string, bucket, object string, metadata map[string]string) *MultipartUpload {
+	upload := &MultipartUpload{
+		ID:       uploadID,
+		Bucket:   bucket,
+		Object:   object,
+		Metadata: metadata,
+		Done:     make(chan *MultipartUploadResult, 1),
+		Stream:   NewMultipartStream(),
+	}
+	return upload
+}
+
+// Fail aborts the upload with an error
+func (upload *MultipartUpload) Fail(err error) {
+	upload.Done <- &MultipartUploadResult{Error: err}
+	close(upload.Done)
+}
+
+// Complete completes the upload
+func (upload *MultipartUpload) Complete(info minio.ObjectInfo) {
+	upload.Done <- &MultipartUploadResult{Info: info}
+	close(upload.Done)
+}
+
+// MultipartStream serializes multiple readers into a single reader
+type MultipartStream struct {
+	mu         sync.Mutex
+	moreParts  sync.Cond
+	err        error
+	closed     bool
+	nextId     int
+	nextNumber int
+	parts      []*StreamPart
+}
+
+// StreamPart is a reader waiting in MultipartStream
+type StreamPart struct {
+	Number int
+	ID     int
+	Size   int64
+	Reader *hash.Reader
+	Done   chan error
+}
+
+// NewMultipartStream creates a new MultipartStream
+func NewMultipartStream() *MultipartStream {
+	stream := &MultipartStream{}
+	stream.moreParts.L = &stream.mu
+	stream.nextId = 1
+	return stream
+}
+
+// Abort aborts the stream reading
+func (stream *MultipartStream) Abort(err error) {
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+
+	if stream.err == nil {
+		stream.err = err
+	}
+	stream.closed = true
+
+	for _, part := range stream.parts {
+		part.Done <- err
+		close(part.Done)
+	}
+	stream.parts = nil
+
+	stream.moreParts.Broadcast()
+}
+
+// Close closes the stream, but lets it complete
+func (stream *MultipartStream) Close() {
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+
+	stream.closed = true
+	stream.moreParts.Broadcast()
+}
+
+// Read implements io.Reader interface, blocking when there's no part
+func (stream *MultipartStream) Read(data []byte) (n int, err error) {
+	var part *StreamPart
+	stream.mu.Lock()
+	for {
+		// has an error occurred?
+		if stream.err != nil {
+			stream.mu.Unlock()
+			return 0, Error.Wrap(err)
+		}
+		// do we have the next part?
+		if len(stream.parts) > 0 && stream.nextId == stream.parts[0].ID {
+			part = stream.parts[0]
+			break
+		}
+		// we don't have the next part and are closed, hence we are complete
+		if stream.closed {
+			stream.mu.Unlock()
+			return 0, io.EOF
+		}
+
+		stream.moreParts.Wait()
+	}
+	stream.mu.Unlock()
+
+	// read as much as we can
+	n, err = part.Reader.Read(data)
+	atomic.AddInt64(&part.Size, int64(n))
+
+	if err == io.EOF {
+		// the part completed, hence advance to the next one
+		err = nil
+		stream.mu.Lock()
+		stream.parts = stream.parts[1:]
+		stream.nextId++
+		stream.mu.Unlock()
+		close(part.Done)
+	} else if err != nil {
+		// something bad happened, abort the whole thing
+		stream.Abort(err)
+		return n, Error.Wrap(err)
+	}
+
+	return n, err
+}
+
+// AddPart adds a new part to the stream to wait
+func (stream *MultipartStream) AddPart(partID int, data *hash.Reader) (*StreamPart, error) {
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+
+	for _, p := range stream.parts {
+		if p.ID == partID {
+			return nil, Error.New("Part %d already exists", partID)
+		}
+	}
+
+	stream.nextNumber++
+	part := &StreamPart{
+		Number: stream.nextNumber - 1,
+		ID:     partID,
+		Size:   0,
+		Reader: data,
+		Done:   make(chan error, 1),
+	}
+
+	stream.parts = append(stream.parts, part)
+	sort.Slice(stream.parts, func(i, k int) bool {
+		return stream.parts[i].ID < stream.parts[k].ID
+	})
+
+	stream.moreParts.Broadcast()
+
+	return part, nil
+}
