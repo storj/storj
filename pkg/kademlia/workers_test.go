@@ -78,7 +78,7 @@ func TestWorkerLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, mock := newTestServer(nil)
-	go assert.NoError(t, srv.Serve(lis))
+	go srv.Serve(lis)
 	defer srv.Stop()
 	cases := []struct {
 		name     string
@@ -121,7 +121,7 @@ func TestUpdate(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, _ := newTestServer(nil)
-	go assert.NoError(t, srv.Serve(lis))
+	go srv.Serve(lis)
 	defer srv.Stop()
 
 	cases := []struct {
