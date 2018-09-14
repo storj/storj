@@ -55,7 +55,7 @@ func TestLookup(t *testing.T) {
 	assert.NoError(t, err)
 
 	srv, mns := newTestServer([]*proto.Node{&proto.Node{Id: "foo"}})
-	go srv.Serve(lis)
+	go func() { _ = srv.Serve(lis) }()
 	defer srv.Stop()
 
 	k := func() *Kademlia {
@@ -161,7 +161,7 @@ func testNode(t *testing.T, bn []proto.Node) (*Kademlia, *grpc.Server) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	proto.RegisterNodesServer(grpcServer, s)
-	go grpcServer.Serve(lis)
+	go func() { grpcServer.Serve(lis) }()
 
 	return k, grpcServer
 
