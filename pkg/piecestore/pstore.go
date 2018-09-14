@@ -56,7 +56,7 @@ func StoreWriter(id string, dir string) (io.WriteCloser, error) {
 	}
 
 	// Create File on file system
-	return os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, 0755)
+	return os.OpenFile(dataPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0755)
 }
 
 // RetrieveReader retrieves data from pstore directory
@@ -91,13 +91,8 @@ func RetrieveReader(ctx context.Context, id string, offset int64, length int64, 
 		length = fileInfo.Size() - offset
 	}
 
-	dataFile, err := os.OpenFile(dataPath, os.O_RDONLY, 0755)
-	if err != nil {
-		return nil, err
-	}
-
 	// Created a section reader so that we can concurrently retrieve the same file.
-	rr, err := ranger.FileHandleRanger(dataFile)
+	rr, err := ranger.FileRanger(dataPath)
 	if err != nil {
 		return nil, err
 	}

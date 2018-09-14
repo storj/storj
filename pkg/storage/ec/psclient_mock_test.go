@@ -69,9 +69,9 @@ func (mr *MockPSClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // Get mocks base method
-func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *piecestore.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *piecestore.PayerBandwidthAllocation) (ranger.Ranger, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(ranger.RangeCloser)
+	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -3,7 +3,25 @@
 
 package readcloser
 
-import "io"
+import (
+	"io"
+
+	"storj.io/storj/pkg/utils"
+)
+
+type eofReadCloser struct{}
+
+func (eofReadCloser) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (eofReadCloser) Close() error {
+	return nil
+}
+
+type multiReadCloser struct {
+	readers []io.ReadCloser
+}
 
 // MultiReadCloser is a MultiReader extension that returns a ReaderCloser
 // that's the logical concatenation of the provided input readers.
@@ -11,33 +29,43 @@ import "io"
 // Read will return EOF.  If any of the readers return a non-nil,
 // non-EOF error, Read will return that error.
 func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
-	r := make([]io.Reader, len(readers))
-	for i := range readers {
-		r[i] = readers[i]
-	}
-	c := make([]io.Closer, len(readers))
-	for i := range readers {
-		c[i] = readers[i]
-	}
-	return &multiReadCloser{io.MultiReader(r...), c}
+	r := make([]io.ReadCloser, len(readers))
+	copy(r, readers)
+	return &multiReadCloser{r}
 }
 
-type multiReadCloser struct {
-	multireader io.Reader
-	closers     []io.Closer
-}
-
-func (l *multiReadCloser) Read(p []byte) (n int, err error) {
-	return l.multireader.Read(p)
-}
-
-func (l *multiReadCloser) Close() error {
-	var firstErr error
-	for _, c := range l.closers {
-		err := c.Close()
-		if err != nil && firstErr == nil {
-			firstErr = err
+func (mr *multiReadCloser) Read(p []byte) (n int, err error) {
+	for len(mr.readers) > 0 {
+		// Optimization to flatten nested multiReaders.
+		if len(mr.readers) == 1 {
+			if r, ok := mr.readers[0].(*multiReadCloser); ok {
+				mr.readers = r.readers
+				continue
+			}
+		}
+		n, err = mr.readers[0].Read(p)
+		if err == io.EOF {
+			utils.LogClose(mr.readers[0])
+			// Use eofReader instead of nil to avoid nil panic
+			// after performing flatten (Issue 18232).
+			mr.readers[0] = eofReadCloser{} // permit earlier GC
+			mr.readers = mr.readers[1:]
+		}
+		if n > 0 || err != io.EOF {
+			if err == io.EOF && len(mr.readers) > 0 {
+				// Don't return EOF yet. More readers remain.
+				err = nil
+			}
+			return
 		}
 	}
-	return firstErr
+	return 0, io.EOF
+}
+
+func (mr *multiReadCloser) Close() error {
+	errs := make([]error, len(mr.readers))
+	for i, r := range mr.readers {
+		errs[i] = r.Close()
+	}
+	return utils.CombineErrors(errs...)
 }

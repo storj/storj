@@ -69,7 +69,7 @@ func TestCalcEncompassingBlocks(t *testing.T) {
 
 func TestCRC(t *testing.T) {
 	const blocks = 3
-	rr, err := addCRC(ranger.ByteRangeCloser(bytes.Repeat([]byte{0}, blocks*64)),
+	rr, err := addCRC(ranger.ByteRanger(bytes.Repeat([]byte{0}, blocks*64)),
 		crc32.IEEETable)
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
@@ -87,7 +87,7 @@ func TestCRC(t *testing.T) {
 		t.Fatalf("unexpected: %v", err)
 	}
 
-	rr, err = checkCRC(ranger.ByteRangeCloser(data), crc32.IEEETable)
+	rr, err = checkCRC(ranger.ByteRanger(data), crc32.IEEETable)
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestCRC(t *testing.T) {
 func TestCRCSubranges(t *testing.T) {
 	const blocks = 3
 	data := bytes.Repeat([]byte{0, 1, 2}, blocks*64)
-	internal, err := addCRC(ranger.ByteRangeCloser(data), crc32.IEEETable)
+	internal, err := addCRC(ranger.ByteRanger(data), crc32.IEEETable)
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}

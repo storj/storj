@@ -53,9 +53,9 @@ func (mr *MockClientMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.C
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 []*overlay.Node, arg2 eestream.ErasureScheme, arg3 client.PieceID, arg4 int64) (ranger.RangeCloser, error) {
+func (m *MockClient) Get(arg0 context.Context, arg1 []*overlay.Node, arg2 eestream.ErasureScheme, arg3 client.PieceID, arg4 int64) (ranger.Ranger, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(ranger.RangeCloser)
+	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -20,24 +20,6 @@ type Ranger interface {
 	Range(ctx context.Context, offset, length int64) (io.ReadCloser, error)
 }
 
-// A RangeCloser is a Ranger that must be closed when finished
-type RangeCloser interface {
-	Ranger
-	io.Closer
-}
-
-// NopCloser makes an existing Ranger function as a RangeCloser
-// with a no-op for Close()
-func NopCloser(r Ranger) RangeCloser {
-	return struct {
-		Ranger
-		io.Closer
-	}{
-		Ranger: r,
-		Closer: ioutil.NopCloser(nil),
-	}
-}
-
 // ByteRanger turns a byte slice into a Ranger
 type ByteRanger []byte
 
@@ -59,17 +41,9 @@ func (b ByteRanger) Range(ctx context.Context, offset, length int64) (io.ReadClo
 	return ioutil.NopCloser(bytes.NewReader(b[offset : offset+length])), nil
 }
 
-// Close is a no-op
-func (b ByteRanger) Close() error { return nil }
-
-// ByteRangeCloser turns a byte slice into a RangeCloser
-func ByteRangeCloser(data []byte) RangeCloser {
-	return NopCloser(ByteRanger(data))
-}
-
 type concatReader struct {
-	r1 RangeCloser
-	r2 RangeCloser
+	r1 Ranger
+	r2 Ranger
 }
 
 func (c *concatReader) Size() int64 {
@@ -95,21 +69,12 @@ func (c *concatReader) Range(ctx context.Context, offset, length int64) (io.Read
 		})), nil
 }
 
-func (c *concatReader) Close() error {
-	err1 := c.r1.Close()
-	err2 := c.r2.Close()
-	if err1 != nil {
-		return err1
-	}
-	return err2
-}
-
-func concat2(r1, r2 RangeCloser) RangeCloser {
+func concat2(r1, r2 Ranger) Ranger {
 	return &concatReader{r1: r1, r2: r2}
 }
 
 // Concat concatenates Rangers
-func Concat(r ...RangeCloser) RangeCloser {
+func Concat(r ...Ranger) Ranger {
 	switch len(r) {
 	case 0:
 		return ByteRanger(nil)
@@ -124,12 +89,12 @@ func Concat(r ...RangeCloser) RangeCloser {
 }
 
 type subrange struct {
-	r              RangeCloser
+	r              Ranger
 	offset, length int64
 }
 
 // Subrange returns a subset of a Ranger.
-func Subrange(data RangeCloser, offset, length int64) (RangeCloser, error) {
+func Subrange(data Ranger, offset, length int64) (Ranger, error) {
 	dSize := data.Size()
 	if offset < 0 || offset > dSize {
 		return nil, Error.New("invalid offset")
@@ -146,8 +111,4 @@ func (s *subrange) Size() int64 {
 
 func (s *subrange) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	return s.r.Range(ctx, offset+s.offset, length)
-}
-
-func (s *subrange) Close() error {
-	return s.r.Close()
 }

@@ -67,7 +67,7 @@ func TestHappyPath(t *testing.T) {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, ttl := range tests {
-					err := db.AddTTLToDB(ttl.ID, ttl.Expiration)
+					err := db.AddTTL(ttl.ID, ttl.Expiration, 0)
 					if err != nil {
 						t.Fatal(err)
 					}
