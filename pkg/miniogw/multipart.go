@@ -87,12 +87,18 @@ func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, upload
 		return minio.PartInfo{}, err
 	}
 
-	return minio.PartInfo{
+	partInfo := minio.PartInfo{
 		PartNumber:   part.Number,
 		LastModified: time.Now(),
 		ETag:         data.SHA256HexString(),
 		Size:         atomic.LoadInt64(&part.Size),
-	}, nil
+	}
+
+	upload.mu.Lock()
+	upload.completed = append(upload.completed, partInfo)
+	upload.mu.Unlock()
+
+	return partInfo, nil
 }
 
 func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string) (err error) {
@@ -134,10 +140,49 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 // func (s *storjObjects) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
 // 	return
 // }
-//
-// func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
-// 	return
-// }
+
+func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
+	uploads := s.storj.multipart
+	upload, err := uploads.Get(bucket, object, uploadID)
+	if err != nil {
+		return minio.ListPartsInfo{}, err
+	}
+
+	list := minio.ListPartsInfo{}
+
+	list.Bucket = bucket
+	list.Object = object
+	list.UploadID = uploadID
+	list.PartNumberMarker = partNumberMarker
+	list.MaxParts = maxParts
+	list.UserDefined = upload.Metadata
+
+	upload.mu.Lock()
+	list.Parts = append(list.Parts, upload.completed...)
+	upload.mu.Unlock()
+
+	sort.Slice(list.Parts, func(i, k int) bool {
+		return list.Parts[i].PartNumber < list.Parts[k].PartNumber
+	})
+
+	var first int
+	for i, p := range list.Parts {
+		first = i
+		if partNumberMarker <= p.PartNumber {
+			break
+		}
+	}
+
+	list.Parts = list.Parts[first:]
+	if len(list.Parts) > maxParts {
+		list.NextPartNumberMarker = list.Parts[maxParts+1].PartNumber
+		list.Parts = list.Parts[:maxParts]
+		list.IsTruncated = true
+	}
+
+	return list, nil
+}
+
 //
 // func (s *storjObjects) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
 // 	return
@@ -219,6 +264,9 @@ type MultipartUpload struct {
 	Metadata map[string]string
 	Done     chan (*MultipartUploadResult)
 	Stream   *MultipartStream
+
+	mu        sync.Mutex
+	completed []minio.PartInfo
 }
 
 // MultipartUploadResult contains either an Error or the uploaded ObjectInfo
