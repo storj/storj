@@ -161,7 +161,7 @@ func testNode(t *testing.T, bn []proto.Node) (*Kademlia, *grpc.Server) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	proto.RegisterNodesServer(grpcServer, s)
-	go func() { grpcServer.Serve(lis) }()
+	go func() { _ = grpcServer.Serve(lis) }()
 
 	return k, grpcServer
 
