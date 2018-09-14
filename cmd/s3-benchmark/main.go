@@ -26,7 +26,10 @@ func main() {
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
 	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per size")
-	plotname := flag.String("plot", "", "plot results")
+
+	suffix := time.Now().Format("-2006-01-02-150405")
+
+	plotname := flag.String("plot", "plot"+suffix+".svg", "plot results")
 
 	sizes := &Sizes{
 		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {64 << 20}, {256 << 20}},
@@ -40,7 +43,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bucket := time.Now().Format("bucket-2006-01-02-150405")
+	bucket := "bucket" + suffix
 	log.Println("Creating bucket", bucket)
 	err = client.MakeBucket(bucket, *location)
 	if err != nil {
