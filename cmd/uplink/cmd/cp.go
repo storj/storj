@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,13 +31,13 @@ func init() {
 	})
 }
 
-func cleanAbsPath(path string) string {
-	prefix := strings.HasSuffix(path, "/")
-	path = filepath.Join("/", path)
-	if !strings.HasSuffix(path, "/") && prefix {
-		path += "/"
+func cleanAbsPath(p string) string {
+	prefix := strings.HasSuffix(p, "/")
+	p = path.Join("/", p)
+	if !strings.HasSuffix(p, "/") && prefix {
+		p += "/"
 	}
-	return path
+	return p
 }
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
@@ -48,7 +49,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	destObj.Path = cleanAbsPath(destObj.Path)
 	// if object name not specified, default to filename
 	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcFile))
+		destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
 	}
 
 	f, err := os.Open(srcFile)
@@ -150,7 +151,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	destObj.Path = cleanAbsPath(destObj.Path)
 	// if destination object name not specified, default to source object name
 	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcObj.Path))
+		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
 	}
 
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
