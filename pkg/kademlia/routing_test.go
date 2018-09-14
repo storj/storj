@@ -146,24 +146,34 @@ func TestConnectionSuccess(t *testing.T) {
 	address2 := &pb.NodeAddress{Address: "b"}
 	node1 := &pb.Node{Id: id, Address: address1}
 	node2 := &pb.Node{Id: id2, Address: address2}
-
-	//Updates node
-	err := rt.ConnectionSuccess(node1)
-	assert.NoError(t, err)
-	v, err := rt.nodeBucketDB.Get([]byte(id))
-	assert.NoError(t, err)
-	n, err := unmarshalNodes(storage.Keys{storage.Key(id)}, []storage.Value{v})
-	assert.NoError(t, err)
-	assert.Equal(t, address1.Address, n[0].Address.Address)
-
-	//Add Node
-	err = rt.ConnectionSuccess(node2)
-	assert.NoError(t, err)
-	v, err = rt.nodeBucketDB.Get([]byte(id2))
-	assert.NoError(t, err)
-	n, err = unmarshalNodes(storage.Keys{storage.Key(id2)}, []storage.Value{v})
-	assert.NoError(t, err)
-	assert.Equal(t, address2.Address, n[0].Address.Address)
+	cases := []struct {
+		testID string
+		node *pb.Node
+		id string
+		address *pb.NodeAddress
+	}{
+		{testID: "Update Node",
+		node: node1,
+		id: id,
+		address: address1,
+	},
+		{testID: "Add Node",
+		node: node2,
+		id: id2,
+		address: address2,
+	},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			err := rt.ConnectionSuccess(c.node)
+			assert.NoError(t, err)
+			v, err := rt.nodeBucketDB.Get([]byte(c.id))
+			assert.NoError(t, err)
+			n, err := unmarshalNodes(storage.Keys{storage.Key(c.id)}, []storage.Value{v})
+			assert.NoError(t, err)
+			assert.Equal(t, c.address.Address, n[0].Address.Address)
+		})
+	}
 }
 
 func TestConnectionFailed(t *testing.T) {
