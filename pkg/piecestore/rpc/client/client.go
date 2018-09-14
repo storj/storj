@@ -40,7 +40,7 @@ var (
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
-	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error)
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID) error
 	Stats(ctx context.Context) error
 	io.Closer
@@ -139,7 +139,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
 	stream, err := client.route.Retrieve(ctx)
 	if err != nil {
 		return nil, err

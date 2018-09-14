@@ -72,6 +72,7 @@ func (s *StreamWriter) Close() error {
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
 	pendingAllocs *sync2.Throttle
+	client        *Client
 	stream        pb.PieceStoreRoutes_RetrieveClient
 	src           *utils.ReaderSource
 	downloaded    int64
@@ -80,21 +81,22 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
+		client:        client,
 		stream:        stream,
 		size:          size,
 	}
 
 	// TODO: make these flag/config-file configurable
-	trustLimit := int64(signer.bandwidthMsgSize * 64)
-	sendThreshold := int64(signer.bandwidthMsgSize * 8)
+	trustLimit := int64(client.bandwidthMsgSize * 64)
+	sendThreshold := int64(client.bandwidthMsgSize * 8)
 
 	// Send signed allocations to the piece store server
 	go func() {
 		// TODO: make this flag/config-file configurable
-		trustedSize := int64(signer.bandwidthMsgSize * 8)
+		trustedSize := int64(client.bandwidthMsgSize * 8)
 
 		// Allocate until we've reached the file size
 		for sr.allocated < size {
@@ -114,7 +116,7 @@ func NewStreamReader(signer *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 				return
 			}
 
-			sig, err := signer.sign(serializedAllocation)
+			sig, err := client.sign(serializedAllocation)
 			if err != nil {
 				sr.pendingAllocs.Fail(err)
 				return
@@ -174,5 +176,8 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 
 // Close the piece store server Read Stream
 func (s *StreamReader) Close() error {
-	return s.stream.CloseSend()
+	return utils.CombineErrors(
+		s.stream.CloseSend(),
+		s.client.Close(),
+	)
 }

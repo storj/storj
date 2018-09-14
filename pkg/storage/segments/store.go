@@ -49,7 +49,7 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
-	Get(ctx context.Context, path paths.Path) (rr ranger.RangeCloser,
+	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger,
 		meta Meta, err error)
 	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
 		expiration time.Time) (meta Meta, err error)
@@ -179,7 +179,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.Piece
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
 func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta Meta, err error) {
+	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pr, err := s.pdb.Get(ctx, path)
@@ -205,7 +205,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, Error.Wrap(err)
 		}
 	} else {
-		rr = ranger.ByteRangeCloser(pr.InlineSegment)
+		rr = ranger.ByteRanger(pr.InlineSegment)
 	}
 
 	return rr, convertMeta(pr), nil
