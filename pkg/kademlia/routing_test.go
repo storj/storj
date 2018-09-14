@@ -219,7 +219,3 @@ func TestGetBucketTimestamp(t *testing.T) {
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 }
-
-func TestGetNodeRoutingTable(t *testing.T) {
-	//TODO
-}

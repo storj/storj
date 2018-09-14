@@ -719,31 +719,47 @@ func TestDetermineDifferingBitIndex(t *testing.T) {
 func TestSplitBucket(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, nil)
 	defer cleanup()
-	id1 := []byte{255, 255}
-	id2 := []byte{191, 255}
-	id3 := []byte{127, 255}
-	id4 := []byte{63, 255}
-	id5 := []byte{159, 255}
-	id6 := []byte{0, 127}
-	id7 := []byte{0, 255}
-	id8 := []byte{95, 255}
-	id9 := []byte{87, 255}
-
-	newID1 := rt.splitBucket(id1, 1) //[11111111, 11111111] -> [10111111, 11111111]
-	assert.Equal(t, id2, newID1)
-
-	newID2 := rt.splitBucket(id2, 2) //[10111111, 11111111] -> [10011111, 11111111]
-	assert.Equal(t, id5, newID2)
-
-	newID3 := rt.splitBucket(id3, 1) //[01111111, 11111111] -> [00111111, 11111111]
-	assert.Equal(t, id4, newID3)
-
-	newID4 := rt.splitBucket(id7, 8) //[00000000, 11111111] -> [00000000, 01111111]
-	assert.Equal(t, id6, newID4)
-
-	newID5 := rt.splitBucket(id8, 4) //[01011111, 11111111] -> [01010111, 11111111]
-	assert.Equal(t, id9, newID5)
-
-	newID6 := rt.splitBucket(id8, 3)
-	assert.Equal(t, []byte{79, 255}, newID6)
+	cases := []struct {
+		testID string
+		idA    []byte
+		idB    []byte
+		depth  int
+	}{
+		{testID: "A: [11111111, 11111111] -> [10111111, 11111111]",
+			idA:   []byte{255, 255},
+			idB:   []byte{191, 255},
+			depth: 1,
+		},
+		{testID: "B: [10111111, 11111111] -> [10011111, 11111111]",
+			idA:   []byte{191, 255},
+			idB:   []byte{159, 255},
+			depth: 2,
+		},
+		{testID: "C: [01111111, 11111111] -> [00111111, 11111111]",
+			idA:   []byte{127, 255},
+			idB:   []byte{63, 255},
+			depth: 1,
+		},
+		{testID: "D: [00000000, 11111111] -> [00000000, 01111111]",
+			idA:   []byte{0, 255},
+			idB:   []byte{0, 127},
+			depth: 8,
+		},
+		{testID: "E: [01011111, 11111111] -> [01010111, 11111111]",
+			idA:   []byte{95, 255},
+			idB:   []byte{87, 255},
+			depth: 4,
+		},
+		{testID: "F: [01011111, 11111111] -> [01001111, 11111111]",
+			idA:   []byte{95, 255},
+			idB:   []byte{79, 255},
+			depth: 3,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			newID := rt.splitBucket(c.idA, c.depth)
+			assert.Equal(t, c.idB, newID)	
+		})
+	}
 }
