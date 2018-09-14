@@ -20,7 +20,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 
 	uploads := s.storj.multipart
 
-	upload, err := uploads.create(bucket, object, metadata)
+	upload, err := uploads.Create(bucket, object, metadata)
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +72,7 @@ func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, upload
 
 	uploads := s.storj.multipart
 
-	upload, err := uploads.get(bucket, object, uploadID)
+	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
 		return minio.PartInfo{}, err
 	}
@@ -100,7 +100,7 @@ func (s *storjObjects) AbortMultipartUpload(ctx context.Context, bucket, object,
 
 	uploads := s.storj.multipart
 
-	upload, err := uploads.remove(bucket, object, uploadID)
+	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 	defer mon.Task()(&ctx)(&err)
 
 	uploads := s.storj.multipart
-	upload, err := uploads.remove(bucket, object, uploadID)
+	upload, err := uploads.Remove(bucket, object, uploadID)
 	if err != nil {
 		return minio.ObjectInfo{}, err
 	}
@@ -146,7 +146,7 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 // MultipartUploads manages pending multipart uploads
 type MultipartUploads struct {
 	mu      sync.RWMutex
-	lastId  int
+	lastID  int
 	pending map[string]*MultipartUpload
 }
 
@@ -157,7 +157,8 @@ func NewMultipartUploads() *MultipartUploads {
 	}
 }
 
-func (uploads *MultipartUploads) create(bucket, object string, metadata map[string]string) (*MultipartUpload, error) {
+// Create creates a new upload
+func (uploads *MultipartUploads) Create(bucket, object string, metadata map[string]string) (*MultipartUpload, error) {
 	uploads.mu.Lock()
 	defer uploads.mu.Unlock()
 
@@ -167,8 +168,8 @@ func (uploads *MultipartUploads) create(bucket, object string, metadata map[stri
 		}
 	}
 
-	uploads.lastId++
-	uploadID := "Upload" + strconv.Itoa(uploads.lastId)
+	uploads.lastID++
+	uploadID := "Upload" + strconv.Itoa(uploads.lastID)
 
 	upload := NewMultipartUpload(uploadID, bucket, object, metadata)
 	uploads.pending[uploadID] = upload
@@ -176,7 +177,8 @@ func (uploads *MultipartUploads) create(bucket, object string, metadata map[stri
 	return upload, nil
 }
 
-func (uploads *MultipartUploads) get(bucket, object, uploadID string) (*MultipartUpload, error) {
+// Get finds a pending upload
+func (uploads *MultipartUploads) Get(bucket, object, uploadID string) (*MultipartUpload, error) {
 	uploads.mu.Lock()
 	defer uploads.mu.Unlock()
 
@@ -191,7 +193,8 @@ func (uploads *MultipartUploads) get(bucket, object, uploadID string) (*Multipar
 	return upload, nil
 }
 
-func (uploads *MultipartUploads) remove(bucket, object, uploadID string) (*MultipartUpload, error) {
+// Remove returns and removes a pending upload
+func (uploads *MultipartUploads) Remove(bucket, object, uploadID string) (*MultipartUpload, error) {
 	uploads.mu.RLock()
 	defer uploads.mu.RUnlock()
 
@@ -255,7 +258,7 @@ type MultipartStream struct {
 	moreParts  sync.Cond
 	err        error
 	closed     bool
-	nextId     int
+	nextID     int
 	nextNumber int
 	parts      []*StreamPart
 }
@@ -273,7 +276,7 @@ type StreamPart struct {
 func NewMultipartStream() *MultipartStream {
 	stream := &MultipartStream{}
 	stream.moreParts.L = &stream.mu
-	stream.nextId = 1
+	stream.nextID = 1
 	return stream
 }
 
@@ -316,7 +319,7 @@ func (stream *MultipartStream) Read(data []byte) (n int, err error) {
 			return 0, Error.Wrap(err)
 		}
 		// do we have the next part?
-		if len(stream.parts) > 0 && stream.nextId == stream.parts[0].ID {
+		if len(stream.parts) > 0 && stream.nextID == stream.parts[0].ID {
 			part = stream.parts[0]
 			break
 		}
@@ -339,7 +342,7 @@ func (stream *MultipartStream) Read(data []byte) (n int, err error) {
 		err = nil
 		stream.mu.Lock()
 		stream.parts = stream.parts[1:]
-		stream.nextId++
+		stream.nextID++
 		stream.mu.Unlock()
 		close(part.Done)
 	} else if err != nil {
