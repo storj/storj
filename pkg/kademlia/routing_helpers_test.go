@@ -495,16 +495,27 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDB, []byte("")))
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDC, []byte("")))
 
-	expectedA := storage.Keys{nodeIDA}
-	expectedB := storage.Keys{nodeIDC, nodeIDB}
-
-	A, err := rt.getNodeIDsWithinKBucket(kadIDA)
-	assert.NoError(t, err)
-	B, err := rt.getNodeIDsWithinKBucket(kadIDB)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedA, A)
-	assert.Equal(t, expectedB, B)
+	cases := []struct {
+		testID   string
+		kadID    []byte
+		expected storage.Keys
+	}{
+		{testID: "A",
+			kadID:    kadIDA,
+			expected: storage.Keys{nodeIDA},
+		},
+		{testID: "B",
+			kadID:    kadIDB,
+			expected: storage.Keys{nodeIDC, nodeIDB},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			n, err := rt.getNodeIDsWithinKBucket(c.kadID)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, n)
+		})
+	}
 }
 
 func TestGetNodesFromIDs(t *testing.T) {
