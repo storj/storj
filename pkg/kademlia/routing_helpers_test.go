@@ -595,19 +595,30 @@ func TestGetKBucketRange(t *testing.T) {
 	assert.NoError(t, rt.kadBucketDB.Put(idA, []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idB, []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idC, []byte("")))
-	expectedA := storage.Keys{idB, idA}
-	expectedB := storage.Keys{idC, idB}
-	expectedC := storage.Keys{rt.createZeroAsStorageKey(), idC}
-
-	endpointsA, err := rt.getKBucketRange(idA)
-	assert.NoError(t, err)
-	endpointsB, err := rt.getKBucketRange(idB)
-	assert.NoError(t, err)
-	endpointsC, err := rt.getKBucketRange(idC)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedA, endpointsA)
-	assert.Equal(t, expectedB, endpointsB)
-	assert.Equal(t, expectedC, endpointsC)
+	cases := []struct {
+		testID   string
+		id       []byte
+		expected storage.Keys
+	}{
+		{testID: "A",
+			id:       idA,
+			expected: storage.Keys{idB, idA},
+		},
+		{testID: "B",
+			id:       idB,
+			expected: storage.Keys{idC, idB}},
+		{testID: "C",
+			id:       idC,
+			expected: storage.Keys{rt.createZeroAsStorageKey(), idC},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			ep, err := rt.getKBucketRange(c.id)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, ep)
+		})
+	}
 }
 
 func TestCreateFirstBucketID(t *testing.T) {
