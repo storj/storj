@@ -633,35 +633,55 @@ func TestDetermineLeafDepth(t *testing.T) {
 	idB := []byte{127, 255}
 	idC := []byte{63, 255}
 
-	err := rt.kadBucketDB.Put(idA, []byte(""))
-	assert.NoError(t, err)
-
-	first, err := rt.determineLeafDepth(idA)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, first)
-
-	err = rt.kadBucketDB.Put(idB, []byte(""))
-	assert.NoError(t, err)
-
-	second, err := rt.determineLeafDepth(idB)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, second)
-
-	err = rt.kadBucketDB.Put(idC, []byte(""))
-	assert.NoError(t, err)
-
-	one, err := rt.determineLeafDepth(idA)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, one)
-
-	two, err := rt.determineLeafDepth(idB)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, two)
-
-	alsoTwo, err := rt.determineLeafDepth(idC)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, alsoTwo)
-
+	cases := []struct {
+		testID  string
+		id      []byte
+		depth   int
+		addNode func()
+	}{
+		{testID: "A",
+			id:    idA,
+			depth: 0,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idA, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "B",
+			id:    idB,
+			depth: 1,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idB, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "C",
+			id:    idA,
+			depth: 1,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idC, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "D",
+			id:      idB,
+			depth:   2,
+			addNode: func() {},
+		},
+		{testID: "E",
+			id:      idC,
+			depth:   2,
+			addNode: func() {},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			c.addNode()
+			d, err := rt.determineLeafDepth(c.id)
+			assert.NoError(t, err)
+			assert.Equal(t, c.depth, d)
+		})
+	}
 }
 
 func TestDetermineDifferingBitIndex(t *testing.T) {
