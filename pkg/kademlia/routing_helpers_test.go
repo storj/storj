@@ -407,37 +407,44 @@ func TestDetermineFurthestIDWithinK(t *testing.T) {
 	assert.Equal(t, expectedFurthest, furthest)
 }
 
-func TestNodeIsWithinNearestK(t *testing.T) {
-	selfNode := []byte{127, 255}
-	rt, cleanup := createRoutingTable(t, selfNode)
+func TestNodeIsWithinNearestK(t *testing.T) { //left off here
+	rt, cleanup := createRoutingTable(t, []byte{127, 255})
 	defer cleanup()
 	rt.bucketSize = 2
-	expectTrue, err := rt.nodeIsWithinNearestK(selfNode)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-
-	furthestNode := []byte{143, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(furthestNode)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(furthestNode, []byte("")))
-
-	node1 := []byte{255, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(node1)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(node1, []byte("")))
-
-	node2 := []byte{191, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(node2)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(node1, []byte("")))
-
-	node3 := []byte{133, 255}
-	expectFalse, err := rt.nodeIsWithinNearestK(node3)
-	assert.NoError(t, err)
-	assert.False(t, expectFalse)
+	cases := []struct {
+		testID  string
+		nodeID  []byte
+		closest bool
+	}{
+		{testID: "A",
+			nodeID:  []byte{127, 255},
+			closest: true,
+		},
+		{testID: "B",
+			nodeID:  []byte{143, 255},
+			closest: true,
+		},
+		{testID: "C",
+			nodeID:  []byte{255, 255},
+			closest: true,
+		},
+		{testID: "D",
+			nodeID:  []byte{191, 255},
+			closest: true,
+		},
+		{testID: "E",
+			nodeID:  []byte{133, 255},
+			closest: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			result, err := rt.nodeIsWithinNearestK(c.nodeID)
+			assert.NoError(t, err)
+			assert.Equal(t, c.closest, result)
+			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID, []byte("")))
+		})
+	}
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
