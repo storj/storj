@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/dht"
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // NewMockKademlia returns a newly intialized MockKademlia struct
@@ -18,12 +18,12 @@ func NewMockKademlia() *MockKademlia {
 // MockKademlia is a mock implementation of the DHT interface used solely for testing
 type MockKademlia struct {
 	RoutingTable dht.RoutingTable
-	Nodes        []*proto.Node
+	Nodes        []*pb.Node
 }
 
 // GetNodes increments the GetNodesCalled field on MockKademlia
 // returns the Nodes field on MockKademlia
-func (k *MockKademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
+func (k *MockKademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	return k.Nodes, nil
 }
 
@@ -40,14 +40,14 @@ func (k *MockKademlia) Bootstrap(ctx context.Context) error {
 }
 
 // Ping increments the PingCalled field on MockKademlia
-func (k *MockKademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
+func (k *MockKademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	return node, nil
 }
 
 // FindNode increments the FindNodeCalled field on MockKademlia
 //
 // returns the local kademlia node
-func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
+func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
 	return k.RoutingTable.Local(), nil
 }
 

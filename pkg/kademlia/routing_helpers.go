@@ -11,7 +11,7 @@ import (
 
 	pb "github.com/golang/protobuf/proto"
 
-	proto "storj.io/storj/protos/overlay"
+	proto "storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 

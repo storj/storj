@@ -8,8 +8,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 // Transport interface structure
@@ -23,7 +23,7 @@ func NewClient(identity *provider.FullIdentity) *Transport {
 }
 
 // DialNode using the authenticated mode
-func (o *Transport) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialNode(ctx context.Context, node *pb.Node) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
@@ -38,7 +38,7 @@ func (o *Transport) DialNode(ctx context.Context, node *proto.Node) (conn *grpc.
 }
 
 // DialUnauthenticated using unauthenticated mode
-func (o *Transport) DialUnauthenticated(ctx context.Context, addr proto.NodeAddress) (conn *grpc.ClientConn, err error) {
+func (o *Transport) DialUnauthenticated(ctx context.Context, addr pb.NodeAddress) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if addr.Address == "" {

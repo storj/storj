@@ -14,16 +14,16 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/storage/ec"
-	opb "storj.io/storj/protos/overlay"
 	ppb "storj.io/storj/protos/pointerdb"
 )
 
@@ -146,7 +146,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID, readerSize int64,
+func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceID, readerSize int64,
 	exp *timestamp.Timestamp, metadata []byte) (pointer *ppb.Pointer, err error) {
 	var remotePieces []*ppb.RemotePiece
 	for i := range nodes {
@@ -249,7 +249,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*pb.Node, err error) {
 	pieces := seg.GetRemotePieces()
 	var nodeIds []dht.NodeID
 	for _, p := range pieces {

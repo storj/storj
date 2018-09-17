@@ -17,10 +17,10 @@ import (
 	mock_eestream "storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
 	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
 	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
-	opb "storj.io/storj/protos/overlay"
 	ppb "storj.io/storj/protos/pointerdb"
 )
 
@@ -115,7 +115,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return([]*opb.Node{
+			).Return([]*pb.Node{
 				{Id: "im-a-node"},
 			}, nil),
 			mockEC.EXPECT().Put(

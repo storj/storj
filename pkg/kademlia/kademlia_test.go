@@ -11,16 +11,16 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/pb"
 
 	"github.com/stretchr/testify/assert"
-	"storj.io/storj/protos/overlay"
 )
 
 const (
 	testNetSize = 20
 )
 
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
+func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	bid, err := newID()
 	assert.NoError(t, err)
 
@@ -33,7 +33,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	intro, err := GetIntroNode(bnid.String(), ip, pm)
 	assert.NoError(t, err)
 
-	boot, err := NewKademlia(&bnid, []overlay.Node{*intro}, ip, pm)
+	boot, err := NewKademlia(&bnid, []pb.Node{*intro}, ip, pm)
 	assert.NoError(t, err)
 
 	//added bootnode to dhts so it could be closed in defer as well
@@ -56,7 +56,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 		assert.NoError(t, err)
 		id := NodeID(nid)
 
-		dht, err := NewKademlia(&id, []overlay.Node{bootNode}, ip, gg)
+		dht, err := NewKademlia(&id, []pb.Node{bootNode}, ip, gg)
 		assert.NoError(t, err)
 
 		p++
@@ -71,11 +71,11 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	return dhts, bootNode
 }
 
-func newTestKademlia(t *testing.T, ip, port string, b overlay.Node) *Kademlia {
+func newTestKademlia(t *testing.T, ip, port string, b pb.Node) *Kademlia {
 	i, err := newID()
 	assert.NoError(t, err)
 	id := NodeID(i)
-	n := []overlay.Node{b}
+	n := []pb.Node{b}
 
 	kad, err := NewKademlia(&id, n, ip, port)
 	assert.NoError(t, err)
@@ -136,7 +136,7 @@ func TestGetNodes(t *testing.T) {
 		k            *Kademlia
 		limit        int
 		expectedErr  error
-		restrictions []overlay.Restriction
+		restrictions []pb.Restriction
 	}{
 		{
 			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
@@ -221,14 +221,14 @@ func TestPing(t *testing.T) {
 
 	cases := []struct {
 		k           *Kademlia
-		input       overlay.Node
+		input       pb.Node
 		expectedErr error
 	}{
 		{
 			k: newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-			input: overlay.Node{
+			input: pb.Node{
 				Id: rt.Local().Id,
-				Address: &overlay.NodeAddress{
+				Address: &pb.NodeAddress{
 					Transport: defaultTransport,
 					Address:   addr.Address,
 				},
