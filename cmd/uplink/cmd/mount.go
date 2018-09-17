@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -64,6 +66,18 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return fmt.Errorf("Mount failed: %v", err)
 	}
+
+	// detect control-c and unmount
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	go func() {
+		for range sig {
+			if err := server.Unmount(); err != nil {
+				fmt.Printf("Unmount failed: %v", err)
+			}
+		}
+	}()
+
 	server.Serve()
 	return nil
 }
