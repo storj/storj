@@ -14,7 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
-	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"

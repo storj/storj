@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	dht "storj.io/storj/pkg/dht"
-	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pb"
 )
 
 // MockClient is a mock of Client interface

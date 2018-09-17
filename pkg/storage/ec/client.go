@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
-	pbps "storj.io/storj/protos/piecestore"
 )
 
 var mon = monkit.Package()
@@ -95,7 +94,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				errs <- err
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pbps.PayerBandwidthAllocation{})
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -146,7 +145,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				node:   n,
 				id:     derivedPieceID,
 				size:   pieceSize,
-				pba:    &pbps.PayerBandwidthAllocation{},
+				pba:    &pb.PayerBandwidthAllocation{},
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -247,7 +246,7 @@ type lazyPieceRanger struct {
 	node   *pb.Node
 	id     client.PieceID
 	size   int64
-	pba    *pbps.PayerBandwidthAllocation
+	pba    *pb.PayerBandwidthAllocation
 }
 
 // Size implements Ranger.Size

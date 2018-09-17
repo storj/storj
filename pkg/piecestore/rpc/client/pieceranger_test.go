@@ -16,7 +16,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	pb "storj.io/storj/protos/piecestore"
+	"storj.io/storj/pkg/pb"
 )
 
 func TestPieceRanger(t *testing.T) {

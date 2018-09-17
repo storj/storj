@@ -12,7 +12,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	eestream "storj.io/storj/pkg/eestream"
-	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
 )
