@@ -141,17 +141,17 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	return nil
 }
 
-// marshalNode: helper, sanitizes pb Node for db insertion
+// marshalNode: helper, sanitizes Node for db insertion
 func marshalNode(node pb.Node) ([]byte, error) {
 	node.Id = "-"
 	nodeVal, err := proto.Marshal(&node)
 	if err != nil {
-		return nil, RoutingErr.New("could not marshal pb node: %s", err)
+		return nil, RoutingErr.New("could not marshal node: %s", err)
 	}
 	return nodeVal, nil
 }
 
-// putNode: helper, adds or updates pb Node and ID to nodeBucketDB
+// putNode: helper, adds or updates Node and ID to nodeBucketDB
 func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
 	err := rt.nodeBucketDB.Put(nodeKey, nodeValue)
 	if err != nil {
@@ -318,7 +318,7 @@ func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []s
 	return nodeIDs, nodes, nil
 }
 
-// unmarshalNodes: helper, returns slice of reconstructed pb node pointers given a map of nodeIDs:serialized nodes
+// unmarshalNodes: helper, returns slice of reconstructed node pointers given a map of nodeIDs:serialized nodes
 func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*pb.Node, error) {
 	if len(nodeIDs) != len(nodes) {
 		return []*pb.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
@@ -336,7 +336,7 @@ func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*pb.Node, er
 	return unmarshaled, nil
 }
 
-// getUnmarshaledNodesFromBucket: helper, gets pb nodes within kbucket
+// getUnmarshaledNodesFromBucket: helper, gets nodes within kbucket
 func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*pb.Node, error) {
 	nodeIDs, err := rt.getNodeIDsWithinKBucket(bucketID)
 	if err != nil {
