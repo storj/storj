@@ -36,9 +36,9 @@ func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (da
 	case None:
 		return cipherData, nil
 	case AESGCM:
-		return DecryptAESGCM(data, key[:], nonce[12:])
+		return DecryptAESGCM(cipherData, key[:], nonce[12:])
 	case SecretBox:
-		return DecryptSecretBox(data, key, nonce)
+		return DecryptSecretBox(cipherData, key, nonce)
 	default:
 		return nil, errs.New("Invalid encryption type")
 	}
@@ -50,7 +50,7 @@ func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
 	case None:
 		return &eestream.NoopTransformer{}, nil
 	case AESGCM:
-		var nonce *[12]byte
+		nonce := new([12]byte)
 		copy((*nonce)[:], (*startingNonce)[12:])
 		return NewAESGCMEncrypter(key, nonce, encBlockSize)
 	case SecretBox:
@@ -66,7 +66,7 @@ func NewDecrypter(key *[32]byte, startingNonce *[24]byte,
 	case None:
 		return &eestream.NoopTransformer{}, nil
 	case AESGCM:
-		var nonce *[12]byte
+		nonce := new([12]byte)
 		copy((*nonce)[:], (*startingNonce)[12:])
 		return NewAESGCMEncrypter(key, nonce, encBlockSize)
 	case SecretBox:

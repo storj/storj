@@ -104,7 +104,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
-
+	
 	var startingNonce [24]byte
 	_, err = rand.Read(startingNonce[:])
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	eofReader := NewEOFReader(data)
-
+	
 	for !eofReader.isEOF() && !eofReader.hasError() {
 		var encKey [32]byte
 		_, err = rand.Read(encKey[:])
@@ -135,7 +135,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		var d *[32]byte
+		d := new([32]byte)
 		copy((*d)[:], (*derivedKey)[:])
 		encryptedEncKey, err := encryption.Encrypt(encKey[:], d, &nonce, s.encType)
 		if err != nil {

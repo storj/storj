@@ -128,6 +128,7 @@ func (p Path) DeriveContentKey(key []byte) (derivedKey *[32]byte, err error) {
 		return nil, err
 	}
 
+	derivedKey = new([32]byte)
 	copy((*derivedKey)[:], d[:32])
 	return derivedKey, nil
 }
