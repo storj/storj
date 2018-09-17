@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-package pointerdb;
+package pb;
 
 import "google/protobuf/timestamp.proto";
 
