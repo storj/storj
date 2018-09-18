@@ -20,7 +20,7 @@ type metaClosure = func(context.Context, paths.Path) (segments.Meta, error)
 type getClosure = func(context.Context, paths.Path) (ranger.Ranger, segments.Meta, error)
 type putClosure = func(context.Context, paths.Path, io.Reader, []byte, time.Time) (segments.Meta, error)
 type deleteClosure = func(context.Context, paths.Path) error
-type listClosure = func(context.Context, paths.Path, paths.Path, paths.Path, bool, int, uint32) ([]ListItem, bool, error)
+type listClosure = func(context.Context, paths.Path, paths.Path, paths.Path, bool, int, uint32) ([]segments.ListItem, bool, error)
 
 type segmentStub struct {
 	mc metaClosure
@@ -31,31 +31,34 @@ type segmentStub struct {
 }
 
 func (s *segmentStub) Meta(ctx context.Context, path paths.Path) (meta segments.Meta, err error) {
-	return meta, err
+	return s.mc(ctx, path)
 }
 
 func (s *segmentStub) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger,
 	meta segments.Meta, err error) {
-	return rr, meta, err
+	return s.gc(ctx, path)
 }
 
 func (s *segmentStub) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
 	expiration time.Time) (meta segments.Meta, err error) {
-	return meta, err
+	return s.pc(ctx, path, data, metadata, expiration)
 }
 func (s *segmentStub) Delete(ctx context.Context, path paths.Path) (err error) {
-	return err
+	return s.dc(ctx, path)
 }
 func (s *segmentStub) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 	recursive bool, limit int, metaFlags uint32) (items []segments.ListItem,
 	more bool, err error) {
-	return items, more, err
+	return s.lc(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 }
+
+var segmentErrorString = "a segment error"
+var protoErrorString = "proto: streams.MetaStreamInfo: wiretype end group for non-group"
 
 func TestMeta(t *testing.T) {
 
 	errorFn := func(ctx context.Context, path paths.Path) (segments.Meta, error) {
-		return segments.Meta{}, errors.New("an error")
+		return segments.Meta{}, errors.New(segmentErrorString)
 	}
 	emptyFn := func(ctx context.Context, path paths.Path) (segments.Meta, error) {
 		return segments.Meta{
@@ -69,7 +72,7 @@ func TestMeta(t *testing.T) {
 		return segments.Meta{
 			Modified:   time.Now(),
 			Expiration: time.Now(),
-			Size:       100,
+			Size:       10,
 			Data:       []byte("data"),
 		}, nil
 	}
@@ -86,7 +89,7 @@ func TestMeta(t *testing.T) {
 	}
 
 	for i, closure := range metaSlice {
-		for j, p := range pathSlice {
+		for j, path := range pathSlice {
 			errTag := fmt.Sprintf("Test case #%d, path #%d", i, j)
 
 			segment := &segmentStub{}
@@ -98,8 +101,17 @@ func TestMeta(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			meta, err := stream.Meta(ctx, p)
+			meta, err := stream.Meta(ctx, path)
 			if err != nil {
+				if err.Error() == segmentErrorString {
+					assert.Equal(t, segmentErrorString, err.Error(), errTag)
+					continue
+				}
+				if err.Error() == protoErrorString {
+					assert.Equal(t, protoErrorString, err.Error(), errTag)
+					continue
+				}
+
 				assert.Empty(t, meta, errTag)
 				t.Fatal(err)
 			}
