@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -19,6 +20,7 @@ import (
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/utils"
@@ -172,43 +174,63 @@ func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status)
 }
 
 type storjFile struct {
-	name  string
-	ctx   context.Context
-	store objects.Store
+	mutex           sync.Mutex
+	name            string
+	ctx             context.Context
+	store           objects.Store
+	ranger          ranger.RangeCloser
+	reader          io.ReadCloser
+	predictedOffset int64
 	nodefs.File
 }
 
 func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
-	rr, _, err := f.store.Get(f.ctx, paths.New(f.name))
-	if err != nil {
-		fmt.Println(err)
-		return nil, fuse.EIO
-	}
-	defer utils.LogClose(rr)
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 
-	length := int64(len(buf))
-	if rr.Size()-off < length {
-		length = rr.Size() - off
+	if off != f.predictedOffset {
+		f.close()
 	}
-	r, err := rr.Range(f.ctx, off, length)
-	if err != nil {
-		fmt.Println(err)
-		return nil, fuse.EIO
-	}
-	defer utils.LogClose(r)
 
-	var n int
-	for {
-		nn, err := r.Read(buf[n:])
+	var err error
+	if f.reader == nil {
+		f.ranger, _, err = f.store.Get(f.ctx, paths.New(f.name))
 		if err != nil {
-			if err != io.EOF {
-				fmt.Println(err)
-				return nil, fuse.EIO
-			}
-			break
+			fmt.Println(err)
+			return nil, fuse.EIO
 		}
-		n += nn
+		f.reader, err = f.ranger.Range(f.ctx, off, f.ranger.Size()-off)
+		if err != nil {
+			fmt.Println(err)
+			return nil, fuse.EIO
+		}
 	}
+
+	n, err := io.ReadFull(f.reader, buf)
+	if err != nil {
+		if err != io.EOF && err != io.ErrUnexpectedEOF {
+			fmt.Println(err)
+			return nil, fuse.EIO
+		}
+	}
+
+	f.predictedOffset = off + int64(n)
 
 	return fuse.ReadResultData(buf[:n]), fuse.OK
+}
+
+func (f *storjFile) Flush() fuse.Status {
+	f.close()
+	return fuse.OK
+}
+
+func (f *storjFile) close() {
+	if f.ranger != nil {
+		utils.LogClose(f.ranger)
+		f.ranger = nil
+	}
+	if f.reader != nil {
+		utils.LogClose(f.reader)
+		f.reader = nil
+	}
 }
