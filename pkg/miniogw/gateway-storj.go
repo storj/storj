@@ -257,19 +257,27 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
-		return minio.ListObjectsV2Info{}, Error.New("delimiter %s not supported", delimiter)
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, Error.New("delimiter %s not supported", delimiter)
 	}
 
 	recursive := delimiter == ""
-	var continuation paths.Path
+	var nextContinuationToken string
+
+	var startAfterPath paths.Path
+	if continuationToken != "" {
+		startAfterPath = paths.New(continuationToken)
+	}
+	if startAfterPath == nil && startAfter != "" {
+		startAfterPath = paths.New(startAfter)
+	}
 
 	var objects []minio.ObjectInfo
 	var prefixes []string
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		return minio.ListObjectsV2Info{}, err
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, err
 	}
-	items, more, err := o.List(ctx, paths.New(prefix), paths.New(startAfter), nil, recursive, maxKeys, meta.All)
+	items, more, err := o.List(ctx, paths.New(prefix), startAfterPath, nil, recursive, maxKeys, meta.All)
 	if err != nil {
 		return result, err
 	}
@@ -296,16 +304,17 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 			})
 		}
 
-		continuation = items[len(items)-1].Path
+		nextContinuationToken = items[len(items)-1].Path.String() + "\x00"
 	}
 
 	result = minio.ListObjectsV2Info{
-		IsTruncated: more,
-		Objects:     objects,
-		Prefixes:    prefixes,
+		IsTruncated:       more,
+		ContinuationToken: continuationToken,
+		Objects:           objects,
+		Prefixes:          prefixes,
 	}
 	if more {
-		result.ContinuationToken = continuation.String()
+		result.NextContinuationToken = nextContinuationToken
 	}
 
 	return result, err
