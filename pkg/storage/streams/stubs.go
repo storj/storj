@@ -43,9 +43,11 @@ func (s *segmentStub) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	expiration time.Time) (meta segments.Meta, err error) {
 	return s.pc(ctx, path, data, metadata, expiration)
 }
+
 func (s *segmentStub) Delete(ctx context.Context, path paths.Path) (err error) {
 	return s.dc(ctx, path)
 }
+
 func (s *segmentStub) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
 	recursive bool, limit int, metaFlags uint32) (items []segments.ListItem,
 	more bool, err error) {

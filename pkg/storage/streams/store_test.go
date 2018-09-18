@@ -29,8 +29,10 @@ func TestMeta(t *testing.T) {
 		stream, err := NewStreamStore(segment, test.size)
 		if err != nil {
 			if err.Error() == test.errorString {
+				assert.Equal(t, test.errorString, err.Error(), errTag)
 				continue
 			}
+
 			assert.Empty(t, stream, errTag)
 			t.Fatal(err)
 		}
