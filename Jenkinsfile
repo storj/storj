@@ -21,21 +21,21 @@ node('node') {
     }
 
     stage('Push Images') {
-      if (env.BRANCH_NAME == "master") {
-        echo 'Push to Repo'
-        sh 'make push-images'
-      }
-
+      echo 'Push to Repo'
+      sh 'make push-images'
       echo "Current build result: ${currentBuild.result}"
     }
 
     if (env.BRANCH_NAME == "master") {
       /* This should only deploy to staging if the branch is master */
-      stage('Deploy') {
+      stage('Deploy to staging') {
         sh 'make deploy'
-        sh 'make binaries-upload'
         echo "Current build result: ${currentBuild.result}"
       }
+    }
+    stage('Upload') {
+      sh 'make binaries-upload'
+      echo "Current build result: ${currentBuild.result}"
     }
 
   }
@@ -44,15 +44,13 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    /*
-    mail body: "project build error is here: ${env.BUILD_URL}" ,
-      from: 'build@storj.io',
-      replyTo: 'build@storj.io',
-      subject: 'project build failed',
-      to: "${env.CHANGE_AUTHOR_EMAIL}"
+    mail from: 'builds@storj.io',
+      replyTo: 'builds@storj.io',
+      to: 'builds@storj.io',
+      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
+      body: "Project build log: ${env.BUILD_URL}"
 
       throw err
-    */
 
   }
   finally {
