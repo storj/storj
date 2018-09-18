@@ -102,7 +102,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	if destFile == "-" {
 		f = os.Stdout
 	} else {
-		f, err = os.Open(destFile)
+		f, err = os.Create(destFile)
 		if err != nil {
 			return err
 		}
