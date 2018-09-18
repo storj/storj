@@ -5,7 +5,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-package overlay;
+package pb;
 
 // NodeTransport is an enum of possible transports for the overlay network
 enum NodeTransport {
