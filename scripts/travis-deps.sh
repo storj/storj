@@ -11,8 +11,14 @@ mv $HOME/gopath{-staging,}
 export TRAVIS_BUILD_DIR=$HOME/gopath/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
 
-virtualenv my_py3 --python=/usr/bin/python3.4
-source my_py3/bin/activate
-pip install --upgrade awscli
+mkdir -p $HOME/awscli
+pushd $HOME/awscli
+
+curl "https://s3.amazonaws.com/aws-cli/awscli-bundle-1.16.14.zip" -o "awscli-bundle.zip"
+unzip awscli-bundle.zip
+./awscli-bundle/install -b ~/bin/aws
+export PATH=~/bin:$PATH
+
+popd
 
 set +x
