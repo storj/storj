@@ -161,6 +161,16 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 	return entries, nil
 }
 
+func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
+	err := sf.store.Delete(sf.ctx, paths.New(name))
+	if err != nil {
+		fmt.Println(err)
+		return fuse.EIO
+	}
+
+	return fuse.OK
+}
+
 type storjFile struct {
 	name  string
 	ctx   context.Context
