@@ -196,8 +196,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	return bucketItems, err
 }
 
-func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
-	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
@@ -248,6 +247,65 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	}
 	if more {
 		result.NextMarker = startAfter.String()
+	}
+
+	return result, err
+}
+
+// ListObjectsV2 - Not implemented stub
+func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if delimiter != "" && delimiter != "/" {
+		return minio.ListObjectsV2Info{}, Error.New("delimiter %s not supported", delimiter)
+	}
+
+	recursive := delimiter == ""
+	var continuation paths.Path
+
+	var objects []minio.ObjectInfo
+	var prefixes []string
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return minio.ListObjectsV2Info{}, err
+	}
+	items, more, err := o.List(ctx, paths.New(prefix), paths.New(startAfter), nil, recursive, maxKeys, meta.All)
+	if err != nil {
+		return result, err
+	}
+
+	if len(items) > 0 {
+		for _, item := range items {
+			path := item.Path
+			if recursive {
+				path = path.Prepend(prefix)
+			}
+			if item.IsPrefix {
+				prefixes = append(prefixes, path.String()+"/")
+				continue
+			}
+			objects = append(objects, minio.ObjectInfo{
+				Bucket:      bucket,
+				IsDir:       false,
+				Name:        path.String(),
+				ModTime:     item.Meta.Modified,
+				Size:        item.Meta.Size,
+				ContentType: item.Meta.ContentType,
+				UserDefined: item.Meta.UserDefined,
+				ETag:        item.Meta.Checksum,
+			})
+		}
+
+		continuation = items[len(items)-1].Path
+	}
+
+	result = minio.ListObjectsV2Info{
+		IsTruncated: more,
+		Objects:     objects,
+		Prefixes:    prefixes,
+	}
+	if more {
+		result.ContinuationToken = continuation.String()
 	}
 
 	return result, err
