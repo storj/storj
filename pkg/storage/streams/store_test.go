@@ -80,22 +80,29 @@ func TestMeta(t *testing.T) {
 		metaFn,
 	}
 
+	pathSlice := []paths.Path{
+		paths.New(""),
+		paths.New("bucket"),
+	}
+
 	for i, closure := range metaSlice {
-		errTag := fmt.Sprintf("Test case #%d", i)
+		for j, p := range pathSlice {
+			errTag := fmt.Sprintf("Test case #%d, path #%d", i, j)
 
-		segment := &segmentStub{}
-		segment.mc = closure
+			segment := &segmentStub{}
+			segment.mc = closure
 
-		stream, err := NewStreamStore(segment, int64(10))
-		if err != nil {
-			assert.Empty(t, stream, errTag)
-			t.Fatal(err)
-		}
+			stream, err := NewStreamStore(segment, int64(10))
+			if err != nil {
+				assert.Empty(t, stream, errTag)
+				t.Fatal(err)
+			}
 
-		meta, err := stream.Meta(ctx, paths.New("bucket"))
-		if err != nil {
-			assert.Empty(t, meta, errTag)
-			t.Fatal(err)
+			meta, err := stream.Meta(ctx, p)
+			if err != nil {
+				assert.Empty(t, meta, errTag)
+				t.Fatal(err)
+			}
 		}
 	}
 }
