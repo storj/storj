@@ -17,11 +17,10 @@ import (
 	mock_eestream "storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
 	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
 	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
-	opb "storj.io/storj/protos/overlay"
-	ppb "storj.io/storj/protos/pointerdb"
 )
 
 var (
@@ -63,10 +62,10 @@ func TestSegmentStoreMeta(t *testing.T) {
 
 	for _, tt := range []struct {
 		pathInput     string
-		returnPointer *ppb.Pointer
+		returnPointer *pb.Pointer
 		returnMeta    Meta
 	}{
-		{"path/1/2/3", &ppb.Pointer{CreationDate: pExp, ExpirationDate: pExp}, Meta{Modified: mExp, Expiration: mExp}},
+		{"path/1/2/3", &pb.Pointer{CreationDate: pExp, ExpirationDate: pExp}, Meta{Modified: mExp, Expiration: mExp}},
 	} {
 		p := paths.New(tt.pathInput)
 
@@ -115,7 +114,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(), gomock.Any(),
-			).Return([]*opb.Node{
+			).Return([]*pb.Node{
 				{Id: "im-a-node"},
 			}, nil),
 			mockEC.EXPECT().Put(
@@ -192,12 +191,12 @@ func TestSegmentStoreGetInline(t *testing.T) {
 	for _, tt := range []struct {
 		pathInput     string
 		thresholdSize int
-		pointerType   ppb.Pointer_DataType
+		pointerType   pb.Pointer_DataType
 		inlineContent []byte
 		size          int64
 		metadata      []byte
 	}{
-		{"path/1/2/3", 10, ppb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
+		{"path/1/2/3", 10, pb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)
@@ -215,7 +214,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
-			).Return(&ppb.Pointer{
+			).Return(&pb.Pointer{
 				Type:           tt.pointerType,
 				InlineSegment:  tt.inlineContent,
 				CreationDate:   someTime,
@@ -242,11 +241,11 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 	for _, tt := range []struct {
 		pathInput     string
 		thresholdSize int
-		pointerType   ppb.Pointer_DataType
+		pointerType   pb.Pointer_DataType
 		size          int64
 		metadata      []byte
 	}{
-		{"path/1/2/3", 10, ppb.Pointer_REMOTE, int64(3), []byte("metadata")},
+		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata")},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)
@@ -264,18 +263,18 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
-			).Return(&ppb.Pointer{
+			).Return(&pb.Pointer{
 				Type: tt.pointerType,
-				Remote: &ppb.RemoteSegment{
-					Redundancy: &ppb.RedundancyScheme{
-						Type:             ppb.RedundancyScheme_RS,
+				Remote: &pb.RemoteSegment{
+					Redundancy: &pb.RedundancyScheme{
+						Type:             pb.RedundancyScheme_RS,
 						MinReq:           1,
 						Total:            2,
 						RepairThreshold:  1,
 						SuccessThreshold: 2,
 					},
 					PieceId:      "here's my piece id",
-					RemotePieces: []*ppb.RemotePiece{},
+					RemotePieces: []*pb.RemotePiece{},
 				},
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
@@ -305,12 +304,12 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 	for _, tt := range []struct {
 		pathInput     string
 		thresholdSize int
-		pointerType   ppb.Pointer_DataType
+		pointerType   pb.Pointer_DataType
 		inlineContent []byte
 		size          int64
 		metadata      []byte
 	}{
-		{"path/1/2/3", 10, ppb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
+		{"path/1/2/3", 10, pb.Pointer_INLINE, []byte("000"), int64(3), []byte("metadata")},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)
@@ -328,7 +327,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
-			).Return(&ppb.Pointer{
+			).Return(&pb.Pointer{
 				Type:           tt.pointerType,
 				InlineSegment:  tt.inlineContent,
 				CreationDate:   someTime,
@@ -358,11 +357,11 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 	for _, tt := range []struct {
 		pathInput     string
 		thresholdSize int
-		pointerType   ppb.Pointer_DataType
+		pointerType   pb.Pointer_DataType
 		size          int64
 		metadata      []byte
 	}{
-		{"path/1/2/3", 10, ppb.Pointer_REMOTE, int64(3), []byte("metadata")},
+		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata")},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)
@@ -380,18 +379,18 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
-			).Return(&ppb.Pointer{
+			).Return(&pb.Pointer{
 				Type: tt.pointerType,
-				Remote: &ppb.RemoteSegment{
-					Redundancy: &ppb.RedundancyScheme{
-						Type:             ppb.RedundancyScheme_RS,
+				Remote: &pb.RemoteSegment{
+					Redundancy: &pb.RedundancyScheme{
+						Type:             pb.RedundancyScheme_RS,
 						MinReq:           1,
 						Total:            2,
 						RepairThreshold:  1,
 						SuccessThreshold: 2,
 					},
 					PieceId:      "here's my piece id",
-					RemotePieces: []*ppb.RemotePiece{},
+					RemotePieces: []*pb.RemotePiece{},
 				},
 				CreationDate:   someTime,
 				ExpirationDate: someTime,
@@ -453,8 +452,8 @@ func TestSegmentStoreList(t *testing.T) {
 			).Return([]pdb.ListItem{
 				{
 					Path: listedPath,
-					Pointer: &ppb.Pointer{
-						Type:           ppb.Pointer_INLINE,
+					Pointer: &pb.Pointer{
+						Type:           pb.Pointer_INLINE,
 						InlineSegment:  tt.inlineContent,
 						CreationDate:   someTime,
 						ExpirationDate: someTime,

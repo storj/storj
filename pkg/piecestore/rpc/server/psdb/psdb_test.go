@@ -13,7 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
-	pb "storj.io/storj/protos/piecestore"
+	"storj.io/storj/pkg/pb"
 
 	"golang.org/x/net/context"
 )

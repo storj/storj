@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"storj.io/storj/pkg/pb"
 )
 
 func TestNewServer(t *testing.T) {
@@ -32,23 +32,23 @@ func TestNewServer(t *testing.T) {
 
 func newMockServer(opts ...grpc.ServerOption) *grpc.Server {
 	grpcServer := grpc.NewServer(opts...)
-	proto.RegisterOverlayServer(grpcServer, &TestMockOverlay{})
+	pb.RegisterOverlayServer(grpcServer, &TestMockOverlay{})
 
 	return grpcServer
 }
 
 type TestMockOverlay struct{}
 
-func (o *TestMockOverlay) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
-	return &proto.FindStorageNodesResponse{}, nil
+func (o *TestMockOverlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (*pb.FindStorageNodesResponse, error) {
+	return &pb.FindStorageNodesResponse{}, nil
 }
 
-func (o *TestMockOverlay) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
-	return &proto.LookupResponse{}, nil
+func (o *TestMockOverlay) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
+	return &pb.LookupResponse{}, nil
 }
 
-func (o *TestMockOverlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
-	return &proto.LookupResponses{}, nil
+func (o *TestMockOverlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
+	return &pb.LookupResponses{}, nil
 }
 
 func TestNewServerNilArgs(t *testing.T) {

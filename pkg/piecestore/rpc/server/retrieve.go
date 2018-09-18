@@ -15,9 +15,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()

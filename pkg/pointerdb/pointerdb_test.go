@@ -19,8 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
-	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )

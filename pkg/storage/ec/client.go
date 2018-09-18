@@ -14,28 +14,27 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/overlay"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) error
-	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
 		pieceID client.PieceID, size int64) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) error
 }
 
 type dialer interface {
-	dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error)
+	dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error)
 }
 
 type defaultDialer struct {
@@ -43,7 +42,7 @@ type defaultDialer struct {
 	identity *provider.FullIdentity
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
+func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
@@ -64,7 +63,7 @@ func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Cli
 	return &ecClient{d: &d, mbm: mbm}
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
 	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodes) != rs.TotalCount() {
@@ -81,7 +80,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	}
 	errs := make(chan error, len(readers))
 	for i, n := range nodes {
-		go func(i int, n *proto.Node) {
+		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -116,7 +115,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.Re
 	return nil
 }
 
-func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
+func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
 	pieceID client.PieceID, size int64) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -133,7 +132,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	}
 	ch := make(chan rangerInfo, len(nodes))
 	for i, n := range nodes {
-		go func(i int, n *proto.Node) {
+		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -165,11 +164,11 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
-		go func(n *proto.Node) {
+		go func(n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -212,7 +211,7 @@ func collectErrors(errs <-chan error, size int) []error {
 	return result
 }
 
-func unique(nodes []*proto.Node) bool {
+func unique(nodes []*pb.Node) bool {
 	if len(nodes) < 2 {
 		return true
 	}
@@ -244,7 +243,7 @@ func calcPadded(size int64, blockSize int) int64 {
 type lazyPieceRanger struct {
 	ranger ranger.Ranger
 	dialer dialer
-	node   *proto.Node
+	node   *pb.Node
 	id     client.PieceID
 	size   int64
 	pba    *pb.PayerBandwidthAllocation

@@ -10,8 +10,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // StreamWriter creates a StreamWriter for writing data to the piece store server

@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -90,13 +90,13 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 
 	for i, a := range nodes {
 		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-		err := c.Put(i, proto.Node{
+		err := c.Put(i, pb.Node{
 			Id: i,
-			Address: &proto.NodeAddress{
+			Address: &pb.NodeAddress{
 				Transport: 0,
 				Address:   a,
 			},
-			Restrictions: &proto.NodeRestrictions{
+			Restrictions: &pb.NodeRestrictions{
 				FreeBandwidth: 2000000000,
 				FreeDisk:      2000000000,
 			},

@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -21,6 +21,6 @@ var (
 
 // Client defines the interface to an transport client.
 type Client interface {
-	DialUnauthenticated(ctx context.Context, addr proto.NodeAddress) (*grpc.ClientConn, error)
-	DialNode(ctx context.Context, node *proto.Node) (*grpc.ClientConn, error)
+	DialUnauthenticated(ctx context.Context, addr pb.NodeAddress) (*grpc.ClientConn, error)
+	DialNode(ctx context.Context, node *pb.Node) (*grpc.ClientConn, error)
 }
