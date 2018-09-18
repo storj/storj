@@ -42,6 +42,7 @@ func cleanAbsPath(p string) string {
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
+	var err error
 	if destObj.Scheme == "" {
 		return fmt.Errorf("Invalid destination")
 	}
@@ -57,11 +58,16 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		}
 	}
 
-	f, err := os.Open(srcFile)
-	if err != nil {
-		return err
+	var f *os.File
+	if srcFile == "-" {
+		f = os.Stdin
+	} else {
+		f, err = os.Open(srcFile)
+		if err != nil {
+			return err
+		}
+		defer utils.LogClose(f)
 	}
-	defer utils.LogClose(f)
 
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
 	if err != nil {
@@ -83,6 +89,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
 func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
+	var err error
 	if srcObj.Scheme == "" {
 		return fmt.Errorf("Invalid source")
 	}
@@ -96,11 +103,16 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		destFile = filepath.Join(destFile, filepath.Base(srcObj.Path))
 	}
 
-	f, err := os.Create(destFile)
-	if err != nil {
-		return err
+	var f *os.File
+	if destFile == "-" {
+		f = os.Stdout
+	} else {
+		f, err = os.Open(destFile)
+		if err != nil {
+			return err
+		}
+		defer utils.LogClose(f)
 	}
-	defer utils.LogClose(f)
 
 	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
 	if err != nil {
@@ -118,7 +130,9 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		return err
 	}
 
-	fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	if destFile != "-" {
+		fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	}
 
 	return nil
 }
