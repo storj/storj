@@ -104,7 +104,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
-	
+
 	var startingNonce [24]byte
 	_, err = rand.Read(startingNonce[:])
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	eofReader := NewEOFReader(data)
-	
+
 	for !eofReader.isEOF() && !eofReader.hasError() {
 		var encKey [32]byte
 		_, err = rand.Read(encKey[:])
@@ -146,12 +146,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
-		largerThan, err := peekReader.IsLargerThan(encrypter.InBlockSize())
+		isStreamEncrypted, err := peekReader.IsLargerThan(encrypter.InBlockSize())
 		if err != nil {
 			return Meta{}, err
 		}
 		var transformedReader io.Reader
-		if largerThan {
+		if isStreamEncrypted {
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
 			transformedReader = eestream.TransformReader(paddedReader, encrypter, 0)
 		} else {

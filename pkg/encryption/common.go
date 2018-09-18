@@ -68,9 +68,9 @@ func NewDecrypter(key *[32]byte, startingNonce *[24]byte,
 	case AESGCM:
 		nonce := new([12]byte)
 		copy((*nonce)[:], (*startingNonce)[12:])
-		return NewAESGCMEncrypter(key, nonce, encBlockSize)
+		return NewAESGCMDecrypter(key, nonce, encBlockSize)
 	case SecretBox:
-		return NewSecretboxEncrypter(key, startingNonce, encBlockSize)
+		return NewSecretboxDecrypter(key, startingNonce, encBlockSize)
 	default:
 		return nil, errs.New("Invalid encryption type")
 	}
