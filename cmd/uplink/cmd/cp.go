@@ -16,7 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"gopkg.in/cheggaaa/pb.v1"
+	"github.com/cheggaaa/pb"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
