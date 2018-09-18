@@ -153,15 +153,15 @@ func TestConnectionSuccess(t *testing.T) {
 		address *pb.NodeAddress
 	}{
 		{testID: "Update Node",
-		node: node1,
-		id: id,
-		address: address1,
-	},
+			node:    node1,
+			id:      id,
+			address: address1,
+		},
 		{testID: "Add Node",
-		node: node2,
-		id: id2,
-		address: address2,
-	},
+			node:    node2,
+			id:      id2,
+			address: address2,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
