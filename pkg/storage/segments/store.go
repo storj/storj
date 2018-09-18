@@ -14,17 +14,16 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/storage/ec"
-	opb "storj.io/storj/protos/overlay"
-	ppb "storj.io/storj/protos/pointerdb"
 )
 
 var (
@@ -91,7 +90,7 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata []byte, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var p *ppb.Pointer
+	var p *pb.Pointer
 
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
@@ -104,8 +103,8 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		return Meta{}, err
 	}
 	if !remoteSized {
-		p = &ppb.Pointer{
-			Type:           ppb.Pointer_INLINE,
+		p = &pb.Pointer{
+			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
 			Size:           int64(len(peekReader.thresholdBuf)),
 			ExpirationDate: exp,
@@ -146,21 +145,21 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*opb.Node, pieceID client.PieceID, readerSize int64,
-	exp *timestamp.Timestamp, metadata []byte) (pointer *ppb.Pointer, err error) {
-	var remotePieces []*ppb.RemotePiece
+func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceID, readerSize int64,
+	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
-		remotePieces = append(remotePieces, &ppb.RemotePiece{
+		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   nodes[i].Id,
 		})
 	}
 
-	pointer = &ppb.Pointer{
-		Type: ppb.Pointer_REMOTE,
-		Remote: &ppb.RemoteSegment{
-			Redundancy: &ppb.RedundancyScheme{
-				Type:             ppb.RedundancyScheme_RS,
+	pointer = &pb.Pointer{
+		Type: pb.Pointer_REMOTE,
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
 				MinReq:           int32(s.rs.RequiredCount()),
 				Total:            int32(s.rs.TotalCount()),
 				RepairThreshold:  int32(s.rs.Min),
@@ -187,7 +186,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
-	if pr.GetType() == ppb.Pointer_REMOTE {
+	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
 		nodes, err := s.lookupNodes(ctx, seg)
@@ -211,7 +210,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	return rr, convertMeta(pr), nil
 }
 
-func makeErasureScheme(rs *ppb.RedundancyScheme) (eestream.ErasureScheme, error) {
+func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
 	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -229,7 +228,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 		return Error.Wrap(err)
 	}
 
-	if pr.GetType() == ppb.Pointer_REMOTE {
+	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
 		nodes, err := s.lookupNodes(ctx, seg)
@@ -249,7 +248,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *ppb.RemoteSegment) (nodes []*opb.Node, err error) {
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
 	pieces := seg.GetRemotePieces()
 	var nodeIds []dht.NodeID
 	for _, p := range pieces {
@@ -286,7 +285,7 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
 }
 
 // convertMeta converts pointer to segment metadata
-func convertMeta(pr *ppb.Pointer) Meta {
+func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
 		Modified:   convertTime(pr.GetCreationDate()),
 		Expiration: convertTime(pr.GetExpirationDate()),

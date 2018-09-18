@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -59,7 +59,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
-	kad, err := NewKademlia(server.Identity().ID, []proto.Node{*in}, host, port)
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, host, port)
 	if err != nil {
 		return err
 	}

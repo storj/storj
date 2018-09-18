@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/kademlia"
-	proto "storj.io/storj/protos/overlay" // naming proto to avoid confusion with this package
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
@@ -43,7 +43,7 @@ func TestFindStorageNodes(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	r, err := c.FindStorageNodes(context.Background(), &proto.FindStorageNodesRequest{Opts: &proto.OverlayOptions{Amount: 2}})
+	r, err := c.FindStorageNodes(context.Background(), &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 
@@ -71,7 +71,7 @@ func TestOverlayLookup(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	r, err := c.Lookup(context.Background(), &proto.LookupRequest{NodeID: id.String()})
+	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeID: id.String()})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 }
@@ -98,9 +98,9 @@ func TestOverlayBulkLookup(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	req1 := &proto.LookupRequest{NodeID: id.String()}
-	req2 := &proto.LookupRequest{NodeID: id2.String()}
-	rs := &proto.LookupRequests{Lookuprequest: []*proto.LookupRequest{req1, req2}}
+	req1 := &pb.LookupRequest{NodeID: id.String()}
+	req2 := &pb.LookupRequest{NodeID: id2.String()}
+	rs := &pb.LookupRequests{Lookuprequest: []*pb.LookupRequest{req1, req2}}
 	r, err := c.BulkLookup(context.Background(), rs)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)

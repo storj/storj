@@ -9,16 +9,16 @@ import (
 	"math/rand"
 	"time"
 
-	pb "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
 // Returns true if node was added successfully
-func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
+func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	nodeKey := storage.Key(node.Id)
@@ -100,7 +100,7 @@ func (rt *RoutingTable) addNode(node *proto.Node) (bool, error) {
 
 // updateNode will update the node information given that
 // the node is already in the routing table.
-func (rt *RoutingTable) updateNode(node *proto.Node) error {
+func (rt *RoutingTable) updateNode(node *pb.Node) error {
 	marshaledNode, err := marshalNode(*node)
 	if err != nil {
 		return err
@@ -141,17 +141,17 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 	return nil
 }
 
-// marshalNode: helper, sanitizes proto Node for db insertion
-func marshalNode(node proto.Node) ([]byte, error) {
+// marshalNode: helper, sanitizes Node for db insertion
+func marshalNode(node pb.Node) ([]byte, error) {
 	node.Id = "-"
-	nodeVal, err := pb.Marshal(&node)
+	nodeVal, err := proto.Marshal(&node)
 	if err != nil {
-		return nil, RoutingErr.New("could not marshal proto node: %s", err)
+		return nil, RoutingErr.New("could not marshal node: %s", err)
 	}
 	return nodeVal, nil
 }
 
-// putNode: helper, adds or updates proto Node and ID to nodeBucketDB
+// putNode: helper, adds or updates Node and ID to nodeBucketDB
 func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) error {
 	err := rt.nodeBucketDB.Put(nodeKey, nodeValue)
 	if err != nil {
@@ -318,15 +318,15 @@ func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []s
 	return nodeIDs, nodes, nil
 }
 
-// unmarshalNodes: helper, returns slice of reconstructed proto node pointers given a map of nodeIDs:serialized nodes
-func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*proto.Node, error) {
+// unmarshalNodes: helper, returns slice of reconstructed node pointers given a map of nodeIDs:serialized nodes
+func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*pb.Node, error) {
 	if len(nodeIDs) != len(nodes) {
-		return []*proto.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
+		return []*pb.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
 	}
-	var unmarshaled []*proto.Node
+	var unmarshaled []*pb.Node
 	for i, n := range nodes {
-		node := &proto.Node{}
-		err := pb.Unmarshal(n, node)
+		node := &pb.Node{}
+		err := proto.Unmarshal(n, node)
 		if err != nil {
 			return unmarshaled, RoutingErr.New("could not unmarshal node %s", err)
 		}
@@ -336,19 +336,19 @@ func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*proto.Node,
 	return unmarshaled, nil
 }
 
-// getUnmarshaledNodesFromBucket: helper, gets proto nodes within kbucket
-func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*proto.Node, error) {
+// getUnmarshaledNodesFromBucket: helper, gets nodes within kbucket
+func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*pb.Node, error) {
 	nodeIDs, err := rt.getNodeIDsWithinKBucket(bucketID)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get nodeIds within kbucket %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not get nodeIds within kbucket %s", err)
 	}
 	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get node values %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not get node values %s", err)
 	}
 	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
 	}
 	return unmarshaledNodes, nil
 }

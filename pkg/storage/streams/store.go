@@ -19,10 +19,10 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
-	streamspb "storj.io/storj/protos/streams"
 )
 
 var mon = monkit.Package()
@@ -37,7 +37,7 @@ type Meta struct {
 
 // convertMeta converts segment metadata to stream metadata
 func convertMeta(segmentMeta segments.Meta) (Meta, error) {
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err := proto.Unmarshal(segmentMeta.Data, &msi)
 	if err != nil {
 		return Meta{}, err
@@ -181,7 +181,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	lastSegmentPath := path.Prepend("l")
 
-	md := streamspb.MetaStreamInfo{
+	md := pb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
@@ -223,7 +223,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
 		return nil, Meta{}, err
@@ -291,7 +291,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
 		return err

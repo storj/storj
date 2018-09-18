@@ -4,11 +4,11 @@
 package kademlia
 
 import (
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
-func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *proto.Node) {
+func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *pb.Node) {
 	bucketID := string(kadBucketID)
 	nodes := rt.replacementCache[bucketID]
 	nodes = append(nodes, node)

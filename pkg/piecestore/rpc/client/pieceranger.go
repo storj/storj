@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // Error is the error class for pieceRanger

@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -65,7 +65,7 @@ func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
+func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
 	b, err := o.DB.Get([]byte(key))
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 		return nil, nil
 	}
 
-	na := &overlay.Node{}
+	na := &pb.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (o *Cache) Get(ctx context.Context, key string) (*overlay.Node, error) {
 }
 
 // GetAll looks up the provided nodeIDs from the overlay cache
-func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, error) {
+func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 	if len(keys) == 0 {
 		return nil, OverlayError.New("no keys provided")
 	}
@@ -96,13 +96,13 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, err
 	if err != nil {
 		return nil, err
 	}
-	var ns []*overlay.Node
+	var ns []*pb.Node
 	for _, v := range vs {
 		if v == nil {
 			ns = append(ns, nil)
 			continue
 		}
-		na := &overlay.Node{}
+		na := &pb.Node{}
 		err := proto.Unmarshal(v, na)
 		if err != nil {
 			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
@@ -113,7 +113,7 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*overlay.Node, err
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID string, value overlay.Node) error {
+func (o *Cache) Put(nodeID string, value pb.Node) error {
 	data, err := proto.Marshal(&value)
 	if err != nil {
 		return err
