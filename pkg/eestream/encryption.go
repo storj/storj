@@ -1,11 +1,10 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package encryption
+package eestream
 
 import (
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/eestream"
 )
 
 const (
@@ -13,9 +12,6 @@ const (
 	AESGCM
 	SecretBox
 )
-
-// Error is the default encryption errs class
-var Error = errs.Class("encryption error")
 
 func Encrypt(data []byte, key *[32]byte, nonce *[24]byte, encType int) (cipherData []byte, err error) {
 	switch encType {
@@ -45,10 +41,10 @@ func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (da
 }
 
 func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
-	encBlockSize, encType int) (eestream.Transformer, error) {
+	encBlockSize, encType int) (Transformer, error) {
 	switch encType {
 	case None:
-		return &eestream.NoopTransformer{}, nil
+		return &NoopTransformer{}, nil
 	case AESGCM:
 		nonce := new([12]byte)
 		copy((*nonce)[:], (*startingNonce)[12:])
@@ -61,10 +57,10 @@ func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
 }
 
 func NewDecrypter(key *[32]byte, startingNonce *[24]byte,
-	encBlockSize, encType int) (eestream.Transformer, error) {
+	encBlockSize, encType int) (Transformer, error) {
 	switch encType {
 	case None:
-		return &eestream.NoopTransformer{}, nil
+		return &NoopTransformer{}, nil
 	case AESGCM:
 		nonce := new([12]byte)
 		copy((*nonce)[:], (*startingNonce)[12:])

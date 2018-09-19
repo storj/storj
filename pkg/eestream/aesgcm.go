@@ -1,14 +1,13 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package encryption
+package eestream
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
 
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/eestream"
 )
 
 type aesgcmEncrypter struct {
@@ -33,7 +32,7 @@ type aesgcmEncrypter struct {
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
 func NewAESGCMEncrypter(key *[32]byte, startingNonce *[12]byte,
-	encryptedBlockSize int) (eestream.Transformer, error) {
+	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err
@@ -94,7 +93,7 @@ type aesgcmDecrypter struct {
 // through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
 func NewAESGCMDecrypter(key *[32]byte, startingNonce *[12]byte,
-	encryptedBlockSize int) (eestream.Transformer, error) {
+	encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err

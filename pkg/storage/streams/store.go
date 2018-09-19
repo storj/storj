@@ -17,7 +17,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
@@ -130,14 +129,14 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 		var encrypter eestream.Transformer
 
-		encrypter, err := encryption.NewEncrypter(&encKey, &nonce, s.encBlockSize, s.encType)
+		encrypter, err := eestream.NewEncrypter(&encKey, &nonce, s.encBlockSize, s.encType)
 		if err != nil {
 			return Meta{}, err
 		}
 
 		d := new([32]byte)
 		copy((*d)[:], (*derivedKey)[:])
-		encryptedEncKey, err := encryption.Encrypt(encKey[:], d, &nonce, s.encType)
+		encryptedEncKey, err := eestream.Encrypt(encKey[:], d, &nonce, s.encType)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -159,7 +158,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			if err != nil {
 				return Meta{}, err
 			}
-			cipherData, err := encryption.Encrypt(data, &encKey, &nonce, s.encType)
+			cipherData, err := eestream.Encrypt(data, &encKey, &nonce, s.encType)
 			if err != nil {
 				return Meta{}, err
 			}
@@ -368,13 +367,13 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			return nil, err
 		}
 		encryptedEncKey := m.Data
-		e, err := encryption.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce, lr.encType)
+		e, err := eestream.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce, lr.encType)
 		if err != nil {
 			return nil, err
 		}
 		var encKey [32]byte
 		copy(encKey[:], e)
-		decrypter, err := encryption.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize, lr.encType)
+		decrypter, err := eestream.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize, lr.encType)
 		if err != nil {
 			return nil, err
 		}
@@ -389,7 +388,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			if err != nil {
 				return nil, err
 			}
-			data, err := encryption.Decrypt(cipherData, &encKey, lr.startingNonce, lr.encType)
+			data, err := eestream.Decrypt(cipherData, &encKey, lr.startingNonce, lr.encType)
 			if err != nil {
 				return nil, err
 			}

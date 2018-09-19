@@ -124,6 +124,7 @@ func (t *transformedRanger) Size() int64 {
 	return blocks * int64(t.t.OutBlockSize())
 }
 
+// TODO(moby) this function is also defined in the eestream package. We should abstract it from eestream and encryption
 // calcEncompassingBlocks is a useful helper function that, given an offset,
 // length, and blockSize, will tell you which blocks contain the requested
 // offset and length

@@ -1,12 +1,11 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package encryption
+package eestream
 
 import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
-	"storj.io/storj/pkg/eestream"
 )
 
 type secretboxEncrypter struct {
@@ -29,7 +28,7 @@ type secretboxEncrypter struct {
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
 func NewSecretboxEncrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (eestream.Transformer, error) {
+	encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -76,7 +75,7 @@ type secretboxDecrypter struct {
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
 func NewSecretboxDecrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (eestream.Transformer, error) {
+	encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
