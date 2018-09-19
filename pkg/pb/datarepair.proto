@@ -5,8 +5,8 @@ syntax = "proto3";
 import "pointerdb.proto";
 package pb;
 
-// QueueItem
-message QueueItem {
+// RepairSegment ..
+message RepairSegment {
    pb.RemoteSegment remote = 1;
-   string pointerPath = 2;
+   string path = 2;
 }

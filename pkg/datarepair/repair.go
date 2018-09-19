@@ -13,6 +13,5 @@ type RepairQueue interface {
 	AddAll(qis []*pb.QueueItem) error
 	Remove(qi *pb.QueueItem) error
 	GetNext() pb.QueueItem
-	GetAll() []*pb.QueueItem
 	GetSize() int
 }
