@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
@@ -52,18 +52,18 @@ func TestGetBucket(t *testing.T) {
 		ok       bool
 	}{
 		{nodeID: node.Id,
-			expected: &KBucket{nodes: []*proto.Node{node, node2}},
+			expected: &KBucket{nodes: []*pb.Node{node, node2}},
 			ok:       true,
 		},
 		{nodeID: node2.Id,
-			expected: &KBucket{nodes: []*proto.Node{node, node2}},
+			expected: &KBucket{nodes: []*pb.Node{node, node2}},
 			ok:       true,
 		},
 	}
 	for i, v := range cases {
 		b, e := rt.GetBucket(node2.Id)
 		for j, w := range v.expected.nodes {
-			if !assert.True(t, pb.Equal(w, b.Nodes()[j])) {
+			if !assert.True(t, proto.Equal(w, b.Nodes()[j])) {
 				t.Logf("case %v failed expected: ", i)
 			}
 		}
@@ -81,12 +81,12 @@ func TestGetBuckets(t *testing.T) {
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*proto.Node{node, node2}
+	expected := []*pb.Node{node, node2}
 	buckets, err := rt.GetBuckets()
 	assert.NoError(t, err)
 	for _, v := range buckets {
 		for j, w := range v.Nodes() {
-			assert.True(t, pb.Equal(expected[j], w))
+			assert.True(t, proto.Equal(expected[j], w))
 		}
 	}
 }
@@ -99,23 +99,23 @@ func TestFindNear(t *testing.T) {
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*proto.Node{node}
+	expected := []*pb.Node{node}
 	nodes, err := rt.FindNear(StringToNodeID(node.Id), 1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
 	node3 := mockNode("CC")
-	expected = []*proto.Node{node2, node}
+	expected = []*pb.Node{node2, node}
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 2)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
-	expected = []*proto.Node{node2}
+	expected = []*pb.Node{node2}
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
 
-	expected = []*proto.Node{node2, node}
+	expected = []*pb.Node{node2, node}
 	nodes, err = rt.FindNear(StringToNodeID(node3.Id), 3)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, nodes)
@@ -127,10 +127,10 @@ func TestConnectionSuccess(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, []byte(id))
 	defer cleanup()
 	id2 := "BB"
-	address1 := &proto.NodeAddress{Address: "a"}
-	address2 := &proto.NodeAddress{Address: "b"}
-	node1 := &proto.Node{Id: id, Address: address1}
-	node2 := &proto.Node{Id: id2, Address: address2}
+	address1 := &pb.NodeAddress{Address: "a"}
+	address2 := &pb.NodeAddress{Address: "b"}
+	node1 := &pb.Node{Id: id, Address: address1}
+	node2 := &pb.Node{Id: id2, Address: address2}
 
 	//Updates node
 	err := rt.ConnectionSuccess(node1)

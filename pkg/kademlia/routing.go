@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
@@ -32,12 +32,12 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self             *proto.Node
+	self             *pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
-	transport        *proto.NodeTransport
+	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
-	replacementCache map[string][]*proto.Node
+	replacementCache map[string][]*pb.Node
 	idLength         int // kbucket and node id bit length (SHA256) = 256
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
@@ -53,7 +53,7 @@ type RoutingOptions struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTable, error) {
+func NewRoutingTable(localNode *pb.Node, options *RoutingOptions) (*RoutingTable, error) {
 	kdb, err := boltdb.New(options.kpath, KademliaBucket)
 	if err != nil {
 		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
@@ -63,7 +63,7 @@ func NewRoutingTable(localNode *proto.Node, options *RoutingOptions) (*RoutingTa
 	if err != nil {
 		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
 	}
-	rp := make(map[string][]*proto.Node)
+	rp := make(map[string][]*pb.Node)
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      storelogger.New(zap.L(), kdb),
@@ -90,7 +90,7 @@ func (rt *RoutingTable) Close() error {
 }
 
 // Local returns the local nodes ID
-func (rt *RoutingTable) Local() proto.Node {
+func (rt *RoutingTable) Local() pb.Node {
 	return *rt.self
 }
 
@@ -144,23 +144,23 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 
 // FindNear returns the node corresponding to the provided nodeID if present in the routing table
 // otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
-func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error) {
+func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 	//if id is in the routing table
 	n, err := rt.nodeBucketDB.Get(id.Bytes())
 	if n != nil {
 		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
 		if err != nil {
-			return []*proto.Node{}, RoutingErr.New("could not unmarshal node %s", err)
+			return []*pb.Node{}, RoutingErr.New("could not unmarshal node %s", err)
 		}
 		return ns, nil
 	}
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return []*proto.Node{}, RoutingErr.New("could not get key from rt %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not get key from rt %s", err)
 	}
 	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get node ids %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
 	if len(sortedIDs) >= limit {
@@ -168,18 +168,18 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*proto.Node, error
 	}
 	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not get nodes %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}
 	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
 	if err != nil {
-		return []*proto.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
+		return []*pb.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
 	}
 	return unmarshaledNodes, nil
 }
 
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
-func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
+func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
@@ -200,7 +200,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *proto.Node) error {
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
-func (rt *RoutingTable) ConnectionFailed(node *proto.Node) error {
+func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
 	nodeID := storage.Key(node.Id)
 	bucketID, err := rt.getKBucketID(nodeID)
 	if err != nil {

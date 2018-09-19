@@ -108,7 +108,7 @@ func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
 	return minio.BucketInfo{Name: bucket, Created: meta.Created}, nil
 }
 
-func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.RangeCloser, err error) {
+func (s *storjObjects) getObject(ctx context.Context, bucket, object string) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
@@ -129,7 +129,6 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 		return err
 	}
 
-	defer utils.LogClose(rr)
 	if length == -1 {
 		length = rr.Size() - startOffset
 	}
@@ -198,8 +197,7 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 	return bucketItems, err
 }
 
-func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
-	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
+func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if delimiter != "" && delimiter != "/" {
@@ -255,6 +253,74 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	return result, err
 }
 
+// ListObjectsV2 - Not implemented stub
+func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, continuationToken, delimiter string, maxKeys int, fetchOwner bool, startAfter string) (result minio.ListObjectsV2Info, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if delimiter != "" && delimiter != "/" {
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, Error.New("delimiter %s not supported", delimiter)
+	}
+
+	recursive := delimiter == ""
+	var nextContinuationToken string
+
+	var startAfterPath paths.Path
+	if continuationToken != "" {
+		startAfterPath = paths.New(continuationToken)
+	}
+	if startAfterPath == nil && startAfter != "" {
+		startAfterPath = paths.New(startAfter)
+	}
+
+	var objects []minio.ObjectInfo
+	var prefixes []string
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, err
+	}
+	items, more, err := o.List(ctx, paths.New(prefix), startAfterPath, nil, recursive, maxKeys, meta.All)
+	if err != nil {
+		return result, err
+	}
+
+	if len(items) > 0 {
+		for _, item := range items {
+			path := item.Path
+			if recursive {
+				path = path.Prepend(prefix)
+			}
+			if item.IsPrefix {
+				prefixes = append(prefixes, path.String()+"/")
+				continue
+			}
+			objects = append(objects, minio.ObjectInfo{
+				Bucket:      bucket,
+				IsDir:       false,
+				Name:        path.String(),
+				ModTime:     item.Meta.Modified,
+				Size:        item.Meta.Size,
+				ContentType: item.Meta.ContentType,
+				UserDefined: item.Meta.UserDefined,
+				ETag:        item.Meta.Checksum,
+			})
+		}
+
+		nextContinuationToken = items[len(items)-1].Path.String() + "\x00"
+	}
+
+	result = minio.ListObjectsV2Info{
+		IsTruncated:       more,
+		ContinuationToken: continuationToken,
+		Objects:           objects,
+		Prefixes:          prefixes,
+	}
+	if more {
+		result.NextContinuationToken = nextContinuationToken
+	}
+
+	return result, err
+}
+
 func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -284,8 +350,6 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	if err != nil {
 		return objInfo, err
 	}
-
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {

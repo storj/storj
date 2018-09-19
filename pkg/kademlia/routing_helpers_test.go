@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	proto "storj.io/storj/protos/overlay"
+
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
@@ -34,7 +35,7 @@ func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()
 	if localNodeID == nil {
 		localNodeID = []byte("AA")
 	}
-	localNode := &proto.Node{Id: string(localNodeID)}
+	localNode := &pb.Node{Id: string(localNodeID)}
 	options := &RoutingOptions{
 		kpath:        filepath.Join(tempdir, "Kadbucket"),
 		npath:        filepath.Join(tempdir, "Nodebucket"),
@@ -55,8 +56,8 @@ func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()
 	}
 }
 
-func mockNode(id string) *proto.Node {
-	var node proto.Node
+func mockNode(id string) *pb.Node {
+	var node pb.Node
 	node.Id = id
 	return &node
 }
@@ -265,7 +266,7 @@ func TestUpdateNode(t *testing.T) {
 	x := unmarshaled[0].Address
 	assert.Nil(t, x)
 
-	node.Address = &proto.NodeAddress{Address: "BB"}
+	node.Address = &pb.NodeAddress{Address: "BB"}
 	err = rt.updateNode(node)
 	assert.NoError(t, err)
 	val, err = rt.nodeBucketDB.Get(storage.Key(node.Id))
@@ -512,11 +513,11 @@ func TestGetNodesFromIDs(t *testing.T) {
 	nodeIDA := []byte(nodeA.Id)
 	nodeIDB := []byte(nodeB.Id)
 	nodeIDC := []byte(nodeC.Id)
-	a, err := pb.Marshal(nodeA)
+	a, err := proto.Marshal(nodeA)
 	assert.NoError(t, err)
-	b, err := pb.Marshal(nodeB)
+	b, err := proto.Marshal(nodeB)
 	assert.NoError(t, err)
-	c, err := pb.Marshal(nodeC)
+	c, err := proto.Marshal(nodeC)
 	assert.NoError(t, err)
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
@@ -541,11 +542,11 @@ func TestUnmarshalNodes(t *testing.T) {
 	nodeIDA := []byte(nodeA.Id)
 	nodeIDB := []byte(nodeB.Id)
 	nodeIDC := []byte(nodeC.Id)
-	a, err := pb.Marshal(nodeA)
+	a, err := proto.Marshal(nodeA)
 	assert.NoError(t, err)
-	b, err := pb.Marshal(nodeB)
+	b, err := proto.Marshal(nodeB)
 	assert.NoError(t, err)
-	c, err := pb.Marshal(nodeC)
+	c, err := proto.Marshal(nodeC)
 	assert.NoError(t, err)
 	rt, cleanup := createRoutingTable(t, nodeIDA)
 	defer cleanup()
@@ -558,9 +559,9 @@ func TestUnmarshalNodes(t *testing.T) {
 	assert.NoError(t, err)
 	nodes, err := unmarshalNodes(ids, values)
 	assert.NoError(t, err)
-	expected := []*proto.Node{nodeA, nodeB, nodeC}
+	expected := []*pb.Node{nodeA, nodeB, nodeC}
 	for i, v := range expected {
-		assert.True(t, pb.Equal(v, nodes[i]))
+		assert.True(t, proto.Equal(v, nodes[i]))
 	}
 }
 
@@ -577,10 +578,10 @@ func TestGetUnmarshaledNodesFromBucket(t *testing.T) {
 	_, err = rt.addNode(nodeC)
 	assert.NoError(t, err)
 	nodes, err := rt.getUnmarshaledNodesFromBucket(bucketID)
-	expected := []*proto.Node{nodeA, nodeB, nodeC}
+	expected := []*pb.Node{nodeA, nodeB, nodeC}
 	assert.NoError(t, err)
 	for i, v := range expected {
-		assert.True(t, pb.Equal(v, nodes[i]))
+		assert.True(t, proto.Equal(v, nodes[i]))
 	}
 }
 

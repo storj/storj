@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package piecestoreroutes;
+package pb;
 
 service PieceStoreRoutes {
   rpc Piece(PieceId) returns (PieceSummary) {}

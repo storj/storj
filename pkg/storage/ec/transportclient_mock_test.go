@@ -13,7 +13,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
-	overlay "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // MockClient is a mock of Client interface
@@ -40,7 +40,7 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // DialNode mocks base method
-func (m *MockClient) DialNode(arg0 context.Context, arg1 *overlay.Node) (*grpc.ClientConn, error) {
+func (m *MockClient) DialNode(arg0 context.Context, arg1 *pb.Node) (*grpc.ClientConn, error) {
 	ret := m.ctrl.Call(m, "DialNode", arg0, arg1)
 	ret0, _ := ret[0].(*grpc.ClientConn)
 	ret1, _ := ret[1].(error)
@@ -53,7 +53,7 @@ func (mr *MockClientMockRecorder) DialNode(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // DialUnauthenticated mocks base method
-func (m *MockClient) DialUnauthenticated(arg0 context.Context, arg1 overlay.NodeAddress) (*grpc.ClientConn, error) {
+func (m *MockClient) DialUnauthenticated(arg0 context.Context, arg1 pb.NodeAddress) (*grpc.ClientConn, error) {
 	ret := m.ctrl.Call(m, "DialUnauthenticated", arg0, arg1)
 	ret0, _ := ret[0].(*grpc.ClientConn)
 	ret1, _ := ret[1].(error)

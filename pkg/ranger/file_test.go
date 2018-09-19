@@ -89,7 +89,7 @@ func TestFileRanger(t *testing.T) {
 			t.Fatalf("invalid subrange: %#v != %#v", string(data), example.substr)
 		}
 
-		if err := rr.Close(); err != nil {
+		if err := r.Close(); err != nil {
 			t.Fatalf("unable to close file %q: %v", name, err)
 		}
 	}
@@ -97,16 +97,6 @@ func TestFileRanger(t *testing.T) {
 
 func TestFileRangerOpenFileError(t *testing.T) {
 	rr, err := FileRanger("")
-	if rr != nil {
-		t.Fatal("Ranger expected to be nil")
-	}
-	if err == nil {
-		t.Fatal("Error expected")
-	}
-}
-
-func TestFileRangerHandlerFileStatError(t *testing.T) {
-	rr, err := FileHandleRanger(nil)
 	if rr != nil {
 		t.Fatal("Ranger expected to be nil")
 	}
