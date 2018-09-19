@@ -14,16 +14,31 @@ const (
 	SecretBox
 )
 
+// Constant definitions for key and nonce sizes
+const (
+	GenericKeySize   = 32
+	GenericNonceSize = 24
+	AESGCMNonceSize  = 12
+)
+
+// GenericKey represents the largest key used by any encryption protocol
+type GenericKey [GenericKeySize]byte
+
+// GenericNonce represents the largest nonce used by any encryption protocol
+type GenericNonce [GenericNonceSize]byte
+
+// AESGCMNonce represents the nonce used by the AESGCM protocol
+type AESGCMNonce [AESGCMNonceSize]byte
+
 // Encrypt encrypts byte data with a key and nonce. The cipher data is returned
 // The type of encryption to use can be modified with encType
-func Encrypt(data []byte, key *[32]byte, nonce *[24]byte, encType int) (cipherData []byte, err error) {
+func Encrypt(data []byte, key *GenericKey, nonce *GenericNonce, encType int) (cipherData []byte, err error) {
 	switch encType {
 	case None:
 		return data, nil
 	case AESGCM:
 		return EncryptAESGCM(data, key[:], nonce[12:])
 	case SecretBox:
-
 		return EncryptSecretBox(data, key, nonce)
 	default:
 		return nil, errs.New("Invalid encryption type")
@@ -32,7 +47,7 @@ func Encrypt(data []byte, key *[32]byte, nonce *[24]byte, encType int) (cipherDa
 
 // Decrypt decrypts byte data with a key and nonce. The plain data is returned
 // The type of encryption to use can be modified with encType
-func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (data []byte, err error) {
+func Decrypt(cipherData []byte, key *GenericKey, nonce *GenericNonce, encType int) (data []byte, err error) {
 	switch encType {
 	case None:
 		return cipherData, nil
@@ -47,13 +62,12 @@ func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (da
 
 // NewEncrypter creates transform stream using a key and a nonce to encrypt data passing through it
 // The type of encryption to use can be modified with encType
-func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
-	encBlockSize, encType int) (Transformer, error) {
+func NewEncrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, encType int) (Transformer, error) {
 	switch encType {
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:
-		nonce := new([12]byte)
+		nonce := new(AESGCMNonce)
 		copy((*nonce)[:], (*startingNonce)[12:])
 		return NewAESGCMEncrypter(key, nonce, encBlockSize)
 	case SecretBox:
@@ -65,13 +79,12 @@ func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
 
 // NewDecrypter creates transform stream using a key and a nonce to decrypt data passing through it
 // The type of encryption to use can be modified with encType
-func NewDecrypter(key *[32]byte, startingNonce *[24]byte,
-	encBlockSize, encType int) (Transformer, error) {
+func NewDecrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, encType int) (Transformer, error) {
 	switch encType {
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:
-		nonce := new([12]byte)
+		nonce := new(AESGCMNonce)
 		copy((*nonce)[:], (*startingNonce)[12:])
 		return NewAESGCMDecrypter(key, nonce, encBlockSize)
 	case SecretBox:

@@ -10,8 +10,8 @@ import (
 
 type secretboxEncrypter struct {
 	blockSize     int
-	key           [32]byte
-	startingNonce [24]byte
+	key           GenericKey
+	startingNonce GenericNonce
 }
 
 // NewSecretboxEncrypter returns a Transformer that encrypts the data passing
@@ -27,8 +27,7 @@ type secretboxEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewSecretboxEncrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxEncrypter(key *GenericKey, startingNonce *GenericNonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -47,8 +46,7 @@ func (s *secretboxEncrypter) OutBlockSize() int {
 	return s.blockSize + secretbox.Overhead
 }
 
-func calcNonce(startingNonce *[24]byte, blockNum int64) (rv [24]byte,
-	err error) {
+func calcNonce(startingNonce *GenericNonce, blockNum int64) (rv GenericNonce, err error) {
 	if copy(rv[:], (*startingNonce)[:]) != len(rv) {
 		return rv, Error.New("didn't copy memory?!")
 	}
@@ -56,26 +54,24 @@ func calcNonce(startingNonce *[24]byte, blockNum int64) (rv [24]byte,
 	return rv, err
 }
 
-func (s *secretboxEncrypter) Transform(out, in []byte, blockNum int64) (
-	[]byte, error) {
+func (s *secretboxEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
 	n, err := calcNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
-	return secretbox.Seal(out, in, &n, &s.key), nil
+	return secretbox.Seal(out, in, (*[24]byte)(&n), (*[32]byte)(&s.key)), nil
 }
 
 type secretboxDecrypter struct {
 	blockSize     int
-	key           [32]byte
-	startingNonce [24]byte
+	key           GenericKey
+	startingNonce GenericNonce
 }
 
 // NewSecretboxDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
-func NewSecretboxDecrypter(key *[32]byte, startingNonce *[24]byte,
-	encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxDecrypter(key *GenericKey, startingNonce *GenericNonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -94,13 +90,12 @@ func (s *secretboxDecrypter) OutBlockSize() int {
 	return s.blockSize
 }
 
-func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) (
-	[]byte, error) {
+func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
 	n, err := calcNonce(&s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
-	rv, success := secretbox.Open(out, in, &n, &s.key)
+	rv, success := secretbox.Open(out, in, (*[24]byte)(&n), (*[32]byte)(&s.key))
 	if !success {
 		return nil, Error.New("failed decrypting")
 	}
@@ -108,15 +103,23 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) (
 }
 
 // EncryptSecretBox encrypts byte data with a key and nonce. The cipher data is returned
-func EncryptSecretBox(data []byte, key *[32]byte, nonce *[24]byte) (cipherData []byte, err error) {
-	return secretbox.Seal(nil, data, nonce, key), nil
+func EncryptSecretBox(data []byte, key *GenericKey, nonce *GenericNonce) (cipherData []byte, err error) {
+	return secretbox.Seal(nil, data, byteNonce(nonce), byteKey(key)), nil
 }
 
 // DecryptSecretBox decrypts byte data with a key and nonce. The plain data is returned
-func DecryptSecretBox(cipherData []byte, key *[32]byte, nonce *[24]byte) (data []byte, err error) {
-	data, success := secretbox.Open(nil, cipherData, nonce, key)
+func DecryptSecretBox(cipherData []byte, key *GenericKey, nonce *GenericNonce) (data []byte, err error) {
+	data, success := secretbox.Open(nil, cipherData, byteNonce(nonce), byteKey(key))
 	if !success {
 		return nil, errs.New("Failed decrypting")
 	}
 	return data, nil
+}
+
+func byteNonce(nonce *GenericNonce) *[GenericNonceSize]byte {
+	return (*[GenericNonceSize]byte)(nonce)
+}
+
+func byteKey(key *GenericKey) *[GenericKeySize]byte {
+	return (*[GenericKeySize]byte)(key)
 }

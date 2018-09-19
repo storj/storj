@@ -104,13 +104,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	var startingNonce [24]byte
+	var startingNonce eestream.GenericNonce
 	_, err = rand.Read(startingNonce[:])
 	if err != nil {
 		return Meta{}, err
 	}
 	// copy startingNonce so that startingNonce is not modified by the encrypter before it is saved to lastSegmentMeta
-	var nonce [24]byte
+	var nonce eestream.GenericNonce
 	copy(nonce[:], startingNonce[:])
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
@@ -121,7 +121,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	eofReader := NewEOFReader(data)
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
-		var encKey [32]byte
+		var encKey eestream.GenericKey
 		_, err = rand.Read(encKey[:])
 		if err != nil {
 			return Meta{}, err
@@ -134,7 +134,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		d := new([32]byte)
+		d := new(eestream.GenericKey)
 		copy((*d)[:], (*derivedKey)[:])
 		encryptedEncKey, err := eestream.Encrypt(encKey[:], d, &nonce, s.encType)
 		if err != nil {
@@ -142,7 +142,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		}
 
 		sizeReader := NewSizeReader(eofReader)
-		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
+		segmentPath := path.GetSegmentPath(totalSegments)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
 		isStreamEncrypted, err := peekReader.IsLargerThan(encrypter.InBlockSize())
@@ -185,7 +185,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
 		Metadata:         metadata,
-		EncryptionType:   int64(s.encType),
+		EncryptionType:   int32(s.encType),
 		StartingNonce:    startingNonce[:],
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
@@ -233,13 +233,14 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	d, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
+	derivedKey := (*eestream.GenericKey)(d)
 
 	nonce := msi.StartingNonce
-	var startingNonce [24]byte
+	var startingNonce eestream.GenericNonce
 	copy(startingNonce[:], nonce)
 
 	var rangers []ranger.Ranger
@@ -348,8 +349,8 @@ type lazySegmentRanger struct {
 	segments      segments.Store
 	path          paths.Path
 	size          int64
-	derivedKey    *[32]byte
-	startingNonce *[24]byte
+	derivedKey    *eestream.GenericKey
+	startingNonce *eestream.GenericNonce
 	encBlockSize  int
 	encType       int
 }
@@ -371,7 +372,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 		if err != nil {
 			return nil, err
 		}
-		var encKey [32]byte
+		var encKey eestream.GenericKey
 		copy(encKey[:], e)
 		decrypter, err := eestream.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize, lr.encType)
 		if err != nil {

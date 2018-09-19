@@ -40,7 +40,7 @@ type RSConfig struct {
 type EncryptionConfig struct {
 	EncKey       string `help:"root key for encrypting the data" default:"supersecretpassword"`
 	EncBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
-	EncType      int    `help:"Type of encryption to use" default:"1"`
+	EncType      int    `help:"Type of encryption to use (1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
