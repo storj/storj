@@ -7,12 +7,15 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// Constant definitions for no encryption (0), AESGCM (1), and SecretBox (2)
 const (
 	None = iota
 	AESGCM
 	SecretBox
 )
 
+// Encrypt encrypts byte data with a key and nonce. The cipher data is returned
+// The type of encryption to use can be modified with encType
 func Encrypt(data []byte, key *[32]byte, nonce *[24]byte, encType int) (cipherData []byte, err error) {
 	switch encType {
 	case None:
@@ -27,6 +30,8 @@ func Encrypt(data []byte, key *[32]byte, nonce *[24]byte, encType int) (cipherDa
 	}
 }
 
+// Decrypt decrypts byte data with a key and nonce. The plain data is returned
+// The type of encryption to use can be modified with encType
 func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (data []byte, err error) {
 	switch encType {
 	case None:
@@ -40,6 +45,8 @@ func Decrypt(cipherData []byte, key *[32]byte, nonce *[24]byte, encType int) (da
 	}
 }
 
+// NewEncrypter creates transform stream using a key and a nonce to encrypt data passing through it
+// The type of encryption to use can be modified with encType
 func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
 	encBlockSize, encType int) (Transformer, error) {
 	switch encType {
@@ -56,6 +63,8 @@ func NewEncrypter(key *[32]byte, startingNonce *[24]byte,
 	}
 }
 
+// NewDecrypter creates transform stream using a key and a nonce to decrypt data passing through it
+// The type of encryption to use can be modified with encType
 func NewDecrypter(key *[32]byte, startingNonce *[24]byte,
 	encBlockSize, encType int) (Transformer, error) {
 	switch encType {

@@ -107,10 +107,12 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) (
 	return rv, nil
 }
 
+// EncryptSecretBox encrypts byte data with a key and nonce. The cipher data is returned
 func EncryptSecretBox(data []byte, key *[32]byte, nonce *[24]byte) (cipherData []byte, err error) {
 	return secretbox.Seal(nil, data, nonce, key), nil
 }
 
+// DecryptSecretBox decrypts byte data with a key and nonce. The plain data is returned
 func DecryptSecretBox(cipherData []byte, key *[32]byte, nonce *[24]byte) (data []byte, err error) {
 	data, success := secretbox.Open(nil, cipherData, nonce, key)
 	if !success {

@@ -131,6 +131,7 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) (
 	return s.aesgcm.Open(out, n[:], in, nil)
 }
 
+// EncryptAESGCM encrypts byte data with a key and nonce. The cipher data is returned
 func EncryptAESGCM(data, key, nonce []byte) (cipherData []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -144,6 +145,7 @@ func EncryptAESGCM(data, key, nonce []byte) (cipherData []byte, err error) {
 	return cipherData, nil
 }
 
+// DecryptAESGCM decrypts byte data with a key and nonce. The plain data is returned
 func DecryptAESGCM(cipherData, key, nonce []byte) (data []byte, err error) {
 	if len(cipherData) == 0 {
 		return []byte{}, errs.New("empty cipher data")

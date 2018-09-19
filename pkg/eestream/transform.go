@@ -31,16 +31,20 @@ type transformedReader struct {
 	bytesRead    int
 }
 
+// NoopTransformer is a dummy Transformer that passes data through without modifying it
 type NoopTransformer struct{}
 
+// InBlockSize is 1
 func (t *NoopTransformer) InBlockSize() int {
 	return 1
 }
 
+// OutBlockSize is 1
 func (t *NoopTransformer) OutBlockSize() int {
 	return 1
 }
 
+// Transform returns the input without modification
 func (t *NoopTransformer) Transform(out, in []byte, blockNum int64) ([]byte, error) {
 	return append(out, in...), nil
 }
