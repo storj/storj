@@ -76,8 +76,11 @@ func makeSegmentMeta(size int64, data []byte) segments.Meta {
 	}
 }
 
-func makeMetaClosure(meta segments.Meta, str string) metaClosure {
+func makeMetaClosure(meta segments.Meta, errorString string) metaClosure {
 	return func(ctx context.Context, path paths.Path) (segments.Meta, error) {
-		return meta, errors.New(str)
+		if errorString == "" {
+			return meta, nil
+		}
+		return segments.Meta{}, errors.New(errorString)
 	}
 }

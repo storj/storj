@@ -20,6 +20,8 @@ func TestMeta(t *testing.T) {
 			nil, nil, nil, nil},
 		{paths.New(""), 10, []byte("data"), "proto: streams.MetaStreamInfo: wiretype end group for non-group",
 			nil, nil, nil, nil},
+		{paths.New("bucket"), 10, []byte("data"), "",
+			nil, nil, nil, nil},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
