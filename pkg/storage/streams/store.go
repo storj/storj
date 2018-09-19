@@ -394,19 +394,20 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 				return nil, err
 			}
 			rd = ranger.ByteRanger(data)
+			lr.ranger = rd
 		} else {
 			rd, err = eestream.Transform(rr, decrypter)
 			if err != nil {
 				return nil, err
 			}
-		}
 
-		paddedSize := rd.Size()
-		rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size())) // int64 -> int; is this a problem?
-		if err != nil {
-			return nil, err
+			paddedSize := rd.Size()
+			rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size())) // int64 -> int; is this a problem?
+			if err != nil {
+				return nil, err
+			}
+			lr.ranger = rc
 		}
-		lr.ranger = rc
 	}
 	return lr.ranger.Range(ctx, offset, length)
 }

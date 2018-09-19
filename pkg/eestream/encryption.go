@@ -37,7 +37,7 @@ func Encrypt(data []byte, key *GenericKey, nonce *GenericNonce, encType int) (ci
 	case None:
 		return data, nil
 	case AESGCM:
-		return EncryptAESGCM(data, key[:], nonce[12:])
+		return EncryptAESGCM(data, key[:], nonce[AESGCMNonceSize:])
 	case SecretBox:
 		return EncryptSecretBox(data, key, nonce)
 	default:
@@ -52,7 +52,7 @@ func Decrypt(cipherData []byte, key *GenericKey, nonce *GenericNonce, encType in
 	case None:
 		return cipherData, nil
 	case AESGCM:
-		return DecryptAESGCM(cipherData, key[:], nonce[12:])
+		return DecryptAESGCM(cipherData, key[:], nonce[AESGCMNonceSize:])
 	case SecretBox:
 		return DecryptSecretBox(cipherData, key, nonce)
 	default:
@@ -68,7 +68,7 @@ func NewEncrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, en
 		return &NoopTransformer{}, nil
 	case AESGCM:
 		nonce := new(AESGCMNonce)
-		copy((*nonce)[:], (*startingNonce)[12:])
+		copy((*nonce)[:], (*startingNonce)[AESGCMNonceSize:])
 		return NewAESGCMEncrypter(key, nonce, encBlockSize)
 	case SecretBox:
 		return NewSecretboxEncrypter(key, startingNonce, encBlockSize)
@@ -85,7 +85,7 @@ func NewDecrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, en
 		return &NoopTransformer{}, nil
 	case AESGCM:
 		nonce := new(AESGCMNonce)
-		copy((*nonce)[:], (*startingNonce)[12:])
+		copy((*nonce)[:], (*startingNonce)[AESGCMNonceSize:])
 		return NewAESGCMDecrypter(key, nonce, encBlockSize)
 	case SecretBox:
 		return NewSecretboxDecrypter(key, startingNonce, encBlockSize)
