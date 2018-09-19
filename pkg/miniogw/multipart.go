@@ -27,6 +27,11 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 
 	objectStore, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
+		uploads.mu.Lock()
+		delete(uploads.pending, upload.ID)
+		uploads.mu.Unlock()
+
+		upload.Fail(err)
 		return "", err
 	}
 
