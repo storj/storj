@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -63,193 +64,156 @@ func mockNode(id string) *pb.Node {
 }
 
 func TestAddNode(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("OO")) //localNode [79, 79] or [01001111, 01001111]
+	rt, cleanup := createRoutingTable(t, []byte("OO"))
 	defer cleanup()
 	bucket, err := rt.kadBucketDB.Get(storage.Key([]byte{255, 255}))
 	assert.NoError(t, err)
 	assert.NotNil(t, bucket)
-	var ok bool
-	//add node to unfilled kbucket
-	node1 := mockNode("PO") //[80, 79] or [01010000, 01001111]
-	ok, err = rt.addNode(node1)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	kadKeys, err := rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err := rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(kadKeys))
-	assert.Equal(t, 2, len(nodeKeys))
+	cases := []struct {
+		testID  string
+		node    *pb.Node
+		added   bool
+		kadIDs  [][]byte
+		nodeIDs [][]string
+	}{
+		{testID: "PO: add node to unfilled kbucket",
+			node:    mockNode("PO"),
+			added:   true,
+			kadIDs:  [][]byte{{255, 255}},
+			nodeIDs: [][]string{{"OO", "PO"}},
+		},
+		{testID: "NO: add node to full kbucket and split",
+			node:    mockNode("NO"),
+			added:   true,
+			kadIDs:  [][]byte{{255, 255}},
+			nodeIDs: [][]string{{"NO", "OO", "PO"}},
+		},
+		{testID: "MO",
+			node:    mockNode("MO"),
+			added:   true,
+			kadIDs:  [][]byte{{255, 255}},
+			nodeIDs: [][]string{{"MO", "NO", "OO", "PO"}},
+		},
+		{testID: "LO",
+			node:    mockNode("LO"),
+			added:   true,
+			kadIDs:  [][]byte{{255, 255}},
+			nodeIDs: [][]string{{"LO", "MO", "NO", "OO", "PO"}},
+		},
+		{testID: "QO",
+			node:    mockNode("QO"),
+			added:   true,
+			kadIDs:  [][]byte{{255, 255}},
+			nodeIDs: [][]string{{"LO", "MO", "NO", "OO", "PO", "QO"}},
+		},
+		{testID: "SO: split bucket",
+			node:    mockNode("SO"),
+			added:   true,
+			kadIDs:  [][]byte{{63, 255}, {79, 255}, {95, 255}, {127, 255}, {255, 255}},
+			nodeIDs: [][]string{{}, {"LO", "MO", "NO", "OO"}, {"PO", "QO", "SO"}, {}, {}},
+		},
+		{testID: "?O",
+			node:   mockNode("?O"),
+			added:  true,
+			kadIDs: [][]byte{{63, 255}, {79, 255}, {95, 255},{127, 255}, {255, 255}},
+			nodeIDs: [][]string{{"?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: ">O",
+			node:   mockNode(">O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{">O", "?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "=O",
+			node:   mockNode("=O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"=O", ">O", "?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: ";O",
+			node:   mockNode(";O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{";O", "=O", ">O", "?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: ":O",
+			node:   mockNode(":O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{":O", ";O", "=O", ">O", "?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "9O",
+			node:   mockNode("9O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "8O: should drop",
+			node:   mockNode("8O"),
+			added:  false,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"}, {"LO", "MO", "NO", "OO"}, {"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "KO",
+			node:   mockNode("KO"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "JO",
+			node:   mockNode("JO"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"JO", "KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO"},{},{}},
+		},
+		{testID: "]O",
+			node:   mockNode("]O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"JO", "KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO", "]O"},{},{}},
+		},
+		{testID: "^O",
+			node:   mockNode("^O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"JO", "KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO", "]O", "^O"},{},{}},
+		},
+		{testID: "_O",
+			node:   mockNode("_O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"JO", "KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO", "]O", "^O", "_O"},{},{}},
+		},
+		{testID: "@O: split bucket 2",
+			node:   mockNode("@O"),
+			added:  true,
+			kadIDs: [][]byte{[]byte{63, 255}, []byte{71, 255}, []byte{79, 255}, []byte{95, 255}, []byte{127, 255}, []byte{255, 255}},
+			nodeIDs: [][]string{{"9O", ":O", ";O", "=O", ">O", "?O"},{"@O"},{"JO", "KO", "LO", "MO", "NO", "OO"},{"PO", "QO", "SO", "]O", "^O", "_O"},{},{}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			ok, err := rt.addNode(c.node)
+			assert.Equal(t, c.added, ok)
+			assert.NoError(t, err)
+			kadKeys, err := rt.kadBucketDB.List(nil, 0)
+			assert.NoError(t, err)
+			for i, v := range kadKeys {
+				assert.Equal(t, storage.Key(c.kadIDs[i]), v)
+				a, err := rt.getNodeIDsWithinKBucket(v)
+				assert.NoError(t, err)
+				for j, w := range a {
+					assert.Equal(t, c.nodeIDs[i][j], string(w))
+				}
+			}
 
-	//add node to full kbucket and split
-	node2 := mockNode("NO") //[78, 79] or [01001110, 01001111]
-	ok, err = rt.addNode(node2)
-	assert.True(t, ok)
-	assert.NoError(t, err)
+			if c.testID == "8O" {
+				n := rt.replacementCache["8O"]
+				assert.Equal(t, "8O", n[0].Id)
+			}
 
-	node3 := mockNode("MO") //[77, 79] or [01001101, 01001111]
-	ok, err = rt.addNode(node3)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node4 := mockNode("LO") //[76, 79] or [01001100, 01001111]
-	ok, err = rt.addNode(node4)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node5 := mockNode("QO") //[81, 79] or [01010001, 01001111]
-	ok, err = rt.addNode(node5)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(kadKeys))
-	assert.Equal(t, 6, len(nodeKeys))
-
-	//splitting here
-	node6 := mockNode("SO")
-	ok, err = rt.addNode(node6)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 5, len(kadKeys))
-	assert.Equal(t, 7, len(nodeKeys))
-
-	// //check how many keys in each bucket
-	a, err := rt.getNodeIDsWithinKBucket(kadKeys[0])
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(a))
-	b, err := rt.getNodeIDsWithinKBucket(kadKeys[1])
-	assert.NoError(t, err)
-	assert.Equal(t, 4, len(b))
-	c, err := rt.getNodeIDsWithinKBucket(kadKeys[2])
-	assert.NoError(t, err)
-	assert.Equal(t, 3, len(c))
-	d, err := rt.getNodeIDsWithinKBucket(kadKeys[3])
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(d))
-	e, err := rt.getNodeIDsWithinKBucket(kadKeys[4])
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(e))
-
-	//add node to full kbucket and drop
-	node7 := mockNode("?O")
-	ok, err = rt.addNode(node7)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node8 := mockNode(">O")
-	ok, err = rt.addNode(node8)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node9 := mockNode("=O")
-	ok, err = rt.addNode(node9)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node10 := mockNode(";O")
-	ok, err = rt.addNode(node10)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node11 := mockNode(":O")
-	ok, err = rt.addNode(node11)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	node12 := mockNode("9O")
-	ok, err = rt.addNode(node12)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 5, len(kadKeys))
-	assert.Equal(t, 13, len(nodeKeys))
-
-	a, err = rt.getNodeIDsWithinKBucket(kadKeys[0])
-	assert.NoError(t, err)
-	assert.Equal(t, 6, len(a))
-
-	//should drop
-	node13 := mockNode("8O")
-	ok, err = rt.addNode(node13)
-	assert.False(t, ok)
-	assert.NoError(t, err)
-	//check if node13 it into the replacement cache
-	ns := rt.replacementCache[string([]byte{63, 255})]
-	assert.Equal(t, node13.Id, ns[0].Id)
-
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 5, len(kadKeys))
-	assert.Equal(t, 13, len(nodeKeys))
-	a, err = rt.getNodeIDsWithinKBucket(kadKeys[0])
-	assert.NoError(t, err)
-	assert.Equal(t, 6, len(a))
-
-	//add node to highly unbalanced tree
-	//adding to bucket 1
-	node14 := mockNode("KO") //75
-	ok, err = rt.addNode(node14)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	node15 := mockNode("JO") //74
-	ok, err = rt.addNode(node15)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	//adding to bucket 2
-	node16 := mockNode("]O") //93
-	ok, err = rt.addNode(node16)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	node17 := mockNode("^O") //94
-	ok, err = rt.addNode(node17)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	node18 := mockNode("_O") //95
-	ok, err = rt.addNode(node18)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-
-	b, err = rt.getNodeIDsWithinKBucket(kadKeys[1])
-	assert.NoError(t, err)
-	assert.Equal(t, 6, len(b))
-	c, err = rt.getNodeIDsWithinKBucket(kadKeys[2])
-	assert.NoError(t, err)
-	assert.Equal(t, 6, len(c))
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	assert.Equal(t, 5, len(kadKeys))
-	assert.Equal(t, 18, len(nodeKeys))
-
-	//split bucket 2
-	node19 := mockNode("@O")
-	ok, err = rt.addNode(node19)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-	kadKeys, err = rt.kadBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	nodeKeys, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-
-	assert.Equal(t, 6, len(kadKeys))
-	assert.Equal(t, 19, len(nodeKeys))
+		})
+	}
 }
 
 func TestUpdateNode(t *testing.T) {
@@ -357,86 +321,84 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {
-	node1 := []byte{127, 255} //xor 0
-	rt, cleanup := createRoutingTable(t, node1)
+	rt, cleanup := createRoutingTable(t, []byte{127, 255})
 	defer cleanup()
-	rt.self.Id = string(node1)
-	assert.NoError(t, rt.nodeBucketDB.Put(node1, []byte("")))
-	expectedFurthest := node1
-	nodes, err := rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	furthest, err := rt.determineFurthestIDWithinK(nodes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFurthest, furthest)
-
-	node2 := []byte{143, 255} //xor 240
-	assert.NoError(t, rt.nodeBucketDB.Put(node2, []byte("")))
-	expectedFurthest = node2
-	nodes, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	furthest, err = rt.determineFurthestIDWithinK(nodes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFurthest, furthest)
-
-	node3 := []byte{255, 255} //xor 128
-	assert.NoError(t, rt.nodeBucketDB.Put(node3, []byte("")))
-	expectedFurthest = node2
-	nodes, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	furthest, err = rt.determineFurthestIDWithinK(nodes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFurthest, furthest)
-
-	node4 := []byte{191, 255} //xor 192
-	assert.NoError(t, rt.nodeBucketDB.Put(node4, []byte("")))
-	expectedFurthest = node2
-	nodes, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	furthest, err = rt.determineFurthestIDWithinK(nodes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFurthest, furthest)
-
-	node5 := []byte{133, 255} //xor 250
-	assert.NoError(t, rt.nodeBucketDB.Put(node5, []byte("")))
-	expectedFurthest = node5
-	nodes, err = rt.nodeBucketDB.List(nil, 0)
-	assert.NoError(t, err)
-	furthest, err = rt.determineFurthestIDWithinK(nodes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFurthest, furthest)
+	cases := []struct {
+		testID           string
+		nodeID           []byte
+		expectedFurthest []byte
+	}{
+		{testID: "xor 0",
+			nodeID:           []byte{127, 255},
+			expectedFurthest: []byte{127, 255},
+		},
+		{testID: "xor 240",
+			nodeID:           []byte{143, 255},
+			expectedFurthest: []byte{143, 255},
+		},
+		{testID: "xor 128",
+			nodeID:           []byte{255, 255},
+			expectedFurthest: []byte{143, 255},
+		},
+		{testID: "xor 192",
+			nodeID:           []byte{191, 255},
+			expectedFurthest: []byte{143, 255},
+		},
+		{testID: "xor 250",
+			nodeID:           []byte{133, 255},
+			expectedFurthest: []byte{133, 255},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID, []byte("")))
+			nodes, err := rt.nodeBucketDB.List(nil, 0)
+			assert.NoError(t, err)
+			furthest, err := rt.determineFurthestIDWithinK(nodes)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expectedFurthest, furthest)
+		})
+	}
 }
 
 func TestNodeIsWithinNearestK(t *testing.T) {
-	selfNode := []byte{127, 255}
-	rt, cleanup := createRoutingTable(t, selfNode)
+	rt, cleanup := createRoutingTable(t, []byte{127, 255})
 	defer cleanup()
 	rt.bucketSize = 2
-	expectTrue, err := rt.nodeIsWithinNearestK(selfNode)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-
-	furthestNode := []byte{143, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(furthestNode)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(furthestNode, []byte("")))
-
-	node1 := []byte{255, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(node1)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(node1, []byte("")))
-
-	node2 := []byte{191, 255}
-	expectTrue, err = rt.nodeIsWithinNearestK(node2)
-	assert.NoError(t, err)
-	assert.True(t, expectTrue)
-	assert.NoError(t, rt.nodeBucketDB.Put(node1, []byte("")))
-
-	node3 := []byte{133, 255}
-	expectFalse, err := rt.nodeIsWithinNearestK(node3)
-	assert.NoError(t, err)
-	assert.False(t, expectFalse)
+	cases := []struct {
+		testID  string
+		nodeID  []byte
+		closest bool
+	}{
+		{testID: "A",
+			nodeID:  []byte{127, 255},
+			closest: true,
+		},
+		{testID: "B",
+			nodeID:  []byte{143, 255},
+			closest: true,
+		},
+		{testID: "C",
+			nodeID:  []byte{255, 255},
+			closest: true,
+		},
+		{testID: "D",
+			nodeID:  []byte{191, 255},
+			closest: true,
+		},
+		{testID: "E",
+			nodeID:  []byte{133, 255},
+			closest: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			result, err := rt.nodeIsWithinNearestK(c.nodeID)
+			assert.NoError(t, err)
+			assert.Equal(t, c.closest, result)
+			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID, []byte("")))
+		})
+	}
 }
 
 func TestKadBucketContainsLocalNode(t *testing.T) {
@@ -494,16 +456,27 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDB, []byte("")))
 	assert.NoError(t, rt.nodeBucketDB.Put(nodeIDC, []byte("")))
 
-	expectedA := storage.Keys{nodeIDA}
-	expectedB := storage.Keys{nodeIDC, nodeIDB}
-
-	A, err := rt.getNodeIDsWithinKBucket(kadIDA)
-	assert.NoError(t, err)
-	B, err := rt.getNodeIDsWithinKBucket(kadIDB)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedA, A)
-	assert.Equal(t, expectedB, B)
+	cases := []struct {
+		testID   string
+		kadID    []byte
+		expected storage.Keys
+	}{
+		{testID: "A",
+			kadID:    kadIDA,
+			expected: storage.Keys{nodeIDA},
+		},
+		{testID: "B",
+			kadID:    kadIDB,
+			expected: storage.Keys{nodeIDC, nodeIDB},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			n, err := rt.getNodeIDsWithinKBucket(c.kadID)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, n)
+		})
+	}
 }
 
 func TestGetNodesFromIDs(t *testing.T) {
@@ -594,19 +567,30 @@ func TestGetKBucketRange(t *testing.T) {
 	assert.NoError(t, rt.kadBucketDB.Put(idA, []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idB, []byte("")))
 	assert.NoError(t, rt.kadBucketDB.Put(idC, []byte("")))
-	expectedA := storage.Keys{idB, idA}
-	expectedB := storage.Keys{idC, idB}
-	expectedC := storage.Keys{rt.createZeroAsStorageKey(), idC}
-
-	endpointsA, err := rt.getKBucketRange(idA)
-	assert.NoError(t, err)
-	endpointsB, err := rt.getKBucketRange(idB)
-	assert.NoError(t, err)
-	endpointsC, err := rt.getKBucketRange(idC)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedA, endpointsA)
-	assert.Equal(t, expectedB, endpointsB)
-	assert.Equal(t, expectedC, endpointsC)
+	cases := []struct {
+		testID   string
+		id       []byte
+		expected storage.Keys
+	}{
+		{testID: "A",
+			id:       idA,
+			expected: storage.Keys{idB, idA},
+		},
+		{testID: "B",
+			id:       idB,
+			expected: storage.Keys{idC, idB}},
+		{testID: "C",
+			id:       idC,
+			expected: storage.Keys{rt.createZeroAsStorageKey(), idC},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			ep, err := rt.getKBucketRange(c.id)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, ep)
+		})
+	}
 }
 
 func TestCreateFirstBucketID(t *testing.T) {
@@ -632,118 +616,203 @@ func TestDetermineLeafDepth(t *testing.T) {
 	idB := []byte{127, 255}
 	idC := []byte{63, 255}
 
-	err := rt.kadBucketDB.Put(idA, []byte(""))
-	assert.NoError(t, err)
-
-	first, err := rt.determineLeafDepth(idA)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, first)
-
-	err = rt.kadBucketDB.Put(idB, []byte(""))
-	assert.NoError(t, err)
-
-	second, err := rt.determineLeafDepth(idB)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, second)
-
-	err = rt.kadBucketDB.Put(idC, []byte(""))
-	assert.NoError(t, err)
-
-	one, err := rt.determineLeafDepth(idA)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, one)
-
-	two, err := rt.determineLeafDepth(idB)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, two)
-
-	alsoTwo, err := rt.determineLeafDepth(idC)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, alsoTwo)
-
+	cases := []struct {
+		testID  string
+		id      []byte
+		depth   int
+		addNode func()
+	}{
+		{testID: "A",
+			id:    idA,
+			depth: 0,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idA, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "B",
+			id:    idB,
+			depth: 1,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idB, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "C",
+			id:    idA,
+			depth: 1,
+			addNode: func() {
+				e := rt.kadBucketDB.Put(idC, []byte(""))
+				assert.NoError(t, e)
+			},
+		},
+		{testID: "D",
+			id:      idB,
+			depth:   2,
+			addNode: func() {},
+		},
+		{testID: "E",
+			id:      idC,
+			depth:   2,
+			addNode: func() {},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			c.addNode()
+			d, err := rt.determineLeafDepth(c.id)
+			assert.NoError(t, err)
+			assert.Equal(t, c.depth, d)
+		})
+	}
 }
 
 func TestDetermineDifferingBitIndex(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, nil)
 	defer cleanup()
-	diff, err := rt.determineDifferingBitIndex([]byte{191, 255}, []byte{255, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
+	cases := []struct {
+		testID   string
+		bucketID []byte
+		key      []byte
+		expected int
+		err      *errs.Class
+	}{
+		{testID: "A",
+			bucketID: []byte{191, 255},
+			key:      []byte{255, 255},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "B",
+			bucketID: []byte{255, 255},
+			key:      []byte{191, 255},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "C",
+			bucketID: []byte{95, 255},
+			key:      []byte{127, 255},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "D",
+			bucketID: []byte{95, 255},
+			key:      []byte{79, 255},
+			expected: 3,
+			err:      nil,
+		},
+		{testID: "E",
+			bucketID: []byte{95, 255},
+			key:      []byte{63, 255},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "F",
+			bucketID: []byte{95, 255},
+			key:      []byte{79, 255},
+			expected: 3,
+			err:      nil,
+		},
+		{testID: "G",
+			bucketID: []byte{255, 255},
+			key:      []byte{255, 255},
+			expected: -2,
+			err:      &RoutingErr,
+		},
+		{testID: "H",
+			bucketID: []byte{255, 255},
+			key:      []byte{0, 0},
+			expected: -1,
+			err:      nil,
+		},
+		{testID: "I",
+			bucketID: []byte{127, 255},
+			key:      []byte{0, 0},
+			expected: 0,
+			err:      nil,
+		},
+		{testID: "J",
+			bucketID: []byte{63, 255},
+			key:      []byte{0, 0},
+			expected: 1,
+			err:      nil,
+		},
+		{testID: "K",
+			bucketID: []byte{31, 255},
+			key:      []byte{0, 0},
+			expected: 2,
+			err:      nil,
+		},
+		{testID: "L",
+			bucketID: []byte{95, 255},
+			key:      []byte{63, 255},
+			expected: 2,
+			err:      nil,
+		},
+	}
 
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{191, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{127, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 3, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{63, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{79, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 3, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{255, 255})
-	assert.Error(t, err)
-	assert.Equal(t, -2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{255, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, -1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{127, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 0, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{63, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 1, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{31, 255}, []byte{0, 0})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
-	diff, err = rt.determineDifferingBitIndex([]byte{95, 255}, []byte{63, 255})
-	assert.NoError(t, err)
-	assert.Equal(t, 2, diff)
-
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			diff, err := rt.determineDifferingBitIndex(c.bucketID, c.key)
+			assertErrClass(t, c.err, err)
+			assert.Equal(t, c.expected, diff)
+		})
+	}
 }
 
 func TestSplitBucket(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, nil)
 	defer cleanup()
-	id1 := []byte{255, 255}
-	id2 := []byte{191, 255}
-	id3 := []byte{127, 255}
-	id4 := []byte{63, 255}
-	id5 := []byte{159, 255}
-	id6 := []byte{0, 127}
-	id7 := []byte{0, 255}
-	id8 := []byte{95, 255}
-	id9 := []byte{87, 255}
+	cases := []struct {
+		testID string
+		idA    []byte
+		idB    []byte
+		depth  int
+	}{
+		{testID: "A: [11111111, 11111111] -> [10111111, 11111111]",
+			idA:   []byte{255, 255},
+			idB:   []byte{191, 255},
+			depth: 1,
+		},
+		{testID: "B: [10111111, 11111111] -> [10011111, 11111111]",
+			idA:   []byte{191, 255},
+			idB:   []byte{159, 255},
+			depth: 2,
+		},
+		{testID: "C: [01111111, 11111111] -> [00111111, 11111111]",
+			idA:   []byte{127, 255},
+			idB:   []byte{63, 255},
+			depth: 1,
+		},
+		{testID: "D: [00000000, 11111111] -> [00000000, 01111111]",
+			idA:   []byte{0, 255},
+			idB:   []byte{0, 127},
+			depth: 8,
+		},
+		{testID: "E: [01011111, 11111111] -> [01010111, 11111111]",
+			idA:   []byte{95, 255},
+			idB:   []byte{87, 255},
+			depth: 4,
+		},
+		{testID: "F: [01011111, 11111111] -> [01001111, 11111111]",
+			idA:   []byte{95, 255},
+			idB:   []byte{79, 255},
+			depth: 3,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			newID := rt.splitBucket(c.idA, c.depth)
+			assert.Equal(t, c.idB, newID)
+		})
+	}
+}
 
-	newID1 := rt.splitBucket(id1, 1) //[11111111, 11111111] -> [10111111, 11111111]
-	assert.Equal(t, id2, newID1)
-
-	newID2 := rt.splitBucket(id2, 2) //[10111111, 11111111] -> [10011111, 11111111]
-	assert.Equal(t, id5, newID2)
-
-	newID3 := rt.splitBucket(id3, 1) //[01111111, 11111111] -> [00111111, 11111111]
-	assert.Equal(t, id4, newID3)
-
-	newID4 := rt.splitBucket(id7, 8) //[00000000, 11111111] -> [00000000, 01111111]
-	assert.Equal(t, id6, newID4)
-
-	newID5 := rt.splitBucket(id8, 4) //[01011111, 11111111] -> [01010111, 11111111]
-	assert.Equal(t, id9, newID5)
-
-	newID6 := rt.splitBucket(id8, 3)
-	assert.Equal(t, []byte{79, 255}, newID6)
+func assertErrClass(t *testing.T, class *errs.Class, err error) {
+	t.Helper()
+	if class != nil {
+		assert.True(t, class.Has(err))
+	} else {
+		assert.NoError(t, err)
+	}
 }
