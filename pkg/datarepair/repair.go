@@ -2,13 +2,17 @@
 // See LICENSE for copying information.
 
 package datarepair
+
 import (
-	// "storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pb"
 )
 
-//Queue ...
-type Queue interface {
-	Add()
-	Remove()
-	GetOffline()
+//RepairQueue is the interface for the data repair queue
+type RepairQueue interface {
+	Add(qi *pb.QueueItem) error
+	AddAll(qis []*pb.QueueItem) error
+	Remove(qi *pb.QueueItem) error
+	GetNext() pb.QueueItem
+	GetAll() []*pb.QueueItem
+	GetSize() int
 }

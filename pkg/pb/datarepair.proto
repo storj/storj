@@ -8,4 +8,5 @@ package pb;
 // QueueItem
 message QueueItem {
    pb.RemoteSegment remote = 1;
+   string pointerPath = 2;
 }
