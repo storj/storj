@@ -54,8 +54,8 @@ func Main() error {
 	}
 	encKey := eestream.GenericKey(sha256.Sum256([]byte(*key)))
 	var firstNonce eestream.GenericNonce
-	encrypter, err := eestream.NewEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize(), eestream.AESGCM)
+	cipher := eestream.AESGCM
+	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
 	}

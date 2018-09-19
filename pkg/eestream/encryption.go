@@ -7,9 +7,12 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// Cipher is a type used to define the type of encryption to use
+type Cipher byte
+
 // Constant definitions for no encryption (0), AESGCM (1), and SecretBox (2)
 const (
-	None = iota
+	None = Cipher(iota)
 	AESGCM
 	SecretBox
 )
@@ -32,8 +35,8 @@ type AESGCMNonce [AESGCMNonceSize]byte
 
 // Encrypt encrypts byte data with a key and nonce. The cipher data is returned
 // The type of encryption to use can be modified with encType
-func Encrypt(data []byte, key *GenericKey, nonce *GenericNonce, encType int) (cipherData []byte, err error) {
-	switch encType {
+func (cipher Cipher) Encrypt(data []byte, key *GenericKey, nonce *GenericNonce) (cipherData []byte, err error) {
+	switch cipher {
 	case None:
 		return data, nil
 	case AESGCM:
@@ -47,8 +50,8 @@ func Encrypt(data []byte, key *GenericKey, nonce *GenericNonce, encType int) (ci
 
 // Decrypt decrypts byte data with a key and nonce. The plain data is returned
 // The type of encryption to use can be modified with encType
-func Decrypt(cipherData []byte, key *GenericKey, nonce *GenericNonce, encType int) (data []byte, err error) {
-	switch encType {
+func (cipher Cipher) Decrypt(cipherData []byte, key *GenericKey, nonce *GenericNonce) (data []byte, err error) {
+	switch cipher {
 	case None:
 		return cipherData, nil
 	case AESGCM:
@@ -62,8 +65,8 @@ func Decrypt(cipherData []byte, key *GenericKey, nonce *GenericNonce, encType in
 
 // NewEncrypter creates transform stream using a key and a nonce to encrypt data passing through it
 // The type of encryption to use can be modified with encType
-func NewEncrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, encType int) (Transformer, error) {
-	switch encType {
+func (cipher Cipher) NewEncrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize int) (Transformer, error) {
+	switch cipher {
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:
@@ -79,8 +82,8 @@ func NewEncrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, en
 
 // NewDecrypter creates transform stream using a key and a nonce to decrypt data passing through it
 // The type of encryption to use can be modified with encType
-func NewDecrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize, encType int) (Transformer, error) {
-	switch encType {
+func (cipher Cipher) NewDecrypter(key *GenericKey, startingNonce *GenericNonce, encBlockSize int) (Transformer, error) {
+	switch cipher {
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:

@@ -118,6 +118,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		return Meta{}, err
 	}
 
+	cipher := eestream.Cipher(s.encType)
+
 	eofReader := NewEOFReader(data)
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
@@ -129,14 +131,14 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 		var encrypter eestream.Transformer
 
-		encrypter, err := eestream.NewEncrypter(&encKey, &nonce, s.encBlockSize, s.encType)
+		encrypter, err := cipher.NewEncrypter(&encKey, &nonce, s.encBlockSize)
 		if err != nil {
 			return Meta{}, err
 		}
 
 		d := new(eestream.GenericKey)
 		copy((*d)[:], (*derivedKey)[:])
-		encryptedEncKey, err := eestream.Encrypt(encKey[:], d, &nonce, s.encType)
+		encryptedEncKey, err := cipher.Encrypt(encKey[:], d, &nonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -158,7 +160,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			if err != nil {
 				return Meta{}, err
 			}
-			cipherData, err := eestream.Encrypt(data, &encKey, &nonce, s.encType)
+			cipherData, err := cipher.Encrypt(data, &encKey, &nonce)
 			if err != nil {
 				return Meta{}, err
 			}
@@ -362,19 +364,21 @@ func (lr *lazySegmentRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	cipher := eestream.Cipher(lr.encType)
+
 	if lr.ranger == nil {
 		rr, m, err := lr.segments.Get(ctx, lr.path)
 		if err != nil {
 			return nil, err
 		}
 		encryptedEncKey := m.Data
-		e, err := eestream.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce, lr.encType)
+		e, err := cipher.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce)
 		if err != nil {
 			return nil, err
 		}
 		var encKey eestream.GenericKey
 		copy(encKey[:], e)
-		decrypter, err := eestream.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize, lr.encType)
+		decrypter, err := cipher.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
 		}
@@ -389,7 +393,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			if err != nil {
 				return nil, err
 			}
-			data, err := eestream.Decrypt(cipherData, &encKey, lr.startingNonce, lr.encType)
+			data, err := cipher.Decrypt(cipherData, &encKey, lr.startingNonce)
 			if err != nil {
 				return nil, err
 			}
