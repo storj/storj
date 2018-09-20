@@ -76,12 +76,13 @@ func DiskUsage(path string) (disk DiskStatus) {
 	return
 }
 
-const (
-	B  = 1
-	KB = 1024 * B
-	MB = 1024 * KB
-	GB = 1024 * MB
-)
+// Server -- GRPC server meta data used in route calls
+type Server struct {
+	DataDir        string
+	DB             *psdb.DB
+	pkey           crypto.PrivateKey
+	totalAllocated uint64
+}
 
 // Initialize -- initializes a server struct
 func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Server, error) {
