@@ -123,20 +123,18 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// check your hard drive is big enough
 	// on restarting the Piece node server, assuming already been working as a node
 	if uint64(totalUsed) != 0x00 {
-		if diskSpace.Free > (allocatedDiskSpace - uint64(totalUsed)) {
-			return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+		// used above the alloacated space
+		if uint64(totalUsed) >= allocatedDiskSpace {
+			log.Println("Warning!!! Used more space then allocated")
+			/** [TODO] any special handling needed here ... */
 		} else {
-			// used above the alloacated space
-			if uint64(totalUsed) >= allocatedDiskSpace {
-				log.Println("Warning!!! Used more space then allocated")
-				/** [TODO] any special handling needed here ... */
-			} else {
-				// the available diskspace is less than remaing allocated space
+			// the available diskspace is less than remaing allocated space
+			if diskSpace.Free < (allocatedDiskSpace - uint64(totalUsed)) {
 				log.Println("Warning!!! Disk space is less than remaining allocated space")
 				/** [TODO] any special handling needed here ... */
 			}
-			return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 		}
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	} else {
 		// first time setup as a piece node server
 		if diskSpace.Free > allocatedDiskSpace {
