@@ -106,12 +106,10 @@ func TestStreamStorePut(t *testing.T) {
 			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.streamError).
 			Do(func() {
-				for {
-					buf := make([]byte, 4)
-					_, err := test.data.Read(buf)
-					if err == io.EOF {
-						break
-					}
+				buf := make([]byte, 8)
+				_, err := io.ReadFull(test.data, buf)
+				if err == io.EOF {
+					t.Fatal(err)
 				}
 			})
 
