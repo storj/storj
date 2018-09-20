@@ -11,11 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/storj/pkg/dht"
-
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -39,10 +38,10 @@ type worker struct {
 	k              int
 }
 
-func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc node.Client, target dht.NodeID, k int) *worker {
+func newWorker(ctx context.Context, rt *RoutingTable, nodes []*pb.Node, nc node.Client, target dht.NodeID, k int) *worker {
 	t := new(big.Int).SetBytes(target.Bytes())
 
-	pq := func(nodes []*proto.Node) PriorityQueue {
+	pq := func(nodes []*pb.Node) PriorityQueue {
 		pq := make(PriorityQueue, len(nodes))
 		for i, node := range nodes {
 			bnode := new(big.Int).SetBytes([]byte(node.GetId()))
@@ -76,7 +75,7 @@ func newWorker(ctx context.Context, rt *RoutingTable, nodes []*proto.Node, nc no
 // have workers get work available off channel
 // after queue is empty and no work is in progress, close channel.
 
-func (w *worker) work(ctx context.Context, ch chan *proto.Node) {
+func (w *worker) work(ctx context.Context, ch chan *pb.Node) {
 	// grab uncontacted node from working set
 	// change status to inprogress
 	// ask node for target
@@ -94,7 +93,7 @@ func (w *worker) work(ctx context.Context, ch chan *proto.Node) {
 	}
 }
 
-func (w *worker) getWork(ctx context.Context, ch chan *proto.Node) {
+func (w *worker) getWork(ctx context.Context, ch chan *pb.Node) {
 	for {
 		if ctx.Err() != nil {
 			return
@@ -128,18 +127,18 @@ func (w *worker) getWork(ctx context.Context, ch chan *proto.Node) {
 
 }
 
-func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
+func (w *worker) lookup(ctx context.Context, node *pb.Node) []*pb.Node {
 	start := time.Now()
 	if node.GetAddress() == nil {
 		return nil
 	}
 
-	nodes, err := w.nodeClient.Lookup(ctx, *node, proto.Node{Id: w.find.String()})
+	nodes, err := w.nodeClient.Lookup(ctx, *node, pb.Node{Id: w.find.String()})
 	if err != nil {
 		// TODO(coyle): I think we might want to do another look up on this node or update something
 		// but for now let's just log and ignore.
 		log.Printf("Error occurred during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
-		return []*proto.Node{}
+		return []*pb.Node{}
 	}
 
 	// add node to the previously contacted list so we don't duplicate lookups
@@ -155,7 +154,7 @@ func (w *worker) lookup(ctx context.Context, node *proto.Node) []*proto.Node {
 	return nodes
 }
 
-func (w *worker) update(nodes []*proto.Node) {
+func (w *worker) update(nodes []*pb.Node) {
 	t := new(big.Int).SetBytes(w.find.Bytes())
 
 	w.mu.Lock()

@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 func TestNewKademlia(t *testing.T) {
@@ -55,7 +54,7 @@ func TestLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", ":0")
 	assert.NoError(t, err)
 
-	srv, mns := newTestServer([]*proto.Node{&proto.Node{Id: "foo"}})
+	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
 	go func() { _ = srv.Serve(lis) }()
 	defer srv.Stop()
 

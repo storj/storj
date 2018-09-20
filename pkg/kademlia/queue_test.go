@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 func TestPriorityQueue(t *testing.T) {
 	cases := []struct {
 		target   *big.Int
-		nodes    map[string]*proto.Node
+		nodes    map[string]*pb.Node
 		pq       PriorityQueue
 		expected []int
 	}{
@@ -25,11 +25,11 @@ func TestPriorityQueue(t *testing.T) {
 				assert.True(t, ok)
 				return i
 			}(),
-			nodes: map[string]*proto.Node{
-				"1001": &proto.Node{Id: "1001"},
-				"0100": &proto.Node{Id: "0100"},
-				"1100": &proto.Node{Id: "1100"},
-				"0010": &proto.Node{Id: "0010"},
+			nodes: map[string]*pb.Node{
+				"1001": &pb.Node{Id: "1001"},
+				"0100": &pb.Node{Id: "0100"},
+				"1100": &pb.Node{Id: "1100"},
+				"0010": &pb.Node{Id: "0010"},
 			},
 			pq:       make(PriorityQueue, 4),
 			expected: []int{3, 5, 8, 13},

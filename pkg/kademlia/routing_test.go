@@ -95,32 +95,12 @@ func TestGetBuckets(t *testing.T) {
 func TestFindNear(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, []byte("AA"))
 	defer cleanup()
-	n := mockNode("AA")
+	node1 := mockNode("AA")
 	node2 := mockNode("BB")
 	node3 := mockNode("CC")
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*pb.Node{n}
-	nodes, err := rt.FindNear(node.StringToID(n.Id), 1)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
-	node3 := mockNode("CC")
-	expected = []*pb.Node{node2, n}
-	nodes, err = rt.FindNear(node.StringToID(node3.Id), 2)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
-	expected = []*pb.Node{node2}
-	nodes, err = rt.FindNear(node.StringToID(node3.Id), 1)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
-
-	expected = []*pb.Node{node2, n}
-	nodes, err = rt.FindNear(node.StringToID(node3.Id), 3)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, nodes)
 
 	cases := []struct {
 		testID        string
@@ -151,7 +131,7 @@ func TestFindNear(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := rt.FindNear(StringToNodeID(c.node.Id), c.limit)
+			ns, err := rt.FindNear(node.StringToID(c.node.Id), c.limit)
 			assert.NoError(t, err)
 			assert.Equal(t, c.expectedNodes, ns)
 		})

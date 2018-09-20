@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/internal/mock"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -28,26 +28,26 @@ func TestGetWork(t *testing.T) {
 	cases := []struct {
 		name     string
 		worker   *worker
-		expected *proto.Node
-		ch       chan *proto.Node
+		expected *pb.Node
+		ch       chan *pb.Node
 	}{
 		{
 			name:     "test valid chore returned",
-			worker:   newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "1001"}}, nil, node.StringToID("1000"), 5),
-			expected: &proto.Node{Id: "1001"},
-			ch:       make(chan *proto.Node, 2),
+			worker:   newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.StringToID("1000"), 5),
+			expected: &pb.Node{Id: "1001"},
+			ch:       make(chan *pb.Node, 2),
 		},
 		{
 			name: "test no chore left",
 			worker: func() *worker {
-				w := newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nil, node.StringToID("foo"), 5)
+				w := newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nil, node.StringToID("foo"), 5)
 				w.maxResponse = 0
 				w.pq.Pop()
 				assert.Len(t, w.pq, 0)
 				return w
 			}(),
 			expected: nil,
-			ch:       make(chan *proto.Node, 2),
+			ch:       make(chan *pb.Node, 2),
 		},
 	}
 
@@ -83,8 +83,8 @@ func TestWorkerLookup(t *testing.T) {
 	cases := []struct {
 		name     string
 		worker   *worker
-		work     *proto.Node
-		expected []*proto.Node
+		work     *pb.Node
+		expected []*pb.Node
 	}{
 		{
 			name: "test valid chore returned",
@@ -93,13 +93,13 @@ func TestWorkerLookup(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":0"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":0"}}, mockDHT)
 				assert.NoError(t, err)
-				mock.returnValue = []*proto.Node{&proto.Node{Id: "foo"}}
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
+				mock.returnValue = []*pb.Node{&pb.Node{Id: "foo"}}
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
 			}(),
-			work:     &proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: lis.Addr().String()}},
-			expected: []*proto.Node{&proto.Node{Id: "foo"}},
+			work:     &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: lis.Addr().String()}},
+			expected: []*pb.Node{&pb.Node{Id: "foo"}},
 		},
 	}
 
@@ -127,9 +127,9 @@ func TestUpdate(t *testing.T) {
 	cases := []struct {
 		name                string
 		worker              *worker
-		input               []*proto.Node
+		input               []*pb.Node
 		expectedQueueLength int
-		expected            []*proto.Node
+		expected            []*pb.Node
 		expectedErr         error
 	}{
 		{
@@ -139,14 +139,14 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
 			}(),
 			expectedQueueLength: 1,
 			input:               nil,
 			expectedErr:         WorkerError.New("nodes must not be empty"),
-			expected:            []*proto.Node{&proto.Node{Id: "0000"}},
+			expected:            []*pb.Node{&pb.Node{Id: "0000"}},
 		},
 		{
 			name: "test combined less than k",
@@ -155,13 +155,13 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, proto.Node{Id: "foo", Address: &proto.NodeAddress{Address: ":7070"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*proto.Node{&proto.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
 			}(),
 			expectedQueueLength: 2,
-			expected:            []*proto.Node{&proto.Node{Id: "0100"}, &proto.Node{Id: "1001"}},
-			input:               []*proto.Node{&proto.Node{Id: "1001"}, &proto.Node{Id: "0100"}},
+			expected:            []*pb.Node{&pb.Node{Id: "0100"}, &pb.Node{Id: "1001"}},
+			input:               []*pb.Node{&pb.Node{Id: "1001"}, &pb.Node{Id: "0100"}},
 			expectedErr:         nil,
 		},
 	}
@@ -179,7 +179,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
+func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		return nil, nil
@@ -195,19 +195,19 @@ func newTestServer(nn []*proto.Node) (*grpc.Server, *mockNodeServer) {
 	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodeServer{queryCalled: 0}
 
-	proto.RegisterNodesServer(grpcServer, mn)
-	proto.RegisterOverlayServer(grpcServer, mock.NewOverlay(nn))
+	pb.RegisterNodesServer(grpcServer, mn)
+	pb.RegisterOverlayServer(grpcServer, mock.NewOverlay(nn))
 
 	return grpcServer, mn
 }
 
 type mockNodeServer struct {
 	queryCalled int32
-	returnValue []*proto.Node
+	returnValue []*pb.Node
 }
 
-func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
+func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
-	return &proto.QueryResponse{Response: mn.returnValue}, nil
+	return &pb.QueryResponse{Response: mn.returnValue}, nil
 
 }
