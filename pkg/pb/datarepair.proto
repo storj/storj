@@ -5,7 +5,7 @@ syntax = "proto3";
     
 package pb;
 
-// InjuredSegment ..
+// InjuredSegment is the queue item used for the data repair queue
 message InjuredSegment {
     string path = 1;
     repeated int32 lost_pieces = 2;
