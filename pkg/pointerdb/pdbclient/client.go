@@ -13,8 +13,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	p "storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	pb "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage"
 )
 

@@ -20,8 +20,8 @@ import (
 
 	"github.com/gtank/cryptopasta"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // ClientError is any error returned by the client

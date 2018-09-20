@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/pointerdb"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
 )
@@ -46,7 +46,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 
 	bdblogged := storelogger.New(zap.L(), bdb)
 
-	proto.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
+	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
 
 	return server.Run(ctx)
 }

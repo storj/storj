@@ -6,13 +6,13 @@ package kademlia
 import (
 	"math/big"
 
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // An Item is something we manage in a priority queue.
 type Item struct {
-	value    *proto.Node // The value of the item; arbitrary.
-	priority *big.Int    // The priority of the item in the queue.
+	value    *pb.Node // The value of the item; arbitrary.
+	priority *big.Int // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }

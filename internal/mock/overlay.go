@@ -10,29 +10,24 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 // Overlay __
 type Overlay struct {
-	nodes map[string]*proto.Node
+	nodes map[string]*pb.Node
 }
 
 // NewOverlay __
-func NewOverlay(nodes []*proto.Node) *Overlay {
-	rv := &Overlay{nodes: map[string]*proto.Node{}}
-	for _, node := range nodes {
-		rv.nodes[node.Id] = node
-	}
-	return rv
+func NewOverlay(nodes []*pb.Node) *Overlay {
+	return &Overlay{nodes: map[string]*pb.Node{}}
+
 }
 
 // FindStorageNodes __
-func (mo *Overlay) FindStorageNodes(ctx context.Context,
-	req *proto.FindStorageNodesRequest) (resp *proto.FindStorageNodesResponse,
-	err error) {
-	nodes := make([]*proto.Node, 0, len(mo.nodes))
+func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
+	nodes := make([]*pb.Node, 0, len(mo.nodes))
 	for _, node := range mo.nodes {
 		nodes = append(nodes, node)
 	}
@@ -40,25 +35,25 @@ func (mo *Overlay) FindStorageNodes(ctx context.Context,
 		return nil, errs.New("not enough farmers exist")
 	}
 	nodes = nodes[:req.Opts.GetAmount()]
-	return &proto.FindStorageNodesResponse{Nodes: nodes}, nil
+	return &pb.FindStorageNodesResponse{Nodes: nodes}, nil
 }
 
-// Lookup __
-func (mo *Overlay) Lookup(ctx context.Context, req *proto.LookupRequest) (
-	*proto.LookupResponse, error) {
-	return &proto.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
+// Lookup finds a single storage node based on the request
+func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
+	*pb.LookupResponse, error) {
+	return &pb.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
 //BulkLookup finds multiple storage nodes based on the requests
-func (mo *Overlay) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (
-	*proto.LookupResponses, error) {
-	var responses []*proto.LookupResponse
+func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
+	*pb.LookupResponses, error) {
+	var responses []*pb.LookupResponse
 	for _, r := range reqs.Lookuprequest {
 		n := *mo.nodes[r.NodeID]
-		resp := &proto.LookupResponse{Node: &n}
+		resp := &pb.LookupResponse{Node: &n}
 		responses = append(responses, resp)
 	}
-	return &proto.LookupResponses{Lookupresponse: responses}, nil
+	return &pb.LookupResponses{Lookupresponse: responses}, nil
 }
 
 // Config specifies static nodes for mock overlay
@@ -66,23 +61,23 @@ type Config struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
-// Run __
+// Run runs server with mock overlay
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	var nodes []*proto.Node
+	var nodes []*pb.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {
 		parts := strings.SplitN(nodestr, ":", 2)
 		if len(parts) != 2 {
 			return fmt.Errorf("malformed node config: %#v", nodestr)
 		}
 		id, addr := parts[0], parts[1]
-		nodes = append(nodes, &proto.Node{
+		nodes = append(nodes, &pb.Node{
 			Id: id,
-			Address: &proto.NodeAddress{
-				Transport: proto.NodeTransport_TCP,
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP,
 				Address:   addr,
 			}})
 	}
 
-	proto.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
+	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
 	return server.Run(ctx)
 }

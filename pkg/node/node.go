@@ -8,22 +8,23 @@ import (
 	"log"
 
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
-	proto "storj.io/storj/protos/overlay"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
 	dht   dht.DHT
-	self  proto.Node
+	self  pb.Node
 	tc    transport.Client
 	cache pool.Pool
 }
 
 // Lookup queries nodes looking for a particular node in the network
-func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*proto.Node, error) {
+func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
 	v, err := n.cache.Get(ctx, to.GetId())
 	if err != nil {
 		return nil, err
@@ -44,8 +45,8 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 		conn = c
 	}
 
-	c := proto.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &proto.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
+	c := pb.NewNodesClient(conn)
+	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
 		return nil, err
 	}

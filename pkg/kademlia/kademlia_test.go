@@ -9,19 +9,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-
-	"github.com/stretchr/testify/assert"
 	proto "storj.io/storj/protos/overlay"
 )
 
 func TestNewKademlia(t *testing.T) {
 	cases := []struct {
 		id          dht.NodeID
-		bn          []proto.Node
+		bn          []pb.Node
 		addr        string
 		expectedErr error
 	}{
@@ -31,7 +32,7 @@ func TestNewKademlia(t *testing.T) {
 				assert.NoError(t, err)
 				return id
 			}(),
-			bn:   []proto.Node{proto.Node{Id: "foo"}},
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
 			addr: "127.0.0.1:8080",
 		},
 	}
@@ -69,7 +70,7 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		k, err := NewKademlia(id, []proto.Node{proto.Node{Id: id2.String(), Address: &proto.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity)
+		k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity)
 		assert.NoError(t, err)
 		return k
 	}()
@@ -78,7 +79,7 @@ func TestLookup(t *testing.T) {
 		k           *Kademlia
 		target      dht.NodeID
 		opts        lookupOpts
-		expected    *proto.Node
+		expected    *pb.Node
 		expectedErr error
 	}{
 		{
@@ -86,11 +87,11 @@ func TestLookup(t *testing.T) {
 			target: func() *node.ID {
 				id, err := node.NewID()
 				assert.NoError(t, err)
-				mns.returnValue = []*proto.Node{&proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: ":0"}}}
+				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: ":0"}}}
 				return id
 			}(),
 			opts:        lookupOpts{amount: 5},
-			expected:    &proto.Node{},
+			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
 		{
@@ -116,16 +117,16 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, s := testNode(t, []proto.Node{})
+	bn, s := testNode(t, []pb.Node{})
 	defer s.Stop()
 
-	n1, s1 := testNode(t, []proto.Node{*bn.routingTable.self})
+	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2 := testNode(t, []proto.Node{*bn.routingTable.self})
+	n2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
 	defer s2.Stop()
 
 	err = n2.Bootstrap(context.Background())
@@ -138,7 +139,7 @@ func TestBootstrap(t *testing.T) {
 
 }
 
-func testNode(t *testing.T, bn []proto.Node) (*Kademlia, *grpc.Server) {
+func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	// new address
 	lis, err := net.Listen("tcp", ":0")
 	assert.NoError(t, err)
@@ -160,7 +161,7 @@ func testNode(t *testing.T, bn []proto.Node) (*Kademlia, *grpc.Server) {
 
 	grpcServer := grpc.NewServer(identOpt)
 
-	proto.RegisterNodesServer(grpcServer, s)
+	pb.RegisterNodesServer(grpcServer, s)
 	go func() { _ = grpcServer.Serve(lis) }()
 
 	return k, grpcServer

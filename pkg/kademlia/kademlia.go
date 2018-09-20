@@ -14,8 +14,8 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 const (
@@ -32,7 +32,7 @@ var NodeErr = errs.Class("node error")
 var BootstrapErr = errs.Class("bootstrap node error")
 
 //TODO: shouldn't default to TCP but not sure what to do yet
-var defaultTransport = proto.NodeTransport_TCP
+var defaultTransport = pb.NodeTransport_TCP
 
 // NodeNotFound is returned when a lookup can not produce the requested node
 var NodeNotFound = NodeErr.New("node not found")
@@ -45,7 +45,7 @@ type lookupOpts struct {
 type Kademlia struct {
 	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
-	bootstrapNodes []proto.Node
+	bootstrapNodes []pb.Node
 	address        string
 	stun           bool
 	nodeClient     node.Client
@@ -53,8 +53,8 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []proto.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
-	self := proto.Node{Id: id.String(), Address: &proto.NodeAddress{Address: address}}
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
 		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
@@ -100,9 +100,9 @@ func (k *Kademlia) Disconnect() error {
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
-func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error) {
+func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	// TODO(coyle)
-	return []*proto.Node{}, errors.New("TODO GetNodes")
+	return []*pb.Node{}, errors.New("TODO GetNodes")
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
@@ -133,7 +133,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 
 	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
 	ctx, w.cancel = context.WithCancel(ctx)
-	wch := make(chan *proto.Node, k.alpha)
+	wch := make(chan *pb.Node, k.alpha)
 	// kick off go routine to fetch work and send on work channel
 	go w.getWork(ctx, wch)
 	// kick off alpha works to consume from work channel
@@ -147,16 +147,16 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 }
 
 // Ping checks that the provided node is still accessible on the network
-func (k *Kademlia) Ping(ctx context.Context, node proto.Node) (proto.Node, error) {
+func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	// TODO(coyle)
-	return proto.Node{}, nil
+	return pb.Node{}, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
-func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (proto.Node, error) {
+func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
 	//TODO(coyle)
-	return proto.Node{}, NodeErr.New("TODO FindNode")
+	return pb.Node{}, NodeErr.New("TODO FindNode")
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
@@ -169,7 +169,7 @@ func (k *Kademlia) ListenAndServe() error {
 	grpcServer := grpc.NewServer(identOpt)
 	mn := node.NewServer(k)
 
-	proto.RegisterNodesServer(grpcServer, mn)
+	pb.RegisterNodesServer(grpcServer, mn)
 	lis, err := net.Listen("tcp", k.address)
 	if err != nil {
 		return err
@@ -183,13 +183,13 @@ func (k *Kademlia) ListenAndServe() error {
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
-func GetIntroNode(addr string) (*proto.Node, error) {
+func GetIntroNode(addr string) (*pb.Node, error) {
 	if addr == "" {
 		addr = "bootstrap.storj.io:8080"
 	}
 
-	return &proto.Node{
-		Address: &proto.NodeAddress{
+	return &pb.Node{
+		Address: &pb.NodeAddress{
 			Transport: defaultTransport,
 			Address:   addr,
 		},
@@ -197,43 +197,43 @@ func GetIntroNode(addr string) (*proto.Node, error) {
 }
 
 // Restrict is used to limit nodes returned that don't match the miniumum storage requirements
-func Restrict(r proto.Restriction, n []*proto.Node) []*proto.Node {
+func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 	oper := r.GetOperand()
 	op := r.GetOperator()
 	val := r.GetValue()
 	var comp int64
 
-	results := []*proto.Node{}
+	results := []*pb.Node{}
 	for _, v := range n {
 		switch oper {
-		case proto.Restriction_freeBandwidth:
+		case pb.Restriction_freeBandwidth:
 			comp = v.GetRestrictions().GetFreeBandwidth()
-		case proto.Restriction_freeDisk:
+		case pb.Restriction_freeDisk:
 			comp = v.GetRestrictions().GetFreeDisk()
 		}
 
 		switch op {
-		case proto.Restriction_EQ:
+		case pb.Restriction_EQ:
 			if comp != val {
 				results = append(results, v)
 				continue
 			}
-		case proto.Restriction_LT:
+		case pb.Restriction_LT:
 			if comp < val {
 				results = append(results, v)
 				continue
 			}
-		case proto.Restriction_LTE:
+		case pb.Restriction_LTE:
 			if comp <= val {
 				results = append(results, v)
 				continue
 			}
-		case proto.Restriction_GT:
+		case pb.Restriction_GT:
 			if comp > val {
 				results = append(results, v)
 				continue
 			}
-		case proto.Restriction_GTE:
+		case pb.Restriction_GTE:
 			if comp >= val {
 				results = append(results, v)
 				continue

@@ -5,8 +5,8 @@ package server
 
 import (
 	"github.com/gogo/protobuf/proto"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // StreamWriter -- Struct for writing piece to server upload stream

@@ -8,29 +8,28 @@ import (
 	"net"
 	"testing"
 
-	"storj.io/storj/pkg/dht/mocks"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht/mocks"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var ctx = context.Background()
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
-		self        proto.Node
-		to          proto.Node
-		find        proto.Node
+		self        pb.Node
+		to          pb.Node
+		find        pb.Node
 		expectedErr error
 	}{
 		{
-			self:        proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":7070"}},
-			to:          proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":8080"}},
-			find:        proto.Node{Id: "hello", Address: &proto.NodeAddress{Address: ":9090"}},
+			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			to:          pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":8080"}},
+			find:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":9090"}},
 			expectedErr: nil,
 		},
 	}
@@ -39,7 +38,7 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		v.to = proto.Node{Id: NewNodeID(t), Address: &proto.NodeAddress{Address: lis.Addr().String()}}
+		v.to = pb.Node{Id: NewNodeID(t), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
 
 		srv, mock, err := newTestServer(ctx)
 		assert.NoError(t, err)
@@ -84,7 +83,7 @@ func newTestServer(ctx context.Context) (*grpc.Server, *mockNodeServer, error) {
 	grpcServer := grpc.NewServer(identOpt)
 	mn := &mockNodeServer{queryCalled: 0}
 
-	proto.RegisterNodesServer(grpcServer, mn)
+	pb.RegisterNodesServer(grpcServer, mn)
 
 	return grpcServer, mn, nil
 
@@ -94,9 +93,9 @@ type mockNodeServer struct {
 	queryCalled int
 }
 
-func (mn *mockNodeServer) Query(ctx context.Context, req *proto.QueryRequest) (*proto.QueryResponse, error) {
+func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	mn.queryCalled++
-	return &proto.QueryResponse{}, nil
+	return &pb.QueryResponse{}, nil
 }
 
 // NewNodeID returns the string representation of a dht node ID

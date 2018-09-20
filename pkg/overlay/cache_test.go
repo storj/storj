@@ -20,8 +20,8 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/protos/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -35,8 +35,8 @@ var (
 )
 
 type dbClient int
-type responses map[dbClient]*overlay.Node
-type responsesB map[dbClient][]*overlay.Node
+type responses map[dbClient]*pb.Node
+type responsesB map[dbClient][]*pb.Node
 type errors map[dbClient]*errs.Class
 
 const (
@@ -46,11 +46,11 @@ const (
 	testNetSize = 30
 )
 
-func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *kademlia.Kademlia {
+func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
 	i, err := node.NewID()
 	assert.NoError(t, err)
 	id := *i
-	n := []overlay.Node{b}
+	n := []pb.Node{b}
 	ca, err := provider.NewCA(ctx, 12, 4)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
@@ -61,7 +61,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b overlay.Node) *
 	return kad
 }
 
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Node) {
+func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	bid, err := node.NewID()
 	assert.NoError(t, err)
 
@@ -79,7 +79,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(&bnid, []overlay.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity)
+	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -104,7 +104,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, overlay.Nod
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(&id, []overlay.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), identity)
+		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), identity)
 		assert.NoError(t, err)
 
 		p++
@@ -132,7 +132,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "foo",
 			expectedResponses: func() responses {
-				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   na,
 					bolt:   na,
@@ -147,7 +147,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("foo"),
 				Value: func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -160,7 +160,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "error",
 			expectedResponses: func() responses {
-				na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   nil,
 					bolt:   na,
@@ -175,7 +175,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("error"),
 				Value: func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -201,7 +201,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("foo"),
 				Value: func() storage.Value {
-					na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -223,8 +223,8 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1"},
 			expectedResponses: func() responsesB {
-				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				ns := []*overlay.Node{n1}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*pb.Node{n1}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -240,7 +240,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -254,9 +254,9 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1", "key2"},
 			expectedResponses: func() responsesB {
-				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				n2 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
-				ns := []*overlay.Node{n1, n2}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				n2 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+				ns := []*pb.Node{n1, n2}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -272,7 +272,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -282,7 +282,7 @@ var (
 				}, {
 					Key: storage.Key("key2"),
 					Value: func() storage.Value {
-						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -296,8 +296,8 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1", "key3"},
 			expectedResponses: func() responsesB {
-				n1 := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				ns := []*overlay.Node{n1, nil}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				ns := []*pb.Node{n1, nil}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -313,7 +313,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &overlay.Node{Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -327,7 +327,7 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"", ""},
 			expectedResponses: func() responsesB {
-				ns := []*overlay.Node{nil, nil}
+				ns := []*pb.Node{nil, nil}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -361,7 +361,7 @@ var (
 		testID              string
 		expectedTimesCalled int
 		key                 string
-		value               overlay.Node
+		value               pb.Node
 		expectedErrors      errors
 		data                []storage.ListItem
 	}{
@@ -369,7 +369,7 @@ var (
 			testID:              "valid Put",
 			expectedTimesCalled: 1,
 			key:                 "foo",
-			value:               overlay.Node{Id: "foo", Address: &overlay.NodeAddress{Transport: overlay.NodeTransport_TCP, Address: "127.0.0.1:9999"}},
+			value:               pb.Node{Id: "foo", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}},
 			expectedErrors: errors{
 				mock:   nil,
 				bolt:   nil,
@@ -490,7 +490,7 @@ func TestRedisPut(t *testing.T) {
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
 
-			na := &overlay.Node{}
+			na := &pb.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.True(t, proto.Equal(na, &c.value))
 		})
@@ -537,7 +537,7 @@ func TestBoltPut(t *testing.T) {
 
 			v, err := db.Get([]byte(c.key))
 			assert.NoError(t, err)
-			na := &overlay.Node{}
+			na := &pb.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.True(t, proto.Equal(na, &c.value))
@@ -610,7 +610,7 @@ func TestMockPut(t *testing.T) {
 			v, err := db.Get(storage.Key(c.key))
 			assert.NoError(t, err)
 
-			na := &overlay.Node{}
+			na := &pb.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
 			assert.True(t, proto.Equal(na, &c.value))
 		})
