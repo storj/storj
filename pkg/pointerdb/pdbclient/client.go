@@ -46,6 +46,7 @@ type Client interface {
 		recursive bool, limit int, metaFlags uint32) (
 		items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path p.Path) error
+	Iterate(ctx context.Context, opts IterateOptions, fn func(Iterator) error) error
 }
 
 // NewClient initializes a new pointerdb client
@@ -147,4 +148,9 @@ func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
 
 	return err
+}
+
+//Iterate ...
+func (pdb *PointerDB) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+
 }
