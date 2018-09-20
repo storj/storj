@@ -6,19 +6,23 @@ package node
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 )
 
 // Server implements the grpc Node Server
 type Server struct {
-	dht dht.DHT
+	dht    dht.DHT
+	logger *zap.Logger
 }
 
 // NewServer returns a newly instantiated Node Server
 func NewServer(dht dht.DHT) *Server {
 	return &Server{
-		dht: dht,
+		dht:    dht,
+		logger: zap.L(),
 	}
 }
 
@@ -34,13 +38,14 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 		if err != nil {
 			err = rt.ConnectionFailed(req.Sender)
 			if err != nil {
-				return &pb.QueryResponse{}, NodeClientErr.New("could not respond to connection failed %s", err)
+				s.logger.Error("could not respond to connection failed", zap.Error(err))
 			}
-			return &pb.QueryResponse{}, NodeClientErr.New("connection to node %s failed", req.Sender.Id)
+			s.logger.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id))
 		}
+
 		err = rt.ConnectionSuccess(req.Sender)
 		if err != nil {
-			return &pb.QueryResponse{}, NodeClientErr.New("could not respond to connection success %s", err)
+			s.logger.Error("could not respond to connection success", zap.Error(err))
 		}
 	}
 

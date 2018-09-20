@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -28,10 +29,10 @@ func TestFindStorageNodes(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
 		}, {
 			Key:   storage.Key(id2.String()),
-			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
 		},
 	})
 	assert.NotNil(t, srv)
@@ -61,7 +62,7 @@ func TestOverlayLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -88,7 +89,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()

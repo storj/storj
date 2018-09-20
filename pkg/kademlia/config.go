@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -55,12 +56,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 	defer func() { _ = kad.Disconnect() }()
 
-	// TODO(jt): ListenAndServe should probably be blocking and we should kick
-	// it off in a goroutine here
-	go func() {
-		// ignore error for now
-		_ = kad.ListenAndServe()
-	}()
+	mn := node.NewServer(kad)
+	pb.RegisterNodesServer(server.GRPC(), mn)
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here

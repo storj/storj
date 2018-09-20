@@ -195,3 +195,8 @@ func (w *worker) update(nodes []*pb.Node) {
 
 	w.workInProgress--
 }
+
+// SetCancellation adds the cancel function to the worker
+func (w *worker) SetCancellation(cf context.CancelFunc) {
+	w.cancel = cf
+}

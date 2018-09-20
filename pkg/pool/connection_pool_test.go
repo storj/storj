@@ -24,7 +24,7 @@ func TestGet(t *testing.T) {
 	}{
 		{
 			pool: ConnectionPool{
-				mu:    &sync.RWMutex{},
+				mu:    sync.RWMutex{},
 				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}},
 			},
 			key:           "foo",
@@ -51,7 +51,7 @@ func TestAdd(t *testing.T) {
 	}{
 		{
 			pool: ConnectionPool{
-				mu:    &sync.RWMutex{},
+				mu:    sync.RWMutex{},
 				cache: map[string]interface{}{}},
 			key:           "foo",
 			value:         TestFoo{called: "hoot"},
@@ -81,7 +81,7 @@ func TestRemove(t *testing.T) {
 	}{
 		{
 			pool: ConnectionPool{
-				mu:    &sync.RWMutex{},
+				mu:    sync.RWMutex{},
 				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
 			key:           "foo",
 			expected:      nil,

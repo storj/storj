@@ -14,18 +14,18 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// Overlay __
+// Overlay is a mocked overlay implementation
 type Overlay struct {
 	nodes map[string]*pb.Node
 }
 
-// NewOverlay __
+// NewOverlay returns a newly initialized mock overlal
 func NewOverlay(nodes []*pb.Node) *Overlay {
 	return &Overlay{nodes: map[string]*pb.Node{}}
 
 }
 
-// FindStorageNodes __
+// FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	nodes := make([]*pb.Node, 0, len(mo.nodes))
 	for _, node := range mo.nodes {

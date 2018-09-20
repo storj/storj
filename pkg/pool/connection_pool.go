@@ -10,7 +10,7 @@ import (
 
 // ConnectionPool is the in memory implementation of a connection Pool
 type ConnectionPool struct {
-	mu    *sync.RWMutex
+	mu    sync.RWMutex
 	cache map[string]interface{}
 }
 
@@ -18,7 +18,7 @@ type ConnectionPool struct {
 func NewConnectionPool() Pool {
 	return &ConnectionPool{
 		cache: make(map[string]interface{}),
-		mu:    &sync.RWMutex{},
+		mu:    sync.RWMutex{},
 	}
 }
 

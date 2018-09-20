@@ -102,7 +102,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Identity.Address)
 		var o provider.Responsibility = runCfg.Satellite.Overlay
 		if runCfg.Satellite.MockOverlay.Enabled {
-			fmt.Printf("STORAGE NODES = %#v\n", storagenodes)
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
@@ -117,9 +116,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Uplink.IdentityConfig.Address, runCfg.Uplink.AccessKey, runCfg.Uplink.SecretKey)
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
+
+	var err error
 	for v := range errch {
-		fmt.Printf("ERROR== %s\n", v)
+		err = fmt.Errorf("%s : %s", err, v)
 	}
 
-	return nil
+	return err
 }

@@ -131,8 +131,10 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 		return err
 	}
 
+	ctx, cf := context.WithCancel(ctx)
 	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
-	ctx, w.cancel = context.WithCancel(ctx)
+	w.SetCancellation(cf)
+
 	wch := make(chan *pb.Node, k.alpha)
 	// kick off go routine to fetch work and send on work channel
 	go w.getWork(ctx, wch)
