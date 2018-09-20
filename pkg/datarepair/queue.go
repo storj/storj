@@ -17,23 +17,23 @@ func NewQueue() {
 }
 
 //Add adds a repair segment to the queue
-func (q Queue) Add(qi *pb.QueueItem) error {
+func (q Queue) Add(qi *pb.InjuredSegment) error {
 	return nil
 }
 
 //AddAll adds a slice of repair segements to the queue
-func (q Queue) AddAll(qis []*pb.QueueItem) error {
+func (q Queue) AddAll(qis []*pb.InjuredSegment) error {
 	return nil
 }
 
 //Remove removes a repair segment from the queue
-func (q Queue) Remove(qi *pb.QueueItem) error {
+func (q Queue) Remove(qi *pb.InjuredSegment) error {
 	return nil
 }
 
 //GetNext returns the next repair segement from the queue
-func (q Queue) GetNext() pb.QueueItem {
-	return pb.QueueItem{}
+func (q Queue) GetNext() pb.InjuredSegment {
+	return pb.InjuredSegment{}
 }
 
 //GetSize returns the number of repair segements are in the queue

@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-import "pointerdb.proto";
+    
 package pb;
 
-// RepairSegment ..
-message RepairSegment {
-   pb.RemoteSegment remote = 1;
-   string path = 2;
+// InjuredSegment ..
+message InjuredSegment {
+    string path = 1;
+    repeated int32 lost_pieces = 2;
 }

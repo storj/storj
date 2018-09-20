@@ -9,9 +9,9 @@ import (
 
 //RepairQueue is the interface for the data repair queue
 type RepairQueue interface {
-	Add(qi *pb.QueueItem) error
-	AddAll(qis []*pb.QueueItem) error
-	Remove(qi *pb.QueueItem) error
-	GetNext() pb.QueueItem
+	Add(qi *pb.InjuredSegment) error
+	AddAll(qis []*pb.InjuredSegment) error
+	Remove(qi *pb.InjuredSegment) error
+	GetNext() pb.InjuredSegment
 	GetSize() int
 }
