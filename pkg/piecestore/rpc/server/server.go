@@ -7,7 +7,6 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -57,13 +56,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	return server.Run(ctx)
 }
 
+//DiskStatus contains hard drive disk space info
 type DiskStatus struct {
 	All  uint64 `json:"all"`
 	Used uint64 `json:"used"`
 	Free uint64 `json:"free"`
 }
 
-// disk usage of path/disk
+// DiskUsage disk usage of path/disk
 func DiskUsage(path string) (disk DiskStatus) {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
@@ -82,20 +82,6 @@ const (
 	MB = 1024 * KB
 	GB = 1024 * MB
 )
-
-func PrintDiskSpaceInfo(disk DiskStatus) {
-	fmt.Printf("All: %.2f GB\n", float64(disk.All)/float64(GB))
-	fmt.Printf("Used: %.2f GB\n", float64(disk.Used)/float64(GB))
-	fmt.Printf("Free: %.2f GB\n", float64(disk.Free)/float64(GB))
-}
-
-// Server -- GRPC server meta data used in route calls
-type Server struct {
-	DataDir        string
-	DB             *psdb.DB
-	pkey           crypto.PrivateKey
-	totalAllocated uint64
-}
 
 // Initialize -- initializes a server struct
 func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Server, error) {
@@ -128,7 +114,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 			log.Println("Warning!!! Used more space then allocated")
 			/** [TODO] any special handling needed here ... */
 		} else {
-			// the available diskspace is less than remaing allocated space
+			// the available diskspace is less than remaining allocated space
 			if diskSpace.Free < (allocatedDiskSpace - uint64(totalUsed)) {
 				log.Println("Warning!!! Disk space is less than remaining allocated space")
 				/** [TODO] any special handling needed here ... */
@@ -139,9 +125,8 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		// first time setup as a piece node server
 		if diskSpace.Free > allocatedDiskSpace {
 			return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-		} else {
-			return nil, errors.New("Not enough space !!!")
 		}
+		return nil, errors.New("not enough space !!!")
 	}
 }
 
