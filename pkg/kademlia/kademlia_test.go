@@ -51,7 +51,7 @@ func TestNewKademlia(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
@@ -86,7 +86,7 @@ func TestLookup(t *testing.T) {
 			target: func() *node.ID {
 				id, err := node.NewID()
 				assert.NoError(t, err)
-				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: ":0"}}}
+				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}}
 				return id
 			}(),
 			opts:        lookupOpts{amount: 5},
@@ -140,7 +140,7 @@ func TestBootstrap(t *testing.T) {
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	// new address
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	// new ID
 	id, err := node.NewID()

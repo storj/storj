@@ -74,7 +74,7 @@ func TestWorkerLookup(t *testing.T) {
 	mockDHT := mock_dht.NewMockDHT(ctrl)
 	mockRT := mock_dht.NewMockRoutingTable(ctrl)
 
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	srv, mock := newTestServer(nil)
@@ -93,7 +93,7 @@ func TestWorkerLookup(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":0"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}, mockDHT)
 				assert.NoError(t, err)
 				mock.returnValue = []*pb.Node{&pb.Node{Id: "foo"}}
 				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
@@ -117,7 +117,7 @@ func TestUpdate(t *testing.T) {
 	defer ctrl.Finish()
 	mockDHT := mock_dht.NewMockDHT(ctrl)
 
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
 	srv, _ := newTestServer(nil)
