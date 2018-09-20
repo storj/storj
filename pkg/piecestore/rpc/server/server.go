@@ -122,13 +122,14 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 			}
 		}
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-	} else {
-		// first time setup as a piece node server
-		if diskSpace.Free > allocatedDiskSpace {
-			return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-		}
-		return nil, errors.New("not enough space !!!")
 	}
+
+	// first time setup as a piece node server
+	if diskSpace.Free > allocatedDiskSpace {
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+	}
+
+	return nil, errors.New("not enough space")
 }
 
 // Stop the piececstore node
