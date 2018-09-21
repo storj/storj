@@ -18,10 +18,10 @@ func TestString(t *testing.T) {
 	assert.Equal(t, expected, result)
 }
 
-func TestStringToID(t *testing.T) {
+func TestIDFromString(t *testing.T) {
 	str := "test node"
 	node := ID(str)
-	expected := StringToID(str)
+	expected := IDFromString(str)
 
 	assert.Equal(t, expected.String(), node.String())
 }

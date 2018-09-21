@@ -52,7 +52,7 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 		}
 	}
 
-	id := StringToID(req.Target.Id)
+	id := IDFromString(req.Target.Id)
 	nodes, err := rt.FindNear(id, int(req.Limit))
 	if err != nil {
 		return &pb.QueryResponse{}, NodeClientErr.New("could not find near %s", err)

@@ -119,7 +119,7 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 		return err
 	}
 
-	return o.DB.Put(node.StringToID(nodeID).Bytes(), data)
+	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
@@ -130,7 +130,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, node.StringToID(v.Id))
+		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
@@ -140,7 +140,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			return err
 		}
 
-		if err := o.DB.Put(node.StringToID(found.Id).Bytes(), n); err != nil {
+		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
 			return err
 		}
 	}

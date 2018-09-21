@@ -26,6 +26,7 @@ var (
 	defaultTimeout = 250 * time.Millisecond
 )
 
+// worker pops work off a priority queue and does lookups on the work received
 type worker struct {
 	contacted      map[string]bool
 	pq             PriorityQueue

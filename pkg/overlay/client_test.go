@@ -212,9 +212,9 @@ func TestBulkLookupV2(t *testing.T) {
 		},
 		{testID: "valid ids",
 			nodeIDs: func() []dht.NodeID {
-				id1 := node.StringToID("n1")
-				id2 := node.StringToID("n2")
-				id3 := node.StringToID("n3")
+				id1 := node.IDFromString("n1")
+				id2 := node.IDFromString("n2")
+				id3 := node.IDFromString("n3")
 				return []dht.NodeID{id1, id2, id3}
 			}(),
 			responses: nodes,
@@ -222,8 +222,8 @@ func TestBulkLookupV2(t *testing.T) {
 		},
 		{testID: "missing ids",
 			nodeIDs: func() []dht.NodeID {
-				id1 := node.StringToID("n4")
-				id2 := node.StringToID("n5")
+				id1 := node.IDFromString("n4")
+				id2 := node.IDFromString("n5")
 				return []dht.NodeID{id1, id2}
 			}(),
 			responses: []*pb.Node{nil, nil},
@@ -231,10 +231,10 @@ func TestBulkLookupV2(t *testing.T) {
 		},
 		{testID: "random order and nil",
 			nodeIDs: func() []dht.NodeID {
-				id1 := node.StringToID("n1")
-				id2 := node.StringToID("n2")
-				id3 := node.StringToID("n3")
-				id4 := node.StringToID("n4")
+				id1 := node.IDFromString("n1")
+				id2 := node.IDFromString("n2")
+				id3 := node.IDFromString("n3")
+				id4 := node.IDFromString("n4")
 				return []dht.NodeID{id2, id1, id3, id4}
 			}(),
 			responses: func() []*pb.Node {

@@ -252,7 +252,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 	pieces := seg.GetRemotePieces()
 	var nodeIds []dht.NodeID
 	for _, p := range pieces {
-		nodeIds = append(nodeIds, node.StringToID(p.GetNodeId()))
+		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
 	nodes, err = s.oc.BulkLookup(ctx, nodeIds)
 	if err != nil {

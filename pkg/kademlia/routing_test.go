@@ -131,7 +131,7 @@ func TestFindNear(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := rt.FindNear(node.StringToID(c.node.Id), c.limit)
+			ns, err := rt.FindNear(node.IDFromString(c.node.Id), c.limit)
 			assert.NoError(t, err)
 			assert.Equal(t, c.expectedNodes, ns)
 		})

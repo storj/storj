@@ -22,8 +22,8 @@ func (n *ID) Bytes() []byte {
 	return []byte(*n)
 }
 
-// StringToID trsansforms a string to a ID
-func StringToID(s string) *ID {
+// IDFromString trsansforms a string to a ID
+func IDFromString(s string) *ID {
 	n := ID(s)
 	return &n
 }

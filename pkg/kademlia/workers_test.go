@@ -33,14 +33,14 @@ func TestGetWork(t *testing.T) {
 	}{
 		{
 			name:     "test valid chore returned",
-			worker:   newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.StringToID("1000"), 5),
+			worker:   newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.IDFromString("1000"), 5),
 			expected: &pb.Node{Id: "1001"},
 			ch:       make(chan *pb.Node, 2),
 		},
 		{
 			name: "test no chore left",
 			worker: func() *worker {
-				w := newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nil, node.StringToID("foo"), 5)
+				w := newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nil, node.IDFromString("foo"), 5)
 				w.maxResponse = 0
 				w.pq.Pop()
 				assert.Len(t, w.pq, 0)
@@ -96,7 +96,7 @@ func TestWorkerLookup(t *testing.T) {
 				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}, mockDHT)
 				assert.NoError(t, err)
 				mock.returnValue = []*pb.Node{&pb.Node{Id: "foo"}}
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.StringToID("foo"), 5)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.IDFromString("foo"), 5)
 			}(),
 			work:     &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: lis.Addr().String()}},
 			expected: []*pb.Node{&pb.Node{Id: "foo"}},
@@ -141,7 +141,7 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0000"}}, nc, node.StringToID("foo"), 2)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0000"}}, nc, node.IDFromString("foo"), 2)
 			}(),
 			expectedQueueLength: 1,
 			input:               nil,
@@ -157,7 +157,7 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0001"}}, nc, node.StringToID("1100"), 2)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0001"}}, nc, node.IDFromString("1100"), 2)
 			}(),
 			expectedQueueLength: 2,
 			expected:            []*pb.Node{&pb.Node{Id: "0100"}, &pb.Node{Id: "1001"}},
