@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	grpc "google.golang.org/grpc"
 
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/provider"
+	"storj.io/storj/storage/teststore"
 )
 
 const (
@@ -28,26 +28,29 @@ var (
 	APIKey          = []byte("abc123")
 )
 
+type pointerDBWrapper struct {
+	s pb.PointerDBServer
+}
+
+func newPointerDBWrapper(pdbs pb.PointerDBServer) *pointerDBWrapper {
+	return &pointerDBWrapper{pdbs}
+}
+
+func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
+	return pbd.s.Put(ctx, in)
+}
+
+func (pbd *pointerDBWrapper) Get(ctx context.Context, in *pb.GetRequest, opts ...grpc.CallOption) (*pb.GetResponse, error) {
+	return pbd.s.Get(ctx, in)
+}
+
+func (pbd *pointerDBWrapper) List(ctx context.Context, in *pb.ListRequest, opts ...grpc.CallOption) (*pb.ListResponse, error) {
+	return pbd.s.List(ctx, in)
+}
+
+// func (pbd *PointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error)
+
 func TestAuditSegment(t *testing.T) {
-	ca, err := provider.NewCA(ctx, 12, 4)
-	if err != nil {
-		log.Fatal("Failed to create certificate authority: ", zap.Error(err))
-		os.Exit(1)
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		log.Fatal("Failed to create full identity: ", zap.Error(err))
-		os.Exit(1)
-	}
-
-	client, err := pdbclient.NewClient(identity, pointerdbClientPort, APIKey)
-	fmt.Println("this is  the client: ", client)
-	if err != nil {
-		log.Fatal("Failed to dial: ", zap.Error(err))
-		os.Exit(1)
-	}
-
-	fmt.Println("this is the  client: ", client)
 
 	t.Run("List", func(t *testing.T) {
 
@@ -64,7 +67,7 @@ func TestAuditSegment(t *testing.T) {
 			{
 				bm:         "should fail with no limit given",
 				path:       p.New("file1/file2"),
-				APIKey:     []byte("abc123"),
+				APIKey:     nil,
 				startAfter: p.New("file3/file4"),
 				limit:      0,
 				items:      nil,
@@ -79,12 +82,18 @@ func TestAuditSegment(t *testing.T) {
 				errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
-				fmt.Println("this is  the client again: ", client)
 				putRequest := makePointer(tt.path, tt.APIKey)
-				fmt.Println("this is hte pr: ", putRequest)
+				fmt.Println("this is the pr: ", putRequest)
 
-				err := client.Put(ctx, tt.path, putRequest.Pointer)
-				fmt.Println("this is the err for put request: ", err)
+				db := teststore.New()
+				c := pointerdb.Config{MaxInlineSegmentSize: 8000}
+
+				pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
+				req := pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
+
+				_, err := pdbw.Put(ctx, &req)
+
+				fmt.Println("this is the err for put request: ", errTag, err)
 
 				if err != nil {
 					assert.NotNil(t, err, errTag)
@@ -93,8 +102,7 @@ func TestAuditSegment(t *testing.T) {
 				}
 
 				// call LIST
-				// a := NewAudit(client)
-				// items, more, err := a.List(ctx, tt.startAfter, tt.limit)
+				//items, more, err := pdbw.List(ctx, tt.startAfter, tt.limit)
 
 				// if err != nil {
 				// 	assert.NotNil(err)
