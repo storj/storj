@@ -15,7 +15,7 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool() Pool {
+func NewConnectionPool() *ConnectionPool {
 	return &ConnectionPool{
 		cache: make(map[string]interface{}),
 		mu:    sync.RWMutex{},

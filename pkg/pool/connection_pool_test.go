@@ -16,17 +16,19 @@ type TestFoo struct {
 }
 
 func TestGet(t *testing.T) {
+	ctx := context.Background()
 	cases := []struct {
-		pool          ConnectionPool
+		pool          *ConnectionPool
 		key           string
 		expected      TestFoo
 		expectedError error
 	}{
 		{
-			pool: ConnectionPool{
-				mu:    sync.RWMutex{},
-				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}},
-			},
+			pool: func() *ConnectionPool {
+				p := NewConnectionPool()
+				p.Add(ctx, "foo", TestFoo{called: "hoot"})
+				return p
+			}(),
 			key:           "foo",
 			expected:      TestFoo{called: "hoot"},
 			expectedError: nil,
@@ -35,7 +37,7 @@ func TestGet(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		test, err := v.pool.Get(context.Background(), v.key)
+		test, err := v.pool.Get(ctx, v.key)
 		assert.Equal(t, v.expectedError, err)
 		assert.Equal(t, v.expected, test)
 	}
