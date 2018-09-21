@@ -41,7 +41,6 @@ func NewAudit(pdb pdbclient.Client) ProcessPointer {
 
 // List retrevies items from pointerDB so we can process later
 func (a *audit) List(ctx context.Context, startAfter p.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
-
 	items, more, err = a.pdb.List(ctx, nil, startAfter, nil, true, limit, 0)
 
 	if err != nil {

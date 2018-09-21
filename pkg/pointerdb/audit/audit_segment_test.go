@@ -4,22 +4,51 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	p "storj.io/storj/pkg/paths"
 	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
-
-	"github.com/stretchr/testify/assert"
+	"storj.io/storj/pkg/provider"
 )
 
 const (
-	noLimitGiven = "limit not given"
+	noLimitGiven        = "limit not given"
+	pointerdbClientPort = "8081"
 )
 
 var (
 	ctx             = context.Background()
 	ErrNoLimitGiven = errors.New(noLimitGiven)
+	APIKey          = []byte("abc123")
+	client          pdbclient.Client
 )
+
+func TestMain(m *testing.M) {
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		log.Fatal("Failed to create certificate authority: ", zap.Error(err))
+		os.Exit(1)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		log.Fatal("Failed to create full identity: ", zap.Error(err))
+		os.Exit(1)
+	}
+
+	client, err := pdbclient.NewClient(identity, pointerdbClientPort, APIKey)
+
+	if err != nil {
+		log.Fatal("Failed to dial: ", zap.Error(err))
+		os.Exit(1)
+	}
+
+	fmt.Println(client)
+	os.Exit(m.Run())
+}
 
 func TestList(t *testing.T) {
 	tests := []struct {
@@ -44,15 +73,14 @@ func TestList(t *testing.T) {
 		t.Run(tt.bm, func(t *testing.T) {
 			assert := assert.New(t)
 
-			// create  mock for PDB client?
-			a := NewAudit()
-			items, more, err := List(ctx, nil, tt.startAfter, nil, tt.more, tt.limit, 0)
+			a := NewAudit(client)
+			items, more, err := a.List(ctx, tt.startAfter, tt.limit)
 
-			if err != nil {
-				assert.NotNil(err)
-				assert.Equal(tt.err, err.Error())
-				t.Errorf("Error: %s", err.Error())
-			}
+			// if err != nil {
+			assert.NotNil(err)
+			// 	assert.Equal(tt.err, err.Error())
+			// 	t.Errorf("Error: %s", err.Error())
+			// }
 
 			fmt.Println(items, more, err)
 			// write rest of  test
