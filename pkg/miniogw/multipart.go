@@ -27,10 +27,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 
 	objectStore, err := s.storj.bs.GetObjectStore(ctx, bucket)
 	if err != nil {
-		uploads.mu.Lock()
-		delete(uploads.pending, upload.ID)
-		uploads.mu.Unlock()
-
+		uploads.RemoveByID(upload.ID)
 		upload.fail(err)
 		return "", err
 	}
@@ -49,10 +46,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		}
 
 		result, err := objectStore.Put(ctx, paths.New(object), upload.Stream, serMetaInfo, expTime)
-
-		uploads.mu.Lock()
-		delete(uploads.pending, upload.ID)
-		uploads.mu.Unlock()
+		uploads.RemoveByID(upload.ID)
 
 		if err != nil {
 			upload.fail(err)
@@ -99,9 +93,7 @@ func (s *storjObjects) PutObjectPart(ctx context.Context, bucket, object, upload
 		Size:         atomic.LoadInt64(&part.Size),
 	}
 
-	upload.mu.Lock()
-	upload.completed = append(upload.completed, partInfo)
-	upload.mu.Unlock()
+	upload.addCompletedPart(partInfo)
 
 	return partInfo, nil
 }
@@ -142,10 +134,6 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 	return result.Info, result.Error
 }
 
-// func (s *storjObjects) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
-// 	return
-// }
-
 func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
 	uploads := s.storj.multipart
 	upload, err := uploads.Get(bucket, object, uploadID)
@@ -161,10 +149,7 @@ func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uplo
 	list.PartNumberMarker = partNumberMarker
 	list.MaxParts = maxParts
 	list.UserDefined = upload.Metadata
-
-	upload.mu.Lock()
-	list.Parts = append(list.Parts, upload.completed...)
-	upload.mu.Unlock()
+	list.Parts = upload.getCompletedParts()
 
 	sort.Slice(list.Parts, func(i, k int) bool {
 		return list.Parts[i].PartNumber < list.Parts[k].PartNumber
@@ -188,10 +173,9 @@ func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uplo
 	return list, nil
 }
 
-//
+// TODO: implement
+// func (s *storjObjects) ListMultipartUploads(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result minio.ListMultipartsInfo, err error) {
 // func (s *storjObjects) CopyObjectPart(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, uploadID string, partID int, startOffset int64, length int64, srcInfo minio.ObjectInfo) (info minio.PartInfo, err error) {
-// 	return
-// }
 
 // MultipartUploads manages pending multipart uploads
 type MultipartUploads struct {
@@ -262,6 +246,13 @@ func (uploads *MultipartUploads) Remove(bucket, object, uploadID string) (*Multi
 	return upload, nil
 }
 
+// RemoveByID removes pending upload by id
+func (uploads *MultipartUploads) RemoveByID(uploadID string) {
+	uploads.mu.RLock()
+	defer uploads.mu.RUnlock()
+	delete(uploads.pending, uploadID)
+}
+
 // MultipartUpload is partial info about a pending upload
 type MultipartUpload struct {
 	ID       string
@@ -292,6 +283,21 @@ func NewMultipartUpload(uploadID string, bucket, object string, metadata map[str
 		Stream:   NewMultipartStream(),
 	}
 	return upload
+}
+
+// addCompletedPart adds a completed part to the list
+func (upload *MultipartUpload) addCompletedPart(part minio.PartInfo) {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+
+	upload.completed = append(upload.completed, part)
+}
+
+func (upload *MultipartUpload) getCompletedParts() []minio.PartInfo {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+
+	return append([]minio.PartInfo{}, upload.completed...)
 }
 
 // fail aborts the upload with an error
