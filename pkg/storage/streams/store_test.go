@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/segments"
 )
 
@@ -27,12 +29,23 @@ func TestStreamStoreMeta(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
+	md := pb.MetaStreamInfo{
+		NumberOfSegments: 2,
+		SegmentsSize:     10,
+		LastSegmentSize:  0,
+		Metadata:         []byte{},
+	}
+	lastSegmentMetadata, err := proto.Marshal(&md)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	staticTime := time.Now()
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
 		Size:       10,
-		Data:       []byte("data"),
+		Data:       lastSegmentMetadata,
 	}
 	streamMeta, err := convertMeta(segmentMeta)
 	if err != nil {
@@ -81,10 +94,11 @@ func TestStreamStorePut(t *testing.T) {
 		Size:       10,
 		Data:       []byte("data"),
 	}
+
 	streamMeta := Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       10,
+		Size:       20,
 		Data:       []byte("data"),
 	}
 
@@ -98,18 +112,21 @@ func TestStreamStorePut(t *testing.T) {
 		streamMeta   Meta
 		streamError  error
 	}{
-		{"bucket", strings.NewReader("data"), []byte("metadata"), staticTime, segmentMeta, nil, streamMeta, nil},
+		{"bucket", strings.NewReader("data"), []byte("data"), staticTime, segmentMeta, nil, streamMeta, nil},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockSegmentStore.EXPECT().
 			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.streamError).
-			Do(func() {
-				buf := make([]byte, 8)
-				_, err := io.ReadFull(test.data, buf)
-				if err == io.EOF {
-					t.Fatal(err)
+			Times(2).
+			Do(func(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) {
+				for {
+					buf := make([]byte, 4)
+					_, err := data.Read(buf)
+					if err == io.EOF {
+						break
+					}
 				}
 			})
 
