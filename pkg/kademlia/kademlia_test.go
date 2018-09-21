@@ -44,7 +44,6 @@ func TestNewKademlia(t *testing.T) {
 		actual, err := NewKademlia(v.id, v.bn, v.addr, identity)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
-		assert.Equal(t, actual.stun, true)
 		assert.NotNil(t, actual.nodeClient)
 		assert.NotNil(t, actual.routingTable)
 	}

@@ -47,7 +47,6 @@ type Kademlia struct {
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
 	address        string
-	stun           bool
 	nodeClient     node.Client
 	identity       *provider.FullIdentity
 }
@@ -78,7 +77,6 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
-		stun:           true,
 		identity:       identity,
 	}
 
