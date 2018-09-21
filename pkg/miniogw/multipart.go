@@ -31,7 +31,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		delete(uploads.pending, upload.ID)
 		uploads.mu.Unlock()
 
-		upload.Fail(err)
+		upload.fail(err)
 		return "", err
 	}
 
@@ -55,9 +55,9 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		uploads.mu.Unlock()
 
 		if err != nil {
-			upload.Fail(err)
+			upload.fail(err)
 		} else {
-			upload.Complete(minio.ObjectInfo{
+			upload.complete(minio.ObjectInfo{
 				Name:        object,
 				Bucket:      bucket,
 				ModTime:     result.Modified,
@@ -214,7 +214,7 @@ func (uploads *MultipartUploads) Create(bucket, object string, metadata map[stri
 
 	for _, upload := range uploads.pending {
 		if upload.Bucket == bucket && upload.Object == object {
-			return nil, Error.New("duplicate upload to %q %q", bucket, object)
+			upload.Stream.Abort(Error.New("aborted by another upload to the same location"))
 		}
 	}
 
@@ -293,14 +293,14 @@ func NewMultipartUpload(uploadID string, bucket, object string, metadata map[str
 	return upload
 }
 
-// Fail aborts the upload with an error
-func (upload *MultipartUpload) Fail(err error) {
+// fail aborts the upload with an error
+func (upload *MultipartUpload) fail(err error) {
 	upload.Done <- &MultipartUploadResult{Error: err}
 	close(upload.Done)
 }
 
-// Complete completes the upload
-func (upload *MultipartUpload) Complete(info minio.ObjectInfo) {
+// complete completes the upload
+func (upload *MultipartUpload) complete(info minio.ObjectInfo) {
 	upload.Done <- &MultipartUploadResult{Info: info}
 	close(upload.Done)
 }
@@ -311,6 +311,7 @@ type MultipartStream struct {
 	moreParts  sync.Cond
 	err        error
 	closed     bool
+	finished   bool
 	nextID     int
 	nextNumber int
 	parts      []*StreamPart
@@ -338,9 +339,14 @@ func (stream *MultipartStream) Abort(err error) {
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
 
+	if stream.finished {
+		return
+	}
+
 	if stream.err == nil {
 		stream.err = err
 	}
+	stream.finished = true
 	stream.closed = true
 
 	for _, part := range stream.parts {
@@ -378,6 +384,7 @@ func (stream *MultipartStream) Read(data []byte) (n int, err error) {
 		}
 		// we don't have the next part and are closed, hence we are complete
 		if stream.closed {
+			stream.finished = true
 			stream.mu.Unlock()
 			return 0, io.EOF
 		}
@@ -393,10 +400,12 @@ func (stream *MultipartStream) Read(data []byte) (n int, err error) {
 	if err == io.EOF {
 		// the part completed, hence advance to the next one
 		err = nil
+
 		stream.mu.Lock()
 		stream.parts = stream.parts[1:]
 		stream.nextID++
 		stream.mu.Unlock()
+
 		close(part.Done)
 	} else if err != nil {
 		// something bad happened, abort the whole thing
