@@ -26,7 +26,7 @@ func TestGet(t *testing.T) {
 		{
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool()
-				p.Add(ctx, "foo", TestFoo{called: "hoot"})
+				assert.NoError(t, p.Add(ctx, "foo", TestFoo{called: "hoot"}))
 				return p
 			}(),
 			key:           "foo",
