@@ -117,7 +117,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	var err error
 	for v := range errch {
 		err = fmt.Errorf("%s : %s", err, v)
 	}
