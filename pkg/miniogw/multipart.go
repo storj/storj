@@ -165,7 +165,7 @@ func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uplo
 	}
 
 	list.Parts = list.Parts[first:]
-	if len(list.Parts) < maxParts {
+	if len(list.Parts) > maxParts {
 		list.NextPartNumberMarker = list.Parts[maxParts].PartNumber
 		list.Parts = list.Parts[:maxParts]
 		list.IsTruncated = true
