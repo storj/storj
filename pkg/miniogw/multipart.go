@@ -212,9 +212,10 @@ func (uploads *MultipartUploads) Create(bucket, object string, metadata map[stri
 	uploads.mu.Lock()
 	defer uploads.mu.Unlock()
 
-	for _, upload := range uploads.pending {
+	for id, upload := range uploads.pending {
 		if upload.Bucket == bucket && upload.Object == object {
 			upload.Stream.Abort(Error.New("aborted by another upload to the same location"))
+			delete(uploads.pending, id)
 		}
 	}
 
