@@ -19,7 +19,7 @@ import (
 
 const (
 	noLimitGiven        = "limit not given"
-	pointerdbClientPort = "8081"
+	pointerdbClientPort = ":8080"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 	APIKey          = []byte("abc123")
 )
 
-func testAuditSegment(t *testing.T) {
+func TestAuditSegment(t *testing.T) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		log.Fatal("Failed to create certificate authority: ", zap.Error(err))
@@ -78,14 +78,13 @@ func testAuditSegment(t *testing.T) {
 				assert := assert.New(t)
 				errTag := fmt.Sprintf("Test case #%d", i)
 
-				//a := NewAudit(client)
-
 				// create a pointer and put in db
 				fmt.Println("this is  the client again: ", client)
 				putRequest := makePointer(tt.path, tt.APIKey)
-				fmt.Println(putRequest)
+				fmt.Println("this is hte pr: ", putRequest)
 
 				err := client.Put(ctx, tt.path, putRequest.Pointer)
+				fmt.Println("this is the err for put request: ", err)
 
 				if err != nil {
 					assert.NotNil(t, err, errTag)
@@ -94,15 +93,16 @@ func testAuditSegment(t *testing.T) {
 				}
 
 				// call LIST
-				//items, more, err := a.List(ctx, tt.startAfter, tt.limit)
+				// a := NewAudit(client)
+				// items, more, err := a.List(ctx, tt.startAfter, tt.limit)
 
 				// if err != nil {
-				//assert.NotNil(err)
-				//assert.Equal(tt.err, tt.err)
+				// 	assert.NotNil(err)
+				// 	//assert.Equal(tt.err, tt.err)
 				// 	t.Errorf("Error: %s", err.Error())
 				// }
 
-				//fmt.Println(err)
+				//fmt.Println("this is items: ", items, more)
 				// write rest of  test
 			})
 		}
