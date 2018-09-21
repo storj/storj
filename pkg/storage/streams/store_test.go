@@ -233,5 +233,112 @@ func TestStreamStoreGet(t *testing.T) {
 		assert.Equal(t, test.streamRanger, ranger, errTag)
 		assert.Equal(t, test.streamMeta, meta, errTag)
 	}
+}
 
+func TestStreamStoreDelete(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSegmentStore := segments.NewMockStore(ctrl)
+
+	staticTime := time.Now()
+	segmentMeta := segments.Meta{
+		Modified:   staticTime,
+		Expiration: staticTime,
+		Size:       10,
+		Data:       []byte{},
+	}
+
+	for i, test := range []struct {
+		// input for test function
+		path string
+		// output for mock functions
+		segmentMeta  segments.Meta
+		segmentError error
+		// assert on output of test function
+		streamError error
+	}{
+		{"bucket", segmentMeta, nil, nil},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockSegmentStore.EXPECT().
+			Meta(gomock.Any(), gomock.Any()).
+			Return(test.segmentMeta, test.segmentError)
+		mockSegmentStore.EXPECT().
+			Delete(gomock.Any(), gomock.Any()).
+			Return(test.segmentError)
+
+		streamStore, err := NewStreamStore(mockSegmentStore, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = streamStore.Delete(ctx, paths.New(test.path))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, test.streamError, err, errTag)
+	}
+}
+func TestStreamStoreList(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockSegmentStore := segments.NewMockStore(ctrl)
+
+	// staticTime := time.Now()
+	// segmentMeta := segments.Meta{
+	// 	Modified:   staticTime,
+	// 	Expiration: staticTime,
+	// 	Size:       10,
+	// 	Data:       []byte{},
+	// }
+	// segmentList := []segments.ListItem{
+	// 	segments.ListItem{
+	// 		Path:     paths.New(""),
+	// 		Meta:     segmentMeta,
+	// 		IsPrefix: false,
+	// 	},
+	// }
+
+	for i, test := range []struct {
+		// input for test function
+		prefix     string
+		startAfter string
+		endBefore  string
+		recursive  bool
+		limit      int
+		metaFlags  uint32
+		// output for mock function
+		segments     []segments.ListItem
+		segmentMore  bool
+		segmentError error
+		// assert on output of test function
+		streamItems []ListItem
+		streamMore  bool
+		streamError error
+	}{
+		{"bucket", "", "", false, 1, 0, []segments.ListItem{}, false, nil, []ListItem{}, false, nil},
+	} {
+		errTag := fmt.Sprintf("Test case #%d", i)
+
+		mockSegmentStore.EXPECT().
+			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(test.segments, test.segmentMore, test.segmentError)
+
+		streamStore, err := NewStreamStore(mockSegmentStore, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		items, more, err := streamStore.List(ctx, paths.New(test.prefix), paths.New(test.startAfter), paths.New(test.endBefore), test.recursive, test.limit, test.metaFlags)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, test.streamItems, items, errTag)
+		assert.Equal(t, test.streamMore, more, errTag)
+	}
 }
