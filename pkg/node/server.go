@@ -28,6 +28,9 @@ func NewServer(dht dht.DHT) *Server {
 
 // Query is a node to node communication query
 func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	if s.logger == nil {
+		s.logger = zap.L()
+	}
 	rt, err := s.dht.GetRoutingTable(ctx)
 	if err != nil {
 		return &pb.QueryResponse{}, NodeClientErr.New("could not get routing table %s", err)

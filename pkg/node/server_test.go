@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -65,45 +64,6 @@ func TestQuery(t *testing.T) {
 			nearErr:    nil,
 			res:        &pb.QueryResponse{Sender: sender, Response: []*pb.Node{sender, node}},
 			err:        nil,
-		},
-		{caseName: "ping success, connectionSuccess errors",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   *sender,
-			pingErr:    nil,
-			successErr: errors.New("connection fails error"),
-			failErr:    nil,
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        &pb.QueryResponse{},
-			err:        errors.New("query error"),
-		},
-		{caseName: "ping fails, return error",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   pb.Node{},
-			pingErr:    errors.New("ping err"),
-			successErr: nil,
-			failErr:    nil,
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        &pb.QueryResponse{},
-			err:        errors.New("query error"),
-		},
-		{caseName: "ping fails, connectionFailed errors",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   pb.Node{},
-			pingErr:    errors.New("ping err"),
-			successErr: nil,
-			failErr:    errors.New("connection fails error"),
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        &pb.QueryResponse{},
-			err:        errors.New("query error"),
 		},
 	}
 	for i, v := range cases {
