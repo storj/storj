@@ -18,6 +18,7 @@ import (
 
 	"github.com/loov/hrtime"
 	"github.com/loov/plot"
+
 	minio "github.com/minio/minio-go"
 )
 
@@ -35,7 +36,7 @@ func main() {
 	plotname := flag.String("plot", "plot"+suffix+".svg", "plot results")
 
 	sizes := &Sizes{
-		Default: []Size{{1 << 10}, {256 << 10}, {1 << 20}, {32 << 20}, {64 << 20}, {256 << 20}},
+		Default: []Size{{1 * KB}, {256 * KB}, {1 * MB}, {32 * MB}, {64 * MB}, {256 * MB}},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
 
