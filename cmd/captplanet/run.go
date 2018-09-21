@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/mock"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
+	mock "storj.io/storj/pkg/overlay/mocks"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"

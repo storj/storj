@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package mock
+package mock_overlay
 
 import (
 	"context"
@@ -21,7 +21,11 @@ type Overlay struct {
 
 // NewOverlay returns a newly initialized mock overlal
 func NewOverlay(nodes []*pb.Node) *Overlay {
-	return &Overlay{nodes: map[string]*pb.Node{}}
+	rv := &Overlay{nodes: map[string]*pb.Node{}}
+	for _, node := range nodes {
+		rv.nodes[node.Id] = node
+	}
+	return rv
 
 }
 
