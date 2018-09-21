@@ -7,7 +7,6 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -128,7 +127,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// the available diskspace is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
-		fmt.Println("Warning!!! Disk space is less than remaining allocated space")
+		log.Println("Warning!!! Disk space is less than remaining allocated space")
 		/** [TODO] any special handling needed here ... */
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
@@ -183,7 +182,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 		return nil, err
 	}
 
-	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (int64(s.totalAllocated) - totalUsed)}, nil
+	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed)}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
