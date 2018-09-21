@@ -19,9 +19,9 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type MetaStreamInfo struct {
-	NumberOfSegments     int64    `protobuf:"varint,1,opt,name=number_of_segments,json=numberOfSegments" json:"number_of_segments,omitempty"`
-	SegmentsSize         int64    `protobuf:"varint,2,opt,name=segments_size,json=segmentsSize" json:"segments_size,omitempty"`
-	LastSegmentSize      int64    `protobuf:"varint,3,opt,name=last_segment_size,json=lastSegmentSize" json:"last_segment_size,omitempty"`
+	NumberOfSegments     int64    `protobuf:"varint,1,opt,name=number_of_segments,json=numberOfSegments,proto3" json:"number_of_segments,omitempty"`
+	SegmentsSize         int64    `protobuf:"varint,2,opt,name=segments_size,json=segmentsSize,proto3" json:"segments_size,omitempty"`
+	LastSegmentSize      int64    `protobuf:"varint,3,opt,name=last_segment_size,json=lastSegmentSize,proto3" json:"last_segment_size,omitempty"`
 	Metadata             []byte   `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -32,7 +32,7 @@ func (m *MetaStreamInfo) Reset()         { *m = MetaStreamInfo{} }
 func (m *MetaStreamInfo) String() string { return proto.CompactTextString(m) }
 func (*MetaStreamInfo) ProtoMessage()    {}
 func (*MetaStreamInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_1e6a51dbfd2db316, []int{0}
+	return fileDescriptor_meta_5b06d82fd046d147, []int{0}
 }
 func (m *MetaStreamInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetaStreamInfo.Unmarshal(m, b)
@@ -84,10 +84,10 @@ func init() {
 	proto.RegisterType((*MetaStreamInfo)(nil), "streams.MetaStreamInfo")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_1e6a51dbfd2db316) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_5b06d82fd046d147) }
 
-var fileDescriptor_meta_1e6a51dbfd2db316 = []byte{
-	// 165 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_meta_5b06d82fd046d147 = []byte{
+	// 171 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4d, 0x2d, 0x49,
 	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x2f, 0x2e, 0x29, 0x4a, 0x4d, 0xcc, 0x2d, 0x56,
 	0x5a, 0xcd, 0xc8, 0xc5, 0xe7, 0x9b, 0x5a, 0x92, 0x18, 0x0c, 0xe6, 0x7b, 0xe6, 0xa5, 0xe5, 0x0b,
@@ -97,6 +97,6 @@ var fileDescriptor_meta_1e6a51dbfd2db316 = []byte{
 	0x4c, 0x60, 0x85, 0x3c, 0x30, 0xc1, 0xe0, 0xcc, 0xaa, 0x54, 0x21, 0x2d, 0x2e, 0xc1, 0x9c, 0xc4,
 	0xe2, 0x12, 0x98, 0x69, 0x10, 0x85, 0xcc, 0x60, 0x85, 0xfc, 0x20, 0x09, 0xa8, 0x69, 0x60, 0xb5,
 	0x52, 0x5c, 0x1c, 0x20, 0x87, 0xa6, 0x24, 0x96, 0x24, 0x4a, 0xb0, 0x28, 0x30, 0x6a, 0xf0, 0x04,
-	0xc1, 0xf9, 0x49, 0x6c, 0x60, 0xd7, 0x1b, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x9a, 0x56, 0xdb,
-	0x89, 0xcb, 0x00, 0x00, 0x00,
+	0xc1, 0xf9, 0x4e, 0x2c, 0x51, 0x4c, 0x05, 0x49, 0x49, 0x6c, 0x60, 0x3f, 0x18, 0x03, 0x02, 0x00,
+	0x00, 0xff, 0xff, 0xf0, 0xed, 0xd8, 0x89, 0xd1, 0x00, 0x00, 0x00,
 }

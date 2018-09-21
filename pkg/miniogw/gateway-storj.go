@@ -31,12 +31,13 @@ var (
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
 func NewStorjGateway(bs buckets.Store) *Storj {
-	return &Storj{bs: bs}
+	return &Storj{bs: bs, multipart: NewMultipartUploads()}
 }
 
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	bs buckets.Store
+	bs        buckets.Store
+	multipart *MultipartUploads
 }
 
 // Name implements cmd.Gateway
@@ -390,6 +391,7 @@ func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r i
 func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	data *hash.Reader, metadata map[string]string) (objInfo minio.ObjectInfo,
 	err error) {
+
 	defer mon.Task()(&ctx)(&err)
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
