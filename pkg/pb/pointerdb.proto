@@ -2,7 +2,9 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-package pb;
+option go_package = "pb";
+
+package pointerdb;
 
 import "google/protobuf/timestamp.proto";
 
