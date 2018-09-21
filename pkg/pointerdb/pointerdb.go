@@ -228,3 +228,16 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
 }
+
+func (s *Server) iterate(ctx context.Context, options storage.IterateOptions) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering pointerdb iterate")
+
+	iter := func(it storage.Iterator) error {
+		
+		return nil
+	}
+	err = s.DB.Iterate(options, iter)
+
+	return err
+}
