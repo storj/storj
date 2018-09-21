@@ -13,11 +13,10 @@ import (
 	"storj.io/storj/storage"
 )
 
-// NewNodeAddressValue provides a convient way to create a storage.Value for testing purposes
-func NewNodeAddressValue(t *testing.T, address string) storage.Value {
-	na := &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: address}
+// NewNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
+func NewNodeStorageValue(t *testing.T, address string) storage.Value {
+	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: address}}
 	d, err := proto.Marshal(na)
 	assert.NoError(t, err)
-
 	return d
 }
