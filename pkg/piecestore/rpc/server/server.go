@@ -7,13 +7,14 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
-	"syscall"
 
 	"github.com/gtank/cryptopasta"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -35,7 +36,7 @@ var (
 // Config contains everything necessary for a server
 type Config struct {
 	Path               string `help:"path to store data in" default:"$CONFDIR"`
-	AllocatedDiskSpace uint64 `help:"total allocated disk space, default(1GB)" default:"1073741824"`
+	AllocatedDiskSpace int64  `help:"total allocated disk space, default(1GB)" default:"1073741824"`
 }
 
 // Run implements provider.Responsibility
@@ -56,24 +57,22 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	return server.Run(ctx)
 }
 
-//DiskStatus contains hard drive disk space info
-type DiskStatus struct {
-	All  uint64 `json:"all"`
-	Used uint64 `json:"used"`
-	Free uint64 `json:"free"`
-}
-
-// DiskUsage disk usage of path/disk
-func DiskUsage(path string) (disk DiskStatus) {
-	fs := syscall.Statfs_t{}
-	err := syscall.Statfs(path, &fs)
+//DirSize returns the total size of the files in that directory
+func DirSize(path string) (int64, error) {
+	var size int64
+	_, err := os.Stat(path)
 	if err != nil {
-		return
+		return 0, errors.New("path doesn't exists")
 	}
-	disk.All = fs.Blocks * uint64(fs.Bsize)
-	disk.Free = fs.Bfree * uint64(fs.Bsize)
-	disk.Used = disk.All - disk.Free
-	return
+	adjSize := func(_ string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	}
+	err = filepath.Walk(path, adjSize)
+
+	return size, err
 }
 
 // Server -- GRPC server meta data used in route calls
@@ -81,7 +80,7 @@ type Server struct {
 	DataDir        string
 	DB             *psdb.DB
 	pkey           crypto.PrivateKey
-	totalAllocated uint64
+	totalAllocated int64
 }
 
 // Initialize -- initializes a server struct
@@ -93,7 +92,11 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	allocatedDiskSpace := config.AllocatedDiskSpace
 
 	// get the disk space details
-	diskSpace := DiskUsage("/")
+	diskSpace, err := disk.Usage("/")
+	freeDiskSpace := int64(diskSpace.Free)
+	if err != nil {
+		return nil, err
+	}
 
 	db, err := psdb.Open(ctx, dataDir, dbPath)
 	if err != nil {
@@ -101,35 +104,38 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := db.SumTTLSizes()
+	totalUsed, err := DirSize(dataDir)
 	if err != nil {
 		//first time setup
-		totalUsed = 0x00
+		totalUsed = 0
 	}
 
 	// check your hard drive is big enough
-	// on restarting the Piece node server, assuming already been working as a node
-	if uint64(totalUsed) != 0x00 {
-		// used above the alloacated space
-		if uint64(totalUsed) >= allocatedDiskSpace {
-			log.Println("Warning!!! Used more space then allocated")
-			/** [TODO] any special handling needed here ... */
-		} else {
-			// the available diskspace is less than remaining allocated space
-			if diskSpace.Free < (allocatedDiskSpace - uint64(totalUsed)) {
-				log.Println("Warning!!! Disk space is less than remaining allocated space")
-				/** [TODO] any special handling needed here ... */
-			}
-		}
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-	}
-
 	// first time setup as a piece node server
-	if diskSpace.Free > allocatedDiskSpace {
+	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
+		return nil, errors.New("not enough space")
+	}
+
+	// on restarting the Piece node server, assuming already been working as a node
+	// used above the alloacated space, user changed the allocation space setting
+	// before restarting
+	if totalUsed >= allocatedDiskSpace {
+		fmt.Println("Warning!!! Used more space then allocated")
+		log.Println("Warning!!! Used more space then allocated")
+		/** [TODO] any special handling needed here ... */
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
-	return nil, errors.New("not enough space")
+	// the available diskspace is less than remaining allocated space,
+	// due to change of setting before restarting
+	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
+		log.Println("Warning!!! Disk space is less than remaining allocated space")
+		fmt.Println("Warning!!! Disk space is less than remaining allocated space")
+		/** [TODO] any special handling needed here ... */
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+	}
+
+	return nil, nil
 }
 
 // Stop the piececstore node

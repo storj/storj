@@ -278,6 +278,8 @@ github.com/segmentio/go-prompt v1.2.0 h1:o63/ApvCzF0mC8A07+e5zN/ZE9VTsWsinVSQcNF
 github.com/segmentio/go-prompt v1.2.0/go.mod h1:B3ehdD1xPoWDKgrQgUaGk+m8H1xb1J5TyYDfKpKNeEE=
 github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad h1:EqOdoSJGI7CsBQczPcIgmpm3hJE7X8Hj3jrgI002whs=
 github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad/go.mod h1:B3ehdD1xPoWDKgrQgUaGk+m8H1xb1J5TyYDfKpKNeEE=
+github.com/shirou/gopsutil v2.17.12+incompatible h1:FNbznluSK3DQggqiVw3wK/tFKJrKlLPBuQ+V8XkkCOc=
+github.com/shirou/gopsutil v2.17.12+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e h1:jrZSSgPUDtBeJbGXqgGUeupQH8I+ZvGXfhpIahye2Bc=
 github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e/go.mod h1:d8hQseuYt4rJoOo21lFzYJdhMjmDqLY++ayArbgYjWI=
 github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 h1:xHQewZjohU9/wUsyC99navCjQDNHtTgUOM/J1jAbzfw=

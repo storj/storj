@@ -117,6 +117,7 @@ require (
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+	github.com/shirou/gopsutil v2.17.12+incompatible
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e // indirect
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8 // indirect
