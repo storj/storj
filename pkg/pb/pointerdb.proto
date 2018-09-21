@@ -27,10 +27,10 @@ message RedundancyScheme {
   SchemeType type = 1;
 
   // these values apply to RS encoding
-  int32 min_req = 2; // minimum required for reconstruction
-  int32 total = 3;   // total amount of pieces we generated
-  int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair
-  int32 success_threshold = 5; // amount of pieces we need to store to call it a success
+  int32 min_req = 2; // minimum required for reconstruction (k)
+  int32 total = 3;   // total amount of pieces we generated (n)
+  int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair (m)
+  int32 success_threshold = 5; // amount of pieces we need to store to call it a success (o)
 
   int32 erasure_share_size = 6;
 }
@@ -79,7 +79,7 @@ message Pointer {
 
 // PutRequest is a request message for the Put rpc call
 message PutRequest {
-  string path = 1;
+ 
   Pointer pointer = 2;
   bytes API_key = 3;
 }
@@ -99,6 +99,16 @@ message ListRequest {
   int32 limit = 5;
   fixed32 meta_flags = 6;
   bytes API_key = 7;
+}
+
+//IterateRequest is a request message for the iterate private method
+message IterateRequest {
+    string prefix = 1;
+    string first = 2;
+    bool recurse = 3;
+    bool reverse = 4;
+    int32 limit = 5;
+    bytes API_key = 6;
 }
 
 // PutResponse is a response message for the Put rpc call

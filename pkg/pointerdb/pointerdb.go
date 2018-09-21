@@ -229,15 +229,54 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	return &pb.DeleteResponse{}, nil
 }
 
-func (s *Server) iterate(ctx context.Context, options storage.IterateOptions) (err error) {
+func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb iterate")
+	
+	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+		return err
+	}
 
 	iter := func(it storage.Iterator) error {
-		
+		var item storage.ListItem
+		for ; req.Limit > 0 && it.Next(&item); req.Limit-- {
+			if item.Key == nil {
+				panic("nil key")
+			}
+			pointer := &pb.Pointer{}
+			e := proto.Unmarshal(item.Value, pointer)
+			if e != nil {
+
+			}
+			pieces := pointer.Remote.RemotePieces
+			var offlineCount int32
+			offlineCount = 0
+			for i, p := range pieces {
+				nid := p.NodeId
+				if nodeOffline(nid) {
+					offlineCount++
+				}
+				if offlineCount >= pointer.Remote.Redundancy.RepairThreshold {
+					//add segment to data repair queue as injured segment 
+				}
+			}
+		}
 		return nil
 	}
+	options := storage.IterateOptions{
+		Prefix: storage.Key(req.Prefix),
+		First: storage.Key(req.First),
+		Recurse: req.Recurse,
+		Reverse: req.Reverse,
+	}
 	err = s.DB.Iterate(options, iter)
-
 	return err
+}
+
+func nodeOffline(nid string) bool {
+	//TODO
+	//check if node is in replacement cache
+	//if in replacement cache, return false
+	//if not return true
+	return true
 }
