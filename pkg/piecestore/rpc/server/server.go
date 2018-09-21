@@ -120,7 +120,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
-		fmt.Println("Warning!!! Used more space then allocated")
 		log.Println("Warning!!! Used more space then allocated")
 		/** [TODO] any special handling needed here ... */
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
@@ -129,13 +128,12 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// the available diskspace is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
-		log.Println("Warning!!! Disk space is less than remaining allocated space")
 		fmt.Println("Warning!!! Disk space is less than remaining allocated space")
 		/** [TODO] any special handling needed here ... */
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
-	return nil, nil
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 }
 
 // Stop the piececstore node
