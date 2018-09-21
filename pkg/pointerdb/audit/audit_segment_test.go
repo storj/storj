@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
 
@@ -18,14 +17,12 @@ import (
 )
 
 const (
-	noLimitGiven        = "limit not given"
-	pointerdbClientPort = ":8080"
+	noLimitGiven = "limit not given"
 )
 
 var (
 	ctx             = context.Background()
 	ErrNoLimitGiven = errors.New(noLimitGiven)
-	APIKey          = []byte("abc123")
 )
 
 type pointerDBWrapper struct {
@@ -65,7 +62,7 @@ func TestAuditSegment(t *testing.T) {
 			err        error
 		}{
 			{
-				bm:         "should fail with no limit given",
+				bm:         "success",
 				path:       p.New("file1/file2"),
 				APIKey:     nil,
 				startAfter: p.New("file3/file4"),
@@ -78,7 +75,7 @@ func TestAuditSegment(t *testing.T) {
 
 		for i, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
-				assert := assert.New(t)
+				//assert := assert.New(t)
 				errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
@@ -96,9 +93,7 @@ func TestAuditSegment(t *testing.T) {
 				fmt.Println("this is the err for put request: ", errTag, err)
 
 				if err != nil {
-					assert.NotNil(t, err, errTag)
-				} else {
-					assert.Nil(t, err, errTag)
+					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 				}
 
 				// call LIST
