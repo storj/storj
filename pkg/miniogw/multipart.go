@@ -11,6 +11,7 @@ import (
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/objects"
 )
