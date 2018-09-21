@@ -29,10 +29,10 @@ func TestFindStorageNodes(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		}, {
 			Key:   storage.Key(id2.String()),
-			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	assert.NotNil(t, srv)
@@ -62,7 +62,7 @@ func TestOverlayLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -89,7 +89,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(id.String()),
-			Value: test.NewNodeAddressValue(t, "127.0.0.1:9090"),
+			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
