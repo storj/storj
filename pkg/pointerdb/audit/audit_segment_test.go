@@ -26,10 +26,9 @@ var (
 	ctx             = context.Background()
 	ErrNoLimitGiven = errors.New(noLimitGiven)
 	APIKey          = []byte("abc123")
-	client          pdbclient.Client
 )
 
-func TestMain(m *testing.M) {
+func testAuditSegment(t *testing.T) {
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
 		log.Fatal("Failed to create certificate authority: ", zap.Error(err))
@@ -48,8 +47,66 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	fmt.Println(client)
-	os.Exit(m.Run())
+	fmt.Println("this is the  client: ", client)
+
+	t.Run("List", func(t *testing.T) {
+
+		tests := []struct {
+			bm         string
+			path       p.Path
+			APIKey     []byte
+			startAfter p.Path
+			limit      int
+			items      []pdbclient.ListItem
+			more       bool
+			err        error
+		}{
+			{
+				bm:         "should fail with no limit given",
+				path:       p.New("file1/file2"),
+				APIKey:     []byte("abc123"),
+				startAfter: p.New("file3/file4"),
+				limit:      0,
+				items:      nil,
+				more:       false,
+				err:        ErrNoLimitGiven,
+			},
+		}
+
+		for i, tt := range tests {
+			t.Run(tt.bm, func(t *testing.T) {
+				assert := assert.New(t)
+				errTag := fmt.Sprintf("Test case #%d", i)
+
+				//a := NewAudit(client)
+
+				// create a pointer and put in db
+				fmt.Println("this is  the client again: ", client)
+				putRequest := makePointer(tt.path, tt.APIKey)
+				fmt.Println(putRequest)
+
+				err := client.Put(ctx, tt.path, putRequest.Pointer)
+
+				if err != nil {
+					assert.NotNil(t, err, errTag)
+				} else {
+					assert.Nil(t, err, errTag)
+				}
+
+				// call LIST
+				//items, more, err := a.List(ctx, tt.startAfter, tt.limit)
+
+				// if err != nil {
+				//assert.NotNil(err)
+				//assert.Equal(tt.err, tt.err)
+				// 	t.Errorf("Error: %s", err.Error())
+				// }
+
+				//fmt.Println(err)
+				// write rest of  test
+			})
+		}
+	})
 }
 
 func makePointer(path p.Path, auth []byte) pb.PutRequest {
@@ -78,65 +135,4 @@ func makePointer(path p.Path, auth []byte) pb.PutRequest {
 		APIKey: auth,
 	}
 	return pr
-}
-
-func TestList(t *testing.T) {
-
-	tests := []struct {
-		bm         string
-		path       p.Path
-		APIKey     []byte
-		startAfter p.Path
-		limit      int
-		items      []pdbclient.ListItem
-		more       bool
-		err        error
-	}{
-		{
-			bm:         "should fail with no limit given",
-			path:       p.New("file1/file2"),
-			APIKey:     []byte("abc123"),
-			startAfter: p.New("file3/file4"),
-			limit:      0,
-			items:      nil,
-			more:       false,
-			err:        ErrNoLimitGiven,
-		},
-	}
-
-	// add  values to db so we can list
-
-	for i, tt := range tests {
-		t.Run(tt.bm, func(t *testing.T) {
-			assert := assert.New(t)
-			errTag := fmt.Sprintf("Test case #%d", i)
-
-			//a := NewAudit(client)
-
-			// create a pointer and put in db
-			fmt.Println("this is  the client again: ", client)
-			putRequest := makePointer(tt.path, tt.APIKey)
-			fmt.Println(putRequest)
-
-			err := client.Put(ctx, tt.path, putRequest.Pointer)
-
-			if err != nil {
-				assert.NotNil(t, err, errTag)
-			} else {
-				assert.Nil(t, err, errTag)
-			}
-
-			// call LIST
-			//items, more, err := a.List(ctx, tt.startAfter, tt.limit)
-
-			// if err != nil {
-			//assert.NotNil(err)
-			//assert.Equal(tt.err, tt.err)
-			// 	t.Errorf("Error: %s", err.Error())
-			// }
-
-			//fmt.Println(err)
-			// write rest of  test
-		})
-	}
 }
