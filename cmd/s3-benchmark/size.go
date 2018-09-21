@@ -55,6 +55,7 @@ type unit struct {
 	scale  float64
 }
 
+// different byte-size suffixes
 const (
 	TB = 1 << 40
 	GB = 1 << 40
