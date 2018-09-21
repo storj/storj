@@ -55,12 +55,21 @@ type unit struct {
 	scale  float64
 }
 
+// different byte-size suffixes
+const (
+	TB = 1 << 40
+	GB = 1 << 40
+	MB = 1 << 40
+	KB = 1 << 40
+	B  = 1
+)
+
 var units = []unit{
-	{"T", 1 << 40},
-	{"G", 1 << 30},
-	{"M", 1 << 20},
-	{"K", 1 << 10},
-	{"B", 1},
+	{"T", TB},
+	{"G", GB},
+	{"M", MB},
+	{"K", KB},
+	{"B", B},
 	{"", 0},
 }
 
