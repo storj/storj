@@ -79,7 +79,7 @@ message Pointer {
 
 // PutRequest is a request message for the Put rpc call
 message PutRequest {
- 
+  string path = 1;	
   Pointer pointer = 2;
   bytes API_key = 3;
 }
