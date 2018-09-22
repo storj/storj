@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
 
@@ -50,7 +52,6 @@ func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
 }
 
 func TestAuditSegment(t *testing.T) {
-
 	t.Run("List", func(t *testing.T) {
 
 		tests := []struct {
@@ -68,7 +69,7 @@ func TestAuditSegment(t *testing.T) {
 				path:       p.New("file1/file2"),
 				APIKey:     nil,
 				startAfter: p.New("file3/file4"),
-				limit:      0,
+				limit:      10,
 				items:      nil,
 				more:       false,
 				err:        ErrNoLimitGiven,
@@ -77,20 +78,32 @@ func TestAuditSegment(t *testing.T) {
 
 		for i, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
-				//assert := assert.New(t)
+				assert := assert.New(t)
 				errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
 				putRequest := makePointer(tt.path, tt.APIKey)
-				fmt.Println("this is the pr: ", putRequest)
 
 				db := teststore.New()
 				c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
 				pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
-				req := pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
 
-				_, err := pdbw.Put(ctx, &req)
+				fmt.Println("pointer is: ", putRequest.Pointer)
+				// create putreq. object
+				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
+
+				//Put pointer into db
+				_, err := pdbw.Put(ctx, req)
+
+				greq := pb.GetRequest{Path: tt.path.String(), APIKey: tt.APIKey}
+				pointerget, err := pdbw.Get(ctx, &greq)
+
+				// see if i can  get a pointer - yes I can get a pointer
+				respPr := &pb.Pointer{}
+				err = proto.Unmarshal(pointerget.GetPointer(), respPr)
+
+				fmt.Println("this is the err for GET request: ", respPr)
 
 				fmt.Println("this is the err for put request: ", errTag, err)
 
@@ -98,29 +111,21 @@ func TestAuditSegment(t *testing.T) {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 				}
 
-				// call LIST
-
-				// todo
-
-				//pdbc := pb.NewPointerDBClient(pdbw.NewServer)
-
-				// type PointerDB struct {
-				// 	grpcClient pb.PointerDBClient
-				// 	APIKey     []byte
-				// }
-
-				// todo: need to fix grpcClient to GRPCClient to be exported
-				pdbc := pdbclient.PointerDB{pdbw, tt.APIKey}
+				// create a pdb client and instance of audit
+				pdbc := &pdbclient.PointerDB{GrpcClient: pdbw, APIKey: tt.APIKey}
 				a := NewAudit(pdbc)
-				items, more, err := a.List(ctx, tt.startAfter, tt.limit)
+				items, more, err := a.List(ctx, nil, tt.limit)
 
-				// if err != nil {
-				// 	assert.NotNil(err)
-				// 	//assert.Equal(tt.err, tt.err)
-				// 	t.Errorf("Error: %s", err.Error())
-				// }
+				if err != nil {
+					assert.NotNil(err)
+					//assert.Equal(tt.err, tt.err)
+					t.Errorf("Error: %s", err.Error())
+				}
 
-				//fmt.Println("this is items: ", items, more)
+				fmt.Println("items at 0: ", items[0].Pointer)
+				//WHY IS POINTER NIL?
+
+				fmt.Println("this is items: ", items, more, err)
 				// write rest of  test
 			})
 		}
