@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
@@ -78,7 +77,7 @@ func TestAuditSegment(t *testing.T) {
 
 		for i, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
-				assert := assert.New(t)
+				assert1 := assert.New(t)
 				errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
@@ -89,42 +88,31 @@ func TestAuditSegment(t *testing.T) {
 
 				pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
 
-				fmt.Println("pointer is: ", putRequest.Pointer)
 				// create putreq. object
 				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
 
 				//Put pointer into db
 				_, err := pdbw.Put(ctx, req)
-
-				greq := pb.GetRequest{Path: tt.path.String(), APIKey: tt.APIKey}
-				pointerget, err := pdbw.Get(ctx, &greq)
-
-				// see if i can  get a pointer - yes I can get a pointer
-				respPr := &pb.Pointer{}
-				err = proto.Unmarshal(pointerget.GetPointer(), respPr)
-
-				fmt.Println("this is the err for GET request: ", respPr)
-
-				fmt.Println("this is the err for put request: ", errTag, err)
-
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 				}
 
+				fmt.Println("this is the err for put request: ", errTag, err)
+
 				// create a pdb client and instance of audit
 				pdbc := &pdbclient.PointerDB{GrpcClient: pdbw, APIKey: tt.APIKey}
 				a := NewAudit(pdbc)
+
+				// make  a List request
 				items, more, err := a.List(ctx, nil, tt.limit)
 
 				if err != nil {
-					assert.NotNil(err)
+					assert1.NotNil(err)
 					//assert.Equal(tt.err, tt.err)
 					t.Errorf("Error: %s", err.Error())
 				}
 
 				fmt.Println("items at 0: ", items[0].Pointer)
-				//WHY IS POINTER NIL?
-
 				fmt.Println("this is items: ", items, more, err)
 				// write rest of  test
 			})

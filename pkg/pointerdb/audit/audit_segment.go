@@ -8,6 +8,7 @@ import (
 
 	p "storj.io/storj/pkg/paths"
 	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
+	meta "storj.io/storj/pkg/storage/meta"
 )
 
 //Randomly choose a pointer from pointerdb.
@@ -41,5 +42,5 @@ func NewAudit(pdb pdbclient.Client) ProcessPointer {
 
 // List retrevies items from pointerDB so we can process later
 func (a *audit) List(ctx context.Context, startAfter p.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
-	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, 0)
+	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 }
