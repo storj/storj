@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/dht"
 	dr "storj.io/storj/pkg/datarepair"
 )
 
@@ -237,7 +238,7 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Q
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return err
 	}
-
+	
 	iter := func(it storage.Iterator) error {
 		var item storage.ListItem
 		for ; req.Limit > 0 && it.Next(&item); req.Limit-- {
@@ -254,7 +255,7 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Q
 			var missingPieces []int32
 			for i, p := range pieces {
 				nid := p.NodeId
-				if s.nodeOffline(nid) {
+				if s.nodeOffline(ctx, nid) {
 					missingPieces = append(missingPieces, int32(i))
 				}
 				if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {					
@@ -282,11 +283,10 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Q
 	return err
 }
 
-func (s *Server) nodeOffline(nid string) bool {
-	//TODO
-	// s.config.cache ??
-	//check if node is in replacement cache
-	//if in replacement cache, return false
-	//if not return true
-	return true
+func (s *Server) nodeOffline(ctx context.Context, nodeID string) bool {
+	node, err := s.overlay.Lookup(ctx, dht.StringToNodeID(nodeID)) //s.overlay once dylan's pr is merged
+	if err != nil { //node not in overlay cache
+		return true
+	}
+	return false
 }
