@@ -29,10 +29,6 @@ type pointerDBWrapper struct {
 	s pb.PointerDBServer
 }
 
-func newPointerDBWrapper(pdbs pb.PointerDBServer) *pointerDBWrapper {
-	return &pointerDBWrapper{pdbs}
-}
-
 func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
 	return pbd.s.Put(ctx, in)
 }
@@ -45,7 +41,13 @@ func (pbd *pointerDBWrapper) List(ctx context.Context, in *pb.ListRequest, opts 
 	return pbd.s.List(ctx, in)
 }
 
-// func (pbd *PointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error)
+func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
+	return pbd.s.Delete(ctx, in)
+}
+
+func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
+	return &pointerDBWrapper{pdbs}
+}
 
 func TestAuditSegment(t *testing.T) {
 
@@ -97,7 +99,20 @@ func TestAuditSegment(t *testing.T) {
 				}
 
 				// call LIST
-				//items, more, err := pdbw.List(ctx, tt.startAfter, tt.limit)
+
+				// todo
+
+				//pdbc := pb.NewPointerDBClient(pdbw.NewServer)
+
+				// type PointerDB struct {
+				// 	grpcClient pb.PointerDBClient
+				// 	APIKey     []byte
+				// }
+
+				// todo: need to fix grpcClient to GRPCClient to be exported
+				pdbc := pdbclient.PointerDB{pdbw, tt.APIKey}
+				a := NewAudit(pdbc)
+				items, more, err := a.List(ctx, tt.startAfter, tt.limit)
 
 				// if err != nil {
 				// 	assert.NotNil(err)
