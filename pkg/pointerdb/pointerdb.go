@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
+	dr "storj.io/storj/pkg/datarepair"
 )
 
 var (
@@ -229,7 +230,7 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	return &pb.DeleteResponse{}, nil
 }
 
-func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest) (err error) {
+func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Queue) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb iterate")
 	
@@ -244,20 +245,28 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest) (err error
 				panic("nil key")
 			}
 			pointer := &pb.Pointer{}
-			e := proto.Unmarshal(item.Value, pointer)
-			if e != nil {
-
+			err = proto.Unmarshal(item.Value, pointer)
+			if err != nil {
+				//TODO better error handling
+				return err
 			}
 			pieces := pointer.Remote.RemotePieces
-			var offlineCount int32
-			offlineCount = 0
+			var missingPieces []int32
 			for i, p := range pieces {
 				nid := p.NodeId
-				if nodeOffline(nid) {
-					offlineCount++
+				if s.nodeOffline(nid) {
+					missingPieces = append(missingPieces, int32(i))
 				}
-				if offlineCount >= pointer.Remote.Redundancy.RepairThreshold {
-					//add segment to data repair queue as injured segment 
+				if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {					
+					err = queue.Add(&pb.InjuredSegment{
+						Path: string(item.Key), 
+						LostPieces: missingPieces,
+					})
+					if err != nil {
+						//TODO better error handling
+						return err
+					}
+					break
 				}
 			}
 		}
@@ -273,8 +282,9 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest) (err error
 	return err
 }
 
-func nodeOffline(nid string) bool {
+func (s *Server) nodeOffline(nid string) bool {
 	//TODO
+	// s.config.cache ??
 	//check if node is in replacement cache
 	//if in replacement cache, return false
 	//if not return true
