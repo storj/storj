@@ -321,5 +321,8 @@ func TestServiceList(t *testing.T) {
 }
 
 func TestIterate(t *testing.T) {
-	//add benchmarking
+}
+
+func BenchmarkIterate(b *testing.B) {
+	
 }
