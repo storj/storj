@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/dht"
 	dr "storj.io/storj/pkg/datarepair"
 )
@@ -252,22 +253,23 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Q
 				return err
 			}
 			pieces := pointer.Remote.RemotePieces
-			var missingPieces []int32
+			var nodeIDs []dht.NodeID
 			for i, p := range pieces {
-				nid := p.NodeId
-				if s.nodeOffline(ctx, nid) {
-					missingPieces = append(missingPieces, int32(i))
-				}
-				if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {					
-					err = queue.Add(&pb.InjuredSegment{
-						Path: string(item.Key), 
-						LostPieces: missingPieces,
-					})
-					if err != nil {
-						//TODO better error handling
-						return err
-					}
-					break
+				nodeIDs = append(nodeIDs, kademlia.StringToNodeID(p.NodeId))
+			}
+			missingPieces, err := offlineNodes(ctx, nodeIDs)
+			if err != nil {
+				//TODO better error handling
+				return err
+			}
+			if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {
+				err = queue.Add(&pb.InjuredSegment{
+					Path: string(item.Key), 
+					LostPieces: missingPieces,
+				})
+				if err != nil {
+					//TODO better error handling
+					return err
 				}
 			}
 		}
@@ -283,10 +285,16 @@ func (s *Server) iterate(ctx context.Context, req *pb.IterateRequest, queue dr.Q
 	return err
 }
 
-func (s *Server) nodeOffline(ctx context.Context, nodeID string) bool {
-	node, err := s.overlay.Lookup(ctx, dht.StringToNodeID(nodeID)) //s.overlay once dylan's pr is merged
-	if err != nil { //node not in overlay cache
-		return true
+//returns the indices of offline nodes
+func offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (indices []int32, err error) {
+	nodes, err := s.overlay.BulkLookup(ctx, nodeIDs) //s.overlay once dylan's pr is merged
+	if err != nil {
+		return []int32{}, err
 	}
-	return false
+	for i, n := range nodes {
+		if n == nil {
+			indices = append(indices, i)
+		}
+	}
+	return indices, nil
 }
