@@ -23,8 +23,16 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	GrpcClient pb.PointerDBClient
+	grpcClient pb.PointerDBClient
 	APIKey     []byte
+}
+
+// New Used as a public function
+func New(gcclient pb.PointerDBClient, APIKey []byte) (pdbc *PointerDB) {
+	return &PointerDB{
+		grpcClient: gcclient,
+		APIKey:   APIKey,
+	}
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -59,7 +67,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 		return nil, err
 	}
 	return &PointerDB{
-		GrpcClient: c,
+		grpcClient: c,
 		APIKey:     APIKey,
 	}, nil
 }
@@ -81,7 +89,7 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.GrpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: pdb.APIKey})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: pdb.APIKey})
 
 	return err
 }
@@ -90,7 +98,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.GrpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
@@ -107,7 +115,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.GrpcClient.List(ctx, &pb.ListRequest{
+	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
 		Prefix:     prefix.String(),
 		StartAfter: startAfter.String(),
 		EndBefore:  endBefore.String(),
@@ -137,7 +145,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.GrpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
 
 	return err
 }
