@@ -17,7 +17,7 @@ require (
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/ccding/go-stun v0.0.0-20171206150302-d9bbe8f8fa7b // indirect
-	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b // indirect
+	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
 	github.com/cloudfoundry/gosigar v1.1.0
 	github.com/coredns/coredns v1.2.0 // indirect
 	github.com/coreos/etcd v3.3.9+incompatible // indirect

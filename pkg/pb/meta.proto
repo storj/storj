@@ -2,8 +2,9 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
+option go_package = "pb";
 
-package pb;
+package streams;
 
 message MetaStreamInfo {
     int64 number_of_segments = 1;
