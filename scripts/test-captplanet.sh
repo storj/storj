@@ -2,7 +2,7 @@
 set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
-captplanet setup
+captplanet setup --overwrite
 captplanet run &
 CAPT_PID=$!
 
@@ -20,6 +20,7 @@ aws s3 --endpoint=http://localhost:7777/ cp ./big-upload-testfile s3://bucket/bi
 aws s3 --endpoint=http://localhost:7777/ ls s3://bucket
 aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/small-testfile ./small-download-testfile
 aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/big-testfile ./big-download-testfile
+aws s3 --endpoint=http://localhost:7777/ rb s3://bucket --force
 
 if cmp ./small-upload-testfile ./small-download-testfile
 then
@@ -35,6 +36,26 @@ then
   echo "Downloaded file matches uploaded file";
 else
   echo "Downloaded file does not match uploaded file";
+  kill -9 $CAPT_PID
+  exit 1;
+fi
+
+kill -9 $CAPT_PID
+
+captplanet setup --listen-host ::1 --overwrite
+captplanet run &
+CAPT_PID=$!
+
+aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
+aws s3 --endpoint=http://localhost:7777/ cp ./big-upload-testfile s3://bucket/big-testfile
+aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/big-testfile ./big-download-testfile-ipv6
+aws s3 --endpoint=http://localhost:7777/ rb s3://bucket --force
+
+if cmp ./big-upload-testfile ./big-download-testfile-ipv6
+then
+  echo "Downloaded ipv6 file matches uploaded file";
+else
+  echo "Downloaded ipv6 file does not match uploaded file";
   kill -9 $CAPT_PID
   exit 1;
 fi
