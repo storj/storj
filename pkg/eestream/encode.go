@@ -204,8 +204,7 @@ func (er *encodedReader) fillBuffer() {
 func (er *encodedReader) copyData(num int, copier <-chan block) {
 	// close the respective buffer channel when this goroutine exits
 	defer func() {
-		if atomic.LoadInt32(er.eps[num].closed) == 0 {
-			atomic.StoreInt32(er.eps[num].closed, 1)
+		if atomic.CompareAndSwapInt32(er.eps[num].closed, 0, 1) {
 			close(er.eps[num].ch)
 		}
 	}()
