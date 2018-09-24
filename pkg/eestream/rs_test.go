@@ -95,7 +95,8 @@ func TestRSRanger(t *testing.T) {
 	}
 	encKey := GenericKey(sha256.Sum256([]byte("the secret key")))
 	var firstNonce GenericNonce
-	encrypter, err := NewEncrypter(&encKey, &firstNonce, rs.DecodedBlockSize(), AESGCM)
+	cipher := AESGCM
+	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestRSRanger(t *testing.T) {
 	for i, piece := range pieces {
 		rrs[i] = ranger.ByteRanger(piece)
 	}
-	decrypter, err := NewDecrypter(&encKey, &firstNonce, rs.DecodedBlockSize(), AESGCM)
+	decrypter, err := cipher.NewDecrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
 	if err != nil {
 		t.Fatal(err)
 	}
