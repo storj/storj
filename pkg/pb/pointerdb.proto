@@ -79,7 +79,7 @@ message Pointer {
 
 // PutRequest is a request message for the Put rpc call
 message PutRequest {
-  string path = 1;	
+  string path = 1;
   Pointer pointer = 2;
   bytes API_key = 3;
 }
@@ -101,8 +101,8 @@ message ListRequest {
   bytes API_key = 7;
 }
 
-//IterateRequest is a request message for the iterate private method
-message IterateRequest {
+//IdentifyRequest is a request message for the identifyInjuredSegments private method
+message IdentifyRequest {
     string prefix = 1;
     string first = 2;
     bool recurse = 3;
