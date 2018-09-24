@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -83,6 +84,27 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSegments int64
 	var totalSize int64
 	var lastSegmentSize int64
+
+	go func() {
+		<-ctx.Done()
+		log.Println("totalSeg....", totalSegments)
+		log.Println("path....", path)
+
+		for i := 0; i < int(totalSegments); i++ {
+			log.Println("inside for loop seg#....", i)
+			currentPath := fmt.Sprintf("s%d", i)
+			log.Println("deleted path", currentPath)
+
+			// go func() {
+			// 	_ = s.segments.Delete(ctx, path.Prepend(currentPath))
+			// 	// if err != nil {
+			// 	// 	return
+			// 	// }
+			log.Println("deleted path", path.Prepend(currentPath))
+			// }()
+		}
+		log.Printf("cleaning up the partial uploads !!!!!!!!!1ctx.Done()")
+	}()
 
 	awareLimitReader := EOFAwareReader(data)
 

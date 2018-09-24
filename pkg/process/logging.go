@@ -15,10 +15,10 @@ var (
 	// Error is a process error class
 	Error = errs.Class("process error")
 
-	logLevel    = zap.LevelFlag("log.level", zapcore.WarnLevel, "the minimum log level to log")
-	logDev      = flag.Bool("log.development", false, "if true, set logging to development mode")
-	logCaller   = flag.Bool("log.caller", false, "if true, log function filename and line number")
-	logStack    = flag.Bool("log.stack", false, "if true, log stack traces")
+	logLevel    = zap.LevelFlag("log.level", zapcore.DebugLevel, "the minimum log level to log")
+	logDev      = flag.Bool("log.development", true, "if true, set logging to development mode")
+	logCaller   = flag.Bool("log.caller", true, "if true, log function filename and line number")
+	logStack    = flag.Bool("log.stack", true, "if true, log stack traces")
 	logEncoding = flag.String("log.encoding", "console", "configures log encoding. can either be 'console' or 'json'")
 	logOutput   = flag.String("log.output", "stderr",
 		"can be stdout, stderr, or a filename")

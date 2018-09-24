@@ -5,7 +5,12 @@ package miniogw
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -370,9 +375,51 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
 }
 
+// SetupCloseHandler creates a 'listener' on a new goroutine which will notify the
+// program if it receives an interrupt from the OS. We then handle this by calling
+// our clean up procedure and exiting the program.
+func SetupCloseHandler(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		signal.Stop(c)
+		cancel()
+		os.Exit(0)
+	}()
+}
+
 func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
 	meta objects.SerializableMeta) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	log.Println("HELELLJLKSDFJLSJDFJSKFDJLSJFLSJFLSJFLJFLDSKJFKLDS:JFKLSDJFKLSJFLKDSFJKLDSJFKLSFJKLSDFJKLSJFKLSDJFKLSDJFKLSJDFKLDSJFKLSDFJSEFLKJ ")
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		log.Println("cancelling .......")
+		signal.Stop(c)
+		cancel()
+		return
+	}()
+
+	go func(ctx context.Context, bucket, object string) {
+		<-ctx.Done()
+		log.Println("ctx.Done() cancelling .......")
+		//err = s.DeleteObject(ctx, bucket, object)
+		if err != nil {
+			return
+		}
+	}(ctx, bucket, object)
 
 	// setting zero value means the object never expires
 	expTime := time.Time{}
