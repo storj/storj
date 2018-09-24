@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"storj.io/storj/pkg/ranger"
@@ -151,6 +152,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy,
 	}
 	for i := 0; i < rs.TotalCount(); i++ {
 		er.eps[i].ch = make(chan block, chanSize)
+		er.eps[i].closed = new(int32)
 	}
 	go er.fillBuffer()
 	return readers, nil
@@ -202,7 +204,8 @@ func (er *encodedReader) fillBuffer() {
 func (er *encodedReader) copyData(num int, copier <-chan block) {
 	// close the respective buffer channel when this goroutine exits
 	defer func() {
-		if er.eps[num].ch != nil {
+		if atomic.LoadInt32(er.eps[num].closed) == 0 {
+			atomic.StoreInt32(er.eps[num].closed, 1)
 			close(er.eps[num].ch)
 		}
 	}()
@@ -213,7 +216,7 @@ func (er *encodedReader) copyData(num int, copier <-chan block) {
 }
 
 func (er *encodedReader) addToReader(b block) {
-	if er.eps[b.i].ch == nil {
+	if atomic.LoadInt32(er.eps[b.i].closed) != 0 {
 		// this channel is already closed for slowness - skip it
 		return
 	}
@@ -241,7 +244,7 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 	// check how many buffer channels are already empty
 	ec := 0
 	for i := range er.eps {
-		if er.eps[i].ch != nil && len(er.eps[i].ch) == 0 {
+		if atomic.LoadInt32(er.eps[i].closed) == 0 && len(er.eps[i].ch) == 0 {
 			ec++
 		}
 	}
@@ -250,8 +253,8 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 	// canceled
 	closed = ec >= er.rs.MinimumThreshold()
 	if closed {
+		atomic.StoreInt32(er.eps[num].closed, 1)
 		close(er.eps[num].ch)
-		er.eps[num].ch = nil
 		er.eps[num].cancel()
 	}
 	return closed
@@ -278,6 +281,7 @@ type encodedPiece struct {
 	cancel context.CancelFunc
 	er     *encodedReader
 	ch     chan block
+	closed *int32
 	outbuf []byte
 	err    error
 }
