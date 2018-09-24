@@ -15,6 +15,7 @@ import (
 	"github.com/gtank/cryptopasta"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -91,11 +92,13 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	allocatedDiskSpace := config.AllocatedDiskSpace
 
 	// get the disk space details
-	diskSpace, err := disk.Usage("/")
-	freeDiskSpace := int64(diskSpace.Free)
+	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
+	rootPath := filepath.Clean(config.Path)
+	diskSpace, err := disk.Usage(rootPath)
 	if err != nil {
 		return nil, err
 	}
+	freeDiskSpace := int64(diskSpace.Free)
 
 	db, err := psdb.Open(ctx, dataDir, dbPath)
 	if err != nil {
@@ -103,10 +106,10 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := DirSize(dataDir)
+	totalUsed, err := db.SumTTLSizes()
 	if err != nil {
 		//first time setup
-		totalUsed = 0
+		totalUsed = 0x00
 	}
 
 	// check your hard drive is big enough
@@ -119,16 +122,16 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
-		log.Println("Warning!!! Used more space then allocated")
-		/** [TODO] any special handling needed here ... */
+		allocatedDiskSpace = totalUsed
+		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
 	// the available diskspace is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
-		log.Println("Warning!!! Disk space is less than remaining allocated space")
-		/** [TODO] any special handling needed here ... */
+		allocatedDiskSpace = freeDiskSpace
+		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
