@@ -288,21 +288,6 @@ func TestStreamStoreList(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
-	// staticTime := time.Now()
-	// segmentMeta := segments.Meta{
-	// 	Modified:   staticTime,
-	// 	Expiration: staticTime,
-	// 	Size:       10,
-	// 	Data:       []byte{},
-	// }
-	// segmentList := []segments.ListItem{
-	// 	segments.ListItem{
-	// 		Path:     paths.New(""),
-	// 		Meta:     segmentMeta,
-	// 		IsPrefix: false,
-	// 	},
-	// }
-
 	for i, test := range []struct {
 		// input for test function
 		prefix     string
