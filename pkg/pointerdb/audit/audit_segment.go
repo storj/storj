@@ -5,10 +5,12 @@ package audit
 
 import (
 	"context"
+	"fmt"
 
-	p "storj.io/storj/pkg/paths"
-	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
-	meta "storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/storage/meta"
 )
 
 //Randomly choose a pointer from pointerdb.
@@ -25,22 +27,52 @@ import (
 // process pointter information for segment
 // send that
 
-// ProcessPointer to get randomized pointer
-type ProcessPointer interface {
-	List(ctx context.Context, startAfter p.Path, limit int) (items []pdbclient.ListItem, more bool, err error)
-}
-
-// We'll need to use the pdbclient for requests to pointerdb
-type audit struct {
+type Audit struct {
 	pdb pdbclient.Client
+	psc client.PSClient
 }
 
 // NewAudit creates a new instance of audit
-func NewAudit(pdb pdbclient.Client) ProcessPointer {
-	return &audit{pdb: pdb}
+func NewAudit(pdb pdbclient.Client, psc client.PSClient) *Audit {
+	return &Audit{
+		pdb: pdb,
+		psc: psc,
+	}
 }
 
 // List retrevies items from pointerDB so we can process later
-func (a *audit) List(ctx context.Context, startAfter p.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
+func (a *Audit) List(ctx context.Context, startAfter paths.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
 	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 }
+
+// GetPieceID gets the derived pieceID
+func (a *Audit) GetPieceID(ctx context.Context, path paths.Path) (derivedPieceID client.PieceID, err error) {
+	pointer, err := a.pdb.Get(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	remoteSegment := pointer.GetRemote()
+	remotePieceID := remoteSegment.GetPieceId()
+	remotePieces := remoteSegment.GetRemotePieces()
+	// TODO create a  random generator for a list
+	nodeID := remotePieces[0].GetNodeId()
+
+	//type cast to client.PieceID
+	var pieceID client.PieceID = client.PieceID(remotePieceID)
+
+	derivedPieceID, err = pieceID.Derive([]byte(nodeID))
+	if err != nil {
+		return "", err
+	}
+	fmt.Println(derivedPieceID)
+	return derivedPieceID, nil
+}
+
+// func (a *Audit) GetStripe(ctx context.Context, pieceID client.PieceID, size int64, bwa *pb.PayerBandwidthAllocation) (err error) {
+// 	ranger, err := a.psc.Get(ctx, pieceID, size, bwa)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fmt.Println(ranger)
+// 	return nil
+// }

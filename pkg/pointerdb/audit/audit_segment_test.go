@@ -5,16 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"crypto/ecdsa"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 
-	p "storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	pdbclient "storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
 const (
@@ -26,8 +29,10 @@ var (
 	ErrNoLimitGiven = errors.New(noLimitGiven)
 )
 
+// The client and server implementation are different; 
+// This is a  wrapper so the pointerdb client can be implemented
 type pointerDBWrapper struct {
-	s pb.PointerDBServer
+	 s  pb.PointerDBServer
 }
 
 func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
@@ -50,14 +55,41 @@ func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
 	return &pointerDBWrapper{pdbs}
 }
 
-func TestAuditSegment(t *testing.T) {
-	t.Run("List", func(t *testing.T) {
+func instantiatePSClient(t *testing.T)(psclient client.PSClient, err error){
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		t.Error(err)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		t.Error(err)
+	}
+	identOpt, err := identity.DialOption()
+	if err != nil {
+		t.Error(err)
+	}
 
+	// Set up connection with rpc server
+	var conn *grpc.ClientConn
+	conn, err = grpc.Dial(":7777", identOpt)
+	if err != nil {
+		t.Error("did not connect: ", err)
+	}
+	defer conn.Close()
+
+	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
+	if err != nil {
+		t.Error("could not initialize PSClient: ", err)
+	}
+	return psClient, nil
+}
+
+func TestAuditSegment(t *testing.T) {
 		tests := []struct {
 			bm         string
-			path       p.Path
+			path       paths.Path
 			APIKey     []byte
-			startAfter p.Path
+			startAfter paths.Path
 			limit      int
 			items      []pdbclient.ListItem
 			more       bool
@@ -65,9 +97,9 @@ func TestAuditSegment(t *testing.T) {
 		}{
 			{
 				bm:         "success",
-				path:       p.New("file1/file2"),
+				path:       paths.New("file1/file2"),
 				APIKey:     nil,
-				startAfter: p.New("file3/file4"),
+				startAfter: paths.New("file3/file4"),
 				limit:      10,
 				items:      nil,
 				more:       false,
@@ -75,6 +107,11 @@ func TestAuditSegment(t *testing.T) {
 			},
 		}
 
+		db := teststore.New()
+		c := pointerdb.Config{MaxInlineSegmentSize: 8000}
+		pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
+
+	t.Run("List", func(t *testing.T) {
 		for i, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
@@ -82,11 +119,6 @@ func TestAuditSegment(t *testing.T) {
 
 				// create a pointer and put in db
 				putRequest := makePointer(tt.path, tt.APIKey)
-
-				db := teststore.New()
-				c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-
-				pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
 
 				// create putreq. object
 				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
@@ -100,27 +132,44 @@ func TestAuditSegment(t *testing.T) {
 				fmt.Println("this is the err for put request: ", errTag, err)
 
 				// create a pdb client and instance of audit
-				pdbc := &pdbclient.PointerDB{GrpcClient: pdbw, APIKey: tt.APIKey}
-				a := NewAudit(pdbc)
+				pdbc := pdbclient.New(pdbw, tt.APIKey)
+				psc, err := instantiatePSClient(t)
+				if err != nil {
+					t.Error("cant instantiate the piece store client")
+				}
+				a := NewAudit(pdbc, psc)
 
 				// make  a List request
 				items, more, err := a.List(ctx, nil, tt.limit)
 
 				if err != nil {
 					assert1.NotNil(err)
-					//assert.Equal(tt.err, tt.err)
-					t.Errorf("Error: %s", err.Error())
 				}
 
 				fmt.Println("items at 0: ", items[0].Pointer)
 				fmt.Println("this is items: ", items, more, err)
-				// write rest of  test
 			})
 		}
 	})
-}
 
-func makePointer(path p.Path, auth []byte) pb.PutRequest {
+	t.Run("GetPieceID", func(t *testing.T) {
+		for _, tt := range tests {
+			pdbc := pdbclient.New(pdbw, tt.APIKey)
+			psc, err := instantiatePSClient(t)
+				if err != nil {
+					t.Error("cant instantiate the piece store client")
+				}
+			a := NewAudit(pdbc, psc)
+			pieceID, err := a.GetPieceID(ctx, tt.path)
+			if err != nil {
+				t.Error("error in getting pieceID")
+			}
+			fmt.Println("this is piece id: ", pieceID)
+		}
+	})
+} // end of all fn
+
+func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
