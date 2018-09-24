@@ -90,7 +90,11 @@ func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) 
 	if err != nil {
 		return err
 	}
-	return o.Delete(ctx, paths.New(object))
+	err = o.Delete(ctx, paths.New(object))
+	if storage.ErrKeyNotFound.Has(err) {
+		err = minio.ObjectNotFound{Bucket: bucket, Object: object}
+	}
+	return err
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
