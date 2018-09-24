@@ -6,7 +6,7 @@ package pdbclient
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
+	// "github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -99,13 +99,16 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 		return nil, Error.Wrap(err)
 	}
 
-	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(res.GetPointer(), pointer)
-	if err != nil {
-		return nil, err
-	}
+	// pointer = &pb.Pointer{}
+	// pointerBytes, err := proto.Marshal(res.GetPointer())
+	// err = proto.Unmarshal(pointerBytes, pointer)
 
-	return pointer, nil
+	return res.GetPointer(), nil
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// return pointer, nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey

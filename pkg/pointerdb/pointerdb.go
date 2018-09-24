@@ -5,6 +5,7 @@ package pointerdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -107,7 +108,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb get")
+	s.logger.Debug("### ENTERING POINTERDB GET ###")
 
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
@@ -122,9 +123,31 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.GetResponse{
-		Pointer: pointerBytes,
-	}, nil
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		fmt.Printf("Error unmarshaling pointer: %+v\n", err)
+		return nil, err
+	}
+
+	nodes := []*pb.Node{}
+
+	if pointer.Remote != nil {
+		for _, node := range pointer.Remote.RemotePieces {
+			fmt.Printf("###### NODE: %+v\n", node)
+		}
+	}
+
+	fmt.Printf("finished listing \n")
+	fmt.Printf("pointer: %+v\n", pointer)
+	fmt.Printf("nodes: %+v\n", nodes)
+
+	r := &pb.GetResponse{
+		Pointer: pointer,
+		Nodes: nodes,
+	}
+	fmt.Printf("#### r: %+v\n", r)
+	return r, nil
 }
 
 // List returns all Path keys in the Pointers bucket
