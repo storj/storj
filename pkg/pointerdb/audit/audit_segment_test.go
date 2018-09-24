@@ -160,11 +160,11 @@ func TestAuditSegment(t *testing.T) {
 					t.Error("cant instantiate the piece store client")
 				}
 			a := NewAudit(pdbc, psc)
-			pieceID, err := a.GetPieceID(ctx, tt.path)
+			pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
 			if err != nil {
 				t.Error("error in getting pieceID")
 			}
-			fmt.Println("this is piece id: ", pieceID)
+			fmt.Println("this is piece id: ", pieceID, size)
 		}
 	})
 } // end of all fn
