@@ -66,10 +66,10 @@ captplanet setup --listen-host ::1 --overwrite
 captplanet run &
 CAPT_PID=$!
 
-aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
-aws s3 --endpoint=http://localhost:7777/ cp ./big-upload-testfile s3://bucket/big-testfile
-aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/big-testfile ./big-download-testfile-ipv6
-aws s3 --endpoint=http://localhost:7777/ rb s3://bucket --force
+aws s3 --endpoint=http://ip6-localhost:7777/ mb s3://bucket
+aws s3 --endpoint=http://ip6-localhost:7777/ cp ./big-upload-testfile s3://bucket/big-testfile
+aws s3 --endpoint=http://ip6-localhost:7777/ cp s3://bucket/big-testfile ./big-download-testfile-ipv6
+aws s3 --endpoint=http://ip6-localhost:7777/ rb s3://bucket --force
 
 if cmp ./big-upload-testfile ./big-download-testfile-ipv6
 then
