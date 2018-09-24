@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/datarepair"
 )
 
 var (
@@ -232,57 +231,3 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	return &pb.DeleteResponse{}, nil
 }
 
-func (s *Server) identifyInjuredSegments(ctx context.Context, req *pb.IdentifyRequest, queue datarepair.Queue) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb iterate")
-	
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
-		return err
-	}
-	err = s.DB.Iterate(storage.IterateOptions{Prefix: storage.Key(req.Prefix), First: storage.Key(req.First), Recurse: req.Recurse, Reverse: req.Reverse},
-		func(it storage.Iterator) error {
-			var item storage.ListItem
-			for ; req.Limit > 0 && it.Next(&item); req.Limit-- {
-				pointer := &pb.Pointer{}
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return Error.New("error unmarshalling pointer %s", err)
-				}
-				pieces := pointer.Remote.RemotePieces
-				var nodeIDs []dht.NodeID
-				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, kademlia.StringToNodeID(p.NodeId))
-				}
-				missingPieces, err := offlineNodes(ctx, nodeIDs)
-				if err != nil {
-					return Error.New("error getting missing offline nodes %s", err)
-				}
-				if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {
-					err = queue.Add(&pb.InjuredSegment{
-						Path: string(item.Key), 
-						LostPieces: missingPieces,
-					})
-					if err != nil {
-						return Error.New("error adding injured segment to queue %s", err)
-					}
-				}
-			}
-			return nil
-		},
-	)
-	return err
-}
-
-//returns the indices of offline nodes
-func offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (indices []int32, err error) {
-	nodes, err := s.overlay.BulkLookup(ctx, nodeIDs) //s.overlay once dylan's pr is merged
-	if err != nil {
-		return []int32{}, err
-	}
-	for i, n := range nodes {
-		if n == nil {
-			indices = append(indices, i)
-		}
-	}
-	return indices, nil
-}
