@@ -32,6 +32,11 @@ type Config struct {
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 }
 
+type CtxKey int
+const (
+	ctxKeyOverlay CtxKey = iota
+)
+
 // Run implements the provider.Responsibility interface. Run assumes a
 // Kademlia responsibility has been started before this one.
 func (c Config) Run(ctx context.Context, server *provider.Provider) (
@@ -104,7 +109,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		metrics: monkit.Default,
 	})
 
-	return server.Run(ctx)
+	return server.Run(context.WithValue(ctx, ctxKeyOverlay, cache))
+}
+
+// LoadFromContext gives access to the cache from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Cache {
+	if v, ok := ctx.Value(ctxKeyOverlay).(*Cache); ok {
+		return v
+	}
+	return nil
 }
 
 // GetUserPassword extracts password from scheme://user:password@hostname

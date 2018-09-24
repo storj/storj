@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
 )
@@ -44,8 +45,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 	defer func() { _ = bdb.Close() }()
 
+	cache := overlay.LoadFromContext(ctx)
 	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
+	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c))
 
 	return server.Run(ctx)
 }

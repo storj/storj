@@ -15,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
@@ -30,14 +31,16 @@ type Server struct {
 	DB     storage.KeyValueStore
 	logger *zap.Logger
 	config Config
+	cache  *overlay.Cache
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
+func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
 		config: c,
+		cache: 	cache,
 	}
 }
 
