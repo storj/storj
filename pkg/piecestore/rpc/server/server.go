@@ -115,7 +115,9 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// check your hard drive is big enough
 	// first time setup as a piece node server
 	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
-		return nil, errors.New("not enough space")
+		allocatedDiskSpace = freeDiskSpace
+		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
