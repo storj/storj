@@ -6,7 +6,7 @@ package queue
 import (
 	"encoding/binary"
 	"time"
-
+	"sync"
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
@@ -27,6 +27,7 @@ type RepairQueue interface {
 //Queue implements the RepairQueue interface
 type Queue struct {
 	DB storage.KeyValueStore
+	mutex *sync.Mutex
 }
 
 var (
@@ -45,7 +46,9 @@ func NewQueue(address, password string, db int) (*Queue, error) {
 }
 
 //Add adds a repair segment to the queue
-func (q Queue) Add(qi *pb.InjuredSegment) error {
+func (q *Queue) Add(qi *pb.InjuredSegment) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	dateTime := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(dateTime, time.Now().UnixNano())
 	val, err := proto.Marshal(qi)
@@ -60,7 +63,9 @@ func (q Queue) Add(qi *pb.InjuredSegment) error {
 }
 
 //Remove removes a repair segment from the queue
-func (q Queue) Remove(date storage.Key) error {
+func (q *Queue) Remove(date storage.Key) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	err := q.DB.Delete(date)
 	if err != nil {
 		return queueError.New("error removing injured seg %s", err)
@@ -69,7 +74,9 @@ func (q Queue) Remove(date storage.Key) error {
 }
 
 //GetNext returns the next repair segement from the queue
-func (q Queue) GetNext() (storage.Key, pb.InjuredSegment, error) {
+func (q *Queue) GetNext() (storage.Key, pb.InjuredSegment, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	keys, err := q.DB.List(nil, 1)
 	if err != nil {
 		return nil, pb.InjuredSegment{}, queueError.New("error getting first key %s", err)
@@ -87,7 +94,9 @@ func (q Queue) GetNext() (storage.Key, pb.InjuredSegment, error) {
 }
 
 //GetSize returns the number of repair segements are in the queue
-func (q Queue) GetSize() (int, error) {
+func (q *Queue) GetSize() (int, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	keys, err := q.DB.List(nil, 0)
 	if err != nil {
 		return 0, queueError.New("error getting keys %s", err)
