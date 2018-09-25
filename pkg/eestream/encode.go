@@ -7,11 +7,16 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"sync"
 	"time"
 
 	"storj.io/storj/pkg/ranger"
 )
+
+func jitterSleep() {
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+}
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
 // If this interface can be implemented, the rest of this library will work
@@ -203,6 +208,7 @@ func (er *encodedReader) copyData(num int, copier <-chan block) {
 	// close the respective buffer channel when this goroutine exits
 	defer func() {
 		if !er.eps[num].closed {
+			jitterSleep()
 			er.eps[num].closed = true
 			close(er.eps[num].ch)
 		}
@@ -223,6 +229,8 @@ func (er *encodedReader) addToReader(b block) {
 		timer := time.NewTimer(50 * time.Millisecond)
 		defer timer.Stop()
 		// add the encoded data to the respective reader buffer channel
+
+		jitterSleep()
 		select {
 		case er.eps[b.i].ch <- b:
 			return
@@ -251,6 +259,7 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 	// canceled
 	closed = ec >= er.rs.MinimumThreshold()
 	if closed {
+		jitterSleep()
 		er.eps[num].closed = true
 		close(er.eps[num].ch)
 		er.eps[num].cancel()
