@@ -279,6 +279,8 @@ func TestAuditSegment(t *testing.T) {
 					t.Error("cant instantiate the piece store client")
 				}
 			
+				// PUT into //
+				// hardcoded now for  testing to match tt.path for above
 				var pieceIDTest = client.PieceID("G93UC6ccvNrMeiP8ogfdEy5bd8KQ617oGJhtKRgxz5Mq")
 				r := strings.NewReader("some io.Reader stream to be read\n")
 				s := io.NewSectionReader(r, 5, 17)
@@ -291,40 +293,44 @@ func TestAuditSegment(t *testing.T) {
 				}
 			//func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
 
+			
 			a := NewAudit(pdbc, psc)
 			
 			pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
+			fmt.Print("not to fail: ", pieceID, size)
 			
 			if err != nil {
 				fmt.Println(err)
 				t.Error("error in getting pieceID")
 			}
-			
-			fmt.Println("pieceid size:  ", size)
-			fmt.Println("this is piece id: ", pieceID)
 		}
 	})
 
 
-	// t.Run("GetStripe", func(t *testing.T) {
-	// 	for _, tt := range tests {
-	// 		pdbc := pdbclient.New(pdbw, tt.APIKey)
-	// 		psc, err := instantiatePSClient(t)
-	// 			if err != nil {
-	// 				t.Error("cant instantiate the piece store client")
-	// 			}
-	// 		a := NewAudit(pdbc, psc)
-	// 		pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
-	// 		if err != nil {
-	// 			t.Error("error is getting piece info")
-	// 		}
-	// 		ranger, err := a.GetStripe(ctx, pieceID, size, &pb.PayerBandwidthAllocation{})
-	// 		if err != nil {
-	// 			t.Error("error in getting stripe")
-	// 		}
-	// 		fmt.Println("this is ranger, piece id, size in testing: ", ranger, pieceID, size)
-	// 	}
-	// })
+	t.Run("GetStripe", func(t *testing.T) {
+		for _, tt := range tests {
+			pdbc := pdbclient.New(pdbw, tt.APIKey)
+			psc, err := client.NewPSClient(ts.conn, 1024*32, ts.k)
+				if err != nil {
+					t.Error("cant instantiate the piece store client")
+				}
+			a := NewAudit(pdbc, psc)
+			pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
+			if err != nil {
+				t.Error("error is getting piece info")
+			}
+
+			// fmt.Println("pieceid size getstripe:  ", size)
+			// fmt.Println("this is piece id getstripe: ", pieceID)
+
+
+			ranger, err := a.GetStripe(ctx, pieceID, size, &pb.PayerBandwidthAllocation{})
+			if err != nil {
+				t.Error("error in getting stripe")
+			}
+			fmt.Println("this is ranger, piece id, size in testing: ", ranger,`\n`, pieceID, `\n`, size)
+		}
+	})
 
 
 
