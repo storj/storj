@@ -140,6 +140,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.minio-dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
 		"uplink.api-key":          apiKey,
+		"uplink.enc-key":          "highlydistributedridiculouslyresilient",
 		"pointer-db.auth.api-key": apiKey,
 	}
 

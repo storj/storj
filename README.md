@@ -63,7 +63,7 @@ go install -v ./cmd/...
 ### Start the test network
 
 ```bash
-~/go/bin/captplanet run --uplink.enc-key=highlydistributedridiculouslyresilient
+~/go/bin/captplanet run
 ```
 
 ### Run unit tests

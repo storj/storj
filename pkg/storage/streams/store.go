@@ -239,7 +239,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
-		currentPath := fmt.Sprintf("s%d", i)
+		currentPath := getSegmentPath(path, i)
 		size := msi.SegmentsSize
 		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
@@ -251,7 +251,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		}
 		rr := &lazySegmentRanger{
 			segments:      s.segments,
-			path:          path.Prepend(currentPath),
+			path:          currentPath,
 			size:          size,
 			derivedKey:    (*eestream.GenericKey)(derivedKey),
 			startingNonce: &nonce,
@@ -297,8 +297,8 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
-		currentPath := fmt.Sprintf("s%d", i)
-		err := s.segments.Delete(ctx, path.Prepend(currentPath))
+		currentPath := getSegmentPath(path, int64(i))
+		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			return err
 		}
