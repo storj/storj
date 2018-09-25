@@ -93,17 +93,10 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-<<<<<<< HEAD
-	rootPath := filepath.Clean(config.Path)
-	diskSpace, err := disk.Usage(rootPath)
-	if err != nil {
-		return nil, err
-=======
 	rootPath := filepath.Dir(filepath.Clean(config.Path))
 	diskSpace, err := disk.Usage(rootPath)
 	if err != nil {
 		return nil, ServerError.Wrap(err)
->>>>>>> 31b9429e6046ac6d0e21571ef70349d93cce0379
 	}
 	freeDiskSpace := int64(diskSpace.Free)
 
@@ -143,40 +136,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
-<<<<<<< HEAD
-	// get how much is currently used, if for the first time totalUsed = 0
-	totalUsed, err := db.SumTTLSizes()
-	if err != nil {
-		//first time setup
-		totalUsed = 0x00
-	}
-
-	// check your hard drive is big enough
-	// first time setup as a piece node server
-	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
-		allocatedDiskSpace = freeDiskSpace
-		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-	}
-
-	// on restarting the Piece node server, assuming already been working as a node
-	// used above the alloacated space, user changed the allocation space setting
-	// before restarting
-	if totalUsed >= allocatedDiskSpace {
-		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-	}
-
-	// the available diskspace is less than remaining allocated space,
-	// due to change of setting before restarting
-	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
-		allocatedDiskSpace = freeDiskSpace
-		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
-	}
-
-=======
->>>>>>> 31b9429e6046ac6d0e21571ef70349d93cce0379
 	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 }
 
