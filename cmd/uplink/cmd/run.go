@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -38,6 +39,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Endpoint: %s\n", address)
 	fmt.Printf("Access key: %s\n", cfg.AccessKey)
 	fmt.Printf("Secret key: %s\n", cfg.SecretKey)
+
+	ctx := process.Ctx(cmd)
+	bs, err := cfg.BucketStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = bs.List(ctx, "", "", 0)
+	if err != nil {
+		return errors.New("uplink setup error")
+	}
 
 	return cfg.Run(process.Ctx(cmd))
 }

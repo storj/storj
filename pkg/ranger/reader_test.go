@@ -76,7 +76,7 @@ func TestConcatReader(t *testing.T) {
 		{[]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
 			12, 7, 3, "hij"},
 	} {
-		var readers []RangeCloser
+		var readers []Ranger
 		for _, data := range example.data {
 			readers = append(readers, ByteRanger([]byte(data)))
 		}
@@ -115,7 +115,7 @@ func TestSubranger(t *testing.T) {
 		{"abcdefghijkl", 8, 4, 0, 3, "ijk"},
 		{"abcdefghijkl", 8, 4, 1, 3, "jkl"},
 	} {
-		rr, err := Subrange(ByteRangeCloser([]byte(example.data)),
+		rr, err := Subrange(ByteRanger([]byte(example.data)),
 			example.offset1, example.length1)
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
@@ -148,7 +148,7 @@ func TestSubrangerError(t *testing.T) {
 		{name: "Length and offset is bigger than DataSize", data: "abcd", offset: 4, length: 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			rr, err := Subrange(ByteRangeCloser([]byte(tt.data)), tt.offset, tt.length)
+			rr, err := Subrange(ByteRanger([]byte(tt.data)), tt.offset, tt.length)
 			assert.Nil(t, rr)
 			assert.NotNil(t, err)
 		})

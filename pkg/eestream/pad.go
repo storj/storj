@@ -33,7 +33,7 @@ func makePadding(dataLen int64, blockSize int) []byte {
 // Pad takes a Ranger and returns another Ranger that is a multiple of
 // blockSize in length. The return value padding is a convenience to report how
 // much padding was added.
-func Pad(data ranger.RangeCloser, blockSize int) (
+func Pad(data ranger.Ranger, blockSize int) (
 	rr ranger.Ranger, padding int) {
 	paddingBytes := makePadding(data.Size(), blockSize)
 	return ranger.Concat(data, ranger.ByteRanger(paddingBytes)), len(paddingBytes)
@@ -42,13 +42,13 @@ func Pad(data ranger.RangeCloser, blockSize int) (
 // Unpad takes a previously padded Ranger data source and returns an unpadded
 // ranger, given the amount of padding. This is preferable to UnpadSlow if you
 // can swing it.
-func Unpad(data ranger.RangeCloser, padding int) (ranger.RangeCloser, error) {
+func Unpad(data ranger.Ranger, padding int) (ranger.Ranger, error) {
 	return ranger.Subrange(data, 0, data.Size()-int64(padding))
 }
 
 // UnpadSlow is like Unpad, but does not require the amount of padding.
 // UnpadSlow will have to do extra work to make up for this missing information.
-func UnpadSlow(ctx context.Context, data ranger.RangeCloser) (ranger.RangeCloser, error) {
+func UnpadSlow(ctx context.Context, data ranger.Ranger) (ranger.Ranger, error) {
 	r, err := data.Range(ctx, data.Size()-uint32Size, uint32Size)
 	if err != nil {
 		return nil, Error.Wrap(err)

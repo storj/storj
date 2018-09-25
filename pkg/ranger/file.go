@@ -4,42 +4,56 @@
 package ranger
 
 import (
+	"context"
 	"io"
 	"os"
 
-	"go.uber.org/zap"
+	"storj.io/storj/pkg/utils"
 )
 
-// FileHandleRanger returns a RangeCloser from a file handle. The
-// Closer's Close method will call fh.Close().
-// Footgun: If FileHandleRanger fails, fh.Close will not have been called.
-func FileHandleRanger(fh *os.File) (RangeCloser, error) {
-	stat, err := fh.Stat()
+type fileRanger struct {
+	path string
+	size int64
+}
+
+// FileRanger returns a Ranger from a path.
+func FileRanger(path string) (Ranger, error) {
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return struct {
-		Ranger
-		io.Closer
-	}{
-		Ranger: ReaderAtRanger(fh, stat.Size()),
-		Closer: fh,
-	}, nil
+	return &fileRanger{path: path, size: info.Size()}, nil
 }
 
-// FileRanger returns a RangeCloser from a path.
-func FileRanger(path string) (RangeCloser, error) {
-	fh, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	r, err := FileHandleRanger(fh)
-	if err != nil {
-		if closeErr := fh.Close(); closeErr != nil {
-			zap.S().Error(closeErr)
-		}
+func (rr *fileRanger) Size() int64 {
+	return rr.size
+}
 
-		return nil, err
+func (rr *fileRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	if offset < 0 {
+		return nil, Error.New("negative offset")
 	}
-	return r, nil
+	if length < 0 {
+		return nil, Error.New("negative length")
+	}
+	if offset+length > rr.size {
+		return nil, Error.New("range beyond end")
+	}
+
+	fh, err := os.Open(rr.path)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	_, err = fh.Seek(offset, io.SeekStart)
+	if err != nil {
+		err = utils.CombineErrors(err, fh.Close())
+		return nil, Error.Wrap(err)
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: io.LimitReader(fh, length),
+		Closer: fh,
+	}, nil
 }

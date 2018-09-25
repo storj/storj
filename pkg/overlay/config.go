@@ -14,9 +14,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -95,7 +95,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	proto.RegisterOverlayServer(server.GRPC(), &Server{
+	pb.RegisterOverlayServer(server.GRPC(), &Server{
 		dht:   kad,
 		cache: cache,
 

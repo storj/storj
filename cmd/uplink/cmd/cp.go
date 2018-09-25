@@ -9,11 +9,14 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cheggaaa/pb"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
@@ -22,25 +25,31 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+var (
+	progress *bool
+)
+
 func init() {
-	addCmd(&cobra.Command{
+	cpCmd := addCmd(&cobra.Command{
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	})
+	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
-func cleanAbsPath(path string) string {
-	prefix := strings.HasSuffix(path, "/")
-	path = filepath.Join("/", path)
-	if !strings.HasSuffix(path, "/") && prefix {
-		path += "/"
+func cleanAbsPath(p string) string {
+	prefix := strings.HasSuffix(p, "/")
+	p = path.Join("/", p)
+	if !strings.HasSuffix(p, "/") && prefix {
+		p += "/"
 	}
-	return path
+	return p
 }
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
+	var err error
 	if destObj.Scheme == "" {
 		return fmt.Errorf("Invalid destination")
 	}
@@ -48,14 +57,31 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	destObj.Path = cleanAbsPath(destObj.Path)
 	// if object name not specified, default to filename
 	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcFile))
+		destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
 	}
 
-	f, err := os.Open(srcFile)
+	var f *os.File
+	if srcFile == "-" {
+		f = os.Stdin
+	} else {
+		f, err = os.Open(srcFile)
+		if err != nil {
+			return err
+		}
+		defer utils.LogClose(f)
+	}
+
+	fi, err := f.Stat()
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(f)
+
+	r := io.Reader(f)
+	if *progress {
+		bar := pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
 
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
 	if err != nil {
@@ -65,7 +91,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), f, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -77,6 +103,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
 func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
+	var err error
 	if srcObj.Scheme == "" {
 		return fmt.Errorf("Invalid source")
 	}
@@ -90,17 +117,21 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		destFile = filepath.Join(destFile, filepath.Base(srcObj.Path))
 	}
 
-	f, err := os.Create(destFile)
-	if err != nil {
-		return err
+	var f *os.File
+	if destFile == "-" {
+		f = os.Stdout
+	} else {
+		f, err = os.Create(destFile)
+		if err != nil {
+			return err
+		}
+		defer utils.LogClose(f)
 	}
-	defer utils.LogClose(f)
 
 	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
@@ -108,12 +139,20 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	}
 	defer utils.LogClose(r)
 
+	if *progress {
+		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
+
 	_, err = io.Copy(f, r)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	if destFile != "-" {
+		fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	}
 
 	return nil
 }
@@ -129,13 +168,18 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	if err != nil {
 		return err
 	}
-	defer utils.LogClose(rr)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
 		return err
 	}
 	defer utils.LogClose(r)
+
+	if *progress {
+		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
 
 	if destObj.Host != srcObj.Host {
 		o, err = bs.GetObjectStore(ctx, destObj.Host)
@@ -150,7 +194,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	destObj.Path = cleanAbsPath(destObj.Path)
 	// if destination object name not specified, default to source object name
 	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = filepath.Join(destObj.Path, filepath.Base(srcObj.Path))
+		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
 	}
 
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)

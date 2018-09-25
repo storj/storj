@@ -7,9 +7,11 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"sync"
 
 	"storj.io/storj/internal/pkg/readcloser"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/utils"
 )
 
 type decodedReader struct {
@@ -22,6 +24,8 @@ type decodedReader struct {
 	err             error
 	currentStripe   int64
 	expectedStripes int64
+	close           sync.Once
+	closeErr        error
 }
 
 // DecodeReaders takes a map of readers and an ErasureScheme returning a
@@ -92,25 +96,23 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 func (dr *decodedReader) Close() error {
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
-	// close the readers
-	var firstErr error
-	for _, c := range dr.readers {
-		err := c.Close()
-		if err != nil && firstErr == nil {
-			firstErr = err
+	// avoid double close of readers
+	dr.close.Do(func() {
+		errs := make([]error, len(dr.readers)+1)
+		// close the readers
+		for i, r := range dr.readers {
+			errs[i] = r.Close()
 		}
-	}
-	// close the stripe reader
-	err := dr.stripeReader.Close()
-	if firstErr == nil {
-		firstErr = err
-	}
-	return firstErr
+		// close the stripe reader
+		errs[len(dr.readers)] = dr.stripeReader.Close()
+		dr.closeErr = utils.CombineErrors(errs...)
+	})
+	return dr.closeErr
 }
 
 type decodedRanger struct {
 	es     ErasureScheme
-	rrs    map[int]ranger.RangeCloser
+	rrs    map[int]ranger.Ranger
 	inSize int64
 	mbm    int // max buffer memory
 }
@@ -121,7 +123,7 @@ type decodedRanger struct {
 // rrs is a map of erasure piece numbers to erasure piece rangers.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.RangeCloser, error) {
+func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger, error) {
 	if err := checkMBM(mbm); err != nil {
 		return nil, err
 	}
@@ -140,7 +142,7 @@ func Decode(rrs map[int]ranger.RangeCloser, es ErasureScheme, mbm int) (ranger.R
 		}
 	}
 	if size == -1 {
-		return ranger.ByteRangeCloser(nil), nil
+		return ranger.ByteRanger(nil), nil
 	}
 	if size%int64(es.EncodedBlockSize()) != 0 {
 		return nil, Error.New("invalid erasure decoder and range reader combo. "+
@@ -201,21 +203,4 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	}
 	// length might not have included all of the blocks, limit what we return
 	return readcloser.LimitReadCloser(r, length), nil
-}
-
-func (dr *decodedRanger) Close() error {
-	errs := make(chan error, len(dr.rrs))
-	for _, rr := range dr.rrs {
-		go func(rr ranger.RangeCloser) {
-			errs <- rr.Close()
-		}(rr)
-	}
-	var first error
-	for range dr.rrs {
-		err := <-errs
-		if err != nil && first == nil {
-			first = Error.Wrap(err)
-		}
-	}
-	return first
 }

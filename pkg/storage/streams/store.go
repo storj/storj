@@ -14,11 +14,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/utils"
-	streamspb "storj.io/storj/protos/streams"
 )
 
 var mon = monkit.Package()
@@ -33,7 +32,7 @@ type Meta struct {
 
 // convertMeta converts segment metadata to stream metadata
 func convertMeta(segmentMeta segments.Meta) (Meta, error) {
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err := proto.Unmarshal(segmentMeta.Data, &msi)
 	if err != nil {
 		return Meta{}, err
@@ -50,7 +49,7 @@ func convertMeta(segmentMeta segments.Meta) (Meta, error) {
 // Store interface methods for streams to satisfy to be a store
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
-	Get(ctx context.Context, path paths.Path) (ranger.RangeCloser, Meta, error)
+	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
 	Put(ctx context.Context, path paths.Path, data io.Reader,
 		metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
@@ -105,7 +104,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	lastSegmentPath := path.Prepend("l")
 
-	md := streamspb.MetaStreamInfo{
+	md := pb.MetaStreamInfo{
 		NumberOfSegments: totalSegments,
 		SegmentsSize:     s.segmentSize,
 		LastSegmentSize:  lastSegmentSize,
@@ -137,7 +136,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.RangeCloser, meta Meta, err error) {
+	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
@@ -145,20 +144,18 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
-		utils.LogClose(lastRangerCloser)
 		return nil, Meta{}, err
 	}
 
 	newMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
-		utils.LogClose(lastRangerCloser)
 		return nil, Meta{}, err
 	}
 
-	var rangers []ranger.RangeCloser
+	var rangers []ranger.Ranger
 
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
 		currentPath := fmt.Sprintf("s%d", i)
@@ -205,7 +202,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	msi := streamspb.MetaStreamInfo{}
+	msi := pb.MetaStreamInfo{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
 		return err
@@ -259,7 +256,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 }
 
 type lazySegmentRanger struct {
-	ranger   ranger.RangeCloser
+	ranger   ranger.Ranger
 	segments segments.Store
 	path     paths.Path
 	size     int64
@@ -268,14 +265,6 @@ type lazySegmentRanger struct {
 // Size implements Ranger.Size
 func (lr *lazySegmentRanger) Size() int64 {
 	return lr.size
-}
-
-// Size implements Ranger.Close
-func (lr *lazySegmentRanger) Close() error {
-	if lr.ranger == nil {
-		return nil
-	}
-	return lr.ranger.Close()
 }
 
 // Range implements Ranger.Range to be lazily connected

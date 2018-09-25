@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	proto "storj.io/storj/pkg/statdb/proto"
+	pb "storj.io/storj/pkg/statdb/proto"
 )
 
 var (
@@ -41,7 +41,7 @@ func (s *Service) Process(ctx context.Context, _ *cobra.Command, _ []string) err
 	if err != nil {
 		return err
 	}
-	proto.RegisterStatDBServer(grpcServer, ns)
+	pb.RegisterStatDBServer(grpcServer, ns)
 	s.logger.Debug(fmt.Sprintf("server listening on address %s", *addr))
 
 	defer grpcServer.GracefulStop()

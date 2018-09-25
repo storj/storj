@@ -14,8 +14,8 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
@@ -191,10 +191,10 @@ func TestBulkLookupV2(t *testing.T) {
 
 	assert.NotNil(t, oc)
 	assert.NotEmpty(t, oc.client)
-	n1 := &proto.Node{Id: "n1"}
-	n2 := &proto.Node{Id: "n2"}
-	n3 := &proto.Node{Id: "n3"}
-	nodes := []*proto.Node{n1, n2, n3}
+	n1 := &pb.Node{Id: "n1"}
+	n2 := &pb.Node{Id: "n2"}
+	n3 := &pb.Node{Id: "n3"}
+	nodes := []*pb.Node{n1, n2, n3}
 	for _, n := range nodes {
 		assert.NoError(t, s.cache.Put(n.Id, *n))
 	}
@@ -202,7 +202,7 @@ func TestBulkLookupV2(t *testing.T) {
 	cases := []struct {
 		testID    string
 		nodeIDs   []dht.NodeID
-		responses []*proto.Node
+		responses []*pb.Node
 		errors    *errs.Class
 	}{
 		{testID: "empty id",
@@ -226,7 +226,7 @@ func TestBulkLookupV2(t *testing.T) {
 				id2 := kademlia.StringToNodeID("n5")
 				return []dht.NodeID{id1, id2}
 			}(),
-			responses: []*proto.Node{nil, nil},
+			responses: []*pb.Node{nil, nil},
 			errors:    nil,
 		},
 		{testID: "random order and nil",
@@ -237,8 +237,8 @@ func TestBulkLookupV2(t *testing.T) {
 				id4 := kademlia.StringToNodeID("n4")
 				return []dht.NodeID{id2, id1, id3, id4}
 			}(),
-			responses: func() []*proto.Node {
-				return []*proto.Node{nodes[1], nodes[0], nodes[2], nil}
+			responses: func() []*pb.Node {
+				return []*pb.Node{nodes[1], nodes[0], nodes[2], nil}
 			}(),
 			errors: nil,
 		},
@@ -273,7 +273,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 	}
 	s := &Server{cache: cache}
 
-	proto.RegisterOverlayServer(grpcServer, s)
+	pb.RegisterOverlayServer(grpcServer, s)
 
 	return grpcServer, s, nil
 }
@@ -295,7 +295,7 @@ func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error
 	grpcServer := grpc.NewServer(identOpt)
 	mo := &mockOverlayServer{lookupCalled: 0, FindStorageNodesCalled: 0}
 
-	proto.RegisterOverlayServer(grpcServer, mo)
+	pb.RegisterOverlayServer(grpcServer, mo)
 
 	return grpcServer, mo, nil
 
@@ -307,17 +307,17 @@ type mockOverlayServer struct {
 	FindStorageNodesCalled int
 }
 
-func (o *mockOverlayServer) Lookup(ctx context.Context, req *proto.LookupRequest) (*proto.LookupResponse, error) {
+func (o *mockOverlayServer) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupResponse, error) {
 	o.lookupCalled++
-	return &proto.LookupResponse{}, nil
+	return &pb.LookupResponse{}, nil
 }
 
-func (o *mockOverlayServer) FindStorageNodes(ctx context.Context, req *proto.FindStorageNodesRequest) (*proto.FindStorageNodesResponse, error) {
+func (o *mockOverlayServer) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (*pb.FindStorageNodesResponse, error) {
 	o.FindStorageNodesCalled++
-	return &proto.FindStorageNodesResponse{}, nil
+	return &pb.FindStorageNodesResponse{}, nil
 }
 
-func (o *mockOverlayServer) BulkLookup(ctx context.Context, reqs *proto.LookupRequests) (*proto.LookupResponses, error) {
+func (o *mockOverlayServer) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
 	o.bulkLookupCalled++
-	return &proto.LookupResponses{}, nil
+	return &pb.LookupResponses{}, nil
 }

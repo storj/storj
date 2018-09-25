@@ -6,10 +6,11 @@ package mock_overlay
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 	dht "storj.io/storj/pkg/dht"
-	overlay "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // MockClient is a mock of Client interface
@@ -36,9 +37,9 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // BulkLookup mocks base method
-func (m *MockClient) BulkLookup(arg0 context.Context, arg1 []dht.NodeID) ([]*overlay.Node, error) {
+func (m *MockClient) BulkLookup(arg0 context.Context, arg1 []dht.NodeID) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "BulkLookup", arg0, arg1)
-	ret0, _ := ret[0].([]*overlay.Node)
+	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -49,9 +50,9 @@ func (mr *MockClientMockRecorder) BulkLookup(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // Choose mocks base method
-func (m *MockClient) Choose(arg0 context.Context, arg1 int, arg2 int64) ([]*overlay.Node, error) {
+func (m *MockClient) Choose(arg0 context.Context, arg1 int, arg2 int64) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "Choose", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*overlay.Node)
+	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -62,9 +63,9 @@ func (mr *MockClientMockRecorder) Choose(arg0, arg1, arg2 interface{}) *gomock.C
 }
 
 // Lookup mocks base method
-func (m *MockClient) Lookup(arg0 context.Context, arg1 dht.NodeID) (*overlay.Node, error) {
+func (m *MockClient) Lookup(arg0 context.Context, arg1 dht.NodeID) (*pb.Node, error) {
 	ret := m.ctrl.Call(m, "Lookup", arg0, arg1)
-	ret0, _ := ret[0].(*overlay.Node)
+	ret0, _ := ret[0].(*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
