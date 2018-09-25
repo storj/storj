@@ -68,7 +68,7 @@ type streamStore struct {
 	segmentSize  int64
 	rootKey      []byte
 	encBlockSize int
-	encType      int
+	encType      eestream.Cipher
 }
 
 // NewStreamStore stuff
@@ -88,7 +88,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 		segmentSize:  segmentSize,
 		rootKey:      []byte(rootKey),
 		encBlockSize: encBlockSize,
-		encType:      encType,
+		encType:      eestream.Cipher(encType),
 	}, nil
 }
 
@@ -351,7 +351,7 @@ type lazySegmentRanger struct {
 	derivedKey    *eestream.Key
 	startingNonce *eestream.Nonce
 	encBlockSize  int
-	encType       int
+	encType       eestream.Cipher
 }
 
 // Size implements Ranger.Size
@@ -361,7 +361,7 @@ func (lr *lazySegmentRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	cipher := eestream.Cipher(lr.encType)
+	cipher := lr.encType
 
 	if lr.ranger == nil {
 		rr, m, err := lr.segments.Get(ctx, lr.path)

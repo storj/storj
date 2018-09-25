@@ -6,7 +6,6 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
 	github.com/Azure/azure-sdk-for-go v19.1.0+incompatible // indirect
 	github.com/Azure/go-autorest v10.15.2+incompatible // indirect
-	github.com/StackExchange/wmi v0.0.0-20180725035823-b12b22c5341f // indirect
 	github.com/alecthomas/gometalinter v2.0.6+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
@@ -41,10 +40,6 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.2.0
-	github.com/golangci/gocyclo v0.0.0-20180528144436-0a533e8fa43d // indirect
-	github.com/golangci/golangci-lint v1.10.2 // indirect
-	github.com/golangci/revgrep v0.0.0-20180812185044-276a5c0a1039 // indirect
-	github.com/golangci/unparam v0.0.0-20180902115109-7ad9dbcccc16 // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.2.0
 	github.com/google/shlex v0.0.0-20150127133951-6f45313302b9 // indirect
@@ -78,9 +73,9 @@ require (
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5 // indirect
 	github.com/marstr/guid v1.1.0 // indirect
+	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.7.0
-	github.com/mattn/goveralls v0.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/miekg/dns v1.0.8 // indirect
 	github.com/minio/blazer v0.2.0 // indirect
@@ -94,17 +89,16 @@ require (
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
 	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
-	github.com/modocache/gover v0.0.0-20171022184752-b58185e213c5 // indirect
 	github.com/mr-tron/base58 v0.0.0-20171218005042-c1bdf7c52f59
 	github.com/nats-io/go-nats v1.5.0 // indirect
 	github.com/nats-io/go-nats-streaming v0.4.0 // indirect
 	github.com/nats-io/nats v1.5.0 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
-	github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d // indirect
 	github.com/nicksnyder/go-i18n v1.10.0 // indirect
 	github.com/nsf/gocode v0.0.0-20180827180829-9f3c24f3a0fe // indirect
 	github.com/pierrec/lz4 v2.0.3+incompatible // indirect
 	github.com/pkg/profile v1.2.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910 // indirect
 	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e // indirect
