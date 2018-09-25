@@ -5,10 +5,12 @@ package pdbclient
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -82,7 +84,8 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: pdb.APIKey})
+	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer})
 
 	return err
 }
@@ -91,13 +94,17 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
+	var header metadata.MD
+	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()}, grpc.Header(&header))
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)
 	}
+
+	fmt.Println(header["signature"])
 
 	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(res.GetPointer(), pointer)
@@ -114,6 +121,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
 		Prefix:     prefix.String(),
 		StartAfter: startAfter.String(),
@@ -121,7 +129,6 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
-		APIKey:     pdb.APIKey,
 	})
 	if err != nil {
 		return nil, false, err
@@ -144,7 +151,8 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
+	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()})
 
 	return err
 }

@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -62,7 +63,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if runCfg.MockOverlay.Nodes != "" {
 		o = runCfg.MockOverlay
 	}
-	return runCfg.Identity.Run(process.Ctx(cmd),
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
+	satelliteAuth := &auth.SatelliteAuthenticator{Identity: identity}
+	return runCfg.Identity.Run(process.Ctx(cmd), satelliteAuth.Auth,
 		runCfg.Kademlia, runCfg.PointerDB, o)
 }
 

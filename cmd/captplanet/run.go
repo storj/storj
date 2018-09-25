@@ -10,12 +10,14 @@ import (
 
 	"github.com/spf13/cobra"
 
+
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -89,13 +91,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		go func(i int, farmer string) {
 			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.StorageNodes[i].Identity.Run(ctx,
+			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
 				runCfg.StorageNodes[i].Kademlia,
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
 	}
 
 	// start satellite
+	identity, err := runCfg.Satellite.Identity.Load()
+	if err != nil {
+		return err
+	}
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
 			runCfg.Satellite.Identity.Address)
@@ -103,7 +109,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.MockOverlay.Enabled {
 			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
-		errch <- runCfg.Satellite.Identity.Run(ctx,
+
+		satelliteAuth := &auth.SatelliteAuthenticator{Identity: identity}
+		errch <- runCfg.Satellite.Identity.Run(ctx, 
+			satelliteAuth.Auth,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
 			o)

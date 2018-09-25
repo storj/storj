@@ -15,7 +15,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -39,14 +38,6 @@ func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
 		logger: logger,
 		config: c,
 	}
-}
-
-func (s *Server) validateAuth(APIKey []byte) error {
-	if !auth.ValidateAPIKey(string(APIKey)) {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-	return nil
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {
@@ -76,10 +67,6 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
-		return nil, err
-	}
-
 	// Update the pointer with the creation date
 	req.GetPointer().CreationDate = ptypes.TimestampNow()
 
@@ -106,10 +93,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb get")
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
-		return nil, err
-	}
-
 	pointerBytes, err := s.DB.Get([]byte(req.GetPath()))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -128,10 +111,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb list")
-
-	if err = s.validateAuth(req.APIKey); err != nil {
-		return nil, err
-	}
 
 	var prefix storage.Key
 	if req.Prefix != "" {
@@ -215,10 +194,6 @@ func (s *Server) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags 
 func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.DeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb delete")
-
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
-		return nil, err
-	}
 
 	err = s.DB.Delete([]byte(req.GetPath()))
 	if err != nil {

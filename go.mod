@@ -50,6 +50,7 @@ require (
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.6.2 // indirect
 	github.com/gorilla/rpc v1.1.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/gtank/cryptopasta v0.0.0-20170601214702-1f550f6f2f69
 	github.com/hashicorp/errwrap v0.0.0-20180715044906-d6c0cd880357 // indirect
 	github.com/hashicorp/go-cleanhttp v0.0.0-20171218145408-d5fe4b57a186 // indirect

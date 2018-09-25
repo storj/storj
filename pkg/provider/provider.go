@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -40,12 +41,17 @@ type Provider struct {
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, and a set
 // of responsibilities.
-func NewProvider(identity *FullIdentity, lis net.Listener,
+func NewProvider(identity *FullIdentity, lis net.Listener, i grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
 	ident, err := identity.ServerOption()
 	if err != nil {
 		return nil, err
+	}
+
+	unaryInterceptor := unaryInterceptor
+	if i != nil {
+		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i)
 	}
 
 	return &Provider{
