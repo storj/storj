@@ -12,7 +12,7 @@ import (
 
 type aesgcmEncrypter struct {
 	blockSize     int
-	key           GenericKey
+	key           Key
 	startingNonce AESGCMNonce
 	overhead      int
 	aesgcm        cipher.AEAD
@@ -31,7 +31,7 @@ type aesgcmEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewAESGCMEncrypter(key *GenericKey, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
+func NewAESGCMEncrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, err
 
 type aesgcmDecrypter struct {
 	blockSize     int
-	key           GenericKey
+	key           Key
 	startingNonce AESGCMNonce
 	overhead      int
 	aesgcm        cipher.AEAD
@@ -89,7 +89,7 @@ type aesgcmDecrypter struct {
 // NewAESGCMDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
-func NewAESGCMDecrypter(key *GenericKey, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
+func NewAESGCMDecrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher((*key)[:])
 	if err != nil {
 		return nil, err

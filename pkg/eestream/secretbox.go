@@ -10,8 +10,8 @@ import (
 
 type secretboxEncrypter struct {
 	blockSize     int
-	key           GenericKey
-	startingNonce GenericNonce
+	key           Key
+	startingNonce Nonce
 }
 
 // NewSecretboxEncrypter returns a Transformer that encrypts the data passing
@@ -27,7 +27,7 @@ type secretboxEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewSecretboxEncrypter(key *GenericKey, startingNonce *GenericNonce, encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxEncrypter(key *Key, startingNonce *Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -46,8 +46,8 @@ func (s *secretboxEncrypter) OutBlockSize() int {
 	return s.blockSize + secretbox.Overhead
 }
 
-func calcNonce(startingNonce *GenericNonce, blockNum int64) (rv *GenericNonce, err error) {
-	rv = new(GenericNonce)
+func calcNonce(startingNonce *Nonce, blockNum int64) (rv *Nonce, err error) {
+	rv = new(Nonce)
 	if copy(rv[:], (*startingNonce)[:]) != len(rv) {
 		return rv, Error.New("didn't copy memory?!")
 	}
@@ -65,14 +65,14 @@ func (s *secretboxEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, 
 
 type secretboxDecrypter struct {
 	blockSize     int
-	key           GenericKey
-	startingNonce GenericNonce
+	key           Key
+	startingNonce Nonce
 }
 
 // NewSecretboxDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
-func NewSecretboxDecrypter(key *GenericKey, startingNonce *GenericNonce, encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxDecrypter(key *Key, startingNonce *Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
@@ -104,12 +104,12 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, 
 }
 
 // EncryptSecretBox encrypts byte data with a key and nonce. The cipher data is returned
-func EncryptSecretBox(data []byte, key *GenericKey, nonce *GenericNonce) (cipherData []byte, err error) {
+func EncryptSecretBox(data []byte, key *Key, nonce *Nonce) (cipherData []byte, err error) {
 	return secretbox.Seal(nil, data, nonce.Bytes(), key.Bytes()), nil
 }
 
 // DecryptSecretBox decrypts byte data with a key and nonce. The plain data is returned
-func DecryptSecretBox(cipherData []byte, key *GenericKey, nonce *GenericNonce) (data []byte, err error) {
+func DecryptSecretBox(cipherData []byte, key *Key, nonce *Nonce) (data []byte, err error) {
 	data, success := secretbox.Open(nil, cipherData, nonce.Bytes(), key.Bytes())
 	if !success {
 		return nil, errs.New("Failed decrypting")

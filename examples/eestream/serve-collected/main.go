@@ -36,13 +36,13 @@ func main() {
 
 // Main is the exported CLI executable function
 func Main() error {
-	encKey := eestream.GenericKey(sha256.Sum256([]byte(*key)))
+	encKey := eestream.Key(sha256.Sum256([]byte(*key)))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *pieceBlockSize)
-	var firstNonce eestream.GenericNonce
+	var firstNonce eestream.Nonce
 	cipher := eestream.AESGCM
 	decrypter, err := cipher.NewDecrypter(
 		&encKey, &firstNonce, es.DecodedBlockSize())

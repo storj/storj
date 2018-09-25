@@ -114,13 +114,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	eofReader := NewEOFReader(data)
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
-		var encKey eestream.GenericKey
+		var encKey eestream.Key
 		_, err = rand.Read(encKey[:])
 		if err != nil {
 			return Meta{}, err
 		}
 
-		var nonce eestream.GenericNonce
+		var nonce eestream.Nonce
 		_, err := nonce.Increment(totalSegments)
 		if err != nil {
 			return Meta{}, err
@@ -131,7 +131,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.GenericKey)(derivedKey), &nonce)
+		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.Key)(derivedKey), &nonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -244,7 +244,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
 		}
-		var nonce eestream.GenericNonce
+		var nonce eestream.Nonce
 		_, err := nonce.Increment(i)
 		if err != nil {
 			return nil, Meta{}, err
@@ -253,7 +253,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			segments:      s.segments,
 			path:          currentPath,
 			size:          size,
-			derivedKey:    (*eestream.GenericKey)(derivedKey),
+			derivedKey:    (*eestream.Key)(derivedKey),
 			startingNonce: &nonce,
 			encBlockSize:  s.encBlockSize,
 			encType:       s.encType,
@@ -348,8 +348,8 @@ type lazySegmentRanger struct {
 	segments      segments.Store
 	path          paths.Path
 	size          int64
-	derivedKey    *eestream.GenericKey
-	startingNonce *eestream.GenericNonce
+	derivedKey    *eestream.Key
+	startingNonce *eestream.Nonce
 	encBlockSize  int
 	encType       int
 }
@@ -373,7 +373,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 		if err != nil {
 			return nil, err
 		}
-		var encKey eestream.GenericKey
+		var encKey eestream.Key
 		copy(encKey[:], e)
 		decrypter, err := cipher.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize)
 		if err != nil {

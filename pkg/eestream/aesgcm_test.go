@@ -10,8 +10,8 @@ import (
 )
 
 func TestAesGcm(t *testing.T) {
-	var key GenericKey
-	copy(key[:], randData(GenericKeySize))
+	var key Key
+	copy(key[:], randData(KeySize))
 	var firstNonce AESGCMNonce
 	copy(firstNonce[:], randData(AESGCMNonceSize))
 	encrypter, err := NewAESGCMEncrypter(&key, &firstNonce, 4*1024)

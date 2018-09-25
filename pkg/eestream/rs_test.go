@@ -93,8 +93,8 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encKey := GenericKey(sha256.Sum256([]byte("the secret key")))
-	var firstNonce GenericNonce
+	encKey := Key(sha256.Sum256([]byte("the secret key")))
+	var firstNonce Nonce
 	cipher := AESGCM
 	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
 	if err != nil {
