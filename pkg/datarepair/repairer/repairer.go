@@ -6,45 +6,26 @@ package repairer
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/datarepair"
+	q "storj.io/storj/pkg/datarepair/queue"
 )
 
 var (
 	mon = monkit.Package()
 )
 
-// Config contains configurable values for repairer
-type Config struct {
-	queue datarepair.RepairQueue
-}
-
-// Run runs the repairer with configured values
-func (c *Config) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	r, err := Initialize(ctx, c)
-
-	defer func() {
-		log.Fatal(r.Stop())
-	}()
-
-	return r.Run()
-}
-
 type repairer struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	queue  datarepair.RepairQueue
+	queue  q.RepairQueue
 }
 
 // Initialize a repairer struct
-func Initialize(ctx context.Context, config *Config) (*repairer, error) {
+func Initialize(ctx context.Context, queue q.RepairQueue) (*repairer, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	return &repairer{ctx: ctx, cancel: cancel, queue: config.queue}, nil
+	return &repairer{ctx: ctx, cancel: cancel, queue: queue}, nil
 }
 
 // Run the repairer loop
