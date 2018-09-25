@@ -109,7 +109,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		return Meta{}, err
 	}
 
-	cipher := eestream.Cipher(s.encType)
+	cipher := s.encType
 
 	eofReader := NewEOFReader(data)
 
