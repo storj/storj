@@ -10,10 +10,13 @@ services:
   - redis
 
 before_script:
+  - sudo sh -c 'cat /etc/hosts'
+
   # Add an IPv6 config - see the corresponding Travis issue
   # https://github.com/travis-ci/travis-ci/issues/8361
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
+      sudo sh -c 'echo ::1 ip6-localhost >> /etc/hosts';
     fi
 
 before_install:
