@@ -131,9 +131,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		d := new(eestream.GenericKey)
-		copy((*d)[:], (*derivedKey)[:])
-		encryptedEncKey, err := cipher.Encrypt(encKey[:], d, &nonce)
+		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.GenericKey)(derivedKey), &nonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -229,11 +227,10 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	d, err := path.DeriveContentKey(s.rootKey)
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
-	derivedKey := (*eestream.GenericKey)(d)
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
@@ -251,7 +248,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			segments:      s.segments,
 			path:          path.Prepend(currentPath),
 			size:          size,
-			derivedKey:    derivedKey,
+			derivedKey:    (*eestream.GenericKey)(derivedKey),
 			startingNonce: &nonce,
 			encBlockSize:  s.encBlockSize,
 			encType:       s.encType,
