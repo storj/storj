@@ -187,7 +187,15 @@ func main() {
 			Aliases: []string{"s"},
 			Usage:   "retrieve stats",
 			Action: func(c *cli.Context) error {
-				return psClient.Stats(context.Background())
+				var summary *pb.StatSummary
+				summary, err := psClient.Stats(context.Background())
+				if err != nil {
+					return err
+				}
+
+				log.Printf("Space Used: %v, Space Available: %v\n", summary.UsedSpace, summary.AvailableSpace)
+
+				return nil
 			},
 		},
 	}
