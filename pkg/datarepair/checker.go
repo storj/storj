@@ -19,7 +19,7 @@ import (
 )
 
 type checker struct {
-	params *pb.IdentifyRequest //move this proto
+	params *pb.IdentifyRequest
 	pointerdb storage.KeyValueStore
 	repairQueue *Queue
 	overlay overlay.Overlay
@@ -60,7 +60,7 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 					return checkerError.New("error getting missing offline nodes %s", err)
 				}
 				if int32(len(missingPieces)) >= pointer.Remote.Redundancy.RepairThreshold {
-					err = c.repairQueue.Add(&pb.InjuredSegment{
+					_, err = c.repairQueue.Add(&pb.InjuredSegment{
 						Path: string(item.Key), 
 						LostPieces: missingPieces,
 					})

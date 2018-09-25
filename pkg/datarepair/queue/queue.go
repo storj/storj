@@ -42,24 +42,25 @@ func NewQueue(address, password string, db int) (*Queue, error) {
 	}
 	return &Queue{
 		DB: rc,
+		mutex: &sync.Mutex{},
 	}, nil
 }
 
 //Add adds a repair segment to the queue
-func (q *Queue) Add(qi *pb.InjuredSegment) error {
+func (q *Queue) Add(qi *pb.InjuredSegment) (storage.Key, error) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 	dateTime := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(dateTime, time.Now().UnixNano())
 	val, err := proto.Marshal(qi)
 	if err != nil {
-		return queueError.New("error marshalling injured seg %s", err)
+		return nil, queueError.New("error marshalling injured seg %s", err)
 	}
 	err = q.DB.Put(dateTime, val)
 	if err != nil {
-		return queueError.New("error adding injured seg to queue %s", err)
+		return nil, queueError.New("error adding injured seg to queue %s", err)
 	}
-	return nil
+	return dateTime, nil
 }
 
 //Remove removes a repair segment from the queue
