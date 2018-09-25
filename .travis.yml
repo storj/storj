@@ -21,10 +21,10 @@ before_install:
 
 install:
   - make build-dev-deps
-  - go install -v ./...
+  # - go install -v ./...
 
 script:
-  - make lint
-  - make test
-  - goveralls -coverprofile=.coverprofile -service=travis-ci
+  # - make lint
+  # - make test
+  # - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet
