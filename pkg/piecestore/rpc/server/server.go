@@ -124,7 +124,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
-		allocatedDiskSpace = totalUsed
 		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
