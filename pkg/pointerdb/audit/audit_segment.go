@@ -48,7 +48,7 @@ func NewAudit(pdb pdbclient.Client, psc client.PSClient) *Audit {
 
 // List retrevies items from pointerDB so we can process later
 func (a *Audit) List(ctx context.Context, startAfter paths.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
-	//TODO get a  random  segment from  the LIST  and return one segments
+	//TODO implement random integer finder
 	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 }
 
@@ -61,7 +61,7 @@ func (a *Audit) GetPieceInfo(ctx context.Context, path paths.Path) (derivedPiece
 	remoteSegment := pointer.GetRemote()
 	remotePieceID := remoteSegment.GetPieceId()
 	remotePieces := remoteSegment.GetRemotePieces()
-	// TODO create a  random generator for a list
+	// TODO implement random integer
 	nodeID := remotePieces[0].GetNodeId()
 
 	//type cast to client.PieceID
@@ -75,6 +75,7 @@ func (a *Audit) GetPieceInfo(ctx context.Context, path paths.Path) (derivedPiece
 	fmt.Println("derived piece id in audit segment: ", derivedPieceID)
 
 	pieceSummary, err := a.psc.Meta(ctx, derivedPieceID)
+	fmt.Println(pieceSummary, "piecesummary")
 	if err != nil {
 		fmt.Println("error in piecesummary")
 		return "", 0, err
