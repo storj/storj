@@ -6,11 +6,15 @@ package audit
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"reflect"
+	"time"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -44,6 +48,7 @@ func NewAudit(pdb pdbclient.Client, psc client.PSClient) *Audit {
 
 // List retrevies items from pointerDB so we can process later
 func (a *Audit) List(ctx context.Context, startAfter paths.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
+	//TODO get a  random  segment from  the LIST  and return one segments
 	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 }
 
@@ -66,10 +71,12 @@ func (a *Audit) GetPieceInfo(ctx context.Context, path paths.Path) (derivedPiece
 	if err != nil {
 		return "", 0, err
 	}
-	fmt.Println(derivedPieceID)
+
+	fmt.Println("derived piece id in audit segment: ", derivedPieceID)
 
 	pieceSummary, err := a.psc.Meta(ctx, derivedPieceID)
 	if err != nil {
+		fmt.Println("error in piecesummary")
 		return "", 0, err
 	}
 
@@ -78,11 +85,18 @@ func (a *Audit) GetPieceInfo(ctx context.Context, path paths.Path) (derivedPiece
 
 // GetStripe retreives a strip from PSClients
 // for now pbwa is {} - not implemented yet
-func (a *Audit) GetStripe(ctx context.Context, pieceID client.PieceID, size int64, pbwa *pb.PayerBandwidthAllocation) (err error) {
-	ranger, err := a.psc.Get(ctx, pieceID, size, pbwa)
+func (a *Audit) GetStripe(ctx context.Context, pieceID client.PieceID, size int64, pbwa *pb.PayerBandwidthAllocation) (ranger ranger.Ranger, err error) {
+	ranger, err = a.psc.Get(ctx, pieceID, size, pbwa)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	fmt.Println(ranger)
-	return nil
+	fmt.Println("this is the ranger ac: ", ranger)
+	return ranger, nil
+}
+
+// generate random number from length of list
+func getItem(i interface{}) (randomInt int) {
+	values := reflect.ValueOf(i)
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(values.Len())
 }

@@ -112,10 +112,10 @@ func TestAuditSegment(t *testing.T) {
 		pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
 
 	t.Run("List", func(t *testing.T) {
-		for i, tt := range tests {
+		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				errTag := fmt.Sprintf("Test case #%d", i)
+				//errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
 				putRequest := makePointer(tt.path, tt.APIKey)
@@ -128,8 +128,6 @@ func TestAuditSegment(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 				}
-
-				fmt.Println("this is the err for put request: ", errTag, err)
 
 				// create a pdb client and instance of audit
 				pdbc := pdbclient.New(pdbw, tt.APIKey)
@@ -152,21 +150,53 @@ func TestAuditSegment(t *testing.T) {
 		}
 	})
 
-	t.Run("GetPieceID", func(t *testing.T) {
+	t.Run("GetPieceInfo", func(t *testing.T) {
 		for _, tt := range tests {
 			pdbc := pdbclient.New(pdbw, tt.APIKey)
 			psc, err := instantiatePSClient(t)
 				if err != nil {
 					t.Error("cant instantiate the piece store client")
 				}
+			
 			a := NewAudit(pdbc, psc)
+			
 			pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
+			
 			if err != nil {
+				fmt.Println(err)
 				t.Error("error in getting pieceID")
 			}
-			fmt.Println("this is piece id: ", pieceID, size)
+			
+			fmt.Println("pieceid size:  ", size)
+			fmt.Println("this is piece id: ", pieceID)
 		}
 	})
+
+
+	// t.Run("GetStripe", func(t *testing.T) {
+	// 	for _, tt := range tests {
+	// 		pdbc := pdbclient.New(pdbw, tt.APIKey)
+	// 		psc, err := instantiatePSClient(t)
+	// 			if err != nil {
+	// 				t.Error("cant instantiate the piece store client")
+	// 			}
+	// 		a := NewAudit(pdbc, psc)
+	// 		pieceID, size, err := a.GetPieceInfo(ctx, tt.path)
+	// 		if err != nil {
+	// 			t.Error("error is getting piece info")
+	// 		}
+	// 		ranger, err := a.GetStripe(ctx, pieceID, size, &pb.PayerBandwidthAllocation{})
+	// 		if err != nil {
+	// 			t.Error("error in getting stripe")
+	// 		}
+	// 		fmt.Println("this is ranger, piece id, size in testing: ", ranger, pieceID, size)
+	// 	}
+	// })
+
+
+
+
+
 } // end of all fn
 
 func makePointer(path paths.Path, auth []byte) pb.PutRequest {
