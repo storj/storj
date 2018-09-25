@@ -38,7 +38,7 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncKey       string `help:"root key for encrypting the data" default:"highlydistributedridiculouslyresilient"`
+	EncKey       string `help:"root key for encrypting the data"`
 	EncBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
 	EncType      int    `help:"Type of encryption to use (1=AES-GCM, 2=SecretBox)" default:"1"`
 }
