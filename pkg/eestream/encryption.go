@@ -27,11 +27,33 @@ const (
 // GenericKey represents the largest key used by any encryption protocol
 type GenericKey [GenericKeySize]byte
 
+// Bytes returns the key as a byte array pointer
+func (key *GenericKey) Bytes() *[GenericKeySize]byte {
+	return (*[GenericKeySize]byte)(key)
+}
+
 // GenericNonce represents the largest nonce used by any encryption protocol
 type GenericNonce [GenericNonceSize]byte
 
-// AESGCMNonce represents the nonce used by the AESGCM protocol
+// Bytes returns the nonce as a byte array pointer
+func (nonce *GenericNonce) Bytes() *[GenericNonceSize]byte {
+	return (*[GenericNonceSize]byte)(nonce)
+}
+
+// AESGCMNonce returns the nonce as a AES-GCM nonce
+func (nonce *GenericNonce) AESGCMNonce() *AESGCMNonce {
+	aes := new(AESGCMNonce)
+	copy((*aes)[:], (*nonce)[AESGCMNonceSize:])
+	return aes
+}
+
+// AESGCMNonce represents the nonce used by the AES-GCM protocol
 type AESGCMNonce [AESGCMNonceSize]byte
+
+// Bytes returns the nonce as a byte array pointer
+func (nonce *AESGCMNonce) Bytes() *[AESGCMNonceSize]byte {
+	return (*[AESGCMNonceSize]byte)(nonce)
+}
 
 // Encrypt encrypts byte data with a key and nonce. The cipher data is returned
 // The type of encryption to use can be modified with encType
@@ -70,9 +92,7 @@ func (cipher Cipher) NewEncrypter(key *GenericKey, startingNonce *GenericNonce, 
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:
-		nonce := new(AESGCMNonce)
-		copy((*nonce)[:], (*startingNonce)[AESGCMNonceSize:])
-		return NewAESGCMEncrypter(key, nonce, encBlockSize)
+		return NewAESGCMEncrypter(key, startingNonce.AESGCMNonce(), encBlockSize)
 	case SecretBox:
 		return NewSecretboxEncrypter(key, startingNonce, encBlockSize)
 	default:
@@ -87,9 +107,7 @@ func (cipher Cipher) NewDecrypter(key *GenericKey, startingNonce *GenericNonce, 
 	case None:
 		return &NoopTransformer{}, nil
 	case AESGCM:
-		nonce := new(AESGCMNonce)
-		copy((*nonce)[:], (*startingNonce)[AESGCMNonceSize:])
-		return NewAESGCMDecrypter(key, nonce, encBlockSize)
+		return NewAESGCMDecrypter(key, startingNonce.AESGCMNonce(), encBlockSize)
 	case SecretBox:
 		return NewSecretboxDecrypter(key, startingNonce, encBlockSize)
 	default:
