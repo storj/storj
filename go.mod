@@ -6,7 +6,7 @@ require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.6.0 // indirect
 	github.com/Azure/azure-sdk-for-go v19.1.0+incompatible // indirect
 	github.com/Azure/go-autorest v10.15.2+incompatible // indirect
-	github.com/alecthomas/gometalinter v2.0.6+incompatible // indirect
+	github.com/alecthomas/gometalinter v2.0.11+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180830063239-35be932987bc
@@ -31,7 +31,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.1.1 // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/color v1.7.0 // indirect
-	github.com/fatih/gomodifytags v0.0.0-20180826164257-7987f52a7108 // indirect
+	github.com/fatih/gomodifytags v0.0.0-20180914191908-141225bf62b6 // indirect
 	github.com/fatih/structs v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
@@ -82,6 +82,7 @@ require (
 	github.com/mattn/go-isatty v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.7.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/mdempsky/gocode v0.0.0-20180727200127-00e7f5ac290a // indirect
 	github.com/miekg/dns v1.0.8 // indirect
 	github.com/minio/blazer v0.2.0 // indirect
 	github.com/minio/cli v1.3.0
@@ -112,11 +113,12 @@ require (
 	github.com/prometheus/procfs v0.0.0-20180725123919-05ee40e3a273 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165 // indirect
 	github.com/rjeczalik/notify v0.9.0 // indirect
-	github.com/rogpeppe/godef v0.0.0-20170920080713-b692db1de522 // indirect
+	github.com/rogpeppe/godef v1.0.0 // indirect
 	github.com/rs/cors v1.5.0 // indirect
 	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+	github.com/shirou/gopsutil v2.17.12+incompatible
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e // indirect
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spacemonkeygo/flagfile v0.0.0-20180426194429-0d750334dbb8 // indirect
@@ -145,7 +147,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zmb3/goaddimport v0.0.0-20170810013102-4ab94a07ab86 // indirect
-	github.com/zmb3/gogetdoc v0.0.0-20180522031303-10095872a7c5 // indirect
+	github.com/zmb3/gogetdoc v0.0.0-20180924170037-dcba5406a6fc // indirect
 	go.opencensus.io v0.15.0 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
@@ -155,7 +157,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be // indirect
 	golang.org/x/text v0.3.0 // indirect
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
-	golang.org/x/tools v0.0.0-20180828015842-6cd1fcedba52 // indirect
+	golang.org/x/tools v0.0.0-20180924175601-e93be7f42f9f // indirect
 	google.golang.org/api v0.0.0-20180822000451-0873c9a91f71 // indirect
 	google.golang.org/appengine v1.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20180427144745-86e600f69ee4 // indirect
