@@ -93,16 +93,16 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	rootPath := filepath.Clean(config.Path)
+	rootPath := filepath.Dir(filepath.Clean(config.Path))
 	diskSpace, err := disk.Usage(rootPath)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 	freeDiskSpace := int64(diskSpace.Free)
 
 	db, err := psdb.Open(ctx, dataDir, dbPath)
 	if err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	// get how much is currently used, if for the first time totalUsed = 0
