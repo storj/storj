@@ -18,8 +18,6 @@ import (
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/dht"
 )
 
 var (

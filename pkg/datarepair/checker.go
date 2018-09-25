@@ -33,7 +33,6 @@ var (
 	
 )
 
-
 func newChecker() *checker{
 	return &checker{}
 }
