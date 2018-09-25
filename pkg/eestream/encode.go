@@ -206,16 +206,21 @@ func (er *encodedReader) fillBuffer() {
 // targeted reader buffer
 func (er *encodedReader) copyData(num int, copier <-chan block) {
 	// close the respective buffer channel when this goroutine exits
-	defer func() {
-		if !er.eps[num].closed {
-			jitterSleep()
-			er.eps[num].closed = true
-			close(er.eps[num].ch)
-		}
-	}()
+	defer er.closeReaderChannel(num)
 	// process the channel until closed
 	for b := range copier {
 		er.addToReader(b)
+	}
+}
+
+func (er *encodedReader) closeReaderChannel(num int) {
+	// use mutex to avoid data race with checkSlowChannel
+	er.mux.Lock()
+	defer er.mux.Unlock()
+	if !er.eps[num].closed {
+		jitterSleep()
+		er.eps[num].closed = true
+		close(er.eps[num].ch)
 	}
 }
 
