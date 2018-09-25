@@ -56,10 +56,6 @@ else
   exit 1;
 fi
 
-rm small-upload-testfile
-rm big-upload-testfile
-rm multipart-upload-testfile
-
 kill -9 $CAPT_PID
 
 captplanet setup --listen-host ::1 --overwrite
@@ -82,3 +78,7 @@ fi
 
 kill -9 $CAPT_PID
 
+rm small-upload-testfile
+rm big-upload-testfile
+rm multipart-upload-testfile
+rm big-download-testfile-ipv6
