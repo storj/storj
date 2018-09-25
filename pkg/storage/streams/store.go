@@ -137,15 +137,15 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		}
 
 		sizeReader := NewSizeReader(eofReader)
-		segmentPath := path.GetSegmentPath(totalSegments)
+		segmentPath := getSegmentPath(path, totalSegments)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
-		isStreamEncrypted, err := peekReader.IsLargerThan(encrypter.InBlockSize())
+		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
 		if err != nil {
 			return Meta{}, err
 		}
 		var transformedReader io.Reader
-		if isStreamEncrypted {
+		if largeData {
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
 			transformedReader = eestream.TransformReader(paddedReader, encrypter, 0)
 		} else {
@@ -202,6 +202,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	}
 
 	return resultMeta, nil
+}
+
+// GetSegmentPath returns the unique path for a particular segment
+func getSegmentPath(p paths.Path, segNum int64) paths.Path {
+	return p.Prepend(fmt.Sprintf("s%d", segNum))
 }
 
 // Get returns a ranger that knows what the overall size is (from l/<path>)
@@ -398,7 +403,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			}
 
 			paddedSize := rd.Size()
-			rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size())) // int64 -> int; is this a problem?
+			rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size()))
 			if err != nil {
 				return nil, err
 			}

@@ -9,7 +9,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
-	"fmt"
 	"path"
 	"strings"
 )
@@ -132,11 +131,6 @@ func (p Path) DeriveContentKey(key []byte) (derivedKey *[32]byte, err error) {
 	derivedKey = new([32]byte)
 	copy((*derivedKey)[:], d[:32])
 	return derivedKey, nil
-}
-
-// GetSegmentPath returns the unique path for a particular segment
-func (p Path) GetSegmentPath(segNum int64) Path {
-	return p.Prepend(fmt.Sprintf("s%d", segNum))
 }
 
 func encrypt(text string, secret []byte) (cipherText string, err error) {
