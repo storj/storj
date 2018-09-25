@@ -104,15 +104,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	var startingNonce eestream.GenericNonce
-	_, err = rand.Read(startingNonce[:])
-	if err != nil {
-		return Meta{}, err
-	}
-	// copy startingNonce so that startingNonce is not modified by the encrypter before it is saved to lastSegmentMeta
-	var nonce eestream.GenericNonce
-	copy(nonce[:], startingNonce[:])
-
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return Meta{}, err
@@ -129,7 +120,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			return Meta{}, err
 		}
 
-		var encrypter eestream.Transformer
+		var nonce eestream.GenericNonce
+		_, err := nonce.Increment(totalSegments)
+		if err != nil {
+			return Meta{}, err
+		}
 
 		encrypter, err := cipher.NewEncrypter(&encKey, &nonce, s.encBlockSize)
 		if err != nil {
@@ -188,7 +183,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		LastSegmentSize:  lastSegmentSize,
 		Metadata:         metadata,
 		EncryptionType:   int32(s.encType),
-		StartingNonce:    startingNonce[:],
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
 	if err != nil {
@@ -241,10 +235,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 	derivedKey := (*eestream.GenericKey)(d)
 
-	nonce := msi.StartingNonce
-	var startingNonce eestream.GenericNonce
-	copy(startingNonce[:], nonce)
-
 	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
 		currentPath := fmt.Sprintf("s%d", i)
@@ -252,12 +242,17 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
 		}
+		var nonce eestream.GenericNonce
+		_, err := nonce.Increment(i)
+		if err != nil {
+			return nil, Meta{}, err
+		}
 		rr := &lazySegmentRanger{
 			segments:      s.segments,
 			path:          path.Prepend(currentPath),
 			size:          size,
 			derivedKey:    derivedKey,
-			startingNonce: &startingNonce,
+			startingNonce: &nonce,
 			encBlockSize:  s.encBlockSize,
 			encType:       s.encType,
 		}

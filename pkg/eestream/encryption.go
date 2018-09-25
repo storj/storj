@@ -40,6 +40,11 @@ func (nonce *GenericNonce) Bytes() *[GenericNonceSize]byte {
 	return (*[GenericNonceSize]byte)(nonce)
 }
 
+// Increment increments the nonce with the given amount
+func (nonce *GenericNonce) Increment(amount int64) (truncated bool, err error) {
+	return incrementBytes(nonce.Bytes()[:], amount)
+}
+
 // AESGCMNonce returns the nonce as a AES-GCM nonce
 func (nonce *GenericNonce) AESGCMNonce() *AESGCMNonce {
 	aes := new(AESGCMNonce)
