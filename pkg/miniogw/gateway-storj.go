@@ -6,6 +6,9 @@ package miniogw
 import (
 	"context"
 	"io"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -397,6 +400,30 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	err error) {
 
 	defer mon.Task()(&ctx)(&err)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-c
+		signal.Stop(c)
+		cancel()
+		return
+	}()
+
+	go func(ctx context.Context, bucket, object string) {
+		<-ctx.Done()
+		err = s.DeleteObject(ctx, bucket, object)
+		if err != nil {
+			return
+		}
+	}(ctx, bucket, object)
+
 	tempContType := metadata["content-type"]
 	delete(metadata, "content-type")
 	//metadata serialized
@@ -404,8 +431,23 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 		ContentType: tempContType,
 		UserDefined: metadata,
 	}
+	// setting zero value means the object never expires
+	expTime := time.Time{}
+	o, err := s.storj.bs.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
 
-	return s.putObject(ctx, bucket, object, data, serMetaInfo)
+	m, err := o.Put(ctx, paths.New(object), data, serMetaInfo, expTime)
+	return minio.ObjectInfo{
+		Name:        object,
+		Bucket:      bucket,
+		ModTime:     m.Modified,
+		Size:        m.Size,
+		ETag:        m.Checksum,
+		ContentType: m.ContentType,
+		UserDefined: m.UserDefined,
+	}, err
 }
 
 func (s *storjObjects) Shutdown(ctx context.Context) (err error) {

@@ -117,11 +117,16 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 
 	writer := &StreamWriter{signer: client, stream: stream, pba: ba}
 
-	defer func() {
-		if err := writer.Close(); err != nil && err != io.EOF {
-			log.Printf("failed to close writer: %s\n", err)
+	defer func(ctx context.Context) {
+		select {
+		case <-ctx.Done():
+			_ = stream.CloseSend()
+		default:
+			if err := writer.Close(); err != nil && err != io.EOF {
+				log.Printf("failed to close writer: %s\n", err)
+			}
 		}
-	}()
+	}(ctx)
 
 	bufw := bufio.NewWriterSize(writer, 32*1024)
 
