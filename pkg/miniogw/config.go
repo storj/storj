@@ -29,10 +29,10 @@ import (
 type RSConfig struct {
 	MaxBufferMem     int `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"0x400000"`
 	ErasureShareSize int `help:"the size of each new erasure sure in bytes" default:"1024"`
-	MinThreshold     int `help:"the minimum pieces required to recover a segment. k." default:"20"`
-	RepairThreshold  int `help:"the minimum safe pieces before a repair is triggered. m." default:"30"`
-	SuccessThreshold int `help:"the desired total pieces for a segment. o." default:"40"`
-	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"50"`
+	MinThreshold     int `help:"the minimum pieces required to recover a segment. k." default:"29"`
+	RepairThreshold  int `help:"the minimum safe pieces before a repair is triggered. m." default:"35"`
+	SuccessThreshold int `help:"the desired total pieces for a segment. o." default:"80"`
+	MaxThreshold     int `help:"the largest amount of pieces to encode to. n." default:"95"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting

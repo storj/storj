@@ -145,7 +145,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		storagenodePath := filepath.Join(setupCfg.BasePath, fmt.Sprintf("f%d", i))
-		storagenode := fmt.Sprintf("storage-nodes.%02d.", i)
+		storagenode := fmt.Sprintf("storage-nodes.%03d.", i)
 		overrides[storagenode+"identity.cert-path"] = filepath.Join(
 			storagenodePath, "identity.cert")
 		overrides[storagenode+"identity.key-path"] = filepath.Join(
