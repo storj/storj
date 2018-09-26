@@ -27,9 +27,9 @@ const (
 )
 
 var (
-	ctx                = context.Background()
-	ErrUnauthenticated = errors.New(unauthenticated)
-	ErrNoFileGiven     = errors.New(noPathGiven)
+	ctx = context.Background()
+	//ErrUnauthenticated = errors.New(unauthenticated)
+	ErrNoFileGiven = errors.New(noPathGiven)
 )
 
 func TestNewPointerDBClient(t *testing.T) {
@@ -85,16 +85,16 @@ func TestPut(t *testing.T) {
 		errString string
 	}{
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 	} {
 		putRequest := makePointer(tt.path, tt.APIKey)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		// here we don't care what type of context we pass
 		gc.EXPECT().Put(gomock.Any(), &putRequest, gomock.Any()).Return(nil, tt.err)
@@ -119,10 +119,10 @@ func TestGet(t *testing.T) {
 		err       error
 		errString string
 	}{
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
 		getPointer := makePointer(tt.path, tt.APIKey)
@@ -140,7 +140,7 @@ func TestGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest, gomock.Any()).Return(&getResponse, tt.err)
 
@@ -167,24 +167,24 @@ func TestList(t *testing.T) {
 		recursive  bool
 		limit      int
 		metaFlags  uint32
-		APIKey     string
-		items      []*pb.ListResponse_Item
-		more       bool
-		err        error
-		errString  string
+		//APIKey     string
+		items     []*pb.ListResponse_Item
+		more      bool
+		err       error
+		errString string
 	}{
-		{"", "", "", false, 0, meta.None, "",
+		{"", "", "", false, 0, meta.None,
 			[]*pb.ListResponse_Item{}, false, nil, ""},
-		{"", "", "", false, 0, meta.None, "",
+		{"", "", "", false, 0, meta.None,
 			[]*pb.ListResponse_Item{{}}, false, nil, ""},
-		{"", "", "", false, -1, meta.None, "",
-			[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
-		{"prefix", "after", "before", false, 1, meta.None, "some key",
+		// {"", "", "", false, -1, meta.None,
+		// 	[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
+		{"prefix", "after", "before", false, 1, meta.None,
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c"},
 			},
 			true, nil, ""},
-		{"prefix", "after", "before", false, 1, meta.All, "some key",
+		{"prefix", "after", "before", false, 1, meta.All,
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c", Pointer: &pb.Pointer{
 					Size:           1234,
@@ -193,7 +193,7 @@ func TestList(t *testing.T) {
 				}},
 			},
 			true, nil, ""},
-		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
+		{"some/prefix", "start/after", "end/before", true, 123, meta.Size,
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
 				{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
@@ -214,7 +214,7 @@ func TestList(t *testing.T) {
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: []byte(tt.APIKey)}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().List(gomock.Any(), &listRequest, gomock.Any()).Return(&listResponse, tt.err)
 
@@ -254,17 +254,17 @@ func TestDelete(t *testing.T) {
 		err       error
 		errString string
 	}{
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
 		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().Delete(gomock.Any(), &deleteRequest, gomock.Any()).Return(nil, tt.err)
 

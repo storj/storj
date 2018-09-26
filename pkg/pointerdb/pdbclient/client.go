@@ -49,15 +49,20 @@ type Client interface {
 	Delete(ctx context.Context, path p.Path) error
 }
 
-func apiKeyInjector(APIKey []byte) grpc.UnaryClientInterceptor {
+func apiKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(APIKey))
-		return invoker(ctx, method, req, reply, cc, opts...)
+		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", APIKey)
+
+		var header metadata.MD
+		opts = append(opts, grpc.Header(&header))
+		err := invoker(ctx, method, req, reply, cc, opts...)
+		fmt.Println(header["signature"])
+		return err
 	}
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (*PointerDB, error) {
+func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
 	dialOpt, err := identity.DialOption()
 	if err != nil {
 		return nil, err
@@ -67,9 +72,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 	if err != nil {
 		return nil, err
 	}
-	return &PointerDB{
-		grpcClient: c,
-	}, nil
+	return &PointerDB{grpcClient: c}, nil
 }
 
 // a compiler trick to make sure *PointerDB implements Client
@@ -89,8 +92,7 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var header metadata.MD
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer}, grpc.Header(&header))
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer})
 
 	return err
 }
@@ -99,16 +101,13 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var header metadata.MD
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()}, grpc.Header(&header))
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)
 	}
-
-	fmt.Println(header["signature"])
 
 	pointer = &pb.Pointer{}
 	err = proto.Unmarshal(res.GetPointer(), pointer)
@@ -125,7 +124,6 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var header metadata.MD
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
 		Prefix:     prefix.String(),
 		StartAfter: startAfter.String(),
@@ -133,7 +131,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
-	}, grpc.Header(&header))
+	})
 	if err != nil {
 		return nil, false, err
 	}
@@ -155,8 +153,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var header metadata.MD
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()}, grpc.Header(&header))
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()})
 
 	return err
 }
