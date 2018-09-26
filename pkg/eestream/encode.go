@@ -39,14 +39,14 @@ type ErasureScheme interface {
 	RequiredCount() int
 }
 
-// RedundancyStrategy is an ErasureScheme with a minimum and optimal thresholds
+// RedundancyStrategy is an ErasureScheme with a repair and optimal thresholds
 type RedundancyStrategy struct {
 	ErasureScheme
 	repairThreshold  int
 	optimalThreshold int
 }
 
-// NewRedundancyStrategy from the given ErasureScheme, minimum and optimal thresholds.
+// NewRedundancyStrategy from the given ErasureScheme, repair and optimal thresholds.
 //
 // repairThreshold is the minimum repair threshold.
 // If set to 0, it will be reset to the TotalCount of the ErasureScheme.
@@ -121,7 +121,7 @@ type block struct {
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
 //
-// When the minimum threshold is reached a timer will be started with another
+// When the repair threshold is reached a timer will be started with another
 // 1.5x the amount of time that took so far. The Readers will be aborted as
 // soon as the timer expires or the optimal threshold is reached.
 func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, mbm int) ([]io.Reader, error) {
@@ -269,7 +269,7 @@ func (er *encodedReader) readerDone() {
 	defer er.mux.Unlock()
 	er.done++
 	if er.done == er.rs.RepairThreshold() {
-		// minimum threshold reached, wait for 1.5x the duration and cancel
+		// repair threshold reached, wait for 1.5x the duration and cancel
 		// the context regardless if optimal threshold is reached
 		time.AfterFunc(time.Since(er.start)*3/2, er.cancel)
 	}
@@ -313,7 +313,7 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 			// context was canceled due to:
 			//  - slowness
 			//  - optimal threshold reached
-			//  - timeout after reaching minimum threshold expired
+			//  - timeout after reaching repair threshold expired
 			return 0, io.ErrUnexpectedEOF
 		}
 	}
@@ -337,7 +337,7 @@ type EncodedRanger struct {
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
-// comments for EncodeReader about the minimum and optimal thresholds, and the
+// comments for EncodeReader about the repair and optimal thresholds, and the
 // max buffer memory.
 func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*EncodedRanger, error) {
 	if rr.Size()%int64(rs.DecodedBlockSize()) != 0 {
