@@ -4,19 +4,20 @@ package diskstore
 
 import (
 	"fmt"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
-	return err == syscall.EBUSY
+	return err == unix.EBUSY
 }
 
 func diskInfoFromPath(path string) (filesytemId string, amount int64, err error) {
-	var stat syscall.Statfs_t
-	err := syscall.Statfs(path, &stat)
+	var stat unix.Statfs_t
+	err = unix.Statfs(path, &stat)
 	if err != nil {
-		return 0, -1, err
+		return "", -1, err
 	}
 
 	amount = int64(stat.Bavail) * int64(stat.Bsize)
