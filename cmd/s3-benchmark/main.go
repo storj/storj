@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"os"
 	"text/tabwriter"
 	"time"
@@ -43,7 +42,7 @@ func main() {
 
 	flag.Parse()
 
-	client, err := NewMinio(conf)
+	client, err := NewAWS(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,14 +51,14 @@ func main() {
 	log.Println("Creating bucket", bucket)
 	err = client.MakeBucket(bucket, *location)
 	if err != nil {
-		log.Fatal("failed to create bucket: ", bucket, ": ", err)
+		log.Fatalf("failed to create bucket %q: %+v\n", bucket, err)
 	}
 
 	defer func() {
 		log.Println("Removing bucket")
 		err := client.RemoveBucket(bucket)
 		if err != nil {
-			log.Fatal("failed to remove bucket: ", bucket)
+			log.Fatalf("failed to remove bucket %q", bucket)
 		}
 	}()
 
@@ -287,13 +286,17 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 		}
 		fmt.Print(".")
 
-		rand.Read(data[:])
+		// rand.Read(data[:])
+		for i := range data {
+			data[i] = 'a' + byte(i%26)
+		}
+
 		{ // uploading
 			start := hrtime.Now()
 			err := client.Upload(bucket, "data", data)
 			finish := hrtime.Now()
 			if err != nil {
-				return measurement, fmt.Errorf("upload failed: %v", err)
+				return measurement, fmt.Errorf("upload failed: %+v", err)
 			}
 
 			measurement.Record("Upload", true, finish-start)
@@ -304,7 +307,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 			var err error
 			result, err = client.Download(bucket, "data", result)
 			if err != nil {
-				return measurement, fmt.Errorf("get object failed: %v", err)
+				return measurement, fmt.Errorf("get object failed: %+v", err)
 			}
 			finish := hrtime.Now()
 
@@ -319,7 +322,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 			start := hrtime.Now()
 			err := client.Delete(bucket, "data")
 			if err != nil {
-				return measurement, fmt.Errorf("delete failed: %v", err)
+				return measurement, fmt.Errorf("delete failed: %+v", err)
 			}
 			finish := hrtime.Now()
 

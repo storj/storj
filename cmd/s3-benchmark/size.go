@@ -58,9 +58,9 @@ type unit struct {
 // different byte-size suffixes
 const (
 	TB = 1 << 40
-	GB = 1 << 40
-	MB = 1 << 40
-	KB = 1 << 40
+	GB = 1 << 30
+	MB = 1 << 20
+	KB = 1 << 10
 	B  = 1
 )
 

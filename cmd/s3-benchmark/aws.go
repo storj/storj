@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/zeebo/errs"
 )
@@ -17,18 +19,35 @@ type AWS struct {
 
 // NewAWS creates new Client
 func NewAWS(conf Config) (Client, error) {
+	if !strings.HasPrefix(conf.Endpoint, "https://") &&
+		!strings.HasPrefix(conf.Endpoint, "http://") {
+		conf.Endpoint = "http://" + conf.Endpoint
+	}
 	return &AWS{conf}, nil
 }
 
-func (client *AWS) cmd(args ...string) *exec.Cmd {
-	// TODO: add arguments from config
-	return exec.Command("aws", args...)
+func (client *AWS) cmd(subargs ...string) *exec.Cmd {
+	args := []string{
+		"--endpoint", client.conf.Endpoint,
+	}
+
+	if !client.conf.UseSSL {
+		args = append(args, "--no-verify-ssl")
+	}
+	args = append(args, subargs...)
+
+	cmd := exec.Command("aws", args...)
+	cmd.Env = append(os.Environ(),
+		"AWS_ACCESS_KEY_ID="+client.conf.AccessKey,
+		"AWS_SECRET_ACCESS_KEY="+client.conf.SecretKey,
+	)
+	return cmd
 }
 
 // MakeBucket makes a new bucket
 func (client *AWS) MakeBucket(bucket, location string) error {
 	cmd := client.cmd("s3", "mb", "s3://"+bucket, "--region", location)
-	_, err := cmd.CombinedOutput()
+	_, err := cmd.Output()
 	if err != nil {
 		return AWSError.Wrap(err)
 	}
@@ -38,7 +57,7 @@ func (client *AWS) MakeBucket(bucket, location string) error {
 // RemoveBucket removes a bucket
 func (client *AWS) RemoveBucket(bucket string) error {
 	cmd := client.cmd("s3", "rb", "s3://"+bucket)
-	_, err := cmd.CombinedOutput()
+	_, err := cmd.Output()
 	if err != nil {
 		return AWSError.Wrap(err)
 	}
@@ -48,7 +67,7 @@ func (client *AWS) RemoveBucket(bucket string) error {
 // ListBuckets lists all buckets
 func (client *AWS) ListBuckets() ([]string, error) {
 	cmd := client.cmd("s3api", "list-buckets", "--output", "json")
-	buckets, err := cmd.CombinedOutput()
+	buckets, err := cmd.Output()
 	if err != nil {
 		return nil, AWSError.Wrap(err)
 	}
@@ -61,7 +80,7 @@ func (client *AWS) Upload(bucket, objectName string, data []byte) error {
 	// TODO: add upload threshold
 	cmd := client.cmd("s3", "cp", "-", "s3://"+bucket+"/"+objectName)
 	cmd.Stdin = bytes.NewReader(data)
-	_, err := cmd.CombinedOutput()
+	_, err := cmd.Output()
 	if err != nil {
 		return AWSError.Wrap(err)
 	}
@@ -73,7 +92,7 @@ func (client *AWS) UploadMultipart(bucket, objectName string, data []byte, thres
 	// TODO: add upload threshold
 	cmd := client.cmd("s3", "cp", "-", "s3://"+bucket+"/"+objectName)
 	cmd.Stdin = bytes.NewReader(data)
-	_, err := cmd.CombinedOutput()
+	_, err := cmd.Output()
 	if err != nil {
 		return AWSError.Wrap(err)
 	}
@@ -84,21 +103,31 @@ func (client *AWS) UploadMultipart(bucket, objectName string, data []byte, thres
 func (client *AWS) Download(bucket, objectName string, buffer []byte) ([]byte, error) {
 	cmd := client.cmd("s3", "cp", "s3://"+bucket+"/"+objectName, "-")
 
-	buf := bytes.NewBuffer(buffer)
+	buf := &bufferWriter{buffer[:0]}
 	cmd.Stdout = buf
+	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 	if err != nil {
 		return nil, AWSError.Wrap(err)
 	}
 
-	return buf.Bytes(), nil
+	return buf.data, nil
+}
+
+type bufferWriter struct {
+	data []byte
+}
+
+func (b *bufferWriter) Write(data []byte) (n int, err error) {
+	b.data = append(b.data, data...)
+	return len(data), nil
 }
 
 // Delete deletes object
 func (client *AWS) Delete(bucket, objectName string) error {
-	cmd := client.cmd("s3", "rb", "s3://"+bucket+"/"+objectName)
-	_, err := cmd.CombinedOutput()
+	cmd := client.cmd("s3", "rm", "s3://"+bucket+"/"+objectName)
+	_, err := cmd.Output()
 	if err != nil {
 		return AWSError.Wrap(err)
 	}
@@ -111,7 +140,7 @@ func (client *AWS) ListObjects(bucket, prefix string) ([]string, error) {
 		"--output", "json",
 		"--bucket", bucket,
 		"--prefix", prefix)
-	data, err := cmd.CombinedOutput()
+	data, err := cmd.Output()
 	if err != nil {
 		return nil, AWSError.Wrap(err)
 	}
