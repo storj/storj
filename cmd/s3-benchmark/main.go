@@ -119,11 +119,11 @@ func main() {
 			row.Add(0, plots)
 
 			{ // time plotting
-				uploadTime := plot.NewDensity("s", asSeconds(m.Upload))
+				uploadTime := plot.NewDensity("s", asSeconds(m.Result("Upload").Durations))
 				uploadTime.Stroke = color.NRGBA{0, 200, 0, 255}
-				downloadTime := plot.NewDensity("s", asSeconds(m.Download))
+				downloadTime := plot.NewDensity("s", asSeconds(m.Result("Download").Durations))
 				downloadTime.Stroke = color.NRGBA{0, 0, 200, 255}
-				deleteTime := plot.NewDensity("s", asSeconds(m.Delete))
+				deleteTime := plot.NewDensity("s", asSeconds(m.Result("Delete").Durations))
 				deleteTime.Stroke = color.NRGBA{200, 0, 0, 255}
 
 				flexTime := plot.NewHFlex()
@@ -139,9 +139,9 @@ func main() {
 			}
 
 			{ // speed plotting
-				uploadSpeed := plot.NewDensity("MB/s", asSpeed(m.Upload, m.Size.bytes))
+				uploadSpeed := plot.NewDensity("MB/s", asSpeed(m.Result("Upload").Durations, m.Size.bytes))
 				uploadSpeed.Stroke = color.NRGBA{0, 200, 0, 255}
-				downloadSpeed := plot.NewDensity("MB/s", asSpeed(m.Download, m.Size.bytes))
+				downloadSpeed := plot.NewDensity("MB/s", asSpeed(m.Result("Download").Durations, m.Size.bytes))
 				downloadSpeed.Stroke = color.NRGBA{0, 0, 200, 255}
 
 				flexSpeed := plot.NewHFlex()
@@ -190,19 +190,41 @@ func asSpeed(durations []time.Duration, size int64) []float64 {
 
 // Measurement contains measurements for different requests
 type Measurement struct {
-	Size     Size
-	Upload   []time.Duration
-	Download []time.Duration
-	Delete   []time.Duration
+	Size    Size
+	Results []*Result
+}
+
+type Result struct {
+	Name      string
+	WithSpeed bool
+	Durations []time.Duration
+}
+
+func (m *Measurement) Result(name string) *Result {
+	for _, x := range m.Results {
+		if x.Name == name {
+			return x
+		}
+	}
+
+	r := &Result{}
+	r.Name = name
+	return r
+}
+
+func (m *Measurement) Record(name string, withSpeed bool, duration time.Duration) {
+	r := m.Result(name)
+	r.WithSpeed = withSpeed
+	r.Durations = append(r.Durations, duration)
 }
 
 // PrintStats prints important valueas about the measurement
 func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
 
-	upload := hrtime.NewDurationHistogram(m.Upload, binCount)
-	download := hrtime.NewDurationHistogram(m.Download, binCount)
-	delete := hrtime.NewDurationHistogram(m.Delete, binCount)
+	upload := hrtime.NewDurationHistogram(m.Result("Upload").Durations, binCount)
+	download := hrtime.NewDurationHistogram(m.Result("Download").Durations, binCount)
+	delete := hrtime.NewDurationHistogram(m.Result("Delete").Durations, binCount)
 
 	hists := []struct {
 		L string
@@ -269,7 +291,8 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 			if err != nil {
 				return measurement, fmt.Errorf("upload failed: %v", err)
 			}
-			measurement.Upload = append(measurement.Upload, (finish - start))
+
+			measurement.Record("Upload", true, finish-start)
 		}
 
 		{ // downloading
@@ -285,7 +308,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 				return measurement, fmt.Errorf("upload/download do not match: lengths %d and %d", len(data), len(result))
 			}
 
-			measurement.Download = append(measurement.Download, (finish - start))
+			measurement.Record("Download", true, finish-start)
 		}
 
 		{ // deleting
@@ -295,7 +318,8 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 				return measurement, fmt.Errorf("delete failed: %v", err)
 			}
 			finish := hrtime.Now()
-			measurement.Delete = append(measurement.Delete, (finish - start))
+
+			measurement.Record("Delete", false, finish-start)
 		}
 	}
 
