@@ -15,29 +15,34 @@ import (
 	"storj.io/storj/storage/diskstore"
 )
 
-func TestStoreLoad(t *testing.T) {
-	const blobSize = 8 << 10
-	const repeatCount = 16
-
-	ctx := context.Background()
-
+func newTestStore(t testing.TB) (dir string, store *diskstore.Store, cleanup func()) {
 	dir, err := ioutil.TempDir("", "diskstore")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
 
 	disk, err := diskstore.NewDisk(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	store := diskstore.New(disk)
+	store = diskstore.New(disk)
+	return dir, store, func() {
+		err := os.RemoveAll(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+}
+
+func TestStoreLoad(t *testing.T) {
+	const blobSize = 8 << 10
+	const repeatCount = 16
+
+	ctx := context.Background()
+
+	_, store, cleanup := newTestStore(t)
+	defer cleanup()
 
 	data := make([]byte, blobSize)
 	temp := make([]byte, len(data))
@@ -134,23 +139,8 @@ func TestDeleteWhileReading(t *testing.T) {
 
 	ctx := context.Background()
 
-	dir, err := ioutil.TempDir("", "diskstore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	disk, err := diskstore.NewDisk(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	store := diskstore.New(disk)
+	dir, store, cleanup := newTestStore(t)
+	defer cleanup()
 
 	data := make([]byte, blobSize)
 	_, _ = rand.Read(data)
@@ -206,4 +196,25 @@ type errorReader struct{}
 
 func (errorReader *errorReader) Read(data []byte) (n int, err error) {
 	return 0, errors.New("internal-error")
+}
+
+func BenchmarkStoreDelete(b *testing.B) {
+	ctx := context.Background()
+
+	var data [8 << 10]byte
+
+	_, store, cleanup := newTestStore(b)
+	defer cleanup()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		ref, err := store.Store(ctx, bytes.NewReader(data[:]), int64(len(data)))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := store.Delete(ctx, ref); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.StopTimer()
 }
