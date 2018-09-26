@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/datarepair"
+	// "storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -40,7 +40,7 @@ var (
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
-		Repair      datarepair.Config
+		// Repair      datarepair.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
