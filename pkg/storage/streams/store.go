@@ -256,7 +256,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			derivedKey:    (*eestream.Key)(derivedKey),
 			startingNonce: &nonce,
 			encBlockSize:  s.encBlockSize,
-			encType:       s.encType,
+			encType:       eestream.Cipher(msi.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
