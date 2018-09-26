@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
@@ -22,6 +23,8 @@ const (
 	// TODO: implement readBufferSize  = 64 << 10 // 64 KB
 	writeBufferSize = 64 << 10 // 64 KB
 )
+
+var _ storage.Blobs = (*Store)(nil)
 
 // Store implements a blob store
 type Store struct {
