@@ -60,6 +60,15 @@ func (store *Store) Delete(ctx context.Context, hash storage.BlobRef) error {
 	return nil
 }
 
+// GarbageCollect tries to delete any files that haven't yet been deleted
+func (store *Store) GarbageCollect(ctx context.Context) error {
+	err := store.Disk.GarbageCollect()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
 // Store stores r to disk, optionally takes a size argument, -1 is unknown size
 func (store *Store) Store(ctx context.Context, r io.Reader, size int64) (storage.BlobRef, error) {
 	file, err := store.Disk.CreateTemporaryFile(size)

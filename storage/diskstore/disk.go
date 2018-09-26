@@ -2,10 +2,13 @@ package diskstore
 
 import (
 	"encoding/hex"
+	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
@@ -19,6 +22,9 @@ const (
 // Disk represents single folder for storing blobs
 type Disk struct {
 	dir string
+
+	mu          sync.Mutex
+	deleteQueue []string
 }
 
 // NewDisk returns folder for storing blobs
@@ -27,15 +33,17 @@ func NewDisk(dir string) (*Disk, error) {
 		dir: dir,
 	}
 
-	blobErr := os.MkdirAll(disk.blobdir(), dirPermission)
-	tempErr := os.MkdirAll(disk.tempdir(), dirPermission)
-
-	return disk, utils.CombineErrors(blobErr, tempErr)
+	return disk, utils.CombineErrors(
+		os.MkdirAll(disk.blobdir(), dirPermission),
+		os.MkdirAll(disk.tempdir(), dirPermission),
+		os.MkdirAll(disk.trashdir(), dirPermission),
+	)
 }
 
-func (disk *Disk) Dir() string     { return disk.dir }
-func (disk *Disk) blobdir() string { return filepath.Join(disk.dir, "blob") }
-func (disk *Disk) tempdir() string { return filepath.Join(disk.dir, "tmp") }
+func (disk *Disk) Dir() string      { return disk.dir }
+func (disk *Disk) blobdir() string  { return filepath.Join(disk.dir) }
+func (disk *Disk) tempdir() string  { return filepath.Join(disk.dir, "tmp") }
+func (disk *Disk) trashdir() string { return filepath.Join(disk.dir, "trash") }
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
 func (disk *Disk) CreateTemporaryFile(prealloc int64) (*os.File, error) {
@@ -108,5 +116,91 @@ func (disk *Disk) Open(ref storage.BlobRef) (*os.File, error) {
 // Delete deletes file with the specified ref
 func (disk *Disk) Delete(ref storage.BlobRef) error {
 	path := disk.refToPath(ref)
-	return os.Remove(path)
+
+	// move to trash folder, this is allowed for some OS-es
+	trashPath := filepath.Join(disk.trashdir(), hex.EncodeToString(ref[:]))
+	moveErr := os.Rename(path, trashPath)
+
+	// ignore concurrent delete
+	if os.IsNotExist(moveErr) {
+		return nil
+	}
+	if moveErr != nil {
+		trashPath = path
+	}
+
+	// try removing the file
+	err := os.Remove(trashPath)
+
+	// ignore concurrent deletes
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	// this may fail, because someone might be still reading it
+	if err != nil {
+		disk.mu.Lock()
+		disk.deleteQueue = append(disk.deleteQueue, trashPath)
+		disk.mu.Unlock()
+	}
+
+	// ignore is busy errors, they are still in the queue
+	// but no need to notify
+	if isBusy(err) {
+		err = nil
+	}
+
+	return err
+}
+
+// GarbageCollect collects files that are pending deletion
+func (disk *Disk) GarbageCollect() error {
+	offset := int(math.MaxInt32)
+	// limited deletion loop to avoid blocking `Delete` for too long
+	for offset >= 0 {
+		disk.mu.Lock()
+		limit := 100
+		if offset >= len(disk.deleteQueue) {
+			offset = len(disk.deleteQueue) - 1
+		}
+		for i := offset; i >= 0 && limit > 0; i-- {
+			limit--
+
+			path := disk.deleteQueue[i]
+			err := os.Remove(path)
+			if os.IsNotExist(err) {
+				err = nil
+			}
+			if err == nil {
+				disk.deleteQueue = append(disk.deleteQueue[:i], disk.deleteQueue[i+1:]...)
+			}
+		}
+		disk.mu.Unlock()
+	}
+
+	// remove anything left in the trashdir
+	_ = removeAllContent(disk.trashdir())
+	return nil
+}
+
+// removeAllContent deletes everything in the folder
+func removeAllContent(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	for {
+		files, err := dir.Readdirnames(1)
+		for _, file := range files {
+			// the file might be still in use
+			_ = os.RemoveAll(filepath.Join(path, file))
+		}
+
+		if err == io.EOF {
+			return dir.Close()
+		}
+	}
+
+	return dir.Close()
 }

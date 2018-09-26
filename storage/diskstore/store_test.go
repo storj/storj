@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"storj.io/storj/storage"
@@ -124,6 +125,80 @@ func TestStoreLoad(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error when loading invalid ref")
 		}
+	}
+}
+
+func TestDeleteWhileReading(t *testing.T) {
+	const blobSize = 8 << 10
+	const repeatCount = 16
+
+	ctx := context.Background()
+
+	dir, err := ioutil.TempDir("", "diskstore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		err := os.RemoveAll(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	disk, err := diskstore.NewDisk(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	store := diskstore.New(disk)
+
+	data := make([]byte, blobSize)
+	_, _ = rand.Read(data)
+
+	ref, err := store.Store(ctx, bytes.NewReader(data), -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rd, loadErr := store.Load(ctx, ref)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	// double close, just in case
+	defer func() { _ = rd.Close() }()
+
+	deleteErr := store.Delete(ctx, ref)
+	if deleteErr != nil {
+		t.Fatal(deleteErr)
+	}
+
+	result, readErr := ioutil.ReadAll(rd)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if closeErr := rd.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if !bytes.Equal(data, result) {
+		t.Fatalf("data mismatch: %v %v", data, result)
+	}
+
+	_ = store.GarbageCollect(ctx)
+
+	_, secondLoadErr := store.Load(ctx, ref)
+	if !os.IsNotExist(secondLoadErr) {
+		t.Fatalf("expected not-exist error got %v", secondLoadErr)
+	}
+
+	// flaky test, for checking whether files have been actually deleted from disk
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		return errors.New("found file " + path)
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
