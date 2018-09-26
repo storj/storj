@@ -144,15 +144,15 @@ TestLoop:
 			[]error{nil, nil, nil, nil}, ""},
 		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil},
-			"ecclient error: successful puts (3) less than minimum threshold (4)"},
+			"ecclient error: successful puts (3) less than repair threshold (4)"},
 		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrOpFailed, nil, nil},
-			"ecclient error: successful puts (3) less than minimum threshold (4)"},
+			"ecclient error: successful puts (3) less than repair threshold (4)"},
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
-			"ecclient error: successful puts (1) less than minimum threshold (2)"},
+			"ecclient error: successful puts (1) less than repair threshold (2)"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
