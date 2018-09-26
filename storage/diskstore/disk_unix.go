@@ -13,15 +13,15 @@ func isBusy(err error) bool {
 	return err == unix.EBUSY
 }
 
-func diskInfoFromPath(path string) (filesytemId string, amount int64, err error) {
+func diskInfoFromPath(path string) (filesystemID string, amount int64, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {
 		return "", -1, err
 	}
 
-	amount = int64(stat.Bavail) * int64(stat.Bsize)
-	filesytemId = fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
+	amount = int64(stat.Bavail) * stat.Bsize
+	filesystemID = fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
-	return filesytemId, amount, nil
+	return filesystemID, amount, nil
 }

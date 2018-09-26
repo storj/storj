@@ -40,7 +40,9 @@ func NewDisk(dir string) (*Disk, error) {
 	)
 }
 
-func (disk *Disk) Dir() string      { return disk.dir }
+// Dir returns storage root directory
+func (disk *Disk) Dir() string { return disk.dir }
+
 func (disk *Disk) blobdir() string  { return filepath.Join(disk.dir) }
 func (disk *Disk) tempdir() string  { return filepath.Join(disk.dir, "tmp") }
 func (disk *Disk) trashdir() string { return filepath.Join(disk.dir, "trash") }
@@ -74,7 +76,7 @@ func (disk *Disk) refToPath(ref storage.BlobRef) string {
 
 // Commit commits temporary file to the permanent storage
 func (disk *Disk) Commit(file *os.File, ref storage.BlobRef) error {
-	position, seekErr := file.Seek(0, os.SEEK_CUR)
+	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
 	syncErr := file.Sync()
 	var chmodErr error
