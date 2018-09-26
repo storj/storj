@@ -53,6 +53,9 @@ func main() {
 	case "aws":
 		client, err = NewAWS(conf)
 	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	bucket := "bucket" + suffix
 	log.Println("Creating bucket", bucket)
@@ -128,12 +131,14 @@ type Measurement struct {
 	Results []*Result
 }
 
+// Result contains durations for specific tests
 type Result struct {
 	Name      string
 	WithSpeed bool
 	Durations []time.Duration
 }
 
+// Result finds or creates a result with the specified name
 func (m *Measurement) Result(name string) *Result {
 	for _, x := range m.Results {
 		if x.Name == name {
@@ -147,12 +152,14 @@ func (m *Measurement) Result(name string) *Result {
 	return r
 }
 
+// Record records a time measurement
 func (m *Measurement) Record(name string, duration time.Duration) {
 	r := m.Result(name)
 	r.WithSpeed = false
 	r.Durations = append(r.Durations, duration)
 }
 
+// RecordSpeed records a time measurement that can be expressed in speed
 func (m *Measurement) RecordSpeed(name string, duration time.Duration) {
 	r := m.Result(name)
 	r.WithSpeed = true

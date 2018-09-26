@@ -88,7 +88,7 @@ func (client *Minio) Download(bucket, objectName string, buffer []byte) ([]byte,
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	n, err := reader.Read(buffer[:cap(buffer)])
 	if err != io.EOF {
@@ -116,7 +116,7 @@ func (client *Minio) Delete(bucket, objectName string) error {
 	return nil
 }
 
-// ListObject list objects
+// ListObjects lists objects
 func (client *Minio) ListObjects(bucket, prefix string) ([]string, error) {
 	doneCh := make(chan struct{})
 	defer close(doneCh)

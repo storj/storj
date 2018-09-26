@@ -13,6 +13,7 @@ var palette = []color.Color{
 	color.NRGBA{200, 0, 0, 255},
 }
 
+// Plot plots measurements into filename as an svg
 func Plot(filename string, measurements []Measurement) error {
 	p := plot.New()
 	p.X.Min = 0

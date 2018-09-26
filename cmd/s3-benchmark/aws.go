@@ -151,7 +151,7 @@ func (client *AWS) Delete(bucket, objectName string) error {
 	return nil
 }
 
-// ListObject list objects
+// ListObjects lists objects
 func (client *AWS) ListObjects(bucket, prefix string) ([]string, error) {
 	cmd := client.cmd("s3api", "list-objects",
 		"--output", "json",
