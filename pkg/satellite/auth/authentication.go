@@ -24,7 +24,8 @@ type satelliteAuthenticator struct {
 	provider *provider.Provider
 }
 
-func NewSatelliteAuthenticator() *satelliteAuthenticator {
+// NewSatelliteAuthenticator creates instance of satellite authenticator
+func NewSatelliteAuthenticator() provider.UnaryInterceptorProvider {
 	return &satelliteAuthenticator{}
 }
 
@@ -46,7 +47,10 @@ func (s *satelliteAuthenticator) Get(provider *provider.Provider) grpc.UnaryServ
 				return nil, status.Errorf(codes.Internal, "Internal server error")
 			}
 
-			grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
+			err = grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "Internal server error")
+			}
 		}
 
 		return handler(ctx, req)

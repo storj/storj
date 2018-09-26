@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	unauthenticated = "failed API creds"
-	noPathGiven     = "file path not given"
+	// unauthenticated = "failed API creds"
+	noPathGiven = "file path not given"
 )
 
 var (
