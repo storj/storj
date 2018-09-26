@@ -32,7 +32,7 @@ func newTestStore(t testing.TB) (dir string, store *diskstore.Store, cleanup fun
 		if err != nil {
 			t.Fatal(err)
 		}
-	}()
+	}
 }
 
 func TestStoreLoad(t *testing.T) {
