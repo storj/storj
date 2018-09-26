@@ -84,8 +84,9 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var header metadata.MD
 	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer}, grpc.Header(&header))
 
 	return err
 }
@@ -121,6 +122,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var header metadata.MD
 	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
 		Prefix:     prefix.String(),
@@ -129,7 +131,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
-	})
+	}, grpc.Header(&header))
 	if err != nil {
 		return nil, false, err
 	}
@@ -151,8 +153,9 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var header metadata.MD
 	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()}, grpc.Header(&header))
 
 	return err
 }

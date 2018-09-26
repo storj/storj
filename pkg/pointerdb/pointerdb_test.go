@@ -51,7 +51,7 @@ func TestServicePut(t *testing.T) {
 			db.ForceError++
 		}
 
-		req := pb.PutRequest{Path: path, Pointer: &pr, APIKey: tt.apiKey}
+		req := pb.PutRequest{Path: path, Pointer: &pr}
 		_, err := s.Put(ctx, &req)
 
 		if err != nil {
@@ -89,7 +89,7 @@ func TestServiceGet(t *testing.T) {
 			db.ForceError++
 		}
 
-		req := pb.GetRequest{Path: path, APIKey: tt.apiKey}
+		req := pb.GetRequest{Path: path}
 		resp, err := s.Get(ctx, &req)
 
 		if err != nil {
@@ -126,7 +126,7 @@ func TestServiceDelete(t *testing.T) {
 			db.ForceError++
 		}
 
-		req := pb.DeleteRequest{Path: path, APIKey: tt.apiKey}
+		req := pb.DeleteRequest{Path: path}
 		_, err := s.Delete(ctx, &req)
 
 		if err != nil {
@@ -211,7 +211,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All, APIKey: []byte("wrong key")},
+			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
 			Error:   errorWithCode(codes.Unauthenticated),
 		}, {
 			Request: pb.ListRequest{Recursive: true, Limit: 3},

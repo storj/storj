@@ -70,7 +70,6 @@ func makePointer(path p.Path, auth []byte) pb.PutRequest {
 			},
 			Size: int64(1),
 		},
-		APIKey: auth,
 	}
 	return pr
 }
@@ -98,7 +97,7 @@ func TestPut(t *testing.T) {
 		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
 		// here we don't care what type of context we pass
-		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
+		gc.EXPECT().Put(gomock.Any(), &putRequest, gomock.Any()).Return(nil, tt.err)
 
 		err := pdb.Put(ctx, tt.path, putRequest.Pointer)
 
@@ -127,7 +126,7 @@ func TestGet(t *testing.T) {
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
 		getPointer := makePointer(tt.path, tt.APIKey)
-		getRequest := pb.GetRequest{Path: tt.path.String(), APIKey: tt.APIKey}
+		getRequest := pb.GetRequest{Path: tt.path.String()}
 
 		data, err := proto.Marshal(getPointer.Pointer)
 		if err != nil {
@@ -143,7 +142,7 @@ func TestGet(t *testing.T) {
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
-		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
+		gc.EXPECT().Get(gomock.Any(), &getRequest, gomock.Any()).Return(&getResponse, tt.err)
 
 		pointer, err := pdb.Get(ctx, tt.path)
 
@@ -210,7 +209,6 @@ func TestList(t *testing.T) {
 			Recursive:  tt.recursive,
 			Limit:      int32(tt.limit),
 			MetaFlags:  tt.metaFlags,
-			APIKey:     []byte(tt.APIKey),
 		}
 
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
@@ -218,7 +216,7 @@ func TestList(t *testing.T) {
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc, APIKey: []byte(tt.APIKey)}
 
-		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
+		gc.EXPECT().List(gomock.Any(), &listRequest, gomock.Any()).Return(&listResponse, tt.err)
 
 		items, more, err := pdb.List(ctx, p.New(tt.prefix), p.New(tt.startAfter),
 			p.New(tt.endBefore), tt.recursive, tt.limit, tt.metaFlags)
@@ -262,13 +260,13 @@ func TestDelete(t *testing.T) {
 		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
-		deleteRequest := pb.DeleteRequest{Path: tt.path.String(), APIKey: tt.APIKey}
+		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
 
-		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
+		gc.EXPECT().Delete(gomock.Any(), &deleteRequest, gomock.Any()).Return(nil, tt.err)
 
 		err := pdb.Delete(ctx, tt.path)
 

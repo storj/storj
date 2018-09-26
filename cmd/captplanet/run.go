@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/satellite"
+	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -97,11 +97,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
-	// start satellite
-	identity, err := runCfg.Satellite.Identity.Load()
-	if err != nil {
-		return err
-	}
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
 			runCfg.Satellite.Identity.Address)
@@ -110,9 +105,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 
-		satelliteAuth := &auth.SatelliteAuthenticator{Identity: identity}
 		errch <- runCfg.Satellite.Identity.Run(ctx, 
-			satelliteAuth.Auth,
+			auth.NewSatelliteAuthenticator(),
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
 			o)
