@@ -18,15 +18,16 @@ import (
 
 	"github.com/loov/hrtime"
 	"github.com/loov/plot"
-
-	minio "github.com/minio/minio-go"
 )
 
 func main() {
-	endpoint := flag.String("endpoint", "127.0.0.1:7777", "endpoint address")
-	accesskey := flag.String("accesskey", "insecure-dev-access-key", "access key")
-	secretkey := flag.String("secretkey", "insecure-dev-secret-key", "secret key")
-	useSSL := flag.Bool("use-ssl", true, "use ssl")
+	var conf Config
+
+	flag.StringVar(&conf.Endpoint, "endpoint", "127.0.0.1:7777", "endpoint address")
+	flag.StringVar(&conf.AccessKey, "accesskey", "insecure-dev-access-key", "access key")
+	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
+	flag.BoolVar(&conf.UseSSL, "use-ssl", true, "use ssl")
+
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
 	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per size")
@@ -42,7 +43,7 @@ func main() {
 
 	flag.Parse()
 
-	client, err := minio.New(*endpoint, *accesskey, *secretkey, *useSSL)
+	client, err := NewMinio(conf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -243,7 +244,7 @@ func (m *Measurement) PrintStats(w io.Writer) {
 }
 
 // Benchmark runs benchmarks on bucket with given size
-func Benchmark(client *minio.Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
+func Benchmark(client Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking size ", size.String(), " ")
 
 	data := make([]byte, size.bytes)
@@ -263,9 +264,7 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int, durati
 		rand.Read(data[:])
 		{ // uploading
 			start := hrtime.Now()
-			_, err := client.PutObject(bucket, "data", bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
-				ContentType: "application/octet-stream",
-			})
+			err := client.Upload(bucket, "data", data)
 			finish := hrtime.Now()
 			if err != nil {
 				return measurement, fmt.Errorf("upload failed: %v", err)
@@ -275,20 +274,15 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int, durati
 
 		{ // downloading
 			start := hrtime.Now()
-			reader, err := client.GetObject(bucket, "data", minio.GetObjectOptions{})
+			var err error
+			result, err = client.Download(bucket, "data", result)
 			if err != nil {
 				return measurement, fmt.Errorf("get object failed: %v", err)
 			}
-
-			var n int
-			n, err = reader.Read(result)
-			if err != nil && err != io.EOF {
-				return measurement, fmt.Errorf("download failed: %v", err)
-			}
 			finish := hrtime.Now()
 
-			if !bytes.Equal(data, result[:n]) {
-				return measurement, fmt.Errorf("upload/download do not match: length %d != %d", len(data), n)
+			if !bytes.Equal(data, result) {
+				return measurement, fmt.Errorf("upload/download do not match: lengths %d and %d", len(data), len(result))
 			}
 
 			measurement.Download = append(measurement.Download, (finish - start))
@@ -296,7 +290,7 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int, durati
 
 		{ // deleting
 			start := hrtime.Now()
-			err := client.RemoveObject(bucket, "data")
+			err := client.Delete(bucket, "data")
 			if err != nil {
 				return measurement, fmt.Errorf("delete failed: %v", err)
 			}
@@ -306,4 +300,25 @@ func Benchmark(client *minio.Client, bucket string, size Size, count int, durati
 	}
 
 	return measurement, nil
+}
+
+// Config is the setup for a particular client
+type Config struct {
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	UseSSL    bool
+}
+
+// Client is the common interface for different implementations
+type Client interface {
+	MakeBucket(bucket, location string) error
+	RemoveBucket(bucket string) error
+	ListBuckets() ([]string, error)
+
+	Upload(bucket, objectName string, data []byte) error
+	UploadMultipart(bucket, objectName string, data []byte, multipartThreshold int) error
+	Download(bucket, objectName string, buffer []byte) ([]byte, error)
+	Delete(bucket, objectName string) error
+	ListObjects(bucket, prefix string) ([]string, error)
 }
