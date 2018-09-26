@@ -7,6 +7,12 @@ import (
 	"github.com/loov/plot"
 )
 
+var palette = []color.Color{
+	color.NRGBA{0, 200, 0, 255},
+	color.NRGBA{0, 0, 200, 255},
+	color.NRGBA{200, 0, 0, 255},
+}
+
 func Plot(filename string, measurements []Measurement) error {
 	p := plot.New()
 	p.X.Min = 0
@@ -34,45 +40,43 @@ func Plot(filename string, measurements []Measurement) error {
 		plots := plot.NewVStack()
 		row.Add(0, plots)
 
-		// TODO: make independent of number of experiments
-
 		{ // time plotting
-			uploadTime := plot.NewDensity("s", asSeconds(m.Result("Upload").Durations))
-			uploadTime.Stroke = color.NRGBA{0, 200, 0, 255}
-			downloadTime := plot.NewDensity("s", asSeconds(m.Result("Download").Durations))
-			downloadTime.Stroke = color.NRGBA{0, 0, 200, 255}
-			deleteTime := plot.NewDensity("s", asSeconds(m.Result("Delete").Durations))
-			deleteTime.Stroke = color.NRGBA{200, 0, 0, 255}
+			group := []plot.Element{plot.NewGrid()}
+
+			for i, result := range m.Results {
+				time := plot.NewDensity("s", asSeconds(result.Durations))
+				time.Stroke = palette[i%len(palette)]
+				group = append(group, time)
+			}
+
+			group = append(group, plot.NewTickLabels())
 
 			flexTime := plot.NewHFlex()
 			plots.Add(flexTime)
 			flexTime.Add(70, plot.NewTextbox("time (s)"))
-			flexTime.AddGroup(0,
-				plot.NewGrid(),
-				uploadTime,
-				downloadTime,
-				deleteTime,
-				plot.NewTickLabels(),
-			)
+			flexTime.AddGroup(0, group...)
 		}
 
 		{ // speed plotting
-			uploadSpeed := plot.NewDensity("MB/s", asSpeed(m.Result("Upload").Durations, m.Size.bytes))
-			uploadSpeed.Stroke = color.NRGBA{0, 200, 0, 255}
-			downloadSpeed := plot.NewDensity("MB/s", asSpeed(m.Result("Download").Durations, m.Size.bytes))
-			downloadSpeed.Stroke = color.NRGBA{0, 0, 200, 255}
+			group := []plot.Element{plot.NewGrid()}
+
+			for i, result := range m.Results {
+				if !result.WithSpeed {
+					continue
+				}
+
+				speed := plot.NewDensity("MB/s", asSpeed(result.Durations, m.Size.bytes))
+				speed.Stroke = palette[i%len(palette)]
+			}
+
+			group = append(group, plot.NewTickLabels())
 
 			flexSpeed := plot.NewHFlex()
 			plots.Add(flexSpeed)
 
 			speedGroup := plot.NewAxisGroup()
 			speedGroup.X, speedGroup.Y = speed.X, speed.Y
-			speedGroup.AddGroup(
-				plot.NewGrid(),
-				uploadSpeed,
-				downloadSpeed,
-				plot.NewTickLabels(),
-			)
+			speedGroup.AddGroup(group...)
 
 			flexSpeed.Add(70, plot.NewTextbox("speed (MB/s)"))
 			flexSpeed.AddGroup(0, speedGroup)
@@ -82,5 +86,5 @@ func Plot(filename string, measurements []Measurement) error {
 	svgCanvas := plot.NewSVG(1500, 150*float64(len(measurements)))
 	p.Draw(svgCanvas)
 
-	return ioutil.WriteFile(*plotname, svgCanvas.Bytes(), 0755)
+	return ioutil.WriteFile(filename, svgCanvas.Bytes(), 0755)
 }

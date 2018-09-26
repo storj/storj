@@ -133,12 +133,19 @@ func (m *Measurement) Result(name string) *Result {
 
 	r := &Result{}
 	r.Name = name
+	m.Results = append(m.Results, r)
 	return r
 }
 
-func (m *Measurement) Record(name string, withSpeed bool, duration time.Duration) {
+func (m *Measurement) Record(name string, duration time.Duration) {
 	r := m.Result(name)
-	r.WithSpeed = withSpeed
+	r.WithSpeed = false
+	r.Durations = append(r.Durations, duration)
+}
+
+func (m *Measurement) RecordSpeed(name string, duration time.Duration) {
+	r := m.Result(name)
+	r.WithSpeed = true
 	r.Durations = append(r.Durations, duration)
 }
 
@@ -221,7 +228,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 				return measurement, fmt.Errorf("upload failed: %+v", err)
 			}
 
-			measurement.Record("Upload", true, finish-start)
+			measurement.RecordSpeed("Upload", finish-start)
 		}
 
 		{ // downloading
@@ -237,7 +244,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 				return measurement, fmt.Errorf("upload/download do not match: lengths %d and %d", len(data), len(result))
 			}
 
-			measurement.Record("Download", true, finish-start)
+			measurement.RecordSpeed("Download", finish-start)
 		}
 
 		{ // deleting
@@ -248,7 +255,7 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 			}
 			finish := hrtime.Now()
 
-			measurement.Record("Delete", false, finish-start)
+			measurement.Record("Delete", finish-start)
 		}
 	}
 
