@@ -52,10 +52,10 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize())
+	encKey := eestream.Key(sha256.Sum256([]byte(*key)))
+	var firstNonce eestream.Nonce
+	cipher := eestream.AESGCM
+	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, es.DecodedBlockSize())
 	if err != nil {
 		return err
 	}

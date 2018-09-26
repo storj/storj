@@ -12,7 +12,7 @@ aws configure set default.region us-east-1
 
 head -c 1024 </dev/urandom > ./small-upload-testfile # create 1mb file of random bytes (inline)
 head -c 5120 </dev/urandom > ./big-upload-testfile   # create 5mb file of random bytes (remote)
-head -c 5KB </dev/urandom > ./multipart-upload-testfile     # create 5kb file of random bytes (remote)
+head -c 5 </dev/urandom > ./multipart-upload-testfile     # create 5kb file of random bytes (remote)
 
 aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 
