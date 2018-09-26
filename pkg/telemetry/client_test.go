@@ -3,11 +3,13 @@
 package telemetry
 
 import (
-	"errors"
+	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/admission/admmonkit"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
@@ -127,14 +129,21 @@ func TestNewClient_PacketSizeIsZero(t *testing.T) {
 }
 
 func TestRun_ReportNoCalled(t *testing.T) {
-	client := &MockClient{}
+	client, err := NewClient("127.0.0.1:0", ClientOpts{
+		Application: "qwe",
+		Instance:    "",
+		Interval:    time.Millisecond,
+		PacketSize:  0,
+	})
+	assert.NoError(t, err)
 
-	ctx := &MockContext{}
+	client.send = func(context.Context, admmonkit.Options) error {
+		t.Fatal("shouldn't be called")
+		return nil
+	}
 
-	ctx.On("Err").Return(errors.New("")).Once()
-	client.On("Report").Times(0)
-	client.On("Run", ctx).Once()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
 	client.Run(ctx)
-
-	ctx.AssertExpectations(t)
 }

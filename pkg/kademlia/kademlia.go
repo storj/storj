@@ -227,7 +227,7 @@ func newID() ([]byte, error) {
 func GetIntroNode(id, ip, port string) (*pb.Node, error) {
 	addr := "bootstrap.storj.io:8080"
 	if ip != "" && port != "" {
-		addr = ip + ":" + port
+		addr = net.JoinHostPort(ip, port)
 	}
 
 	if id == "" {

@@ -11,14 +11,13 @@ package ecclient
 
 import (
 	context "context"
+	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
-	time "time"
-
-	gomock "github.com/golang/mock/gomock"
 	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
+	time "time"
 )
 
 // MockPSClient is a mock of PSClient interface
@@ -107,10 +106,11 @@ func (mr *MockPSClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4 interface{}
 }
 
 // Stats mocks base method
-func (m *MockPSClient) Stats(arg0 context.Context) error {
+func (m *MockPSClient) Stats(arg0 context.Context) (*pb.StatSummary, error) {
 	ret := m.ctrl.Call(m, "Stats", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*pb.StatSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Stats indicates an expected call of Stats

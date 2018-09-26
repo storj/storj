@@ -20,10 +20,10 @@ func randData(amount int) []byte {
 }
 
 func TestSecretbox(t *testing.T) {
-	var key [32]byte
-	copy(key[:], randData(32))
-	var firstNonce [24]byte
-	copy(firstNonce[:], randData(24))
+	var key Key
+	copy(key[:], randData(KeySize))
+	var firstNonce Nonce
+	copy(firstNonce[:], randData(NonceSize))
 	encrypter, err := NewSecretboxEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)

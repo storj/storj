@@ -60,6 +60,7 @@ type ClientOpts struct {
 type Client struct {
 	interval time.Duration
 	opts     admmonkit.Options
+	send     func(context.Context, admmonkit.Options) error
 }
 
 // NewClient constructs a telemetry client that sends packets to remoteAddr
@@ -88,6 +89,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 
 	return &Client{
 		interval: opts.Interval,
+		send:     admmonkit.Send,
 		opts: admmonkit.Options{
 			Application: opts.Application,
 			InstanceId:  []byte(opts.Instance),
@@ -106,6 +108,7 @@ func (c *Client) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+
 		err := c.Report(ctx)
 		if err != nil {
 			zap.S().Errorf("failed sending telemetry report: %v", err)
@@ -115,5 +118,5 @@ func (c *Client) Run(ctx context.Context) {
 
 // Report bundles up all the current stats and writes them out as UDP packets
 func (c *Client) Report(ctx context.Context) error {
-	return admmonkit.Send(ctx, c.opts)
+	return c.send(ctx, c.opts)
 }
