@@ -143,9 +143,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 	if err != nil {
 		return nil, err
 	}
-	rs, err := eestream.NewRedundancyStrategy(
-		eestream.NewRSScheme(fc, c.ErasureShareSize),
-		c.RepairThreshold, c.SuccessThreshold)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.ErasureShareSize), c.RepairThreshold, c.SuccessThreshold)
 	if err != nil {
 		return nil, err
 	}

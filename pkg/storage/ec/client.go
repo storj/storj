@@ -107,10 +107,10 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 	allerrs := collectErrors(errs, len(readers))
 	sc := len(readers) - len(allerrs)
-	if sc < rs.MinimumThreshold() {
+	if sc < rs.RepairThreshold() {
 		return Error.New(
-			"successful puts (%d) less than minimum threshold (%d)",
-			sc, rs.MinimumThreshold())
+			"successful puts (%d) less than repair threshold (%d)",
+			sc, rs.RepairThreshold())
 	}
 	return nil
 }
