@@ -224,18 +224,17 @@ func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
 
 	// TODO: make varying number of experiments instead of hardcoded here
+	type Hist struct {
+		*Result
+		*hrtime.Histogram
+	}
 
-	upload := hrtime.NewDurationHistogram(m.Result("Upload").Durations, binCount)
-	download := hrtime.NewDurationHistogram(m.Result("Download").Durations, binCount)
-	delete := hrtime.NewDurationHistogram(m.Result("Delete").Durations, binCount)
-
-	hists := []struct {
-		L string
-		H *hrtime.Histogram
-	}{
-		{"Upload", upload},
-		{"Download", download},
-		{"Delete", delete},
+	hists := []Hist{}
+	for _, result := range m.Results {
+		hists = append(hists, Hist{
+			Result:    result,
+			Histogram: hrtime.NewDurationHistogram(result.Durations, binCount),
+		})
 	}
 
 	sec := func(ns float64) string {
@@ -246,24 +245,24 @@ func (m *Measurement) PrintStats(w io.Writer) {
 	}
 
 	for _, hist := range hists {
-		if hist.L == "Delete" {
+		if !hist.WithSpeed {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-				m.Size, hist.L,
-				sec(hist.H.Average), "",
-				sec(hist.H.Maximum), "",
-				sec(hist.H.P50), "",
-				sec(hist.H.P90), "",
-				sec(hist.H.P99), "",
+				m.Size, hist.Name,
+				sec(hist.Average), "",
+				sec(hist.Maximum), "",
+				sec(hist.P50), "",
+				sec(hist.P90), "",
+				sec(hist.P99), "",
 			)
 			continue
 		}
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-			m.Size, hist.L,
-			sec(hist.H.Average), speed(hist.H.Average),
-			sec(hist.H.Maximum), speed(hist.H.Maximum),
-			sec(hist.H.P50), speed(hist.H.P50),
-			sec(hist.H.P90), speed(hist.H.P90),
-			sec(hist.H.P99), speed(hist.H.P99),
+			m.Size, hist.Name,
+			sec(hist.Average), speed(hist.Average),
+			sec(hist.Maximum), speed(hist.Maximum),
+			sec(hist.P50), speed(hist.P50),
+			sec(hist.P90), speed(hist.P90),
+			sec(hist.P99), speed(hist.P99),
 		)
 	}
 }
