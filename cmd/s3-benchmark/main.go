@@ -163,7 +163,6 @@ func (m *Measurement) RecordSpeed(name string, duration time.Duration) {
 func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
 
-	// TODO: make varying number of experiments instead of hardcoded here
 	type Hist struct {
 		*Result
 		*hrtime.Histogram
