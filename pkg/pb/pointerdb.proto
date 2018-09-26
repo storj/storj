@@ -27,10 +27,10 @@ message RedundancyScheme {
   SchemeType type = 1;
 
   // these values apply to RS encoding
-  int32 min_req = 2; // minimum required for reconstruction
-  int32 total = 3;   // total amount of pieces we generated
-  int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair
-  int32 success_threshold = 5; // amount of pieces we need to store to call it a success
+  int32 min_req = 2; // minimum required for reconstruction (k)
+  int32 total = 3;   // total amount of pieces we generated (n)
+  int32 repair_threshold = 4;  // amount of pieces we need to drop to before triggering repair (m)
+  int32 success_threshold = 5; // amount of pieces we need to store to call it a success (o)
 
   int32 erasure_share_size = 6;
 }
