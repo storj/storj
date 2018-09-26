@@ -202,3 +202,15 @@ func removeAllContent(path string) error {
 		}
 	}
 }
+
+// DiskInfo contains statistics about this disk
+type DiskInfo struct {
+	ID             string
+	AvailableSpace int64
+}
+
+// Info returns information about the current state of the disk
+func (disk *Disk) Info() (DiskInfo, error) {
+	filesytemID, available, err := diskInfoFromPath(disk.dir)
+	return DiskInfo{filesytemID, available}, err
+}
