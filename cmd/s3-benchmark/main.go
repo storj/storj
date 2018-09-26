@@ -24,6 +24,8 @@ func main() {
 	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
 	flag.BoolVar(&conf.UseSSL, "use-ssl", true, "use ssl")
 
+	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws)")
+
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
 	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per size")
@@ -39,9 +41,17 @@ func main() {
 
 	flag.Parse()
 
-	client, err := NewAWS(conf)
-	if err != nil {
-		log.Fatal(err)
+	var client Client
+	var err error
+
+	switch *clientName {
+	default:
+		log.Println("unknown client name ", *clientName, " defaulting to minio")
+		fallthrough
+	case "minio":
+		client, err = NewMinio(conf)
+	case "aws":
+		client, err = NewAWS(conf)
 	}
 
 	bucket := "bucket" + suffix
