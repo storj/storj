@@ -191,16 +191,14 @@ func removeAllContent(path string) error {
 	}
 
 	for {
-		files, err := dir.Readdirnames(1)
+		files, err := dir.Readdirnames(100)
 		for _, file := range files {
-			// the file might be still in use
+			// the file might be still in use, so ignore the error
 			_ = os.RemoveAll(filepath.Join(path, file))
 		}
 
-		if err == io.EOF {
+		if err == io.EOF || len(files) == 0 {
 			return dir.Close()
 		}
 	}
-
-	return dir.Close()
 }
