@@ -176,11 +176,12 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	lastSegmentPath := path.Prepend("l")
 
 	md := pb.MetaStreamInfo{
-		NumberOfSegments: totalSegments,
-		SegmentsSize:     s.segmentSize,
-		LastSegmentSize:  lastSegmentSize,
-		Metadata:         metadata,
-		EncryptionType:   int32(s.encType),
+		NumberOfSegments:    totalSegments,
+		SegmentsSize:        s.segmentSize,
+		LastSegmentSize:     lastSegmentSize,
+		Metadata:            metadata,
+		EncryptionType:      int32(s.encType),
+		EncryptionBlockSize: int32(s.encBlockSize),
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
 	if err != nil {
@@ -255,7 +256,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 			size:          size,
 			derivedKey:    (*eestream.Key)(derivedKey),
 			startingNonce: &nonce,
-			encBlockSize:  s.encBlockSize,
+			encBlockSize:  int(msi.EncryptionBlockSize),
 			encType:       eestream.Cipher(msi.EncryptionType),
 		}
 		rangers = append(rangers, rr)
