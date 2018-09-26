@@ -2,10 +2,6 @@
 // See LICENSE for copying information.
 
 package checker
-// Copyright (C) 2018 Storj Labs, Inc.
-// See LICENSE for copying information.
-
-package datarepair
 
 import (
 	"context"
@@ -14,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/pkg/kademlia"
@@ -25,7 +21,7 @@ import (
 type checker struct {
 	params *pb.IdentifyRequest
 	pointerdb storage.KeyValueStore
-	repairQueue *Queue
+	repairQueue *queue.Queue
 	overlay overlay.Overlay
 	logger *zap.Logger
 }
