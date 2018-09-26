@@ -228,4 +228,3 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
 }
-
