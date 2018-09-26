@@ -223,7 +223,7 @@ func (m *Measurement) Record(name string, withSpeed bool, duration time.Duration
 func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
 
-	// TODO: make independent of number of experiments
+	// TODO: make varying number of experiments instead of hardcoded here
 
 	upload := hrtime.NewDurationHistogram(m.Result("Upload").Durations, binCount)
 	download := hrtime.NewDurationHistogram(m.Result("Download").Durations, binCount)

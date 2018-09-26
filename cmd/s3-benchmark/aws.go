@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,12 +68,28 @@ func (client *AWS) RemoveBucket(bucket string) error {
 // ListBuckets lists all buckets
 func (client *AWS) ListBuckets() ([]string, error) {
 	cmd := client.cmd("s3api", "list-buckets", "--output", "json")
-	buckets, err := cmd.Output()
+	jsondata, err := cmd.Output()
 	if err != nil {
 		return nil, AWSError.Wrap(err)
 	}
-	// TODO parse json
-	return []string{string(buckets)}, nil
+
+	var response struct {
+		Buckets []struct {
+			Name string `json:"Name"`
+		} `json:"Buckets"`
+	}
+
+	err = json.Unmarshal(jsondata, &response)
+	if err != nil {
+		return nil, AWSError.Wrap(err)
+	}
+
+	names := []string{}
+	for _, bucket := range response.Buckets {
+		names = append(names, bucket.Name)
+	}
+
+	return names, nil
 }
 
 // Upload uploads object data to the specified path
@@ -140,10 +157,27 @@ func (client *AWS) ListObjects(bucket, prefix string) ([]string, error) {
 		"--output", "json",
 		"--bucket", bucket,
 		"--prefix", prefix)
-	data, err := cmd.Output()
+
+	jsondata, err := cmd.Output()
 	if err != nil {
 		return nil, AWSError.Wrap(err)
 	}
-	// TODO parse json
-	return []string{string(data)}, nil
+
+	var response struct {
+		Contents []struct {
+			Key string `json:"Key"`
+		} `json:"Contents"`
+	}
+
+	err = json.Unmarshal(jsondata, &response)
+	if err != nil {
+		return nil, AWSError.Wrap(err)
+	}
+
+	names := []string{}
+	for _, object := range response.Contents {
+		names = append(names, object.Key)
+	}
+
+	return names, nil
 }
