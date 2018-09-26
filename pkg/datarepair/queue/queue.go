@@ -5,8 +5,9 @@ package queue
 
 import (
 	"encoding/binary"
-	"time"
 	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
@@ -17,16 +18,15 @@ import (
 
 //RepairQueue is the interface for the data repair queue
 type RepairQueue interface {
-	Add(qi *pb.InjuredSegment) error
-	AddAll(qis []*pb.InjuredSegment) error
-	Remove(qi *pb.InjuredSegment) error
-	GetNext() pb.InjuredSegment
-	GetSize() int
+	Add(qi *pb.InjuredSegment) (storage.Key, error)
+	Remove(date storage.Key) error
+	GetNext() (storage.Key, pb.InjuredSegment, error)
+	GetSize() (int, error)
 }
 
 //Queue implements the RepairQueue interface
 type Queue struct {
-	DB storage.KeyValueStore
+	DB    storage.KeyValueStore
 	mutex *sync.Mutex
 }
 
@@ -41,7 +41,7 @@ func NewQueue(address, password string, db int) (*Queue, error) {
 		return nil, err
 	}
 	return &Queue{
-		DB: rc,
+		DB:    rc,
 		mutex: &sync.Mutex{},
 	}, nil
 }
