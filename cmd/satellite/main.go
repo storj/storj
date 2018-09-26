@@ -13,9 +13,9 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/satellite/auth"
 )
 
 var (
@@ -64,7 +64,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 
-	return runCfg.Identity.Run(process.Ctx(cmd),auth.NewSatelliteAuthenticator(),
+	return runCfg.Identity.Run(process.Ctx(cmd), auth.NewSatelliteAuthenticator(),
 		runCfg.Kademlia, runCfg.PointerDB, o)
 }
 

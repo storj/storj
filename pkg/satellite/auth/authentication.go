@@ -30,29 +30,27 @@ func NewSatelliteAuthenticator() *satelliteAuthenticator {
 
 func (s *satelliteAuthenticator) Get(provider *provider.Provider) grpc.UnaryServerInterceptor {
 	s.provider = provider
-	return s.auth
-}
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+		err error) {
 
-func (s *satelliteAuthenticator) auth(ctx context.Context, req interface{},
-	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
-	err error) {
+		// TODO(michal) we can extend auth to overlay requests also
+		if strings.HasPrefix(info.FullMethod, "/pointerdb") {
+			APIKey := metautils.ExtractIncoming(ctx).Get("apikey")
+			if !auth.ValidateAPIKey(APIKey) {
+				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+			}
 
-	// TODO(michal) we can extend auth to overlay requests also
-	if strings.HasPrefix(info.FullMethod, "/pointerdb") {
-		APIKey := metautils.ExtractIncoming(ctx).Get("apikey")
-		if !auth.ValidateAPIKey(APIKey) {
-			return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+			siganture, err := generateSignature(s.provider.Identity())
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "Internal server error")
+			}
+
+			grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
 		}
 
-		siganture, err := generateSignature(s.provider.Identity())
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Internal server error")
-		}
-
-		grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
+		return handler(ctx, req)
 	}
-
-	return handler(ctx, req)
 }
 
 func generateSignature(identity *provider.FullIdentity) (string, error) {

@@ -27,7 +27,6 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	grpcClient pb.PointerDBClient
-	APIKey     []byte
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -50,20 +49,26 @@ type Client interface {
 	Delete(ctx context.Context, path p.Path) error
 }
 
+func apiKeyInjector(APIKey []byte) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(APIKey))
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
 // NewClient initializes a new pointerdb client
 func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (*PointerDB, error) {
 	dialOpt, err := identity.DialOption()
 	if err != nil {
 		return nil, err
 	}
-	c, err := clientConnection(address, dialOpt)
+	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector(APIKey)))
 
 	if err != nil {
 		return nil, err
 	}
 	return &PointerDB{
 		grpcClient: c,
-		APIKey:     APIKey,
 	}, nil
 }
 
@@ -85,7 +90,6 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 	defer mon.Task()(&ctx)(&err)
 
 	var header metadata.MD
-	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer}, grpc.Header(&header))
 
 	return err
@@ -96,7 +100,6 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 	defer mon.Task()(&ctx)(&err)
 
 	var header metadata.MD
-	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()}, grpc.Header(&header))
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -123,7 +126,6 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	defer mon.Task()(&ctx)(&err)
 
 	var header metadata.MD
-	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
 		Prefix:     prefix.String(),
 		StartAfter: startAfter.String(),
@@ -154,7 +156,6 @@ func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var header metadata.MD
-	ctx = metadata.AppendToOutgoingContext(ctx, "apikey", string(pdb.APIKey))
 	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()}, grpc.Header(&header))
 
 	return err

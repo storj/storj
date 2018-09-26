@@ -10,16 +10,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/satellite/auth"
 )
 
 const (
@@ -105,7 +104,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
 		}
 
-		errch <- runCfg.Satellite.Identity.Run(ctx, 
+		errch <- runCfg.Satellite.Identity.Run(ctx,
 			auth.NewSatelliteAuthenticator(),
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
