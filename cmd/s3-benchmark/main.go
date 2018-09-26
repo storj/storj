@@ -118,6 +118,8 @@ func main() {
 			plots := plot.NewVStack()
 			row.Add(0, plots)
 
+			// TODO: make independent of number of experiments
+
 			{ // time plotting
 				uploadTime := plot.NewDensity("s", asSeconds(m.Result("Upload").Durations))
 				uploadTime.Stroke = color.NRGBA{0, 200, 0, 255}
@@ -221,6 +223,8 @@ func (m *Measurement) Record(name string, withSpeed bool, duration time.Duration
 // PrintStats prints important valueas about the measurement
 func (m *Measurement) PrintStats(w io.Writer) {
 	const binCount = 10
+
+	// TODO: make independent of number of experiments
 
 	upload := hrtime.NewDurationHistogram(m.Result("Upload").Durations, binCount)
 	download := hrtime.NewDurationHistogram(m.Result("Download").Durations, binCount)
