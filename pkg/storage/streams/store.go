@@ -4,15 +4,19 @@
 package streams
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
@@ -60,16 +64,32 @@ type Store interface {
 
 // streamStore is a store for streams
 type streamStore struct {
-	segments    segments.Store
-	segmentSize int64
+	segments     segments.Store
+	segmentSize  int64
+	rootKey      []byte
+	encBlockSize int
+	encType      eestream.Cipher
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, encBlockSize int, encType int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
-	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
+	if rootKey == "" {
+		return nil, errs.New("encryption key must not be empty")
+	}
+	if encBlockSize <= 0 {
+		return nil, errs.New("encryption block size must be larger than 0")
+	}
+
+	return &streamStore{
+		segments:     segments,
+		segmentSize:  segmentSize,
+		rootKey:      []byte(rootKey),
+		encBlockSize: encBlockSize,
+		encType:      eestream.Cipher(encType),
+	}, nil
 }
 
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
@@ -84,31 +104,84 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	awareLimitReader := EOFAwareReader(data)
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	if err != nil {
+		return Meta{}, err
+	}
 
-	for !awareLimitReader.isEOF() && !awareLimitReader.hasError() {
-		segmentPath := path.Prepend(fmt.Sprintf("s%d", totalSegments))
-		segmentData := io.LimitReader(awareLimitReader, s.segmentSize)
+	cipher := s.encType
 
-		putMeta, err := s.segments.Put(ctx, segmentPath, segmentData, nil, expiration)
+	eofReader := NewEOFReader(data)
+
+	for !eofReader.isEOF() && !eofReader.hasError() {
+		var encKey eestream.Key
+		_, err = rand.Read(encKey[:])
 		if err != nil {
 			return Meta{}, err
 		}
-		lastSegmentSize = putMeta.Size
-		totalSize = totalSize + putMeta.Size
+
+		var nonce eestream.Nonce
+		_, err := nonce.Increment(totalSegments)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		encrypter, err := cipher.NewEncrypter(&encKey, &nonce, s.encBlockSize)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.Key)(derivedKey), &nonce)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		sizeReader := NewSizeReader(eofReader)
+		segmentPath := getSegmentPath(path, totalSegments)
+		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
+		peekReader := segments.NewPeekThresholdReader(segmentReader)
+		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
+		if err != nil {
+			return Meta{}, err
+		}
+		var transformedReader io.Reader
+		if largeData {
+			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+			transformedReader = eestream.TransformReader(paddedReader, encrypter, 0)
+		} else {
+			data, err := ioutil.ReadAll(peekReader)
+			if err != nil {
+				return Meta{}, err
+			}
+			cipherData, err := cipher.Encrypt(data, &encKey, &nonce)
+			if err != nil {
+				return Meta{}, err
+			}
+			transformedReader = bytes.NewReader(cipherData)
+		}
+
+		_, err = s.segments.Put(ctx, segmentPath, transformedReader, encryptedEncKey, expiration)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		lastSegmentSize = sizeReader.Size()
+		totalSize = totalSize + lastSegmentSize
 		totalSegments = totalSegments + 1
 	}
-	if awareLimitReader.hasError() {
-		return Meta{}, awareLimitReader.err
+	if eofReader.hasError() {
+		return Meta{}, eofReader.err
 	}
 
 	lastSegmentPath := path.Prepend("l")
 
 	md := pb.MetaStreamInfo{
-		NumberOfSegments: totalSegments,
-		SegmentsSize:     s.segmentSize,
-		LastSegmentSize:  lastSegmentSize,
-		Metadata:         metadata,
+		NumberOfSegments:    totalSegments,
+		SegmentsSize:        s.segmentSize,
+		LastSegmentSize:     lastSegmentSize,
+		Metadata:            metadata,
+		EncryptionType:      int32(s.encType),
+		EncryptionBlockSize: int32(s.encBlockSize),
 	}
 	lastSegmentMetadata, err := proto.Marshal(&md)
 	if err != nil {
@@ -132,6 +205,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	return resultMeta, nil
 }
 
+// GetSegmentPath returns the unique path for a particular segment
+func getSegmentPath(p paths.Path, segNum int64) paths.Path {
+	return p.Prepend(fmt.Sprintf("s%d", segNum))
+}
+
 // Get returns a ranger that knows what the overall size is (from l/<path>)
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
@@ -139,7 +217,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastRangerCloser, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -155,23 +233,34 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	var rangers []ranger.Ranger
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
 
+	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments; i++ {
-		currentPath := fmt.Sprintf("s%d", i)
+		currentPath := getSegmentPath(path, i)
 		size := msi.SegmentsSize
 		if i == msi.NumberOfSegments-1 {
 			size = msi.LastSegmentSize
 		}
+		var nonce eestream.Nonce
+		_, err := nonce.Increment(i)
+		if err != nil {
+			return nil, Meta{}, err
+		}
 		rr := &lazySegmentRanger{
-			segments: s.segments,
-			path:     path.Prepend(currentPath),
-			size:     size,
+			segments:      s.segments,
+			path:          currentPath,
+			size:          size,
+			derivedKey:    (*eestream.Key)(derivedKey),
+			startingNonce: &nonce,
+			encBlockSize:  int(msi.EncryptionBlockSize),
+			encType:       eestream.Cipher(msi.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
-
-	rangers = append(rangers, lastRangerCloser)
 
 	catRangers := ranger.Concat(rangers...)
 
@@ -209,8 +298,8 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments); i++ {
-		currentPath := fmt.Sprintf("s%d", i)
-		err := s.segments.Delete(ctx, path.Prepend(currentPath))
+		currentPath := getSegmentPath(path, int64(i))
+		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			return err
 		}
@@ -256,10 +345,14 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 }
 
 type lazySegmentRanger struct {
-	ranger   ranger.Ranger
-	segments segments.Store
-	path     paths.Path
-	size     int64
+	ranger        ranger.Ranger
+	segments      segments.Store
+	path          paths.Path
+	size          int64
+	derivedKey    *eestream.Key
+	startingNonce *eestream.Nonce
+	encBlockSize  int
+	encType       eestream.Cipher
 }
 
 // Size implements Ranger.Size
@@ -269,12 +362,54 @@ func (lr *lazySegmentRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+	cipher := lr.encType
+
 	if lr.ranger == nil {
-		rr, _, err := lr.segments.Get(ctx, lr.path)
+		rr, m, err := lr.segments.Get(ctx, lr.path)
 		if err != nil {
 			return nil, err
 		}
-		lr.ranger = rr
+		encryptedEncKey := m.Data
+		e, err := cipher.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce)
+		if err != nil {
+			return nil, err
+		}
+		var encKey eestream.Key
+		copy(encKey[:], e)
+		decrypter, err := cipher.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize)
+		if err != nil {
+			return nil, err
+		}
+
+		var rd ranger.Ranger
+		if rr.Size()%int64(decrypter.InBlockSize()) != 0 {
+			reader, err := rr.Range(ctx, 0, rr.Size())
+			if err != nil {
+				return nil, err
+			}
+			cipherData, err := ioutil.ReadAll(reader)
+			if err != nil {
+				return nil, err
+			}
+			data, err := cipher.Decrypt(cipherData, &encKey, lr.startingNonce)
+			if err != nil {
+				return nil, err
+			}
+			rd = ranger.ByteRanger(data)
+			lr.ranger = rd
+		} else {
+			rd, err = eestream.Transform(rr, decrypter)
+			if err != nil {
+				return nil, err
+			}
+
+			paddedSize := rd.Size()
+			rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size()))
+			if err != nil {
+				return nil, err
+			}
+			lr.ranger = rc
+		}
 	}
 	return lr.ranger.Range(ctx, offset, length)
 }
