@@ -19,37 +19,37 @@ const (
 	dirPermission  = 0755
 )
 
-// Disk represents single folder for storing blobs
-type Disk struct {
-	dir string
+// Dir represents single folder for storing blobs
+type Dir struct {
+	path string
 
 	mu          sync.Mutex
 	deleteQueue []string
 }
 
-// NewDisk returns folder for storing blobs
-func NewDisk(dir string) (*Disk, error) {
-	disk := &Disk{
-		dir: dir,
+// NewDir returns folder for storing blobs
+func NewDir(path string) (*Dir, error) {
+	dir := &Dir{
+		path: path,
 	}
 
-	return disk, utils.CombineErrors(
-		os.MkdirAll(disk.blobdir(), dirPermission),
-		os.MkdirAll(disk.tempdir(), dirPermission),
-		os.MkdirAll(disk.trashdir(), dirPermission),
+	return dir, utils.CombineErrors(
+		os.MkdirAll(dir.blobdir(), dirPermission),
+		os.MkdirAll(dir.tempdir(), dirPermission),
+		os.MkdirAll(dir.trashdir(), dirPermission),
 	)
 }
 
-// Dir returns storage root directory
-func (disk *Disk) Dir() string { return disk.dir }
+// Path returns the directory path
+func (dir *Dir) Path() string { return dir.path }
 
-func (disk *Disk) blobdir() string  { return filepath.Join(disk.dir) }
-func (disk *Disk) tempdir() string  { return filepath.Join(disk.dir, "tmp") }
-func (disk *Disk) trashdir() string { return filepath.Join(disk.dir, "trash") }
+func (dir *Dir) blobdir() string  { return filepath.Join(dir.path) }
+func (dir *Dir) tempdir() string  { return filepath.Join(dir.path, "tmp") }
+func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
-func (disk *Disk) CreateTemporaryFile(prealloc int64) (*os.File, error) {
-	file, err := ioutil.TempFile(disk.tempdir(), "blob-*.partial")
+func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
+	file, err := ioutil.TempFile(dir.tempdir(), "blob-*.partial")
 	if err != nil {
 		return nil, err
 	}
@@ -63,19 +63,19 @@ func (disk *Disk) CreateTemporaryFile(prealloc int64) (*os.File, error) {
 }
 
 // DeleteTemporary deletes a temporary file
-func (disk *Disk) DeleteTemporary(file *os.File) error {
+func (dir *Dir) DeleteTemporary(file *os.File) error {
 	closeErr := file.Close()
 	return utils.CombineErrors(closeErr, os.Remove(file.Name()))
 }
 
 // refToPath converts blob reference to a filepath
-func (disk *Disk) refToPath(ref storage.BlobRef) string {
+func (dir *Dir) refToPath(ref storage.BlobRef) string {
 	hex := hex.EncodeToString(ref[:])
-	return filepath.Join(disk.blobdir(), hex[0:2], hex[2:])
+	return filepath.Join(dir.blobdir(), hex[0:2], hex[2:])
 }
 
 // Commit commits temporary file to the permanent storage
-func (disk *Disk) Commit(file *os.File, ref storage.BlobRef) error {
+func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
 	syncErr := file.Sync()
@@ -90,7 +90,7 @@ func (disk *Disk) Commit(file *os.File, ref storage.BlobRef) error {
 		return utils.CombineErrors(seekErr, truncErr, syncErr, chmodErr, closeErr, removeErr)
 	}
 
-	path := disk.refToPath(ref)
+	path := dir.refToPath(ref)
 	mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
 	if os.IsExist(mkdirErr) {
 		mkdirErr = nil
@@ -110,17 +110,17 @@ func (disk *Disk) Commit(file *os.File, ref storage.BlobRef) error {
 }
 
 // Open opens the file with the specified ref
-func (disk *Disk) Open(ref storage.BlobRef) (*os.File, error) {
-	path := disk.refToPath(ref)
+func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
+	path := dir.refToPath(ref)
 	return os.OpenFile(path, os.O_RDONLY, blobPermission)
 }
 
 // Delete deletes file with the specified ref
-func (disk *Disk) Delete(ref storage.BlobRef) error {
-	path := disk.refToPath(ref)
+func (dir *Dir) Delete(ref storage.BlobRef) error {
+	path := dir.refToPath(ref)
 
 	// move to trash folder, this is allowed for some OS-es
-	trashPath := filepath.Join(disk.trashdir(), hex.EncodeToString(ref[:]))
+	trashPath := filepath.Join(dir.trashdir(), hex.EncodeToString(ref[:]))
 	moveErr := os.Rename(path, trashPath)
 
 	// ignore concurrent delete
@@ -141,9 +141,9 @@ func (disk *Disk) Delete(ref storage.BlobRef) error {
 
 	// this may fail, because someone might be still reading it
 	if err != nil {
-		disk.mu.Lock()
-		disk.deleteQueue = append(disk.deleteQueue, trashPath)
-		disk.mu.Unlock()
+		dir.mu.Lock()
+		dir.deleteQueue = append(dir.deleteQueue, trashPath)
+		dir.mu.Unlock()
 	}
 
 	// ignore is busy errors, they are still in the queue
@@ -156,32 +156,32 @@ func (disk *Disk) Delete(ref storage.BlobRef) error {
 }
 
 // GarbageCollect collects files that are pending deletion
-func (disk *Disk) GarbageCollect() error {
+func (dir *Dir) GarbageCollect() error {
 	offset := int(math.MaxInt32)
 	// limited deletion loop to avoid blocking `Delete` for too long
 	for offset >= 0 {
-		disk.mu.Lock()
+		dir.mu.Lock()
 		limit := 100
-		if offset >= len(disk.deleteQueue) {
-			offset = len(disk.deleteQueue) - 1
+		if offset >= len(dir.deleteQueue) {
+			offset = len(dir.deleteQueue) - 1
 		}
 		for i := offset; i >= 0 && limit > 0; i-- {
 			limit--
 
-			path := disk.deleteQueue[i]
+			path := dir.deleteQueue[i]
 			err := os.Remove(path)
 			if os.IsNotExist(err) {
 				err = nil
 			}
 			if err == nil {
-				disk.deleteQueue = append(disk.deleteQueue[:i], disk.deleteQueue[i+1:]...)
+				dir.deleteQueue = append(dir.deleteQueue[:i], dir.deleteQueue[i+1:]...)
 			}
 		}
-		disk.mu.Unlock()
+		dir.mu.Unlock()
 	}
 
 	// remove anything left in the trashdir
-	_ = removeAllContent(disk.trashdir())
+	_ = removeAllContent(dir.trashdir())
 	return nil
 }
 
@@ -205,14 +205,14 @@ func removeAllContent(path string) error {
 	}
 }
 
-// DiskInfo contains statistics about this disk
+// DiskInfo contains statistics about this dir
 type DiskInfo struct {
 	ID             string
 	AvailableSpace int64
 }
 
-// Info returns information about the current state of the disk
-func (disk *Disk) Info() (DiskInfo, error) {
-	filesytemID, available, err := diskInfoFromPath(disk.dir)
+// Info returns information about the current state of the dir
+func (dir *Dir) Info() (DiskInfo, error) {
+	filesytemID, available, err := diskInfoFromPath(dir.path)
 	return DiskInfo{filesytemID, available}, err
 }

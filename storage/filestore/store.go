@@ -28,17 +28,26 @@ var _ storage.Blobs = (*Store)(nil)
 
 // Store implements a blob store
 type Store struct {
-	Disk *Disk
+	dir *Dir
 }
 
-// New creates a new disk blob store on the specified disk
-func New(disk *Disk) *Store {
-	return &Store{disk}
+// New creates a new disk blob store in the specified directory
+func New(dir *Dir) *Store {
+	return &Store{dir}
+}
+
+// NewAt creates a new disk blob store in the specified directory
+func NewAt(path string) (*Store, error) {
+	dir, err := NewDir(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{dir}, nil
 }
 
 // Load loads blob with the specified hash
 func (store *Store) Load(ctx context.Context, hash storage.BlobRef) (storage.ReadSeekCloser, error) {
-	file, openErr := store.Disk.Open(hash)
+	file, openErr := store.dir.Open(hash)
 	if openErr != nil {
 		if os.IsNotExist(openErr) {
 			return nil, openErr
@@ -56,7 +65,7 @@ func (store *Store) Load(ctx context.Context, hash storage.BlobRef) (storage.Rea
 
 // Delete deletes blobs with the specified hash
 func (store *Store) Delete(ctx context.Context, hash storage.BlobRef) error {
-	err := store.Disk.Delete(hash)
+	err := store.dir.Delete(hash)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -65,7 +74,7 @@ func (store *Store) Delete(ctx context.Context, hash storage.BlobRef) error {
 
 // GarbageCollect tries to delete any files that haven't yet been deleted
 func (store *Store) GarbageCollect(ctx context.Context) error {
-	err := store.Disk.GarbageCollect()
+	err := store.dir.GarbageCollect()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -74,7 +83,7 @@ func (store *Store) GarbageCollect(ctx context.Context) error {
 
 // Store stores r to disk, optionally takes a size argument, -1 is unknown size
 func (store *Store) Store(ctx context.Context, r io.Reader, size int64) (storage.BlobRef, error) {
-	file, err := store.Disk.CreateTemporaryFile(size)
+	file, err := store.dir.CreateTemporaryFile(size)
 	if err != nil {
 		return storage.BlobRef{}, Error.Wrap(err)
 	}
@@ -94,11 +103,11 @@ func (store *Store) Store(ctx context.Context, r io.Reader, size int64) (storage
 	// copy data to disk
 	if size >= 0 {
 		if _, err = io.CopyN(writer, r, size); err != nil && err != io.EOF {
-			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.Disk.DeleteTemporary(file)))
+			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.dir.DeleteTemporary(file)))
 		}
 	} else {
 		if _, err = io.Copy(writer, r); err != nil && err != io.EOF {
-			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.Disk.DeleteTemporary(file)))
+			return storage.BlobRef{}, Error.Wrap(utils.CombineErrors(err, store.dir.DeleteTemporary(file)))
 		}
 	}
 
@@ -112,7 +121,7 @@ func (store *Store) Store(ctx context.Context, r io.Reader, size int64) (storage
 	copy(blobref[:], hasher.Sum(nil))
 
 	// commit file to blob folder
-	err = store.Disk.Commit(file, blobref)
+	err = store.dir.Commit(file, blobref)
 	if err != nil {
 		return storage.BlobRef{}, Error.Wrap(err)
 	}

@@ -21,12 +21,11 @@ func newTestStore(t testing.TB) (dir string, store *filestore.Store, cleanup fun
 		t.Fatal(err)
 	}
 
-	disk, err := filestore.NewDisk(dir)
+	store, err = filestore.NewAt(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	store = filestore.New(disk)
 	return dir, store, func() {
 		err := os.RemoveAll(dir)
 		if err != nil {
