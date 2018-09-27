@@ -27,7 +27,7 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time) error
+		pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error)
 	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
 		pieceID client.PieceID, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) error
@@ -44,6 +44,7 @@ type defaultDialer struct {
 
 func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
 		return nil, err
@@ -64,55 +65,72 @@ func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Cli
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
+	pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(nodes) != rs.TotalCount() {
-		return Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme",
-			len(nodes), rs.TotalCount())
+		return nil, Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
 	}
 	if !unique(nodes) {
-		return Error.New("duplicated nodes are not allowed")
+		return nil, Error.New("duplicated nodes are not allowed")
 	}
+
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	errs := make(chan error, len(readers))
+
+	type info struct {
+		i int
+		err error
+	}
+	infos := make(chan info, len(nodes))
+
 	for i, n := range nodes {
 		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				errs <- err
+				infos <- info{i: i, err: err}
 				return
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
-				errs <- err
+				infos <- info{i: i, err: err}
 				return
 			}
 			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
-			if err != nil {
+			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
+			// No error logging for this case.
+			if err != nil && err != io.ErrUnexpectedEOF {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			errs <- err
+			infos <- info{i: i, err: err}
 		}(i, n)
 	}
-	allerrs := collectErrors(errs, len(readers))
-	sc := len(readers) - len(allerrs)
-	if sc < rs.RepairThreshold() {
-		return Error.New(
-			"successful puts (%d) less than repair threshold (%d)",
-			sc, rs.RepairThreshold())
+
+	successfulNodes = make([]*pb.Node, len(nodes))
+	var successfulCount int
+	for range nodes {
+		info := <-infos
+		if info.err == nil {
+			successfulNodes[info.i] = nodes[info.i]
+			successfulCount++
+		}
 	}
-	return nil
+
+	if successfulCount < rs.RepairThreshold() {
+		return nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
+	}
+
+	return successfulNodes, nil
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
@@ -122,16 +140,24 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes (%v) do not match total count (%v) of erasure scheme", len(nodes), es.TotalCount())
 	}
+
 	paddedSize := calcPadded(size, es.DecodedBlockSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
 	rrs := map[int]ranger.Ranger{}
+
 	type rangerInfo struct {
 		i   int
 		rr  ranger.Ranger
 		err error
 	}
 	ch := make(chan rangerInfo, len(nodes))
+
 	for i, n := range nodes {
+		if (n == nil) {
+			ch <- rangerInfo{i: i, rr: nil, err: nil}
+			continue
+		}
+
 		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
@@ -151,23 +177,33 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
 		}(i, n)
 	}
+
 	for range nodes {
 		rri := <-ch
-		if rri.err == nil {
+		if rri.err == nil && rri.rr != nil {
 			rrs[rri.i] = rri.rr
 		}
 	}
+
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
 		return nil, err
 	}
+
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
 func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	errs := make(chan error, len(nodes))
+
 	for _, n := range nodes {
+		if n == nil {
+			errs <- nil
+			continue
+		}
+
 		go func(n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
@@ -193,10 +229,13 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 			errs <- err
 		}(n)
 	}
+
 	allerrs := collectErrors(errs, len(nodes))
+
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
 		return allerrs[0]
 	}
+
 	return nil
 }
 

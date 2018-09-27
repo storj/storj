@@ -98,13 +98,19 @@ func (dr *decodedReader) Close() error {
 	dr.cancel()
 	// avoid double close of readers
 	dr.close.Do(func() {
-		errs := make([]error, len(dr.readers)+1)
+		var errs []error
 		// close the readers
-		for i, r := range dr.readers {
-			errs[i] = r.Close()
+		for _, r := range dr.readers {
+			err := r.Close()
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 		// close the stripe reader
-		errs[len(dr.readers)] = dr.stripeReader.Close()
+		err := dr.stripeReader.Close()
+		if err != nil {
+			errs = append(errs, err)
+		}
 		dr.closeErr = utils.CombineErrors(errs...)
 	})
 	return dr.closeErr
