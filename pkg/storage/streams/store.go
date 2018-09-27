@@ -107,12 +107,25 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	/* register for the os signals */
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		<-c
-		log.Println("cancelling .......")
-		signal.Stop(c)
-		log.Println("totalSeg....", totalSegments)
-		log.Println("path....", path)
+	// go func() {
+	// 	<-c
+	// 	log.Println("cancelling .......")
+	// 	signal.Stop(c)
+	// 	log.Println("totalSeg....", totalSegments)
+	// 	log.Println("path....", path)
+	// }()
+
+	defer func() {
+		select {
+		case <-c:
+			log.Println("cancelling .......")
+			signal.Stop(c)
+			log.Println("totalSeg....", totalSegments)
+			log.Println("path....", path)
+			break
+		default:
+			return
+		}
 
 		segErrs := make(chan error, int(totalSegments))
 		for i := 0; i < int(totalSegments); i++ {
@@ -120,17 +133,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			currentPath := fmt.Sprintf("s%d", i)
 			log.Println("deleting segment and path ... ", currentPath, path.Prepend(currentPath))
 
-			go func() {
-				segErrs <- s.segments.Delete(ctx, path.Prepend(currentPath))
-				log.Println("----> KISHORE <---deleted path", path.Prepend(currentPath))
-				//segErrs <- err
-			}()
+			//go func() {
+			segErrs <- s.segments.Delete(ctx, path.Prepend(currentPath))
+			log.Println("----> KISHORE <---deleted path", path.Prepend(currentPath))
+			//segErrs <- err
+			//}()
 		}
-		go func() {
-			for i := 0; i < int(totalSegments); i++ {
-				fmt.Println("err from deleting", <-segErrs, i)
-			}
-		}()
+		//go func() {
+		for i := 0; i < int(totalSegments); i++ {
+			fmt.Println("err from deleting", <-segErrs, i)
+		}
+		//}()
 
 		//cancel()
 		return
