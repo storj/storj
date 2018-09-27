@@ -203,9 +203,11 @@ func removeAllContent(path string) error {
 			// the file might be still in use, so ignore the error
 			_ = os.RemoveAll(filepath.Join(path, file))
 		}
-
 		if err == io.EOF || len(files) == 0 {
 			return dir.Close()
+		}
+		if err != nil {
+			return err
 		}
 	}
 }
