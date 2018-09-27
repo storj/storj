@@ -5,6 +5,7 @@ package datarepair
 
 import (
 	"context"
+	"time"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -34,9 +35,14 @@ func (c *Config) Run(ctx context.Context) (err error) {
 	// Initialize Repairer with queue
 	_, err = repairer.Initialize(ctx, queue)
 
-	// TODO: Run the Checker in goroutine
-	// TODO: Run the Repairer in goroutine
-
+	ticker := time.NewTicker(24 * time.Hour)
+	for {
+		select {
+		case <-ticker.C:
+			// TODO: Run the Checker in goroutine
+			// TODO: Run the Repairer in goroutine
+		}
+	}
 	// TODO: defer stop of checker and repairer
 
 	return nil
