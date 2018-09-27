@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
+// SignatureGenerator interface for generating signature
 type SignatureGenerator interface {
 	Generate() (string, error)
 }
@@ -47,7 +48,7 @@ func (s *satelliteAuthenticator) Get() grpc.UnaryServerInterceptor {
 
 			siganture, err := s.generator.Generate()
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "Internal server error")
+				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
 
 			err = grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type mockGenerator struct {
@@ -36,7 +37,7 @@ func TestSatelliteAuthenticator(t *testing.T) {
 	}{
 		// currently default apikey is empty
 		{"", "/pointerdb", nil},
-		{"wrong key", "/pointerdb", grpc.Errorf(codes.Unauthenticated, "Invalid API credential")},
+		{"wrong key", "/pointerdb", status.Errorf(codes.Unauthenticated, "Invalid API credential")},
 		{"", "/otherservice", nil},
 	} {
 		auth := NewSatelliteAuthenticator(&mockGenerator{})
