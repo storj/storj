@@ -43,7 +43,7 @@ func New(dir *Dir) *Store {
 func NewAt(path string) (*Store, error) {
 	dir, err := NewDir(path)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return &Store{dir}, nil
 }
