@@ -39,14 +39,9 @@ type Provider struct {
 	identity *FullIdentity
 }
 
-// UnaryInterceptorProvider gives ability to provide unary interceptor function e.g. for authentication
-type UnaryInterceptorProvider interface {
-	Get() grpc.UnaryServerInterceptor
-}
-
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
 // a set of responsibilities.
-func NewProvider(identity *FullIdentity, lis net.Listener, i UnaryInterceptorProvider,
+func NewProvider(identity *FullIdentity, lis net.Listener, i grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
 	ident, err := identity.ServerOption()
@@ -54,24 +49,21 @@ func NewProvider(identity *FullIdentity, lis net.Listener, i UnaryInterceptorPro
 		return nil, err
 	}
 
-	provider := &Provider{
-		lis:      lis,
-		next:     responsibilities,
-		identity: identity,
-	}
-
 	unaryInterceptor := unaryInterceptor
 	if i != nil {
-		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i.Get())
+		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i)
 	}
 
-	provider.g = grpc.NewServer(
-		grpc.StreamInterceptor(streamInterceptor),
-		grpc.UnaryInterceptor(unaryInterceptor),
-		ident,
-	)
-
-	return provider, nil
+	return &Provider{
+		lis: lis,
+		g: grpc.NewServer(
+			grpc.StreamInterceptor(streamInterceptor),
+			grpc.UnaryInterceptor(unaryInterceptor),
+			ident,
+		),
+		next:     responsibilities,
+		identity: identity,
+	}, nil
 }
 
 // SetupIdentity ensures a CA and identity exist and returns a config overrides map

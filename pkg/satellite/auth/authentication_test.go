@@ -40,8 +40,7 @@ func TestSatelliteAuthenticator(t *testing.T) {
 		{"wrong key", "/pointerdb", status.Errorf(codes.Unauthenticated, "Invalid API credential")},
 		{"", "/otherservice", nil},
 	} {
-		auth := NewSatelliteAuthenticator(&mockGenerator{})
-		authenticator := auth.Get()
+		authenticator := NewSatelliteAuthenticator(&mockGenerator{})
 
 		// mock for method handler
 		handler := func(ctx context.Context, req interface{}) (interface{}, error) {

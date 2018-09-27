@@ -218,7 +218,7 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (ic IdentityConfig) Run(ctx context.Context, i UnaryInterceptorProvider,
+func (ic IdentityConfig) Run(ctx context.Context, i grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)

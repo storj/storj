@@ -30,11 +30,7 @@ type satelliteAuthenticator struct {
 }
 
 // NewSatelliteAuthenticator creates instance of satellite authenticator
-func NewSatelliteAuthenticator(generator SignatureGenerator) provider.UnaryInterceptorProvider {
-	return &satelliteAuthenticator{generator: generator}
-}
-
-func (s *satelliteAuthenticator) Get() grpc.UnaryServerInterceptor {
+func NewSatelliteAuthenticator(generator SignatureGenerator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
 		err error) {
@@ -46,7 +42,7 @@ func (s *satelliteAuthenticator) Get() grpc.UnaryServerInterceptor {
 				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 			}
 
-			siganture, err := s.generator.Generate()
+			siganture, err := generator.Generate()
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
