@@ -117,7 +117,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 
 	defer func() {
 		select {
-		case <-c:
+		case <-ctx.Done():
 			log.Println("cancelling .......")
 			signal.Stop(c)
 			log.Println("totalSeg....", totalSegments)
@@ -146,13 +146,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		//}()
 
 		//cancel()
-		return
-	}()
-
-	go func() {
-		<-ctx.Done()
-		/* any final clean up here ... */
 		log.Printf("cleaned up the partial uploads !!!!!!!!!ctx.Done()")
+		return
 	}()
 
 	awareLimitReader := EOFAwareReader(data)

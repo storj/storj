@@ -94,7 +94,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	//ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	/* create a signal of type os.Signal */
 	c := make(chan os.Signal, 0x01)
@@ -119,7 +119,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		//fmt.Println("4. cancelling .......")
 
 		/* pass cancel signal downstream */
-		//cancel()
+		cancel()
 		fmt.Println("5. cancelling .......")
 		return
 	}()
