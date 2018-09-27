@@ -5,7 +5,6 @@ package ecclient
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -170,7 +169,6 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 	errs := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(n *pb.Node) {
-			fmt.Println("KISHORE --> INside erasure client ready to delete = ..... ")
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -178,7 +176,6 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 				return
 			}
 			ps, err := ec.d.dial(ctx, n)
-			fmt.Println("KISHORE --> dialed the piece server", n)
 			if err != nil {
 				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
@@ -186,7 +183,6 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 				return
 			}
 			err = ps.Delete(ctx, derivedPieceID)
-			fmt.Println("KISHORE --> deleted derivedPieceID from the server", derivedPieceID)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -197,13 +193,10 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 			errs <- err
 		}(n)
 	}
-	fmt.Println("   **** AM HERE in progress deleting a pieceID = ", pieceID)
 	allerrs := collectErrors(errs, len(nodes))
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
-		fmt.Println("KISHORE --> some problem deleting.... ", allerrs[0])
 		return allerrs[0]
 	}
-	fmt.Println("KISHORE --> done deleting")
 	return nil
 }
 

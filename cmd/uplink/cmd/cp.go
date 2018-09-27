@@ -51,7 +51,6 @@ func cleanAbsPath(p string) string {
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
-	fmt.Println("inside copyMain ")
 	var err error
 	if destObj.Scheme == "" {
 		return fmt.Errorf("Invalid destination")
@@ -94,8 +93,6 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	/* create a signal of type os.Signal */
 	c := make(chan os.Signal, 0x01)
 
@@ -104,23 +101,8 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 	go func() {
 		<-c
-		fmt.Println("1. cancelling .......")
-
-		/* stop the signal */
-		//signal.Stop(c)
-		fmt.Println("2. cancelling .......")
-
-		/* close the src file reader */
+		signal.Stop(c)
 		utils.LogClose(f)
-		fmt.Println("3. cancelling .......")
-
-		/* clean up the segments */
-		//_ = o.Delete(ctx, paths.New(destObj.Path))
-		//fmt.Println("4. cancelling .......")
-
-		/* pass cancel signal downstream */
-		cancel()
-		fmt.Println("5. cancelling .......")
 		return
 	}()
 

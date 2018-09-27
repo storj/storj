@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -99,55 +98,20 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
-	//ctx, cancel := context.WithCancel(ctx)
-	log.Println("inside object store ")
-	/* create a signal of type os.Signal */
+	ctx, cancel := context.WithCancel(ctx)
 	c := make(chan os.Signal, 0x01)
-
-	/* register for the os signals */
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	// go func() {
-	// 	<-c
-	// 	log.Println("cancelling .......")
-	// 	signal.Stop(c)
-	// 	log.Println("totalSeg....", totalSegments)
-	// 	log.Println("path....", path)
-	// }()
 
 	defer func() {
 		select {
-		case <-ctx.Done():
-			log.Println("cancelling .......")
+		case <-c:
 			signal.Stop(c)
-			log.Println("totalSeg....", totalSegments)
-			log.Println("path....", path)
-			break
+			s.CancelHandler(ctx, totalSegments, path)
+			cancel()
+			return
 		default:
 			return
 		}
-
-		segErrs := make(chan error, int(totalSegments))
-		for i := 0; i < int(totalSegments); i++ {
-			log.Println("inside for loop seg#....", i)
-			currentPath := fmt.Sprintf("s%d", i)
-			log.Println("deleting segment and path ... ", currentPath, path.Prepend(currentPath))
-
-			//go func() {
-			segErrs <- s.segments.Delete(ctx, path.Prepend(currentPath))
-			log.Println("----> KISHORE <---deleted path", path.Prepend(currentPath))
-			//segErrs <- err
-			//}()
-		}
-		//go func() {
-		for i := 0; i < int(totalSegments); i++ {
-			fmt.Println("err from deleting", <-segErrs, i)
-		}
-		//}()
-
-		//cancel()
-		log.Printf("cleaned up the partial uploads !!!!!!!!!ctx.Done()")
-		return
 	}()
 
 	awareLimitReader := EOFAwareReader(data)
@@ -343,4 +307,12 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 		lr.ranger = rr
 	}
 	return lr.ranger.Range(ctx, offset, length)
+}
+
+// CancelHandler handles clean up of segments on receiving CTRL+C
+func (s *streamStore) CancelHandler(ctx context.Context, totalSegments int64, path paths.Path) {
+	for i := 0; i < int(totalSegments); i++ {
+		currentPath := fmt.Sprintf("s%d", i)
+		_ = s.segments.Delete(ctx, path.Prepend(currentPath))
+	}
 }
