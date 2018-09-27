@@ -23,11 +23,11 @@ import (
 )
 
 var (
-	addr           = flag.String("addr", "localhost:8080", "address to serve from")
-	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
-	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
+	addr             = flag.String("addr", "localhost:8080", "address to serve from")
+	erasureShareSize = flag.Int("erasure_share_size", 4*1024, "block size of pieces")
+	key              = flag.String("key", "a key", "the secret key")
+	rsk              = flag.Int("required", 20, "rs required")
+	rsn              = flag.Int("total", 40, "rs total")
 )
 
 func main() {
@@ -50,10 +50,10 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	es := eestream.NewRSScheme(fc, *erasureShareSize)
 	var firstNonce eestream.Nonce
 	cipher := eestream.AESGCM
-	decrypter, err := cipher.NewDecrypter(&encKey, &firstNonce, es.DecodedBlockSize())
+	decrypter, err := cipher.NewDecrypter(&encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}
