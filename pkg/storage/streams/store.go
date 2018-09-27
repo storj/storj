@@ -75,17 +75,6 @@ func NewStreamStore(segments segments.Store, segmentSize int64) (Store, error) {
 	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
 
-func collectErrors(errs <-chan error, size int) []error {
-	var result []error
-	for i := 0; i < size; i++ {
-		err := <-errs
-		if err != nil {
-			result = append(result, err)
-		}
-	}
-	return result
-}
-
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
 // *last* piece at l/<path>. Store the given metadata, along with the number

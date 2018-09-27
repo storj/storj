@@ -231,7 +231,6 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
-
 		nodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return Error.Wrap(err)

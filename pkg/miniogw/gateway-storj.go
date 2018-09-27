@@ -5,11 +5,7 @@ package miniogw
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -372,22 +368,6 @@ func (s *storjObjects) CopyObject(ctx context.Context, srcBucket, srcObject, des
 	}
 
 	return s.putObject(ctx, destBucket, destObject, r, serMetaInfo)
-}
-
-// SetupCloseHandler creates a 'listener' on a new goroutine which will notify the
-// program if it receives an interrupt from the OS. We then handle this by calling
-// our clean up procedure and exiting the program.
-func SetupCloseHandler(ctx context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		fmt.Println("\r- Ctrl+C pressed in Terminal")
-		signal.Stop(c)
-		cancel()
-		os.Exit(0)
-	}()
 }
 
 func (s *storjObjects) putObject(ctx context.Context, bucket, object string, r io.Reader,
