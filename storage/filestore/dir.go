@@ -218,6 +218,5 @@ type DiskInfo struct {
 
 // Info returns information about the current state of the dir
 func (dir *Dir) Info() (DiskInfo, error) {
-	filesytemID, available, err := diskInfoFromPath(dir.path)
-	return DiskInfo{filesytemID, available}, err
+	return diskInfoFromPath(dir.path)
 }

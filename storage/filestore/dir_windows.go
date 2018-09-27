@@ -21,23 +21,25 @@ func isBusy(err error) bool {
 	return err == errSharingViolation
 }
 
-func diskInfoFromPath(path string) (filesytemId string, amount int64, err error) {
+func diskInfoFromPath(path string) (info DiskInfo, err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		absPath = path
 	}
+	var filesystemID string
+	var availableSpace int64
 
-	amount, err = getDiskFreeSpace(absPath)
+	availableSpace, err = getDiskFreeSpace(absPath)
 	if err != nil {
-		return "", -1, err
+		return DiskInfo{"", -1}, err
 	}
 
-	filesytemId, err = getVolumeSerialNumber(absPath)
+	filesystemID, err = getVolumeSerialNumber(absPath)
 	if err != nil {
-		return "", amount, err
+		return DiskInfo{"", availableSpace}, err
 	}
 
-	return filesytemId, amount, nil
+	return DiskInfo{filesystemID, availableSpace}, nil
 }
 
 var (

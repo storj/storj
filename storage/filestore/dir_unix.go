@@ -16,16 +16,19 @@ func isBusy(err error) bool {
 	return err == unix.EBUSY
 }
 
-func diskInfoFromPath(path string) (filesystemID string, amount int64, err error) {
+func diskInfoFromPath(path string) (info DiskInfo, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {
-		return "", -1, err
+		return DiskInfo{"", -1}, err
 	}
 
+	var filesytemID string
+	var availableSpace int64
+
 	// the Bsize size depends on the OS and unconvert gives a false-positive
-	amount = int64(stat.Bavail) * int64(stat.Bsize) //nolint
+	availableSpace = int64(stat.Bavail) * int64(stat.Bsize) //nolint
 	filesystemID = fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
-	return filesystemID, amount, nil
+	return DiskInfo{filesystemID, availableSpace}, nil
 }

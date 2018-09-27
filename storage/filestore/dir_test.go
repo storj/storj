@@ -6,16 +6,16 @@ package filestore
 import "testing"
 
 func TestDiskInfoFromPath(t *testing.T) {
-	filesytemID, amount, err := diskInfoFromPath(".")
+	info, err := diskInfoFromPath(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if amount <= 0 {
+	if info.AvailableSpace <= 0 {
 		t.Fatal("expected to have some disk space")
 	}
-	if filesytemID == "" {
+	if info.ID == "" {
 		t.Fatal("didn't get filesystem id")
 	}
 
-	t.Logf("Got: %v %v", filesytemID, amount)
+	t.Logf("Got: %v %v", info.ID, info.AvailableSpace)
 }
