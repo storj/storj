@@ -1,4 +1,4 @@
-package diskstore
+package filestore
 
 import (
 	"bufio"
@@ -14,8 +14,8 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Error is the default diskstore error class
-var Error = errs.Class("diskstore error")
+// Error is the default filestore error class
+var Error = errs.Class("filestore error")
 
 const (
 	headerSize = 32

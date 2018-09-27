@@ -1,4 +1,4 @@
-package diskstore_test
+package filestore_test
 
 import (
 	"bytes"
@@ -12,21 +12,21 @@ import (
 	"testing"
 
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/diskstore"
+	"storj.io/storj/storage/filestore"
 )
 
-func newTestStore(t testing.TB) (dir string, store *diskstore.Store, cleanup func()) {
-	dir, err := ioutil.TempDir("", "diskstore")
+func newTestStore(t testing.TB) (dir string, store *filestore.Store, cleanup func()) {
+	dir, err := ioutil.TempDir("", "filestore")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	disk, err := diskstore.NewDisk(dir)
+	disk, err := filestore.NewDisk(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	store = diskstore.New(disk)
+	store = filestore.New(disk)
 	return dir, store, func() {
 		err := os.RemoveAll(dir)
 		if err != nil {

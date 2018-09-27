@@ -1,8 +1,8 @@
-package diskstore
+package filestore
 
 import "testing"
 
-func TestDiskInfoFromPath(t *testing.T) {
+func TestDirInfoFromPath(t *testing.T) {
 	filesytemID, amount, err := diskInfoFromPath(".")
 	if err != nil {
 		t.Fatal(err)

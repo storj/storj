@@ -1,4 +1,4 @@
-package diskstore
+package filestore
 
 import (
 	"errors"

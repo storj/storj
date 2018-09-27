@@ -1,6 +1,6 @@
 // +build !windows
 
-package diskstore
+package filestore
 
 import (
 	"fmt"
