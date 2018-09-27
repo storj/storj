@@ -170,17 +170,18 @@ func (dir *Dir) GarbageCollect() error {
 		if offset >= len(dir.deleteQueue) {
 			offset = len(dir.deleteQueue) - 1
 		}
-		for i := offset; i >= 0 && limit > 0; i-- {
-			limit--
-
-			path := dir.deleteQueue[i]
+		for offset >= 0 && limit > 0 {
+			path := dir.deleteQueue[offset]
 			err := os.Remove(path)
 			if os.IsNotExist(err) {
 				err = nil
 			}
 			if err == nil {
-				dir.deleteQueue = append(dir.deleteQueue[:i], dir.deleteQueue[i+1:]...)
+				dir.deleteQueue = append(dir.deleteQueue[:offset], dir.deleteQueue[offset+1:]...)
 			}
+
+			offset--
+			limit--
 		}
 		dir.mu.Unlock()
 	}
