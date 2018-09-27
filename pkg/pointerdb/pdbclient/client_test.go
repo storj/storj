@@ -45,7 +45,7 @@ func TestNewPointerDBClient(t *testing.T) {
 	assert.NotNil(t, pdb.grpcClient)
 }
 
-func makePointer(path p.Path, auth []byte) pb.PutRequest {
+func makePointer(path p.Path) pb.PutRequest {
 	// rps is an example slice of RemotePieces to add to this
 	// REMOTE pointer type.
 	var rps []*pb.RemotePiece
@@ -79,18 +79,14 @@ func TestPut(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
-		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{p.New("file1/file2"), nil, ""},
+		{p.New(""), ErrNoFileGiven, noPathGiven},
 	} {
-		putRequest := makePointer(tt.path, tt.APIKey)
+		putRequest := makePointer(tt.path)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
@@ -114,18 +110,14 @@ func TestGet(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{p.New(""), ErrNoFileGiven, noPathGiven},
+		{p.New("file1/file2"), nil, ""},
 	} {
-		getPointer := makePointer(tt.path, tt.APIKey)
+		getPointer := makePointer(tt.path)
 		getRequest := pb.GetRequest{Path: tt.path.String()}
 
 		data, err := proto.Marshal(getPointer.Pointer)
@@ -167,18 +159,17 @@ func TestList(t *testing.T) {
 		recursive  bool
 		limit      int
 		metaFlags  uint32
-		//APIKey     string
-		items     []*pb.ListResponse_Item
-		more      bool
-		err       error
-		errString string
+		items      []*pb.ListResponse_Item
+		more       bool
+		err        error
+		errString  string
 	}{
 		{"", "", "", false, 0, meta.None,
 			[]*pb.ListResponse_Item{}, false, nil, ""},
 		{"", "", "", false, 0, meta.None,
 			[]*pb.ListResponse_Item{{}}, false, nil, ""},
-		// {"", "", "", false, -1, meta.None,
-		// 	[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
+		{"", "", "", false, -1, meta.None,
+			[]*pb.ListResponse_Item{}, false, nil, ""},
 		{"prefix", "after", "before", false, 1, meta.None,
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c"},

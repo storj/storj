@@ -31,13 +31,11 @@ var (
 
 func TestServicePut(t *testing.T) {
 	for i, tt := range []struct {
-		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
-		//{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, ""},
+		{errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -64,13 +62,11 @@ func TestServicePut(t *testing.T) {
 
 func TestServiceGet(t *testing.T) {
 	for i, tt := range []struct {
-		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
-		//{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, ""},
+		{errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -106,13 +102,11 @@ func TestServiceGet(t *testing.T) {
 
 func TestServiceDelete(t *testing.T) {
 	for i, tt := range []struct {
-		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, nil, ""},
-		//{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
-		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, ""},
+		{errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -173,16 +167,6 @@ func TestServiceList(t *testing.T) {
 		Error    func(i int, err error)
 	}
 
-	// errorWithCode := func(code codes.Code) func(i int, err error) {
-	// 	t.Helper()
-	// 	return func(i int, err error) {
-	// 		t.Helper()
-	// 		if status.Code(err) != code {
-	// 			t.Fatalf("%d: should fail with %v, got: %v", i, code, err)
-	// 		}
-	// 	}
-	// }
-
 	tests := []Test{
 		{
 			Request: pb.ListRequest{Recursive: true},
@@ -210,9 +194,6 @@ func TestServiceList(t *testing.T) {
 					{Path: "ビデオ/movie.mkv", Pointer: pointer},
 				},
 			},
-		// }, {
-		// 	Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},
-		// 	Error:   errorWithCode(codes.Unauthenticated),
 		}, {
 			Request: pb.ListRequest{Recursive: true, Limit: 3},
 			Expected: &pb.ListResponse{

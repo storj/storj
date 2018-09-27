@@ -25,10 +25,6 @@ type SignatureGenerator interface {
 	Generate() (string, error)
 }
 
-type satelliteAuthenticator struct {
-	generator SignatureGenerator
-}
-
 // NewSatelliteAuthenticator creates instance of satellite authenticator
 func NewSatelliteAuthenticator(generator SignatureGenerator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
