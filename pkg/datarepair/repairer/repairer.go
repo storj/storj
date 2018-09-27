@@ -70,6 +70,7 @@ func (r *repairer) Run() (err error) {
 	return nil
 }
 
+// Repair starts repair of the segment
 func (r *repairer) Repair(seg *pb.InjuredSegment) {
 	r.inProgress += 1
 	fmt.Println(seg)
