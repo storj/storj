@@ -52,5 +52,5 @@ func (r blobBodyReader) Seek(offset int64, whence int) (int64, error) {
 
 func (r blobBodyReader) Size() (n int64) {
 	stat, _ := r.file.Stat()
-	return stat.Size()
+	return stat.Size() - headerSize
 }

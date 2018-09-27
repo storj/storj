@@ -100,6 +100,10 @@ func TestStoreLoad(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		if reader.Size() != int64(len(data)) {
+			t.Fatal(err)
+		}
+
 		_, err = io.ReadFull(reader, temp)
 		if err != nil {
 			t.Fatal(err)
