@@ -23,12 +23,9 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 		return DiskInfo{"", -1}, err
 	}
 
-	var filesystemID string
-	var availableSpace int64
-
 	// the Bsize size depends on the OS and unconvert gives a false-positive
-	availableSpace = int64(stat.Bavail) * int64(stat.Bsize) //nolint
-	filesystemID = fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
+	availableSpace := int64(stat.Bavail) * int64(stat.Bsize) //nolint
+	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return DiskInfo{filesystemID, availableSpace}, nil
 }
