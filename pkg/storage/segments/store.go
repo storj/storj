@@ -167,7 +167,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 				Total:            int32(s.rs.TotalCount()),
 				RepairThreshold:  int32(s.rs.RepairThreshold()),
 				SuccessThreshold: int32(s.rs.OptimalThreshold()),
-				ErasureShareSize: int32(s.rs.EncodedBlockSize()),
+				ErasureShareSize: int32(s.rs.ErasureShareSize()),
 			},
 			PieceId:      string(pieceID),
 			RemotePieces: remotePieces,

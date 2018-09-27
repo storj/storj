@@ -40,10 +40,10 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
 	}
-	if expectedSize%int64(es.DecodedBlockSize()) != 0 {
+	if expectedSize%int64(es.StripeSize()) != 0 {
 		return readcloser.FatalReadCloser(
 			Error.New("expected size (%d) not a factor decoded block size (%d)",
-				expectedSize, es.DecodedBlockSize()))
+				expectedSize, es.StripeSize()))
 	}
 	if err := checkMBM(mbm); err != nil {
 		return readcloser.FatalReadCloser(err)
@@ -52,8 +52,8 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser,
 		readers:         rs,
 		scheme:          es,
 		stripeReader:    NewStripeReader(rs, es, mbm),
-		outbuf:          make([]byte, 0, es.DecodedBlockSize()),
-		expectedStripes: expectedSize / int64(es.DecodedBlockSize()),
+		outbuf:          make([]byte, 0, es.StripeSize()),
+		expectedStripes: expectedSize / int64(es.StripeSize()),
 	}
 	dr.ctx, dr.cancel = context.WithCancel(ctx)
 	// Kick off a goroutine to watch for context cancelation.
@@ -150,10 +150,10 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 	if size == -1 {
 		return ranger.ByteRanger(nil), nil
 	}
-	if size%int64(es.EncodedBlockSize()) != 0 {
+	if size%int64(es.ErasureShareSize()) != 0 {
 		return nil, Error.New("invalid erasure decoder and range reader combo. "+
 			"range reader size (%d) must be a multiple of erasure encoder block size (%d)",
-			size, es.EncodedBlockSize())
+			size, es.ErasureShareSize())
 	}
 	return &decodedRanger{
 		es:     es,
@@ -164,15 +164,14 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 }
 
 func (dr *decodedRanger) Size() int64 {
-	blocks := dr.inSize / int64(dr.es.EncodedBlockSize())
-	return blocks * int64(dr.es.DecodedBlockSize())
+	blocks := dr.inSize / int64(dr.es.ErasureShareSize())
+	return blocks * int64(dr.es.StripeSize())
 }
 
 func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
-	firstBlock, blockCount := calcEncompassingBlocks(
-		offset, length, dr.es.DecodedBlockSize())
+	firstBlock, blockCount := calcEncompassingBlocks(offset, length, dr.es.StripeSize())
 	// go ask for ranges for all those block boundaries
 	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
@@ -185,8 +184,8 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	for i, rr := range dr.rrs {
 		go func(i int, rr ranger.Ranger) {
 			r, err := rr.Range(ctx,
-				firstBlock*int64(dr.es.EncodedBlockSize()),
-				blockCount*int64(dr.es.EncodedBlockSize()))
+				firstBlock*int64(dr.es.ErasureShareSize()),
+				blockCount*int64(dr.es.ErasureShareSize()))
 			result <- indexReadCloser{i: i, r: r, err: err}
 		}(i, rr)
 	}
@@ -200,10 +199,10 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 		}
 	}
 	// decode from all those ranges
-	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.DecodedBlockSize()), dr.mbm)
+	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err := io.CopyN(ioutil.Discard, r,
-		offset-firstBlock*int64(dr.es.DecodedBlockSize()))
+		offset-firstBlock*int64(dr.es.StripeSize()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

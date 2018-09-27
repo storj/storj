@@ -8,13 +8,13 @@ import (
 )
 
 type rsScheme struct {
-	fc        *infectious.FEC
-	blockSize int
+	fc               *infectious.FEC
+	erasureShareSize int
 }
 
 // NewRSScheme returns a Reed-Solomon-based ErasureScheme.
-func NewRSScheme(fc *infectious.FEC, blockSize int) ErasureScheme {
-	return &rsScheme{fc: fc, blockSize: blockSize}
+func NewRSScheme(fc *infectious.FEC, erasureShareSize int) ErasureScheme {
+	return &rsScheme{fc: fc, erasureShareSize: erasureShareSize}
 }
 
 func (s *rsScheme) Encode(input []byte, output func(num int, data []byte)) (
@@ -32,12 +32,12 @@ func (s *rsScheme) Decode(out []byte, in map[int][]byte) ([]byte, error) {
 	return s.fc.Decode(out, shares)
 }
 
-func (s *rsScheme) EncodedBlockSize() int {
-	return s.blockSize
+func (s *rsScheme) ErasureShareSize() int {
+	return s.erasureShareSize
 }
 
-func (s *rsScheme) DecodedBlockSize() int {
-	return s.blockSize * s.fc.Required()
+func (s *rsScheme) StripeSize() int {
+	return s.erasureShareSize * s.fc.Required()
 }
 
 func (s *rsScheme) TotalCount() int {

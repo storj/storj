@@ -75,7 +75,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		return nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
+	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 		return nil, Error.New("number of nodes (%v) do not match total count (%v) of erasure scheme", len(nodes), es.TotalCount())
 	}
 
-	paddedSize := calcPadded(size, es.DecodedBlockSize())
+	paddedSize := calcPadded(size, es.StripeSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
 	rrs := map[int]ranger.Ranger{}
 
