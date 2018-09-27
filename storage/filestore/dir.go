@@ -10,7 +10,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	"storj.io/storj/pkg/utils"
@@ -18,8 +17,8 @@ import (
 )
 
 const (
-	blobPermission = 0755
-	dirPermission  = 0755
+	blobPermission = 0600
+	dirPermission  = 0700
 )
 
 // Dir represents single folder for storing blobs
@@ -88,10 +87,7 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
 	syncErr := file.Sync()
-	var chmodErr error
-	if runtime.GOOS != "windows" {
-		chmodErr = file.Chmod(blobPermission)
-	}
+	chmodErr := os.Chmod(file.Name(), blobPermission)
 	closeErr := file.Close()
 
 	if seekErr != nil || truncErr != nil || syncErr != nil || chmodErr != nil || closeErr != nil {
