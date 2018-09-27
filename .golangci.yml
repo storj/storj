@@ -4,9 +4,6 @@ run:
   issues-exit-code: 1
   tests: true
 
-  skip-dirs:
-    - examples
-
   skip-files:
     - ".*\\.pb\\.go$"
     - ".*\\.dbx\\.go$"
