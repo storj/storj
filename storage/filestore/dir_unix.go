@@ -23,7 +23,7 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 		return DiskInfo{"", -1}, err
 	}
 
-	var filesytemID string
+	var filesystemID string
 	var availableSpace int64
 
 	// the Bsize size depends on the OS and unconvert gives a false-positive
