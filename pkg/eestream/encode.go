@@ -24,13 +24,13 @@ type ErasureScheme interface {
 	// 'in', and append the combined data to 'out', returning it.
 	Decode(out []byte, in map[int][]byte) ([]byte, error)
 
-	// EncodedBlockSize is the size the erasure coded pieces should be that come
-	// from Encode and are passed to Decode.
-	EncodedBlockSize() int
+	// ErasureShareSize is the size of the erasure shares that come from Encode
+	// and are passed to Decode.
+	ErasureShareSize() int
 
-	// DecodedBlockSize is the size the combined file blocks that should be
-	// passed in to Encode and will come from Decode.
-	DecodedBlockSize() int
+	// StripeSize is the size the stripes that are passed to Encode and come
+	// from Decode.
+	StripeSize() int
 
 	// Encode will generate this many pieces
 	TotalCount() int
@@ -131,7 +131,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, mbm i
 	er := &encodedReader{
 		r:     r,
 		rs:    rs,
-		inbuf: make([]byte, rs.DecodedBlockSize()),
+		inbuf: make([]byte, rs.StripeSize()),
 		eps:   make(map[int](*encodedPiece), rs.TotalCount()),
 		start: time.Now(),
 	}
@@ -144,7 +144,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy, mbm i
 		er.eps[i].ctx, er.eps[i].cancel = context.WithCancel(er.ctx)
 		readers = append(readers, er.eps[i])
 	}
-	chanSize := mbm / (rs.TotalCount() * rs.EncodedBlockSize())
+	chanSize := mbm / (rs.TotalCount() * rs.ErasureShareSize())
 	if chanSize < 1 {
 		chanSize = 1
 	}
@@ -340,7 +340,7 @@ type EncodedRanger struct {
 // comments for EncodeReader about the repair and optimal thresholds, and the
 // max buffer memory.
 func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*EncodedRanger, error) {
-	if rr.Size()%int64(rs.DecodedBlockSize()) != 0 {
+	if rr.Size()%int64(rs.StripeSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
@@ -357,8 +357,8 @@ func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy, mbm int) (*Encode
 // OutputSize is like Ranger.Size but returns the Size of the erasure encoded
 // pieces that come out.
 func (er *EncodedRanger) OutputSize() int64 {
-	blocks := er.rr.Size() / int64(er.rs.DecodedBlockSize())
-	return blocks * int64(er.rs.EncodedBlockSize())
+	blocks := er.rr.Size() / int64(er.rs.StripeSize())
+	return blocks * int64(er.rs.ErasureShareSize())
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
@@ -366,11 +366,11 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := calcEncompassingBlocks(
-		offset, length, er.rs.EncodedBlockSize())
+		offset, length, er.rs.ErasureShareSize())
 	// okay, now let's encode the reader for the range containing the blocks
 	r, err := er.rr.Range(ctx,
-		firstBlock*int64(er.rs.DecodedBlockSize()),
-		blockCount*int64(er.rs.DecodedBlockSize()))
+		firstBlock*int64(er.rs.StripeSize()),
+		blockCount*int64(er.rs.StripeSize()))
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +382,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.
 		// the offset might start a few bytes in, so we potentially have to
 		// discard the beginning bytes
 		_, err := io.CopyN(ioutil.Discard, r,
-			offset-firstBlock*int64(er.rs.EncodedBlockSize()))
+			offset-firstBlock*int64(er.rs.ErasureShareSize()))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

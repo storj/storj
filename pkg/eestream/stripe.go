@@ -27,9 +27,9 @@ type StripeReader struct {
 // scheme and max buffer memory.
 func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
 	bufSize := mbm / es.TotalCount()
-	bufSize -= bufSize % es.EncodedBlockSize()
-	if bufSize < es.EncodedBlockSize() {
-		bufSize = es.EncodedBlockSize()
+	bufSize -= bufSize % es.ErasureShareSize()
+	if bufSize < es.ErasureShareSize() {
+		bufSize = es.ErasureShareSize()
 	}
 
 	r := &StripeReader{
@@ -42,8 +42,8 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 	}
 
 	for i := range rs {
-		r.inbufs[i] = make([]byte, es.EncodedBlockSize())
-		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.EncodedBlockSize(), r.cond)
+		r.inbufs[i] = make([]byte, es.ErasureShareSize())
+		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.ErasureShareSize(), r.cond)
 		// Kick off a goroutine each reader to be copied into a PieceBuffer.
 		go func(r io.Reader, buf *PieceBuffer) {
 			_, err := io.Copy(buf, r)
