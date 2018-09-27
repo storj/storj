@@ -20,7 +20,8 @@ func diskInfoFromPath(path string) (filesystemID string, amount int64, err error
 		return "", -1, err
 	}
 
-	amount = int64(stat.Bavail) * stat.Bsize
+	// the Bsize size depends on the OS and unconvert gives a false-positive
+	amount = int64(stat.Bavail) * int64(stat.Bsize) //nolint
 	filesystemID = fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return filesystemID, amount, nil
