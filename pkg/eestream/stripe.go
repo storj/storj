@@ -41,13 +41,10 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 		errmap: make(map[int]error, es.TotalCount()),
 	}
 
-	for i := 0; i < es.TotalCount(); i++ {
+	for i := range rs {
 		r.inbufs[i] = make([]byte, es.EncodedBlockSize())
 		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.EncodedBlockSize(), r.cond)
-	}
-
-	// Kick off a goroutine each reader to be copied into a PieceBuffer.
-	for i, buf := range r.bufs {
+		// Kick off a goroutine each reader to be copied into a PieceBuffer.
 		go func(r io.Reader, buf *PieceBuffer) {
 			_, err := io.Copy(buf, r)
 			if err != nil {
@@ -55,7 +52,7 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 				return
 			}
 			buf.SetError(io.EOF)
-		}(rs[i], buf)
+		}(rs[i], r.bufs[i])
 	}
 
 	return r
@@ -112,12 +109,12 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
 func (r *StripeReader) readAvailableShares(num int64) (n int) {
-	for i := 0; i < len(r.bufs); i++ {
+	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue
 		}
-		if r.bufs[i].HasShare(num) {
-			err := r.bufs[i].ReadShare(num, r.inbufs[i])
+		if buf.HasShare(num) {
+			err := buf.ReadShare(num, r.inbufs[i])
 			if err != nil {
 				r.errmap[i] = err
 			} else {
