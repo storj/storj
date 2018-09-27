@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -231,6 +232,8 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
+		fmt.Println("KISHORE--> pieceid=", pid)
+
 		nodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return Error.Wrap(err)
@@ -238,11 +241,14 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 
 		// ecclient sends delete request
 		err = s.ec.Delete(ctx, nodes, pid)
+		fmt.Println("KISHORE--> deleted successfully")
 		if err != nil {
+			fmt.Println("KISHORE--> delet *** NOT **** successfully")
 			return Error.Wrap(err)
 		}
 	}
 
+	fmt.Println("KISHORE--> piecesIDs deleted successfully, going to remove path=", path)
 	// deletes pointer from pointerdb
 	return s.pdb.Delete(ctx, path)
 }

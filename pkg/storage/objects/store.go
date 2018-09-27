@@ -6,10 +6,6 @@ package objects
 import (
 	"context"
 	"io"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -93,30 +89,6 @@ func (o *objStore) Get(ctx context.Context, path paths.Path) (
 func (o *objStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	metadata SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-	ctx, cancel := context.WithCancel(ctx)
-	log.Println("inside object store ")
-	/* create a signal of type os.Signal */
-	c := make(chan os.Signal, 0x01)
-
-	/* register for the os signals */
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-c
-		log.Println("cancelling .......")
-		signal.Stop(c)
-		cancel()
-		return
-	}()
-
-	go func() {
-		<-ctx.Done()
-		log.Println("ctx.Done() cancelling .......")
-		//err = s.DeleteObject(ctx, bucket, object)
-		if err != nil {
-			return
-		}
-	}()
 
 	if len(path) == 0 {
 		return Meta{}, NoPathError.New("")

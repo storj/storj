@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -73,6 +76,17 @@ func NewStreamStore(segments segments.Store, segmentSize int64) (Store, error) {
 	return &streamStore{segments: segments, segmentSize: segmentSize}, nil
 }
 
+func collectErrors(errs <-chan error, size int) []error {
+	var result []error
+	for i := 0; i < size; i++ {
+		err := <-errs
+		if err != nil {
+			result = append(result, err)
+		}
+	}
+	return result
+}
+
 // Put breaks up data as it comes in into s.segmentSize length pieces, then
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
 // *last* piece at l/<path>. Store the given metadata, along with the number
@@ -85,25 +99,47 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	var totalSize int64
 	var lastSegmentSize int64
 
+	//ctx, cancel := context.WithCancel(ctx)
+	log.Println("inside object store ")
+	/* create a signal of type os.Signal */
+	c := make(chan os.Signal, 0x01)
+
+	/* register for the os signals */
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		<-ctx.Done()
+		<-c
+		log.Println("cancelling .......")
+		signal.Stop(c)
 		log.Println("totalSeg....", totalSegments)
 		log.Println("path....", path)
 
+		segErrs := make(chan error, int(totalSegments))
 		for i := 0; i < int(totalSegments); i++ {
 			log.Println("inside for loop seg#....", i)
 			currentPath := fmt.Sprintf("s%d", i)
-			log.Println("deleted path", currentPath)
+			log.Println("deleting segment and path ... ", currentPath, path.Prepend(currentPath))
 
-			// go func() {
-			// 	_ = s.segments.Delete(ctx, path.Prepend(currentPath))
-			// 	// if err != nil {
-			// 	// 	return
-			// 	// }
-			log.Println("deleted path", path.Prepend(currentPath))
-			// }()
+			go func() {
+				segErrs <- s.segments.Delete(ctx, path.Prepend(currentPath))
+				log.Println("----> KISHORE <---deleted path", path.Prepend(currentPath))
+				//segErrs <- err
+			}()
 		}
-		log.Printf("cleaning up the partial uploads !!!!!!!!!1ctx.Done()")
+		go func() {
+			for i := 0; i < int(totalSegments); i++ {
+				fmt.Println("err from deleting", <-segErrs, i)
+			}
+		}()
+
+		//cancel()
+		return
+	}()
+
+	go func() {
+		<-ctx.Done()
+		/* any final clean up here ... */
+		log.Printf("cleaned up the partial uploads !!!!!!!!!ctx.Done()")
 	}()
 
 	awareLimitReader := EOFAwareReader(data)
