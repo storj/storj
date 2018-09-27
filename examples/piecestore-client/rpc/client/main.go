@@ -48,7 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 
 	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
@@ -71,7 +76,12 @@ func main() {
 					return err
 				}
 				// Close the file when we are done
-				defer file.Close()
+				defer func() {
+					err := file.Close()
+					if err != nil {
+						log.Println(err)
+					}
+				}()
 
 				fileInfo, err := file.Stat()
 				if err != nil {
@@ -136,32 +146,49 @@ func main() {
 				if err != nil {
 					return err
 				}
-				defer dataFile.Close()
+				defer func() {
+					err := dataFile.Close()
+					if err != nil {
+						log.Println(err)
+					}
+				}()
 
 				pieceInfo, err := psClient.Meta(context.Background(), client.PieceID(c.Args().Get(id)))
 				if err != nil {
-					os.Remove(c.Args().Get(outputDir))
+					errRemove := os.Remove(c.Args().Get(outputDir))
+					if errRemove != nil {
+						log.Println(errRemove)
+					}
 					return err
 				}
 
 				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					os.Remove(c.Args().Get(outputDir))
+					errRemove := os.Remove(c.Args().Get(outputDir))
+					if errRemove != nil {
+						log.Println(errRemove)
+					}
 					return err
 				}
 
 				reader, err := rr.Range(ctx, 0, pieceInfo.Size)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					os.Remove(c.Args().Get(outputDir))
+					errRemove := os.Remove(c.Args().Get(outputDir))
+					if errRemove != nil {
+						log.Println(errRemove)
+					}
 					return err
 				}
 
 				_, err = io.Copy(dataFile, reader)
 				if err != nil {
 					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					os.Remove(c.Args().Get(outputDir))
+					errRemove := os.Remove(c.Args().Get(outputDir))
+					if errRemove != nil {
+						log.Println(errRemove)
+					}
 				} else {
 					fmt.Printf("Successfully retrieved file of id: %s\n", c.Args().Get(id))
 				}

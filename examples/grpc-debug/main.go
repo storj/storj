@@ -44,5 +44,8 @@ func main() {
 		fmt.Println(err)
 	}
 	fmt.Println(conn.GetState())
-	conn.Close()
+	err = conn.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

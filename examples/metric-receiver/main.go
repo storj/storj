@@ -31,7 +31,11 @@ func run(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer func() {
+		if err := s.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	fmt.Printf("listening on %s\n", s.Addr())
 	return s.Serve(ctx, telemetry.HandlerFunc(handle))
 }

@@ -35,7 +35,12 @@ func main() {
 	initializeFlags()
 
 	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {

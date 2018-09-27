@@ -18,7 +18,7 @@ import (
 
 var (
 	port   string
-	APIKey = []byte("abc123")
+	apikey = []byte("abc123")
 )
 
 func initializeFlags() {
@@ -27,11 +27,11 @@ func initializeFlags() {
 }
 
 func printNodeStats(ns proto.NodeStats, logger zap.Logger) {
-	nodeId := ns.NodeId
+	nodeID := ns.NodeId
 	latency90 := ns.Latency_90
 	auditSuccess := ns.AuditSuccessRatio
 	uptime := ns.UptimeRatio
-	logStr := fmt.Sprintf("NodeID: %s, Latency (90th percentile): %d, Audit Success Ratio: %g, Uptime Ratio: %g", nodeId, latency90, auditSuccess, uptime)
+	logStr := fmt.Sprintf("NodeID: %s, Latency (90th percentile): %d, Audit Success Ratio: %g, Uptime Ratio: %g", nodeID, latency90, auditSuccess, uptime)
 	logger.Info(logStr)
 }
 
@@ -39,7 +39,12 @@ func main() {
 	initializeFlags()
 
 	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	conn, err := grpc.Dial(port, grpc.WithInsecure())
 	if err != nil {
@@ -67,12 +72,12 @@ func main() {
 	// Example Creates
 	createReq1 := proto.CreateRequest{
 		Node:   &farmer1,
-		APIKey: APIKey,
+		APIKey: apikey,
 	}
 
 	createReq2 := proto.CreateRequest{
 		Node:   &farmer2,
-		APIKey: APIKey,
+		APIKey: apikey,
 	}
 
 	createRes1, err := client.Create(ctx, &createReq1)
@@ -97,7 +102,7 @@ func main() {
 
 	updateReq := proto.UpdateRequest{
 		Node:   &farmer1,
-		APIKey: APIKey,
+		APIKey: apikey,
 	}
 
 	updateRes, err := client.Update(ctx, &updateReq)
@@ -119,7 +124,7 @@ func main() {
 	nodeList := []*proto.Node{&farmer1, &farmer2}
 	updateBatchReq := proto.UpdateBatchRequest{
 		NodeList: nodeList,
-		APIKey:   APIKey,
+		APIKey:   apikey,
 	}
 
 	updateBatchRes, err := client.UpdateBatch(ctx, &updateBatchReq)
@@ -135,12 +140,12 @@ func main() {
 	// Example Get
 	getReq1 := proto.GetRequest{
 		NodeId: farmer1.NodeId,
-		APIKey: APIKey,
+		APIKey: apikey,
 	}
 
 	getReq2 := proto.GetRequest{
 		NodeId: farmer2.NodeId,
-		APIKey: APIKey,
+		APIKey: apikey,
 	}
 
 	getRes1, err := client.Get(ctx, &getReq1)
