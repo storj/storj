@@ -63,9 +63,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if runCfg.MockOverlay.Nodes != "" {
 		o = runCfg.MockOverlay
 	}
-
-	return runCfg.Identity.Run(process.Ctx(cmd), auth.NewSatelliteAuthenticator(),
-		runCfg.Kademlia, runCfg.PointerDB, o)
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+	return runCfg.Identity.Run(
+		process.Ctx(cmd), 
+		auth.NewSatelliteAuthenticator(auth.NewSignatureGenerator(identity)),
+		runCfg.Kademlia,
+		runCfg.PointerDB,
+		o,
+	)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

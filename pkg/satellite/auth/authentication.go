@@ -20,17 +20,20 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
+type SignatureGenerator interface {
+	Generate() (string, error)
+}
+
 type satelliteAuthenticator struct {
-	provider *provider.Provider
+	generator SignatureGenerator
 }
 
 // NewSatelliteAuthenticator creates instance of satellite authenticator
-func NewSatelliteAuthenticator() provider.UnaryInterceptorProvider {
-	return &satelliteAuthenticator{}
+func NewSatelliteAuthenticator(generator SignatureGenerator) provider.UnaryInterceptorProvider {
+	return &satelliteAuthenticator{generator: generator}
 }
 
-func (s *satelliteAuthenticator) Get(provider *provider.Provider) grpc.UnaryServerInterceptor {
-	s.provider = provider
+func (s *satelliteAuthenticator) Get() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
 		err error) {
@@ -42,14 +45,14 @@ func (s *satelliteAuthenticator) Get(provider *provider.Provider) grpc.UnaryServ
 				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 			}
 
-			siganture, err := generateSignature(s.provider.Identity())
+			siganture, err := s.generator.Generate()
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "Internal server error")
 			}
 
 			err = grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "Internal server error")
+				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
 		}
 
@@ -57,8 +60,17 @@ func (s *satelliteAuthenticator) Get(provider *provider.Provider) grpc.UnaryServ
 	}
 }
 
-func generateSignature(identity *provider.FullIdentity) (string, error) {
-	signature, err := cryptopasta.Sign(identity.ID.Bytes(), identity.Key.(*ecdsa.PrivateKey))
+type defaultSignatureGenerator struct {
+	identity *provider.FullIdentity
+}
+
+// NewSignatureGenerator creates default signature generator based on identity
+func NewSignatureGenerator(identity *provider.FullIdentity) SignatureGenerator {
+	return &defaultSignatureGenerator{identity: identity}
+}
+
+func (s *defaultSignatureGenerator) Generate() (string, error) {
+	signature, err := cryptopasta.Sign(s.identity.ID.Bytes(), s.identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		return "", err
 	}

@@ -5,7 +5,6 @@ package pdbclient
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -56,7 +55,7 @@ func apiKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
 		var header metadata.MD
 		opts = append(opts, grpc.Header(&header))
 		err := invoker(ctx, method, req, reply, cc, opts...)
-		fmt.Println(header["signature"])
+		// TODO do something with signature - header["signature"]
 		return err
 	}
 }

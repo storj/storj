@@ -41,7 +41,7 @@ type Provider struct {
 
 // UnaryInterceptorProvider gives ability to provide unary interceptor function e.g. for authentication
 type UnaryInterceptorProvider interface {
-	Get(provider *Provider) grpc.UnaryServerInterceptor
+	Get() grpc.UnaryServerInterceptor
 }
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
@@ -62,7 +62,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener, i UnaryInterceptorPro
 
 	unaryInterceptor := unaryInterceptor
 	if i != nil {
-		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i.Get(provider))
+		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i.Get())
 	}
 
 	provider.g = grpc.NewServer(

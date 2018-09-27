@@ -14,7 +14,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/stretchr/testify/assert"
+	grpc "google.golang.org/grpc"
 
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
@@ -22,13 +24,11 @@ import (
 )
 
 const (
-	// unauthenticated = "failed API creds"
 	noPathGiven = "file path not given"
 )
 
 var (
-	ctx = context.Background()
-	//ErrUnauthenticated = errors.New(unauthenticated)
+	ctx            = context.Background()
 	ErrNoFileGiven = errors.New(noPathGiven)
 )
 
@@ -249,16 +249,12 @@ func TestDelete(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
-		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		//{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		//{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		//{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{p.New(""), ErrNoFileGiven, noPathGiven},
+		{p.New("file1/file2"), nil, ""},
 	} {
 		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
 
@@ -275,5 +271,30 @@ func TestDelete(t *testing.T) {
 		} else {
 			assert.NoError(t, err, errTag)
 		}
+	}
+}
+
+func TestApiKeyInjector(t *testing.T) {
+	for _, tt := range []struct {
+		APIKey string
+		err    error
+	}{
+		{"abc123", nil},
+		{"", nil},
+	} {
+		injector := apiKeyInjector(tt.APIKey)
+
+		// mock for method invoker
+		var outputCtx context.Context
+		invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+			outputCtx = ctx
+			return nil
+		}
+
+		ctx := context.Background()
+		err := injector(ctx, "/test.method", nil, nil, nil, invoker)
+
+		assert.Equal(t, err, tt.err)
+		assert.Equal(t, tt.APIKey, metautils.ExtractOutgoing(outputCtx).Get("apikey"))
 	}
 }
