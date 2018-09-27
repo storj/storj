@@ -145,7 +145,7 @@ require (
 	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
 	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be // indirect
-	golang.org/x/sys v0.0.0-20180924142050-c01370cb5c9b // indirect
+	golang.org/x/sys v0.0.0-20180924142050-c01370cb5c9b
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	golang.org/x/tools v0.0.0-20180924175601-e93be7f42f9f // indirect
 	google.golang.org/api v0.0.0-20180822000451-0873c9a91f71 // indirect
