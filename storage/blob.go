@@ -24,6 +24,6 @@ type Blobs interface {
 	// Delete deletes the blob with the specified reference
 	Delete(context.Context, BlobRef) error
 	// Store stores blob from reader
-	// optionally takes a size argument, -1 is unknown size
+	// optionally takes a size argument for improvements, -1 is unknown size
 	Store(ctx context.Context, r io.Reader, size int64) (BlobRef, error)
 }

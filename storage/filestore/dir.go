@@ -51,6 +51,7 @@ func (dir *Dir) tempdir() string  { return filepath.Join(dir.path, "tmp") }
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
+// prealloc preallocates file to make writing faster
 func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
 	const preallocLimit = 5 << 20 // 5 MB
 	if prealloc > preallocLimit {
