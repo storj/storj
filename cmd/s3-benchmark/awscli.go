@@ -32,7 +32,7 @@ func (client *AWSCLI) cmd(subargs ...string) *exec.Cmd {
 		"--endpoint", client.conf.Endpoint,
 	}
 
-	if !client.conf.UseSSL {
+	if client.conf.NoSSL {
 		args = append(args, "--no-verify-ssl")
 	}
 	args = append(args, subargs...)

@@ -24,7 +24,7 @@ func main() {
 	flag.StringVar(&conf.Endpoint, "endpoint", "127.0.0.1:7777", "endpoint address")
 	flag.StringVar(&conf.AccessKey, "accesskey", "insecure-dev-access-key", "access key")
 	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
-	flag.BoolVar(&conf.UseSSL, "use-ssl", false, "use ssl")
+	flag.BoolVar(&conf.NoSSL, "no-ssl", false, "disable ssl")
 
 	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws-cli)")
 
@@ -275,7 +275,7 @@ type Config struct {
 	Endpoint  string
 	AccessKey string
 	SecretKey string
-	UseSSL    bool
+	NoSSL     bool
 }
 
 // Client is the common interface for different implementations
