@@ -12,6 +12,7 @@ import (
 	"os"
 	"text/tabwriter"
 	"time"
+	"strconv"
 
 	"github.com/loov/hrtime"
 )
@@ -57,24 +58,47 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bucket := "bucket" + suffix
-	log.Println("Creating bucket", bucket)
+	bucket := "benchmark" + suffix
+	log.Println("Creating buckets", bucket)
+
+	// 1 bucket for file up and downloads
 	err = client.MakeBucket(bucket, *location)
 	if err != nil {
 		log.Fatalf("failed to create bucket %q: %+v\n", bucket, err)
 	}
 
+	// additional 1999 buckets for bucket listing
+	for k := 0; k < 1999; k++ {
+		err = client.MakeBucket(bucket + strconv.Itoa(k), *location)
+		if err != nil {
+			log.Fatalf("failed to create bucket %q: %+v\n", bucket + strconv.Itoa(k), err)
+		}
+	}
+
 	defer func() {
-		log.Println("Removing bucket")
+		log.Println("Removing buckets")
 		err := client.RemoveBucket(bucket)
 		if err != nil {
 			log.Fatalf("failed to remove bucket %q", bucket)
 		}
+
+		for k := 0; k < 1999; k++ {
+			err := client.RemoveBucket(bucket + strconv.Itoa(k))
+			if err != nil {
+				log.Fatalf("failed to remove bucket %q", bucket + strconv.Itoa(k))
+			}
+		}
 	}()
 
 	measurements := []Measurement{}
+	// List buckets, folders and files
+	measurement, err := ListBenchmark(client, bucket, *count, *duration)
+	if err != nil {
+		log.Fatal(err)
+	}
+	measurements = append(measurements, measurement)
 	for _, size := range sizes.Sizes() {
-		measurement, err := Benchmark(client, bucket, size, *count, *duration)
+		measurement, err := FileBenchmark(client, bucket, size, *count, *duration)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -213,9 +237,9 @@ func (m *Measurement) PrintStats(w io.Writer) {
 	}
 }
 
-// Benchmark runs benchmarks on bucket with given size
-func Benchmark(client Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
-	log.Print("Benchmarking size ", size.String(), " ")
+// FileBenchmark runs file upload, download and delete benchmarks on bucket with given size
+func FileBenchmark(client Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
+	log.Print("Benchmarking file size ", size.String(), " ")
 
 	data := make([]byte, size.bytes)
 	result := make([]byte, size.bytes)
@@ -273,6 +297,65 @@ func Benchmark(client Client, bucket string, size Size, count int, duration time
 
 			measurement.Record("Delete", finish-start)
 		}
+	}
+
+	return measurement, nil
+}
+
+// ListBenchmark runs list buckets, folders and files benchmarks on bucket
+func ListBenchmark(client Client, bucket string, count int, duration time.Duration) (Measurement, error) {
+	log.Print("Benchmarking list")
+
+	defer fmt.Println()
+
+	measurement := Measurement{}
+	//measurement.Size = size
+
+	{ // list buckets
+		start := hrtime.Now()
+		result, err := client.ListBuckets()
+		if err != nil {
+			return measurement, fmt.Errorf("list buckets failed: %+v", err)
+		}
+		finish := hrtime.Now()
+
+		if (len(result) < 2000) {
+			return measurement, fmt.Errorf("list buckets result to low: %+v", len(result))
+		}
+
+		measurement.Record("List Buckets", finish-start)
+	}
+
+	{ // list folders
+		start := hrtime.Now()
+		_, err := client.ListObjects(bucket, "")
+		if err != nil {
+			return measurement, fmt.Errorf("list folders failed: %+v", err)
+		}
+		finish := hrtime.Now()
+
+		// ToDo Create 2000 Folder
+		//if (len(result) < 2000) {
+		//	return measurement, fmt.Errorf("list folders result to low: %+v", len(result))
+		//}
+
+		measurement.Record("List Folders", finish-start)
+	}
+
+	{ // list files
+		start := hrtime.Now()
+		_, err := client.ListObjects(bucket, "folder")
+		if err != nil {
+			return measurement, fmt.Errorf("list files failed: %+v", err)
+		}
+		finish := hrtime.Now()
+
+		// ToDo Create 2000 Folder
+		//if (len(result) < 2000) {
+		//	return measurement, fmt.Errorf("list files result to low: %+v", len(result))
+		//}
+
+		measurement.Record("List Files", finish-start)
 	}
 
 	return measurement, nil
