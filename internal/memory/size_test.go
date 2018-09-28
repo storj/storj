@@ -68,7 +68,10 @@ func TestParse(t *testing.T) {
 
 	for i, test := range tests {
 		var size memory.Size
-		size.Set(test.text)
+		err := size.Set(test.text)
+		if err != nil {
+			t.Errorf("%d. got error %v", i, err)
+		}
 		if test.size != size {
 			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
 		}
