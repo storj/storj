@@ -104,8 +104,13 @@ require (
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
+<<<<<<< HEAD
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
+=======
+	go.uber.org/zap v1.8.0
+	golang.org/x/crypto v0.0.0-20180927165925-5295e8364332
+>>>>>>> merged the lasted master changes
 	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
 	golang.org/x/sys v0.0.0-20180924142050-c01370cb5c9b
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect

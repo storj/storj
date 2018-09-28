@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -99,6 +102,22 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	var currentSegment int64
 	var streamSize int64
 	var putMeta segments.Meta
+
+	ctx, cancel := context.WithCancel(ctx)
+	c := make(chan os.Signal, 0x01)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+	defer func() {
+		select {
+		case <-c:
+			signal.Stop(c)
+			s.CancelHandler(ctx, totalSegments, path)
+			cancel()
+			return
+		default:
+			return
+		}
+	}()
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
@@ -417,4 +436,12 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+}
+
+// CancelHandler handles clean up of segments on receiving CTRL+C
+func (s *streamStore) CancelHandler(ctx context.Context, totalSegments int64, path paths.Path) {
+	for i := 0; i < int(totalSegments); i++ {
+		currentPath := fmt.Sprintf("s%d", i)
+		_ = s.segments.Delete(ctx, path.Prepend(currentPath))
+	}
 }
