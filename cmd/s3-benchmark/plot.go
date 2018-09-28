@@ -66,7 +66,7 @@ func Plot(filename string, measurements []Measurement) error {
 					continue
 				}
 
-				speed := plot.NewDensity("MB/s", asSpeed(result.Durations, m.Size.bytes))
+				speed := plot.NewDensity("MB/s", asSpeed(result.Durations, m.Size.Bytes))
 				speed.Stroke = palette[i%len(palette)]
 			}
 

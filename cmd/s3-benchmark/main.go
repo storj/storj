@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/loov/hrtime"
+
+	"storj.io/storj/internal/memory"
 )
 
 func main() {
@@ -34,8 +36,15 @@ func main() {
 
 	plotname := flag.String("plot", "plot"+suffix+".svg", "plot results")
 
-	sizes := &Sizes{
-		Default: []Size{{1 * KB}, {256 * KB}, {1 * MB}, {32 * MB}, {64 * MB}, {256 * MB}},
+	sizes := &memory.Sizes{
+		Default: []memory.Size{
+			{1 * memory.KB},
+			{256 * memory.KB},
+			{1 * memory.MB},
+			{32 * memory.MB},
+			{64 * memory.MB},
+			{256 * memory.MB},
+		},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
 
@@ -127,7 +136,7 @@ func asSpeed(durations []time.Duration, size int64) []float64 {
 
 // Measurement contains measurements for different requests
 type Measurement struct {
-	Size    Size
+	Size    memory.Size
 	Results []*Result
 }
 
@@ -187,7 +196,7 @@ func (m *Measurement) PrintStats(w io.Writer) {
 		return fmt.Sprintf("%.2f", ns/1e9)
 	}
 	speed := func(ns float64) string {
-		return fmt.Sprintf("%.2f", (float64(m.Size.bytes)/(1<<20))/(ns/1e9))
+		return fmt.Sprintf("%.2f", m.Size.MB()/(ns/1e9))
 	}
 
 	for _, hist := range hists {
@@ -214,11 +223,11 @@ func (m *Measurement) PrintStats(w io.Writer) {
 }
 
 // Benchmark runs benchmarks on bucket with given size
-func Benchmark(client Client, bucket string, size Size, count int, duration time.Duration) (Measurement, error) {
+func Benchmark(client Client, bucket string, size memory.Size, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking size ", size.String(), " ")
 
-	data := make([]byte, size.bytes)
-	result := make([]byte, size.bytes)
+	data := make([]byte, size.Bytes)
+	result := make([]byte, size.Bytes)
 
 	defer fmt.Println()
 
