@@ -1,7 +1,7 @@
 package memory
 
-// ToString converts number of bytes to appropriately sized string
-func ToString(bytes int64) string {
+// FormatBytes converts number of bytes to appropriately sized string
+func FormatBytes(bytes int64) string {
 	return Size(bytes).String()
 }
 
