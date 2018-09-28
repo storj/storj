@@ -46,18 +46,6 @@ func (mr *MockErasureSchemeMockRecorder) Decode(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockErasureScheme)(nil).Decode), arg0, arg1)
 }
 
-// DecodedBlockSize mocks base method
-func (m *MockErasureScheme) DecodedBlockSize() int {
-	ret := m.ctrl.Call(m, "DecodedBlockSize")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// DecodedBlockSize indicates an expected call of DecodedBlockSize
-func (mr *MockErasureSchemeMockRecorder) DecodedBlockSize() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecodedBlockSize", reflect.TypeOf((*MockErasureScheme)(nil).DecodedBlockSize))
-}
-
 // Encode mocks base method
 func (m *MockErasureScheme) Encode(arg0 []byte, arg1 func(int, []byte)) error {
 	ret := m.ctrl.Call(m, "Encode", arg0, arg1)
@@ -70,16 +58,16 @@ func (mr *MockErasureSchemeMockRecorder) Encode(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockErasureScheme)(nil).Encode), arg0, arg1)
 }
 
-// EncodedBlockSize mocks base method
-func (m *MockErasureScheme) EncodedBlockSize() int {
-	ret := m.ctrl.Call(m, "EncodedBlockSize")
+// ErasureShareSize mocks base method
+func (m *MockErasureScheme) ErasureShareSize() int {
+	ret := m.ctrl.Call(m, "ErasureShareSize")
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-// EncodedBlockSize indicates an expected call of EncodedBlockSize
-func (mr *MockErasureSchemeMockRecorder) EncodedBlockSize() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EncodedBlockSize", reflect.TypeOf((*MockErasureScheme)(nil).EncodedBlockSize))
+// ErasureShareSize indicates an expected call of ErasureShareSize
+func (mr *MockErasureSchemeMockRecorder) ErasureShareSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ErasureShareSize", reflect.TypeOf((*MockErasureScheme)(nil).ErasureShareSize))
 }
 
 // RequiredCount mocks base method
@@ -92,6 +80,18 @@ func (m *MockErasureScheme) RequiredCount() int {
 // RequiredCount indicates an expected call of RequiredCount
 func (mr *MockErasureSchemeMockRecorder) RequiredCount() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequiredCount", reflect.TypeOf((*MockErasureScheme)(nil).RequiredCount))
+}
+
+// StripeSize mocks base method
+func (m *MockErasureScheme) StripeSize() int {
+	ret := m.ctrl.Call(m, "StripeSize")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// StripeSize indicates an expected call of StripeSize
+func (mr *MockErasureSchemeMockRecorder) StripeSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StripeSize", reflect.TypeOf((*MockErasureScheme)(nil).StripeSize))
 }
 
 // TotalCount mocks base method
