@@ -182,21 +182,21 @@ func serializeData(ba *pb.RenterBandwidthAllocation_Data) []byte {
 	return data
 }
 
-func writeFileToDir(name, dir string) error {
-	fmt.Println("writeFiletoDir")
-	file, err := pstore.StoreWriter(name, dir)
-	if err != nil {
-		return err
-	}
+// func writeFileToDir(name, dir string) error {
+// 	fmt.Println("writeFiletoDir")
+// 	file, err := pstore.StoreWriter(name, dir)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Close when finished
-	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
-	if err != nil {
-		_ = file.Close()
-		return err
-	}
-	return file.Close()
-}
+// 	// Close when finished
+// 	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
+// 	if err != nil {
+// 		_ = file.Close()
+// 		return err
+// 	}
+// 	return file.Close()
+// }
 
 func TestAuditSegment(t *testing.T) {
 		tests := []struct {
