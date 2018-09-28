@@ -18,10 +18,10 @@ import (
 )
 
 var (
-	pieceBlockSize = flag.Int("piece_block_size", 4*1024, "block size of pieces")
-	key            = flag.String("key", "a key", "the secret key")
-	rsk            = flag.Int("required", 20, "rs required")
-	rsn            = flag.Int("total", 40, "rs total")
+	erasureShareSize = flag.Int("erasure_share_size", 4*1024, "block size of pieces")
+	key              = flag.String("key", "a key", "the secret key")
+	rsk              = flag.Int("required", 20, "rs required")
+	rsn              = flag.Int("total", 40, "rs total")
 )
 
 func main() {
@@ -47,15 +47,15 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	es := eestream.NewRSScheme(fc, *pieceBlockSize)
+	es := eestream.NewRSScheme(fc, *erasureShareSize)
 	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 	if err != nil {
 		return err
 	}
-	encKey := sha256.Sum256([]byte(*key))
-	var firstNonce [12]byte
-	encrypter, err := eestream.NewAESGCMEncrypter(
-		&encKey, &firstNonce, es.DecodedBlockSize())
+	encKey := eestream.Key(sha256.Sum256([]byte(*key)))
+	var firstNonce eestream.Nonce
+	cipher := eestream.AESGCM
+	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}

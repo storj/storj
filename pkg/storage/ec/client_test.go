@@ -144,15 +144,15 @@ TestLoop:
 			[]error{nil, nil, nil, nil}, ""},
 		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil},
-			"ecclient error: successful puts (3) less than minimum threshold (4)"},
+			"ecclient error: successful puts (3) less than repair threshold (4)"},
 		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrOpFailed, nil, nil},
-			"ecclient error: successful puts (3) less than minimum threshold (4)"},
+			"ecclient error: successful puts (3) less than repair threshold (4)"},
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
-			"ecclient error: successful puts (1) less than minimum threshold (2)"},
+			"ecclient error: successful puts (1) less than repair threshold (2)"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -185,12 +185,20 @@ TestLoop:
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
-		err = ec.Put(ctx, tt.nodes, rs, id, r, ttl)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
 			assert.NoError(t, err, errTag)
+			assert.Equal(t, len(tt.nodes), len(successfulNodes), errTag)
+			for i := range tt.nodes {
+				if tt.errs[i] != nil {
+					assert.Nil(t, successfulNodes[i], errTag)
+				} else {
+					assert.Equal(t, tt.nodes[i], successfulNodes[i], errTag)
+				}
+			}
 		}
 	}
 }
@@ -231,6 +239,8 @@ TestLoop:
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed}, ""},
 		{[]*pb.Node{node0, node1, node2, node3}, 0,
 			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed}, ""},
+		{[]*pb.Node{nil, nil, node2, node3}, 0,
+			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -288,6 +298,8 @@ TestLoop:
 		{[]*pb.Node{node0, node1}, []error{nil, ErrOpFailed}, ""},
 		{[]*pb.Node{node0, node1}, []error{ErrDialFailed, ErrDialFailed}, dialFailed},
 		{[]*pb.Node{node0, node1}, []error{ErrOpFailed, ErrOpFailed}, opFailed},
+		{[]*pb.Node{nil, node1}, []error{nil, nil}, ""},
+		{[]*pb.Node{nil, nil}, []error{nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -300,7 +312,7 @@ TestLoop:
 
 		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if errs[n] != ErrDialFailed {
+			if n != nil && errs[n] != ErrDialFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
