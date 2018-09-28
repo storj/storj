@@ -5,6 +5,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,10 +16,11 @@ import (
 )
 
 type mockGenerator struct {
+	err error
 }
 
 func (g *mockGenerator) Generate() (string, error) {
-	return "", nil
+	return "", g.err
 }
 
 type mockServerTransportStream struct {
@@ -33,14 +35,16 @@ func TestSatelliteAuthenticator(t *testing.T) {
 	for _, tt := range []struct {
 		APIKey string
 		method string
+		genErr error
 		err    error
 	}{
 		// currently default apikey is empty
-		{"", "/pointerdb", nil},
-		{"wrong key", "/pointerdb", status.Errorf(codes.Unauthenticated, "Invalid API credential")},
-		{"", "/otherservice", nil},
+		{"", "/pointerdb", nil, nil},
+		{"", "/pointerdb", errors.New("generate error"), status.Errorf(codes.Internal, "%v", errors.New("generate error"))},
+		{"wrong key", "/pointerdb", nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")},
+		{"", "/otherservice", nil, nil},
 	} {
-		authenticator := NewSatelliteAuthenticator(&mockGenerator{})
+		authenticator := NewSatelliteAuthenticator(&mockGenerator{err: tt.genErr})
 
 		// mock for method handler
 		handler := func(ctx context.Context, req interface{}) (interface{}, error) {
