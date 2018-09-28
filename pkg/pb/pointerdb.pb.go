@@ -41,7 +41,7 @@ func (x RedundancyScheme_SchemeType) String() string {
 	return proto.EnumName(RedundancyScheme_SchemeType_name, int32(x))
 }
 func (RedundancyScheme_SchemeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{0, 0}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{0, 0}
 }
 
 type EncryptionScheme_EncryptionType int32
@@ -64,7 +64,7 @@ func (x EncryptionScheme_EncryptionType) String() string {
 	return proto.EnumName(EncryptionScheme_EncryptionType_name, int32(x))
 }
 func (EncryptionScheme_EncryptionType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{1, 0}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{1, 0}
 }
 
 type Pointer_DataType int32
@@ -87,7 +87,7 @@ func (x Pointer_DataType) String() string {
 	return proto.EnumName(Pointer_DataType_name, int32(x))
 }
 func (Pointer_DataType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{4, 0}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{4, 0}
 }
 
 type RedundancyScheme struct {
@@ -107,7 +107,7 @@ func (m *RedundancyScheme) Reset()         { *m = RedundancyScheme{} }
 func (m *RedundancyScheme) String() string { return proto.CompactTextString(m) }
 func (*RedundancyScheme) ProtoMessage()    {}
 func (*RedundancyScheme) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{0}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{0}
 }
 func (m *RedundancyScheme) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RedundancyScheme.Unmarshal(m, b)
@@ -182,7 +182,7 @@ func (m *EncryptionScheme) Reset()         { *m = EncryptionScheme{} }
 func (m *EncryptionScheme) String() string { return proto.CompactTextString(m) }
 func (*EncryptionScheme) ProtoMessage()    {}
 func (*EncryptionScheme) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{1}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{1}
 }
 func (m *EncryptionScheme) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EncryptionScheme.Unmarshal(m, b)
@@ -235,7 +235,7 @@ func (m *RemotePiece) Reset()         { *m = RemotePiece{} }
 func (m *RemotePiece) String() string { return proto.CompactTextString(m) }
 func (*RemotePiece) ProtoMessage()    {}
 func (*RemotePiece) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{2}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{2}
 }
 func (m *RemotePiece) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemotePiece.Unmarshal(m, b)
@@ -283,7 +283,7 @@ func (m *RemoteSegment) Reset()         { *m = RemoteSegment{} }
 func (m *RemoteSegment) String() string { return proto.CompactTextString(m) }
 func (*RemoteSegment) ProtoMessage()    {}
 func (*RemoteSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{3}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{3}
 }
 func (m *RemoteSegment) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RemoteSegment.Unmarshal(m, b)
@@ -348,7 +348,7 @@ func (m *Pointer) Reset()         { *m = Pointer{} }
 func (m *Pointer) String() string { return proto.CompactTextString(m) }
 func (*Pointer) ProtoMessage()    {}
 func (*Pointer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{4}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{4}
 }
 func (m *Pointer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Pointer.Unmarshal(m, b)
@@ -431,7 +431,7 @@ func (m *PutRequest) Reset()         { *m = PutRequest{} }
 func (m *PutRequest) String() string { return proto.CompactTextString(m) }
 func (*PutRequest) ProtoMessage()    {}
 func (*PutRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{5}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{5}
 }
 func (m *PutRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutRequest.Unmarshal(m, b)
@@ -485,7 +485,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{6}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{6}
 }
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
@@ -537,7 +537,7 @@ func (m *ListRequest) Reset()         { *m = ListRequest{} }
 func (m *ListRequest) String() string { return proto.CompactTextString(m) }
 func (*ListRequest) ProtoMessage()    {}
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{7}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{7}
 }
 func (m *ListRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListRequest.Unmarshal(m, b)
@@ -617,7 +617,7 @@ func (m *PutResponse) Reset()         { *m = PutResponse{} }
 func (m *PutResponse) String() string { return proto.CompactTextString(m) }
 func (*PutResponse) ProtoMessage()    {}
 func (*PutResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{8}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{8}
 }
 func (m *PutResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutResponse.Unmarshal(m, b)
@@ -649,7 +649,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{9}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{9}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
@@ -689,7 +689,7 @@ func (m *ListResponse) Reset()         { *m = ListResponse{} }
 func (m *ListResponse) String() string { return proto.CompactTextString(m) }
 func (*ListResponse) ProtoMessage()    {}
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{10}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{10}
 }
 func (m *ListResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse.Unmarshal(m, b)
@@ -736,7 +736,7 @@ func (m *ListResponse_Item) Reset()         { *m = ListResponse_Item{} }
 func (m *ListResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListResponse_Item) ProtoMessage()    {}
 func (*ListResponse_Item) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{10, 0}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{10, 0}
 }
 func (m *ListResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListResponse_Item.Unmarshal(m, b)
@@ -789,7 +789,7 @@ func (m *DeleteRequest) Reset()         { *m = DeleteRequest{} }
 func (m *DeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteRequest) ProtoMessage()    {}
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{11}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{11}
 }
 func (m *DeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteRequest.Unmarshal(m, b)
@@ -834,7 +834,7 @@ func (m *DeleteResponse) Reset()         { *m = DeleteResponse{} }
 func (m *DeleteResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteResponse) ProtoMessage()    {}
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pointerdb_380d8ac3c70f6d44, []int{12}
+	return fileDescriptor_pointerdb_1916ed760f6cb2e1, []int{12}
 }
 func (m *DeleteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteResponse.Unmarshal(m, b)
@@ -1053,9 +1053,9 @@ var _PointerDB_serviceDesc = grpc.ServiceDesc{
 	Metadata: "pointerdb.proto",
 }
 
-func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_pointerdb_380d8ac3c70f6d44) }
+func init() { proto.RegisterFile("pointerdb.proto", fileDescriptor_pointerdb_1916ed760f6cb2e1) }
 
-var fileDescriptor_pointerdb_380d8ac3c70f6d44 = []byte{
+var fileDescriptor_pointerdb_1916ed760f6cb2e1 = []byte{
 	// 990 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xdb, 0x6e, 0xdb, 0x46,
 	0x13, 0x36, 0x25, 0x59, 0x12, 0x47, 0x96, 0xcd, 0x7f, 0x91, 0xdf, 0x61, 0xe4, 0x14, 0x31, 0x08,
