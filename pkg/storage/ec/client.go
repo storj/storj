@@ -5,8 +5,10 @@ package ecclient
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"sort"
 	"time"
 
@@ -82,7 +84,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 
 	type info struct {
-		i int
+		i   int
 		err error
 	}
 	infos := make(chan info, len(nodes))
@@ -126,6 +128,18 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}
 	}
 
+	fmt.Println("I AM HERE about to enter into select >>>>>>>>> KISHORE-->  ..... ")
+
+	/* clean up the partially uploaded segment's pieces */
+	go func() {
+		<-ctx.Done()
+		log.Println("I AM HERE >>>>>>>>> KISHORE--> deleting ..... ")
+		fmt.Println("KISHORE--> deleting ..... ")
+		_ = ec.Delete(ctx, successfulNodes, pieceID)
+		fmt.Println("KISHORE--> deleted ..... ")
+		return
+	}()
+
 	if successfulCount < rs.RepairThreshold() {
 		return nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
@@ -153,7 +167,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	ch := make(chan rangerInfo, len(nodes))
 
 	for i, n := range nodes {
-		if (n == nil) {
+		if n == nil {
 			ch <- rangerInfo{i: i, rr: nil, err: nil}
 			continue
 		}

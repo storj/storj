@@ -10,9 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -103,16 +100,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	var streamSize int64
 	var putMeta segments.Meta
 
-	ctx, cancel := context.WithCancel(ctx)
-	c := make(chan os.Signal, 0x01)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	// ctx, cancel := context.WithCancel(ctx)
+	// c := make(chan os.Signal, 0x01)
+	// signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 	defer func() {
 		select {
-		case <-c:
-			signal.Stop(c)
+		case <-ctx.Done():
+			//signal.Stop(c)
+			fmt.Println("I AM HERE about to enter into cancelHandler in streams / store >>>>>>>>> KISHORE-->  ..... ")
+			ctx = context.Background()
 			s.CancelHandler(ctx, totalSegments, path)
-			cancel()
 			return
 		default:
 			return

@@ -97,8 +97,9 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		<-c
-		signal.Stop(c)
+		<-ctx.Done()
+		//signal.Stop(c)
+		fmt.Println("I am in side .cp.go")
 		utils.LogClose(f)
 	}()
 
