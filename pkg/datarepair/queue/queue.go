@@ -8,7 +8,8 @@ import (
 	"time"
 	"sync"
 	"github.com/golang/protobuf/proto"
-
+	"github.com/zeebo/errs"
+	
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis"
