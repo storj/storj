@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 )
 
 var (
@@ -42,6 +43,7 @@ var (
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
+		StatDB      statdb.Config
 		// RepairQueue   queue.Config
 		// RepairChecker checker.Config
 		// Repairer      repairer.Config
@@ -69,7 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, o)
+		runCfg.Kademlia, runCfg.PointerDB, o, runCfg.StatDB)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
