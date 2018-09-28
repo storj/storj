@@ -39,12 +39,7 @@ func main() {
 	initializeFlags()
 
 	logger, _ := zap.NewDevelopment()
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
+	defer printError(logger.Sync)
 
 	conn, err := grpc.Dial(port, grpc.WithInsecure())
 	if err != nil {
@@ -161,4 +156,11 @@ func main() {
 	}
 	logger.Info("Farmer 2 after Get 2")
 	printNodeStats(*getRes2.Stats, *logger)
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

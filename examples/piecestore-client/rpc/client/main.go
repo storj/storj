@@ -48,12 +48,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}()
+	defer printError(conn.Close)
 
 	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
@@ -76,12 +71,7 @@ func main() {
 					return err
 				}
 				// Close the file when we are done
-				defer func() {
-					err := file.Close()
-					if err != nil {
-						log.Println(err)
-					}
-				}()
+				defer printError(file.Close)
 
 				fileInfo, err := file.Stat()
 				if err != nil {
@@ -146,12 +136,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				defer func() {
-					err := dataFile.Close()
-					if err != nil {
-						log.Println(err)
-					}
-				}()
+				defer printError(dataFile.Close)
 
 				pieceInfo, err := psClient.Meta(context.Background(), client.PieceID(c.Args().Get(id)))
 				if err != nil {
@@ -232,4 +217,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

@@ -75,12 +75,7 @@ func Main() error {
 				return
 			}
 
-			defer func() {
-				err := fh.Close()
-				if err != nil {
-					fmt.Println(err)
-				}
-			}()
+			defer printError(fh.Close)
 
 			_, err = io.Copy(fh, readers[i])
 			errs <- err
@@ -93,4 +88,11 @@ func Main() error {
 		}
 	}
 	return nil
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

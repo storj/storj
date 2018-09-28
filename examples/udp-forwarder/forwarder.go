@@ -32,12 +32,7 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
+	defer printError(conn.Close)
 
 	buf := make([]byte, 1024*10)
 
@@ -61,5 +56,12 @@ func main() {
 			fmt.Println(err.Error())
 			return
 		}
+	}
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
 	}
 }

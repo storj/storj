@@ -35,12 +35,7 @@ func main() {
 	initializeFlags()
 
 	logger, _ := zap.NewDevelopment()
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
+	defer printError(logger.Sync)
 
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
@@ -120,5 +115,12 @@ func main() {
 		logger.Error("Error in deleteing file from db", zap.Error(err))
 	} else {
 		logger.Debug("Success: file is deleted from db")
+	}
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
 	}
 }

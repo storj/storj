@@ -60,12 +60,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close the file when we are done
-				defer func() {
-					err := file.Close()
-					if err != nil {
-						fmt.Println(err)
-					}
-				}()
+				defer printError(file.Close)
 
 				fileInfo, err := os.Stat(path)
 				if err != nil {
@@ -82,12 +77,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close when finished
-				defer func() {
-					err := dataFileChunk.Close()
-					if err != nil {
-						fmt.Println(err)
-					}
-				}()
+				defer printError(dataFileChunk.Close)
 
 				_, err = io.Copy(dataFileChunk, file)
 
@@ -122,12 +112,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close when finished
-				defer func() {
-					err := dataFileChunk.Close()
-					if err != nil {
-						fmt.Println(err)
-					}
-				}()
+				defer printError(dataFileChunk.Close)
 
 				_, err = io.Copy(os.Stdout, dataFileChunk)
 				return err
@@ -162,4 +147,11 @@ func main() {
 		Short: "piecestore example cli",
 		RunE:  run,
 	})
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
