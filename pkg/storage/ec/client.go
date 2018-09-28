@@ -5,10 +5,8 @@ package ecclient
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"sort"
 	"time"
 
@@ -128,16 +126,11 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}
 	}
 
-	fmt.Println("I AM HERE about to enter into select >>>>>>>>> KISHORE-->  ..... ")
-
 	/* clean up the partially uploaded segment's pieces */
 	go func() {
 		<-ctx.Done()
-		log.Println("I AM HERE >>>>>>>>> KISHORE--> deleting ..... ")
-		fmt.Println("KISHORE--> deleting ..... ")
+		ctx = context.Background()
 		_ = ec.Delete(ctx, successfulNodes, pieceID)
-		fmt.Println("KISHORE--> deleted ..... ")
-		return
 	}()
 
 	if successfulCount < rs.RepairThreshold() {

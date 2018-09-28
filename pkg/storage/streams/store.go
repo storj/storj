@@ -107,8 +107,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	defer func() {
 		select {
 		case <-ctx.Done():
-			//signal.Stop(c)
-			fmt.Println("I AM HERE about to enter into cancelHandler in streams / store >>>>>>>>> KISHORE-->  ..... ")
 			ctx = context.Background()
 			s.CancelHandler(ctx, totalSegments, path)
 			return

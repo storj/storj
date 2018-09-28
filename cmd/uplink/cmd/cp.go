@@ -98,8 +98,6 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 	go func() {
 		<-ctx.Done()
-		//signal.Stop(c)
-		fmt.Println("I am in side .cp.go")
 		utils.LogClose(f)
 	}()
 
