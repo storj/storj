@@ -3,6 +3,7 @@ package main
 import (
 	"image/color"
 	"io/ioutil"
+	"time"
 
 	"github.com/loov/plot"
 )
@@ -66,7 +67,7 @@ func Plot(filename string, measurements []Measurement) error {
 					continue
 				}
 
-				speed := plot.NewDensity("MB/s", asSpeed(result.Durations, m.Size.Bytes))
+				speed := plot.NewDensity("MB/s", asSpeed(result.Durations, m.Size.Int64()))
 				speed.Stroke = palette[i%len(palette)]
 			}
 
@@ -88,4 +89,21 @@ func Plot(filename string, measurements []Measurement) error {
 	p.Draw(svgCanvas)
 
 	return ioutil.WriteFile(filename, svgCanvas.Bytes(), 0755)
+}
+
+func asSeconds(durations []time.Duration) []float64 {
+	xs := make([]float64, 0, len(durations))
+	for _, dur := range durations {
+		xs = append(xs, dur.Seconds())
+	}
+	return xs
+}
+
+func asSpeed(durations []time.Duration, size int64) []float64 {
+	const MB = 1 << 20
+	xs := make([]float64, 0, len(durations))
+	for _, dur := range durations {
+		xs = append(xs, (float64(size)/MB)/dur.Seconds())
+	}
+	return xs
 }

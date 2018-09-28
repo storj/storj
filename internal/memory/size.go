@@ -9,39 +9,47 @@ import (
 	"strings"
 )
 
-// Size implements flag.Value for collecting memory size
-type Size struct {
-	Bytes int64
-}
+// Size implements flag.Value for collecting memory size in bytes
+type Size int64
+
+// Int returns bytes size as int
+func (size Size) Int() int { return int(size) }
+
+// Int64 returns bytes size as int64
+func (size Size) Int64() int64 { return int64(size) }
+
+// Float64 returns bytes size as float64
+func (size Size) Float64() float64 { return float64(size) }
 
 // KB returns size in kilobytes
-func (size Size) KB() float64 { return float64(size.Bytes) / KB }
+func (size Size) KB() float64 { return size.Float64() / KB }
 
 // MB returns size in megabytes
-func (size Size) MB() float64 { return float64(size.Bytes) / MB }
+func (size Size) MB() float64 { return size.Float64() / MB }
 
 // GB returns size in gigabytes
-func (size Size) GB() float64 { return float64(size.Bytes) / GB }
+func (size Size) GB() float64 { return size.Float64() / GB }
 
 // TB returns size in terabytes
-func (size Size) TB() float64 { return float64(size.Bytes) / TB }
+func (size Size) TB() float64 { return size.Float64() / TB }
 
 // String converts size to a string
 func (size Size) String() string {
-	if size.Bytes <= 0 {
+	if size == 0 {
 		return "0"
 	}
 
-	v := float64(size.Bytes)
 	for _, unit := range Units {
-		if v >= unit.Scale {
-			r := strconv.FormatFloat(v/unit.Scale, 'f', 1, 64)
+		if size >= unit.Scale {
+			sizef := size.Float64() / unit.Scale.Float64()
+			r := strconv.FormatFloat(sizef, 'f', 1, 64)
 			r = strings.TrimSuffix(r, "0")
 			r = strings.TrimSuffix(r, ".")
 			return r + unit.Suffix
 		}
 	}
-	return strconv.Itoa(int(size.Bytes)) + "B"
+
+	return strconv.Itoa(size.Int()) + "B"
 }
 
 // Set updates value from string
@@ -62,7 +70,8 @@ func (size *Size) Set(s string) error {
 			if err != nil {
 				return err
 			}
-			size.Bytes = int64(v * unit.Scale)
+
+			*size = Size(v * unit.Scale.Float64())
 			return nil
 		}
 	}

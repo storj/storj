@@ -3,7 +3,7 @@ package memory
 // Unit represents a memory unit with a suffix and scale
 type Unit struct {
 	Suffix string
-	Scale  float64
+	Scale  Size
 }
 
 // Different byte-size suffixes

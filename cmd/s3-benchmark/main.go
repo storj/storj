@@ -38,12 +38,12 @@ func main() {
 
 	sizes := &memory.Sizes{
 		Default: []memory.Size{
-			{1 * memory.KB},
-			{256 * memory.KB},
-			{1 * memory.MB},
-			{32 * memory.MB},
-			{64 * memory.MB},
-			{256 * memory.MB},
+			1 * memory.KB,
+			256 * memory.KB,
+			1 * memory.MB,
+			32 * memory.MB,
+			64 * memory.MB,
+			256 * memory.MB,
 		},
 	}
 	flag.Var(sizes, "size", "sizes to test with")
@@ -115,23 +115,6 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-}
-
-func asSeconds(durations []time.Duration) []float64 {
-	xs := make([]float64, 0, len(durations))
-	for _, dur := range durations {
-		xs = append(xs, dur.Seconds())
-	}
-	return xs
-}
-
-func asSpeed(durations []time.Duration, size int64) []float64 {
-	const MB = 1 << 20
-	xs := make([]float64, 0, len(durations))
-	for _, dur := range durations {
-		xs = append(xs, (float64(size)/MB)/dur.Seconds())
-	}
-	return xs
 }
 
 // Measurement contains measurements for different requests
@@ -226,8 +209,8 @@ func (m *Measurement) PrintStats(w io.Writer) {
 func Benchmark(client Client, bucket string, size memory.Size, count int, duration time.Duration) (Measurement, error) {
 	log.Print("Benchmarking size ", size.String(), " ")
 
-	data := make([]byte, size.Bytes)
-	result := make([]byte, size.Bytes)
+	data := make([]byte, size.Int())
+	result := make([]byte, size.Int())
 
 	defer fmt.Println()
 
