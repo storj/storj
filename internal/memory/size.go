@@ -59,20 +59,20 @@ func (size Size) String() string {
 
 	switch {
 	case size >= EB*2/3:
-		return fmt.Sprintf("%.2fEB", size.EB())
+		return fmt.Sprintf("%.1f EB", size.EB())
 	case size >= PB*2/3:
-		return fmt.Sprintf("%.2fPB", size.PB())
+		return fmt.Sprintf("%.1f PB", size.PB())
 	case size >= TB*2/3:
-		return fmt.Sprintf("%.2fTB", size.TB())
+		return fmt.Sprintf("%.1f TB", size.TB())
 	case size >= GB*2/3:
-		return fmt.Sprintf("%.2fGB", size.GB())
+		return fmt.Sprintf("%.1f GB", size.GB())
 	case size >= MB*2/3:
-		return fmt.Sprintf("%.2fMB", size.MB())
+		return fmt.Sprintf("%.1f MB", size.MB())
 	case size >= KB*2/3:
-		return fmt.Sprintf("%.2fKB", size.KB())
+		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
-	return strconv.Itoa(size.Int()) + "B"
+	return strconv.Itoa(size.Int()) + " B"
 }
 
 func isLetter(b byte) bool {
@@ -99,6 +99,7 @@ func (size *Size) Set(s string) error {
 		suffix += "B"
 	}
 
+	value = strings.TrimSpace(value)
 	v, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return err
