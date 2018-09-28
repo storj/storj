@@ -53,8 +53,9 @@ func (mo *MockOverlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) 
 	*pb.LookupResponses, error) {
 	var responses []*pb.LookupResponse
 	for _, r := range reqs.Lookuprequest {
-		n := *mo.nodes[r.NodeID]
-		resp := &pb.LookupResponse{Node: &n}
+		// NOTE (Dylan): tests did not catch missing node case, need updating
+		n := mo.nodes[r.NodeID]
+		resp := &pb.LookupResponse{Node: n}
 		responses = append(responses, resp)
 	}
 	return &pb.LookupResponses{Lookupresponse: responses}, nil
