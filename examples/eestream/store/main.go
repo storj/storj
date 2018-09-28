@@ -68,13 +68,15 @@ func Main() error {
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
-			fh, err := os.Create(
-				filepath.Join(flag.Arg(0), fmt.Sprintf("%d.piece", i)))
+			pieceFile := filepath.Join(flag.Arg(0), fmt.Sprintf("%d.piece", i))
+			fh, err := os.Create(pieceFile)
 			if err != nil {
 				errs <- err
 				return
 			}
-			defer fh.Close()
+
+			defer printError(fh.Close)
+
 			_, err = io.Copy(fh, readers[i])
 			errs <- err
 		}(i)
@@ -86,4 +88,11 @@ func Main() error {
 		}
 	}
 	return nil
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

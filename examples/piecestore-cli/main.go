@@ -60,7 +60,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close the file when we are done
-				defer file.Close()
+				defer printError(file.Close)
 
 				fileInfo, err := os.Stat(path)
 				if err != nil {
@@ -77,7 +77,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close when finished
-				defer dataFileChunk.Close()
+				defer printError(dataFileChunk.Close)
 
 				_, err = io.Copy(dataFileChunk, file)
 
@@ -112,7 +112,7 @@ func run(_ *cobra.Command, args []string) error {
 				}
 
 				// Close when finished
-				defer dataFileChunk.Close()
+				defer printError(dataFileChunk.Close)
 
 				_, err = io.Copy(os.Stdout, dataFileChunk)
 				return err
@@ -130,9 +130,7 @@ func run(_ *cobra.Command, args []string) error {
 				if c.Args().Get(1) == "" {
 					return argError.New("No directory specified")
 				}
-				err := pstore.Delete(c.Args().Get(0), c.Args().Get(1))
-
-				return err
+				return pstore.Delete(c.Args().Get(0), c.Args().Get(1))
 			},
 		},
 	}
@@ -149,4 +147,11 @@ func main() {
 		Short: "piecestore example cli",
 		RunE:  run,
 	})
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
