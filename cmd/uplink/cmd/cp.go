@@ -57,7 +57,12 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	destObj.Path = cleanAbsPath(destObj.Path)
 	// if object name not specified, default to filename
 	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
+		// Check for absolute filepath on Windows
+		if filepath.IsAbs(srcFile) {
+			destObj.Path = path.Join(destObj.Path, filepath.Base(srcFile))
+		} else {
+			destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
+		}
 	}
 
 	var f *os.File
@@ -234,7 +239,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if uploading
-	if u0.Scheme == "" {
+	if filepath.IsAbs(args[0]) || u0.Scheme == "" {
 		if u1.Host == "" {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
@@ -243,7 +248,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if downloading
-	if u1.Scheme == "" {
+	if filepath.IsAbs(args[1]) || u1.Scheme == "" {
 		if u0.Host == "" {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
