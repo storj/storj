@@ -68,8 +68,8 @@ func Main() error {
 	errs := make(chan error, len(readers))
 	for i := range readers {
 		go func(i int) {
-			piecefile := filepath.Join(flag.Arg(0), fmt.Sprintf("%d.piece", i))
-			fh, err := os.Create(piecefile)
+			pieceFile := filepath.Join(flag.Arg(0), fmt.Sprintf("%d.piece", i))
+			fh, err := os.Create(pieceFile)
 			if err != nil {
 				errs <- err
 				return
