@@ -24,9 +24,9 @@ func main() {
 	flag.StringVar(&conf.Endpoint, "endpoint", "127.0.0.1:7777", "endpoint address")
 	flag.StringVar(&conf.AccessKey, "accesskey", "insecure-dev-access-key", "access key")
 	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
-	flag.BoolVar(&conf.UseSSL, "use-ssl", true, "use ssl")
+	flag.BoolVar(&conf.UseSSL, "use-ssl", false, "use ssl")
 
-	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws)")
+	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws-cli)")
 
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
@@ -59,8 +59,8 @@ func main() {
 		fallthrough
 	case "minio":
 		client, err = NewMinio(conf)
-	case "aws":
-		client, err = NewAWS(conf)
+	case "aws-cli":
+		client, err = NewAWSCLI(conf)
 	}
 	if err != nil {
 		log.Fatal(err)
