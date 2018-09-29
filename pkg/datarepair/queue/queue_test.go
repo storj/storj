@@ -12,21 +12,23 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-func newTestQueue(t *testing.T) *Queue {
+func newTestQueue(t *testing.T) (*Queue, func()) {
 	redisAddr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
 	queue, err := NewQueue(redisAddr, "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return queue
+	return queue, cleanup
 }
 
 func TestAdd(t *testing.T) {
-	queue := newTestQueue(t)
+	queue, cleanup := newTestQueue(t)
+	defer cleanup()
+	assert.NotNil(t, queue)
+
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{},

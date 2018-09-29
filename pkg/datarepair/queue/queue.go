@@ -5,11 +5,12 @@ package queue
 
 import (
 	"encoding/binary"
-	"time"
 	"sync"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
-	
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis"
@@ -25,7 +26,7 @@ type RepairQueue interface {
 
 //Queue implements the RepairQueue interface
 type Queue struct {
-	DB storage.KeyValueStore
+	DB    storage.KeyValueStore
 	mutex *sync.Mutex
 }
 
@@ -40,7 +41,7 @@ func NewQueue(address, password string, db int) (*Queue, error) {
 		return nil, err
 	}
 	return &Queue{
-		DB: rc,
+		DB:    rc,
 		mutex: &sync.Mutex{},
 	}, nil
 }
@@ -71,7 +72,7 @@ func (q Queue) Remove(qi *pb.InjuredSegment) error {
 //GetNext returns the next repair segement from the queue
 func (q Queue) GetNext() (storage.Key, pb.InjuredSegment, error) {
 	//TODO
-	return pb.InjuredSegment{}
+	return storage.Key{}, pb.InjuredSegment{}, nil
 }
 
 //GetSize returns the number of repair segements are in the queue
