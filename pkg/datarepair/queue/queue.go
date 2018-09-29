@@ -44,13 +44,17 @@ func NewQueue(client storage.KeyValueStore) *Queue {
 func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	dateTime := make([]byte, binary.MaxVarintLen64)
+	const dateSize = 8
+	dateTime := make([]byte, dateSize)
 	// TODO: this can cause conflicts when time is unstable or running on multiple computers
 	// Append random 4 byte token to account for time conflicts
 	binary.BigEndian.PutUint64(dateTime, uint64(time.Now().UnixNano()))
 	const tokenSize = 4
 	token := make([]byte, tokenSize)
-	rand.Read(token)
+	_, err := rand.Read(token)
+	if err != nil {
+		return queueError.New("error creating random token %s", err)
+	}
 	dateTime = append(dateTime, token...)
 	val, err := proto.Marshal(qi)
 	if err != nil {
