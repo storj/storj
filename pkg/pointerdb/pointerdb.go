@@ -129,24 +129,32 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		fmt.Printf("Error unmarshaling pointer: %+v\n", err)
 		return nil, err
 	}
-
 	nodes := []*pb.Node{}
+	var r *pb.GetResponse
 
-	if pointer.Remote != nil {
-		for _, node := range pointer.Remote.RemotePieces {
-			fmt.Printf("###### NODE: %+v\n", node)
+	// TODO: feature flag for PR since there is something with
+	// overlay protos that is broken right now
+	if s.config.Overlay {
+		if pointer.Remote != nil {
+			for _, piece := range pointer.Remote.RemotePieces {
+				node, err := s.cache.Get(ctx, piece.NodeId)
+				if err != nil {
+					fmt.Printf("### ERROR: getting node from cache: %+v\n", err)
+				}
+				nodes = append(nodes, node)
+			}
+
+			r = &pb.GetResponse{
+				Pointer: pointer,
+				Nodes: nodes,
+			}
+		} else {
+			r = &pb.GetResponse{
+				Pointer: pointer,
+				Nodes: nil,
+			}
 		}
 	}
-
-	fmt.Printf("finished listing \n")
-	fmt.Printf("pointer: %+v\n", pointer)
-	fmt.Printf("nodes: %+v\n", nodes)
-
-	r := &pb.GetResponse{
-		Pointer: pointer,
-		Nodes: nodes,
-	}
-	fmt.Printf("#### r: %+v\n", r)
 	return r, nil
 }
 
