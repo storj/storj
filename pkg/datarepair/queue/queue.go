@@ -19,7 +19,7 @@ import (
 //RepairQueue is the interface for the data repair queue
 type RepairQueue interface {
 	Add(qi *pb.InjuredSegment) (storage.Key, error)
-	Remove(qi *pb.InjuredSegment) error
+	Remove(date storage.Key) error
 	GetNext() (storage.Key, pb.InjuredSegment, error)
 	GetSize() (int, error)
 }
@@ -64,7 +64,7 @@ func (q *Queue) Add(qi *pb.InjuredSegment) (storage.Key, error) {
 }
 
 //Remove removes a repair segment from the queue
-func (q Queue) Remove(qi *pb.InjuredSegment) error {
+func (q Queue) Remove(date storage.Key) error {
 	//TODO
 	return nil
 }
@@ -76,7 +76,7 @@ func (q Queue) GetNext() (storage.Key, pb.InjuredSegment, error) {
 }
 
 //GetSize returns the number of repair segements are in the queue
-func (q Queue) GetSize() int {
+func (q Queue) GetSize() (int, error) {
 	//TODO
-	return 0
+	return 0, nil
 }
