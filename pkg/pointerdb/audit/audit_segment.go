@@ -5,17 +5,14 @@ package audit
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"reflect"
 	"time"
 
 	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storage/segments"
 )
 
 //Randomly choose a pointer from pointerdb.
@@ -34,15 +31,15 @@ import (
 
 // Audit  to audit segments
 type Audit struct {
-	pdb pdbclient.Client
-	psc client.PSClient
+	pdb   pdbclient.Client
+	store segments.Store
 }
 
 // NewAudit creates a new instance of audit
-func NewAudit(pdb pdbclient.Client, psc client.PSClient) *Audit {
+func NewAudit(pdb pdbclient.Client, store segments.Store) *Audit {
 	return &Audit{
-		pdb: pdb,
-		psc: psc,
+		pdb:   pdb,
+		store: store,
 	}
 }
 
@@ -52,48 +49,13 @@ func (a *Audit) List(ctx context.Context, startAfter paths.Path, limit int) (ite
 	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 }
 
-// GetPieceInfo gets the derived pieceID
-func (a *Audit) GetPieceInfo(ctx context.Context, path paths.Path) (derivedPieceID client.PieceID, pieceSize int64, err error) {
-	pointer, err := a.pdb.Get(ctx, path)
-	if err != nil {
-		return "", 0, err
-	}
-	remoteSegment := pointer.GetRemote()
-	remotePieceID := remoteSegment.GetPieceId()
-	remotePieces := remoteSegment.GetRemotePieces()
-	// TODO implement random integer
-	nodeID := remotePieces[0].GetNodeId()
+func (a *Audit) GetSegmentSize(ctx context.Context, path paths.Path) {
 
-	//type cast to client.PieceID
-	var pieceID = client.PieceID(remotePieceID)
-
-	derivedPieceID, err = pieceID.Derive([]byte(nodeID))
-	if err != nil {
-		return "", 0, err
-	}
-
-	fmt.Println("derived piece id in audit segment: ", derivedPieceID)
-
-	pieceSummary, err := a.psc.Meta(ctx, derivedPieceID)
-	fmt.Println(pieceSummary, "piecesummary")
-	if err != nil {
-		fmt.Println("error in piecesummary")
-		return "", 0, err
-	}
-
-	return derivedPieceID, pieceSummary.GetSize(), nil
 }
 
-// GetStripe retreives a strip from PSClients
-// for now pbwa is {} - not implemented yet
-func (a *Audit) GetStripe(ctx context.Context, pieceID client.PieceID, size int64, pbwa *pb.PayerBandwidthAllocation) (ranger ranger.Ranger, err error) {
-	ranger, err = a.psc.Get(ctx, pieceID, size, pbwa)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println("this is the ranger ac: ", ranger)
-	return ranger, nil
-}
+// func (a *Audit) GetSize(ctx context.Context, meta segments.Meta) {
+
+// }
 
 // generate random number from length of list
 func getItem(i interface{}) (randomInt int) {
