@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"reflect"
 	"time"
+	"fmt"
 
 	"github.com/vivint/infectious"
 
@@ -49,9 +50,16 @@ func NewAudit(pdb pdbclient.Client, store segments.Store) *Audit {
 }
 
 // GetList retrevies items from pointerDB so we can process later
-func (a *Audit) GetList(ctx context.Context, startAfter paths.Path, limit int) (items []pdbclient.ListItem, more bool, err error) {
-	//TODO implement random integer finder
-	return a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
+func (a *Audit) GetList(ctx context.Context, startAfter paths.Path, limit int) (pointerItem pdbclient.ListItem, err error) {
+	
+	pointerItems, _, err := a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
+	if err != nil {
+		return pdbclient.ListItem{}, err
+	}
+
+	randomNum := getItem(pointerItems)
+	pointerItem = pointerItems[randomNum]
+	return pointerItem, nil
 }
 
 // GetPointer returns a pointer
@@ -102,8 +110,19 @@ func generateRandomStripe(stripeNums int64)(stripeNum int64){
 
 // generate random number from length of list
 func getItem(i interface{}) (randomInt int64) {
-	values := reflect.ValueOf(i)
-	rand.Seed(time.Now().UnixNano())
-	num := int64(rand.Intn(values.Len()))
-	return num
+	switch i := i.(type) {
+    case int64:
+		values := reflect.ValueOf(i)
+		rand.Seed(time.Now().UnixNano())
+		num := int64(rand.Intn(values.Len()))
+		return num
+
+	case []pdbclient.ListItem:
+		rand.Seed(time.Now().UnixNano())
+		num := int64(rand.Intn(len(i)))
+		return num	
+	
+	default:
+		panic(fmt.Sprintf("unexpected type: %T", i))
+	}
 }
