@@ -6,7 +6,7 @@ package audit
 import (
 	"context"
 	"math/rand"
-	"reflect"
+	//"reflect"
 	"time"
 	"fmt"
 
@@ -51,7 +51,6 @@ func NewAudit(pdb pdbclient.Client, store segments.Store) *Audit {
 
 // GetList retrevies items from pointerDB so we can process later
 func (a *Audit) GetList(ctx context.Context, startAfter paths.Path, limit int) (pointerItem pdbclient.ListItem, err error) {
-	
 	pointerItems, _, err := a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
 	if err != nil {
 		return pdbclient.ListItem{}, err
@@ -100,26 +99,25 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 }
 
 // Get num of stripes per pointer
-func getStripeNum(stripeSize int64, segmentSize int64)(stripeNums int64) {
-	return segmentSize/stripeSize
+func getStripeNum(stripeSize int64, segmentSize int64)(stripeNums int) {
+	return int(segmentSize/stripeSize)
 }
 
-func generateRandomStripe(stripeNums int64)(stripeNum int64){
+func generateRandomStripe(stripeNums int)(stripeNum int){
 	return getItem(stripeNums)
 }
 
 // generate random number from length of list
-func getItem(i interface{}) (randomInt int64) {
+func getItem(i interface{}) (randomInt int) {
 	switch i := i.(type) {
-    case int64:
-		values := reflect.ValueOf(i)
+    case int:
 		rand.Seed(time.Now().UnixNano())
-		num := int64(rand.Intn(values.Len()))
+		num := int(rand.Intn(i))
 		return num
 
 	case []pdbclient.ListItem:
 		rand.Seed(time.Now().UnixNano())
-		num := int64(rand.Intn(len(i)))
+		num := int(rand.Intn(len(i)))
 		return num	
 	
 	default:
