@@ -100,7 +100,7 @@ func TestAuditSegment(t *testing.T) {
 		c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 		pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
 
-	t.Run("List", func(t *testing.T) {
+	t.Run("GetList", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
@@ -127,7 +127,8 @@ func TestAuditSegment(t *testing.T) {
 				a := NewAudit(pdbc)
 
 				// make  a List request
-				items, more, err := a.List(ctx, nil, tt.limit)
+				items, more, err := a.GetList(ctx, nil, tt.limit)
+				fmt.Println("items: ", items[0].Path)
 
 				if err != nil {
 					assert1.NotNil(err)
