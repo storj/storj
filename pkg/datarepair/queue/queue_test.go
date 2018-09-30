@@ -10,34 +10,36 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/redis"
+
 )
 
 func newTestQueue(t *testing.T) (*Queue, func()) {
-	redisAddr, cleanup, err := redisserver.Start()
+	addr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := NewQueue(redisAddr, "", 1)
+	client, err := redis.NewClient(addr, "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
+	queue := NewQueue(client)
 	return queue, cleanup
 }
 
 func TestAdd(t *testing.T) {
 	queue, cleanup := newTestQueue(t)
 	defer cleanup()
-	assert.NotNil(t, queue)
 
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{},
 	}
-	dateTime, err := queue.Add(seg)
+	key, err := queue.Add(seg)
 	assert.NoError(t, err)
-	key, err := queue.DB.Get(dateTime)
+	val, err := queue.db.Get(key)
 	assert.NoError(t, err)
-	assert.NotNil(t, key)
+	assert.NotNil(t, val)
 }
 
 func TestRemove(t *testing.T) {
