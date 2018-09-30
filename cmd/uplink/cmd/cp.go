@@ -16,8 +16,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/cheggaaa/pb"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
@@ -27,7 +25,7 @@ import (
 )
 
 var (
-	progress bool
+	progress *bool
 )
 
 func init() {
@@ -36,7 +34,7 @@ func init() {
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	})
-	progress = *cpCmd.Flags().Bool("progress", true, "if true, show progress")
+	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
 func cleanAbsPath(p string) string {
@@ -79,7 +77,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 
 	r := io.Reader(f)
 	var bar *pb.ProgressBar
-	if progress {
+	if *progress {
 		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -146,7 +144,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	defer utils.LogClose(r)
 
 	var bar *pb.ProgressBar
-	if progress {
+	if *progress {
 		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -187,7 +185,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	defer utils.LogClose(r)
 
 	var bar *pb.ProgressBar
-	if progress {
+	if *progress {
 		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -231,14 +229,6 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 1 {
 		return fmt.Errorf("No destination specified")
 	}
-
-	// disable progress for logging above warn (default level)
-	level := zap.NewAtomicLevel()
-	err = level.UnmarshalText([]byte(RootCmd.Flags().Lookup("log.level").Value.String()))
-	if err != nil {
-		return err
-	}
-	progress = progress && level.Enabled(zapcore.WarnLevel)
 
 	ctx := process.Ctx(cmd)
 
