@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package memory
 
 // FormatBytes converts number of bytes to appropriately sized string
