@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"sync"
 	"time"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
@@ -44,7 +43,7 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	dateTime := make([]byte, binary.MaxVarintLen64)
-	//leap seconds? [Egon]
+	// TODO: this can cause conflicts when time is unstable or running on multiple computers
 	binary.BigEndian.PutUint64(dateTime, uint64(time.Now().UnixNano()))
 	val, err := proto.Marshal(qi)
 	if err != nil {
@@ -61,24 +60,23 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-
-	keys, err := q.db.List(nil, 1)
+	
+	items, _, err := storage.ListV2(q.db, storage.ListOptions{IncludeValue: true, Limit: 1})
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting first key %s", err)
 	}
-	if len(keys) == 0 {
+	if len(items) == 0 {
 		return pb.InjuredSegment{}, queueError.New("empty database")
 	}
-	val, err := q.db.Get(keys[0])
-	if err != nil {
-		return pb.InjuredSegment{}, queueError.New("error getting injured segment %s", err)
-	}
+	key := items[0].Key
+	val := items[0].Value
+
 	seg := &pb.InjuredSegment{}
 	err = proto.Unmarshal(val, seg)
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error unmarshalling segment %s", err)
 	}
-	err = q.db.Delete(keys[0])
+	err = q.db.Delete(key)
 	if err != nil {
 		return *seg, queueError.New("error removing injured seg %s", err)
 	}

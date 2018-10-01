@@ -5,9 +5,11 @@ package queue
 
 import (
 	"testing"
+	"strconv"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -28,25 +30,25 @@ func newTestQueue(t *testing.T) (*Queue, func()) {
 }
 
 func TestEnqueueDequeue(t *testing.T) {
-	queue, cleanup := newTestQueue(t)
-	defer cleanup()
+	db := teststore.New()
+	q := NewQueue(db)
 
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{},
 	}
-	err := queue.Enqueue(seg)
+	err := q.Enqueue(seg)
 	assert.NoError(t, err)
 
-	s, err := queue.Dequeue()
+	s, err := q.Dequeue()
 	assert.NoError(t, err)
 	assert.True(t, proto.Equal(&s, seg))
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	queue, cleanup := newTestQueue(t)
-	defer cleanup()
-	s, err := queue.Dequeue()
+	db := teststore.New()
+	q := NewQueue(db)
+	s, err := q.Dequeue()
 	assert.Error(t, err)
 	assert.Equal(t, pb.InjuredSegment{}, s)
 }
@@ -60,4 +62,29 @@ func TestForceError(t *testing.T) {
 	item, err := q.Dequeue()
 	assert.Equal(t, pb.InjuredSegment{}, item)
 	assert.Error(t, err)
+}
+
+func TestSequential(t *testing.T) {
+	db := teststore.New()
+	q := NewQueue(db)
+	const N = 100
+	var addSegs []*pb.InjuredSegment
+	var getSegs []*pb.InjuredSegment
+	for i := 0; i < N; i++ {
+		seg := &pb.InjuredSegment{
+            Path:      	strconv.Itoa(i),
+            LostPieces: []int32{int32(i)},
+		}
+		err := q.Enqueue(seg)
+		assert.NoError(t, err)
+		addSegs = append(addSegs, seg)
+	}
+	for i := 0; i < N; i++ {
+		dqSeg, err := q.Dequeue()
+		assert.NoError(t, err)
+		getSegs = append(getSegs, &dqSeg)
+	}
+	for i := 0; i < N; i++ {
+		assert.True(t, proto.Equal(addSegs[i], getSegs[i]))
+	}
 }
