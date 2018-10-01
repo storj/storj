@@ -27,7 +27,7 @@ func newTestQueue(t *testing.T) (*Queue, func()) {
 	return queue, cleanup
 }
 
-func TestAdd(t *testing.T) {
+func TestEnqueue(t *testing.T) {
 	queue, cleanup := newTestQueue(t)
 	defer cleanup()
 
@@ -35,20 +35,10 @@ func TestAdd(t *testing.T) {
 		Path:       "abc",
 		LostPieces: []int32{},
 	}
-	key, err := queue.Add(seg)
+	err := queue.Enqueue(seg)
 	assert.NoError(t, err)
-	val, err := queue.db.Get(key)
-	assert.NoError(t, err)
-	assert.NotNil(t, val)
 }
 
-func TestRemove(t *testing.T) {
-
-}
-
-func TestGetNext(t *testing.T) {
-}
-
-func TestGetSize(t *testing.T) {
-
+func TestDequeue(t *testing.T) {
+	//TODO
 }
