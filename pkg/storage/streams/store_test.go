@@ -102,7 +102,7 @@ func TestStreamStorePut(t *testing.T) {
 	streamMeta := Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       20,
+		Size:       14,
 		Data:       []byte("metadata"),
 	}
 
