@@ -5,20 +5,16 @@ package audit
 
 import (
 	"context"
-	"math/rand"
-	//"reflect"
-	"time"
 	"fmt"
+	"math/rand"
 
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/eestream"
 )
 
 //Randomly choose a pointer from pointerdb.
@@ -35,60 +31,60 @@ import (
 // process pointter information for segment
 // send that
 
-// Audit  to audit segments
+// Audit to audit segments
 type Audit struct {
-	pdb   pdbclient.Client
-	store segments.Store
+	pdb pdbclient.Client
+	r   *rand.Rand
 }
 
 // NewAudit creates a new instance of audit
-func NewAudit(pdb pdbclient.Client, store segments.Store) *Audit {
+func NewAudit(pdb pdbclient.Client, r *rand.Rand) *Audit {
 	return &Audit{
-		pdb:   pdb,
-		store: store,
+		pdb: pdb,
+		r:   r,
 	}
 }
 
-// GetList retrevies items from pointerDB so we can process later
-func (a *Audit) GetList(ctx context.Context, startAfter paths.Path, limit int) (pointerItem pdbclient.ListItem, err error) {
-	pointerItems, _, err := a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.All)
+// Stripe is a struct that contains stripe info
+type Stripe struct {
+	stripe int
+}
+
+// NextStripe returns a random stripe to be audited
+func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int) (stripe *Stripe, err error) {
+	// retreive a random list of pointers
+	pointerItems, _, err := a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.None)
 	if err != nil {
-		return pdbclient.ListItem{}, err
+		return nil, err
 	}
 
-	randomNum := getItem(pointerItems)
-	pointerItem = pointerItems[randomNum]
-	return pointerItem, nil
-}
+	randomNum := a.getItem(pointerItems)
+	pointerItem := pointerItems[randomNum]
 
-// GetPointer returns a pointer
-func (a *Audit) GetPointer(ctx context.Context, pointerItem []pdbclient.ListItem) (path paths.Path, pointer *pb.Pointer, err error) {
-	path = pointerItem[0].Path
-	pointer, err = a.pdb.Get(ctx, path)
-	return path, pointer, err
-}
+	// get a pointer
+	path := pointerItem.Path
+	pointer, err := a.pdb.Get(ctx, path)
 
-//GetSegmentData gets the segment size
-func (a *Audit) GetSegmentData(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta segments.Meta, err error) {
-	ranger, meta, err := a.store.Get(ctx, path)
 	if err != nil {
-		return nil, segments.Meta{}, err
+		return nil, err
 	}
-	return ranger, meta, nil
-}
 
-// GetStripeSize returns the stripe size
-func (a *Audit) GetStripeSize(meta segments.Meta, pointer *pb.Pointer) (stripeSize int64) {
+	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return 0
+		return nil, err
 	}
 
-	stripeSize = int64(es.StripeSize())
-	return stripeSize
+	// get random stripe
+	stripeSize := int64(es.StripeSize())
+	stripeNum := a.getItem(int(pointer.GetSize() / stripeSize))
+
+	return &Stripe{
+		stripeNum,
+	}, nil
 }
 
-// internal function
+// create the erasure scheme
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
 	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
 	if err != nil {
@@ -98,28 +94,17 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	return es, nil
 }
 
-// Get num of stripes per pointer
-func getStripeNum(stripeSize int64, segmentSize int64)(stripeNums int) {
-	return int(segmentSize/stripeSize)
-}
-
-func generateRandomStripe(stripeNums int)(stripeNum int){
-	return getItem(stripeNums)
-}
-
 // generate random number from length of list
-func getItem(i interface{}) (randomInt int) {
+func (a *Audit) getItem(i interface{}) (randomInt int) {
 	switch i := i.(type) {
-    case int:
-		rand.Seed(time.Now().UnixNano())
-		num := int(rand.Intn(i))
+	case int:
+		num := int(a.r.Intn(i))
 		return num
 
 	case []pdbclient.ListItem:
-		rand.Seed(time.Now().UnixNano())
-		num := int(rand.Intn(len(i)))
-		return num	
-	
+		num := int(a.r.Intn(len(i)))
+		return num
+
 	default:
 		panic(fmt.Sprintf("unexpected type: %T", i))
 	}

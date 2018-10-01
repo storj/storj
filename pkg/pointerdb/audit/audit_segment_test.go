@@ -5,17 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	//"io"
-	///"crypto/ecdsa"
-	//"crypto"
-	//"io/ioutil"
-	// "path/filepath"
-	// "log"
-	// "os"
-	// "net"
-	// "strings"
-	// "bytes"
-	//"time"
+	"math/rand"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -25,14 +15,8 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	//pstore "storj.io/storj/pkg/piecestore"
-	//"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/storage/teststore"
-	//"storj.io/storj/pkg/provider"
-	//"storj.io/storj/pkg/piecestore/rpc/server/psdb"
-	//"storj.io/storj/pkg/piecestore/rpc/server"
-	//"storj.io/storj/pkg/piecestore/rpc/client"
 )
 
 const (
