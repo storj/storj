@@ -55,7 +55,7 @@ func apiKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
 		var header metadata.MD
 		opts = append(opts, grpc.Header(&header))
 		err := invoker(ctx, method, req, reply, cc, opts...)
-		// TODO do something with signature - header["signature"]
+		// TODO do something with header
 		return err
 	}
 }

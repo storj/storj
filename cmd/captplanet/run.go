@@ -109,7 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		errch <- runCfg.Satellite.Identity.Run(ctx,
-			auth.NewSatelliteAuthenticator(auth.NewSignatureGenerator(identity)),
+			auth.NewSatelliteAuthenticator(auth.NewResponseGenerator(identity)),
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
 			o)

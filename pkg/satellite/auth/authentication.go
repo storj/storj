@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/gtank/cryptopasta"
 	"google.golang.org/grpc"
@@ -16,17 +17,18 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/provider"
 )
 
-// SignatureGenerator interface for generating signature
-type SignatureGenerator interface {
-	Generate() (string, error)
+// ResponseGenerator interface for generating signature
+type ResponseGenerator interface {
+	Generate(ctx context.Context) error
 }
 
 // NewSatelliteAuthenticator creates instance of satellite authenticator
-func NewSatelliteAuthenticator(generator SignatureGenerator) grpc.UnaryServerInterceptor {
+func NewSatelliteAuthenticator(generator ResponseGenerator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
 		err error) {
@@ -38,12 +40,7 @@ func NewSatelliteAuthenticator(generator SignatureGenerator) grpc.UnaryServerInt
 				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 			}
 
-			siganture, err := generator.Generate()
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "%v", err)
-			}
-
-			err = grpc.SetHeader(ctx, metadata.Pairs("signature", siganture))
+			err := generator.Generate(ctx)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "%v", err)
 			}
@@ -53,20 +50,39 @@ func NewSatelliteAuthenticator(generator SignatureGenerator) grpc.UnaryServerInt
 	}
 }
 
-type defaultSignatureGenerator struct {
+type defaultResponseGenerator struct {
 	identity *provider.FullIdentity
 }
 
-// NewSignatureGenerator creates default signature generator based on identity
-func NewSignatureGenerator(identity *provider.FullIdentity) SignatureGenerator {
-	return &defaultSignatureGenerator{identity: identity}
+// NewResponseGenerator creates default response generator based on identity
+func NewResponseGenerator(identity *provider.FullIdentity) ResponseGenerator {
+	return &defaultResponseGenerator{identity: identity}
 }
 
-func (s *defaultSignatureGenerator) Generate() (string, error) {
-	signature, err := cryptopasta.Sign(s.identity.ID.Bytes(), s.identity.Key.(*ecdsa.PrivateKey))
+func (s *defaultResponseGenerator) Generate(ctx context.Context) error {
+	pbd := &pb.PayerBandwidthAllocation_Data{Payer: s.identity.ID.Bytes(), MaxSize: -1, ExpirationUnixSec: -1}
+	serializedPbd, err := proto.Marshal(pbd)
 	if err != nil {
-		return "", err
+		return err
 	}
+
+	signature, err := cryptopasta.Sign(serializedPbd, s.identity.Key.(*ecdsa.PrivateKey))
+	if err != nil {
+		return err
+	}
+
+	pba := &pb.PayerBandwidthAllocation{Data: serializedPbd, Signature: signature}
+	serializedPba, err := proto.Marshal(pba)
+	if err != nil {
+		return err
+	}
+
 	encoding := base64.StdEncoding
-	return encoding.EncodeToString(signature), nil
+	pbaHeader := encoding.EncodeToString(serializedPba)
+	err = grpc.SetHeader(ctx, metadata.Pairs("pba", pbaHeader))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

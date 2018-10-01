@@ -69,7 +69,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 	return runCfg.Identity.Run(
 		process.Ctx(cmd), 
-		auth.NewSatelliteAuthenticator(auth.NewSignatureGenerator(identity)),
+		auth.NewSatelliteAuthenticator(auth.NewResponseGenerator(identity)),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
 		o,

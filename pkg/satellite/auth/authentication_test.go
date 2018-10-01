@@ -19,8 +19,8 @@ type mockGenerator struct {
 	err error
 }
 
-func (g *mockGenerator) Generate() (string, error) {
-	return "", g.err
+func (g *mockGenerator) Generate(ctx context.Context) error {
+	return g.err
 }
 
 type mockServerTransportStream struct {
