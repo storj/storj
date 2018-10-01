@@ -19,15 +19,15 @@ import (
 
 // Audit to audit segments
 type Audit struct {
-	pdb pdbclient.Client
-	r   *rand.Rand
+	pointers pdbclient.Client
+	r        *rand.Rand
 }
 
 // NewAudit creates a new instance of audit
-func NewAudit(pdb pdbclient.Client, r *rand.Rand) *Audit {
+func NewAudit(pointers pdbclient.Client, r *rand.Rand) *Audit {
 	return &Audit{
-		pdb: pdb,
-		r:   r,
+		pointers: pointers,
+		r:        r,
 	}
 }
 
@@ -39,9 +39,13 @@ type Stripe struct {
 // NextStripe returns a random stripe to be audited
 func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int) (stripe *Stripe, err error) {
 	// retreive a random list of pointers
-	pointerItems, _, err := a.pdb.List(ctx, nil, startAfter, nil, true, limit, meta.None)
+	pointerItems, _, err := a.pointers.List(ctx, nil, startAfter, nil, true, limit, meta.None)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(pointerItems) == 0 {
+		return nil, ErrNoPointers
 	}
 
 	randomNum := a.getItem(pointerItems)
@@ -49,7 +53,7 @@ func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int
 
 	// get a pointer
 	path := pointerItem.Path
-	pointer, err := a.pdb.Get(ctx, path)
+	pointer, err := a.pointers.Get(ctx, path)
 
 	if err != nil {
 		return nil, err
