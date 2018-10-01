@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/teststore"
 )
 
 func newTestQueue(t *testing.T) (*Queue, func()) {
@@ -51,5 +52,12 @@ func TestDequeueEmptyQueue(t *testing.T) {
 }
 
 func TestForceError(t *testing.T) {
-	
+	db := teststore.New()
+	q := NewQueue(db)
+	err := q.Enqueue(&pb.InjuredSegment{Path: "abc", LostPieces: []int32{}})
+	assert.NoError(t, err)
+	db.ForceError++
+	item, err := q.Dequeue()
+	assert.Equal(t, pb.InjuredSegment{}, item)
+	assert.Error(t, err)
 }
