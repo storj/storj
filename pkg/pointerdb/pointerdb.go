@@ -132,8 +132,11 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	nodes := []*pb.Node{}
 	var r *pb.GetResponse
 
-	// TODO: feature flag for PR since there is something with
-	// overlay protos that is broken right now
+	r = &pb.GetResponse{
+		Pointer: pointer,
+		Nodes: nil,
+	}
+
 	if s.config.Overlay {
 		if pointer.Remote != nil {
 			for _, piece := range pointer.Remote.RemotePieces {
@@ -148,17 +151,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 				Pointer: pointer,
 				Nodes: nodes,
 			}
-		} else {
-			r = &pb.GetResponse{
-				Pointer: pointer,
-				Nodes: nil,
-			}
-		}
-	}
-
-	r = &pb.GetResponse{
-		Pointer: pointer,
-		Nodes: nil,
+		} 
 	}
 
 	return r, nil
