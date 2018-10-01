@@ -4,35 +4,37 @@
 package queue
 
 import (
-	"testing"
+	
+	"sort"
 	"strconv"
-
+	"sync"
+	"testing"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/redis/redisserver"
+	// "storj.io/storj/storage/redis"
+	// "storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/teststore"
 )
 
-func newTestQueue(t *testing.T) (*Queue, func()) {
-	addr, cleanup, err := redisserver.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	client, err := redis.NewClient(addr, "", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	queue := NewQueue(client)
-	return queue, cleanup
-}
+// func newTestQueue(t *testing.T) (*Queue, func()) {
+// 	addr, cleanup, err := redisserver.Start()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	client, err := redis.NewClient(addr, "", 1)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	queue := NewQueue(client)
+// 	return queue, cleanup
+// }
 
 func TestEnqueueDequeue(t *testing.T) {
 	db := teststore.New()
 	q := NewQueue(db)
-
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
 		LostPieces: []int32{},
@@ -72,8 +74,8 @@ func TestSequential(t *testing.T) {
 	var getSegs []*pb.InjuredSegment
 	for i := 0; i < N; i++ {
 		seg := &pb.InjuredSegment{
-            Path:      	strconv.Itoa(i),
-            LostPieces: []int32{int32(i)},
+			Path:       strconv.Itoa(i),
+			LostPieces: []int32{int32(i)},
 		}
 		err := q.Enqueue(seg)
 		assert.NoError(t, err)
@@ -86,5 +88,68 @@ func TestSequential(t *testing.T) {
 	}
 	for i := 0; i < N; i++ {
 		assert.True(t, proto.Equal(addSegs[i], getSegs[i]))
+	}
+}
+
+func TestParallel(t *testing.T) {
+	queue := NewQueue(teststore.New())
+
+	const N = 100
+
+	errs := make(chan error, N*2)
+	entries := make(chan *pb.InjuredSegment, N*2)
+
+	var wg sync.WaitGroup
+
+	wg.Add(N)
+	// Add to queue concurrently
+	for i := 0; i < N; i++ {
+		go func(i int) {
+			defer wg.Done()
+			err := queue.Enqueue(&pb.InjuredSegment{
+				Path:       strconv.Itoa(i),
+				LostPieces: []int32{int32(i)},
+			})
+			if err != nil {
+				errs <- err
+			}
+			fmt.Print("ADD\n")
+		}(i)
+	
+	}
+	wg.Wait()
+	fmt.Print("WAIT\n")
+	wg.Add(N)
+	// Remove from queue concurrently
+	for i := 0; i < N; i++ {
+		go func(i int) {
+			defer wg.Done()
+			segment, err := queue.Dequeue()
+			if err != nil {
+				errs <- err
+			}
+			entries <- &segment
+			fmt.Print("REMOVE\n")
+		}(i)
+	}
+	wg.Wait()
+	fmt.Print("WAIT\n")
+	close(errs)
+	close(entries)
+
+	for err := range errs {
+		t.Error(err)
+	}
+
+	var items []*pb.InjuredSegment
+	for segment := range entries {
+		items = append(items, segment)
+	}
+	fmt.Print(items)
+	
+	sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
+	// check if the enqueued and dequeued elements match
+	for i := 0; i < N; i++ {
+		assert.Equal(t, items[i].LostPieces[0], int32(i))
 	}
 }

@@ -61,7 +61,7 @@ func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	
-	items, _, err := storage.ListV2(q.db, storage.ListOptions{IncludeValue: true, Limit: 1})
+	items, _, err := storage.ListV2(q.db, storage.ListOptions{IncludeValue: true, Limit: 1, Recursive: true})
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting first key %s", err)
 	}
