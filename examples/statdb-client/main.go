@@ -20,7 +20,7 @@ import (
 
 var (
 	port   string
-	APIKey = []byte("abc123")
+	APIKey = []byte("")
 	ctx    = context.Background()
 )
 
@@ -77,12 +77,14 @@ func main() {
 	err = client.Create(ctx, farmer1.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 1 created successfully")
 
 	err = client.Create(ctx, farmer2.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 2 created successfully")
 
@@ -96,6 +98,7 @@ func main() {
 		farmer1.UpdateAuditSuccess, farmer1.UpdateUptime, false)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 1 after Update")
 	printNodeStats(*nodeStats, *logger)
@@ -114,6 +117,7 @@ func main() {
 	statsList, err := client.UpdateBatch(ctx, nodeList)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update batch", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer stats after UpdateBatch")
 	for _, statsEl := range statsList {
@@ -124,6 +128,7 @@ func main() {
 	nodeStats, err = client.Get(ctx, farmer1.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 1 after Get 1")
 	printNodeStats(*nodeStats, *logger)
@@ -131,6 +136,7 @@ func main() {
 	nodeStats, err = client.Get(ctx, farmer2.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 2 after Get 2")
 	printNodeStats(*nodeStats, *logger)
