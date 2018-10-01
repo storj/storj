@@ -11,8 +11,9 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	eestream "storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/pb"
+	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
 )
@@ -66,10 +67,11 @@ func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4 interface{}) 
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 time.Time) error {
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 time.Time) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]*pb.Node)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Put indicates an expected call of Put
