@@ -66,6 +66,9 @@ func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting first key %s", err)
 	}
+	if len(keys) == 0 {
+		return pb.InjuredSegment{}, queueError.New("empty database")
+	}
 	val, err := q.db.Get(keys[0])
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting injured segment %s", err)

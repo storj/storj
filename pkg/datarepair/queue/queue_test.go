@@ -6,12 +6,11 @@ package queue
 import (
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/redis"
-
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 func newTestQueue(t *testing.T) (*Queue, func()) {
@@ -27,7 +26,7 @@ func newTestQueue(t *testing.T) (*Queue, func()) {
 	return queue, cleanup
 }
 
-func TestEnqueue(t *testing.T) {
+func TestEnqueueDequeue(t *testing.T) {
 	queue, cleanup := newTestQueue(t)
 	defer cleanup()
 
@@ -37,8 +36,20 @@ func TestEnqueue(t *testing.T) {
 	}
 	err := queue.Enqueue(seg)
 	assert.NoError(t, err)
+
+	s, err := queue.Dequeue()
+	assert.NoError(t, err)
+	assert.True(t, proto.Equal(&s, seg))
 }
 
-func TestDequeue(t *testing.T) {
-	//TODO
+func TestDequeueEmptyQueue(t *testing.T) {
+	queue, cleanup := newTestQueue(t)
+	defer cleanup()
+	s, err := queue.Dequeue()
+	assert.Error(t, err)
+	assert.Equal(t, pb.InjuredSegment{}, s)
+}
+
+func TestForceError(t *testing.T) {
+	
 }
