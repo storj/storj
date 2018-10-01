@@ -155,6 +155,12 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 			}
 		}
 	}
+
+	r = &pb.GetResponse{
+		Pointer: pointer,
+		Nodes: nil,
+	}
+
 	return r, nil
 }
 
