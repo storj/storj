@@ -100,10 +100,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	var streamSize int64
 	var putMeta segments.Meta
 
-	// ctx, cancel := context.WithCancel(ctx)
-	// c := make(chan os.Signal, 0x01)
-	// signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
 	defer func() {
 		select {
 		case <-ctx.Done():
