@@ -132,7 +132,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	auditSuccessCount := dbNode.AuditSuccessCount
 	totalAuditCount := dbNode.TotalAuditCount
 	var auditSuccessRatio float64
-	var uptimeSuccessCount int64
+	uptimeSuccessCount := dbNode.UptimeSuccessCount
 	totalUptimeCount := dbNode.TotalUptimeCount
 	var uptimeRatio float64
 
