@@ -22,7 +22,7 @@ type Config struct {
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	// TODO(moby) use struct for NewServer args
-	ns, err := NewServer("sqlite3", "stats.db", zap.L())
+	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L())
 	if err != nil {
 		return err
 	}
