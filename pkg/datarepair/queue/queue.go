@@ -5,8 +5,10 @@ package queue
 
 import (
 	"encoding/binary"
+	"math/rand"
 	"sync"
 	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 
@@ -44,7 +46,12 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 	defer q.mu.Unlock()
 	dateTime := make([]byte, binary.MaxVarintLen64)
 	// TODO: this can cause conflicts when time is unstable or running on multiple computers
+	// Append random 4 byte token to account for time conflicts
 	binary.BigEndian.PutUint64(dateTime, uint64(time.Now().UnixNano()))
+	const tokenSize = 4
+	token := make([]byte, tokenSize)
+	rand.Read(token)
+	dateTime = append(dateTime, token...)
 	val, err := proto.Marshal(qi)
 	if err != nil {
 		return queueError.New("error marshalling injured seg %s", err)
@@ -60,7 +67,7 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	
+
 	items, _, err := storage.ListV2(q.db, storage.ListOptions{IncludeValue: true, Limit: 1, Recursive: true})
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting first key %s", err)

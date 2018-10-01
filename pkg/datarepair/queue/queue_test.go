@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -74,12 +73,9 @@ func TestSequential(t *testing.T) {
 
 func TestParallel(t *testing.T) {
 	queue := NewQueue(teststore.New())
-
 	const N = 100
-
 	errs := make(chan error, N*2)
 	entries := make(chan *pb.InjuredSegment, N*2)
-
 	var wg sync.WaitGroup
 
 	wg.Add(N)
@@ -94,12 +90,10 @@ func TestParallel(t *testing.T) {
 			if err != nil {
 				errs <- err
 			}
-			fmt.Print("ADD\n")
 		}(i)
-	
+
 	}
 	wg.Wait()
-	fmt.Print("WAIT\n")
 	wg.Add(N)
 	// Remove from queue concurrently
 	for i := 0; i < N; i++ {
@@ -110,11 +104,9 @@ func TestParallel(t *testing.T) {
 				errs <- err
 			}
 			entries <- &segment
-			fmt.Print("REMOVE\n")
 		}(i)
 	}
 	wg.Wait()
-	fmt.Print("WAIT\n")
 	close(errs)
 	close(entries)
 
@@ -126,8 +118,7 @@ func TestParallel(t *testing.T) {
 	for segment := range entries {
 		items = append(items, segment)
 	}
-	fmt.Print(items)
-	
+
 	sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
 	// check if the enqueued and dequeued elements match
 	for i := 0; i < N; i++ {
