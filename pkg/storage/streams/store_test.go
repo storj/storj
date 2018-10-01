@@ -188,10 +188,7 @@ func TestStreamStoreGet(t *testing.T) {
 		Data:       []byte{},
 	}
 
-	streamRanger := stubRanger{
-		len:    10,
-		closer: readCloserStub{},
-	}
+	streamRanger := ranger.ByteRanger(nil)
 
 	streamMeta := Meta{
 		Modified:   staticTime,
@@ -216,9 +213,13 @@ func TestStreamStoreGet(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		mockSegmentStore.EXPECT().
-			Get(gomock.Any(), gomock.Any()).
-			Return(test.segmentRanger, test.segmentMeta, test.segmentError)
+		calls := []*gomock.Call{
+			mockSegmentStore.EXPECT().
+				Meta(gomock.Any(), gomock.Any()).
+				Return(test.segmentMeta, test.segmentError),
+		}
+
+		gomock.InOrder(calls...)
 
 		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
 		if err != nil {
