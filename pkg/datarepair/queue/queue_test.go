@@ -4,33 +4,18 @@
 package queue
 
 import (
-	
 	"sort"
 	"strconv"
 	"sync"
 	"testing"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/pb"
-	// "storj.io/storj/storage/redis"
-	// "storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/teststore"
 )
-
-// func newTestQueue(t *testing.T) (*Queue, func()) {
-// 	addr, cleanup, err := redisserver.Start()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	client, err := redis.NewClient(addr, "", 1)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	queue := NewQueue(client)
-// 	return queue, cleanup
-// }
 
 func TestEnqueueDequeue(t *testing.T) {
 	db := teststore.New()
@@ -71,7 +56,6 @@ func TestSequential(t *testing.T) {
 	q := NewQueue(db)
 	const N = 100
 	var addSegs []*pb.InjuredSegment
-	var getSegs []*pb.InjuredSegment
 	for i := 0; i < N; i++ {
 		seg := &pb.InjuredSegment{
 			Path:       strconv.Itoa(i),
@@ -84,10 +68,7 @@ func TestSequential(t *testing.T) {
 	for i := 0; i < N; i++ {
 		dqSeg, err := q.Dequeue()
 		assert.NoError(t, err)
-		getSegs = append(getSegs, &dqSeg)
-	}
-	for i := 0; i < N; i++ {
-		assert.True(t, proto.Equal(addSegs[i], getSegs[i]))
+		assert.True(t, proto.Equal(addSegs[i], &dqSeg))
 	}
 }
 
