@@ -17,20 +17,6 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 )
 
-//Randomly choose a pointer from pointerdb.
-//Library will return a random pointer. Has a super
-// user privilege: no one else should be able to randomly
-//choose any random pointer. This is purely for auditing,
-//and auditing has special privileges.
-
-// ProcessPointer to get and process Pointer data
-
-// Get list pagination of  pointers
-// keep track  of last path used so not to duplicate
-// randomly select from   that list
-// process pointter information for segment
-// send that
-
 // Audit to audit segments
 type Audit struct {
 	pdb pdbclient.Client
