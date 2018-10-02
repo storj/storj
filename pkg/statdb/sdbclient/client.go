@@ -17,7 +17,7 @@ var (
 	mon = monkit.Package()
 )
 
-// PointerDB creates a grpcClient
+// StatDB creates a grpcClient
 type StatDB struct {
 	grpcClient pb.StatDBClient
 	APIKey     []byte
