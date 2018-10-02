@@ -90,7 +90,7 @@ type aesgcmDecrypter struct {
 // through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
 func NewAESGCMDecrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
-	block, err := aes.NewCipher((*key)[:])
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +127,8 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, err
 }
 
 // EncryptAESGCM encrypts byte data with a key and nonce. The cipher data is returned
-func EncryptAESGCM(data, key, nonce []byte) (cipherData []byte, err error) {
-	block, err := aes.NewCipher(key)
+func EncryptAESGCM(data []byte, key *Key, nonce *AESGCMNonce) (cipherData []byte, err error) {
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
@@ -136,16 +136,16 @@ func EncryptAESGCM(data, key, nonce []byte) (cipherData []byte, err error) {
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
-	cipherData = aesgcm.Seal(nil, nonce, data, nil)
+	cipherData = aesgcm.Seal(nil, nonce[:], data, nil)
 	return cipherData, nil
 }
 
 // DecryptAESGCM decrypts byte data with a key and nonce. The plain data is returned
-func DecryptAESGCM(cipherData, key, nonce []byte) (data []byte, err error) {
+func DecryptAESGCM(cipherData []byte, key *Key, nonce *AESGCMNonce) (data []byte, err error) {
 	if len(cipherData) == 0 {
 		return []byte{}, errs.New("empty cipher data")
 	}
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
@@ -153,7 +153,7 @@ func DecryptAESGCM(cipherData, key, nonce []byte) (data []byte, err error) {
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
-	decrypted, err := aesgcm.Open(nil, nonce, cipherData, nil)
+	decrypted, err := aesgcm.Open(nil, nonce[:], cipherData, nil)
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
 	}
