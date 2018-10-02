@@ -67,10 +67,3 @@ func TestIncrementBytes(t *testing.T) {
 		}
 	}
 }
-
-func reverseBytes(xs []byte) {
-	for i := len(xs)/2 - 1; i >= 0; i-- {
-		opp := len(xs) - 1 - i
-		xs[i], xs[opp] = xs[opp], xs[i]
-	}
-}
