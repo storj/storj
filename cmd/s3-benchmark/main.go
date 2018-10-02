@@ -321,29 +321,31 @@ func ListBenchmark(client Client, bucket string, listsize int, count int, durati
  	defer fmt.Println()
  	measurement := Measurement{}
 	//measurement.Size = listsize
- 	{ // list folders
-		start := hrtime.Now()
-		result, err := client.ListObjects(bucket, "")
-		if err != nil {
-			return measurement, fmt.Errorf("list folders failed: %+v", err)
+	for k := 0; k < count; k++ {
+ 		{ // list folders
+			start := hrtime.Now()
+			result, err := client.ListObjects(bucket, "")
+			if err != nil {
+				return measurement, fmt.Errorf("list folders failed: %+v", err)
+			}
+			finish := hrtime.Now()
+			if len(result) != listsize {
+				return measurement, fmt.Errorf("list folders result wrong: %+v", len(result))
+			}
+ 			measurement.Record("List Folders", finish-start)
 		}
-		finish := hrtime.Now()
-		if (len(result) != listsize) {
-			return measurement, fmt.Errorf("list folders result wrong: %+v", len(result))
+ 		{ // list files
+			start := hrtime.Now()
+			result, err := client.ListObjects(bucket, "folder")
+			if err != nil {
+				return measurement, fmt.Errorf("list files failed: %+v", err)
+			}
+			finish := hrtime.Now()
+			if len(result) != listsize {
+				return measurement, fmt.Errorf("list files result to low: %+v", len(result))
+			}
+ 			measurement.Record("List Files", finish-start)
 		}
- 		measurement.Record("List Folders", finish-start)
-	}
- 	{ // list files
-		start := hrtime.Now()
-		result, err := client.ListObjects(bucket, "folder")
-		if err != nil {
-			return measurement, fmt.Errorf("list files failed: %+v", err)
-		}
-		finish := hrtime.Now()
-		if (len(result) != listsize) {
-			return measurement, fmt.Errorf("list files result to low: %+v", len(result))
-		}
- 		measurement.Record("List Files", finish-start)
 	}
  	return measurement, nil
 }
