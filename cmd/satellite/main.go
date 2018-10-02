@@ -39,6 +39,7 @@ var (
 		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
+		// Repair      datarepair.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
