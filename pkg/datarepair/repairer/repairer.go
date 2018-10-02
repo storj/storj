@@ -69,12 +69,14 @@ func (r *Repairer) Run() (err error) {
 }
 
 // Repair starts repair of the segment
-func (r *Repairer) Repair(seg *pb.InjuredSegment) {
+func (r *Repairer) Repair(seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&r.ctx)(&err)
 	r.inProgress++
 	fmt.Println(seg)
 
 	r.inProgress--
 	r.cond.Signal()
+	return err
 }
 
 // Stop the repairer loop
