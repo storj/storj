@@ -9,7 +9,7 @@ import (
 )
 
 func TestIncrementBytes(t *testing.T) {
-	for _, test := range []struct {
+	for i, test := range []struct {
 		inbuf     []byte
 		amount    int64
 		err       bool
@@ -43,21 +43,31 @@ func TestIncrementBytes(t *testing.T) {
 		{[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0xff, 0xfe}, 0xff0003,
 			false, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, true},
 	} {
+		reverseBytes(test.inbuf)
+		reverseBytes(test.outbuf)
+
 		trunc, err := incrementBytes(test.inbuf, test.amount)
 		if err != nil {
 			if !test.err {
-				t.Fatalf("unexpected err: %v", err)
+				t.Fatalf("%d: unexpected err: %v", i, err)
 			}
 			continue
 		}
 		if test.err {
-			t.Fatalf("err expected but no err happened")
+			t.Fatalf("%d: err expected but no err happened", i)
 		}
 		if trunc != test.truncated {
-			t.Fatalf("truncated rv mismatch")
+			t.Fatalf("%d: truncated rv mismatch", i)
 		}
 		if !bytes.Equal(test.outbuf, test.inbuf) {
-			t.Fatalf("result mismatch")
+			t.Fatalf("%d: result mismatch\n%v\n%v", i, test.inbuf, test.outbuf)
 		}
+	}
+}
+
+func reverseBytes(xs []byte) {
+	for i := len(xs)/2 - 1; i >= 0; i-- {
+		opp := len(xs) - 1 - i
+		xs[i], xs[opp] = xs[opp], xs[i]
 	}
 }
