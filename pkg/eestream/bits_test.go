@@ -26,25 +26,28 @@ func TestIncrementBytes(t *testing.T) {
 		{[]byte{0}, 254, false, []byte{0xfe}, false},
 		{[]byte{1}, 254, false, []byte{0xff}, false},
 		{[]byte{0}, 255, false, []byte{0xff}, false},
-		{[]byte{0, 0, 1}, 3, false, []byte{0, 0, 4}, false},
+		{[]byte{1, 0, 0}, 3, false, []byte{4, 0, 0}, false},
 		{[]byte{0}, 256, false, []byte{0}, true},
 		{[]byte{0}, 257, false, []byte{1}, true},
-		{[]byte{0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 1,
-			false, []byte{0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0}, false},
-		{[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, 1,
-			false, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, true},
-		{[]byte{0xfe, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff}, 1,
-			false, []byte{0xfe, 0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0, 0}, false},
-		{[]byte{0xfe, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0, 0xff, 0xfe}, 0xff0001,
-			false, []byte{0xfe, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff},
-			false},
-		{[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0xff, 0xfe}, 0xff0002,
-			false, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, true},
-		{[]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0, 0xff, 0xfe}, 0xff0003,
-			false, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, true},
+		{
+			[]byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe"), 1, false,
+			[]byte("\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff"), false},
+		{
+			[]byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"), 1, false,
+			[]byte("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"), true},
+		{
+			[]byte("\xff\xff\xff\xff\xff\xfe\xff\xff\xff\xfe"), 1, false,
+			[]byte("\x00\x00\x00\x00\x00\xff\xff\xff\xff\xfe"), false},
+		{
+			[]byte("\xfe\xff\x00\xff\xff\xfe\xff\xff\xff\xfe"), 0xff0001, false,
+			[]byte("\xff\xff\xff\xff\xff\xfe\xff\xff\xff\xfe"), false},
+		{
+			[]byte("\xfe\xff\x00\xff\xff\xff\xff\xff\xff\xff"), 0xff0002, false,
+			[]byte("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"), true},
+		{
+			[]byte("\xfe\xff\x00\xff\xff\xff\xff\xff\xff\xff"), 0xff0003, false,
+			[]byte("\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00"), true},
 	} {
-		reverseBytes(test.inbuf)
-		reverseBytes(test.outbuf)
 
 		trunc, err := incrementBytes(test.inbuf, test.amount)
 		if err != nil {
