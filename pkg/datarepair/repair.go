@@ -19,6 +19,7 @@ var (
 
 // Config contains configurable values for repairer
 type Config struct {
+	maxRepair int
 	//TODO: Add things for checker
 	//TODO: Add things for repairer
 }
@@ -32,7 +33,7 @@ func (c *Config) Run(ctx context.Context) (err error) {
 	// TODO: Initialize Checker with queue
 
 	// Initialize Repairer with queue
-	_, err = repairer.Initialize(ctx, queue)
+	_, err = repairer.Initialize(ctx, queue, c.maxRepair)
 	if err != nil {
 		return err
 	}

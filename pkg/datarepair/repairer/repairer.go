@@ -30,12 +30,12 @@ type Repairer struct {
 }
 
 // Initialize a repairer struct
-func Initialize(ctx context.Context, queue q.RepairQueue) (*Repairer, error) {
+func Initialize(ctx context.Context, queue q.RepairQueue, max int) (*Repairer, error) {
 	var r Repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.queue = queue
 	r.cond.L = &r.mu
-	r.maxRepair = 5
+	r.maxRepair = max
 	return &r, nil
 }
 
