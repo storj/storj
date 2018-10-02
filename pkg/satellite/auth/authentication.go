@@ -9,17 +9,15 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/peertls"
 )
 
 // ResponseGenerator interface for generating signature
@@ -60,32 +58,19 @@ func NewResponseGenerator(identity *provider.FullIdentity) ResponseGenerator {
 }
 
 func (s *defaultResponseGenerator) Generate(ctx context.Context) error {
-	// TODO(michal) set rest of fields
-	pbd := &pb.PayerBandwidthAllocation_Data{Payer: s.identity.ID.Bytes()}
-	serializedPbd, err := proto.Marshal(pbd)
-	if err != nil {
-		return err
-	}
-
 	pk, ok := s.identity.Key.(*ecdsa.PrivateKey)
 	if !ok {
 		return peertls.ErrUnsupportedKey.New("%T", pk)
 	}
-	
-	signature, err := cryptopasta.Sign(serializedPbd, pk)
-	if err != nil {
-		return err
-	}
 
-	pba := &pb.PayerBandwidthAllocation{Data: serializedPbd, Signature: signature}
-	serializedPba, err := proto.Marshal(pba)
+	signature, err := cryptopasta.Sign(s.identity.ID.Bytes(), pk)
 	if err != nil {
 		return err
 	}
 
 	encoding := base64.StdEncoding
-	pbaHeader := encoding.EncodeToString(serializedPba)
-	err = grpc.SetHeader(ctx, metadata.Pairs("pba", pbaHeader))
+	encodedSignature := encoding.EncodeToString(signature)
+	err = grpc.SetHeader(ctx, metadata.Pairs("signature", encodedSignature))
 	if err != nil {
 		return err
 	}
