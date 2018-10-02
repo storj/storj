@@ -49,12 +49,12 @@ func (r *repairer) Run() (err error) {
 			}
 
 			// GetNext should lock until there is an actual next item in the queue
-			_, seg, err := r.queue.GetNext()
+			seg, err := r.queue.Dequeue()
 			if err != nil {
 				r.errs = append(r.errs, err)
 				r.cancel()
 			}
-			c <- seg
+			c <- &seg
 		}
 	}()
 
