@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/peertls"
 )
 
 // ResponseGenerator interface for generating signature
@@ -66,7 +67,12 @@ func (s *defaultResponseGenerator) Generate(ctx context.Context) error {
 		return err
 	}
 
-	signature, err := cryptopasta.Sign(serializedPbd, s.identity.Key.(*ecdsa.PrivateKey))
+	pk, ok := s.identity.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", pk)
+	}
+	
+	signature, err := cryptopasta.Sign(serializedPbd, pk)
 	if err != nil {
 		return err
 	}

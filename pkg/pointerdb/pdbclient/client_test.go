@@ -285,10 +285,10 @@ func TestApiKeyInjector(t *testing.T) {
 		ctx := context.Background()
 		err := injector(ctx, "/test.method", nil, nil, nil, invoker)
 
-		metadata.FromOutgoingContext(ctx)
 		assert.Equal(t, err, tt.err)
 
-		md, _ := metadata.FromOutgoingContext(outputCtx)
+		md, ok := metadata.FromOutgoingContext(outputCtx)
+		assert.Equal(t, true, ok)
 		assert.Equal(t, tt.APIKey, strings.Join(md["apikey"], ""))
 	}
 }
