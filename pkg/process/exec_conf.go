@@ -82,7 +82,7 @@ func Ctx(cmd *cobra.Command) context.Context {
 		ctx = context.Background()
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	c := make(chan os.Signal, 0x01)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c

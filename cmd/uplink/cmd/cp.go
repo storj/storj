@@ -9,15 +9,13 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cheggaaa/pb"
+	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
@@ -89,17 +87,6 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	if err != nil {
 		return err
 	}
-
-	/* create a signal of type os.Signal */
-	c := make(chan os.Signal, 0x01)
-
-	/* register for the os signals */
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-ctx.Done()
-		utils.LogClose(f)
-	}()
 
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}

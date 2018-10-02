@@ -127,10 +127,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 
 	/* clean up the partially uploaded segment's pieces */
-	go func() {
-		<-ctx.Done()
-		ctx = context.Background()
-		_ = ec.Delete(ctx, successfulNodes, pieceID)
+	defer func() {
+		select {
+		case <-ctx.Done():
+			err = utils.CombineErrors(
+				Error.New("upload cancelled by user"),
+				ec.Delete(context.Background(), nodes, pieceID),
+			)
+		default:
+		}
 	}()
 
 	if successfulCount < rs.RepairThreshold() {
