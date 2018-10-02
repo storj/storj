@@ -21,7 +21,7 @@ require (
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
-	github.com/eclipse/paho.mqtt.golang v1.1.1 // indirect
+	github.com/eclipse/paho.mqtt.golang v1.1.1
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fatih/structs v1.0.0 // indirect
