@@ -5,7 +5,6 @@ package statdb
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -52,7 +51,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 // Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	s.logger.Debug("entering statdb Create")
-	fmt.Println("createatw")
+
 	APIKeyBytes := createReq.APIKey
 	if err := s.validateAuth(APIKeyBytes); err != nil {
 		return nil, err
@@ -63,7 +62,6 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	auditSuccessCount, totalAuditCount, auditSuccessRatio := initRatioVars(node.UpdateAuditSuccess, node.AuditSuccess)
 	uptimeSuccessCount, totalUptimeCount, uptimeRatio := initRatioVars(node.UpdateUptime, node.IsUp)
 
-	fmt.Println("create 1")
 	dbNode, err := s.DB.Create_Node(
 		ctx,
 		dbx.Node_Id(string(node.NodeId)),
@@ -74,7 +72,6 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		dbx.Node_TotalUptimeCount(totalUptimeCount),
 		dbx.Node_UptimeRatio(uptimeRatio),
 	)
-	fmt.Println("create 2")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

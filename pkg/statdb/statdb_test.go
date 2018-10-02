@@ -22,46 +22,6 @@ var (
 )
 
 func TestCreateExists(t *testing.T) {
-	fmt.Println("1")
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
-	fmt.Println(statdb)
-	fmt.Println(db)
-	fmt.Println(err)
-	assert.NoError(t, err)
-	fmt.Println("2")
-
-	apiKey := []byte("")
-	nodeID1 := []byte("testnodeid1")
-	nodeID2 := []byte("testnodeid2")
-	fmt.Println("3")
-
-	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
-	fmt.Println("4")
-
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
-	fmt.Println("5")
-
-	createNode(ctx, db, nodeID1, auditSuccessCount, totalAuditCount, auditRatio,
-		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
-	fmt.Println("6")
-
-	node := &pb.Node{
-		NodeId:             nodeID2,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
-	}
-	createReq := &pb.CreateRequest{
-		Node:   node,
-		APIKey: apiKey,
-	}
-	_, err = statdb.Create(ctx, createReq)
-	fmt.Println("7")
-
-	assert.Error(t, err)
-}
-
-func TestCreateDoesNotExist(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
@@ -327,11 +287,11 @@ func getDBPath() string {
 
 func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
 	statdb, err = NewServer("sqlite3", path, zap.NewNop())
-	if err == nil {
+	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
 	db, err = dbx.Open("sqlite3", path)
-	if err == nil {
+	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
 	return statdb, db, err
