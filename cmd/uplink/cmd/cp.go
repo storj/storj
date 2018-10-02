@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	"github.com/cheggaaa/pb"
 
 	"storj.io/storj/pkg/paths"
@@ -77,8 +76,9 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	}
 
 	r := io.Reader(f)
+	var bar *pb.ProgressBar
 	if *progress {
-		bar := pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
@@ -94,6 +94,10 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	fmt.Printf("Created %s\n", destObj)
@@ -139,8 +143,9 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	}
 	defer utils.LogClose(r)
 
+	var bar *pb.ProgressBar
 	if *progress {
-		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
@@ -148,6 +153,10 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	_, err = io.Copy(f, r)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	if destFile != "-" {
@@ -175,8 +184,9 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	}
 	defer utils.LogClose(r)
 
+	var bar *pb.ProgressBar
 	if *progress {
-		bar := pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
 	}
@@ -200,6 +210,10 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	fmt.Printf("%s copied to %s\n", srcObj, destObj)

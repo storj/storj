@@ -33,6 +33,7 @@ func Main() error {
 	if err != nil {
 		return err
 	}
+
 	for _, piece := range pieces {
 		pieceNum, err := strconv.Atoi(strings.TrimSuffix(piece.Name(), ".piece"))
 		if err != nil {
@@ -40,10 +41,11 @@ func Main() error {
 		}
 		pieceAddr := "localhost:" + strconv.Itoa(10000+pieceNum)
 		piecePath := filepath.Join(flag.Arg(0), piece.Name())
-		go http.ListenAndServe(pieceAddr, http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				http.ServeFile(w, r, piecePath)
-			}))
+		go fmt.Println(
+			http.ListenAndServe(pieceAddr, http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					http.ServeFile(w, r, piecePath)
+				})))
 	}
 
 	select {} // sleep forever

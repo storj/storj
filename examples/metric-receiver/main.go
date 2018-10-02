@@ -31,11 +31,19 @@ func run(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer printError(s.Close)
+
 	fmt.Printf("listening on %s\n", s.Addr())
 	return s.Serve(ctx, telemetry.HandlerFunc(handle))
 }
 
 func handle(application, instance string, key []byte, val float64) {
 	fmt.Printf("%s %s %s %v\n", application, instance, string(key), val)
+}
+
+func printError(fn func() error) {
+	err := fn()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
