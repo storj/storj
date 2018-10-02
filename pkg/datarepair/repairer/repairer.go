@@ -72,10 +72,10 @@ func (r *repairer) Run() (err error) {
 
 // Repair starts repair of the segment
 func (r *repairer) Repair(seg *pb.InjuredSegment) {
-	r.inProgress += 1
+	r.inProgress++
 	fmt.Println(seg)
 
-	r.inProgress -= 1
+	r.inProgress--
 	r.cond.Signal()
 }
 
