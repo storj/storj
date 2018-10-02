@@ -306,7 +306,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	for i := 0; i < int(msi.NumberOfSegments); i++ {
+	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
 		currentPath := getSegmentPath(path, int64(i))
 		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
