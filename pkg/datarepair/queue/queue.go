@@ -24,8 +24,9 @@ type RepairQueue interface {
 
 // Queue implements the RepairQueue interface
 type Queue struct {
-	mu sync.Mutex
-	db storage.KeyValueStore
+	mu   sync.Mutex
+	cond sync.Cond
+	db   storage.KeyValueStore
 }
 
 var (
@@ -34,10 +35,11 @@ var (
 
 // NewQueue returns a pointer to a new Queue instance with an initialized connection to Redis
 func NewQueue(client storage.KeyValueStore) *Queue {
-	return &Queue{
-		mu: sync.Mutex{},
-		db: client,
-	}
+	var q Queue
+
+	q.cond.L = &q.mu
+	q.db = client
+	return &q
 }
 
 // Enqueue adds a repair segment to the queue
@@ -60,6 +62,7 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 	if err != nil {
 		return queueError.New("error adding injured seg to queue %s", err)
 	}
+	q.cond.Signal()
 	return nil
 }
 
@@ -67,7 +70,12 @@ func (q *Queue) Enqueue(qi *pb.InjuredSegment) error {
 func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-
+	for entries, err := q.db.List(nil, 1); len(entries) == 0; {
+		if err != nil {
+			return pb.InjuredSegment{}, err
+		}
+		q.cond.Wait()
+	}
 	items, _, err := storage.ListV2(q.db, storage.ListOptions{IncludeValue: true, Limit: 1, Recursive: true})
 	if err != nil {
 		return pb.InjuredSegment{}, queueError.New("error getting first key %s", err)
