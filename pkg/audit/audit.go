@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 )
@@ -18,7 +19,7 @@ type Auditor struct {
 	ps client.PSClient
 }
 
-// NewAuditor creates a new instance of an audit struct
+// NewAuditor creates a new instance of an Auditor struct
 func NewAuditor(ps client.PSClient) *Auditor {
 	return &Auditor{ps: ps}
 }
@@ -40,7 +41,7 @@ func (a *Auditor) getShare(ctx context.Context, stripeIndex, shareSize, stripeNu
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)
-	if err != nil {
+	if err != io.EOF || err != io.ErrUnexpectedEOF {
 		return infectious.Share{}, err
 	}
 
@@ -73,13 +74,13 @@ func (a *Auditor) audit(ctx context.Context, required, total int, originals []in
 	return badStripes, nil
 }
 
-// runAudit takes a slice of pointers and runs an audit on shares at a given stripe index
-// TODO(nat): code for randomizing the stripe index maybe can be inserted?
+// runAudit gets remote segments from a pointer and runs an audit on shares
+// at a given stripe index
 func (a *Auditor) runAudit(ctx context.Context, p *pb.Pointer, stripeIndex, required, total int) (badStripes []int, err error) {
 	var shares []infectious.Share
 	shareSize := int(p.Remote.Redundancy.GetErasureShareSize())
 	pieceID := client.PieceID(p.Remote.GetPieceId())
-	// TODO(nat): this should probably be concurrent?
+
 	for i, rp := range p.Remote.RemotePieces {
 		derivedPieceID, err := pieceID.Derive([]byte(rp.NodeId))
 		if err != nil {
