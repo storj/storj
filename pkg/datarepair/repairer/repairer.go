@@ -66,8 +66,6 @@ func (r *Repairer) Run() (err error) {
 			go r.Repair(seg)
 		}
 	}
-
-	return nil
 }
 
 // Repair starts repair of the segment

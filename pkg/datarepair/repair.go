@@ -45,5 +45,4 @@ func (c *Config) Run(ctx context.Context) (err error) {
 	}
 	// TODO: defer stop of checker and repairer
 
-	return nil
 }
