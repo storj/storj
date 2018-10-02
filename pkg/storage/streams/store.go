@@ -155,8 +155,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			transformedReader = bytes.NewReader(cipherData)
 		}
 
-		streamSize += sizeReader.Size()
-
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
 			if !eofReader.isEOF() {
 				segmentPath := getSegmentPath(path, currentSegment)
@@ -184,6 +182,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		currentSegment++
+		streamSize += sizeReader.Size()
 	}
 	if eofReader.hasError() {
 		return Meta{}, eofReader.err
