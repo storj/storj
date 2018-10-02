@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
@@ -26,7 +26,7 @@ var ctx = context.Background()
 var argError = errs.Class("argError")
 
 func main() {
-	app := cli.NewApp()
+	cobra.EnableCommandSorting = false
 
 	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
@@ -54,165 +54,155 @@ func main() {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
 
-	app.Commands = []cli.Command{
-		{
-			Name:    "upload",
-			Aliases: []string{"u"},
-			Usage:   "upload data",
-			Action: func(c *cli.Context) error {
-
-				if c.Args().Get(0) == "" {
-					return argError.New("No input file specified")
-				}
-
-				file, err := os.Open(c.Args().Get(0))
-				if err != nil {
-					return err
-				}
-				// Close the file when we are done
-				defer printError(file.Close)
-
-				fileInfo, err := file.Stat()
-				if err != nil {
-					return err
-				}
-
-				if fileInfo.IsDir() {
-					return argError.New(fmt.Sprintf("Path (%s) is a directory, not a file", c.Args().Get(0)))
-				}
-
-				var length = fileInfo.Size()
-				var ttl = time.Now().Add(24 * time.Hour)
-
-				// Created a section reader so that we can concurrently retrieve the same file.
-				dataSection := io.NewSectionReader(file, 0, length)
-
-				id := client.NewPieceID()
-
-				if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
-					fmt.Printf("Failed to Store data of id: %s\n", id)
-					return err
-				}
-
-				fmt.Printf("Successfully stored file of id: %s\n", id)
-
-				return nil
-			},
-		},
-		{
-			Name:    "download",
-			Aliases: []string{"d"},
-			Usage:   "download data",
-			Action: func(c *cli.Context) error {
-				const (
-					id int = iota
-					outputDir
-				)
-
-				if c.Args().Get(id) == "" {
-					return argError.New("No id specified")
-				}
-
-				if c.Args().Get(outputDir) == "" {
-					return argError.New("No output file specified")
-				}
-
-				_, err := os.Stat(c.Args().Get(outputDir))
-				if err != nil && !os.IsNotExist(err) {
-					return err
-				}
-
-				if err == nil {
-					return argError.New("File already exists")
-				}
-
-				if err = os.MkdirAll(filepath.Dir(c.Args().Get(outputDir)), 0700); err != nil {
-					return err
-				}
-
-				// Create File on file system
-				dataFile, err := os.OpenFile(c.Args().Get(outputDir), os.O_RDWR|os.O_CREATE, 0755)
-				if err != nil {
-					return err
-				}
-				defer printError(dataFile.Close)
-
-				pieceInfo, err := psClient.Meta(context.Background(), client.PieceID(c.Args().Get(id)))
-				if err != nil {
-					errRemove := os.Remove(c.Args().Get(outputDir))
-					if errRemove != nil {
-						log.Println(errRemove)
-					}
-					return err
-				}
-
-				rr, err := psClient.Get(ctx, client.PieceID(c.Args().Get(id)), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
-				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					errRemove := os.Remove(c.Args().Get(outputDir))
-					if errRemove != nil {
-						log.Println(errRemove)
-					}
-					return err
-				}
-
-				reader, err := rr.Range(ctx, 0, pieceInfo.Size)
-				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					errRemove := os.Remove(c.Args().Get(outputDir))
-					if errRemove != nil {
-						log.Println(errRemove)
-					}
-					return err
-				}
-
-				_, err = io.Copy(dataFile, reader)
-				if err != nil {
-					fmt.Printf("Failed to retrieve file of id: %s\n", c.Args().Get(id))
-					errRemove := os.Remove(c.Args().Get(outputDir))
-					if errRemove != nil {
-						log.Println(errRemove)
-					}
-				} else {
-					fmt.Printf("Successfully retrieved file of id: %s\n", c.Args().Get(id))
-				}
-
-				return reader.Close()
-			},
-		},
-		{
-			Name:    "delete",
-			Aliases: []string{"x"},
-			Usage:   "delete data",
-			Action: func(c *cli.Context) error {
-				if c.Args().Get(0) == "" {
-					return argError.New("Missing data Id")
-				}
-				err = psClient.Delete(context.Background(), client.PieceID(c.Args().Get(0)))
-
-				return err
-			},
-		},
-		{
-			Name:    "stat",
-			Aliases: []string{"s"},
-			Usage:   "retrieve stats",
-			Action: func(c *cli.Context) error {
-				var summary *pb.StatSummary
-				summary, err := psClient.Stats(context.Background())
-				if err != nil {
-					return err
-				}
-
-				log.Printf("Space Used: %v, Space Available: %v\n", summary.UsedSpace, summary.AvailableSpace)
-
-				return nil
-			},
-		},
+	root := &cobra.Command{
+		Use:   "piecestore-client",
+		Short: "piecestore example client",
 	}
 
-	err = app.Run(os.Args)
-	if err != nil {
+	root.AddCommand(&cobra.Command{
+		Use:     "upload [input-file]",
+		Short:   "Upload data",
+		Aliases: []string{"u"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			inputfile := args[0]
+
+			file, err := os.Open(inputfile)
+			if err != nil {
+				return err
+			}
+			// Close the file when we are done
+			defer printError(file.Close)
+
+			fileInfo, err := file.Stat()
+			if err != nil {
+				return err
+			}
+
+			if fileInfo.IsDir() {
+				return argError.New(fmt.Sprintf("path (%s) is a directory, not a file", inputfile))
+			}
+
+			var length = fileInfo.Size()
+			var ttl = time.Now().Add(24 * time.Hour)
+
+			// Created a section reader so that we can concurrently retrieve the same file.
+			dataSection := io.NewSectionReader(file, 0, length)
+
+			id := client.NewPieceID()
+
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
+				fmt.Printf("Failed to Store data of id: %s\n", id)
+				return err
+			}
+
+			fmt.Printf("Successfully stored file of id: %s\n", id)
+
+			return nil
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:     "download [id] [output-dir]",
+		Short:   "Download data",
+		Aliases: []string{"d"},
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			outputDir := args[1]
+
+			_, err := os.Stat(outputDir)
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+
+			if err == nil {
+				return argError.New("File already exists")
+			}
+
+			if err = os.MkdirAll(filepath.Dir(outputDir), 0700); err != nil {
+				return err
+			}
+
+			// Create File on file system
+			dataFile, err := os.OpenFile(outputDir, os.O_RDWR|os.O_CREATE, 0755)
+			if err != nil {
+				return err
+			}
+			defer printError(dataFile.Close)
+
+			pieceInfo, err := psClient.Meta(context.Background(), client.PieceID(id))
+			if err != nil {
+				errRemove := os.Remove(outputDir)
+				if errRemove != nil {
+					log.Println(errRemove)
+				}
+				return err
+			}
+
+			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
+			if err != nil {
+				fmt.Printf("Failed to retrieve file of id: %s\n", id)
+				errRemove := os.Remove(outputDir)
+				if errRemove != nil {
+					log.Println(errRemove)
+				}
+				return err
+			}
+
+			reader, err := rr.Range(ctx, 0, pieceInfo.Size)
+			if err != nil {
+				fmt.Printf("Failed to retrieve file of id: %s\n", id)
+				errRemove := os.Remove(outputDir)
+				if errRemove != nil {
+					log.Println(errRemove)
+				}
+				return err
+			}
+
+			_, err = io.Copy(dataFile, reader)
+			if err != nil {
+				fmt.Printf("Failed to retrieve file of id: %s\n", id)
+				errRemove := os.Remove(outputDir)
+				if errRemove != nil {
+					log.Println(errRemove)
+				}
+			} else {
+				fmt.Printf("Successfully retrieved file of id: %s\n", id)
+			}
+
+			return reader.Close()
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:     "delete [id]",
+		Short:   "Delete data",
+		Args:    cobra.ExactArgs(1),
+		Aliases: []string{"x"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			return psClient.Delete(context.Background(), client.PieceID(id))
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:     "stat",
+		Aliases: []string{"s"},
+		Short:   "Retrieve statistics",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var summary *pb.StatSummary
+			summary, err := psClient.Stats(context.Background())
+			if err != nil {
+				return err
+			}
+
+			log.Printf("Space Used: %v, Space Available: %v\n", summary.UsedSpace, summary.AvailableSpace)
+			return nil
+		},
+	})
+
+	if err := root.Execute(); err != nil {
 		log.Fatal(err)
 	}
 }
