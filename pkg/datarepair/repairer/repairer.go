@@ -18,7 +18,7 @@ var (
 	mon = monkit.Package()
 )
 
-type repairer struct {
+type Repairer struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	queue      q.RepairQueue
@@ -30,8 +30,8 @@ type repairer struct {
 }
 
 // Initialize a repairer struct
-func Initialize(ctx context.Context, queue q.RepairQueue) (*repairer, error) {
-	var r repairer
+func Initialize(ctx context.Context, queue q.RepairQueue) (*Repairer, error) {
+	var r Repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.queue = queue
 	r.cond.L = &r.mu
@@ -40,7 +40,7 @@ func Initialize(ctx context.Context, queue q.RepairQueue) (*repairer, error) {
 }
 
 // Run the repairer loop
-func (r *repairer) Run() (err error) {
+func (r *Repairer) Run() (err error) {
 	c := make(chan *pb.InjuredSegment)
 	go func() {
 		for {
@@ -71,7 +71,7 @@ func (r *repairer) Run() (err error) {
 }
 
 // Repair starts repair of the segment
-func (r *repairer) Repair(seg *pb.InjuredSegment) {
+func (r *Repairer) Repair(seg *pb.InjuredSegment) {
 	r.inProgress++
 	fmt.Println(seg)
 
@@ -80,12 +80,12 @@ func (r *repairer) Repair(seg *pb.InjuredSegment) {
 }
 
 // Stop the repairer loop
-func (r *repairer) Stop() (err error) {
+func (r *Repairer) Stop() (err error) {
 	r.cancel()
 	return nil
 }
 
-func (r *repairer) combinedError() error {
+func (r *Repairer) combinedError() error {
 	if len(r.errs) == 0 {
 		return nil
 	}
