@@ -26,7 +26,6 @@ var ctx = context.Background()
 var argError = errs.Class("argError")
 
 func main() {
-
 	app := cli.NewApp()
 
 	ca, err := provider.NewCA(ctx, 12, 4)
@@ -216,7 +215,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func printError(fn func() error) {
