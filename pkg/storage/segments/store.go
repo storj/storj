@@ -49,7 +49,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
 	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, data io.Reader, expiration time.Time, info func() (paths.Path, []byte, error)) (meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
@@ -82,7 +82,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, info func() (paths.Path, []byte, error)) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	exp, err := ptypes.TimestampProto(expiration)
@@ -99,7 +99,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	var path paths.Path
 	var pointer *pb.Pointer
 	if !remoteSized {
-		p, metadata, err := info()
+		p, metadata, err := segmentInfo()
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -127,7 +127,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		p, metadata, err := info()
+		p, metadata, err := segmentInfo()
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
