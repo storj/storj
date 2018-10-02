@@ -18,6 +18,7 @@ var (
 	mon = monkit.Package()
 )
 
+// Repairer holds important values for data repair
 type Repairer struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -63,7 +64,13 @@ func (r *Repairer) Run() (err error) {
 		case <-r.ctx.Done():
 			return r.combinedError()
 		case seg := <-c:
-			go r.Repair(seg)
+			go func() {
+				err := r.Repair(seg)
+				if err != nil {
+					r.errs = append(r.errs, err)
+					r.cancel()
+				}
+			}()
 		}
 	}
 }
