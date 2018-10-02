@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/gtank/cryptopasta"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,8 +34,8 @@ func NewSatelliteAuthenticator(generator ResponseGenerator) grpc.UnaryServerInte
 
 		// TODO(michal) we can extend auth to overlay requests also
 		if strings.HasPrefix(info.FullMethod, "/pointerdb") {
-			APIKey := metautils.ExtractIncoming(ctx).Get("apikey")
-			if !auth.ValidateAPIKey(APIKey) {
+			md, ok := metadata.FromIncomingContext(ctx)
+			if !ok || !auth.ValidateAPIKey(strings.Join(md["apikey"], "")) {
 				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 			}
 
@@ -60,7 +59,8 @@ func NewResponseGenerator(identity *provider.FullIdentity) ResponseGenerator {
 }
 
 func (s *defaultResponseGenerator) Generate(ctx context.Context) error {
-	pbd := &pb.PayerBandwidthAllocation_Data{Payer: s.identity.ID.Bytes(), MaxSize: -1, ExpirationUnixSec: -1}
+	// TODO(michal) set rest of fields
+	pbd := &pb.PayerBandwidthAllocation_Data{Payer: s.identity.ID.Bytes()}
 	serializedPbd, err := proto.Marshal(pbd)
 	if err != nil {
 		return err

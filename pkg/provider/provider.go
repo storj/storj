@@ -41,7 +41,7 @@ type Provider struct {
 
 // NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
 // a set of responsibilities.
-func NewProvider(identity *FullIdentity, lis net.Listener, i grpc.UnaryServerInterceptor,
+func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
 	ident, err := identity.ServerOption()
@@ -50,8 +50,8 @@ func NewProvider(identity *FullIdentity, lis net.Listener, i grpc.UnaryServerInt
 	}
 
 	unaryInterceptor := unaryInterceptor
-	if i != nil {
-		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, i)
+	if interceptor != nil {
+		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, interceptor)
 	}
 
 	return &Provider{

@@ -14,9 +14,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/stretchr/testify/assert"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
@@ -285,7 +285,10 @@ func TestApiKeyInjector(t *testing.T) {
 		ctx := context.Background()
 		err := injector(ctx, "/test.method", nil, nil, nil, invoker)
 
+		metadata.FromOutgoingContext(ctx)
 		assert.Equal(t, err, tt.err)
-		assert.Equal(t, tt.APIKey, metautils.ExtractOutgoing(outputCtx).Get("apikey"))
+
+		md, _ := metadata.FromOutgoingContext(outputCtx)
+		assert.Equal(t, tt.APIKey, strings.Join(md["apikey"], ""))
 	}
 }
