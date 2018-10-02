@@ -6,58 +6,32 @@ package audit
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"io"
 
 	"github.com/vivint/infectious"
-	"google.golang.org/grpc"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	"storj.io/storj/pkg/provider"
 )
 
-func setupPSClient(ctx context.Context) (psClient client.PSClient, err error) {
-	// TODO(nat): get this info from the satellite somehow
-	ca, err := provider.NewCA(ctx, 12, 4)
-	if err != nil {
-		return nil, err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-	identOpt, err := identity.DialOption()
-	if err != nil {
-		return nil, err
-	}
-
-	var conn *grpc.ClientConn
-	conn, err = grpc.Dial(":7777", identOpt)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	psClient, err = client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
-	if err != nil {
-		return nil, err
-	}
-	return psClient, nil
+// Auditor struct
+type Auditor struct {
+	ps client.PSClient
 }
 
-func getShare(ctx context.Context, stripeIndex, required, shareSize int,
-	id client.PieceID, segSize int64) (share infectious.Share, err error) {
-	psClient, err := setupPSClient(ctx)
+// NewAuditor creates a new instance of an audit struct
+func NewAuditor(ps client.PSClient) *Auditor {
+	return &Auditor{ps: ps}
+}
+
+func (a *Auditor) getShare(ctx context.Context, stripeIndex, shareSize, stripeNumber int,
+	id client.PieceID, pieceSize int64) (share infectious.Share, err error) {
+
+	rr, err := a.ps.Get(ctx, id, pieceSize, &pb.PayerBandwidthAllocation{})
 	if err != nil {
 		return infectious.Share{}, err
 	}
 
-	rr, err := psClient.Get(ctx, id, segSize, &pb.PayerBandwidthAllocation{})
-	if err != nil {
-		return infectious.Share{}, err
-	}
-
-	offset := shareSize*stripeIndex - 1
+	offset := shareSize * stripeIndex
 
 	rc, err := rr.Range(ctx, int64(offset), int64(shareSize))
 	if err != nil {
@@ -71,27 +45,27 @@ func getShare(ctx context.Context, stripeIndex, required, shareSize int,
 	}
 
 	share = infectious.Share{
-		Number: stripeIndex,
+		Number: stripeNumber,
 		Data:   buf,
 	}
 	return share, nil
 }
 
-func audit(ctx context.Context, required, total int, originals []infectious.Share) (badStripes []int, err error) {
+func (a *Auditor) audit(ctx context.Context, required, total int, originals []infectious.Share) (badStripes []int, err error) {
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
 		return nil, err
 	}
-	shares := make([]infectious.Share, len(originals))
-	for _, share := range shares {
-		originals[share.Number] = share.DeepCopy()
+	copies := make([]infectious.Share, len(originals))
+	for _, copy := range originals {
+		copies[copy.Number] = copy.DeepCopy()
 	}
-	err = f.Correct(shares)
+	err = f.Correct(copies)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, share := range shares {
+	for _, share := range copies {
 		if !bytes.Equal(originals[share.Number].Data, share.Data) {
 			badStripes = append(badStripes, share.Number)
 		}
@@ -101,19 +75,29 @@ func audit(ctx context.Context, required, total int, originals []infectious.Shar
 
 // runAudit takes a slice of pointers and runs an audit on shares at a given stripe index
 // TODO(nat): code for randomizing the stripe index maybe can be inserted?
-func runAudit(ctx context.Context, pointers []*pb.Pointer, stripeIndex, required, total int) (badStripes []int, err error) {
+func (a *Auditor) runAudit(ctx context.Context, p *pb.Pointer, stripeIndex, required, total int) (badStripes []int, err error) {
 	var shares []infectious.Share
-	for _, p := range pointers {
-		ess := int(p.Remote.Redundancy.GetErasureShareSize())
-		pieceID := client.PieceID(p.Remote.GetPieceId())
-		// TODO(nat): this should probably be concurrent?
-		share, err := getShare(ctx, stripeIndex, required, ess, pieceID, p.GetSize())
+	shareSize := int(p.Remote.Redundancy.GetErasureShareSize())
+	pieceID := client.PieceID(p.Remote.GetPieceId())
+	// TODO(nat): this should probably be concurrent?
+	for i, rp := range p.Remote.RemotePieces {
+		derivedPieceID, err := pieceID.Derive([]byte(rp.NodeId))
 		if err != nil {
+			return nil, err
+		}
+		pieceSummary, err := a.ps.Meta(ctx, derivedPieceID)
+		if err != nil {
+			return nil, err
+		}
+		share, err := a.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSummary.GetSize())
+		if err != nil {
+			// TODO(nat): update the statdb here to indicate this node failed the audit
 			return nil, err
 		}
 		shares = append(shares, share)
 	}
-	badStripes, err = audit(ctx, required, total, shares)
+
+	badStripes, err = a.audit(ctx, required, total, shares)
 	if err != nil {
 		return nil, err
 	}
