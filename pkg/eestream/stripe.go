@@ -15,30 +15,34 @@ import (
 
 // StripeReader can read and decodes stripes from a set of readers
 type StripeReader struct {
-	scheme ErasureScheme
-	cond   *sync.Cond
-	bufs   map[int]*PieceBuffer
-	inbufs map[int][]byte
-	inmap  map[int][]byte
-	errmap map[int]error
+	scheme      ErasureScheme
+	cond        *sync.Cond
+	readerCount int
+	bufs        map[int]*PieceBuffer
+	inbufs      map[int][]byte
+	inmap       map[int][]byte
+	errmap      map[int]error
 }
 
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
 func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
-	bufSize := mbm / len(rs)
+	readerCount := len(rs)
+
+	r := &StripeReader{
+		scheme:      es,
+		cond:        sync.NewCond(&sync.Mutex{}),
+		readerCount: readerCount,
+		bufs:        make(map[int]*PieceBuffer, readerCount),
+		inbufs:      make(map[int][]byte, readerCount),
+		inmap:       make(map[int][]byte, readerCount),
+		errmap:      make(map[int]error, readerCount),
+	}
+
+	bufSize := mbm / readerCount
 	bufSize -= bufSize % es.ErasureShareSize()
 	if bufSize < es.ErasureShareSize() {
 		bufSize = es.ErasureShareSize()
-	}
-
-	r := &StripeReader{
-		scheme: es,
-		cond:   sync.NewCond(&sync.Mutex{}),
-		bufs:   make(map[int]*PieceBuffer, len(rs)),
-		inbufs: make(map[int][]byte, len(rs)),
-		inmap:  make(map[int][]byte, len(rs)),
-		errmap: make(map[int]error, len(rs)),
 	}
 
 	for i := range rs {
@@ -128,7 +132,7 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 
 // pendingReaders checks if there are any pending readers to get a share from.
 func (r *StripeReader) pendingReaders() bool {
-	return len(r.inmap)+len(r.errmap) < len(r.bufs)
+	return len(r.inmap)+len(r.errmap) < r.readerCount
 }
 
 // hasEnoughShares check if there are enough erasure shares read to attempt
