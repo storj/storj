@@ -41,7 +41,6 @@ var (
 		Identity    provider.IdentityConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
-		DataRepair 	datarepair.Config
 		Checker			checker.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
@@ -72,7 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, o, runCfg.DataRepair, runCfg.Checker)
+		runCfg.Kademlia, runCfg.PointerDB, o, runCfg.Checker)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
