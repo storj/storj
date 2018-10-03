@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
@@ -64,12 +63,12 @@ type Checker struct {
 	params      *pb.IdentifyRequest
 	pointerdb   storage.KeyValueStore
 	repairQueue *queue.Queue
-	overlay     overlay.Server
+	overlay     pb.OverlayServer
 	logger      *zap.Logger
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, repairQueue *queue.Queue, overlay overlay.Server, logger *zap.Logger) *Checker {
+func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, repairQueue *queue.Queue, overlay pb.OverlayServer, logger *zap.Logger) *Checker {
 	return &Checker{
 		params:      params,
 		pointerdb:   pointerdb,
