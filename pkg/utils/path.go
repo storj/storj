@@ -5,42 +5,49 @@ package utils
 
 import (
 	"log"
-	"net/url"
+	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
 
 type FPath struct {
-	Local      bool
-	Delimiter  byte
-	Schema     string
-	Path       string
-	VolumeName string
+	Local  bool
+	Schema string
+	Path   string
 }
 
 // Creates new Struct from handed over URL
-func (p FPath) New(url url.URL) {
+func (p *FPath) New(url string) {
 
 	// Check for Schema
-	sepstring := strings.Split(url.String(), "://")
+	sepstring := strings.Split(url, "://")
 
 	switch len(sepstring) {
 	case 2: // Has Schema
 		p.Schema = sepstring[0]
 		p.Path = sepstring[1]
 	case 1: // No Schema
+		p.Local = true
 		p.Path = sepstring[0]
-	default:
-		log.Fatalf("misformatted URL: %v", url.String())
+	default: // Everything else is misformatted
+		log.Fatalf("misformatted URL: %v", url)
 	}
 
-	// Check for Windows Volumename in p.Path
-	p.VolumeName = filepath.VolumeName(p.Path)
-	if p.VolumeName != "" {
-		strings.Replace(p.Path, p.VolumeName, "", 1)
-	}
+	// Check for Windows Special Handling Prefix
+	cprefix, _ := regexp.Compile(`^\\\\\?\\(UNC\\)?`)
 
+	// when Prefix present, omit further changes to the path
+	if prefix := cprefix.FindString(p.Path); prefix != "" {
+		p.Schema = prefix
+		p.Path = strings.Replace(p.Path, prefix, "", -1) //Strip Prefix
+	} else {
+		// when file is local, ensure path absolute
+		if p.IsLocal() && !filepath.IsAbs(p.Path) {
+			p.Path, _ = filepath.Abs(p.Path)
+		}
+	}
 }
 
 // Joins/appends segment to the path
@@ -56,7 +63,12 @@ func (p FPath) Folder() string {
 
 // Returns if Path is a folder
 func (p FPath) IsFolder() bool {
-	return false
+	fileInfo, err := os.Stat(p.Path)
+	if err != nil {
+		//fmt.Println(err)
+		return false
+	}
+	return fileInfo.IsDir()
 }
 
 // Returns Base of Path
@@ -80,15 +92,11 @@ func (p FPath) String() string {
 
 	switch runtime.GOOS {
 	case "windows":
-		if p.Local {
-			cpl = p.VolumeName + p.Path // C:/data/upload.txt
-		} else if p.Schema != "" {
-			cpl = p.Schema + "://" + p.Path // redis://127.0.0.1
+		if p.Schema != "" {
+			cpl = p.Schema + "://" + p.Path
 		} else {
-			cpl = "\\" + p.Path // \\fileserver\data\upload.txt
-			//cpl = strings.Replace(cpl,"/","", -1)
+			cpl = p.Path
 		}
-
 	default:
 		if p.Schema != "" {
 			cpl = p.Schema + "://" + p.Path
