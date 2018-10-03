@@ -18,7 +18,7 @@ type StripeReader struct {
 	scheme ErasureScheme
 	cond   *sync.Cond
 	bufs   map[int]*PieceBuffer
-	inbufs [][]byte
+	inbufs map[int][]byte
 	inmap  map[int][]byte
 	errmap map[int]error
 }
@@ -26,7 +26,7 @@ type StripeReader struct {
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
 func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
-	bufSize := mbm / es.TotalCount()
+	bufSize := mbm / len(rs)
 	bufSize -= bufSize % es.ErasureShareSize()
 	if bufSize < es.ErasureShareSize() {
 		bufSize = es.ErasureShareSize()
@@ -35,10 +35,10 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 	r := &StripeReader{
 		scheme: es,
 		cond:   sync.NewCond(&sync.Mutex{}),
-		bufs:   make(map[int]*PieceBuffer, es.TotalCount()),
-		inbufs: make([][]byte, es.TotalCount()),
-		inmap:  make(map[int][]byte, es.TotalCount()),
-		errmap: make(map[int]error, es.TotalCount()),
+		bufs:   make(map[int]*PieceBuffer, len(rs)),
+		inbufs: make(map[int][]byte, len(rs)),
+		inmap:  make(map[int][]byte, len(rs)),
+		errmap: make(map[int]error, len(rs)),
 	}
 
 	for i := range rs {
@@ -102,7 +102,7 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 		}
 	}
 	// could not read enough shares to attempt a decode
-	return nil, r.combineErrs()
+	return nil, r.combineErrs(num)
 }
 
 // readAvailableShares reads the available num-th erasure shares from the piece
@@ -128,7 +128,7 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 
 // pendingReaders checks if there are any pending readers to get a share from.
 func (r *StripeReader) pendingReaders() bool {
-	return len(r.inmap)+len(r.errmap) < r.scheme.TotalCount()
+	return len(r.inmap)+len(r.errmap) < len(r.bufs)
 }
 
 // hasEnoughShares check if there are enough erasure shares read to attempt
@@ -152,16 +152,14 @@ func (r *StripeReader) shouldWaitForMore(err error) bool {
 
 // combineErrs makes a useful error message from the errors in errmap.
 // combineErrs always returns an error.
-func (r *StripeReader) combineErrs() error {
+func (r *StripeReader) combineErrs(num int64) error {
 	if len(r.errmap) == 0 {
 		return Error.New("programmer error: no errors to combine")
 	}
 	errstrings := make([]string, 0, len(r.errmap))
 	for i, err := range r.errmap {
-		errstrings = append(errstrings,
-			fmt.Sprintf("\nerror retrieving piece %02d: %v", i, err))
+		errstrings = append(errstrings, fmt.Sprintf("\nerror retrieving piece %02d: %v", i, err))
 	}
 	sort.Strings(errstrings)
-	return Error.New("failed to download stripe: %s",
-		strings.Join(errstrings, ""))
+	return Error.New("failed to download stripe %d: %s", num, strings.Join(errstrings, ""))
 }
