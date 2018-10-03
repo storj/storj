@@ -31,14 +31,6 @@ func TestEnqueueDequeue(t *testing.T) {
 	assert.True(t, proto.Equal(&s, seg))
 }
 
-func TestDequeueEmptyQueue(t *testing.T) {
-	db := teststore.New()
-	q := NewQueue(db)
-	s, err := q.Dequeue()
-	assert.Error(t, err)
-	assert.Equal(t, pb.InjuredSegment{}, s)
-}
-
 func TestForceError(t *testing.T) {
 	db := teststore.New()
 	q := NewQueue(db)
