@@ -4,7 +4,14 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -23,10 +30,36 @@ var (
 )
 
 func main() {
+	go dumpHandler()
+
 	// process.Exec will load this for this command.
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	setupCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "setup.yaml"), "path to configuration")
 	process.Exec(rootCmd)
+}
+
+// dumpHandler listens for Ctrl+\ on Unix
+func dumpHandler() {
+	if runtime.GOOS == "windows" {
+		// unsupported on Windows
+		return
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGQUIT)
+	for range sigs {
+		dumpGoroutines()
+	}
+}
+
+func dumpGoroutines() {
+	buf := make([]byte, 1<<20)
+	n := runtime.Stack(buf, true)
+	p := time.Now().Format("dump-2006-01-02T15-04-05.999999999.log")
+	err := ioutil.WriteFile(p, buf[:n], 0644)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 }
