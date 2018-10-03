@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/datarepair/repairer"
+	// "storj.io/storj/pkg/datarepair/checker"
+	// "storj.io/storj/pkg/datarepair/queue"
+	// "storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -37,14 +37,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity      provider.IdentityConfig
-		Kademlia      kademlia.Config
-		PointerDB     pointerdb.Config
-		Overlay       overlay.Config
-		MockOverlay   overlay.MockConfig
-		RepairQueue   queue.Config
-		RepairChecker checker.Config
-		Repairer      repairer.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
+		Overlay     overlay.Config
+		MockOverlay overlay.MockConfig
+		// RepairQueue   queue.Config
+		// RepairChecker checker.Config
+		// Repairer      repairer.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
