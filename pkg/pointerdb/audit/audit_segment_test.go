@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"math/rand"
+	//"math/rand"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/storage/teststore"
+	//"storj.io/storj/pkg/storage/meta"
 )
 
 const (
@@ -71,11 +72,21 @@ func TestAuditSegment(t *testing.T) {
 				bm:         "success",
 				path:       paths.New("file1/file2"),
 				APIKey:     nil,
-				startAfter: paths.New("file3/file4"),
+				startAfter: nil,
 				limit:      10,
 				items:      nil,
 				more:       false,
-				err:        ErrNoLimitGiven,
+				err:        nil,
+			},
+			{
+				bm:         "success",
+				path:       paths.New("file1/file2/file10/file9"),
+				APIKey:     nil,
+				startAfter: paths.New("file1"),
+				limit:      10,
+				items:      nil,
+				more:       false,
+				err:        nil,
 			},
 		}
 
@@ -83,8 +94,12 @@ func TestAuditSegment(t *testing.T) {
 		db := teststore.New()
 		c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 		pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
+		pointers := pdbclient.New(pdbw, nil)
 
-	t.Run("GetList", func(t *testing.T) {
+		// create a pdb client and instance of audit
+		a := NewAudit(pointers)
+
+	t.Run("NextStripe", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
@@ -101,25 +116,21 @@ func TestAuditSegment(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
 				}
-
-				// create a pdb client and instance of audit
-				pdbc := pdbclient.New(pdbw, tt.APIKey)
-								
+				
+				// testing to see list works
+				//itemList, isMore, err := pointers.List(ctx, nil, nil,nil,true, 10, meta.None)
+				
 				if err != nil {
 					t.Error("cant instantiate the piece store client")
 				}
-				a := NewAudit(pdbc)
 
-				// make  a List request
-				items, more, err := a.GetList(ctx, nil, tt.limit)
-				fmt.Println("items: ", items[0].Path)
-
+				// make the request
+				stripe, err := a.NextStripe(ctx)
 				if err != nil {
+					fmt.Println("err is in error: ", err)
 					assert1.NotNil(err)
 				}
-
-				fmt.Println("items at 0: ", items[0].Pointer)
-				fmt.Println("this is items: ", items, more, err)
+				assert1.NotNil(stripe)
 			})
 		}
 	})
@@ -129,6 +140,10 @@ func TestAuditSegment(t *testing.T) {
 	
 
 } // end of all fn
+
+func putIntoDB() {
+
+}
 
 func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 	var rps []*pb.RemotePiece
@@ -147,11 +162,12 @@ func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 					Total:            3,
 					RepairThreshold:  2,
 					SuccessThreshold: 3,
+					ErasureShareSize: 2,
 				},
 				PieceId:      "testId",
 				RemotePieces: rps,
 			},
-			Size: int64(1),
+			Size: int64(10),
 		},
 		APIKey: auth,
 	}

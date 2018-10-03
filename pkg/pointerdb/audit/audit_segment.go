@@ -5,8 +5,8 @@ package audit
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/vivint/infectious"
 
@@ -21,13 +21,14 @@ import (
 type Audit struct {
 	pointers pdbclient.Client
 	r        *rand.Rand
+	lastPath *paths.Path
+	mutex    sync.Mutex
 }
 
 // NewAudit creates a new instance of audit
-func NewAudit(pointers pdbclient.Client, r *rand.Rand) *Audit {
+func NewAudit(pointers pdbclient.Client) *Audit {
 	return &Audit{
 		pointers: pointers,
-		r:        r,
 	}
 }
 
@@ -37,9 +38,20 @@ type Stripe struct {
 }
 
 // NextStripe returns a random stripe to be audited
-func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int) (stripe *Stripe, err error) {
+func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	// retreive a random list of pointers
-	pointerItems, _, err := a.pointers.List(ctx, nil, startAfter, nil, true, limit, meta.None)
+	var pointerItems []pdbclient.ListItem
+
+	// need to get random limit
+	if a.lastPath == nil {
+		pointerItems, _, err = a.pointers.List(ctx, nil, nil, nil, true, 10, meta.None)
+	} else {
+		pointerItems, _, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 10, meta.None)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +60,7 @@ func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int
 		return nil, ErrNoPointers
 	}
 
-	randomNum := a.getItem(pointerItems)
+	randomNum := rand.Intn(len(pointerItems))
 	pointerItem := pointerItems[randomNum]
 
 	// get a pointer
@@ -59,6 +71,16 @@ func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int
 		return nil, err
 	}
 
+	// keep track of last path used
+	if a.lastPath != &path {
+		a.lastPath = &path
+	} else {
+		// get another path
+		pointerItem := pointerItems[randomNum]
+		path := pointerItem.Path
+		a.lastPath = &path
+	}
+
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -66,8 +88,11 @@ func (a *Audit) NextStripe(ctx context.Context, startAfter paths.Path, limit int
 	}
 
 	// get random stripe
-	stripeSize := int64(es.StripeSize())
-	stripeNum := a.getItem(int(pointer.GetSize() / stripeSize))
+	stripeSize := es.StripeSize()
+	stripeNum := rand.Intn((int(pointer.GetSize()) / stripeSize))
+	if stripeNum == 0 {
+		stripeNum = stripeNum + 1
+	}
 
 	return &Stripe{
 		stripeNum,
@@ -82,20 +107,4 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	}
 	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
 	return es, nil
-}
-
-// generate random number from length of list
-func (a *Audit) getItem(i interface{}) (randomInt int) {
-	switch i := i.(type) {
-	case int:
-		num := int(a.r.Intn(i))
-		return num
-
-	case []pdbclient.ListItem:
-		num := int(a.r.Intn(len(i)))
-		return num
-
-	default:
-		panic(fmt.Sprintf("unexpected type: %T", i))
-	}
 }
