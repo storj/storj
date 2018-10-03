@@ -32,7 +32,7 @@ func (c *Config) Initialize(ctx context.Context) (*repairer, error) {
 	// TODO: Setup queue with c.queueAddress r.queue = queue
 
 	r.cond.L = &r.mu
-	r.maxRepair = max
+	r.maxRepair = c.maxRepair
 	return &r, nil
 }
 
