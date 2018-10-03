@@ -48,8 +48,7 @@ func (nonce *Nonce) Increment(amount int64) (truncated bool, err error) {
 // AESGCMNonce returns the nonce as a AES-GCM nonce
 func (nonce *Nonce) AESGCMNonce() *AESGCMNonce {
 	aes := new(AESGCMNonce)
-	// Lower bytes should be taken instead of higher bytes, so nonce.Increment has effect
-	copy((*aes)[:], nonce[NonceSize-AESGCMNonceSize:])
+	copy((*aes)[:], nonce[:AESGCMNonceSize])
 	return aes
 }
 
