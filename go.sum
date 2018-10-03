@@ -275,8 +275,6 @@ github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1/go.mod h1:LujAq0jyVj
 github.com/tinylib/msgp v1.0.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
 github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716 h1:dSJdbB9MzZW7Fu9ayPGtM3hPRzbTbSZWvtHunBdRmao=
 github.com/tyler-smith/go-bip39 v0.0.0-20160629163856-8e7a99b3e716/go.mod h1:sJ5fKU0s6JVwZjjcUEX2zFOnvq0ASQ2K9Zr6cf67kNs=
-github.com/urfave/cli v1.20.0 h1:fDqGv3UG/4jbVl/QkFwEdddtEDjh/5Ov6X+0B/3bPaw=
-github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575 h1:t0v1w3EiqMhDYBFbzwSfUHivx3yOMJG7R7YUm1Amlh8=
 github.com/vivint/infectious v0.0.0-20180906161625-e155e6eb3575/go.mod h1:5oyMAv4hrBEKqBwORFsiqIrCNCmL2qcZLQTdJLYeYIc=
 github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb h1:Jmfk7z2f/+gxVFAgPsJMuczO1uEIxZy6wytTdeZ49lg=
