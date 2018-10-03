@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/process"
 )
 
@@ -55,9 +56,15 @@ func dumpHandler() {
 }
 
 func dumpGoroutines() {
-	buf := make([]byte, 1<<20)
+	buf := make([]byte, memory.MB)
 	n := runtime.Stack(buf, true)
+
 	p := time.Now().Format("dump-2006-01-02T15-04-05.999999999.log")
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	fmt.Fprintf(os.Stderr, "Writing stack traces to \"%v\"\n", p)
+
 	err := ioutil.WriteFile(p, buf[:n], 0644)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
