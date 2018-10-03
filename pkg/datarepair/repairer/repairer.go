@@ -18,8 +18,43 @@ var (
 	mon = monkit.Package()
 )
 
-// Repairer holds important values for data repair
-type Repairer struct {
+// Repairer is the interface for the data repair queue
+type Repairer interface {
+	Repair(seg *pb.InjuredSegment) error
+	Run() error
+	Stop() error
+}
+
+// Config contains configurable values for repairer
+type Config struct {
+	// queueAddress string `help:"data repair queue address" default:"localhost:7779"`
+	maxRepair int `help:"maximum segments that can be repaired concurrently" default:"100"`
+}
+
+// Initialize a repairer struct
+func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
+	var r repairer
+	r.ctx, r.cancel = context.WithCancel(ctx)
+
+	// TODO: Setup queue with c.queueAddress r.queue = queue
+
+	r.cond.L = &r.mu
+	r.maxRepair = c.maxRepair
+	return &r, nil
+}
+
+// Run runs the checker with configured values
+func (c *Config) Run(ctx context.Context) (err error) {
+	r, err := c.Initialize(ctx)
+	if err != nil {
+		return err
+	}
+
+	return r.Run()
+}
+
+// repairer holds important values for data repair
+type repairer struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	queue      q.RepairQueue
@@ -30,18 +65,8 @@ type Repairer struct {
 	inProgress int
 }
 
-// Initialize a repairer struct
-func Initialize(ctx context.Context, queue q.RepairQueue, max int) (*Repairer, error) {
-	var r Repairer
-	r.ctx, r.cancel = context.WithCancel(ctx)
-	r.queue = queue
-	r.cond.L = &r.mu
-	r.maxRepair = max
-	return &r, nil
-}
-
 // Run the repairer loop
-func (r *Repairer) Run() (err error) {
+func (r *repairer) Run() (err error) {
 	c := make(chan *pb.InjuredSegment)
 	go func() {
 		for {
@@ -76,7 +101,7 @@ func (r *Repairer) Run() (err error) {
 }
 
 // Repair starts repair of the segment
-func (r *Repairer) Repair(seg *pb.InjuredSegment) (err error) {
+func (r *repairer) Repair(seg *pb.InjuredSegment) (err error) {
 	defer mon.Task()(&r.ctx)(&err)
 	r.inProgress++
 	fmt.Println(seg)
@@ -87,12 +112,12 @@ func (r *Repairer) Repair(seg *pb.InjuredSegment) (err error) {
 }
 
 // Stop the repairer loop
-func (r *Repairer) Stop() (err error) {
+func (r *repairer) Stop() (err error) {
 	r.cancel()
 	return nil
 }
 
-func (r *Repairer) combinedError() error {
+func (r *repairer) combinedError() error {
 	if len(r.errs) == 0 {
 		return nil
 	}

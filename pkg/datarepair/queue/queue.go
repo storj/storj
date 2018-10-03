@@ -4,6 +4,7 @@
 package queue
 
 import (
+	"context"
 	"encoding/binary"
 	"math/rand"
 	"sync"
@@ -20,6 +21,19 @@ import (
 type RepairQueue interface {
 	Enqueue(qi *pb.InjuredSegment) error
 	Dequeue() (pb.InjuredSegment, error)
+}
+
+// Config contains configurable values for checker
+type Config struct {
+	// address string `help:"data repair queue address" default:"localhost:7777"`
+}
+
+// Run runs the checker with configured values
+func (c *Config) Run(ctx context.Context) (err error) {
+
+	// TODO: Start queue server
+
+	return err
 }
 
 // Queue implements the RepairQueue interface
