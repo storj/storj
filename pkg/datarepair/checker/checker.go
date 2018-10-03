@@ -82,10 +82,12 @@ func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, rep
 func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
-
 	err = c.pointerdb.Iterate(storage.IterateOptions{Prefix: storage.Key(c.params.Prefix), First: storage.Key(c.params.First), Recurse: c.params.Recurse, Reverse: c.params.Reverse},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
+			if c.params.Limit <= 0 || c.params.Limit > storage.LookupLimit {
+				c.params.Limit = storage.LookupLimit
+			}
 			for ; c.params.Limit > 0 && it.Next(&item); c.params.Limit-- {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
