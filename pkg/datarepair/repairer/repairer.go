@@ -18,7 +18,7 @@ var (
 	mon = monkit.Package()
 )
 
-// RepairQueue is the interface for the data repair queue
+// Repairer is the interface for the data repair queue
 type Repairer interface {
 	Repair(seg *pb.InjuredSegment) error
 	Run() error
