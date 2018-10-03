@@ -6,15 +6,21 @@ package audit
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"io"
 	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 
+	mock_oclient "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	mock_psclient "storj.io/storj/pkg/piecestore/rpc/client/mocks"
+	"storj.io/storj/pkg/provider"
 	mock_ranger "storj.io/storj/pkg/ranger/mocks"
+	mock_transport "storj.io/storj/pkg/transport/mocks"
 )
 
 var (
@@ -59,10 +65,15 @@ func TestRunAudit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	mockOC := mock_oclient.NewMockClient(ctrl)
 	mockPSC := mock_psclient.NewMockPSClient(ctrl)
+	mockT := mock_transport.NewMockClient(ctrl)
 	mockRanger := mock_ranger.NewMockRanger(ctrl)
 
-	a := &Auditor{ps: mockPSC}
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	id := provider.FullIdentity{Key: privKey}
+
+	a := &Auditor{t: mockT, o: mockOC, identity: id}
 	p := makePointer()
 
 	b := &buffer{bytes.NewBufferString("mock closer")}
