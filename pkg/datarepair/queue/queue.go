@@ -25,7 +25,7 @@ type RepairQueue interface {
 
 // Config contains configurable values for checker
 type Config struct {
-	address string `help:"data repair queue address" default:"localhost:7777"`
+	// address string `help:"data repair queue address" default:"localhost:7777"`
 }
 
 // Run runs the checker with configured values

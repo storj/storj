@@ -18,14 +18,21 @@ var (
 	mon = monkit.Package()
 )
 
+// RepairQueue is the interface for the data repair queue
+type Repairer interface {
+	Repair(seg *pb.InjuredSegment) error
+	Run() error
+	Stop() error
+}
+
 // Config contains configurable values for repairer
 type Config struct {
-	queueAddress string `help:"data repair queue address" default:"localhost:7779"`
-	maxRepair    int    `help:"maximum segments that can be repaired concurrently" default:"100"`
+	// queueAddress string `help:"data repair queue address" default:"localhost:7779"`
+	maxRepair int `help:"maximum segments that can be repaired concurrently" default:"100"`
 }
 
 // Initialize a repairer struct
-func (c *Config) Initialize(ctx context.Context) (*repairer, error) {
+func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 	var r repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
