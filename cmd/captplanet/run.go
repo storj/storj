@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/checker"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"

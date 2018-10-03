@@ -14,7 +14,6 @@ import (
 	// "storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
