@@ -96,6 +96,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
+	// start satellite
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
 			runCfg.Satellite.Identity.Address)

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// APIKeyInterceptor creates instance of apikey interceptor
+// NewAPIKeyInterceptor creates instance of apikey interceptor
 func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
