@@ -7,6 +7,7 @@ option go_package = "pb";
 package pointerdb;
 
 import "google/protobuf/timestamp.proto";
+import "overlay.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {
@@ -107,7 +108,8 @@ message PutResponse {
 
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
-  bytes pointer = 1; // this is a Pointer type marshalled into bytes
+  Pointer pointer = 1;
+  repeated overlay.Node nodes = 2;
 }
 
 // ListResponse is a response message for the List rpc call
