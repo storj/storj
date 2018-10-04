@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"net"
 
@@ -48,7 +47,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	_, _, err = bs.List(ctx, "", "", 0)
 	if err != nil {
-		return errors.New("uplink setup error")
+		return fmt.Errorf("Failed to contact Satellite.\n"+
+			"Perhaps your configuration is invalid?\n%s", err)
 	}
 
 	return cfg.Run(process.Ctx(cmd))
