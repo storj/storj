@@ -184,20 +184,21 @@ func TestHappyPath(t *testing.T) {
 	})
 }
 
-func TestMIBHappyPath(t *testing.T) {
+func TestBwUsageTblHappyPath(t *testing.T) {
 	db, cleanup := openTest(t)
 	defer cleanup()
 
-	type MIB struct {
-		Date   int64
-		Size   int64
-		Method string
+	//MibInfo  psdb.MibTable
+	type BwUsageTable struct {
+		Size         int64
+		DayStartDate int64
+		DayEndDate   int64
 	}
 
-	tests := []MIB{
-		{Date: 123456, Size: 10, Method: "PUT"},
-		{Date: ^int64(0), Size: 0, Method: "PUT"},
-		{Date: 0, Size: 100, Method: "GET"},
+	tests := []BwUsageTable{
+		{Size: 123456, DayStartDate: 10, DayEndDate: 12},
+		{Size: 1456, DayStartDate: 10, DayEndDate: 32},
+		{Size: 0, DayStartDate: 0, DayEndDate: 1000},
 	}
 
 	t.Run("Add", func(t *testing.T) {
@@ -205,7 +206,7 @@ func TestMIBHappyPath(t *testing.T) {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, mib := range tests {
-					err := db.AddMIB(mib.Date, mib.Size, mib.Method)
+					err := db.AddBwUsageTbl(mib.Size, mib.DayStartDate, mib.DayEndDate)
 					if err != nil {
 						t.Fatal(err)
 					}

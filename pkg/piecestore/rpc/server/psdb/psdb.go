@@ -36,6 +36,17 @@ type DB struct {
 	check    *time.Ticker
 }
 
+type MibTable struct {
+	BwUsageTbl BwUsageTable
+	/** add new information tables here .... */
+}
+
+type BwUsageTable struct {
+	Size         int64
+	DayStartDate int64
+	DayEndDate   int64
+}
+
 // Open opens DB at DBPath
 func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -79,7 +90,12 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `mib` (`date` INT(10), `size` INT(10), `method` BLOB);")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_bwusagetbl_size ON bwusagetbl (size);")
 	if err != nil {
 		return nil, err
 	}
@@ -255,8 +271,16 @@ func (db *DB) DeleteTTLByID(id string) error {
 }
 
 // AddMIB adds MIB into database by date
-func (db *DB) AddMIB(date, size int64, method string) error {
+func (db *DB) AddBwUsageTbl(size, daystartdate, dayenddate int64) error {
 	defer db.locked()()
-	_, err := db.DB.Exec("INSERT OR REPLACE INTO mib (date, size, method) VALUES (?, ?, ?)", date, size, method)
+	_, err := db.DB.Exec("INSERT OR REPLACE INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartdate, dayenddate)
 	return err
 }
+
+// // GetMIBByDate finds the MIB in the database by date and return it
+// func (db *DB) GetMIBByDate(date int64) (mibinfo MibInfo, err error) {
+// 	// defer db.locked()()
+
+// 	// rows, err = db.DB.QueryRow(`SELECT Size FROM mib WHERE date=?`, date)
+// 	// return expiration, err
+// }
