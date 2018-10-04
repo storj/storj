@@ -21,7 +21,13 @@ import (
 
 	"github.com/alicebob/miniredis"
 	"github.com/go-redis/redis"
+	"github.com/zeebo/errs"
 	"storj.io/storj/internal/processgroup"
+)
+
+var (
+	// Error is a redis error
+	Error = errs.Class("redis server error")
 )
 
 const (
@@ -29,10 +35,14 @@ const (
 	fallbackPort = 6379
 )
 
-func freeport() (addr string, port int) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func freeport(inport int) (addr string, port int, err error) {
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", inport))
 	if err != nil {
-		return fallbackAddr, fallbackPort
+		if inport == 0 {
+			return fallbackAddr, fallbackPort, nil
+		}
+
+		return "", 0, Error.Wrap(err)
 	}
 
 	netaddr := listener.Addr().(*net.TCPAddr)
@@ -40,7 +50,7 @@ func freeport() (addr string, port int) {
 	port = netaddr.Port
 	_ = listener.Close()
 	time.Sleep(time.Second)
-	return addr, port
+	return addr, port, nil
 }
 
 // Start starts a redis-server when available, otherwise falls back to miniredis
@@ -53,16 +63,27 @@ func Start() (addr string, cleanup func(), err error) {
 	return addr, cleanup, err
 }
 
-// Process starts a redis-server test process
+// Start starts a redis-server at the specified port, otherwise falls back to miniredis
+func StartAt(port int) (addr string, cleanup func(), err error) {
+	return ProcessAt(port)
+}
+
 func Process() (addr string, cleanup func(), err error) {
+	return ProcessAt(0)
+}
+
+// Process starts a redis-server test process
+func ProcessAt(port int) (addr string, cleanup func(), err error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
 		return "", nil, err
 	}
 
 	// find a suitable port for listening
-	var port int
-	addr, port = freeport()
+	addr, port, err = freeport(port)
+	if err != nil {
+		return "", nil, err
+	}
 
 	// write a configuration file, because redis doesn't support flags
 	confpath := filepath.Join(tmpdir, "test.conf")
