@@ -18,7 +18,7 @@ type FPath struct {
 	path   string
 }
 
-// Creates new Struct from handed over URL
+// New creates Struct from handed over URL
 func (p *FPath) New(url string) {
 
 	// Check for Schema
@@ -50,18 +50,18 @@ func (p *FPath) New(url string) {
 	}
 }
 
-// Joins/appends segment to the path
+// Join is merging segment to the path
 func (p FPath) Join(segment string) FPath {
 	p.path = filepath.Join(p.path, segment)
 	return p
 }
 
-// Returns the last folder of Path
+// Folder returns the last folder of path
 func (p FPath) Folder() string {
 	return filepath.Dir(p.path)
 }
 
-// Returns if Path is a folder
+// IsFolder returns if path is a folder
 func (p FPath) IsFolder() bool {
 	fileInfo, err := os.Stat(p.path)
 	if err != nil {
@@ -71,32 +71,32 @@ func (p FPath) IsFolder() bool {
 	return fileInfo.IsDir()
 }
 
-// Returns Base of Path
+// Base returns Base Segment of the path
 func (p FPath) Base() string {
 	return filepath.Base(p.path)
 }
 
-// Returns whether URL refers to local or remote location
+// IsLocal returns whether URL refers to local or remote location
 func (p FPath) IsLocal() bool {
 	return p.local
 }
 
-// Returns if URL had a schema
+// HasSchema returns if URL had a schema
 func (p FPath) HasSchema() bool {
 	return p.schema != ""
 }
 
-// Returns Schema if existing
+// Schema returns the schema if existing
 func (p FPath) Schema() string {
 	return p.schema
 }
 
-// Returns Path
+// Path returns the URL path without schema
 func (p FPath) Path() string {
 	return p.path
 }
 
-// Returns entire URL including Schema
+// String returns entire URL
 func (p FPath) String() string {
 	var cpl string
 
