@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 )
 
 func init() {
@@ -28,10 +28,12 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	u0, err := utils.ParseURL(args[0])
+	/*u0, err := utils.ParseURL(args[0])
 	if err != nil {
 		return err
-	}
+	}*/
+
+	u0 := fpath.New(args[0])
 
 	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
@@ -39,9 +41,11 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if uploading
-	if u0.Host == "" {
+	if u0.Scheme() != "sf" {
 		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 	}
 
-	return upload(ctx, bs, "-", u0)
+	clp := fpath.New("-")
+
+	return upload(ctx, bs, &clp, &u0)
 }

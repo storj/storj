@@ -7,16 +7,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cheggaaa/pb"
+	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
@@ -47,23 +46,22 @@ func cleanAbsPath(p string) string {
 }
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
-func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
+func upload(ctx context.Context, bs buckets.Store, srcFile *fpath.FPath, destObj *fpath.FPath) error {
 	var err error
-	if destObj.Scheme == "" {
-		return fmt.Errorf("Invalid destination")
+	if destObj.Scheme() != "sj" {
+		return fmt.Errorf("Invalid destination, not a Storj Bucket")
 	}
 
-	destObj.Path = cleanAbsPath(destObj.Path)
 	// if object name not specified, default to filename
-	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
+	if strings.HasSuffix(destObj.Path(), "/") || destObj.Path() == "" {
+		destObj.Join(srcFile.Base())
 	}
 
 	var f *os.File
-	if srcFile == "-" {
+	if srcFile.Base() == "-" {
 		f = os.Stdin
 	} else {
-		f, err = os.Open(srcFile)
+		f, err = os.Open(srcFile.Path())
 		if err != nil {
 			return err
 		}
@@ -83,7 +81,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		r = bar.NewProxyReader(r)
 	}
 
-	o, err := bs.GetObjectStore(ctx, destObj.Host)
+	o, err := bs.GetObjectStore(ctx, destObj.Bucket())
 	if err != nil {
 		return err
 	}
@@ -91,7 +89,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path()), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -100,39 +98,39 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		bar.Finish()
 	}
 
-	fmt.Printf("Created %s\n", destObj)
+	fmt.Printf("Created %s\n", destObj.String())
 
 	return nil
 }
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
-func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
+func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destObj *fpath.FPath) error {
 	var err error
-	if srcObj.Scheme == "" {
-		return fmt.Errorf("Invalid source")
+	if srcObj.Scheme() != "sj" {
+		return fmt.Errorf("Invalid source, not a Storj Bucket")
 	}
 
-	o, err := bs.GetObjectStore(ctx, srcObj.Host)
+	o, err := bs.GetObjectStore(ctx, srcObj.Bucket())
 	if err != nil {
 		return err
 	}
 
-	if fi, err := os.Stat(destFile); err == nil && fi.IsDir() {
-		destFile = filepath.Join(destFile, filepath.Base(srcObj.Path))
+	if fi, err := os.Stat(destObj.Path()); err == nil && fi.IsDir() {
+		destObj.Join(srcObj.Base())
 	}
 
 	var f *os.File
-	if destFile == "-" {
+	if destObj.Path() == "-" {
 		f = os.Stdout
 	} else {
-		f, err = os.Create(destFile)
+		f, err = os.Create(destObj.Path())
 		if err != nil {
 			return err
 		}
 		defer utils.LogClose(f)
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
+	rr, _, err := o.Get(ctx, paths.New(srcObj.Path()))
 	if err != nil {
 		return err
 	}
@@ -159,21 +157,21 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		bar.Finish()
 	}
 
-	if destFile != "-" {
-		fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	if destObj.Base() != "-" {
+		fmt.Printf("Downloaded %s to %s\n", srcObj.String(), destObj.String())
 	}
 
 	return nil
 }
 
 // copy copies s3 compatible object args[0] to s3 compatible object args[1]
-func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.URL) error {
-	o, err := bs.GetObjectStore(ctx, srcObj.Host)
+func copy(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destObj *fpath.FPath) error {
+	o, err := bs.GetObjectStore(ctx, srcObj.Bucket())
 	if err != nil {
 		return err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
+	rr, _, err := o.Get(ctx, paths.New(srcObj.Path()))
 	if err != nil {
 		return err
 	}
@@ -191,8 +189,8 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		r = bar.NewProxyReader(r)
 	}
 
-	if destObj.Host != srcObj.Host {
-		o, err = bs.GetObjectStore(ctx, destObj.Host)
+	if destObj.Bucket() != srcObj.Bucket() {
+		o, err = bs.GetObjectStore(ctx, destObj.Bucket())
 		if err != nil {
 			return err
 		}
@@ -201,13 +199,12 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	destObj.Path = cleanAbsPath(destObj.Path)
 	// if destination object name not specified, default to source object name
-	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
+	if strings.HasSuffix(destObj.Path(), "/") {
+		destObj.Join(srcObj.Base())
 	}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path()), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -216,7 +213,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		bar.Finish()
 	}
 
-	fmt.Printf("%s copied to %s\n", srcObj, destObj)
+	fmt.Printf("%s copied to %s\n", srcObj.String(), destObj.String())
 
 	return nil
 }
@@ -232,15 +229,8 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	u0, err := utils.ParseURL(args[0])
-	if err != nil {
-		return err
-	}
-
-	u1, err := utils.ParseURL(args[1])
-	if err != nil {
-		return err
-	}
+	u0 := fpath.New(args[0])
+	u1 := fpath.New(args[1])
 
 	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
@@ -248,23 +238,21 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// if uploading
-	if u0.Scheme == "" {
-		if u1.Host == "" {
+	if u0.IsLocal() {
+		if u1.Scheme() != "sj" && !u1.IsLocal() {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
-
-		return upload(ctx, bs, args[0], u1)
+		return upload(ctx, bs, &u0, &u1)
 	}
 
 	// if downloading
-	if u1.Scheme == "" {
-		if u0.Host == "" {
+	if u1.IsLocal() {
+		if u0.Scheme() != "sj" && !u0.IsLocal() {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
-
-		return download(ctx, bs, u0, args[1])
+		return download(ctx, bs, &u0, &u1)
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, bs, u0, u1)
+	return copy(ctx, bs, &u0, &u1)
 }
