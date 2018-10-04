@@ -41,7 +41,7 @@ func (a *Auditor) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, 
 		return nil, err
 	}
 
-	return client.NewPSClient(c, 0, a.identity.Key)
+	return client.NewPSClient(c, 1024*32, a.identity.Key)
 }
 
 func (a *Auditor) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,

@@ -10,21 +10,21 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/vivint/infectious"
+	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/eestream"
 	mock_oclient "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	mock_psclient "storj.io/storj/pkg/piecestore/rpc/client/mocks"
 	"storj.io/storj/pkg/provider"
 	mock_ranger "storj.io/storj/pkg/ranger/mocks"
 	mock_transport "storj.io/storj/pkg/transport/mocks"
-)
-
-var (
-	ctx = context.Background()
 )
 
 func makePointer() *pb.Pointer {
@@ -54,41 +54,80 @@ func makePointer() *pb.Pointer {
 	return pr
 }
 
-type buffer struct {
-	*bytes.Buffer
+func randData(amount int) []byte {
+	buf := make([]byte, amount)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+	return buf
 }
 
-func (b *buffer) Close() (err error) {
-	return
+func makeReaders() (readerMap map[int]io.ReadCloser, err error) {
+	ctx := context.Background()
+	data := randData(32 * 1024)
+	fc, err := infectious.NewFEC(2, 4)
+	if err != nil {
+		return nil, err
+	}
+	es := eestream.NewRSScheme(fc, 8*1024)
+	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	readers, err := eestream.EncodeReader(ctx, bytes.NewReader(data), rs, 0)
+	if err != nil {
+		return nil, err
+	}
+	readerMap = make(map[int]io.ReadCloser, len(readers))
+	for i, reader := range readers {
+		readerMap[i] = ioutil.NopCloser(reader)
+	}
+	return readerMap, nil
 }
+
 func TestRunAudit(t *testing.T) {
+	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockOC := mock_oclient.NewMockClient(ctrl)
 	mockPSC := mock_psclient.NewMockPSClient(ctrl)
-	mockT := mock_transport.NewMockClient(ctrl)
+	mockTC := mock_transport.NewMockClient(ctrl)
 	mockRanger := mock_ranger.NewMockRanger(ctrl)
 
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	id := provider.FullIdentity{Key: privKey}
 
-	a := &Auditor{t: mockT, o: mockOC, identity: id}
+	a := &Auditor{t: mockTC, o: mockOC, identity: id}
 	p := makePointer()
 
-	b := &buffer{bytes.NewBufferString("mock closer")}
-	var rc io.ReadCloser
-	rc = b
+	var nodes []*pb.Node
+	for i := 0; i < 15; i++ {
+		nodes = append(nodes, &pb.Node{
+			Id:      "fakeId",
+			Address: &pb.NodeAddress{},
+		})
+	}
 
-	mockPSC.EXPECT().Meta(gomock.Any(), gomock.Any()).AnyTimes()
+	var conn *grpc.ClientConn
+	readers, err := makeReaders()
+	if err != nil {
+		panic(err)
+	}
+
+	mockOC.EXPECT().BulkLookup(
+		gomock.Any(), gomock.Any()).Return(nodes, nil)
+	mockTC.EXPECT().DialNode(
+		gomock.Any(), gomock.Any()).Return(conn, nil)
 	mockPSC.EXPECT().Get(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), &pb.PayerBandwidthAllocation{},
 	).Return(mockRanger, nil).AnyTimes()
 	mockRanger.EXPECT().Range(
 		gomock.Any(), gomock.Any(), gomock.Any(),
-	).Return(rc, nil).AnyTimes()
+	).Return(readers[0], nil).AnyTimes()
 
-	_, err := a.runAudit(ctx, p, 15, 20, 40)
+	_, err = a.runAudit(ctx, p, 15, 20, 40)
 	if err != nil {
 		panic(err)
 	}
