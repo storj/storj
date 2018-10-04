@@ -102,7 +102,7 @@ func TestStreamStorePut(t *testing.T) {
 	streamMeta := Meta{
 		Modified:   segmentMeta.Modified,
 		Expiration: segmentMeta.Expiration,
-		Size:       14,
+		Size:       4,
 		Data:       []byte("metadata"),
 	}
 
@@ -124,10 +124,9 @@ func TestStreamStorePut(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockSegmentStore.EXPECT().
-			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError).
-			Times(2).
-			Do(func(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) {
+			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (paths.Path, []byte, error)) {
 				for {
 					buf := make([]byte, 4)
 					_, err := data.Read(buf)
@@ -181,11 +180,21 @@ func TestStreamStoreGet(t *testing.T) {
 		closer: readCloserStub{},
 	}
 
+	msi := pb.MetaStreamInfo{
+		NumberOfSegments: 1,
+		SegmentsSize:     10,
+		LastSegmentSize:  0,
+	}
+	lastSegmentMeta, err := proto.Marshal(&msi)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
 		Size:       10,
-		Data:       []byte{},
+		Data:       lastSegmentMeta,
 	}
 
 	streamRanger := ranger.ByteRanger(nil)
@@ -215,8 +224,8 @@ func TestStreamStoreGet(t *testing.T) {
 
 		calls := []*gomock.Call{
 			mockSegmentStore.EXPECT().
-				Meta(gomock.Any(), gomock.Any()).
-				Return(test.segmentMeta, test.segmentError),
+				Get(gomock.Any(), gomock.Any()).
+				Return(test.segmentRanger, test.segmentMeta, test.segmentError),
 		}
 
 		gomock.InOrder(calls...)
@@ -231,7 +240,7 @@ func TestStreamStoreGet(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, test.streamRanger, ranger, errTag)
+		assert.Equal(t, test.streamRanger.Size(), ranger.Size(), errTag)
 		assert.Equal(t, test.streamMeta, meta, errTag)
 	}
 }

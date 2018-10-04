@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/cheggaaa/pb"
+	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
