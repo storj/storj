@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// FPath creates an OS independently Path Handling Structure
 type FPath struct {
 	local  bool   //set if file is local
 	scheme string //url scheme
@@ -98,7 +99,7 @@ func (p FPath) Base() string {
 	return filepath.Base(p.path)
 }
 
-//Bucket returns first segment of path
+// Bucket returns first segment of path
 func (p FPath) Bucket() string {
 	return p.bucket
 }
@@ -116,21 +117,17 @@ func (p FPath) Path() string {
 	return p.path
 }
 
-func (p FPath) ToSlash() string {
-	return filepath.ToSlash(p.String())
-}
-
 // IsLocal returns whether URL refers to local or remote location
 func (p FPath) IsLocal() bool {
 	return p.local
 }
 
-// HasSchema returns if URL had a schema
+// HasScheme returns if URL had a schema
 func (p FPath) HasScheme() bool {
 	return p.scheme != ""
 }
 
-// Schema returns the schema if existing
+// Scheme returns the schema if existing
 func (p FPath) Scheme() string {
 	return p.scheme
 }

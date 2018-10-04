@@ -36,15 +36,6 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
-func cleanAbsPath(p string) string {
-	prefix := strings.HasSuffix(p, "/")
-	p = path.Join("/", p)
-	if !strings.HasSuffix(p, "/") && prefix {
-		p += "/"
-	}
-	return p
-}
-
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile *fpath.FPath, destObj *fpath.FPath) error {
 	var err error
