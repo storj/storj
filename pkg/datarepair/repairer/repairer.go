@@ -33,8 +33,7 @@ type Repairer interface {
 
 // Config contains configurable values for repairer
 type Config struct {
-	queueAddress string `help:"data repair queue address" default:"localhost:6379"`
-	queuePass    string `help:"data repair queue password" default:""`
+	queueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
 	maxRepair    int    `help:"maximum segments that can be repaired concurrently" default:"100"`
 }
 
@@ -43,8 +42,7 @@ func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 	var r repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
-	// TODO: Setup queue with c.queueAddress r.queue = queue
-	client, err := redis.NewClient(c.queueAddress, c.queuePass, 1)
+	client, err := redis.NewClientFrom(c.queueAddress)
 	if err != nil {
 		return nil, repairerError.Wrap(err)
 	}
