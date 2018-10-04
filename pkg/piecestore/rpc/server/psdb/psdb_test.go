@@ -190,15 +190,14 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 
 	//MibInfo  psdb.MibTable
 	type BwUsageTable struct {
-		Size         int64
-		DayStartDate int64
-		DayEndDate   int64
+		size        int64
+		unixtimenow int64
 	}
 
 	tests := []BwUsageTable{
-		{Size: 123456, DayStartDate: 10, DayEndDate: 12},
-		{Size: 1456, DayStartDate: 10, DayEndDate: 32},
-		{Size: 0, DayStartDate: 0, DayEndDate: 1000},
+		{size: 123456, unixtimenow: 171779},
+		{size: 1456, unixtimenow: 2342387},
+		{size: 1456, unixtimenow: 23423},
 	}
 
 	t.Run("Add", func(t *testing.T) {
@@ -206,7 +205,7 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, mib := range tests {
-					err := db.AddBwUsageTbl(mib.Size, mib.DayStartDate, mib.DayEndDate)
+					err := db.AddBwUsageTbl(mib.size, mib.unixtimenow)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -219,14 +218,14 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 	// 	for P := 0; P < concurrency; P++ {
 	// 		t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 	// 			t.Parallel()
-	// 			for _, ttl := range tests {
-	// 				expiration, err := db.GetTTLByID(ttl.ID)
+	// 			for _, mib := range tests {
+	// 				size, err := db.GetBwUsageTbl(mib.unixtimenow)
 	// 				if err != nil {
 	// 					t.Fatal(err)
 	// 				}
 
-	// 				if ttl.Expiration != expiration {
-	// 					t.Fatalf("expected %d got %d", ttl.Expiration, expiration)
+	// 				if mib.size != size {
+	// 					t.Fatalf("expected %d got %d", mib.size, size)
 	// 				}
 	// 			}
 	// 		})

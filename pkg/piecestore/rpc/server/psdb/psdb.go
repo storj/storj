@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -228,6 +229,10 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 
 	created := time.Now().Unix()
 	_, err := db.DB.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -271,16 +276,48 @@ func (db *DB) DeleteTTLByID(id string) error {
 }
 
 // AddMIB adds MIB into database by date
-func (db *DB) AddBwUsageTbl(size, daystartdate, dayenddate int64) error {
+func (db *DB) AddBwUsageTbl(size, unixtimenow int64) (err error) {
 	defer db.locked()()
-	_, err := db.DB.Exec("INSERT OR REPLACE INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartdate, dayenddate)
+	t := time.Now()
+	fmt.Println("time now =", t.Unix())
+
+	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+	fmt.Println("daystarttime =", daystartunixtime)
+
+	dayendunixtime := time.Date(t.Year(), t.Month(), t.Day(), 24, 0, 0, 0, t.Location()).Unix()
+	fmt.Println("dayendtime =", dayendunixtime)
+
+	var getSize int64
+	if (unixtimenow >= daystartunixtime) && (unixtimenow <= dayendunixtime) {
+		err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate <= ? AND ? <= dayenddate`, unixtimenow, unixtimenow).Scan(&getSize)
+		switch {
+		case err == sql.ErrNoRows:
+			fmt.Println("New day starting new entry ", err)
+			zap.S().Warn("New day starting new entry %+v", err)
+			_, err = db.DB.Exec("INSERT INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartunixtime, dayendunixtime)
+			return err
+		case err != nil:
+			fmt.Println("Invalid query return", err)
+			zap.S().Errorf("Invalid query return %v", err)
+			return err
+		default:
+			getSize = size + getSize
+			_, err = db.DB.Exec("UPDATE bwusagetbl SET size = ? WHERE daystartdate = ?", getSize, daystartunixtime)
+			zap.S().Info("Successfully written the into the bwusagetbl size = ", getSize)
+			log.Println("KISHORE --> Successfully written size = ", getSize)
+			return err
+		}
+	}
+	fmt.Println("Invalid time passed", unixtimenow)
+	zap.S().Errorf("Invalid time passed %v", unixtimenow)
 	return err
 }
 
-// // GetMIBByDate finds the MIB in the database by date and return it
-// func (db *DB) GetMIBByDate(date int64) (mibinfo MibInfo, err error) {
-// 	// defer db.locked()()
-
-// 	// rows, err = db.DB.QueryRow(`SELECT Size FROM mib WHERE date=?`, date)
-// 	// return expiration, err
-// }
+// GetMIBByDate finds the so far bw used by date and return it
+func (db *DB) GetBwUsageTbl(unixtime int64) (size int64, err error) {
+	defer db.locked()()
+	t := time.Unix(unixtime, 0)
+	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+	err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate=?`, daystarttime).Scan(&size)
+	return size, err
+}

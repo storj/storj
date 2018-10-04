@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"time"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/pb"
@@ -53,6 +54,16 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		deleteErr := s.deleteByID(pd.GetId())
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
+
+	if err = s.DB.AddBwUsageTbl(total, time.Now().Unix()); err != nil {
+		return StoreError.New("failed to write bandwidth info to database: %v", err)
+	}
+
+	bwSize, err := s.DB.GetBwUsageTbl(time.Now().Unix())
+	if err != nil {
+		return StoreError.New("bandwidth info read back err: %v", err)
+	}
+	log.Println("KISHORE --> Successfully readback size = ", bwSize)
 
 	log.Printf("Successfully stored %s.", pd.GetId())
 
