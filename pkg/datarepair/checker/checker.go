@@ -16,13 +16,13 @@ import (
 
 var (
 	mon = monkit.Package()
+	// Error is a standard error class for this package.
 	Error = errs.Class("checker error")
 )
 
 // Config contains configurable values for checker
 type Config struct {
-	// queueAddress string `help:"data repair queue address" default:"localhost:7777"`
-	Interval	time.Duration	`help:"how frequently checker should audit segments" default:"30s"`
+	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
 // Run runs the checker with configured values
