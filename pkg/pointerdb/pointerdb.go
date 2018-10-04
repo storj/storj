@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
@@ -40,7 +40,7 @@ func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logge
 		DB:     db,
 		logger: logger,
 		config: c,
-		cache: 	cache,
+		cache:  cache,
 	}
 }
 
@@ -130,24 +130,24 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 
 	r = &pb.GetResponse{
 		Pointer: pointer,
-		Nodes: nil,
+		Nodes:   nil,
 	}
 
-	if s.config.Overlay {
-		if pointer.Remote != nil {
-			for _, piece := range pointer.Remote.RemotePieces {
-				node, err := s.cache.Get(ctx, piece.NodeId)
-				if err != nil {
-					s.logger.Error("Error getting node from cache")
-				}
-				nodes = append(nodes, node)
-			}
+	if !s.config.Overlay || pointer.Remote == nil {
+		return r, nil
+	}
 
-			r = &pb.GetResponse{
-				Pointer: pointer,
-				Nodes: nodes,
-			}
-		} 
+	for _, piece := range pointer.Remote.RemotePieces {
+		node, err := s.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			s.logger.Error("Error getting node from cache")
+		}
+		nodes = append(nodes, node)
+	}
+
+	r = &pb.GetResponse{
+		Pointer: pointer,
+		Nodes:   nodes,
 	}
 
 	return r, nil
