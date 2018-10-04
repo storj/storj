@@ -47,9 +47,12 @@ func NewClient(address, password string, db int) (*Client, error) {
 	return client, nil
 }
 
-// NewClient returns a configured Client instance, verifying a successful connection to redis
+// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis
 func NewClientFrom(address string) (*Client, error) {
 	redisurl, err := utils.ParseURL(address)
+	if err != nil {
+		return nil, err
+	}
 
 	q := redisurl.Query()
 
