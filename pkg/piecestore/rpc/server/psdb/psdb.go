@@ -79,7 +79,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `mib` (`date` INT(10), `size` INT(10), `method` TEXT );")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `mib` (`date` INT(10), `size` INT(10), `method` BLOB);")
 	if err != nil {
 		return nil, err
 	}
@@ -217,6 +217,7 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 
 // GetTTLByID finds the TTL in the database by id and return it
 func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
+
 	defer db.locked()()
 
 	err = db.DB.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
@@ -250,5 +251,12 @@ func (db *DB) DeleteTTLByID(id string) error {
 	if err == sql.ErrNoRows {
 		err = nil
 	}
+	return err
+}
+
+// AddMIB adds MIB into database by date
+func (db *DB) AddMIB(date, size int64, method string) error {
+	defer db.locked()()
+	_, err := db.DB.Exec("INSERT OR REPLACE INTO mib (date, size, method) VALUES (?, ?, ?)", date, size, method)
 	return err
 }
