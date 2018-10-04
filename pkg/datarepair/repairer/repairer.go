@@ -84,7 +84,7 @@ func (r *repairer) Run() (err error) {
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			for r.inProgress >= r.maxRepair {
 				r.cond.Wait()
 			}
