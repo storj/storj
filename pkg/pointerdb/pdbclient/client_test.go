@@ -135,8 +135,10 @@ func TestGet(t *testing.T) {
 		}
 
 		byteData := data
+		ptr := &pb.Pointer{}
+		proto.Unmarshal(byteData, ptr)
 
-		getResponse := pb.GetResponse{Pointer: byteData}
+		getResponse := pb.GetResponse{Pointer: ptr}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 

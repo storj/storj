@@ -96,10 +96,8 @@ func TestServiceGet(t *testing.T) {
 			assert.EqualError(t, err, tt.errString, errTag)
 		} else {
 			assert.NoError(t, err, errTag)
-			respPr := &pb.Pointer{}
-			err := proto.Unmarshal(resp.GetPointer(), respPr)
 			assert.NoError(t, err, errTag)
-			assert.True(t, proto.Equal(pr, respPr), errTag)
+			assert.True(t, proto.Equal(pr, resp.Pointer), errTag)
 		}
 	}
 }
