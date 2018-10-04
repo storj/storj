@@ -125,7 +125,7 @@ func (client *Minio) ListObjects(bucket, prefix string) ([]string, error) {
 	defer close(doneCh)
 
 	names := []string{}
-	for message := range client.api.ListObjects(bucket, prefix, true, doneCh) {
+	for message := range client.api.ListObjects(bucket, prefix, false, doneCh) {
 		names = append(names, message.Key)
 	}
 
