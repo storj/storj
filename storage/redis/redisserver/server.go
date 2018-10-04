@@ -29,8 +29,8 @@ const (
 	fallbackPort = 6379
 )
 
-func freeport() (addr string, port int) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func freeport(inport int) (addr string, port int) {
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", inport))
 	if err != nil {
 		return fallbackAddr, fallbackPort
 	}
@@ -53,16 +53,29 @@ func Start() (addr string, cleanup func(), err error) {
 	return addr, cleanup, err
 }
 
-// Process starts a redis-server test process
+// Start starts a redis-server at the specified port, otherwise falls back to miniredis
+func StartAt(port int) (cleanup func(), err error) {
+	_, cleanup, err = ProcessAt(port)
+	if err != nil {
+		log.Println("failed to start redis-server: ", err)
+		return MiniAt(port)
+	}
+	return cleanup, err
+}
+
 func Process() (addr string, cleanup func(), err error) {
+	return ProcessAt(0)
+}
+
+// Process starts a redis-server test process
+func ProcessAt(port int) (addr string, cleanup func(), err error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
 		return "", nil, err
 	}
 
 	// find a suitable port for listening
-	var port int
-	addr, port = freeport()
+	addr, port = freeport(port)
 
 	// write a configuration file, because redis doesn't support flags
 	confpath := filepath.Join(tmpdir, "test.conf")
@@ -153,5 +166,19 @@ func Mini() (addr string, cleanup func(), err error) {
 
 	return server.Addr(), func() {
 		server.Close()
+	}, nil
+}
+
+// Mini starts miniredis server at the specified Port
+func MiniAt(port int) (cleanup func(), err error) {
+	m := miniredis.NewMiniRedis()
+	m.port = port
+
+	if err = m.Start(); err != nil {
+		return nil, err
+	}
+
+	return func() {
+		m.Close()
 	}, nil
 }

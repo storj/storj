@@ -106,8 +106,8 @@ require (
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
-	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
-	golang.org/x/sys v0.0.0-20180924142050-c01370cb5c9b
+	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
+	golang.org/x/sys v0.0.0-20181003145944-af653ce8b74f
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
@@ -121,6 +121,7 @@ require (
 
 // force specific versions for minio
 require (
+	cloud.google.com/go v0.29.0 // indirect
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
@@ -131,6 +132,11 @@ require (
 	github.com/prometheus/common v0.0.0-20180326160409-38c53a9f4bfc // indirect
 	github.com/prometheus/procfs v0.0.0-20180408092902-8b1c2da0d56d // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+	golang.org/x/oauth2 v0.0.0-20181003184128-c57b0facaced // indirect
+	golang.org/x/tools v0.0.0-20181004021813-1f2a8f46bd66 // indirect
+	google.golang.org/appengine v1.2.0 // indirect
+	google.golang.org/genproto v0.0.0-20181004005441-af9cb2a35e7f // indirect
+	honnef.co/go/tools v0.0.0-20180920025451-e3ad64cb4ed3 // indirect
 )
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
