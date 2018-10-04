@@ -161,7 +161,7 @@ func TestAuditSegment(t *testing.T) {
 		},
 		{
 			bm:     "success-10",
-			path:   paths.New("Random/ビデオ/😶"),
+			path:   paths.New("Nada/ビデオ/😶"),
 			APIKey: nil,
 			limit:  10,
 			items:  nil,
@@ -170,7 +170,7 @@ func TestAuditSegment(t *testing.T) {
 		},
 		{
 			bm:     "success-11",
-			path:   paths.New("Random/ビデオ/😶"),
+			path:   paths.New("Random/"),
 			APIKey: nil,
 			limit:  10,
 			items:  nil,
@@ -178,8 +178,8 @@ func TestAuditSegment(t *testing.T) {
 			err:    nil,
 		},
 		{
-			bm:     "success-12",
-			path:   paths.New("Random/ビデオ/😶"),
+			bm:     "success-11",
+			path:   paths.New("Random/😶"),
 			APIKey: nil,
 			limit:  10,
 			items:  nil,
@@ -226,7 +226,7 @@ func TestAuditSegment(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				stripe, err := a.NextStripe(ctx)
+				stripe, _, err := a.NextStripe(ctx)
 				if err != nil {
 					assert1.Error(ErrNoPointer)
 					assert1.Nil(stripe)
@@ -248,6 +248,7 @@ func TestAuditSegment(t *testing.T) {
 		uniquePathCounted := []pathCount{}
 		pathCounter := []pathCount{}
 
+		// get a list of 100 paths generated from random
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
@@ -260,6 +261,7 @@ func TestAuditSegment(t *testing.T) {
 			pathCounter = append(pathCounter, val)
 		}
 
+		// get a count for paths in list
 		for _, pc := range pathCounter {
 			skip := false
 			for i, up := range uniquePathCounted {
@@ -273,14 +275,11 @@ func TestAuditSegment(t *testing.T) {
 			if !skip {
 				uniquePathCounted = append(uniquePathCounted, pc)
 			}
-
-
 		}
-
 		fmt.Println("final \n\n\n\n", uniquePathCounted)
+	})
 
-
-	}) //randomTest
+		//stat analysis
 
 } // end of all fn
 

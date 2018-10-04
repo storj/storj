@@ -43,7 +43,7 @@ type Stripe struct {
 }
 
 // NextStripe returns a random stripe to be audited
-func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
+func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -55,26 +55,21 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 
 	// need to get random limit
 	if a.lastPath == nil {
-		pointerItems, _, err = a.pointers.List(ctx, nil, nil, nil, true, 10, meta.None)
+		pointerItems, more, err = a.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
 	} else {
-		pointerItems, _, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 10, meta.None)
+		pointerItems, more, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 0, meta.None)
 	}
 
 	fmt.Println("pointerItems, ", pointerItems)
 	fmt.Println("length of pointeritems; ", len(pointerItems))
+
 	if err != nil {
-		return nil, err
+		return nil, more, err
 	}
 
-	if len(pointerItems) == 0 {
-		a.lastPath = nil
-		return nil, ErrNoPointers
-	}
-
-	//pointerLength := len(pointerItems)
 	randomInt, err := generateRandomNumber(len(pointerItems))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	pointerItem := pointerItems[randomInt]
@@ -82,23 +77,23 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 	// get path
 	path = pointerItem.Path
 
-	// keep track of last path used
-	if a.lastPath != &path {
-		a.lastPath = &path
+	// keep track of last path listed
+	if !more {
+		a.lastPath = nil
 	} else {
-		return nil, ErrNoPointers
+		a.lastPath = &pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info
 	pointer, err := a.pointers.Get(ctx, path)
 	if err != nil {
-		return nil, ErrNoPointers
+		return nil, more, err
 	}
 
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return nil, err
+		return nil, more, err
 	}
 
 	//get random stripe
@@ -109,7 +104,7 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 
 	return &Stripe{
 		int(randomStripeNumInt),
-	}, nil
+	}, more, nil
 }
 
 // create the erasure scheme
