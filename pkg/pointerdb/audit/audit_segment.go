@@ -5,7 +5,12 @@ package audit
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"fmt"
+	"math/big"
+
+	//"math/rand"
+
 	"sync"
 
 	"github.com/vivint/infectious"
@@ -20,7 +25,7 @@ import (
 // Audit to audit segments
 type Audit struct {
 	pointers pdbclient.Client
-	r        *rand.Rand
+	//r        *rand.Rand
 	lastPath *paths.Path
 	mutex    sync.Mutex
 }
@@ -37,10 +42,14 @@ type Stripe struct {
 	stripe int
 }
 
+var randomNum = 0
+
 // NextStripe returns a random stripe to be audited
 func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
+	fmt.Println("start after at fn call: ", a.lastPath)
 
 	// retreive a random list of pointers
 	var pointerItems []pdbclient.ListItem
@@ -52,23 +61,28 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 		pointerItems, _, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 10, meta.None)
 	}
 
+	fmt.Println("pointerItems, ", pointerItems)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(pointerItems) == 0 {
+		a.lastPath = nil
 		return nil, ErrNoPointers
 	}
 
-	randomNum := rand.Intn(len(pointerItems))
-	pointerItem := pointerItems[randomNum]
+	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
+	randomInt := randomNum.Int64()
+	fmt.Println("randomNum is for pointerItems is ", randomNum)
+
+	pointerItem := pointerItems[randomInt]
 
 	// get a pointer
 	path := pointerItem.Path
 	pointer, err := a.pointers.Get(ctx, path)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrNoPointers
 	}
 
 	// keep track of last path used
@@ -76,7 +90,7 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 		a.lastPath = &path
 	} else {
 		// get another path
-		pointerItem := pointerItems[randomNum]
+		pointerItem := pointerItems[randomInt]
 		path := pointerItem.Path
 		a.lastPath = &path
 	}
@@ -87,15 +101,14 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
 		return nil, err
 	}
 
-	// get random stripe
+	//get random stripe
 	stripeSize := es.StripeSize()
-	stripeNum := rand.Intn((int(pointer.GetSize()) / stripeSize))
-	if stripeNum == 0 {
-		stripeNum = stripeNum + 1
-	}
+	randomStripeNum, err := rand.Int(rand.Reader, big.NewInt(int64(pointer.GetSize())/int64(stripeSize)))
+	randomStripeNumInt := randomStripeNum.Int64()
+	fmt.Println("stripe num is: ", randomStripeNumInt)
 
 	return &Stripe{
-		stripeNum,
+		int(randomStripeNumInt),
 	}, nil
 }
 
