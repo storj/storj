@@ -13,4 +13,5 @@ message MetaStreamInfo {
     bytes metadata = 4;
     int32 encryption_type = 5;
     int32 encryption_block_size = 6;
+    bytes last_segment_encryption_key = 7;
 }

@@ -36,6 +36,7 @@ protos/google/*
 *test_bolt.db
 
 *.coverprofile
+*.log
 
 /release/
 *.swp
