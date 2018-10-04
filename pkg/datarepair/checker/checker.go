@@ -22,11 +22,8 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-<<<<<<< HEAD
-	// queueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
-=======
+	// QueueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
 	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
->>>>>>> f7afafe4e1a2827f26981e720dab9d675093e549
 }
 
 // Run runs the checker with configured values
