@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -95,7 +96,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	if err != nil {
 		return Meta{}, err
 	}
-	
+
 	var path paths.Path
 	var pointer *pb.Pointer
 	if !remoteSized {
@@ -158,7 +159,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
-		if (nodes[i] == nil) {
+		if nodes[i] == nil {
 			continue
 		}
 		remotePieces = append(remotePieces, &pb.RemotePiece{
@@ -259,6 +260,12 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 	return s.pdb.Delete(ctx, path)
 }
 
+// Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
+func (s *segmentStore) Repair(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	fmt.Println(seg)
+	return nil
+}
+
 // lookupNodes calls Lookup to get node addresses from the overlay
 func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
 	// Get list of all nodes IDs storing a piece from the segment
@@ -275,7 +282,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 	// Missing pieces are represented by a nil node.
 	nodes = make([]*pb.Node, seg.GetRedundancy().GetTotal())
 	for i, p := range seg.GetRemotePieces() {
-		nodes[p.PieceNum] = n[i]	
+		nodes[p.PieceNum] = n[i]
 	}
 	return nodes, nil
 }
