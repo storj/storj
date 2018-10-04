@@ -54,13 +54,8 @@ func Start() (addr string, cleanup func(), err error) {
 }
 
 // Start starts a redis-server at the specified port, otherwise falls back to miniredis
-func StartAt(port int) (cleanup func(), err error) {
-	_, cleanup, err = ProcessAt(port)
-	if err != nil {
-		log.Println("failed to start redis-server: ", err)
-		return MiniAt(port)
-	}
-	return cleanup, err
+func StartAt(port int) (addr string, cleanup func(), err error) {
+	return ProcessAt(port)
 }
 
 func Process() (addr string, cleanup func(), err error) {
@@ -166,19 +161,5 @@ func Mini() (addr string, cleanup func(), err error) {
 
 	return server.Addr(), func() {
 		server.Close()
-	}, nil
-}
-
-// Mini starts miniredis server at the specified Port
-func MiniAt(port int) (cleanup func(), err error) {
-	m := miniredis.NewMiniRedis()
-	m.port = port
-
-	if err = m.Start(); err != nil {
-		return nil, err
-	}
-
-	return func() {
-		m.Close()
 	}, nil
 }
