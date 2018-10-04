@@ -99,16 +99,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 		return nil, Error.Wrap(err)
 	}
 
-	// pointer = &pb.Pointer{}
-	// pointerBytes, err := proto.Marshal(res.GetPointer())
-	// err = proto.Unmarshal(pointerBytes, pointer)
-
 	return res.GetPointer(), nil
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return pointer, nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
