@@ -136,7 +136,7 @@ func TestGet(t *testing.T) {
 
 		byteData := data
 		ptr := &pb.Pointer{}
-		proto.Unmarshal(byteData, ptr)
+		err = proto.Unmarshal(byteData, ptr)
 
 		getResponse := pb.GetResponse{Pointer: ptr}
 

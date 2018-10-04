@@ -126,9 +126,8 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, err
 	}
 	nodes := []*pb.Node{}
-	var r *pb.GetResponse
 
-	r = &pb.GetResponse{
+	var r = &pb.GetResponse{
 		Pointer: pointer,
 		Nodes:   nil,
 	}
