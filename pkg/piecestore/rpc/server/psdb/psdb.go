@@ -79,6 +79,11 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `mib` (`date` INT(10), `size` INT(10), `method` TEXT );")
+	if err != nil {
+		return nil, err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
