@@ -33,8 +33,9 @@ type Repairer interface {
 
 // Config contains configurable values for repairer
 type Config struct {
-	queueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
-	maxRepair    int    `help:"maximum segments that can be repaired concurrently" default:"100"`
+	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
+	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
 
 // Initialize a repairer struct
@@ -42,14 +43,15 @@ func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 	var r repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
-	client, err := redis.NewClientFrom(c.queueAddress)
+	client, err := redis.NewClientFrom(c.QueueAddress)
 	if err != nil {
 		return nil, repairerError.Wrap(err)
 	}
 	r.queue = q.NewQueue(client)
 
 	r.cond.L = &r.mu
-	r.maxRepair = c.maxRepair
+	r.maxRepair = c.MaxRepair
+	r.interval = c.Interval
 	return &r, nil
 }
 
@@ -73,13 +75,14 @@ type repairer struct {
 	cond       sync.Cond
 	maxRepair  int
 	inProgress int
+	interval   time.Duration
 }
 
 // Run the repairer loop
 func (r *repairer) Run() (err error) {
 	c := make(chan *pb.InjuredSegment)
 
-	ticker := time.NewTicker(24 * time.Hour)
+	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {

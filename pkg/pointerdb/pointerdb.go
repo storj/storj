@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
@@ -30,14 +31,16 @@ type Server struct {
 	DB     storage.KeyValueStore
 	logger *zap.Logger
 	config Config
+	cache  *overlay.Cache
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, logger *zap.Logger, c Config) *Server {
+func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config) *Server {
 	return &Server{
 		DB:     db,
 		logger: logger,
 		config: c,
+		cache:  cache,
 	}
 }
 
@@ -69,7 +72,6 @@ func (s *Server) validateSegment(req *pb.PutRequest) error {
 // Put formats and hands off a key/value (path/pointer) to be saved to boltdb
 func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb put")
 
 	err = s.validateSegment(req)
 	if err != nil {
@@ -96,7 +98,6 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		s.logger.Error("err putting pointer", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("put to the db: " + req.GetPath())
 
 	return &pb.PutResponse{}, nil
 }
@@ -104,7 +105,6 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 // Get formats and hands off a file path to get from boltdb
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb get")
 
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
@@ -119,15 +119,42 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.GetResponse{
-		Pointer: pointerBytes,
-	}, nil
+	pointer := &pb.Pointer{}
+	err = proto.Unmarshal(pointerBytes, pointer)
+	if err != nil {
+		s.logger.Error("Error unmarshaling pointer")
+		return nil, err
+	}
+	nodes := []*pb.Node{}
+
+	var r = &pb.GetResponse{
+		Pointer: pointer,
+		Nodes:   nil,
+	}
+
+	if !s.config.Overlay || pointer.Remote == nil {
+		return r, nil
+	}
+
+	for _, piece := range pointer.Remote.RemotePieces {
+		node, err := s.cache.Get(ctx, piece.NodeId)
+		if err != nil {
+			s.logger.Error("Error getting node from cache")
+		}
+		nodes = append(nodes, node)
+	}
+
+	r = &pb.GetResponse{
+		Pointer: pointer,
+		Nodes:   nodes,
+	}
+
+	return r, nil
 }
 
 // List returns all Path keys in the Pointers bucket
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering pointerdb list")
 
 	if err = s.validateAuth(req.APIKey); err != nil {
 		return nil, err
