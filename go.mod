@@ -39,7 +39,6 @@ require (
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.6.2 // indirect
 	github.com/gorilla/rpc v1.1.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/gtank/cryptopasta v0.0.0-20170601214702-1f550f6f2f69
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect

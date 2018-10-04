@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -51,7 +50,7 @@ func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.Unar
 
 	unaryInterceptor := unaryInterceptor
 	if interceptor != nil {
-		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, interceptor)
+		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
 	}
 
 	return &Provider{
@@ -148,4 +147,14 @@ func unaryInterceptor(ctx context.Context, req interface{},
 		zap.S().Errorf("%+v", err)
 	}
 	return resp, err
+}
+
+func combineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
+			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
+				return handler(bctx, breq)
+			})
+		})
+	}
 }
