@@ -33,7 +33,10 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}*/
 
-	u0 := fpath.New(args[0])
+	u0, err := fpath.New(args[0])
+	if err != nil {
+		return err
+	}
 
 	bs, err := cfg.BucketStore(ctx)
 	if err != nil {
@@ -45,7 +48,10 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 	}
 
-	clp := fpath.New("-")
+	clp, err := fpath.New("-")
+	if err != nil {
+		return err
+	}
 
 	return upload(ctx, bs, &clp, &u0)
 }
