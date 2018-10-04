@@ -8,8 +8,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -77,8 +79,16 @@ func Ctx(cmd *cobra.Command) context.Context {
 	defer contextMtx.Unlock()
 	ctx := contexts[cmd]
 	if ctx == nil {
-		return context.Background()
+		ctx = context.Background()
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-c
+		signal.Stop(c)
+		cancel()
+	}()
 	return ctx
 }
 
