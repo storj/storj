@@ -50,13 +50,9 @@ type Client interface {
 
 func apiKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", APIKey)
 
-		var header metadata.MD
-		opts = append(opts, grpc.Header(&header))
-		err := invoker(ctx, method, req, reply, cc, opts...)
-		// TODO do something with header
-		return err
+		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", APIKey)
+		return invoker(ctx, method, req, reply, cc)
 	}
 }
 

@@ -21,22 +21,25 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
-)
-
-var (
-	ctx = context.Background()
+	
 )
 
 func TestServicePut(t *testing.T) {
 	for i, tt := range []struct {
+		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, ""},
-		{errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, nil, ""},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{nil, errors.New("put error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.apiKey)
+
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
@@ -62,12 +65,17 @@ func TestServicePut(t *testing.T) {
 
 func TestServiceGet(t *testing.T) {
 	for i, tt := range []struct {
+		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, ""},
-		{errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, nil, ""},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.apiKey)
+
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
@@ -102,12 +110,17 @@ func TestServiceGet(t *testing.T) {
 
 func TestServiceDelete(t *testing.T) {
 	for i, tt := range []struct {
+		apiKey    []byte
 		err       error
 		errString string
 	}{
-		{nil, ""},
-		{errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
+		{nil, nil, ""},
+		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
+		{nil, errors.New("delete error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.apiKey)
+
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		path := "a/b/c"
@@ -162,9 +175,20 @@ func TestServiceList(t *testing.T) {
 	}
 
 	type Test struct {
+		APIKey string
 		Request  pb.ListRequest
 		Expected *pb.ListResponse
 		Error    func(i int, err error)
+	}
+
+	errorWithCode := func(code codes.Code) func(i int, err error) {
+		t.Helper()
+		return func(i int, err error) {
+			t.Helper()
+			if status.Code(err) != code {
+				t.Fatalf("%d: should fail with %v, got: %v", i, code, err)
+			}
+		}
 	}
 
 	tests := []Test{
@@ -194,6 +218,10 @@ func TestServiceList(t *testing.T) {
 					{Path: "ビデオ/movie.mkv", Pointer: pointer},
 				},
 			},
+		}, {
+			APIKey: "wrong key",
+			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},//, APIKey: []byte("wrong key")},
+			Error:   errorWithCode(codes.Unauthenticated),
 		}, {
 			Request: pb.ListRequest{Recursive: true, Limit: 3},
 			Expected: &pb.ListResponse{
@@ -286,6 +314,9 @@ func TestServiceList(t *testing.T) {
 	//    pb.ListRequest{Prefix: "müsic/", StartAfter: "söng1.mp3", EndBefore: "söng4.mp3"},
 	//    failing database
 	for i, test := range tests {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, []byte(test.APIKey))
+
 		resp, err := server.List(ctx, &test.Request)
 		if test.Error == nil {
 			if err != nil {

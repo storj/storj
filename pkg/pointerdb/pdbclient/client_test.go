@@ -20,16 +20,18 @@ import (
 
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/pkg/storage/meta"
 )
 
 const (
-	noPathGiven = "file path not given"
+	unauthenticated = "failed API creds"
+	noPathGiven     = "file path not given"
 )
 
 var (
-	ctx            = context.Background()
-	ErrNoFileGiven = errors.New(noPathGiven)
+	ErrUnauthenticated = errors.New(unauthenticated)
+	ErrNoFileGiven     = errors.New(noPathGiven)
 )
 
 func TestNewPointerDBClient(t *testing.T) {
@@ -79,13 +81,20 @@ func TestPut(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
+		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		{p.New("file1/file2"), nil, ""},
-		{p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
 		putRequest := makePointer(tt.path)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -93,7 +102,7 @@ func TestPut(t *testing.T) {
 		pdb := PointerDB{grpcClient: gc}
 
 		// here we don't care what type of context we pass
-		gc.EXPECT().Put(gomock.Any(), &putRequest, gomock.Any()).Return(nil, tt.err)
+		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
 
 		err := pdb.Put(ctx, tt.path, putRequest.Pointer)
 
@@ -110,13 +119,20 @@ func TestGet(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
+		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		{p.New(""), ErrNoFileGiven, noPathGiven},
-		{p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
 		getPointer := makePointer(tt.path)
 		getRequest := pb.GetRequest{Path: tt.path.String()}
 
@@ -134,7 +150,7 @@ func TestGet(t *testing.T) {
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().Get(gomock.Any(), &getRequest, gomock.Any()).Return(&getResponse, tt.err)
+		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
 		pointer, err := pdb.Get(ctx, tt.path)
 
@@ -159,23 +175,24 @@ func TestList(t *testing.T) {
 		recursive  bool
 		limit      int
 		metaFlags  uint32
+		APIKey     string
 		items      []*pb.ListResponse_Item
 		more       bool
 		err        error
 		errString  string
 	}{
-		{"", "", "", false, 0, meta.None,
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{}, false, nil, ""},
-		{"", "", "", false, 0, meta.None,
+		{"", "", "", false, 0, meta.None, "",
 			[]*pb.ListResponse_Item{{}}, false, nil, ""},
-		{"", "", "", false, -1, meta.None,
-			[]*pb.ListResponse_Item{}, false, nil, ""},
-		{"prefix", "after", "before", false, 1, meta.None,
+		{"", "", "", false, -1, meta.None, "",
+			[]*pb.ListResponse_Item{}, false, ErrUnauthenticated, unauthenticated},
+		{"prefix", "after", "before", false, 1, meta.None, "some key",
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c"},
 			},
 			true, nil, ""},
-		{"prefix", "after", "before", false, 1, meta.All,
+		{"prefix", "after", "before", false, 1, meta.All, "some key",
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c", Pointer: &pb.Pointer{
 					Size:           1234,
@@ -184,13 +201,16 @@ func TestList(t *testing.T) {
 				}},
 			},
 			true, nil, ""},
-		{"some/prefix", "start/after", "end/before", true, 123, meta.Size,
+		{"some/prefix", "start/after", "end/before", true, 123, meta.Size, "some key",
 			[]*pb.ListResponse_Item{
 				{Path: "a/b/c", Pointer: &pb.Pointer{Size: 1234}},
 				{Path: "x/y", Pointer: &pb.Pointer{Size: 789}},
 			},
 			true, nil, ""},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, []byte(tt.APIKey))
+
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		listRequest := pb.ListRequest{
@@ -207,7 +227,7 @@ func TestList(t *testing.T) {
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().List(gomock.Any(), &listRequest, gomock.Any()).Return(&listResponse, tt.err)
+		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
 		items, more, err := pdb.List(ctx, p.New(tt.prefix), p.New(tt.startAfter),
 			p.New(tt.endBefore), tt.recursive, tt.limit, tt.metaFlags)
@@ -240,20 +260,27 @@ func TestDelete(t *testing.T) {
 	defer ctrl.Finish()
 
 	for i, tt := range []struct {
+		APIKey    []byte
 		path      p.Path
 		err       error
 		errString string
 	}{
-		{p.New(""), ErrNoFileGiven, noPathGiven},
-		{p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
 		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
 		pdb := PointerDB{grpcClient: gc}
 
-		gc.EXPECT().Delete(gomock.Any(), &deleteRequest, gomock.Any()).Return(nil, tt.err)
+		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 
 		err := pdb.Delete(ctx, tt.path)
 

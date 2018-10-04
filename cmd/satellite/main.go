@@ -69,13 +69,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if runCfg.MockOverlay.Nodes != "" {
 		o = runCfg.MockOverlay
 	}
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		return err
-	}
+
 	return runCfg.Identity.Run(
 		process.Ctx(cmd), 
-		auth.NewSatelliteAuthenticator(auth.NewResponseGenerator(identity)),
+		auth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
 		o,
