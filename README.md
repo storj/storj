@@ -106,7 +106,6 @@ AWS Access Key ID [None]: insecure-dev-access-key
 AWS Secret Access Key [None]: insecure-dev-secret-key
 Default region name [None]: us-east-1
 Default output format [None]:
-$ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
 ```
 
 #### Test out some AWS S3 CLI commands!

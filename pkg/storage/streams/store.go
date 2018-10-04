@@ -35,16 +35,16 @@ type Meta struct {
 }
 
 // convertMeta converts segment metadata to stream metadata
-func convertMeta(segmentMeta segments.Meta) (Meta, error) {
+func convertMeta(lastSegmentMeta segments.Meta) (Meta, error) {
 	msi := pb.MetaStreamInfo{}
-	err := proto.Unmarshal(segmentMeta.Data, &msi)
+	err := proto.Unmarshal(lastSegmentMeta.Data, &msi)
 	if err != nil {
 		return Meta{}, err
 	}
 
 	return Meta{
-		Modified:   segmentMeta.Modified,
-		Expiration: segmentMeta.Expiration,
+		Modified:   lastSegmentMeta.Modified,
+		Expiration: lastSegmentMeta.Expiration,
 		Size:       ((msi.NumberOfSegments - 1) * msi.SegmentsSize) + msi.LastSegmentSize,
 		Data:       msi.Metadata,
 	}, nil
@@ -54,12 +54,9 @@ func convertMeta(segmentMeta segments.Meta) (Meta, error) {
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (Meta, error)
 	Get(ctx context.Context, path paths.Path) (ranger.Ranger, Meta, error)
-	Put(ctx context.Context, path paths.Path, data io.Reader,
-		metadata []byte, expiration time.Time) (Meta, error)
+	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
 	Delete(ctx context.Context, path paths.Path) error
-	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint32) (items []ListItem,
-		more bool, err error)
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 // streamStore is a store for streams
@@ -96,13 +93,12 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
 // *last* piece at l/<path>. Store the given metadata, along with the number
 // of segments, in a new protobuf, in the metadata of l/<path>.
-func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (m Meta, err error) {
+func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var totalSegments int64
-	var totalSize int64
-	var lastSegmentSize int64
+	var currentSegment int64
+	var streamSize int64
+	var putMeta segments.Meta
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
@@ -121,7 +117,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		}
 
 		var nonce eestream.Nonce
-		_, err := nonce.Increment(totalSegments)
+		_, err := nonce.Increment(currentSegment)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -137,7 +133,6 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		}
 
 		sizeReader := NewSizeReader(eofReader)
-		segmentPath := getSegmentPath(path, totalSegments)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
 		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
@@ -160,52 +155,50 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 			transformedReader = bytes.NewReader(cipherData)
 		}
 
-		_, err = s.segments.Put(ctx, segmentPath, transformedReader, encryptedEncKey, expiration)
+		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
+			if !eofReader.isEOF() {
+				segmentPath := getSegmentPath(path, currentSegment)
+				return segmentPath, encryptedEncKey, nil
+			}
+
+			lastSegmentPath := path.Prepend("l")
+			msi := pb.MetaStreamInfo{
+				NumberOfSegments:         currentSegment + 1,
+				SegmentsSize:             s.segmentSize,
+				LastSegmentSize:          sizeReader.Size(),
+				Metadata:                 metadata,
+				EncryptionType:           int32(s.encType),
+				EncryptionBlockSize:      int32(s.encBlockSize),
+				LastSegmentEncryptionKey: encryptedEncKey,
+			}
+			lastSegmentMeta, err := proto.Marshal(&msi)
+			if err != nil {
+				return nil, nil, err
+			}
+			return lastSegmentPath, lastSegmentMeta, nil
+		})
 		if err != nil {
 			return Meta{}, err
 		}
 
-		lastSegmentSize = sizeReader.Size()
-		totalSize = totalSize + lastSegmentSize
-		totalSegments = totalSegments + 1
+		currentSegment++
+		streamSize += sizeReader.Size()
 	}
 	if eofReader.hasError() {
 		return Meta{}, eofReader.err
 	}
 
-	lastSegmentPath := path.Prepend("l")
-
-	md := pb.MetaStreamInfo{
-		NumberOfSegments:    totalSegments,
-		SegmentsSize:        s.segmentSize,
-		LastSegmentSize:     lastSegmentSize,
-		Metadata:            metadata,
-		EncryptionType:      int32(s.encType),
-		EncryptionBlockSize: int32(s.encBlockSize),
-	}
-	lastSegmentMetadata, err := proto.Marshal(&md)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	putMeta, err := s.segments.Put(ctx, lastSegmentPath, data,
-		lastSegmentMetadata, expiration)
-	if err != nil {
-		return Meta{}, err
-	}
-	totalSize = totalSize + putMeta.Size
-
 	resultMeta := Meta{
 		Modified:   putMeta.Modified,
 		Expiration: expiration,
-		Size:       totalSize,
+		Size:       streamSize,
 		Data:       metadata,
 	}
 
 	return resultMeta, nil
 }
 
-// GetSegmentPath returns the unique path for a particular segment
+// getSegmentPath returns the unique path for a particular segment
 func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 	return p.Prepend(fmt.Sprintf("s%d", segNum))
 }
@@ -213,11 +206,10 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 // Get returns a ranger that knows what the overall size is (from l/<path>)
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
-func (s *streamStore) Get(ctx context.Context, path paths.Path) (
-	rr ranger.Ranger, meta Meta, err error) {
+func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -228,7 +220,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, err
 	}
 
-	newMeta, err := convertMeta(lastSegmentMeta)
+	streamMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -239,12 +231,9 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 	}
 
 	var rangers []ranger.Ranger
-	for i := int64(0); i < msi.NumberOfSegments; i++ {
+	for i := int64(0); i < msi.NumberOfSegments-1; i++ {
 		currentPath := getSegmentPath(path, i)
 		size := msi.SegmentsSize
-		if i == msi.NumberOfSegments-1 {
-			size = msi.LastSegmentSize
-		}
 		var nonce eestream.Nonce
 		_, err := nonce.Increment(i)
 		if err != nil {
@@ -262,24 +251,44 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (
 		rangers = append(rangers, rr)
 	}
 
+	var nonce eestream.Nonce
+	_, err = nonce.Increment(msi.NumberOfSegments - 1)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	decryptedLastSegmentRanger, err := decryptRanger(
+		ctx,
+		lastSegmentRanger,
+		msi.LastSegmentSize,
+		eestream.Cipher(msi.EncryptionType),
+		msi.LastSegmentEncryptionKey,
+		(*eestream.Key)(derivedKey),
+		&nonce,
+		int(msi.EncryptionBlockSize),
+	)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	rangers = append(rangers, decryptedLastSegmentRanger)
+
 	catRangers := ranger.Concat(rangers...)
 
-	return catRangers, newMeta, nil
+	return catRangers, streamMeta, nil
 }
 
 // Meta implements Store.Meta
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	segmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
 	}
 
-	meta, err := convertMeta(segmentMeta)
+	streamMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	return meta, nil
+	return streamMeta, nil
 }
 
 // Delete all the segments, with the last one last
@@ -297,7 +306,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	for i := 0; i < int(msi.NumberOfSegments); i++ {
+	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
 		currentPath := getSegmentPath(path, int64(i))
 		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
@@ -316,9 +325,7 @@ type ListItem struct {
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
-func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-	recursive bool, limit int, metaFlags uint32) (items []ListItem,
-	more bool, err error) {
+func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if metaFlags&meta.Size != 0 {
@@ -362,54 +369,52 @@ func (lr *lazySegmentRanger) Size() int64 {
 
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	cipher := lr.encType
-
 	if lr.ranger == nil {
 		rr, m, err := lr.segments.Get(ctx, lr.path)
 		if err != nil {
 			return nil, err
 		}
-		encryptedEncKey := m.Data
-		e, err := cipher.Decrypt(encryptedEncKey, lr.derivedKey, lr.startingNonce)
+		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.encType, m.Data, lr.derivedKey, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
-		}
-		var encKey eestream.Key
-		copy(encKey[:], e)
-		decrypter, err := cipher.NewDecrypter(&encKey, lr.startingNonce, lr.encBlockSize)
-		if err != nil {
-			return nil, err
-		}
-
-		var rd ranger.Ranger
-		if rr.Size()%int64(decrypter.InBlockSize()) != 0 {
-			reader, err := rr.Range(ctx, 0, rr.Size())
-			if err != nil {
-				return nil, err
-			}
-			cipherData, err := ioutil.ReadAll(reader)
-			if err != nil {
-				return nil, err
-			}
-			data, err := cipher.Decrypt(cipherData, &encKey, lr.startingNonce)
-			if err != nil {
-				return nil, err
-			}
-			rd = ranger.ByteRanger(data)
-			lr.ranger = rd
-		} else {
-			rd, err = eestream.Transform(rr, decrypter)
-			if err != nil {
-				return nil, err
-			}
-
-			paddedSize := rd.Size()
-			rc, err := eestream.Unpad(rd, int(paddedSize-lr.Size()))
-			if err != nil {
-				return nil, err
-			}
-			lr.ranger = rc
 		}
 	}
 	return lr.ranger.Range(ctx, offset, length)
+}
+
+// decryptRanger returns a decrypted ranger of the given rr ranger
+func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher eestream.Cipher, encryptedEncKey []byte, derivedKey *eestream.Key, startingNonce *eestream.Nonce, encBlockSize int) (ranger.Ranger, error) {
+	e, err := cipher.Decrypt(encryptedEncKey, derivedKey, startingNonce)
+	if err != nil {
+		return nil, err
+	}
+	var encKey eestream.Key
+	copy(encKey[:], e)
+	decrypter, err := cipher.NewDecrypter(&encKey, startingNonce, encBlockSize)
+	if err != nil {
+		return nil, err
+	}
+
+	var rd ranger.Ranger
+	if rr.Size()%int64(decrypter.InBlockSize()) != 0 {
+		reader, err := rr.Range(ctx, 0, rr.Size())
+		if err != nil {
+			return nil, err
+		}
+		cipherData, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
+		data, err := cipher.Decrypt(cipherData, &encKey, startingNonce)
+		if err != nil {
+			return nil, err
+		}
+		return ranger.ByteRanger(data), nil
+	}
+
+	rd, err = eestream.Transform(rr, decrypter)
+	if err != nil {
+		return nil, err
+	}
+	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
 }

@@ -48,14 +48,10 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
-	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger,
-		meta Meta, err error)
-	Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte,
-		expiration time.Time) (meta Meta, err error)
+	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore paths.Path,
-		recursive bool, limit int, metaFlags uint32) (items []ListItem,
-		more bool, err error)
+	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -86,11 +82,8 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
-	metadata []byte, expiration time.Time) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	var p *pb.Pointer
 
 	exp, err := ptypes.TimestampProto(expiration)
 	if err != nil {
@@ -102,8 +95,17 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 	if err != nil {
 		return Meta{}, err
 	}
+	
+	var path paths.Path
+	var pointer *pb.Pointer
 	if !remoteSized {
-		p = &pb.Pointer{
+		p, metadata, err := segmentInfo()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		path = p
+
+		pointer = &pb.Pointer{
 			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
 			Size:           int64(len(peekReader.thresholdBuf)),
@@ -124,14 +126,21 @@ func (s *segmentStore) Put(ctx context.Context, path paths.Path, data io.Reader,
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		p, err = s.makeRemotePointer(successfulNodes, pieceID, sizedReader.Size(), exp, metadata)
+
+		p, metadata, err := segmentInfo()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+		path = p
+
+		pointer, err = s.makeRemotePointer(successfulNodes, pieceID, sizedReader.Size(), exp, metadata)
 		if err != nil {
 			return Meta{}, err
 		}
 	}
 
 	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, p)
+	err = s.pdb.Put(ctx, path, pointer)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}

@@ -132,7 +132,9 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, p, r, tt.mdInput, tt.expiration)
+		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
+			return p, tt.mdInput, nil
+		})
 		assert.NoError(t, err, tt.name)
 	}
 }
@@ -175,7 +177,9 @@ func TestSegmentStorePutInline(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, p, r, tt.mdInput, tt.expiration)
+		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
+			return p, tt.mdInput, nil
+		})
 		assert.NoError(t, err, tt.name)
 	}
 }
