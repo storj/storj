@@ -59,6 +59,7 @@ func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.L
 func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
 	maxNodes := opts.GetAmount()
+	excluded := opts.GetFilter()
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
@@ -67,7 +68,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, start, maxNodes, restrictedBandwidth, restrictedSpace)
+		nodes, start, err = o.populate(ctx, start, maxNodes, restrictedBandwidth, restrictedSpace, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -117,7 +118,7 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64) ([]*pb.Node, storage.Key, error) {
+func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded []string) ([]*pb.Node, storage.Key, error) {
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(starting, limit)
 	if err != nil {
@@ -138,12 +139,21 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	}
 
 	for _, v := range nodes {
+		badNode := false
 		rest := v.GetRestrictions()
+
 		if rest.GetFreeBandwidth() < restrictedBandwidth || rest.GetFreeDisk() < restrictedSpace {
 			continue
 		}
-
-		result = append(result, v)
+		for _, exId := range excluded {
+			if v.Id == exId {
+				badNode = true
+				break
+			}
+		}
+		if !badNode {
+			result = append(result, v)
+		}
 	}
 
 	nextStart := keys[len(keys)-1]

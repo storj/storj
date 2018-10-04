@@ -70,6 +70,28 @@ func (o *Overlay) Choose(ctx context.Context, amount int, space int64) ([]*pb.No
 	return resp.GetNodes(), nil
 }
 
+// ChooseFiltered provides a list of nodes which will not contain specified nodes
+func (o *Overlay) ChooseFiltered(ctx context.Context, amount int, space int64, excluded []*pb.Node) ([]*pb.Node, error) {
+	var exIDs []string
+	for _, node := range excluded {
+		exIDs = append(exIDs, node.Id)
+	}
+	// TODO(coyle): We will also need to communicate with the reputation service here
+	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
+		Opts: &pb.OverlayOptions{
+			Amount:       int64(amount),
+			Restrictions: &pb.NodeRestrictions{FreeDisk: space},
+			Filter:       exIDs,
+		},
+	})
+
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return resp.GetNodes(), nil
+}
+
 // Lookup provides a Node with the given ID
 func (o *Overlay) Lookup(ctx context.Context, nodeID dht.NodeID) (*pb.Node, error) {
 	resp, err := o.client.Lookup(ctx, &pb.LookupRequest{NodeID: nodeID.String()})
