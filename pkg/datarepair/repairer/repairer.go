@@ -7,15 +7,21 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/storage/redis"
 )
 
 var (
 	mon = monkit.Package()
+
+	// Error is a redis error
+	repairerError = errs.Class("repairer error")
 )
 
 // Repairer is the interface for the data repair queue
@@ -27,8 +33,9 @@ type Repairer interface {
 
 // Config contains configurable values for repairer
 type Config struct {
-	// queueAddress string `help:"data repair queue address" default:"localhost:7779"`
-	maxRepair int `help:"maximum segments that can be repaired concurrently" default:"100"`
+	queueAddress string `help:"data repair queue address" default:"localhost:6379"`
+	queuePass    string `help:"data repair queue password" default:""`
+	maxRepair    int    `help:"maximum segments that can be repaired concurrently" default:"100"`
 }
 
 // Initialize a repairer struct
@@ -37,6 +44,11 @@ func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
 	// TODO: Setup queue with c.queueAddress r.queue = queue
+	client, err := redis.NewClient(c.queueAddress, c.queuePass, 1)
+	if err != nil {
+		return nil, repairerError.Wrap(err)
+	}
+	r.queue = q.NewQueue(client)
 
 	r.cond.L = &r.mu
 	r.maxRepair = c.maxRepair
@@ -68,8 +80,11 @@ type repairer struct {
 // Run the repairer loop
 func (r *repairer) Run() (err error) {
 	c := make(chan *pb.InjuredSegment)
+
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
 	go func() {
-		for {
+		for _ = range ticker.C {
 			for r.inProgress >= r.maxRepair {
 				r.cond.Wait()
 			}
