@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
@@ -26,6 +27,7 @@ type Config struct {
 	DatabaseURL          string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
 	MinInlineSegmentSize int64  `default:"1240" help:"minimum inline segment size"`
 	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
+	Overlay              bool   `default:"false" help:"toggle flag if overlay is enabled"`
 }
 
 // Run implements the provider.Responsibility interface
@@ -44,8 +46,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	}
 	defer func() { _ = bdb.Close() }()
 
+	cache := overlay.LoadFromContext(ctx)
 	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, zap.L(), c))
+	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c))
 
 	return server.Run(ctx)
 }
