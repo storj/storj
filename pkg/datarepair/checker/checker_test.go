@@ -44,10 +44,10 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 				},
 				PieceId: strconv.Itoa(i),
 				RemotePieces: []*pb.RemotePiece{
-					{NodeId: ids[0]},
-					{NodeId: ids[1]},
-					{NodeId: ids[2]},
-					{NodeId: ids[3]},
+					{PieceNum: 0, NodeId: ids[0]},
+					{PieceNum: 1, NodeId: ids[1]},
+					{PieceNum: 2, NodeId: ids[2]},
+					{PieceNum: 3, NodeId: ids[3]},
 				},
 			},
 		}
@@ -64,10 +64,11 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		}
 		pieces := []int32{0, 1, 2, 3}
 		//expected injured segments
-		if len(ids[selection:]) >= int(p.Remote.Redundancy.RepairThreshold) {
+		if len(ids[selection:]) <= int(p.Remote.Redundancy.RepairThreshold) {
 			seg := &pb.InjuredSegment{
-				Path:       p.Remote.PieceId,
-				LostPieces: pieces[selection:],
+				Path:          p.Remote.PieceId,
+				LostPieces:    pieces[selection:],
+				HealthyPieces: pieces[:selection],
 			}
 			segs = append(segs, seg)
 		}
@@ -87,10 +88,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	}
 	sort.Slice(segs, func(i, k int) bool { return segs[i].Path < segs[k].Path })
 	sort.Slice(dequeued, func(i, k int) bool { return dequeued[i].Path < dequeued[k].Path })
-	assert.Equal(t, segs, dequeued)
+
+	for i := 0; i < len(segs); i++ {
+		assert.True(t, proto.Equal(segs[i], dequeued[i]))
+	}
 }
 
-func TestOfflineNodes(t *testing.T) {
+func TestOfflineAndOnlineNodes(t *testing.T) {
 	params := &pb.IdentifyRequest{Recurse: true}
 	pointerdb := teststore.New()
 	repairQueue := queue.NewQueue(teststore.New())
@@ -98,7 +102,8 @@ func TestOfflineNodes(t *testing.T) {
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := []dht.NodeID{}
-	expectedIndices := []int32{}
+	expectedOffline := []int32{}
+	expectedOnline := []int32{}
 	for i := 0; i < N; i++ {
 		str := strconv.Itoa(i)
 		n := &pb.Node{Id: str, Address: &pb.NodeAddress{Address: str}}
@@ -106,15 +111,17 @@ func TestOfflineNodes(t *testing.T) {
 		if i%(rand.Intn(5)+2) == 0 {
 			id := kademlia.StringToNodeID("id" + str)
 			nodeIDs = append(nodeIDs, id)
-			expectedIndices = append(expectedIndices, int32(i))
+			expectedOffline = append(expectedOffline, int32(i))
 		} else {
 			id := kademlia.StringToNodeID(str)
 			nodeIDs = append(nodeIDs, id)
+			expectedOnline = append(expectedOnline, int32(i))
 		}
 	}
 	overlayServer := overlay.NewMockOverlay(nodes)
 	checker := NewChecker(params, pointerdb, repairQueue, overlayServer, logger)
-	indices, err := checker.offlineNodes(ctx, nodeIDs)
+	offline, online, err := checker.offlineAndOnlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedIndices, indices)
+	assert.Equal(t, expectedOffline, offline)
+	assert.Equal(t, expectedOnline, online)
 }

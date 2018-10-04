@@ -10,6 +10,7 @@ package repair;
 message InjuredSegment {
     string path = 1;
     repeated int32 lost_pieces = 2;
+    repeated int32 healthy_pieces = 3;
 }
 
 //IdentifyRequest is a request message for the identifyInjuredSegments private method
