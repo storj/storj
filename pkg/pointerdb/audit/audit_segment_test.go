@@ -219,8 +219,8 @@ func TestAuditSegment(t *testing.T) {
 		// Section: binomial test for randomness
 		n := float64(100) // events
 		p := float64(.10) // theoretical probability of getting  1/10 paths
-		m := float64(n * p)
-		s := math.Sqrt(m * float64((1 - p))) // binomial distribution
+		m := n * p
+		s := math.Sqrt(m * (1 - p)) // binomial distribution
 
 		// if values fall outside of the critical values of test statistics (ie Z value)
 		// in a 2-tail test

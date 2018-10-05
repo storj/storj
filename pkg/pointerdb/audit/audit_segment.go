@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/vivint/infectious"
-	
+
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
@@ -88,7 +88,7 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 
 	//get random stripe
 	stripeSize := es.StripeSize()
-	randomStripeNum, err := rand.Int(rand.Reader, big.NewInt(int64(pointer.GetSize())/int64(stripeSize)))
+	randomStripeNum, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
 	randomStripeNumInt := randomStripeNum.Int64()
 
 	return &Stripe{
