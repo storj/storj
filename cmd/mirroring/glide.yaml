@@ -1,0 +1,21 @@
+package: storj.io/mirroring
+import:
+- package: github.com/minio/cli
+  version: ~1.3.0
+- package: github.com/minio/minio-go
+  version: ~6.0.6
+  subpackages:
+  - pkg/s3utils
+- package: github.com/minio/minio
+  subpackages:
+  - cmd
+  - pkg/auth
+  - pkg/hash
+- package: github.com/mitchellh/go-homedir
+  version: ~1.0.0
+- package: github.com/pkg/errors
+  version: ~0.8.0
+- package: github.com/spf13/cobra
+  version: ~0.0.3
+- package: github.com/spf13/viper
+  version: ~1.2.0
