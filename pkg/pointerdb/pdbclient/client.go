@@ -27,6 +27,14 @@ type PointerDB struct {
 	APIKey     []byte
 }
 
+// New Used as a public function
+func New(gcclient pb.PointerDBClient, APIKey []byte) (pdbc *PointerDB) {
+	return &PointerDB{
+		grpcClient: gcclient,
+		APIKey:   APIKey,
+	}
+}
+
 // a compiler trick to make sure *Overlay implements Client
 var _ Client = (*PointerDB)(nil)
 
