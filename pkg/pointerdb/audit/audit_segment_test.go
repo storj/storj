@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"storj.io/storj/pkg/overlay"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -130,7 +131,7 @@ func TestAuditSegment(t *testing.T) {
 	//PointerDB instantation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, nil, zap.NewNop(), c))
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, &overlay.Cache{}, zap.NewNop(), c))
 	pointers := pdbclient.New(pdbw, nil)
 
 	// create a pdb client and instance of audit
