@@ -8,12 +8,12 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
-	"storj.io/storj/pkg/overlay"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
@@ -23,14 +23,12 @@ import (
 )
 
 const (
-	noPointer = "pointer error: no pointers exist"
 	noList    = "list error: failed to get list"
 	noNum     = "num error: failed to get num"
 )
 
 var (
 	ctx          = context.Background()
-	ErrNoPointer = errors.New(noPointer)
 	ErrNoList    = errors.New(noList)
 	ErrorNoNum   = errors.New(noNum)
 )
@@ -69,7 +67,7 @@ type pathCount struct {
 
 func TestAuditSegment(t *testing.T) {
 	// note: to simulate better,
-	// change limit in library to 5 in 
+	// change limit in library to 5 in
 	// list api call, default is  0 == 1000 listing
 	tests := []struct {
 		bm     string
