@@ -6,6 +6,7 @@ package redis
 import (
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -52,6 +53,10 @@ func NewClientFrom(address string) (*Client, error) {
 	redisurl, err := utils.ParseURL(address)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.Compare("redis", redisurl.Scheme) != 0 {
+		return nil, Error.New("not a redis:// formatted address")
 	}
 
 	q := redisurl.Query()
