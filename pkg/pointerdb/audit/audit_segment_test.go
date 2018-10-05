@@ -130,7 +130,7 @@ func TestAuditSegment(t *testing.T) {
 	//PointerDB instantation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, zap.NewNop(), c))
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, nil, zap.NewNop(), c))
 	pointers := pdbclient.New(pdbw, nil)
 
 	// create a pdb client and instance of audit
@@ -218,7 +218,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// Section: binomial test for randomness
 		n := float64(100) // events
-		p := float64(.10) // theroetical probability of getting  1/10 paths
+		p := float64(.10) // theoretical probability of getting  1/10 paths
 		m := float64(n * p)
 		s := math.Sqrt(m * float64((1 - p))) // binomial distribution
 

@@ -42,7 +42,7 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// retreive a random list of pointers
+	// retrieve a random list of pointers
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
 
