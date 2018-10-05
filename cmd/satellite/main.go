@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
 
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/datarepair/checker"
+	// "storj.io/storj/pkg/datarepair/repairer"
+	// "storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -40,8 +40,8 @@ var (
 		Identity    provider.IdentityConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
-		Checker     checker.Config
-		Repairer    repairer.Config
+		// Checker     checker.Config
+		// Repairer    repairer.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
 	}
