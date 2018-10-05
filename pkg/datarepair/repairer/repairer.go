@@ -40,7 +40,7 @@ type Config struct {
 }
 
 // Initialize a repairer struct
-func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
+func (c Config) Initialize(ctx context.Context) (Repairer, error) {
 	var r repairer
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
@@ -56,8 +56,8 @@ func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 	return &r, nil
 }
 
-// Run runs the checker with configured values
-func (c *Config) Run(ctx context.Context, server *provider.Provider) (err error) {
+// Run runs the repairer with configured values
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	r, err := c.Initialize(ctx)
 	if err != nil {
 		return err
