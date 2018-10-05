@@ -2,42 +2,40 @@ package audit
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"testing"
 	"crypto/rand"
+	"errors"
+	"math"
 	"math/big"
 	"reflect"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	//"github.com/golang/protobuf/proto"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/storage/teststore"
 )
 
 const (
 	noPointer = "pointer error: no pointers exist"
-	noList = "list error: failed to get list"
-	noNum = "num error: failed to get num"
+	noList    = "list error: failed to get list"
+	noNum     = "num error: failed to get num"
 )
 
 var (
 	ctx          = context.Background()
 	ErrNoPointer = errors.New(noPointer)
-	ErrNoList = errors.New(noList)
-	ErrorNoNum = errors.New(noNum)
+	ErrNoList    = errors.New(noList)
+	ErrorNoNum   = errors.New(noNum)
 )
 
 // The client and server implementation are different;
 // This is a  wrapper so the pointerdb client can be implemented
-
 //R***********R***********/PointerDB Wrapper/***********R***********R********//
 type pointerDBWrapper struct {
 	s pb.PointerDBServer
@@ -64,127 +62,68 @@ func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
 }
 
 type pathCount struct {
-	path paths.Path 
+	path  paths.Path
 	count int
 }
 
 func TestAuditSegment(t *testing.T) {
+	// note: to simulate better,
+	// change limit in library to 5 in 
+	// list api call, default is  0 == 1000 listing
 	tests := []struct {
 		bm     string
 		path   paths.Path
 		APIKey []byte
-		limit  int
-		items  []pdbclient.ListItem
-		more   bool
-		err    error
 	}{
 		{
 			bm:     "success-1",
 			path:   paths.New("folder1/file1"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-2",
 			path:   paths.New("foodFolder1/file1/file2"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-3",
 			path:   paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-4",
 			path:   paths.New("projectFolder/project1.txt/"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-5",
 			path:   paths.New("newProjectFolder/project2.txt"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-6",
 			path:   paths.New("Pictures/image1.png"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-7",
 			path:   paths.New("Pictures/Nature/mountains.png"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-8",
 			path:   paths.New("Pictures/City/streets.png"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-9",
 			path:   paths.New("Pictures/Animals/Dogs/dogs.png"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 		{
 			bm:     "success-10",
 			path:   paths.New("Nada/ビデオ/😶"),
 			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
-		},
-		{
-			bm:     "success-11",
-			path:   paths.New("Random/"),
-			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
-		},
-		{
-			bm:     "success-11",
-			path:   paths.New("Random/😶"),
-			APIKey: nil,
-			limit:  10,
-			items:  nil,
-			more:   false,
-			err:    nil,
 		},
 	}
 
@@ -197,11 +136,11 @@ func TestAuditSegment(t *testing.T) {
 	// create a pdb client and instance of audit
 	a := NewAudit(pointers)
 
+	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				//errTag := fmt.Sprintf("Test case #%d", i)
 
 				// create a pointer and put in db
 				putRequest := makePointer(tt.path, tt.APIKey)
@@ -220,7 +159,7 @@ func TestAuditSegment(t *testing.T) {
 				}
 			})
 		}
-	}) //end of teststripe
+	})
 
 	t.Run("NextStripe", func(t *testing.T) {
 		for _, tt := range tests {
@@ -228,7 +167,7 @@ func TestAuditSegment(t *testing.T) {
 				assert1 := assert.New(t)
 				stripe, _, err := a.NextStripe(ctx)
 				if err != nil {
-					assert1.Error(ErrNoPointer)
+					assert1.Error(err)
 					assert1.Nil(stripe)
 				}
 				if stripe != nil {
@@ -236,7 +175,7 @@ func TestAuditSegment(t *testing.T) {
 				}
 			})
 		}
-	}) //end of nextstripefn
+	})
 
 	// test to see how random paths are
 	t.Run("probalisticTest", func(t *testing.T) {
@@ -245,6 +184,7 @@ func TestAuditSegment(t *testing.T) {
 			t.Error(ErrNoList)
 		}
 
+		// get count of items picked at random
 		uniquePathCounted := []pathCount{}
 		pathCounter := []pathCount{}
 
@@ -256,8 +196,7 @@ func TestAuditSegment(t *testing.T) {
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path
-
-			val := pathCount{path: path, count:1}
+			val := pathCount{path: path, count: 1}
 			pathCounter = append(pathCounter, val)
 		}
 
@@ -270,19 +209,32 @@ func TestAuditSegment(t *testing.T) {
 					uniquePathCounted[i] = up
 					skip = true
 					break
-				} 
+				}
 			}
 			if !skip {
 				uniquePathCounted = append(uniquePathCounted, pc)
 			}
 		}
-		fmt.Println("final \n\n\n\n", uniquePathCounted)
+
+		// Section: binomial test for randomness
+		n := float64(100) // events
+		p := float64(.10) // theroetical probability of getting  1/10 paths
+		m := float64(n * p)
+		s := math.Sqrt(m * float64((1 - p))) // binomial distribution
+
+		// if values fall outside of the critical values of test statistics (ie Z value)
+		// in a 2-tail test
+		// we can assume, 95% confidence, it's not sampling according to a 10% probability
+		for _, v := range uniquePathCounted {
+			z := (float64(v.count) - m) / s
+			if z <= -1.96 || z >= 1.96 {
+				t.Log(false)
+			} else {
+				t.Log(true)
+			}
+		}
 	})
-
-		//stat analysis
-
-} // end of all fn
-
+}
 
 func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 	var rps []*pb.RemotePiece

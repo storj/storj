@@ -6,15 +6,11 @@ package audit
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
-
-	//"math/rand"
-
 	"sync"
 
 	"github.com/vivint/infectious"
-
+	
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
@@ -25,7 +21,6 @@ import (
 // Audit to audit segments
 type Audit struct {
 	pointers pdbclient.Client
-	//r        *rand.Rand
 	lastPath *paths.Path
 	mutex    sync.Mutex
 }
@@ -47,8 +42,6 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	fmt.Println("start after at fn call: ", a.lastPath)
-
 	// retreive a random list of pointers
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
@@ -60,19 +53,16 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 		pointerItems, more, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 0, meta.None)
 	}
 
-	fmt.Println("pointerItems, ", pointerItems)
-	fmt.Println("length of pointeritems; ", len(pointerItems))
-
 	if err != nil {
 		return nil, more, err
 	}
 
-	randomInt, err := generateRandomNumber(len(pointerItems))
+	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
 	if err != nil {
-		return nil, false, err
+		return nil, more, err
 	}
-
-	pointerItem := pointerItems[randomInt]
+	randomNumInt64 := randomNum.Int64()
+	pointerItem := pointerItems[randomNumInt64]
 
 	// get path
 	path = pointerItem.Path
@@ -100,7 +90,6 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 	stripeSize := es.StripeSize()
 	randomStripeNum, err := rand.Int(rand.Reader, big.NewInt(int64(pointer.GetSize())/int64(stripeSize)))
 	randomStripeNumInt := randomStripeNum.Int64()
-	fmt.Println("stripe num is: ", randomStripeNumInt)
 
 	return &Stripe{
 		int(randomStripeNumInt),
@@ -115,14 +104,4 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	}
 	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
 	return es, nil
-}
-
-func generateRandomNumber(pointerLength int) (newRandomNum int64, err error) {
-	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(pointerLength)))
-	if err != nil {
-		return -1, err
-	}
-	newRandomNum = randomNum.Int64()
-	fmt.Println("randomNum is for pointerItems is ", randomNum)
-	return newRandomNum, nil
 }
