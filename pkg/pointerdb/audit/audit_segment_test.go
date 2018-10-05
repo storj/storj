@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/storage/redis/redisserver"
+
 )
 
 const (
@@ -129,7 +131,20 @@ func TestAuditSegment(t *testing.T) {
 	//PointerDB instantation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, &overlay.Cache{}, zap.NewNop(), c))
+	
+	redisAddr, cleanup, err := redisserver.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	defer cleanup()
+
+	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, cache)
+
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
 	pointers := pdbclient.New(pdbw, nil)
 
 	// create a pdb client and instance of audit
