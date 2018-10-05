@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
-	mrand "math/rand"
 	"sync"
 
 	"github.com/vivint/infectious"
@@ -23,7 +22,6 @@ import (
 type Audit struct {
 	pointers pdbclient.Client
 	lastPath *paths.Path
-	rand     mrand.Source
 	mutex    sync.Mutex
 }
 
@@ -31,7 +29,6 @@ type Audit struct {
 func NewAudit(pointers pdbclient.Client) *Audit {
 	return &Audit{
 		pointers: pointers,
-		//rand:     mrand.New(crand.Source),
 	}
 }
 
