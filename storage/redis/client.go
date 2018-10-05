@@ -5,10 +5,13 @@ package redis
 
 import (
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -42,6 +45,27 @@ func NewClient(address, password string, db int) (*Client, error) {
 	}
 
 	return client, nil
+}
+
+// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis
+func NewClientFrom(address string) (*Client, error) {
+	redisurl, err := utils.ParseURL(address)
+	if err != nil {
+		return nil, err
+	}
+
+	if redisurl.Scheme != "redis" {
+		return nil, Error.New("not a redis:// formatted address")
+	}
+
+	q := redisurl.Query()
+
+	db, err := strconv.Atoi(q.Get("db"))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClient(redisurl.Host, q.Get("password"), db)
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
