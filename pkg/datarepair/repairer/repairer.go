@@ -14,6 +14,7 @@ import (
 
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage/redis"
 )
 
@@ -56,7 +57,7 @@ func (c *Config) Initialize(ctx context.Context) (Repairer, error) {
 }
 
 // Run runs the checker with configured values
-func (c *Config) Run(ctx context.Context) (err error) {
+func (c *Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	r, err := c.Initialize(ctx)
 	if err != nil {
 		return err
