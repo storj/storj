@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
+	mrand "math/rand"
 	"sync"
 
 	"github.com/vivint/infectious"
@@ -22,6 +23,7 @@ import (
 type Audit struct {
 	pointers pdbclient.Client
 	lastPath *paths.Path
+	rand     mrand.Source
 	mutex    sync.Mutex
 }
 
@@ -29,53 +31,53 @@ type Audit struct {
 func NewAudit(pointers pdbclient.Client) *Audit {
 	return &Audit{
 		pointers: pointers,
+		//rand:     mrand.New(crand.Source),
 	}
 }
 
 // Stripe is a struct that contains stripe info
 type Stripe struct {
-	stripe int
+	index int
 }
 
 // NextStripe returns a random stripe to be audited
-func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
+	audit.mutex.Lock()
+	defer audit.mutex.Unlock()
 
 	// retrieve a random list of pointers
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
 
 	// need to get random limit
-	if a.lastPath == nil {
-		pointerItems, more, err = a.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
+	if audit.lastPath == nil {
+		pointerItems, more, err = audit.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
 	} else {
-		pointerItems, more, err = a.pointers.List(ctx, nil, *a.lastPath, nil, true, 0, meta.None)
+		pointerItems, more, err = audit.pointers.List(ctx, nil, *audit.lastPath, nil, true, 0, meta.None)
 	}
 
 	if err != nil {
 		return nil, more, err
 	}
 
-	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
+	// get random pointer
+	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
 		return nil, more, err
 	}
-	randomNumInt64 := randomNum.Int64()
-	pointerItem := pointerItems[randomNumInt64]
 
 	// get path
 	path = pointerItem.Path
 
 	// keep track of last path listed
 	if !more {
-		a.lastPath = nil
+		audit.lastPath = nil
 	} else {
-		a.lastPath = &pointerItems[len(pointerItems)-1].Path
+		audit.lastPath = &pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info
-	pointer, err := a.pointers.Get(ctx, path)
+	pointer, err := audit.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, more, err
 	}
@@ -87,12 +89,13 @@ func (a *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err 
 	}
 
 	//get random stripe
-	stripeSize := es.StripeSize()
-	randomStripeNum, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
-	randomStripeNumInt := randomStripeNum.Int64()
+	index, err := getRandomStripe(es, *pointer)
+	if err != nil {
+		return nil, more, err
+	}
 
 	return &Stripe{
-		int(randomStripeNumInt),
+		index,
 	}, more, nil
 }
 
@@ -104,4 +107,23 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	}
 	es := eestream.NewRSScheme(fc, int(rs.GetErasureShareSize()))
 	return es, nil
+}
+
+func getRandomStripe(es eestream.ErasureScheme, pointer pb.Pointer) (index int, err error) {
+	stripeSize := es.StripeSize()
+	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
+	if err != nil {
+		return -1, err
+	}
+	return int(randomStripeIndex.Int64()), nil
+}
+
+func getRandomPointer(pointerItems []pdbclient.ListItem) (pointer pdbclient.ListItem, err error) {
+	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
+	if err != nil {
+		return pdbclient.ListItem{}, err
+	}
+	randomNumInt64 := randomNum.Int64()
+	pointerItem := pointerItems[randomNumInt64]
+	return pointerItem, nil
 }
