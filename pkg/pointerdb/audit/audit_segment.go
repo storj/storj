@@ -34,7 +34,7 @@ func NewAudit(pointers pdbclient.Client) *Audit {
 
 // Stripe is a struct that contains stripe info
 type Stripe struct {
-	index int
+	Index int
 }
 
 // NextStripe returns a random stripe to be audited
@@ -46,7 +46,6 @@ func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, 
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
 
-	// need to get random limit
 	if audit.lastPath == nil {
 		pointerItems, more, err = audit.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
 	} else {
@@ -86,14 +85,12 @@ func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, 
 	}
 
 	//get random stripe
-	index, err := getRandomStripe(es, *pointer)
+	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, more, err
 	}
 
-	return &Stripe{
-		index,
-	}, more, nil
+	return &Stripe{Index: index}, more, nil
 }
 
 // create the erasure scheme
@@ -106,7 +103,7 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 	return es, nil
 }
 
-func getRandomStripe(es eestream.ErasureScheme, pointer pb.Pointer) (index int, err error) {
+func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int, err error) {
 	stripeSize := es.StripeSize()
 	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
 	if err != nil {
