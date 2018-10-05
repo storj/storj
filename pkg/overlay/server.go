@@ -59,7 +59,7 @@ func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.L
 func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
 	maxNodes := opts.GetAmount()
-	excluded := opts.GetFilter()
+	excluded := opts.GetExcludedNodes()
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
@@ -139,21 +139,14 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	}
 
 	for _, v := range nodes {
-		badNode := false
 		rest := v.GetRestrictions()
 
-		if rest.GetFreeBandwidth() < restrictedBandwidth || rest.GetFreeDisk() < restrictedSpace {
+		if rest.GetFreeBandwidth() < restrictedBandwidth ||
+			rest.GetFreeDisk() < restrictedSpace ||
+			contains(excluded, v.Id) {
 			continue
 		}
-		for _, exId := range excluded {
-			if v.Id == exId {
-				badNode = true
-				break
-			}
-		}
-		if !badNode {
-			result = append(result, v)
-		}
+		result = append(result, v)
 	}
 
 	nextStart := keys[len(keys)-1]
@@ -164,7 +157,17 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	return result, nextStart, nil
 }
 
-// lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
+// contains checks if item exists in list
+func contains(list []string, item string) bool {
+	for _, listItem := range list {
+		if listItem == item {
+			return true
+		}
+	}
+	return false
+}
+
+//lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
 func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) []string {
 	var ids []string
 	for _, v := range reqs.Lookuprequest {

@@ -79,9 +79,9 @@ func (o *Overlay) ChooseFiltered(ctx context.Context, amount int, space int64, e
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
 		Opts: &pb.OverlayOptions{
-			Amount:       int64(amount),
-			Restrictions: &pb.NodeRestrictions{FreeDisk: space},
-			Filter:       exIDs,
+			Amount:        int64(amount),
+			Restrictions:  &pb.NodeRestrictions{FreeDisk: space},
+			ExcludedNodes: exIDs,
 		},
 	})
 
