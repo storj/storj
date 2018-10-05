@@ -68,7 +68,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, o, runCfg.PointerDB, runCfg.Checker, runCfg.Repairer)
+		runCfg.Kademlia, 
+		o, 
+		runCfg.PointerDB, 
+		// runCfg.Checker, runCfg.Repairer
+	)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

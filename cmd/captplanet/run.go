@@ -110,8 +110,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
-			runCfg.Satellite.Checker,
-			runCfg.Satellite.Repairer,
+			// runCfg.Satellite.Checker,
+			// runCfg.Satellite.Repairer,
 			o)
 	}()
 
