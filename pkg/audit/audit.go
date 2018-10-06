@@ -29,9 +29,15 @@ type Share struct {
 	Data        []byte
 }
 
+// Auditor implements the downloader interface
+type Auditor struct {
+	downloader Downloader
+}
+
 // Downloader enables downloading shares
 type Downloader interface {
-	DownloadShares(pointer *pb.Pointer, stripeIndex int, nodes []*pb.Node) (shares []Share, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, nodes []*pb.Node) (shares []Share, err error)
+	lookupNodes(ctx context.Context, pieces []*pb.RemotePiece) (nodes []*pb.Node, err error)
 }
 
 // downloader implements the downloader interface
@@ -121,19 +127,19 @@ func (d *downloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, st
 	return shares, nil
 }
 
-// audit takes the downloaded shares and uses infectious's Correct function to check that they
-// haven't been altered. audit returns a slice containing the piece numbers of altered shares.
-func audit(ctx context.Context, required, total int, originals []Share) (pieceNums []int, err error) {
+// auditShares takes the downloaded shares and uses infectious's Correct function to check that they
+// haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
+func auditShares(ctx context.Context, required, total int, originals []Share) (pieceNums []int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
 		return nil, err
 	}
-
-	// Have to turn the []audit.Share to []infectious.Share in order to run
-	// the infectious Correct function.
+	// Have to use []infectious.Share instead of []audit.Share
+	// in order to run the infectious Correct function.
 	copies := make([]infectious.Share, len(originals))
 	for i, original := range originals {
+
 		// If there was an error downloading a share before,
 		// this line makes it so that there will be an empty
 		// infectious.Share at the copies' index (same index
@@ -141,6 +147,7 @@ func audit(ctx context.Context, required, total int, originals []Share) (pieceNu
 		if original.Error != nil {
 			continue
 		}
+
 		copies[i].Data = append([]byte(nil), original.Data...)
 		copies[i].Number = original.PieceNumber
 	}
@@ -181,19 +188,19 @@ func calcPadded(size int64, blockSize int) int64 {
 
 // runAudit gets remote segments from a pointer and runs an audit on shares
 // at a given stripe index
-func (d *downloader) runAudit(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
+func (a *Auditor) runAudit(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	nodes, err := d.lookupNodes(ctx, pointer.Remote.GetRemotePieces())
+	nodes, err := a.downloader.lookupNodes(ctx, pointer.Remote.GetRemotePieces())
 	if err != nil {
 		return nil, err
 	}
 
-	shares, err := d.DownloadShares(ctx, pointer, stripeIndex, nodes)
+	shares, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex, nodes)
 	if err != nil {
 		return nil, err
 	}
 
-	pieceNums, err := audit(ctx, required, total, shares)
+	pieceNums, err := auditShares(ctx, required, total, shares)
 	if err != nil {
 		return nil, err
 	}

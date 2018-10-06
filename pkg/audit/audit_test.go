@@ -4,28 +4,105 @@
 package audit
 
 import (
-	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"io"
-	"io/ioutil"
 	"strconv"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/vivint/infectious"
-	"google.golang.org/grpc"
-
-	"storj.io/storj/pkg/eestream"
-	mock_oclient "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
-	mock_psclient "storj.io/storj/pkg/piecestore/rpc/client/mocks"
-	"storj.io/storj/pkg/provider"
-	mock_ranger "storj.io/storj/pkg/ranger/mocks"
-	mock_transport "storj.io/storj/pkg/transport/mocks"
 )
+
+type share struct {
+	segment     int
+	stripeIndex int
+}
+
+type mockDownloader struct {
+	shares map[int]Share
+}
+
+func TestDownloadShares(t *testing.T) {
+	ctx := context.Background()
+	mockShares := make(map[int]Share)
+
+	for i, tt := range []struct {
+		stripeIndex int
+		nodeAmount  int
+		shareAmount int
+		required    int
+		total       int
+		err         error
+	}{
+		{2, 30, 30, 20, 40, nil},
+	} {
+		someData := randData(32 * 1024)
+		pointer := makePointer()
+		var nodes []*pb.Node
+		for i = 0; i < tt.nodeAmount; i++ {
+			node := &pb.Node{
+				Id:      strconv.Itoa(i),
+				Address: &pb.NodeAddress{},
+			}
+			nodes = append(nodes, node)
+		}
+
+		for i = 0; i < tt.shareAmount; i++ {
+			mockShares[i] = Share{
+				Error:       tt.err,
+				PieceNumber: i,
+				Data:        someData,
+			}
+		}
+		md := mockDownloader{shares: mockShares}
+		a := &Auditor{downloader: &md}
+
+		_, err := a.runAudit(ctx, pointer, tt.stripeIndex, tt.required, tt.total)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func TestAuditShares(t *testing.T) {
+	ctx := context.Background()
+
+	for i, tt := range []struct {
+		shareAmount int
+		required    int
+		total       int
+		err         error
+	}{
+		{30, 20, 40, nil},
+	} {
+		var shares []Share
+		someData := randData(32 * 1024)
+		for i = 0; i < tt.shareAmount; i++ {
+			share := Share{
+				Error:       nil,
+				PieceNumber: i,
+				Data:        someData,
+			}
+			shares = append(shares, share)
+		}
+
+		_, err := auditShares(ctx, tt.required, tt.total, shares)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
+	nodes []*pb.Node) (shares []Share, err error) {
+	for _, share := range m.shares {
+		shares = append(shares, share)
+	}
+	return shares, nil
+}
+
+func (m *mockDownloader) lookupNodes(ctx context.Context, pieces []*pb.RemotePiece) (nodes []*pb.Node, err error) {
+	return
+}
 
 func makePointer() *pb.Pointer {
 	var rps []*pb.RemotePiece
@@ -61,74 +138,4 @@ func randData(amount int) []byte {
 		panic(err)
 	}
 	return buf
-}
-
-func makeReaders() (readerMap map[int]io.ReadCloser, err error) {
-	ctx := context.Background()
-	data := randData(32 * 1024)
-	fc, err := infectious.NewFEC(2, 4)
-	if err != nil {
-		return nil, err
-	}
-	es := eestream.NewRSScheme(fc, 8*1024)
-	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-	readers, err := eestream.EncodeReader(ctx, bytes.NewReader(data), rs, 0)
-	if err != nil {
-		return nil, err
-	}
-	readerMap = make(map[int]io.ReadCloser, len(readers))
-	for i, reader := range readers {
-		readerMap[i] = ioutil.NopCloser(reader)
-	}
-	return readerMap, nil
-}
-
-func TestRunAudit(t *testing.T) {
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockOC := mock_oclient.NewMockClient(ctrl)
-	mockPSC := mock_psclient.NewMockPSClient(ctrl)
-	mockTC := mock_transport.NewMockClient(ctrl)
-	mockRanger := mock_ranger.NewMockRanger(ctrl)
-
-	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	id := provider.FullIdentity{Key: privKey}
-
-	a := &Auditor{t: mockTC, o: mockOC, identity: id}
-	p := makePointer()
-
-	var nodes []*pb.Node
-	for i := 0; i < 15; i++ {
-		nodes = append(nodes, &pb.Node{
-			Id:      "fakeId",
-			Address: &pb.NodeAddress{},
-		})
-	}
-
-	var conn *grpc.ClientConn
-	readers, err := makeReaders()
-	if err != nil {
-		panic(err)
-	}
-
-	mockOC.EXPECT().BulkLookup(
-		gomock.Any(), gomock.Any()).Return(nodes, nil)
-	mockTC.EXPECT().DialNode(
-		gomock.Any(), gomock.Any()).Return(conn, nil)
-	mockPSC.EXPECT().Get(
-		gomock.Any(), gomock.Any(), gomock.Any(), &pb.PayerBandwidthAllocation{},
-	).Return(mockRanger, nil).AnyTimes()
-	mockRanger.EXPECT().Range(
-		gomock.Any(), gomock.Any(), gomock.Any(),
-	).Return(readers[0], nil).AnyTimes()
-
-	_, err = a.runAudit(ctx, p, 15, 20, 40)
-	if err != nil {
-		panic(err)
-	}
 }
