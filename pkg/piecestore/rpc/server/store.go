@@ -59,11 +59,17 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 
-	bwSize, err := s.DB.GetBwUsageTbl(time.Now().Unix())
+	bwSize, err := s.DB.GetBwUsageTbl(time.Now())
 	if err != nil {
 		return StoreError.New("bandwidth info read back err: %v", err)
 	}
 	log.Println("KISHORE --> Successfully readback size = ", bwSize)
+
+	totalBwUsage, err := s.DB.BandwidthUsage(time.Now().AddDate(0, 0, -1), time.Now())
+	if err != nil {
+		return StoreError.New("bandwidth usage info read back err: %v", err)
+	}
+	log.Println("KISHORE --> total bandwidth usage size = ", totalBwUsage)
 
 	log.Printf("Successfully stored %s.", pd.GetId())
 

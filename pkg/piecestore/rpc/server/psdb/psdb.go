@@ -6,6 +6,7 @@ package psdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -37,8 +38,10 @@ type DB struct {
 	check    *time.Ticker
 }
 
-type MibTable struct {
-	BwUsageTbl BwUsageTable
+type StorageMibInfo struct {
+	BwUsageInfo    BwUsageTable
+	UsedSpace      int64
+	AvailableSpace int64
 	/** add new information tables here .... */
 }
 
@@ -47,6 +50,8 @@ type BwUsageTable struct {
 	DayStartDate int64
 	DayEndDate   int64
 }
+
+var GStorageMibInfo StorageMibInfo
 
 // Open opens DB at DBPath
 func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
@@ -92,11 +97,6 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	}
 
 	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_bwusagetbl_size ON bwusagetbl (size);")
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +290,7 @@ func (db *DB) AddBwUsageTbl(size, unixtimenow int64) (err error) {
 	var getSize int64
 	if (unixtimenow >= daystartunixtime) && (unixtimenow <= dayendunixtime) {
 		err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate <= ? AND ? <= dayenddate`, unixtimenow, unixtimenow).Scan(&getSize)
+		log.Println("KISHORE --> getSize + size = ", getSize, size, (getSize + size))
 		switch {
 		case err == sql.ErrNoRows:
 			fmt.Println("New day starting new entry ", err)
@@ -314,10 +315,65 @@ func (db *DB) AddBwUsageTbl(size, unixtimenow int64) (err error) {
 }
 
 // GetMIBByDate finds the so far bw used by date and return it
-func (db *DB) GetBwUsageTbl(unixtime int64) (size int64, err error) {
+func (db *DB) GetBwUsageTbl(t time.Time) (size int64, err error) {
 	defer db.locked()()
-	t := time.Unix(unixtime, 0)
+	//t := time.Unix(reqtime, 0)
 	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate=?`, daystarttime).Scan(&size)
 	return size, err
+}
+
+// BandwidthUsage sums the size column on the bwusagetbl table
+func (db *DB) BandwidthUsage(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
+	defer db.locked()()
+
+	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
+	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 0, 0, 0, 0, enddate.Location()).Unix()
+	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
+
+	log.Println("startTimeUnix(t),  endTimeUnix, defaultunixtime", startTimeUnix, endTimeUnix, defaultunixtime)
+	if startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime {
+		fmt.Println("Invalid date range")
+		zap.S().Errorf("Invalid date range")
+		return totalbwusage, errors.New("Invalid date range")
+	}
+
+	rows, err := db.DB.Query(`SELECT size FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix)
+	if err != nil {
+		fmt.Println("bwusagetbl query error")
+		zap.S().Errorf("bwusagetbl query error %v", err)
+	}
+	defer rows.Close()
+
+	var size int64
+	for rows.Next() {
+		log.Println("**** AM IN SIDE Rows loop...... ")
+		err = rows.Scan(&size)
+		if err != nil {
+			fmt.Println("bwusagetbl row scan err")
+			zap.S().Errorf("bwusagetbl row scan err %v", err)
+		}
+		totalbwusage = size + totalbwusage
+	}
+	err = rows.Err()
+	if err != nil {
+		fmt.Println("bwusagetbl row read err")
+		zap.S().Errorf("bwusagetbl row read err %v", err)
+	}
+
+	// var count int
+	// rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bwusagetbl")
+	// log.Println("rows=", rows)
+	// err = rows.Scan(&count)
+	// if err != nil {
+	// 	return 0, err
+	// }
+	// log.Println("total count = ", count)
+
+	// if count == 0 {
+	// 	return 0, nil
+	// }
+
+	// err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl;`).Scan(&totalbwusage)
+	return totalbwusage, err
 }
