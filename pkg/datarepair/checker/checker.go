@@ -108,7 +108,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				if err != nil {
 					return checkerError.New("error getting missing offline nodes %s", err)
 				}
-				if int32(len(missingPieces)) <= pointer.Remote.Redundancy.RepairThreshold {
+				if int32(len(healthyPieces)) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:          string(item.Key),
 						LostPieces:    missingPieces,

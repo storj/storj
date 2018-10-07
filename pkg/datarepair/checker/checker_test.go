@@ -64,7 +64,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		}
 		pieces := []int32{0, 1, 2, 3}
 		//expected injured segments
-		if len(ids[selection:]) <= int(p.Remote.Redundancy.RepairThreshold) {
+		if len(ids[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
 			seg := &pb.InjuredSegment{
 				Path:          p.Remote.PieceId,
 				LostPieces:    pieces[selection:],
