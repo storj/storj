@@ -8,22 +8,15 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
-)
-
-var (
-	mon = monkit.Package()
-	// Error is a standard error class for this package.
-	checkerError = errs.Class("checker error")
 )
 
 // Config contains configurable values for checker
@@ -34,7 +27,7 @@ type Config struct {
 
 // Run runs the checker with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer datarepair.Mon.Task()(&ctx)(&err)
 
 	zap.S().Info("Checker is starting up")
 
@@ -80,7 +73,7 @@ func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, rep
 
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer datarepair.Mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
 	err = c.pointerdb.Iterate(storage.IterateOptions{
 		Prefix:  storage.Key(c.params.Prefix),
@@ -97,7 +90,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
-					return checkerError.New("error unmarshalling pointer %s", err)
+					return Error.New("error unmarshalling pointer %s", err)
 				}
 				pieces := pointer.Remote.RemotePieces
 				var nodeIDs []dht.NodeID
@@ -106,7 +99,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				}
 				missingPieces, healthyPieces, err := c.offlineAndOnlineNodes(ctx, nodeIDs)
 				if err != nil {
-					return checkerError.New("error getting missing offline nodes %s", err)
+					return Error.New("error getting missing offline nodes %s", err)
 				}
 				if int32(len(healthyPieces)) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
@@ -115,7 +108,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 						HealthyPieces: healthyPieces,
 					})
 					if err != nil {
-						return checkerError.New("error adding injured segment to queue %s", err)
+						return Error.New("error adding injured segment to queue %s", err)
 					}
 				}
 			}
