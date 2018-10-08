@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -63,8 +64,8 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("%s/kbucket_%s.db", path, id.String()[:5]),
-		npath:        fmt.Sprintf("%s/nbucket_%s.db", path, id.String()[:5]),
+		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", id.String()[:5])),
+		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", id.String()[:5])),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,
