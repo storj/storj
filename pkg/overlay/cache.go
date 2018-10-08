@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -119,7 +119,7 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 		return err
 	}
 
-	return o.DB.Put(kademlia.StringToNodeID(nodeID).Bytes(), data)
+	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
@@ -130,17 +130,17 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, kademlia.StringToNodeID(v.Id))
+		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
 
-		node, err := proto.Marshal(&found)
+		n, err := proto.Marshal(&found)
 		if err != nil {
 			return err
 		}
 
-		if err := o.DB.Put(kademlia.StringToNodeID(found.Id).Bytes(), node); err != nil {
+		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
 			return err
 		}
 	}
@@ -158,7 +158,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	rid := kademlia.NodeID(r)
+	rid := node.ID(r)
 	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
 		return err

@@ -102,6 +102,7 @@ message QueryRequest {
     overlay.Node sender = 1;
     overlay.Node target = 2;
     int64 limit = 3;
+    bool pingback = 4;
 }
 
 message QueryResponse {

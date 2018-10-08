@@ -142,26 +142,16 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 	return bs, nil
 }
 
-// FindNear returns the node corresponding to the provided nodeID if present in the routing table
-// otherwise returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// FindNear returns the node corresponding to the provided nodeID
+// returns all Nodes closest via XOR to the provided nodeID up to the provided limit
+// always returns limit + self
 func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
-	//if id is in the routing table
-	n, err := rt.nodeBucketDB.Get(id.Bytes())
-	if n != nil {
-		ns, err := unmarshalNodes(storage.Keys{id.Bytes()}, []storage.Value{n})
-		if err != nil {
-			return []*pb.Node{}, RoutingErr.New("could not unmarshal node %s", err)
-		}
-		return ns, nil
-	}
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return []*pb.Node{}, RoutingErr.New("could not get key from rt %s", err)
-	}
 	// if id is not in the routing table
 	nodeIDs, err := rt.nodeBucketDB.List(nil, 0)
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
+
 	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
 	if len(sortedIDs) >= limit {
 		sortedIDs = sortedIDs[:limit]
@@ -170,10 +160,12 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}
+
 	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
 	}
+
 	return unmarshaledNodes, nil
 }
 
@@ -184,6 +176,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
 	}
+
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
@@ -191,6 +184,7 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 		}
 		return nil
 	}
+
 	_, err = rt.addNode(node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)

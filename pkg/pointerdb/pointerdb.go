@@ -106,6 +106,8 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	s.logger.Debug("entering pointerdb get")
+
 	if err = s.validateAuth(req.GetAPIKey()); err != nil {
 		return nil, err
 	}
