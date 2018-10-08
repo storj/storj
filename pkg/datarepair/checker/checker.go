@@ -12,7 +12,7 @@ import (
 
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -91,7 +91,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				pieces := pointer.Remote.RemotePieces
 				var nodeIDs []dht.NodeID
 				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, kademlia.StringToNodeID(p.NodeId))
+					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))
 				}
 				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
@@ -100,8 +100,8 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
-						Path:          string(item.Key),
-						LostPieces:    missingPieces,
+						Path:       string(item.Key),
+						LostPieces: missingPieces,
 					})
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)

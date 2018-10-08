@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/storj/pkg/datarepair"
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
