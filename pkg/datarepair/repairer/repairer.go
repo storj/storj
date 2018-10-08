@@ -9,21 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/pkg/datarepair"
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage/redis"
-)
-
-var (
-	mon = monkit.Package()
-
-	// Error is a redis error
-	repairerError = errs.Class("repairer error")
 )
 
 // Repairer is the interface for the data repair queue
@@ -47,7 +37,7 @@ func (c Config) initialize(ctx context.Context) (Repairer, error) {
 
 	client, err := redis.NewClientFrom(c.QueueAddress)
 	if err != nil {
-		return nil, repairerError.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	r.queue = q.NewQueue(client)
 
