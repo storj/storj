@@ -35,7 +35,7 @@ func (m *MetaStreamInfo) Reset()         { *m = MetaStreamInfo{} }
 func (m *MetaStreamInfo) String() string { return proto.CompactTextString(m) }
 func (*MetaStreamInfo) ProtoMessage()    {}
 func (*MetaStreamInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_026f5a060e38d7ef, []int{0}
+	return fileDescriptor_3b5ea8fe65782bcc, []int{0}
 }
 func (m *MetaStreamInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MetaStreamInfo.Unmarshal(m, b)
@@ -108,9 +108,9 @@ func init() {
 	proto.RegisterType((*MetaStreamInfo)(nil), "streams.MetaStreamInfo")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_026f5a060e38d7ef) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_3b5ea8fe65782bcc) }
 
-var fileDescriptor_meta_026f5a060e38d7ef = []byte{
+var fileDescriptor_3b5ea8fe65782bcc = []byte{
 	// 250 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x90, 0x4f, 0x4b, 0xc3, 0x40,
 	0x10, 0xc5, 0x49, 0xfa, 0x4f, 0x86, 0xda, 0xea, 0x8a, 0xb0, 0xe8, 0x25, 0xe8, 0xc1, 0x20, 0xe2,

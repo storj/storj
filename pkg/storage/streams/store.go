@@ -14,6 +14,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -22,6 +23,7 @@ import (
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/storage"
 )
 
 var mon = monkit.Package()
@@ -96,9 +98,25 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// previously file uploaded?
+	err = s.Delete(ctx, path)
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		//something wrong happened checking for an existing
+		//file with the same name
+		return Meta{}, err
+	}
+
 	var currentSegment int64
 	var streamSize int64
 	var putMeta segments.Meta
+
+	defer func() {
+		select {
+		case <-ctx.Done():
+			s.cancelHandler(context.Background(), currentSegment, path)
+		default:
+		}
+	}()
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
@@ -417,4 +435,15 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+}
+
+// CancelHandler handles clean up of segments on receiving CTRL+C
+func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path paths.Path) {
+	for i := int64(0); i < totalSegments; i++ {
+		currentPath := getSegmentPath(path, i)
+		err := s.segments.Delete(ctx, currentPath)
+		if err != nil {
+			zap.S().Warnf("Failed deleting a segment %v %v", currentPath, err)
+		}
+	}
 }

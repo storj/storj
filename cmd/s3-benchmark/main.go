@@ -12,6 +12,7 @@ import (
 	"os"
 	"text/tabwriter"
 	"time"
+	"strconv"
 
 	"github.com/loov/hrtime"
 
@@ -30,13 +31,13 @@ func main() {
 
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
-	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per size")
+	duration := flag.Duration("time", 2*time.Minute, "maximum benchmark time per filesize")
 
 	suffix := time.Now().Format("-2006-01-02-150405")
 
 	plotname := flag.String("plot", "plot"+suffix+".svg", "plot results")
 
-	sizes := &memory.Sizes{
+	filesizes := &memory.Sizes{
 		Default: []memory.Size{
 			1 * memory.KB,
 			256 * memory.KB,
@@ -46,7 +47,8 @@ func main() {
 			256 * memory.MB,
 		},
 	}
-	flag.Var(sizes, "size", "sizes to test with")
+	flag.Var(filesizes, "filesize", "filesizes to test with")
+	listsize := flag.Int("listsize", 1000, "listsize to test with")
 
 	flag.Parse()
 
@@ -66,24 +68,67 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bucket := "bucket" + suffix
+	bucket := "benchmark" + suffix
 	log.Println("Creating bucket", bucket)
+
+	// 1 bucket for file up and downloads
 	err = client.MakeBucket(bucket, *location)
 	if err != nil {
 		log.Fatalf("failed to create bucket %q: %+v\n", bucket, err)
 	}
 
+	data := make([]byte, 1)
+	log.Println("Creating files", bucket)
+	// n files in one folder
+	for k := 0; k < *listsize; k++ {
+		err := client.Upload(bucket, "folder/data" + strconv.Itoa(k), data)
+		if err != nil {
+			log.Fatalf("failed to create file %q: %+v\n", "folder/data" + strconv.Itoa(k), err)
+		}
+	}
+
+	log.Println("Creating folders", bucket)
+	// n - 1 (one folder already exists) folders with one file in each folder
+	for k := 0; k < *listsize - 1; k++ {
+		err := client.Upload(bucket, "folder" + strconv.Itoa(k) + "/data", data)
+		if err != nil {
+			log.Fatalf("failed to create folder %q: %+v\n", "folder" + strconv.Itoa(k) + "/data", err)
+		}
+	}
+
 	defer func() {
+		log.Println("Removing files")
+		for k := 0; k < *listsize; k++ {
+			err := client.Delete(bucket, "folder/data" + strconv.Itoa(k))
+			if err != nil {
+				log.Fatalf("failed to delete file %q: %+v\n", "folder/data" + strconv.Itoa(k), err)
+			}
+		}
+
+		log.Println("Removing folders")
+		for k := 0; k < *listsize - 1; k++ {
+			err := client.Delete(bucket, "folder" + strconv.Itoa(k) + "/data")
+			if err != nil {
+				log.Fatalf("failed to delete folder %q: %+v\n", "folder" + strconv.Itoa(k) + "/data", err)
+			}
+		}
+
 		log.Println("Removing bucket")
 		err := client.RemoveBucket(bucket)
 		if err != nil {
 			log.Fatalf("failed to remove bucket %q", bucket)
 		}
+
 	}()
 
 	measurements := []Measurement{}
-	for _, size := range sizes.Sizes() {
-		measurement, err := Benchmark(client, bucket, size, *count, *duration)
+	measurement, err := ListBenchmark(client, bucket, *listsize, *count, *duration)
+	if err != nil {
+		log.Fatal(err)
+	}
+	measurements = append(measurements, measurement)
+	for _, filesize := range filesizes.Sizes() {
+		measurement, err := FileBenchmark(client, bucket, filesize, *count, *duration)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -205,17 +250,17 @@ func (m *Measurement) PrintStats(w io.Writer) {
 	}
 }
 
-// Benchmark runs benchmarks on bucket with given size
-func Benchmark(client Client, bucket string, size memory.Size, count int, duration time.Duration) (Measurement, error) {
-	log.Print("Benchmarking size ", size.String(), " ")
+// FileBenchmark runs file upload, download and delete benchmarks on bucket with given filesize
+func FileBenchmark(client Client, bucket string, filesize memory.Size, count int, duration time.Duration) (Measurement, error) {
+	log.Print("Benchmarking file size ", filesize.String(), " ")
 
-	data := make([]byte, size.Int())
-	result := make([]byte, size.Int())
+	data := make([]byte, filesize.Int())
+	result := make([]byte, filesize.Int())
 
 	defer fmt.Println()
 
 	measurement := Measurement{}
-	measurement.Size = size
+	measurement.Size = filesize
 	start := time.Now()
 	for k := 0; k < count; k++ {
 		if time.Since(start) > duration {
@@ -268,6 +313,41 @@ func Benchmark(client Client, bucket string, size memory.Size, count int, durati
 	}
 
 	return measurement, nil
+}
+
+// ListBenchmark runs list buckets, folders and files benchmarks on bucket
+func ListBenchmark(client Client, bucket string, listsize int, count int, duration time.Duration) (Measurement, error) {
+	log.Print("Benchmarking list")
+ 	defer fmt.Println()
+ 	measurement := Measurement{}
+	//measurement.Size = listsize
+	for k := 0; k < count; k++ {
+ 		{ // list folders
+			start := hrtime.Now()
+			result, err := client.ListObjects(bucket, "")
+			if err != nil {
+				return measurement, fmt.Errorf("list folders failed: %+v", err)
+			}
+			finish := hrtime.Now()
+			if len(result) != listsize {
+				return measurement, fmt.Errorf("list folders result wrong: %+v", len(result))
+			}
+ 			measurement.Record("List Folders", finish-start)
+		}
+ 		{ // list files
+			start := hrtime.Now()
+			result, err := client.ListObjects(bucket, "folder")
+			if err != nil {
+				return measurement, fmt.Errorf("list files failed: %+v", err)
+			}
+			finish := hrtime.Now()
+			if len(result) != listsize {
+				return measurement, fmt.Errorf("list files result to low: %+v", len(result))
+			}
+ 			measurement.Record("List Files", finish-start)
+		}
+	}
+ 	return measurement, nil
 }
 
 // Config is the setup for a particular client

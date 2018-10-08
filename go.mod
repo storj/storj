@@ -26,7 +26,6 @@ require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fatih/structs v1.0.0 // indirect
 	github.com/go-ini/ini v1.38.2 // indirect
-	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/go-sql-driver/mysql v1.4.0 // indirect
 	github.com/gogo/protobuf v1.1.1
@@ -45,7 +44,6 @@ require (
 	github.com/hashicorp/raft v1.0.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d
@@ -56,7 +54,6 @@ require (
 	github.com/loov/hrtime v0.0.0-20180911122900-a9e82bc6c180
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
-	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.9.0
@@ -90,8 +87,8 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20180222194500-ef6db91d284a // indirect
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
 	github.com/spf13/cobra v0.0.3
-	github.com/spf13/pflag v1.0.2
-	github.com/spf13/viper v1.2.0
+	github.com/spf13/pflag v1.0.3
+	github.com/spf13/viper v1.2.1
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/tidwall/gjson v1.1.3 // indirect
@@ -105,9 +102,9 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
-	golang.org/x/net v0.0.0-20180921000356-2f5d2388922f
-	golang.org/x/sys v0.0.0-20180924142050-c01370cb5c9b
+	golang.org/x/crypto v0.0.0-20181001203147-e3636079e1a4
+	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
+	golang.org/x/sys v0.0.0-20181004145325-8469e314837c
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
@@ -122,8 +119,12 @@ require (
 // force specific versions for minio
 require (
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
+	github.com/go-ole/go-ole v1.2.1 // indirect
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
+	github.com/mitchellh/mapstructure v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 
 	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect

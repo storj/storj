@@ -4,13 +4,11 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -29,6 +27,8 @@ type Config struct {
 	BasePath            string `help:"base path for captain planet storage" default:"$CONFDIR"`
 	ListenHost          string `help:"the host for providers to listen on" default:"127.0.0.1"`
 	StartingPort        int    `help:"all providers will listen on ports consecutively starting with this one" default:"7777"`
+	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
+	EncKey              string `default:"highlydistributedridiculouslyresilient" help:"your root encryption key"`
 	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
 }
 
@@ -111,11 +111,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	startingPort := setupCfg.StartingPort
 
-	apiKey, err := newAPIKey()
-	if err != nil {
-		return err
-	}
-
 	overrides := map[string]interface{}{
 		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
 		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
@@ -139,9 +134,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.minio-dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
-		"uplink.api-key":          apiKey,
-		"uplink.enc-key":          "highlydistributedridiculouslyresilient",
-		"pointer-db.auth.api-key": apiKey,
+		"uplink.enc-key": setupCfg.EncKey,
+		"uplink.api-key":          setupCfg.APIKey,
+		"pointer-db.auth.api-key": setupCfg.APIKey,
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
@@ -166,13 +161,4 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 func joinHostPort(host string, port int) string {
 	return net.JoinHostPort(host, fmt.Sprint(port))
-}
-
-func newAPIKey() (string, error) {
-	var buf [20]byte
-	_, err := rand.Read(buf[:])
-	if err != nil {
-		return "", err
-	}
-	return base58.Encode(buf[:]), nil
 }
