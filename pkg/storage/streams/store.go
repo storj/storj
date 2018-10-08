@@ -23,6 +23,7 @@ import (
 	ranger "storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/storage"
 )
 
 var mon = monkit.Package()
@@ -96,6 +97,14 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 // of segments, in a new protobuf, in the metadata of l/<path>.
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// previously file uploaded?
+	err = s.Delete(ctx, path)
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		//something wrong happened checking for an existing
+		//file with the same name
+		return Meta{}, err
+	}
 
 	var currentSegment int64
 	var streamSize int64

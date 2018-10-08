@@ -5,9 +5,11 @@ package node
 
 import (
 	"context"
+	"log"
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
@@ -15,6 +17,7 @@ import (
 
 // Node is the storj definition for a node in the network
 type Node struct {
+	dht   dht.DHT
 	self  pb.Node
 	tc    transport.Client
 	cache pool.Pool
@@ -35,13 +38,27 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 		if err != nil {
 			return nil, err
 		}
+
+		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
+			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
+		}
 		conn = c
 	}
 
 	c := pb.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &pb.QueryRequest{Sender: &n.self, Target: &find})
+	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
 		return nil, err
+	}
+
+	rt, err := n.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rt.ConnectionSuccess(&to); err != nil {
+		return nil, err
+
 	}
 
 	return resp.Response, nil

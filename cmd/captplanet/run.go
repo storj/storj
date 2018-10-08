@@ -12,11 +12,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
+	mock "storj.io/storj/pkg/overlay/mocks"
 	psserver "storj.io/storj/pkg/piecestore/rpc/server"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -33,8 +34,8 @@ type Satellite struct {
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
-	Checker		checker.Config
-	Repairer	repairer.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -112,13 +113,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Identity.Address)
 		var o provider.Responsibility = runCfg.Satellite.Overlay
 		if runCfg.Satellite.MockOverlay.Enabled {
-			o = overlay.MockConfig{Nodes: strings.Join(storagenodes, ",")}
+			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
-			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
+			runCfg.Satellite.Kademlia,
 			o)
 	}()
 
@@ -129,5 +130,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	return <-errch
+	for v := range errch {
+		err = fmt.Errorf("%s : %s", err, v)
+	}
+
+	return err
 }
