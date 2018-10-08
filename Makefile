@@ -110,10 +110,10 @@ install-deps:
 
 .PHONY: deploy
 deploy:
-	./scripts/deploy.staging.sh satellite storjlabs/satellite:${TAG}
-	for i in $(shell seq 1 60); do \
-		./scripts/deploy.staging.sh storagenode-$$i storjlabs/storagenode:${TAG}; \
+	for deployment in $$(kubectl --context nonprod -n v3 get deployment -l app=storagenode --output=jsonpath='{.items..metadata.name}'); do \
+		kubectl --context nonprod --namespace v3 patch deployment $$deployment -p"{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"storagenode\",\"image\":\"storjlabs/storagenode:${TAG}\"}]}}}}" ; \
 	done
+	kubectl --context nonprod --namespace v3 patch deployment satellite -p"{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"satellite\",\"image\":\"storjlabs/satellite:${TAG}\"}]}}}}"
 
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
