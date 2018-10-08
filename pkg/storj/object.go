@@ -55,7 +55,7 @@ type Segment struct {
 	PieceID PieceID
 	Pieces  []Piece
 	// Encryption
-	EncryptedNonce EncryptedNonce
+	EncryptedKey EncryptedPrivateKey
 }
 
 // PieceID is an identificator for a piece

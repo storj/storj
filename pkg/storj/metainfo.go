@@ -71,11 +71,9 @@ type ReadonlyStream interface {
 
 	// SegmentsAt returns the segment that contains the byteOffset and following segments.
 	// Limit specifies how much to return at most.
-	// Returns io.EOF, when there aren't more segments.
 	SegmentsAt(ctx context.Context, byteOffset int64, limit int64) (infos []Segment, more bool, err error)
 	// Segments returns the segment at index.
 	// Limit specifies how much to return at most.
-	// Returns io.EOF, when there aren't more segments.
 	Segments(ctx context.Context, index int64, limit int64) (infos []Segment, more bool, err error)
 }
 
