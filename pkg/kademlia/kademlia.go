@@ -62,10 +62,10 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 			return nil, err
 		}
 	}
-
+	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", id.String()[:5])),
-		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", id.String()[:5])),
+		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
+		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,
