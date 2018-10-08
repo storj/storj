@@ -135,6 +135,7 @@ func BenchmarkSequential(b *testing.B) {
 	client, err := redis.NewClient(addr, "", 1)
 	assert.NoError(b, err)
 	q := NewQueue(client)
+	b.ResetTimer()
 	const N = 100
 	var addSegs []*pb.InjuredSegment
 	for i := 0; i < N; i++ {
@@ -160,6 +161,7 @@ func BenchmarkParallel(b *testing.B) {
 	client, err := redis.NewClient(addr, "", 1)
 	assert.NoError(b, err)
 	queue := NewQueue(client)
+	b.ResetTimer()
 
 	const N = 100
 	errs := make(chan error, N*2)
