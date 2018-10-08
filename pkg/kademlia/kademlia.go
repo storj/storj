@@ -53,18 +53,18 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 
-	if _, err := os.Stat("db"); os.IsNotExist(err) {
-		if err := os.Mkdir("db", 0777); err != nil {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0777); err != nil {
 			return nil, err
 		}
 	}
 
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
-		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
+		kpath:        fmt.Sprintf("%s/kbucket_%s.db", path, id.String()[:5]),
+		npath:        fmt.Sprintf("%s/nbucket_%s.db", path, id.String()[:5]),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,
