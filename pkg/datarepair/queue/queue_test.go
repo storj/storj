@@ -136,21 +136,23 @@ func BenchmarkSequential(b *testing.B) {
 	assert.NoError(b, err)
 	q := NewQueue(client)
 	b.ResetTimer()
-	const N = 100
-	var addSegs []*pb.InjuredSegment
-	for i := 0; i < N; i++ {
-		seg := &pb.InjuredSegment{
-			Path:       strconv.Itoa(i),
-			LostPieces: []int32{int32(i)},
+	for n := 0; n < b.N; n++ {
+		const N = 100
+		var addSegs []*pb.InjuredSegment
+		for i := 0; i < N; i++ {
+			seg := &pb.InjuredSegment{
+				Path:       strconv.Itoa(i),
+				LostPieces: []int32{int32(i)},
+			}
+			err := q.Enqueue(seg)
+			assert.NoError(b, err)
+			addSegs = append(addSegs, seg)
 		}
-		err := q.Enqueue(seg)
-		assert.NoError(b, err)
-		addSegs = append(addSegs, seg)
-	}
-	for i := 0; i < N; i++ {
-		dqSeg, err := q.Dequeue()
-		assert.NoError(b, err)
-		assert.True(b, proto.Equal(addSegs[i], &dqSeg))
+		for i := 0; i < N; i++ {
+			dqSeg, err := q.Dequeue()
+			assert.NoError(b, err)
+			assert.True(b, proto.Equal(addSegs[i], &dqSeg))
+		}
 	}
 }
 
@@ -162,56 +164,58 @@ func BenchmarkParallel(b *testing.B) {
 	assert.NoError(b, err)
 	queue := NewQueue(client)
 	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
 
-	const N = 100
-	errs := make(chan error, N*2)
-	entries := make(chan *pb.InjuredSegment, N*2)
-	var wg sync.WaitGroup
+		const N = 100
+		errs := make(chan error, N*2)
+		entries := make(chan *pb.InjuredSegment, N*2)
+		var wg sync.WaitGroup
 
-	wg.Add(N)
-	// Add to queue concurrently
-	for i := 0; i < N; i++ {
-		go func(i int) {
-			defer wg.Done()
-			err := queue.Enqueue(&pb.InjuredSegment{
-				Path:       strconv.Itoa(i),
-				LostPieces: []int32{int32(i)},
-			})
-			if err != nil {
-				errs <- err
-			}
-		}(i)
+		wg.Add(N)
+		// Add to queue concurrently
+		for i := 0; i < N; i++ {
+			go func(i int) {
+				defer wg.Done()
+				err := queue.Enqueue(&pb.InjuredSegment{
+					Path:       strconv.Itoa(i),
+					LostPieces: []int32{int32(i)},
+				})
+				if err != nil {
+					errs <- err
+				}
+			}(i)
 
-	}
-	wg.Wait()
-	wg.Add(N)
-	// Remove from queue concurrently
-	for i := 0; i < N; i++ {
-		go func(i int) {
-			defer wg.Done()
-			segment, err := queue.Dequeue()
-			if err != nil {
-				errs <- err
-			}
-			entries <- &segment
-		}(i)
-	}
-	wg.Wait()
-	close(errs)
-	close(entries)
+		}
+		wg.Wait()
+		wg.Add(N)
+		// Remove from queue concurrently
+		for i := 0; i < N; i++ {
+			go func(i int) {
+				defer wg.Done()
+				segment, err := queue.Dequeue()
+				if err != nil {
+					errs <- err
+				}
+				entries <- &segment
+			}(i)
+		}
+		wg.Wait()
+		close(errs)
+		close(entries)
 
-	for err := range errs {
-		b.Error(err)
-	}
+		for err := range errs {
+			b.Error(err)
+		}
 
-	var items []*pb.InjuredSegment
-	for segment := range entries {
-		items = append(items, segment)
-	}
+		var items []*pb.InjuredSegment
+		for segment := range entries {
+			items = append(items, segment)
+		}
 
-	sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
-	// check if the enqueued and dequeued elements match
-	for i := 0; i < N; i++ {
-		assert.Equal(b, items[i].LostPieces[0], int32(i))
+		sort.Slice(items, func(i, k int) bool { return items[i].LostPieces[0] < items[k].LostPieces[0] })
+		// check if the enqueued and dequeued elements match
+		for i := 0; i < N; i++ {
+			assert.Equal(b, items[i].LostPieces[0], int32(i))
+		}
 	}
 }
