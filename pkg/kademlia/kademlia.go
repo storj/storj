@@ -106,8 +106,11 @@ func (k *Kademlia) Disconnect() error {
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	// TODO(coyle)
-	return []*pb.Node{}, errors.New("TODO GetNodes")
+	nodes, err := k.routingTable.FindNear(node.IDFromString(start), limit)
+	if err != nil {
+		return []*pb.Node{}, Error.New("could not get nodes %s", err)
+	}
+	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
