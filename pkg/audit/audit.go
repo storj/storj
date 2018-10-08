@@ -6,7 +6,9 @@ package audit
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -47,6 +49,11 @@ type defaultDownloader struct {
 // newDownloader creates a new instance of a defaultDownloader struct
 func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: t, overlay: o, identity: id}
+}
+
+// NewAuditor creates a new instance of an Auditor struct
+func NewAuditor(downloader downloader) *Auditor {
+	return &Auditor{downloader: downloader}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -99,11 +106,13 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	return s, nil
 }
 
+// Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
 	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIds []dht.NodeID
 	pieces := pointer.Remote.GetRemotePieces()
+
 	for _, p := range pieces {
 		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
 	}
@@ -134,17 +143,11 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	return shares, nodes, nil
 }
 
-// auditShares takes the downloaded shares and uses infectious's Correct function to check that they
-// haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals []share) (pieceNums []int, err error) {
+func makeCopies(ctx context.Context, originals []share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	f, err := infectious.NewFEC(required, total)
-	if err != nil {
-		return nil, err
-	}
 	// Have to use []infectious.Share instead of []audit.Share
 	// in order to run the infectious Correct function.
-	copies := make([]infectious.Share, len(originals))
+	copies = make([]infectious.Share, len(originals))
 	for i, original := range originals {
 
 		// If there was an error downloading a share before,
@@ -154,17 +157,40 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 		if original.Error != nil {
 			continue
 		}
-
 		copies[i].Data = append([]byte(nil), original.Data...)
 		copies[i].Number = original.PieceNumber
+
+		// do i encode inside of copies?
+	}
+	return copies, nil
+}
+
+// auditShares takes the downloaded shares and uses infectious's Correct function to check that they
+// haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
+func auditShares(ctx context.Context, required, total int, originals []share) (pieceNums []int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	f, err := infectious.NewFEC(required, total)
+	if err != nil {
+		return nil, err
+	}
+	copies, err := makeCopies(ctx, originals)
+	if err != nil {
+		return nil, err
+	}
+	for i, share := range copies {
+		fmt.Println("precorrect share data", share.Data[:3])
+		fmt.Println("precorrect originals["+strconv.Itoa(i)+"] data", originals[i].Data[:3])
 	}
 
 	err = f.Correct(copies)
 	if err != nil {
 		return nil, err
 	}
-
+	// TODO(nat): add a check for missing shares or arrays of different lengths
 	for i, share := range copies {
+		fmt.Println("post share data", share.Data[:3])
+		fmt.Println("post originals["+strconv.Itoa(i)+"] data", originals[i].Data[:3])
+
 		if !bytes.Equal(originals[i].Data, share.Data) {
 			pieceNums = append(pieceNums, share.Number)
 		}
@@ -182,6 +208,7 @@ func calcPadded(size int64, blockSize int) int64 {
 
 // auditStripe gets remote segments from a pointer and runs an audit on shares
 // at a given stripe index
+// TODO(nat): maybe removed required/total here?
 func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
