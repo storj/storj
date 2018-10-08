@@ -18,12 +18,12 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-const (
-	alpha                       = 5
-	defaultIDLength             = 256
-	defaultBucketSize           = 20
-	defaultReplacementCacheSize = 5
-)
+// const (
+// 	alpha                       = 5
+// 	defaultIDLength             = 256
+// 	defaultBucketSize           = 20
+// 	defaultReplacementCacheSize = 5
+// )
 
 // NodeErr is the class for all errors pertaining to node operations
 var NodeErr = errs.Class("node error")
@@ -52,14 +52,14 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, kadconfig KadConfig) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
 		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
-		idLength:     defaultIDLength,
-		bucketSize:   defaultBucketSize,
-		rcBucketSize: defaultReplacementCacheSize,
+		idLength:     kadconfig.DefaultIDLength,
+		bucketSize:   kadconfig.DefaultBucketSize,
+		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
@@ -73,7 +73,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 
 	k := &Kademlia{
-		alpha:          alpha,
+		alpha:          kadconfig.Alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
