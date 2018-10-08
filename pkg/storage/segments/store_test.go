@@ -122,7 +122,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
-			mockES.EXPECT().EncodedBlockSize().Return(1),
+			mockES.EXPECT().ErasureShareSize().Return(1),
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(nil),
@@ -132,7 +132,9 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, p, r, tt.mdInput, tt.expiration)
+		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
+			return p, tt.mdInput, nil
+		})
 		assert.NoError(t, err, tt.name)
 	}
 }
@@ -175,7 +177,9 @@ func TestSegmentStorePutInline(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, p, r, tt.mdInput, tt.expiration)
+		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
+			return p, tt.mdInput, nil
+		})
 		assert.NoError(t, err, tt.name)
 	}
 }

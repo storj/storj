@@ -10,10 +10,10 @@ import (
 )
 
 func TestAesGcm(t *testing.T) {
-	var key [32]byte
-	copy(key[:], randData(32))
-	var firstNonce [12]byte
-	copy(firstNonce[:], randData(12))
+	var key Key
+	copy(key[:], randData(KeySize))
+	var firstNonce AESGCMNonce
+	copy(firstNonce[:], randData(AESGCMNonceSize))
 	encrypter, err := NewAESGCMEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)

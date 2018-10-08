@@ -10,6 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
+
+	// "storj.io/storj/pkg/datarepair/repairer"
+	// "storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
@@ -38,6 +41,8 @@ var (
 		Identity    provider.IdentityConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
+		// Checker     checker.Config
+		// Repairer    repairer.Config
 		Overlay     overlay.Config
 		MockOverlay mock.Config
 	}
@@ -64,7 +69,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, o)
+		runCfg.Kademlia, 
+		o, 
+		runCfg.PointerDB, 
+		// runCfg.Checker, runCfg.Repairer
+	)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

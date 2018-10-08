@@ -42,7 +42,7 @@ type PSClient interface {
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID) error
-	Stats(ctx context.Context) error
+	Stats(ctx context.Context) (*pb.StatSummary, error)
 	io.Closer
 }
 
@@ -129,7 +129,10 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	if err == io.ErrUnexpectedEOF {
 		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
-		return client.Delete(ctx, id)
+		deleteErr := client.Delete(ctx, id)
+		if deleteErr != nil {
+			return deleteErr
+		}
 	}
 	if err != nil {
 		return err
@@ -159,14 +162,8 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 }
 
 // Stats will retrieve stats about a piece storage node
-func (client *Client) Stats(ctx context.Context) error {
-	reply, err := client.route.Stats(ctx, &pb.StatsReq{})
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Stats Summary : %v", reply)
-	return nil
+func (client *Client) Stats(ctx context.Context) (*pb.StatSummary, error) {
+	return client.route.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key

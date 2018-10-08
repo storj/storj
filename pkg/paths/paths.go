@@ -94,7 +94,6 @@ func (p Path) Decrypt(key []byte) (decrypted Path, err error) {
 }
 
 // DeriveKey derives the key for the given depth from the given root key
-//
 // This method must be called on an unencrypted path.
 func (p Path) DeriveKey(key []byte, depth int) (derivedKey []byte, err error) {
 	if depth < 0 {
@@ -111,6 +110,26 @@ func (p Path) DeriveKey(key []byte, depth int) (derivedKey []byte, err error) {
 			return nil, err
 		}
 	}
+	return derivedKey, nil
+}
+
+// DeriveContentKey derives the key for the encrypted object data using the root key
+// This method must be called on an unencrypted path.
+func (p Path) DeriveContentKey(key []byte) (derivedKey *[32]byte, err error) {
+	if len(p) == 0 {
+		return nil, Error.New("path is empty")
+	}
+	d, err := p.DeriveKey(key, len(p)-1)
+	if err != nil {
+		return nil, err
+	}
+	d, err = deriveSecret(d, "content")
+	if err != nil {
+		return nil, err
+	}
+
+	derivedKey = new([32]byte)
+	copy((*derivedKey)[:], d[:32])
 	return derivedKey, nil
 }
 

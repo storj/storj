@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/paths"
@@ -23,12 +24,17 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+var (
+	progress *bool
+)
+
 func init() {
-	addCmd(&cobra.Command{
+	cpCmd := addCmd(&cobra.Command{
 		Use:   "cp",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	})
+	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
 func cleanAbsPath(p string) string {
@@ -64,6 +70,19 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		defer utils.LogClose(f)
 	}
 
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	r := io.Reader(f)
+	var bar *pb.ProgressBar
+	if *progress {
+		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
+
 	o, err := bs.GetObjectStore(ctx, destObj.Host)
 	if err != nil {
 		return err
@@ -72,9 +91,13 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), f, meta, expTime)
+	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	fmt.Printf("Created %s\n", destObj)
@@ -102,7 +125,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	if destFile == "-" {
 		f = os.Stdout
 	} else {
-		f, err = os.Open(destFile)
+		f, err = os.Create(destFile)
 		if err != nil {
 			return err
 		}
@@ -120,9 +143,20 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 	}
 	defer utils.LogClose(r)
 
+	var bar *pb.ProgressBar
+	if *progress {
+		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
+
 	_, err = io.Copy(f, r)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	if destFile != "-" {
@@ -150,6 +184,13 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	}
 	defer utils.LogClose(r)
 
+	var bar *pb.ProgressBar
+	if *progress {
+		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
+		bar.Start()
+		r = bar.NewProxyReader(r)
+	}
+
 	if destObj.Host != srcObj.Host {
 		o, err = bs.GetObjectStore(ctx, destObj.Host)
 		if err != nil {
@@ -169,6 +210,10 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
 	if err != nil {
 		return err
+	}
+
+	if bar != nil {
+		bar.Finish()
 	}
 
 	fmt.Printf("%s copied to %s\n", srcObj, destObj)

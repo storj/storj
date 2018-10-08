@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -12,7 +13,11 @@ import (
 )
 
 func main() {
-	flag.Set("metrics.interval", "1s")
+	err := flag.Set("metrics.interval", "1s")
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	process.Exec(&cobra.Command{
 		Use:   "metric-sender",
 		Short: "send metrics",

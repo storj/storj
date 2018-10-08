@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -22,7 +24,7 @@ import (
 )
 
 const (
-	storagenodeCount = 50
+	storagenodeCount = 100
 )
 
 // Satellite is for configuring client
@@ -31,6 +33,8 @@ type Satellite struct {
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -107,6 +111,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
+			// runCfg.Satellite.Checker,
+			// runCfg.Satellite.Repairer,
 			o)
 	}()
 
