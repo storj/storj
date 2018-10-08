@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -99,6 +100,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
+	// start miniredis for the repair process
+	go func() {
+		m := miniredis.NewMiniRedis()
+		m.StartAddr(":6379")
+	}
+
 	// start satellite
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
@@ -110,8 +117,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.PointerDB,
-			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 			o)
 	}()
 

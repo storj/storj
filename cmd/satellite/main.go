@@ -40,8 +40,8 @@ var (
 		Identity    provider.IdentityConfig
 		Kademlia    kademlia.Config
 		PointerDB   pointerdb.Config
-		// Checker     checker.Config
-		// Repairer    repairer.Config
+		Checker     checker.Config
+		Repairer    repairer.Config
 		Overlay     overlay.Config
 		MockOverlay overlay.MockConfig
 	}
@@ -71,7 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Kademlia, 
 		o, 
 		runCfg.PointerDB, 
-		// runCfg.Checker, runCfg.Repairer
+		runCfg.Checker, runCfg.Repairer
 	)
 }
 
