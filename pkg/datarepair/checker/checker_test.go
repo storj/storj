@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/redis"
 )
 
 var ctx = context.Background()
@@ -124,4 +126,81 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
 	assert.Equal(t, expectedOnline, online)
+}
+
+func BenchmarkIdentifyInjuredSegments(b *testing.B) {
+	params := &pb.IdentifyRequest{Recurse: true}
+	pointerdb := teststore.New() //TODO: swap this out
+	
+	addr, cleanup, err := redisserver.Start()
+	defer cleanup()
+	assert.NoError(b, err)
+	client, err := redis.NewClient(addr, "", 1)
+	assert.NoError(b, err)
+	repairQueue := queue.NewQueue(client)
+
+	logger := zap.NewNop()
+	const N = 25
+	nodes := []*pb.Node{}
+	segs := []*pb.InjuredSegment{}
+	//fill a pointerdb
+	for i := 0; i < N; i++ {
+		s := strconv.Itoa(i)
+		ids := []string{s + "a", s + "b", s + "c", s + "d"}
+
+		p := &pb.Pointer{
+			Remote: &pb.RemoteSegment{
+				Redundancy: &pb.RedundancyScheme{
+					RepairThreshold: int32(2),
+				},
+				PieceId: strconv.Itoa(i),
+				RemotePieces: []*pb.RemotePiece{
+					{PieceNum: 0, NodeId: ids[0]},
+					{PieceNum: 1, NodeId: ids[1]},
+					{PieceNum: 2, NodeId: ids[2]},
+					{PieceNum: 3, NodeId: ids[3]},
+				},
+			},
+		}
+		val, err := proto.Marshal(p)
+		assert.NoError(b, err)
+		err = pointerdb.Put(storage.Key(p.Remote.PieceId), val)
+		assert.NoError(b, err)
+
+		//nodes for cache
+		selection := rand.Intn(4)
+		for _, v := range ids[:selection] {
+			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: v}}
+			nodes = append(nodes, n)
+		}
+		pieces := []int32{0, 1, 2, 3}
+		//expected injured segments
+		if len(ids[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
+			seg := &pb.InjuredSegment{
+				Path:          p.Remote.PieceId,
+				LostPieces:    pieces[selection:],
+				HealthyPieces: pieces[:selection],
+			}
+			segs = append(segs, seg)
+		}
+	}
+	//fill a overlay cache
+	overlayServer := overlay.NewMockOverlay(nodes)
+	checker := NewChecker(params, pointerdb, repairQueue, overlayServer, logger)
+	err = checker.IdentifyInjuredSegments(ctx)
+	assert.NoError(b, err)
+
+	//check if the expected segments were added to the queue
+	dequeued := []*pb.InjuredSegment{}
+	for i := 0; i < len(segs); i++ {
+		injSeg, err := repairQueue.Dequeue()
+		assert.NoError(b, err)
+		dequeued = append(dequeued, &injSeg)
+	}
+	sort.Slice(segs, func(i, k int) bool { return segs[i].Path < segs[k].Path })
+	sort.Slice(dequeued, func(i, k int) bool { return dequeued[i].Path < dequeued[k].Path })
+
+	for i := 0; i < len(segs); i++ {
+		assert.True(b, proto.Equal(segs[i], dequeued[i]))
+	}
 }
