@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -52,11 +54,18 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return nil, err
+		}
+	}
+	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
-		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
+		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
+		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
 		idLength:     defaultIDLength,
 		bucketSize:   defaultBucketSize,
 		rcBucketSize: defaultReplacementCacheSize,

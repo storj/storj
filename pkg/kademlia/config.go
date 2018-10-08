@@ -33,6 +33,7 @@ type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	// TODO(jt): remove this! kademlia should just use the grpc server
 	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
+	DBPath         string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Run implements provider.Responsibility
@@ -50,7 +51,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
 	in.Id = "foo"
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity())
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath)
 	if err != nil {
 		return err
 	}
