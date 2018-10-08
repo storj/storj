@@ -54,7 +54,7 @@ type ObjectList struct {
 	Token  string
 	More   bool
 
-	// Items paths are realtive to Prefix
+	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
 }
