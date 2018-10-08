@@ -33,7 +33,7 @@ type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	// TODO(jt): remove this! kademlia should just use the grpc server
 	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
-	DBPath         string `help:"the path for our db services to be created on" default:"/root/.storj/storagenode/db"`
+	DBPath         string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Run implements provider.Responsibility
