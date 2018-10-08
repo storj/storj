@@ -63,8 +63,8 @@ type MetainfoLimits struct {
 	// ListLimit specifies the maximum amount of items that can be listed at a time.
 	ListLimit int64
 
-	// MinimumRemoteSegemtSize specifies the minimum remote segment that is allowed to be stored.
-	MinimumRemoteSegemtSize int64
+	// MinimumRemoteSegmentSize specifies the minimum remote segment that is allowed to be stored.
+	MinimumRemoteSegmentSize int64
 	// MaximumInlineSegmentSize specifies the maximum inline segment that is allowed to be stored.
 	MaximumInlineSegmentSize int64
 }
