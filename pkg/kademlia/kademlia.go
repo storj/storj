@@ -57,7 +57,9 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 
 	if _, err := os.Stat("db"); os.IsNotExist(err) {
-		os.Mkdir("db", 0777)
+		if err := os.Mkdir("db", 0777); err != nil {
+			return nil, err
+		}
 	}
 
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
