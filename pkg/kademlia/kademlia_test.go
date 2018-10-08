@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ func TestNewKademlia(t *testing.T) {
 		bn          []pb.Node
 		addr        string
 		expectedErr error
+		setup       func() error
 	}{
 		{
 			id: func() *node.ID {
@@ -31,12 +33,24 @@ func TestNewKademlia(t *testing.T) {
 				assert.NoError(t, err)
 				return id
 			}(),
-			bn:   []pb.Node{pb.Node{Id: "foo"}},
-			addr: "127.0.0.1:8080",
+			bn:    []pb.Node{pb.Node{Id: "foo"}},
+			addr:  "127.0.0.1:8080",
+			setup: func() error { return nil },
+		},
+		{
+			id: func() *node.ID {
+				id, err := node.NewID()
+				assert.NoError(t, err)
+				return id
+			}(),
+			bn:    []pb.Node{pb.Node{Id: "foo"}},
+			addr:  "127.0.0.1:8080",
+			setup: func() error { return os.RemoveAll("db") },
 		},
 	}
 
 	for _, v := range cases {
+		assert.NoError(t, v.setup())
 		ca, err := provider.NewCA(ctx, 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
