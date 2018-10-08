@@ -26,7 +26,7 @@ var ClientError = errs.Class("Client Error")
 
 //Client implements the Overlay Client interface
 type Client interface {
-	Choose(ctx context.Context, limit int, space int64) ([]*pb.Node, error)
+	Choose(ctx context.Context, limit int, space int64, excluded []dht.NodeID) ([]*pb.Node, error)
 	Lookup(ctx context.Context, nodeID dht.NodeID) (*pb.Node, error)
 	BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.Node, error)
 }
@@ -56,22 +56,7 @@ func NewOverlayClient(identity *provider.FullIdentity, address string) (*Overlay
 var _ Client = (*Overlay)(nil)
 
 // Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, amount int, space int64) ([]*pb.Node, error) {
-	// TODO(coyle): We will also need to communicate with the reputation service here
-	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
-		Opts: &pb.OverlayOptions{Amount: int64(amount), Restrictions: &pb.NodeRestrictions{
-			FreeDisk: space,
-		}},
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return resp.GetNodes(), nil
-}
-
-// ChooseFiltered provides a list of nodes which will not contain the specified excluded nodes
-func (o *Overlay) ChooseFiltered(ctx context.Context, amount int, space int64, excluded []dht.NodeID) ([]*pb.Node, error) {
+func (o *Overlay) Choose(ctx context.Context, amount int, space int64, excluded []dht.NodeID) ([]*pb.Node, error) {
 	var exIDs []string
 	for _, id := range excluded {
 		exIDs = append(exIDs, id.String())
@@ -84,7 +69,6 @@ func (o *Overlay) ChooseFiltered(ctx context.Context, amount int, space int64, e
 			ExcludedNodes: exIDs,
 		},
 	})
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

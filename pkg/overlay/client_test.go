@@ -58,11 +58,25 @@ func TestChoose(t *testing.T) {
 	cases := []struct {
 		limit         int
 		space         int64
+		excluded      []dht.NodeID
 		expectedCalls int
 	}{
 		{
 			limit:         50,
 			space:         100,
+			excluded:      nil,
+			expectedCalls: 1,
+		},
+		{
+			limit: 50,
+			space: 100,
+			excluded: func() []dht.NodeID {
+				id1 := kademlia.StringToNodeID("n1")
+				id2 := kademlia.StringToNodeID("n2")
+				id3 := kademlia.StringToNodeID("n3")
+				id4 := kademlia.StringToNodeID("n4")
+				return []dht.NodeID{id2, id1, id3, id4}
+			}(),
 			expectedCalls: 1,
 		},
 	}
@@ -87,7 +101,7 @@ func TestChoose(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(ctx, v.limit, v.space)
+		_, err = oc.Choose(ctx, v.limit, v.space, v.excluded)
 		assert.NoError(t, err)
 		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
 	}
