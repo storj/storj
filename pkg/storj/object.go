@@ -19,8 +19,11 @@ type Object struct {
 	IsPrefix bool
 
 	Metadata []byte
-	Created  time.Time
-	Modified time.Time
+
+	ContentType string
+	Created     time.Time
+	Modified    time.Time
+	Expires     time.Time
 
 	Stream
 }
@@ -51,6 +54,8 @@ type Segment struct {
 	// Remote data
 	PieceID PieceID
 	Pieces  []Piece
+	// Encryption
+	EncryptedNonce EncryptedNonce
 }
 
 // PieceID is an identificator for a piece

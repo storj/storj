@@ -5,9 +5,8 @@ package storj
 
 // EncryptionScheme is the scheme and parameters used for encryption
 type EncryptionScheme struct {
-	Algorithm      EncryptionAlgorithm
-	EncryptedKey   EncryptedPrivateKey
-	EncryptedNonce EncryptedNonce
+	Algorithm    EncryptionAlgorithm
+	EncryptedKey EncryptedPrivateKey
 }
 
 // EncryptionAlgorithm specifies an encryption algorithm

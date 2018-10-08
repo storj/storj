@@ -13,7 +13,8 @@ type Metainfo interface {
 	Limits() (MetainfoLimits, error)
 
 	// CreateBucket creates a new bucket with the specified information
-	CreateBucket(ctx context.Context, bucket Bucket) (Bucket, error)
+	// Database automatically sets different values in the information
+	CreateBucket(ctx context.Context, bucket string, info *Bucket) (Bucket, error)
 	// DeleteBucket deletes bucket
 	DeleteBucket(ctx context.Context, bucket string) error
 	// GetBucket gets bucket information
@@ -42,16 +43,12 @@ type ListOptions struct {
 	Delimiter rune
 	Recursive bool
 	Limit     int
-
-	// Token used for the next listing.
-	Token string
 }
 
 // ObjectList is a list of objects
 type ObjectList struct {
 	Bucket string
 	Prefix Path
-	Token  string
 	More   bool
 
 	// Items paths are relative to Prefix

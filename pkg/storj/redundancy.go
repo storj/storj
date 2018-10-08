@@ -20,7 +20,6 @@ type RedundancyAlgorithm byte
 
 // List of supported redundancy algorithms
 const (
-	Invalid = RedundancyAlgorithm(iota)
-	Duplication
+	InvalidRedundancyAlgorithm = RedundancyAlgorithm(iota)
 	ReedSolomon
 )
