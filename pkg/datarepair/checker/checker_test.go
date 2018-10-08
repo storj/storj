@@ -18,19 +18,21 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/teststore"
-	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage/redis"
+	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/teststore"
 )
 
 var ctx = context.Background()
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	params := &pb.IdentifyRequest{Recurse: true}
-	pointerdb := teststore.New()
-	repairQueue := queue.NewQueue(teststore.New())
 	logger := zap.NewNop()
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+
+	repairQueue := queue.NewQueue(teststore.New())
+
 	const N = 25
 	nodes := []*pb.Node{}
 	segs := []*pb.InjuredSegment{}
@@ -53,9 +55,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 				},
 			},
 		}
-		val, err := proto.Marshal(p)
-		assert.NoError(t, err)
-		err = pointerdb.Put(storage.Key(p.Remote.PieceId), val)
+		req := &pb.PutRequest{
+			Path:    p.Remote.PieceId,
+			Pointer: p,
+			APIKey:  nil,
+		}
+		resp, err := pointerdb.Put(ctx, req)
+		assert.NotNil(t, resp)
 		assert.NoError(t, err)
 
 		//nodes for cache
@@ -98,9 +104,10 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 func TestOfflineAndOnlineNodes(t *testing.T) {
 	params := &pb.IdentifyRequest{Recurse: true}
-	pointerdb := teststore.New()
-	repairQueue := queue.NewQueue(teststore.New())
 	logger := zap.NewNop()
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+
+	repairQueue := queue.NewQueue(teststore.New())
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := []dht.NodeID{}
@@ -130,8 +137,9 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	params := &pb.IdentifyRequest{Recurse: true}
-	pointerdb := teststore.New() //TODO: swap this out
-	
+	logger := zap.NewNop()
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
@@ -139,7 +147,6 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	assert.NoError(b, err)
 	repairQueue := queue.NewQueue(client)
 
-	logger := zap.NewNop()
 	const N = 25
 	nodes := []*pb.Node{}
 	segs := []*pb.InjuredSegment{}
@@ -162,9 +169,13 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 				},
 			},
 		}
-		val, err := proto.Marshal(p)
-		assert.NoError(b, err)
-		err = pointerdb.Put(storage.Key(p.Remote.PieceId), val)
+		req := &pb.PutRequest{
+			Path:    p.Remote.PieceId,
+			Pointer: p,
+			APIKey:  nil,
+		}
+		resp, err := pointerdb.Put(ctx, req)
+		assert.NotNil(b, resp)
 		assert.NoError(b, err)
 
 		//nodes for cache

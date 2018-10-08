@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
 )
@@ -54,14 +55,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
 	params      *pb.IdentifyRequest
-	pointerdb   storage.KeyValueStore
+	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
 	logger      *zap.Logger
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, repairQueue *queue.Queue, overlay pb.OverlayServer, logger *zap.Logger) *Checker {
+func NewChecker(params *pb.IdentifyRequest, pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, logger *zap.Logger) *Checker {
 	return &Checker{
 		params:      params,
 		pointerdb:   pointerdb,
@@ -75,12 +76,13 @@ func NewChecker(params *pb.IdentifyRequest, pointerdb storage.KeyValueStore, rep
 func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer datarepair.Mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
-	err = c.pointerdb.Iterate(storage.IterateOptions{
-		Prefix:  storage.Key(c.params.Prefix),
-		First:   storage.Key(c.params.First),
-		Recurse: c.params.Recurse,
-		Reverse: c.params.Reverse,
-	},
+
+	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{
+			Prefix:  c.params.Prefix,
+			First:   c.params.First,
+			Recurse: c.params.Recurse,
+			Reverse: c.params.Reverse,
+		},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			if c.params.Limit <= 0 || c.params.Limit > storage.LookupLimit {

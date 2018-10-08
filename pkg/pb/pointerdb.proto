@@ -128,3 +128,11 @@ message DeleteRequest {
 // DeleteResponse is a response message for the Delete rpc call
 message DeleteResponse {
 }
+
+// IterateRequest is a request message for the Iterate rpc call
+message IterateRequest {
+  string prefix = 1;
+  string first = 2;
+  bool recurse = 3;
+  bool reverse = 4;
+}
