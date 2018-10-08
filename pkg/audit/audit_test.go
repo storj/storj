@@ -12,11 +12,6 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-type share struct {
-	segment     int
-	stripeIndex int
-}
-
 type mockDownloader struct {
 	shares map[int]Share
 }

@@ -58,7 +58,7 @@ func (d *downloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClien
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 1024*32, d.identity.Key)
+	return client.NewPSClient(c, 0, d.identity.Key)
 }
 
 // getShare use piece store clients to download shares from a given node
