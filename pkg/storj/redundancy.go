@@ -1,0 +1,23 @@
+package storj
+
+// RedundancyScheme specifies the parameters and the algorithm for redundancy
+type RedundancyScheme struct {
+	Algorithm RedundancyAlgorithm
+
+	ShareSize int64
+
+	RequiredShares int16
+	RepairShares   int16
+	OptimalShares  int16
+	TotalShares    int16
+}
+
+// RedundancyAlgorithm is the algorithm used for redundancy
+type RedundancyAlgorithm byte
+
+// List of supported redundancy algorithms
+const (
+	Invalid = RedundancyAlgorithm(iota)
+	Duplication
+	ReedSolomon
+)
