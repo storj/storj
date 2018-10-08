@@ -15,10 +15,11 @@ import (
 	// "storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	mock "storj.io/storj/pkg/overlay/mocks"
+	mockOverlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 )
 
 var (
@@ -44,7 +45,11 @@ var (
 		// Checker     checker.Config
 		// Repairer    repairer.Config
 		Overlay     overlay.Config
-		MockOverlay mock.Config
+		MockOverlay mockOverlay.Config
+		StatDB      statdb.Config
+		// RepairQueue   queue.Config
+		// RepairChecker checker.Config
+		// Repairer      repairer.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -69,11 +74,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		o = runCfg.MockOverlay
 	}
 	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, 
-		o, 
-		runCfg.PointerDB, 
-		// runCfg.Checker, runCfg.Repairer
-	)
+		runCfg.Kademlia, runCfg.PointerDB, o, runCfg.StatDB)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
