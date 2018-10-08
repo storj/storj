@@ -93,15 +93,15 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, kademlia.StringToNodeID(p.NodeId))
 				}
-				missingPieces, healthyPieces, err := c.offlineAndOnlineNodes(ctx, nodeIDs)
+				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting missing offline nodes %s", err)
 				}
-				if int32(len(healthyPieces)) < pointer.Remote.Redundancy.RepairThreshold {
+				numHealthy := len(nodeIDs) - len(missingPieces)
+				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:          string(item.Key),
 						LostPieces:    missingPieces,
-						HealthyPieces: healthyPieces,
 					})
 					if err != nil {
 						return Error.New("error adding injured segment to queue %s", err)
@@ -115,20 +115,18 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 }
 
 // returns the indices of offline and online nodes
-func (c *Checker) offlineAndOnlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, online []int32, err error) {
+func (c *Checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, nodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
-		return []int32{}, []int32{}, err
+		return []int32{}, err
 	}
 	nodes := lookupResponsesToNodes(responses)
 	for i, n := range nodes {
 		if n == nil {
 			offline = append(offline, int32(i))
-		} else {
-			online = append(online, int32(i))
 		}
 	}
-	return offline, online, nil
+	return offline, nil
 }
 
 func nodeIDsToLookupRequests(nodeIDs []dht.NodeID) *pb.LookupRequests {

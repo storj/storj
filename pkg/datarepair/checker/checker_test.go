@@ -75,7 +75,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 			seg := &pb.InjuredSegment{
 				Path:          p.Remote.PieceId,
 				LostPieces:    pieces[selection:],
-				HealthyPieces: pieces[:selection],
 			}
 			segs = append(segs, seg)
 		}
@@ -129,10 +128,9 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 	overlayServer := overlay.NewMockOverlay(nodes)
 	limit := 0
 	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
-	offline, online, err := checker.offlineAndOnlineNodes(ctx, nodeIDs)
+	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
-	assert.Equal(t, expectedOnline, online)
 }
 
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
@@ -189,7 +187,6 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 			seg := &pb.InjuredSegment{
 				Path:          p.Remote.PieceId,
 				LostPieces:    pieces[selection:],
-				HealthyPieces: pieces[:selection],
 			}
 			segs = append(segs, seg)
 		}
