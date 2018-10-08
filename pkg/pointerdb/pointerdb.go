@@ -53,14 +53,16 @@ func (s *Server) validateAuth(APIKey []byte) error {
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {
-	min := s.config.MinInlineSegmentSize
+	min := s.config.MinRemoteSegmentSize
+	remote := req.GetPointer().Remote
+	remoteSize := req.GetPointer().GetSize()
+
+	if remote != nil && remoteSize < int64(min) {
+		return segmentError.New("remote segment size %d less than minimum allowed %d", remoteSize, min)
+	}
+
 	max := s.config.MaxInlineSegmentSize
 	inlineSize := len(req.GetPointer().InlineSegment)
-	remote := req.GetPointer().Remote
-
-	if remote != nil && req.GetPointer().GetSize() < min {
-		return segmentError.New("inline segment size %d less than minimum allowed %d", inlineSize, min)
-	}
 
 	if inlineSize > max {
 		return segmentError.New("inline segment size %d greater than maximum allowed %d", inlineSize, max)
