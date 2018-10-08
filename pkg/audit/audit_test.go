@@ -13,12 +13,12 @@ import (
 )
 
 type mockDownloader struct {
-	shares map[int]Share
+	shares map[int]share
 }
 
 func TestDownloadShares(t *testing.T) {
 	ctx := context.Background()
-	mockShares := make(map[int]Share)
+	mockShares := make(map[int]share)
 
 	for i, tt := range []struct {
 		stripeIndex int
@@ -42,7 +42,7 @@ func TestDownloadShares(t *testing.T) {
 		}
 
 		for i = 0; i < tt.shareAmount; i++ {
-			mockShares[i] = Share{
+			mockShares[i] = share{
 				Error:       tt.err,
 				PieceNumber: i,
 				Data:        someData,
@@ -51,9 +51,9 @@ func TestDownloadShares(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		a := &Auditor{downloader: &md}
 
-		_, err := a.runAudit(ctx, pointer, tt.stripeIndex, tt.required, tt.total)
+		_, err := a.auditStripe(ctx, pointer, tt.stripeIndex, tt.required, tt.total)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 	}
 }
@@ -69,15 +69,15 @@ func TestAuditShares(t *testing.T) {
 	}{
 		{30, 20, 40, nil},
 	} {
-		var shares []Share
+		var shares []share
 		someData := randData(32 * 1024)
 		for i = 0; i < tt.shareAmount; i++ {
-			share := Share{
+			s := share{
 				Error:       nil,
 				PieceNumber: i,
 				Data:        someData,
 			}
-			shares = append(shares, share)
+			shares = append(shares, s)
 		}
 
 		_, err := auditShares(ctx, tt.required, tt.total, shares)
@@ -87,12 +87,12 @@ func TestAuditShares(t *testing.T) {
 	}
 }
 
-func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	nodes []*pb.Node) (shares []Share, err error) {
+func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
+	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
 	for _, share := range m.shares {
 		shares = append(shares, share)
 	}
-	return shares, nil
+	return shares, nodes, nil
 }
 
 func (m *mockDownloader) lookupNodes(ctx context.Context, pieces []*pb.RemotePiece) (nodes []*pb.Node, err error) {

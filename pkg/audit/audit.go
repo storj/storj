@@ -22,8 +22,7 @@ import (
 
 var mon = monkit.Package()
 
-// Share is an erasure share
-type Share struct {
+type share struct {
 	Error       error
 	PieceNumber int
 	Data        []byte
@@ -31,28 +30,26 @@ type Share struct {
 
 // Auditor implements the downloader interface
 type Auditor struct {
-	downloader Downloader
+	downloader downloader
 }
 
-// Downloader enables downloading shares
-type Downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, nodes []*pb.Node) (shares []Share, err error)
-	lookupNodes(ctx context.Context, pieces []*pb.RemotePiece) (nodes []*pb.Node, err error)
+type downloader interface {
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
 }
 
 // downloader implements the downloader interface
-type downloader struct {
+type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
 }
 
-// newDownloader creates a new instance of a downloader struct
-func newDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *downloader {
-	return &downloader{transport: t, overlay: o, identity: id}
+// newDownloader creates a new instance of a defaultDownloader struct
+func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
+	return &defaultDownloader{transport: t, overlay: o, identity: id}
 }
 
-func (d *downloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
+func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 	c, err := d.transport.DialNode(ctx, node)
 	if err != nil {
@@ -62,49 +59,59 @@ func (d *downloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClien
 }
 
 // getShare use piece store clients to download shares from a given node
-func (d *downloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id client.PieceID, pieceSize int64, node *pb.Node) (share Share, err error) {
+func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
+	id client.PieceID, pieceSize int64, node *pb.Node) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ps, err := d.dial(ctx, node)
 	if err != nil {
-		return share, err
+		return s, err
 	}
 
 	derivedPieceID, err := id.Derive([]byte(node.GetId()))
 	if err != nil {
-		return share, err
+		return s, err
 	}
 
 	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
 	if err != nil {
-		return share, err
+		return s, err
 	}
 
 	offset := shareSize * stripeIndex
 
 	rc, err := rr.Range(ctx, int64(offset), int64(shareSize))
 	if err != nil {
-		return share, err
+		return s, err
 	}
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)
 	if err != nil {
-		return share, err
+		return s, err
 	}
 
-	share = Share{
+	s = share{
 		Error:       nil,
 		PieceNumber: pieceNumber,
 		Data:        buf,
 	}
-	return share, nil
+	return s, nil
 }
 
-func (d *downloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int,
-	nodes []*pb.Node) (shares []Share, err error) {
+func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
+	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+	var nodeIds []dht.NodeID
+	pieces := pointer.Remote.GetRemotePieces()
+	for _, p := range pieces {
+		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+	}
+	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
+	if err != nil {
+		return nil, nodes, err
+	}
+
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
 	pieceID := client.PieceID(pointer.Remote.GetPieceId())
 
@@ -113,23 +120,23 @@ func (d *downloader) DownloadShares(ctx context.Context, pointer *pb.Pointer, st
 		paddedSize := calcPadded(pointer.GetSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		share, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node)
 		if err != nil {
 			// TODO(nat): update the statdb to indicate this node failed the audit
-			share = Share{
+			s = share{
 				Error:       err,
 				PieceNumber: i,
 				Data:        nil,
 			}
 		}
-		shares = append(shares, share)
+		shares = append(shares, s)
 	}
-	return shares, nil
+	return shares, nodes, nil
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
 // haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals []Share) (pieceNums []int, err error) {
+func auditShares(ctx context.Context, required, total int, originals []share) (pieceNums []int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
@@ -165,19 +172,6 @@ func auditShares(ctx context.Context, required, total int, originals []Share) (p
 	return pieceNums, nil
 }
 
-// lookupNodes calls BulkLookup to get node addresses from the overlay
-func (d *downloader) lookupNodes(ctx context.Context, pieces []*pb.RemotePiece) (nodes []*pb.Node, err error) {
-	var nodeIds []dht.NodeID
-	for _, p := range pieces {
-		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
-	}
-	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
-	if err != nil {
-		return nil, err
-	}
-	return nodes, nil
-}
-
 func calcPadded(size int64, blockSize int) int64 {
 	mod := size % int64(blockSize)
 	if mod == 0 {
@@ -186,16 +180,12 @@ func calcPadded(size int64, blockSize int) int64 {
 	return size + int64(blockSize) - mod
 }
 
-// runAudit gets remote segments from a pointer and runs an audit on shares
+// auditStripe gets remote segments from a pointer and runs an audit on shares
 // at a given stripe index
-func (a *Auditor) runAudit(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
+func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	nodes, err := a.downloader.lookupNodes(ctx, pointer.Remote.GetRemotePieces())
-	if err != nil {
-		return nil, err
-	}
 
-	shares, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex, nodes)
+	shares, nodes, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
 		return nil, err
 	}
