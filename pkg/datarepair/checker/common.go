@@ -5,7 +5,11 @@ package checker
 
 import (
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // Error is a standard error class for this package.
-var Error = errs.Class("checker error")
+var (
+	Error = errs.Class("checker error")
+	mon   = monkit.Package()
+)

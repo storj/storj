@@ -110,7 +110,7 @@ func (r *repairer) Run() (err error) {
 
 // Repair starts repair of the segment
 func (r *repairer) Repair(seg *pb.InjuredSegment) (err error) {
-	defer datarepair.Mon.Task()(&r.ctx)(&err)
+	defer mon.Task()(&r.ctx)(&err)
 	r.inProgress++
 	fmt.Println(seg)
 

@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/datarepair"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -28,7 +27,7 @@ type Config struct {
 
 // Run runs the checker with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer datarepair.Mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	zap.S().Info("Checker is starting up")
 
@@ -74,15 +73,15 @@ func NewChecker(params *pb.IdentifyRequest, pointerdb *pointerdb.Server, repairQ
 
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
-	defer datarepair.Mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
 
 	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{
-			Prefix:  c.params.Prefix,
-			First:   c.params.First,
-			Recurse: c.params.Recurse,
-			Reverse: c.params.Reverse,
-		},
+		Prefix:  c.params.Prefix,
+		First:   c.params.First,
+		Recurse: c.params.Recurse,
+		Reverse: c.params.Reverse,
+	},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
 			if c.params.Limit <= 0 || c.params.Limit > storage.LookupLimit {
