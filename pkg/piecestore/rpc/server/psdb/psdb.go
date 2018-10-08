@@ -332,48 +332,17 @@ func (db *DB) BandwidthUsage(startdate time.Time, enddate time.Time) (totalbwusa
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
 
 	log.Println("startTimeUnix(t),  endTimeUnix, defaultunixtime", startTimeUnix, endTimeUnix, defaultunixtime)
-	if startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime {
+	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
 		fmt.Println("Invalid date range")
 		zap.S().Errorf("Invalid date range")
 		return totalbwusage, errors.New("Invalid date range")
 	}
 
-	rows, err := db.DB.Query(`SELECT size FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix)
+	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
 	if err != nil {
 		fmt.Println("bwusagetbl query error")
 		zap.S().Errorf("bwusagetbl query error %v", err)
 	}
-	defer rows.Close()
 
-	var size int64
-	for rows.Next() {
-		log.Println("**** AM IN SIDE Rows loop...... ")
-		err = rows.Scan(&size)
-		if err != nil {
-			fmt.Println("bwusagetbl row scan err")
-			zap.S().Errorf("bwusagetbl row scan err %v", err)
-		}
-		totalbwusage = size + totalbwusage
-	}
-	err = rows.Err()
-	if err != nil {
-		fmt.Println("bwusagetbl row read err")
-		zap.S().Errorf("bwusagetbl row read err %v", err)
-	}
-
-	// var count int
-	// rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bwusagetbl")
-	// log.Println("rows=", rows)
-	// err = rows.Scan(&count)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	// log.Println("total count = ", count)
-
-	// if count == 0 {
-	// 	return 0, nil
-	// }
-
-	// err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl;`).Scan(&totalbwusage)
 	return totalbwusage, err
 }

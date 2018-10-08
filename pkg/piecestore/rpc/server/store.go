@@ -26,6 +26,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	ctx := reqStream.Context()
 	defer mon.Task()(&ctx)(&err)
 	// Receive id/ttl
+	log.Println(" STORJ --> Iam farmer ID", s.DataDir)
 	recv, err := reqStream.Recv()
 	if err != nil {
 		return StoreError.Wrap(err)
@@ -69,7 +70,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err != nil {
 		return StoreError.New("bandwidth usage info read back err: %v", err)
 	}
-	log.Println("KISHORE --> total bandwidth usage size = ", totalBwUsage)
+	log.Println("KISHORE --> total bandwidth usage size farmerID = ", totalBwUsage, s.DataDir)
 
 	log.Printf("Successfully stored %s.", pd.GetId())
 

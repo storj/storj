@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -165,6 +166,11 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			allocationTracking.Fail(err)
 			break
 		}
+	}
+
+	// write to bandwidth usage table
+	if err = s.DB.AddBwUsageTbl(used, time.Now().Unix()); err != nil {
+		return retrieved, allocated, StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors
