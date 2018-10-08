@@ -5,251 +5,163 @@ package kademlia
 
 import (
 	"context"
-	"math/rand"
-	"strconv"
+	"net"
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/pb"
-
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 )
 
-const (
-	testNetSize = 20
-)
-
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
-	bid, err := newID()
-	assert.NoError(t, err)
-
-	bnid := NodeID(bid)
-	dhts := []dht.DHT{}
-
-	p, err := strconv.Atoi(port)
-	pm := strconv.Itoa(p)
-	assert.NoError(t, err)
-	intro, err := GetIntroNode(bnid.String(), ip, pm)
-	assert.NoError(t, err)
-
-	boot, err := NewKademlia(&bnid, []pb.Node{*intro}, ip, pm)
-	assert.NoError(t, err)
-
-	//added bootnode to dhts so it could be closed in defer as well
-	dhts = append(dhts, boot)
-
-	rt, err := boot.GetRoutingTable(context.Background())
-	assert.NoError(t, err)
-	bootNode := rt.Local()
-
-	err = boot.ListenAndServe()
-	assert.NoError(t, err)
-	p++
-
-	err = boot.Bootstrap(context.Background())
-	assert.NoError(t, err)
-	for i := 0; i < testNetSize; i++ {
-		gg := strconv.Itoa(p)
-
-		nid, err := newID()
-		assert.NoError(t, err)
-		id := NodeID(nid)
-
-		dht, err := NewKademlia(&id, []pb.Node{bootNode}, ip, gg)
-		assert.NoError(t, err)
-
-		p++
-		dhts = append(dhts, dht)
-		err = dht.ListenAndServe()
-		assert.NoError(t, err)
-		err = dht.Bootstrap(context.Background())
-		assert.NoError(t, err)
-
+func TestNewKademlia(t *testing.T) {
+	cases := []struct {
+		id          dht.NodeID
+		bn          []pb.Node
+		addr        string
+		expectedErr error
+	}{
+		{
+			id: func() *node.ID {
+				id, err := node.NewID()
+				assert.NoError(t, err)
+				return id
+			}(),
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
+		},
 	}
 
-	return dhts, bootNode
+	for _, v := range cases {
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+		actual, err := NewKademlia(v.id, v.bn, v.addr, identity)
+		assert.Equal(t, v.expectedErr, err)
+		assert.Equal(t, actual.bootstrapNodes, v.bn)
+		assert.NotNil(t, actual.nodeClient)
+		assert.NotNil(t, actual.routingTable)
+	}
 }
 
-func newTestKademlia(t *testing.T, ip, port string, b pb.Node) *Kademlia {
-	i, err := newID()
+func TestLookup(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	id := NodeID(i)
-	n := []pb.Node{b}
 
-	kad, err := NewKademlia(&id, n, ip, port)
-	assert.NoError(t, err)
-	return kad
+	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
+	go func() { _ = srv.Serve(lis) }()
+	defer srv.Stop()
+
+	k := func() *Kademlia {
+		// make new identity
+		id, err := node.NewID()
+		assert.NoError(t, err)
+		id2, err := node.NewID()
+		assert.NoError(t, err)
+		// initialize kademlia
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+		k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity)
+		assert.NoError(t, err)
+		return k
+	}()
+
+	cases := []struct {
+		k           *Kademlia
+		target      dht.NodeID
+		opts        lookupOpts
+		expected    *pb.Node
+		expectedErr error
+	}{
+		{
+			k: k,
+			target: func() *node.ID {
+				id, err := node.NewID()
+				assert.NoError(t, err)
+				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}}
+				return id
+			}(),
+			opts:        lookupOpts{amount: 5},
+			expected:    &pb.Node{},
+			expectedErr: nil,
+		},
+		{
+			k: k,
+			target: func() *node.ID {
+				id, err := node.NewID()
+				assert.NoError(t, err)
+				return id
+			}(),
+			opts:        lookupOpts{amount: 5},
+			expected:    nil,
+			expectedErr: nil,
+		},
+	}
+
+	for _, v := range cases {
+		err := v.k.lookup(context.Background(), v.target, v.opts)
+		assert.Equal(t, v.expectedErr, err)
+
+		time.Sleep(1 * time.Second)
+	}
+
 }
 
 func TestBootstrap(t *testing.T) {
-	t.Skip()
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "3000")
+	bn, s := testNode(t, []pb.Node{})
+	defer s.Stop()
 
-	defer func(d []dht.DHT) {
-		for _, v := range d {
-			_ = v.Disconnect()
-		}
-	}(dhts)
+	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer s1.Stop()
 
-	cases := []struct {
-		k *Kademlia
-	}{
-		{
-			k: newTestKademlia(t, "127.0.0.1", "2999", bootNode),
-		},
-	}
-
-	for _, v := range cases {
-		defer func() { assert.NoError(t, v.k.Disconnect()) }()
-		err := v.k.ListenAndServe()
-		assert.NoError(t, err)
-		err = v.k.Bootstrap(context.Background())
-		assert.NoError(t, err)
-		ctx := context.Background()
-
-		rt, err := dhts[0].GetRoutingTable(context.Background())
-		assert.NoError(t, err)
-
-		localID := rt.Local().Id
-		n := NodeID(localID)
-		node, err := v.k.FindNode(ctx, &n)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, localID, node.Id)
-
-		assert.NoError(t, v.k.dht.Disconnect())
-	}
-
-}
-
-func TestGetNodes(t *testing.T) {
-	t.Skip()
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "6001")
-	defer func(d []dht.DHT) {
-		for _, v := range d {
-			assert.NoError(t, v.Disconnect())
-		}
-	}(dhts)
-
-	cases := []struct {
-		k            *Kademlia
-		limit        int
-		expectedErr  error
-		restrictions []pb.Restriction
-	}{
-		{
-			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-			limit:       10,
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		defer func() { assert.NoError(t, v.k.Disconnect()) }()
-		ctx := context.Background()
-		err := v.k.ListenAndServe()
-		assert.Equal(t, v.expectedErr, err)
-		time.Sleep(time.Second)
-		err = v.k.Bootstrap(ctx)
-		assert.NoError(t, err)
-
-		rt, err := v.k.GetRoutingTable(context.Background())
-
-		assert.NoError(t, err)
-		start := rt.Local().Id
-
-		nodes, err := v.k.GetNodes(ctx, start, v.limit, v.restrictions...)
-		assert.Equal(t, v.expectedErr, err)
-		assert.Len(t, nodes, v.limit)
-		assert.NoError(t, v.k.dht.Disconnect())
-	}
-
-}
-
-func TestFindNode(t *testing.T) {
-	t.Skip()
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "5001")
-	defer func(d []dht.DHT) {
-		for _, v := range d {
-			assert.NoError(t, v.Disconnect())
-		}
-	}(dhts)
-
-	cases := []struct {
-		k           *Kademlia
-		expectedErr error
-	}{
-		{
-			k:           newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-			expectedErr: nil,
-		},
-	}
-
-	for _, v := range cases {
-		defer func() { assert.NoError(t, v.k.Disconnect()) }()
-		ctx := context.Background()
-		go func() { assert.NoError(t, v.k.ListenAndServe()) }()
-		time.Sleep(time.Second)
-		assert.NoError(t, v.k.Bootstrap(ctx))
-
-		rt, err := dhts[rand.Intn(testNetSize)].GetRoutingTable(context.Background())
-		assert.NoError(t, err)
-
-		id := NodeID(rt.Local().Id)
-		node, err := v.k.FindNode(ctx, &id)
-		assert.Equal(t, v.expectedErr, err)
-		assert.NotZero(t, node)
-		assert.Equal(t, node.Id, id.String())
-	}
-
-}
-
-func TestPing(t *testing.T) {
-	t.Skip()
-	dhts, bootNode := bootstrapTestNetwork(t, "127.0.0.1", "4001")
-	defer func(d []dht.DHT) {
-		for _, v := range d {
-			assert.NoError(t, v.Disconnect())
-		}
-	}(dhts)
-
-	r := dhts[rand.Intn(testNetSize)]
-	rt, err := r.GetRoutingTable(context.Background())
-	addr := rt.Local().Address
+	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	cases := []struct {
-		k           *Kademlia
-		input       pb.Node
-		expectedErr error
-	}{
-		{
-			k: newTestKademlia(t, "127.0.0.1", "6000", bootNode),
-			input: pb.Node{
-				Id: rt.Local().Id,
-				Address: &pb.NodeAddress{
-					Transport: defaultTransport,
-					Address:   addr.Address,
-				},
-			},
-			expectedErr: nil,
-		},
-	}
+	n2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer s2.Stop()
 
-	for _, v := range cases {
-		defer func() { assert.NoError(t, v.k.Disconnect()) }()
-		ctx := context.Background()
-		go func() { assert.NoError(t, v.k.ListenAndServe()) }()
-		time.Sleep(time.Second)
-		err := v.k.Bootstrap(ctx)
-		assert.NoError(t, err)
+	err = n2.Bootstrap(context.Background())
+	assert.NoError(t, err)
+	time.Sleep(time.Second)
 
-		node, err := v.k.Ping(ctx, v.input)
-		assert.Equal(t, v.expectedErr, err)
-		assert.NotEmpty(t, node)
-		assert.Equal(t, v.input, node)
-		assert.NoError(t, v.k.dht.Disconnect())
-	}
+	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
+	assert.NoError(t, err)
+	assert.Len(t, nodeIDs, 3)
+
+}
+
+func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
+	// new address
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	// new ID
+	id, err := node.NewID()
+	assert.NoError(t, err)
+	// New identity
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+	// new kademlia
+	k, err := NewKademlia(id, bn, lis.Addr().String(), identity)
+	assert.NoError(t, err)
+	s := node.NewServer(k)
+
+	identOpt, err := identity.ServerOption()
+	assert.NoError(t, err)
+
+	grpcServer := grpc.NewServer(identOpt)
+
+	pb.RegisterNodesServer(grpcServer, s)
+	go func() { _ = grpcServer.Serve(lis) }()
+
+	return k, grpcServer
 
 }

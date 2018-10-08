@@ -5,11 +5,11 @@ package kademlia
 
 import (
 	"context"
-	"net"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -38,44 +38,30 @@ type Config struct {
 // Run implements provider.Responsibility
 func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): don't split the host/port
-	host, port, err := net.SplitHostPort(c.BootstrapAddr)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	// TODO(jt): an intro node shouldn't require an ID, and should only be an
-	// address
-	in, err := GetIntroNode("", host, port)
+	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
+	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
 	}
 
-	// TODO(jt): don't split the host/port
-	host, port, err = net.SplitHostPort(c.TODOListenAddr)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, host, port)
+	in.Id = "foo"
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity())
 	if err != nil {
 		return err
 	}
 	defer func() { _ = kad.Disconnect() }()
 
-	// TODO(jt): ListenAndServe should probably be blocking and we should kick
-	// it off in a goroutine here
-	err = kad.ListenAndServe()
-	if err != nil {
-		return err
-	}
+	mn := node.NewServer(kad)
+	pb.RegisterNodesServer(server.GRPC(), mn)
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here
-	err = kad.Bootstrap(ctx)
-	if err != nil {
+	if err = kad.Bootstrap(ctx); err != nil {
 		return err
 	}
 

@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -18,7 +19,9 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -44,18 +47,22 @@ const (
 )
 
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
-	i, err := kademlia.NewID()
+	i, err := node.NewID()
 	assert.NoError(t, err)
 	id := *i
 	n := []pb.Node{b}
-	kad, err := kademlia.NewKademlia(&id, n, ip, port)
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+	kad, err := kademlia.NewKademlia(&id, n, fmt.Sprintf("%s:%s", ip, port), identity)
 	assert.NoError(t, err)
 
 	return kad
 }
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
-	bid, err := kademlia.NewID()
+	bid, err := node.NewID()
 	assert.NoError(t, err)
 
 	bnid := *bid
@@ -64,10 +71,15 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	p, err := strconv.Atoi(port)
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
-	intro, err := kademlia.GetIntroNode(bnid.String(), ip, pm)
+	intro, err := kademlia.GetIntroNode(fmt.Sprintf("%s:%s", ip, pm))
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, ip, pm)
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -83,11 +95,16 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
 
-		nid, err := kademlia.NewID()
+		nid, err := node.NewID()
 		assert.NoError(t, err)
 		id := *nid
 
-		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, ip, gg)
+		ca, err := provider.NewCA(ctx, 12, 4)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
+
+		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), identity)
 		assert.NoError(t, err)
 
 		p++

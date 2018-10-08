@@ -61,6 +61,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 	if err != nil {
 		return nil, err
 	}
+
 	c, err := clientConnection(address, dialOpt)
 
 	if err != nil {

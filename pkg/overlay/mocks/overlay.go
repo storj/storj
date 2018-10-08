@@ -1,10 +1,11 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package mocks
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -13,24 +14,23 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// MockOverlay is a mocked overlay implementation
-type MockOverlay struct {
+// Overlay is a mocked overlay implementation
+type Overlay struct {
 	nodes map[string]*pb.Node
 }
 
-// NewMockOverlay creates a new overlay mock
-func NewMockOverlay(nodes []*pb.Node) *MockOverlay {
-	rv := &MockOverlay{nodes: map[string]*pb.Node{}}
+// NewOverlay returns a newly initialized mock overlal
+func NewOverlay(nodes []*pb.Node) *Overlay {
+	rv := &Overlay{nodes: map[string]*pb.Node{}}
 	for _, node := range nodes {
 		rv.nodes[node.Id] = node
 	}
 	return rv
+
 }
 
-// FindStorageNodes finds storage nodes based on the request
-func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
-	req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse,
-	err error) {
+// FindStorageNodes is the mock implementation
+func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	nodes := make([]*pb.Node, 0, len(mo.nodes))
 	for _, node := range mo.nodes {
 		nodes = append(nodes, node)
@@ -43,13 +43,13 @@ func (mo *MockOverlay) FindStorageNodes(ctx context.Context,
 }
 
 // Lookup finds a single storage node based on the request
-func (mo *MockOverlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
+func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
 	*pb.LookupResponse, error) {
 	return &pb.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
 }
 
 //BulkLookup finds multiple storage nodes based on the requests
-func (mo *MockOverlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
+func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	*pb.LookupResponses, error) {
 	var responses []*pb.LookupResponse
 	for _, r := range reqs.Lookuprequest {
@@ -61,18 +61,18 @@ func (mo *MockOverlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) 
 	return &pb.LookupResponses{Lookupresponse: responses}, nil
 }
 
-// MockConfig specifies static nodes for mock overlay
-type MockConfig struct {
+// Config specifies static nodes for mock overlay
+type Config struct {
 	Nodes string `help:"a comma-separated list of <node-id>:<ip>:<port>" default:""`
 }
 
 // Run runs server with mock overlay
-func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
+func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 	var nodes []*pb.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {
 		parts := strings.SplitN(nodestr, ":", 2)
 		if len(parts) != 2 {
-			return Error.New("malformed node config: %#v", nodestr)
+			return fmt.Errorf("malformed node config: %#v", nodestr)
 		}
 		id, addr := parts[0], parts[1]
 		nodes = append(nodes, &pb.Node{
@@ -83,6 +83,6 @@ func (c MockConfig) Run(ctx context.Context, server *provider.Provider) error {
 			}})
 	}
 
-	pb.RegisterOverlayServer(server.GRPC(), NewMockOverlay(nodes))
+	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
 	return server.Run(ctx)
 }
