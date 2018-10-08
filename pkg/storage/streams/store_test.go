@@ -136,6 +136,13 @@ func TestStreamStorePut(t *testing.T) {
 				}
 			})
 
+		mockSegmentStore.EXPECT().
+			Meta(gomock.Any(), gomock.Any()).
+			Return(test.segmentMeta, test.segmentError)
+		mockSegmentStore.EXPECT().
+			Delete(gomock.Any(), gomock.Any()).
+			Return(test.segmentError)
+
 		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
 		if err != nil {
 			t.Fatal(err)

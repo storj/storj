@@ -158,7 +158,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
-		if (nodes[i] == nil) {
+		if nodes[i] == nil {
 			continue
 		}
 		remotePieces = append(remotePieces, &pb.RemotePiece{
@@ -275,7 +275,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 	// Missing pieces are represented by a nil node.
 	nodes = make([]*pb.Node, seg.GetRedundancy().GetTotal())
 	for i, p := range seg.GetRemotePieces() {
-		nodes[p.PieceNum] = n[i]	
+		nodes[p.PieceNum] = n[i]
 	}
 	return nodes, nil
 }
