@@ -12,12 +12,3 @@ message InjuredSegment {
     repeated int32 lost_pieces = 2;
     repeated int32 healthy_pieces = 3;
 }
-
-//IdentifyRequest is a request message for the identifyInjuredSegments private method
-message IdentifyRequest {
-    string prefix = 1;
-    string first = 2;
-    bool recurse = 3;
-    bool reverse = 4;
-    int32 limit = 5;
-}

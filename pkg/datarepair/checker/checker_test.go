@@ -27,7 +27,6 @@ import (
 var ctx = context.Background()
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	params := &pb.IdentifyRequest{Recurse: true}
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
 
@@ -83,7 +82,8 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	}
 	//fill a overlay cache
 	overlayServer := overlay.NewMockOverlay(nodes)
-	checker := NewChecker(params, pointerdb, repairQueue, overlayServer, logger)
+	limit := 0
+	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 	err := checker.IdentifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
@@ -103,7 +103,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 }
 
 func TestOfflineAndOnlineNodes(t *testing.T) {
-	params := &pb.IdentifyRequest{Recurse: true}
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
 
@@ -128,7 +127,8 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 		}
 	}
 	overlayServer := overlay.NewMockOverlay(nodes)
-	checker := NewChecker(params, pointerdb, repairQueue, overlayServer, logger)
+	limit := 0
+	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 	offline, online, err := checker.offlineAndOnlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
@@ -136,7 +136,6 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 }
 
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
-	params := &pb.IdentifyRequest{Recurse: true}
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
 
@@ -197,7 +196,8 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	}
 	//fill a overlay cache
 	overlayServer := overlay.NewMockOverlay(nodes)
-	checker := NewChecker(params, pointerdb, repairQueue, overlayServer, logger)
+	limit := 0
+	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 	err = checker.IdentifyInjuredSegments(ctx)
 	assert.NoError(b, err)
 

@@ -53,20 +53,20 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	params      *pb.IdentifyRequest
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
+	limit       int
 	logger      *zap.Logger
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(params *pb.IdentifyRequest, pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, logger *zap.Logger) *Checker {
+func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *Checker {
 	return &Checker{
-		params:      params,
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
+		limit:       limit,
 		logger:      logger,
 	}
 }
@@ -76,18 +76,13 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
 
-	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{
-		Prefix:  c.params.Prefix,
-		First:   c.params.First,
-		Recurse: c.params.Recurse,
-		Reverse: c.params.Reverse,
-	},
+	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			if c.params.Limit <= 0 || c.params.Limit > storage.LookupLimit {
-				c.params.Limit = storage.LookupLimit
+			if c.limit <= 0 || c.limit > storage.LookupLimit {
+				c.limit = storage.LookupLimit
 			}
-			for ; c.params.Limit > 0 && it.Next(&item); c.params.Limit-- {
+			for ; c.limit > 0 && it.Next(&item); c.limit-- {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
