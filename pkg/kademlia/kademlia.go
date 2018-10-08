@@ -18,13 +18,6 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// const (
-// 	alpha                       = 5
-// 	defaultIDLength             = 256
-// 	defaultBucketSize           = 20
-// 	defaultReplacementCacheSize = 5
-// )
-
 // NodeErr is the class for all errors pertaining to node operations
 var NodeErr = errs.Class("node error")
 
