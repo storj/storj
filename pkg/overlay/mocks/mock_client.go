@@ -2,7 +2,7 @@
 // Source: storj.io/storj/pkg/overlay (interfaces: Client)
 
 // Package mock_overlay is a generated GoMock package.
-package mock_overlay
+package mocks
 
 import (
 	context "context"
