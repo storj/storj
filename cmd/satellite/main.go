@@ -15,7 +15,7 @@ import (
 	// "storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	mock "storj.io/storj/pkg/overlay/mocks"
+	mockOverlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -45,7 +45,7 @@ var (
 		// Checker     checker.Config
 		// Repairer    repairer.Config
 		Overlay     overlay.Config
-		MockOverlay overlay.MockConfig
+		MockOverlay mockOverlay.Config
 		StatDB      statdb.Config
 		// RepairQueue   queue.Config
 		// RepairChecker checker.Config
