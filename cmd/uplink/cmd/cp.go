@@ -106,7 +106,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destOb
 	}
 
 	if fi, err := os.Stat(destObj.Path()); err == nil && fi.IsDir() {
-		destObj.Join(srcObj.Base())
+		destObj = destObj.Join(srcObj.Base())
 	}
 
 	var f *os.File
@@ -191,7 +191,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destObj *f
 
 	// if destination object name not specified, default to source object name
 	if strings.HasSuffix(destObj.Path(), "/") {
-		destObj.Join(srcObj.Base())
+		destObj = destObj.Join(srcObj.Base())
 	}
 
 	_, err = o.Put(ctx, paths.New(destObj.Path()), r, meta, expTime)

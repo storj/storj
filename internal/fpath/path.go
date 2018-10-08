@@ -4,8 +4,10 @@
 package fpath
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -28,58 +30,59 @@ func New(url string) (p FPath, err error) {
 	switch len(sepstring) {
 	case 2: // Has Schema
 		p.scheme = sepstring[0]
-		if p.scheme == "sj" {
-			split := strings.SplitN(filepath.Clean(strings.TrimLeft(sepstring[1], "/")), `\`, 2)
-			if len(split) == 2 {
-				p.bucket = split[0]
-				p.path = filepath.ToSlash(split[1])
-			} else {
-				p.bucket = split[0]
-			}
-		} else {
-			p.path = sepstring[1]
+		if p.scheme != "sj" {
+			return FPath{}, errors.New("unsupported URL scheme")
 		}
-	case 1: // No Schema
+		//Trim initial / of the path and clean it, afterwards split on first /
+		split := strings.SplitN(path.Clean(strings.TrimLeft(sepstring[1], "/")), "/", 2)
+		p.bucket = split[0]
+		if len(split) == 2 {
+			p.path = filepath.ToSlash(split[1])
+		}
+	case 1: // No Scheme
 		p.local = true
 		p.path = sepstring[0]
-	default: // Everything else is misformatted
-		return FPath{}, fmt.Errorf("misformatted URL: %s", url)
+	default: // Everything else is malformed
+		return FPath{}, fmt.Errorf("malformed URL: %s", url)
 	}
 
 	// Check for Windows Special Handling Prefix
-	cprefix, _ := regexp.Compile(`^\\\\\?\\(UNC\\)?`)
+	cprefix, err := regexp.Compile(`^\\\\\?\\(UNC\\)?`)
+	if err != nil {
+		return FPath{}, err
+	}
 
 	// when Prefix present, omit further changes to the path
 	if prefix := cprefix.FindString(p.path); prefix != "" {
 
 		p.scheme = prefix
 		p.path = strings.Replace(p.path, prefix, "", 1) //Strip Prefix
+		return p, nil
+	}
 
-	} else {
-		// when file is local, ensure path absolute
-		if p.IsLocal() && !filepath.IsAbs(p.path) {
+	// when file is local, ensure path absolute
+	if p.IsLocal() && !filepath.IsAbs(p.path) {
 
-			fullpath, err := filepath.Abs(p.path)
-
-			if err == nil {
-				p.path = fullpath
-			} else {
-				return FPath{}, fmt.Errorf("unable to create absolute path for: %s", p.path)
-			}
+		fullpath, err := filepath.Abs(p.path)
+		if err != nil {
+			return FPath{}, fmt.Errorf("unable to create absolute path for: %s", p.path)
 		}
+
+		p.path = fullpath
 	}
 	return p, nil
 }
 
 // Join is merging segment to the path
-func (p *FPath) Join(segment string) {
+func (p *FPath) Join(segment string) *FPath {
 	p.path = filepath.Join(p.path, segment)
 	if !p.local {
 		p.path = filepath.ToSlash(p.path)
 	}
+	return p
 }
 
-// Folder returns the last folder of path
+// Folder returns the parent folder of path
 func (p FPath) Folder() string {
 	return filepath.Dir(p.path)
 }
@@ -127,20 +130,15 @@ func (p FPath) HasScheme() bool {
 	return p.scheme != ""
 }
 
-// Scheme returns the schema if existing
+// Scheme returns the scheme for URL-s
 func (p FPath) Scheme() string {
 	return p.scheme
 }
 
 // String returns entire URL
 func (p FPath) String() string {
-	var cpl string
-
-	if p.scheme != "" {
-		cpl = p.scheme + "://" + p.BucketPath()
-	} else {
-		cpl = p.path
+	if p.HasScheme() {
+		return p.scheme + "://" + p.BucketPath()
 	}
-
-	return cpl
+	return p.path
 }
