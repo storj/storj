@@ -32,8 +32,8 @@ type Metainfo interface {
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
 
-	// TODO: add things for continuing existing objects
-	ListObjects(cctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+	// ListObjects lists objects in bucket based on the ListOptions
+	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
 
 // ListOptions lists objects
@@ -49,7 +49,9 @@ type ListOptions struct {
 type ObjectList struct {
 	Bucket string
 	Prefix Path
-	More   bool
+
+	NextFirst Path // relative to Prefix, to get the full path use Prefix + NextFirst
+	More      bool
 
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
@@ -61,7 +63,9 @@ type MetainfoLimits struct {
 	// ListLimit specifies the maximum amount of items that can be listed at a time.
 	ListLimit int64
 
-	// MaximumInlineSegment specifies the maximum inline segment that is allowed to be stored.
+	// MinimumInlineSegmentSize specifies the minimum inline segment that is allowed to be stored.
+	MinimumInlineSegmentSize int64
+	// MaximumInlineSegmentSize specifies the maximum inline segment that is allowed to be stored.
 	MaximumInlineSegmentSize int64
 }
 
