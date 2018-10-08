@@ -16,48 +16,6 @@ type mockDownloader struct {
 	shares map[int]share
 }
 
-func TestDownloadShares(t *testing.T) {
-	ctx := context.Background()
-	mockShares := make(map[int]share)
-
-	for i, tt := range []struct {
-		stripeIndex int
-		nodeAmount  int
-		shareAmount int
-		required    int
-		total       int
-		err         error
-	}{
-		{2, 30, 30, 20, 40, nil},
-	} {
-		someData := randData(32 * 1024)
-		pointer := makePointer()
-		var nodes []*pb.Node
-		for i = 0; i < tt.nodeAmount; i++ {
-			node := &pb.Node{
-				Id:      strconv.Itoa(i),
-				Address: &pb.NodeAddress{},
-			}
-			nodes = append(nodes, node)
-		}
-
-		for i = 0; i < tt.shareAmount; i++ {
-			mockShares[i] = share{
-				Error:       tt.err,
-				PieceNumber: i,
-				Data:        someData,
-			}
-		}
-		md := mockDownloader{shares: mockShares}
-		a := &Auditor{downloader: &md}
-
-		_, err := a.auditStripe(ctx, pointer, tt.stripeIndex, tt.required, tt.total)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestAuditShares(t *testing.T) {
 	ctx := context.Background()
 
@@ -82,7 +40,7 @@ func TestAuditShares(t *testing.T) {
 
 		_, err := auditShares(ctx, tt.required, tt.total, shares)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 	}
 }
