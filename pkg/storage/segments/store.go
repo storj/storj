@@ -263,7 +263,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
 	// Get list of all nodes IDs storing a piece from the segment
 	var nodeIds []dht.NodeID
-	for _, p := range pieces {
+	for _, p := range seg.RemotePieces {
 		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
 	// Lookup the node info from node IDs
