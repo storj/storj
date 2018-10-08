@@ -4,13 +4,11 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
-	base58 "github.com/jbenet/go-base58"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
