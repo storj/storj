@@ -23,7 +23,7 @@ type Metainfo interface {
 	// GetObject returns information about an object
 	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadonlyStream, error)
+	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
 
 	// CreateObject creates an uploading object and returns an interface for uploading Object information
 	CreateObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
@@ -69,8 +69,8 @@ type MetainfoLimits struct {
 	MaximumInlineSegmentSize int64
 }
 
-// ReadonlyStream is an interface for reading segment information
-type ReadonlyStream interface {
+// ReadOnlyStream is an interface for reading segment information
+type ReadOnlyStream interface {
 	Info() Object
 
 	// SegmentsAt returns the segment that contains the byteOffset and following segments.
@@ -99,7 +99,7 @@ type MutableObject interface {
 
 // MutableStream is an interface for manipulating stream information
 type MutableStream interface {
-	ReadonlyStream
+	ReadOnlyStream
 
 	// AddSegments adds segments to the stream.
 	AddSegments(segments ...Segment) error
