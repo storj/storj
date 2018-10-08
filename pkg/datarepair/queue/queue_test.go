@@ -128,13 +128,22 @@ func TestParallel(t *testing.T) {
 	}
 }
 
-func BenchmarkSequential(b *testing.B) {
+func BenchmarkRedisSequential(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
 	client, err := redis.NewClient(addr, "", 1)
 	assert.NoError(b, err)
 	q := NewQueue(client)
+	benchmarkSequential(b, q)
+}
+
+func BenchmarkTeststoreSequential(b *testing.B) {
+	q := NewQueue(teststore.New())
+	benchmarkSequential(b, q)
+}
+
+func benchmarkSequential(b *testing.B, q RepairQueue) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		const N = 100
@@ -156,16 +165,24 @@ func BenchmarkSequential(b *testing.B) {
 	}
 }
 
-func BenchmarkParallel(b *testing.B) {
+func BenchmarkRedisParallel(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
 	client, err := redis.NewClient(addr, "", 1)
 	assert.NoError(b, err)
-	queue := NewQueue(client)
+	q := NewQueue(client)
+	benchmarkParallel(b, q)
+}
+
+func BenchmarkTeststoreParallel(b *testing.B) {
+	q := NewQueue(teststore.New())
+	benchmarkParallel(b, q)
+}
+
+func benchmarkParallel(b *testing.B, q RepairQueue) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-
 		const N = 100
 		errs := make(chan error, N*2)
 		entries := make(chan *pb.InjuredSegment, N*2)
@@ -176,7 +193,7 @@ func BenchmarkParallel(b *testing.B) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				err := queue.Enqueue(&pb.InjuredSegment{
+				err := q.Enqueue(&pb.InjuredSegment{
 					Path:       strconv.Itoa(i),
 					LostPieces: []int32{int32(i)},
 				})
@@ -192,7 +209,7 @@ func BenchmarkParallel(b *testing.B) {
 		for i := 0; i < N; i++ {
 			go func(i int) {
 				defer wg.Done()
-				segment, err := queue.Dequeue()
+				segment, err := q.Dequeue()
 				if err != nil {
 					errs <- err
 				}
