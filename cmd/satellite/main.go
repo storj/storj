@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/cfgstruct"
 
-	// "storj.io/storj/pkg/datarepair/repairer"
-	// "storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -71,7 +71,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Kademlia, 
 		o, 
 		runCfg.PointerDB, 
-		runCfg.Checker, runCfg.Repairer
+		runCfg.Checker, runCfg.Repairer,
 	)
 }
 
