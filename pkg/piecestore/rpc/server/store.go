@@ -25,8 +25,8 @@ var StoreError = errs.Class("store error")
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	ctx := reqStream.Context()
 	defer mon.Task()(&ctx)(&err)
+
 	// Receive id/ttl
-	log.Println(" STORJ --> Iam farmer ID", s.DataDir)
 	recv, err := reqStream.Recv()
 	if err != nil {
 		return StoreError.Wrap(err)

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -262,45 +261,33 @@ func (db *DB) DeleteTTLByID(id string) error {
 // AddMIB adds MIB into database by date
 func (db *DB) AddBwUsageTbl(size int64, t time.Time) (err error) {
 	defer db.locked()()
-	unixtimenow := t.Unix()
-	fmt.Println("time now =", t.Unix())
-	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
-	fmt.Println("daystarttime =", daystartunixtime)
 
+	unixtimenow := t.Unix()
+	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	dayendunixtime := time.Date(t.Year(), t.Month(), t.Day(), 24, 0, 0, 0, t.Location()).Unix()
-	fmt.Println("dayendtime =", dayendunixtime)
 
 	var getSize int64
 	if (unixtimenow >= daystartunixtime) && (unixtimenow <= dayendunixtime) {
 		err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate <= ? AND ? <= dayenddate`, unixtimenow, unixtimenow).Scan(&getSize)
-		log.Println("KISHORE --> getSize + size = ", getSize, size, (getSize + size))
 		switch {
 		case err == sql.ErrNoRows:
-			fmt.Println("New day starting new entry ", err)
-			zap.S().Warn("New day starting new entry %+v", err)
 			_, err = db.DB.Exec("INSERT INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartunixtime, dayendunixtime)
 			return err
 		case err != nil:
-			fmt.Println("Invalid query return", err)
-			zap.S().Errorf("Invalid query return %v", err)
 			return err
 		default:
 			getSize = size + getSize
 			_, err = db.DB.Exec("UPDATE bwusagetbl SET size = ? WHERE daystartdate = ?", getSize, daystartunixtime)
-			zap.S().Info("Successfully written the into the bwusagetbl size = ", getSize)
-			log.Println("KISHORE --> Successfully written size = ", getSize)
 			return err
 		}
 	}
-	fmt.Println("Invalid time passed", unixtimenow)
-	zap.S().Errorf("Invalid time passed %v", unixtimenow)
 	return err
 }
 
 // TotalBandwidthUsedOnADay finds the so far bw used by day and return it
 func (db *DB) TotalBandwidthUsedOnADay(t time.Time) (size int64, err error) {
 	defer db.locked()()
-	//t := time.Unix(reqtime, 0)
+
 	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate=?`, daystarttime).Scan(&size)
 	return size, err
@@ -314,18 +301,10 @@ func (db *DB) TotalBandwidthUsedSince(startdate time.Time, enddate time.Time) (t
 	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 0, 0, 0, 0, enddate.Location()).Unix()
 	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
 
-	log.Println("startTimeUnix(t),  endTimeUnix, defaultunixtime", startTimeUnix, endTimeUnix, defaultunixtime)
 	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
-		fmt.Println("Invalid date range")
-		zap.S().Errorf("Invalid date range")
 		return totalbwusage, errors.New("Invalid date range")
 	}
 
 	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
-	if err != nil {
-		fmt.Println("bwusagetbl query error")
-		zap.S().Errorf("bwusagetbl query error %v", err)
-	}
-
 	return totalbwusage, err
 }
