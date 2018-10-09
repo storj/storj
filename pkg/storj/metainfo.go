@@ -47,10 +47,11 @@ type CreateObject struct {
 // Object converts the CreateObject to an object with unitialized values
 func (create CreateObject) Object(bucket string, path Path) Object {
 	return Object{
-		Bucket:   bucket,
-		Path:     path,
-		Metadata: create.Metadata,
-		Expires:  create.Expires,
+		Bucket:      bucket,
+		Path:        path,
+		Metadata:    create.Metadata,
+		ContentType: create.ContentType,
+		Expires:     create.Expires,
 	}
 }
 
