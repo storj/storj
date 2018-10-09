@@ -20,13 +20,6 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-const (
-	alpha                       = 5
-	defaultIDLength             = 256
-	defaultBucketSize           = 20
-	defaultReplacementCacheSize = 5
-)
-
 // NodeErr is the class for all errors pertaining to node operations
 var NodeErr = errs.Class("node error")
 
@@ -54,7 +47,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, kadconfig KadConfig) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -66,9 +59,9 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
 		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
-		idLength:     defaultIDLength,
-		bucketSize:   defaultBucketSize,
-		rcBucketSize: defaultReplacementCacheSize,
+		idLength:     kadconfig.DefaultIDLength,
+		bucketSize:   kadconfig.DefaultBucketSize,
+		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
@@ -82,7 +75,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 
 	k := &Kademlia{
-		alpha:          alpha,
+		alpha:          kadconfig.Alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
