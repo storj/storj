@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package audit
 
 import (
@@ -13,27 +16,26 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/auth"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/redis/redisserver"
-
+	"storj.io/storj/storage/teststore"
 )
 
 const (
-	noList    = "list error: failed to get list"
-	noNum     = "num error: failed to get num"
+	noList = "list error: failed to get list"
+	noNum  = "num error: failed to get num"
 )
 
 var (
-	ctx          = context.Background()
-	ErrNoList    = errors.New(noList)
-	ErrorNoNum   = errors.New(noNum)
+	ctx        = context.Background()
+	ErrNoList  = errors.New(noList)
+	ErrorNoNum = errors.New(noNum)
 )
 
 // The client and server implementation are different;
@@ -73,48 +75,48 @@ func TestAuditSegment(t *testing.T) {
 	// change limit in library to 5 in
 	// list api call, default is  0 == 1000 listing
 	tests := []struct {
-		bm     string
-		path   paths.Path
+		bm   string
+		path paths.Path
 	}{
 		{
-			bm:     "success-1",
-			path:   paths.New("folder1/file1"),
+			bm:   "success-1",
+			path: paths.New("folder1/file1"),
 		},
 		{
-			bm:     "success-2",
-			path:   paths.New("foodFolder1/file1/file2"),
+			bm:   "success-2",
+			path: paths.New("foodFolder1/file1/file2"),
 		},
 		{
-			bm:     "success-3",
-			path:   paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
+			bm:   "success-3",
+			path: paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
 		},
 		{
-			bm:     "success-4",
-			path:   paths.New("projectFolder/project1.txt/"),
+			bm:   "success-4",
+			path: paths.New("projectFolder/project1.txt/"),
 		},
 		{
-			bm:     "success-5",
-			path:   paths.New("newProjectFolder/project2.txt"),
+			bm:   "success-5",
+			path: paths.New("newProjectFolder/project2.txt"),
 		},
 		{
-			bm:     "success-6",
-			path:   paths.New("Pictures/image1.png"),
+			bm:   "success-6",
+			path: paths.New("Pictures/image1.png"),
 		},
 		{
-			bm:     "success-7",
-			path:   paths.New("Pictures/Nature/mountains.png"),
+			bm:   "success-7",
+			path: paths.New("Pictures/Nature/mountains.png"),
 		},
 		{
-			bm:     "success-8",
-			path:   paths.New("Pictures/City/streets.png"),
+			bm:   "success-8",
+			path: paths.New("Pictures/City/streets.png"),
 		},
 		{
-			bm:     "success-9",
-			path:   paths.New("Pictures/Animals/Dogs/dogs.png"),
+			bm:   "success-9",
+			path: paths.New("Pictures/Animals/Dogs/dogs.png"),
 		},
 		{
-			bm:     "success-10",
-			path:   paths.New("Nada/ビデオ/😶"),
+			bm:   "success-10",
+			path: paths.New("Nada/ビデオ/😶"),
 		},
 	}
 
@@ -123,12 +125,12 @@ func TestAuditSegment(t *testing.T) {
 	//PointerDB instantation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-	
+
 	redisAddr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	defer cleanup()
 
 	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil)
@@ -149,7 +151,7 @@ func TestAuditSegment(t *testing.T) {
 				assert1 := assert.New(t)
 
 				// create a pointer and put in db
-				putRequest := makePointer(tt.path)
+				putRequest := makePutRequest(tt.path)
 
 				// create putreq. object
 				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer}
@@ -242,7 +244,7 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePointer(path paths.Path) pb.PutRequest {
+func makePutRequest(path paths.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
