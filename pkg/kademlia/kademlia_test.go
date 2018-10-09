@@ -203,3 +203,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	return k, grpcServer
 
 }
+
+func TestGetNode(t *testing.T) {
+	
+}

@@ -106,16 +106,24 @@ func (k *Kademlia) Disconnect() error {
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	nodes, err := k.routingTable.FindNear(node.IDFromString(start), limit)
+	//TODO(jj): recursively search for nodes that match the restrictions to fill the limit
+	const multiplier = 3
+	nodes, err := k.routingTable.FindNear(node.IDFromString(start), limit*multiplier)
 	if err != nil {
 		return []*pb.Node{}, Error.Wrap(err)
 	}
 	if restrictions != nil || len(restrictions) == 0{
+		if len(nodes) > limit {
+			 return nodes[:limit], nil
+		}
 		return nodes, nil
 	}
 	restrictedNodes := []*pb.Node{}
 	for _, r := range restrictions {
 		restrictedNodes = append(restrictedNodes, Restrict(r, nodes)...)
+	}
+	if len(restrictedNodes) > limit {
+		return restrictedNodes[:limit], nil
 	}
 	return restrictedNodes, nil
 }
