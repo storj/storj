@@ -213,9 +213,6 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 
 	created := time.Now().Unix()
 	_, err := db.DB.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
-	if err != nil {
-		return err
-	}
 
 	return err
 }
