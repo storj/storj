@@ -16,7 +16,9 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for checker
@@ -36,6 +38,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	var errs []error
 
 	go func() {
 		for {
@@ -43,7 +46,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 			case <-ticker.C:
 				zap.S().Info("Starting segment checker service")
 				go func() {
-					//get queue
+					client, err := redis.NewClientFrom(c.QueueAddress)
+					if err != nil {
+						errs = append(errs, err)
+					}
+					q := queue.NewQueue(client)
+					cache := overlay.LoadFromContext(ctx)
 					//get pointerdb
 					//get overlay
 					// c := NewChecker(params, pointerdb, repairQueue, overlay, logger) 
@@ -94,7 +102,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
-					return Error.New("error unmarshalling pointer %s", err)
+					return Error.Wrap(err)
 				}
 				pieces := pointer.Remote.RemotePieces
 				var nodeIDs []dht.NodeID
@@ -103,7 +111,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 				}
 				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
-					return Error.New("error getting missing offline nodes %s", err)
+					return Error.Wrap(err)
 				}
 				numHealthy := len(nodeIDs) - len(missingPieces)
 				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
@@ -112,7 +120,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 						LostPieces: missingPieces,
 					})
 					if err != nil {
-						return Error.New("error adding injured segment to queue %s", err)
+						return Error.Wrap(err)
 					}
 				}
 			}
@@ -126,7 +134,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 func (c *Checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, nodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
-		return []int32{}, err
+		return []int32{}, Error.Wrap(err)
 	}
 	nodes := lookupResponsesToNodes(responses)
 	for i, n := range nodes {
@@ -153,4 +161,8 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+func combinedError(errs []error) error {
+	return nil
 }
