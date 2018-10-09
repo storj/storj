@@ -82,13 +82,11 @@ message Pointer {
 message PutRequest {
   string path = 1;
   Pointer pointer = 2;
-  bytes API_key = 3;
 }
 
 // GetRequest is a request message for the Get rpc call
 message GetRequest {
   string path = 1;
-  bytes API_key = 2;
 }
 
 // ListRequest is a request message for the List rpc call
@@ -99,7 +97,6 @@ message ListRequest {
   bool recursive = 4;
   int32 limit = 5;
   fixed32 meta_flags = 6;
-  bytes API_key = 7;
 }
 
 // PutResponse is a response message for the Put rpc call
@@ -126,7 +123,6 @@ message ListResponse {
 
 message DeleteRequest {
   string path = 1;
-  bytes API_key = 2;
 }
 
 // DeleteResponse is a response message for the Delete rpc call

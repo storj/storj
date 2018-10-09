@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/auth/grpcauth"
 )
 
 const (
@@ -94,7 +95,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		go func(i int, farmer string) {
 			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.StorageNodes[i].Identity.Run(ctx,
+			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
 				runCfg.StorageNodes[i].Kademlia,
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
@@ -108,7 +109,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.MockOverlay.Enabled {
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
+
 		errch <- runCfg.Satellite.Identity.Run(ctx,
+			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			// runCfg.Satellite.Checker,

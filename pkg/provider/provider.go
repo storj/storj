@@ -39,14 +39,19 @@ type Provider struct {
 	identity *FullIdentity
 }
 
-// NewProvider creates a Provider out of an Identity, a net.Listener, and a set
-// of responsibilities.
-func NewProvider(identity *FullIdentity, lis net.Listener,
+// NewProvider creates a Provider out of an Identity, a net.Listener, a UnaryInterceptorProvider and
+// a set of responsibilities.
+func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
 	ident, err := identity.ServerOption()
 	if err != nil {
 		return nil, err
+	}
+
+	unaryInterceptor := unaryInterceptor
+	if interceptor != nil {
+		unaryInterceptor = combineInterceptors(unaryInterceptor, interceptor)
 	}
 
 	return &Provider{
@@ -144,4 +149,14 @@ func unaryInterceptor(ctx context.Context, req interface{},
 		zap.S().Errorf("%+v", err)
 	}
 	return resp, err
+}
+
+func combineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
+			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
+				return handler(bctx, breq)
+			})
+		})
+	}
 }

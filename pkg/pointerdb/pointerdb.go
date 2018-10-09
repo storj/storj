@@ -14,9 +14,10 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
+	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -44,8 +45,9 @@ func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logge
 	}
 }
 
-func (s *Server) validateAuth(APIKey []byte) error {
-	if !auth.ValidateAPIKey(string(APIKey)) {
+func (s *Server) validateAuth(ctx context.Context) error {
+	APIKey, ok := auth.GetAPIKey(ctx)
+	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
@@ -80,7 +82,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -110,7 +112,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 
 	s.logger.Debug("entering pointerdb get")
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -160,7 +162,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(req.APIKey); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -247,7 +249,7 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb delete")
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 

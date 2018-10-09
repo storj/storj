@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/statdb"
 )
 
@@ -73,8 +74,14 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if runCfg.MockOverlay.Nodes != "" {
 		o = runCfg.MockOverlay
 	}
-	return runCfg.Identity.Run(process.Ctx(cmd),
-		runCfg.Kademlia, runCfg.PointerDB, o, runCfg.StatDB)
+	return runCfg.Identity.Run(
+		process.Ctx(cmd),
+		grpcauth.NewAPIKeyInterceptor(),
+		runCfg.Kademlia,
+		runCfg.PointerDB,
+		o,
+		runCfg.StatDB,
+	)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

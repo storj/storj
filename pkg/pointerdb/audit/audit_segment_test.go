@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/redis/redisserver"
 
@@ -74,59 +75,50 @@ func TestAuditSegment(t *testing.T) {
 	tests := []struct {
 		bm     string
 		path   paths.Path
-		APIKey []byte
 	}{
 		{
 			bm:     "success-1",
 			path:   paths.New("folder1/file1"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-2",
 			path:   paths.New("foodFolder1/file1/file2"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-3",
 			path:   paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-4",
 			path:   paths.New("projectFolder/project1.txt/"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-5",
 			path:   paths.New("newProjectFolder/project2.txt"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-6",
 			path:   paths.New("Pictures/image1.png"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-7",
 			path:   paths.New("Pictures/Nature/mountains.png"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-8",
 			path:   paths.New("Pictures/City/streets.png"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-9",
 			path:   paths.New("Pictures/Animals/Dogs/dogs.png"),
-			APIKey: nil,
 		},
 		{
 			bm:     "success-10",
 			path:   paths.New("Nada/ビデオ/😶"),
-			APIKey: nil,
 		},
 	}
+
+	ctx = auth.WithAPIKey(ctx, nil)
 
 	//PointerDB instantation
 	db := teststore.New()
@@ -145,7 +137,7 @@ func TestAuditSegment(t *testing.T) {
 	assert.NotNil(t, cache)
 
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
-	pointers := pdbclient.New(pdbw, nil)
+	pointers := pdbclient.New(pdbw)
 
 	// create a pdb client and instance of audit
 	a := NewAudit(pointers)
@@ -157,10 +149,10 @@ func TestAuditSegment(t *testing.T) {
 				assert1 := assert.New(t)
 
 				// create a pointer and put in db
-				putRequest := makePointer(tt.path, tt.APIKey)
+				putRequest := makePointer(tt.path)
 
 				// create putreq. object
-				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
+				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer}
 
 				//Put pointer into db
 				_, err := pdbw.Put(ctx, req)
@@ -250,7 +242,7 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePointer(path paths.Path, auth []byte) pb.PutRequest {
+func makePointer(path paths.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
@@ -274,7 +266,6 @@ func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 			},
 			Size: int64(10),
 		},
-		APIKey: auth,
 	}
 	return pr
 }
