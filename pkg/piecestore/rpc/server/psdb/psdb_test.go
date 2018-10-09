@@ -5,6 +5,7 @@ package psdb
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -57,30 +58,24 @@ func TestHappyPath(t *testing.T) {
 		Expiration int64
 	}
 
-	type BWUSAGE struct {
-		size    int64
-		timenow int64
-	}
-
 	tests := []TTL{
 		{ID: "", Expiration: 0},
 		{ID: "\x00", Expiration: ^int64(0)},
 		{ID: "test", Expiration: 666},
 	}
 
-	bwtests := []BWUSAGE{
-		{size: 0, timenow: time.Now().Unix()},
-		{size: 0, timenow: time.Now().AddDate(0, 0, 1).Unix()},
-	}
-
-	t.Run("AddToBwUsageTable", func(t *testing.T) {
+	t.Run("GetBwUsage", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
-				for _, bw := range bwtests {
-					err := db.AddBwUsageTbl(bw.size, bw.timenow)
+				for _, ttl := range tests {
+					expiration, err := db.GetTTLByID(ttl.ID)
 					if err != nil {
 						t.Fatal(err)
+					}
+
+					if ttl.Expiration != expiration {
+						t.Fatalf("expected %d got %d", ttl.Expiration, expiration)
 					}
 				}
 			})
@@ -213,49 +208,48 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 	db, cleanup := openTest(t)
 	defer cleanup()
 
-	//MibInfo  psdb.MibTable
-	type BwUsageTable struct {
-		size        int64
-		unixtimenow int64
+	type BWUSAGE struct {
+		size    int64
+		timenow time.Time
 	}
 
-	tests := []BwUsageTable{
-		{size: 123456, unixtimenow: 171779},
-		{size: 1456, unixtimenow: 2342387},
-		{size: 1456, unixtimenow: 23423},
+	bwtests := []BWUSAGE{
+		{size: 1000, timenow: time.Now()},
 	}
 
-	t.Run("Add", func(t *testing.T) {
+	var bwTotal int64
+	t.Run("AddToBwUsageTbl", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
-				for _, mib := range tests {
-					err := db.AddBwUsageTbl(mib.size, mib.unixtimenow)
+				for _, bw := range bwtests {
+					err := db.AddBwUsageTbl(bw.size, bw.timenow)
 					if err != nil {
 						t.Fatal(err)
+					}
+					bwTotal = bwTotal + bw.size
+				}
+			})
+		}
+	})
+	fmt.Println("toatlbw =", bwTotal)
+
+	t.Run("GetBwUsageTbl", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, bw := range bwtests {
+					size, err := db.GetBwUsageTbl(bw.timenow)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if bwTotal != size {
+						t.Fatalf("expected %d got %d", bw.size, size)
 					}
 				}
 			})
 		}
 	})
-
-	// t.Run("Get", func(t *testing.T) {
-	// 	for P := 0; P < concurrency; P++ {
-	// 		t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-	// 			t.Parallel()
-	// 			for _, mib := range tests {
-	// 				size, err := db.GetBwUsageTbl(mib.unixtimenow)
-	// 				if err != nil {
-	// 					t.Fatal(err)
-	// 				}
-
-	// 				if mib.size != size {
-	// 					t.Fatalf("expected %d got %d", mib.size, size)
-	// 				}
-	// 			}
-	// 		})
-	// 	}
-	// })
 
 	// t.Run("Delete", func(t *testing.T) {
 	// 	for P := 0; P < concurrency; P++ {

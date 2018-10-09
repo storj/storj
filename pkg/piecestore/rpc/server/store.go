@@ -56,7 +56,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 
-	if err = s.DB.AddBwUsageTbl(total, time.Now().Unix()); err != nil {
+	if err = s.DB.AddBwUsageTbl(total, time.Now()); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 

@@ -169,7 +169,7 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 	}
 
 	// write to bandwidth usage table
-	if err = s.DB.AddBwUsageTbl(used, time.Now().Unix()); err != nil {
+	if err = s.DB.AddBwUsageTbl(used, time.Now()); err != nil {
 		return retrieved, allocated, StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 

@@ -276,11 +276,11 @@ func (db *DB) DeleteTTLByID(id string) error {
 }
 
 // AddMIB adds MIB into database by date
-func (db *DB) AddBwUsageTbl(size, unixtimenow int64) (err error) {
+func (db *DB) AddBwUsageTbl(size int64, bwtime time.Time) (err error) {
 	defer db.locked()()
+	unixtimenow := bwtime.Unix()
 	t := time.Now()
 	fmt.Println("time now =", t.Unix())
-
 	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	fmt.Println("daystarttime =", daystartunixtime)
 
@@ -323,7 +323,7 @@ func (db *DB) GetBwUsageTbl(t time.Time) (size int64, err error) {
 	return size, err
 }
 
-// BandwidthUsage sums the size column on the bwusagetbl table
+// BandwidthUsage each row in the bwusagetbl contains the total bw used perday
 func (db *DB) BandwidthUsage(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
 	defer db.locked()()
 
