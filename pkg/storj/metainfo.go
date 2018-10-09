@@ -5,6 +5,7 @@ package storj
 
 import (
 	"context"
+	"time"
 )
 
 // Metainfo represents a database for storing meta-info about objects
@@ -26,7 +27,7 @@ type Metainfo interface {
 	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
 
 	// CreateObject creates an uploading object and returns an interface for uploading Object information
-	CreateObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
+	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates an interface for modifying an existing object
 	ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
 	// DeleteObject deletes an object from database
@@ -34,6 +35,23 @@ type Metainfo interface {
 
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+}
+
+// CreateObject has optional parameters that can be set
+type CreateObject struct {
+	Metadata    []byte
+	ContentType string
+	Expires     time.Time
+}
+
+// Object converts the CreateObject to an object with unitialized values
+func (create CreateObject) Object(bucket string, path Path) Object {
+	return Object{
+		Bucket:   bucket,
+		Path:     path,
+		Metadata: create.Metadata,
+		Expires:  create.Expires,
+	}
 }
 
 // ListOptions lists objects
