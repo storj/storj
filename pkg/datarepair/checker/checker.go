@@ -27,7 +27,7 @@ type Config struct {
 
 // Run runs the checker with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer datarepair.Mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	zap.S().Info("Checker is starting up")
 
