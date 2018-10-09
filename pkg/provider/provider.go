@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"io"
 	"net"
 	"time"
 
@@ -124,9 +125,11 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream,
 	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
-		// modified for wrong file downloads
-		// to not zap errors
-		if storage.ErrKeyNotFound.Has(err) {
+		// no zap errors for canceled or wrong file downloads
+		if storage.ErrKeyNotFound.Has(err) ||
+			status.Code(err) == codes.Canceled ||
+			status.Code(err) == codes.Unavailable ||
+			err == io.EOF {
 			return err
 		}
 		zap.S().Errorf("%+v", err)
@@ -139,8 +142,7 @@ func unaryInterceptor(ctx context.Context, req interface{},
 	err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
-		// modified for wrong file downloads
-		// to not zap errors
+		// no zap errors for wrong file downloads
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}

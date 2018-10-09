@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -37,7 +36,7 @@ func TestQuery(t *testing.T) {
 		findNear   []*pb.Node
 		limit      int
 		nearErr    error
-		res        pb.QueryResponse
+		res        *pb.QueryResponse
 		err        error
 	}{
 		{caseName: "ping success, return sender",
@@ -50,7 +49,7 @@ func TestQuery(t *testing.T) {
 			findNear:   []*pb.Node{target},
 			limit:      2,
 			nearErr:    nil,
-			res:        pb.QueryResponse{Sender: sender, Response: []*pb.Node{target}},
+			res:        &pb.QueryResponse{Sender: sender, Response: []*pb.Node{target}},
 			err:        nil,
 		},
 		{caseName: "ping success, return nearest",
@@ -63,51 +62,12 @@ func TestQuery(t *testing.T) {
 			findNear:   []*pb.Node{sender, node},
 			limit:      2,
 			nearErr:    nil,
-			res:        pb.QueryResponse{Sender: sender, Response: []*pb.Node{sender, node}},
+			res:        &pb.QueryResponse{Sender: sender, Response: []*pb.Node{sender, node}},
 			err:        nil,
-		},
-		{caseName: "ping success, connectionSuccess errors",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   *sender,
-			pingErr:    nil,
-			successErr: errors.New("connection fails error"),
-			failErr:    nil,
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        pb.QueryResponse{},
-			err:        errors.New("query error"),
-		},
-		{caseName: "ping fails, return error",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   pb.Node{},
-			pingErr:    errors.New("ping err"),
-			successErr: nil,
-			failErr:    nil,
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        pb.QueryResponse{},
-			err:        errors.New("query error"),
-		},
-		{caseName: "ping fails, connectionFailed errors",
-			rt:         mockRT,
-			getRTErr:   nil,
-			pingNode:   pb.Node{},
-			pingErr:    errors.New("ping err"),
-			successErr: nil,
-			failErr:    errors.New("connection fails error"),
-			findNear:   []*pb.Node{},
-			limit:      2,
-			nearErr:    nil,
-			res:        pb.QueryResponse{},
-			err:        errors.New("query error"),
 		},
 	}
 	for i, v := range cases {
-		req := pb.QueryRequest{Sender: sender, Target: &pb.Node{Id: "B"}, Limit: int64(2)}
+		req := pb.QueryRequest{Pingback: true, Sender: sender, Target: &pb.Node{Id: "B"}, Limit: int64(2)}
 		mockDHT.EXPECT().GetRoutingTable(gomock.Any()).Return(v.rt, v.getRTErr)
 		mockDHT.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(v.pingNode, v.pingErr)
 		if v.pingErr != nil {
@@ -118,7 +78,7 @@ func TestQuery(t *testing.T) {
 				mockRT.EXPECT().FindNear(gomock.Any(), v.limit).Return(v.findNear, v.nearErr)
 			}
 		}
-		res, err := s.Query(context.Background(), req)
+		res, err := s.Query(context.Background(), &req)
 		if !assert.Equal(t, v.res, res) {
 			fmt.Printf("case %s (%v) failed\n", v.caseName, i)
 		}

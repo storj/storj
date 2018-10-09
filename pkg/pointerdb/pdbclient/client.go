@@ -6,7 +6,6 @@ package pdbclient
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -26,6 +25,11 @@ var (
 // PointerDB creates a grpcClient
 type PointerDB struct {
 	grpcClient pb.PointerDBClient
+}
+
+// New Used as a public function
+func New(gcclient pb.PointerDBClient) (pdbc *PointerDB) {
+	return &PointerDB{grpcClient: gcclient}
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -61,6 +65,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 	if err != nil {
 		return nil, err
 	}
+
 	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector(APIKey)))
 
 	if err != nil {
@@ -103,13 +108,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 		return nil, Error.Wrap(err)
 	}
 
-	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(res.GetPointer(), pointer)
-	if err != nil {
-		return nil, err
-	}
-
-	return pointer, nil
+	return res.GetPointer(), nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey

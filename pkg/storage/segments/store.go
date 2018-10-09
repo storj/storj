@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
@@ -95,7 +95,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	if err != nil {
 		return Meta{}, err
 	}
-	
+
 	var path paths.Path
 	var pointer *pb.Pointer
 	if !remoteSized {
@@ -158,7 +158,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
-		if (nodes[i] == nil) {
+		if nodes[i] == nil {
 			continue
 		}
 		remotePieces = append(remotePieces, &pb.RemotePiece{
@@ -263,8 +263,8 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
 	// Get list of all nodes IDs storing a piece from the segment
 	var nodeIds []dht.NodeID
-	for _, p := range seg.GetRemotePieces() {
-		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+	for _, p := range seg.RemotePieces {
+		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
 	// Lookup the node info from node IDs
 	n, err := s.oc.BulkLookup(ctx, nodeIds)
@@ -275,7 +275,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 	// Missing pieces are represented by a nil node.
 	nodes = make([]*pb.Node, seg.GetRedundancy().GetTotal())
 	for i, p := range seg.GetRemotePieces() {
-		nodes[p.PieceNum] = n[i]	
+		nodes[p.PieceNum] = n[i]
 	}
 	return nodes, nil
 }
