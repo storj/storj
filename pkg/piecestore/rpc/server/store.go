@@ -7,11 +7,10 @@ import (
 	"context"
 	"io"
 	"log"
-	"time"
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore"
+	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -25,7 +24,6 @@ var StoreError = errs.Class("store error")
 func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	ctx := reqStream.Context()
 	defer mon.Task()(&ctx)(&err)
-
 	// Receive id/ttl
 	recv, err := reqStream.Recv()
 	if err != nil {
@@ -56,7 +54,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 
-	if err = s.DB.AddBwUsageTbl(total, time.Now()); err != nil {
+	if err = s.DB.AddBandwidthUsed(total); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 	log.Printf("Successfully stored %s.", pd.GetId())

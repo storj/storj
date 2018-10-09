@@ -63,24 +63,6 @@ func TestHappyPath(t *testing.T) {
 		{ID: "test", Expiration: 666},
 	}
 
-	t.Run("GetBwUsage", func(t *testing.T) {
-		for P := 0; P < concurrency; P++ {
-			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
-				t.Parallel()
-				for _, ttl := range tests {
-					expiration, err := db.GetTTLByID(ttl.ID)
-					if err != nil {
-						t.Fatal(err)
-					}
-
-					if ttl.Expiration != expiration {
-						t.Fatalf("expected %d got %d", ttl.Expiration, expiration)
-					}
-				}
-			})
-		}
-	})
-
 	t.Run("Add", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
@@ -203,7 +185,7 @@ func TestHappyPath(t *testing.T) {
 	})
 }
 
-func TestBwUsageTblHappyPath(t *testing.T) {
+func TestBandwidthUsage(t *testing.T) {
 	db, cleanup := openTest(t)
 	defer cleanup()
 
@@ -217,27 +199,27 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 	}
 
 	var bwTotal int64
-	t.Run("AddToBwUsageTbl", func(t *testing.T) {
+	t.Run("AddBandwidthUsed", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
+			bwTotal = bwTotal + bwtests[0].size
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					err := db.AddBwUsageTbl(bw.size, bw.timenow)
+					err := db.AddBandwidthUsed(bw.size)
 					if err != nil {
 						t.Fatal(err)
 					}
-					bwTotal = bwTotal + bw.size
 				}
 			})
 		}
 	})
 
-	t.Run("TotalBandwidthUsedSince", func(t *testing.T) {
+	t.Run("GetTotalBandwidthBetween", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					size, err := db.TotalBandwidthUsedSince(bw.timenow, bw.timenow)
+					size, err := db.GetTotalBandwidthBetween(bw.timenow, bw.timenow)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -249,12 +231,12 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 		}
 	})
 
-	t.Run("TotalBandwidthUsedOnADay", func(t *testing.T) {
+	t.Run("GetBandwidthUsedByDay", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					size, err := db.TotalBandwidthUsedOnADay(bw.timenow)
+					size, err := db.GetBandwidthUsedByDay(bw.timenow)
 					if err != nil {
 						t.Fatal(err)
 					}
