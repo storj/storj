@@ -200,7 +200,7 @@ func calcPadded(size int64, blockSize int) int64 {
 // auditStripe gets remote segments from a pointer and runs an audit on shares
 // at a given stripe index
 // TODO(nat): maybe removed required/total here?
-func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex, required, total int) (badNodes []*pb.Node, err error) {
+func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (badNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex)
@@ -208,6 +208,8 @@ func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIn
 		return nil, err
 	}
 
+	required := int(pointer.Remote.Redundancy.GetMinReq())
+	total := int(pointer.Remote.Redundancy.GetTotal())
 	pieceNums, err := auditShares(ctx, required, total, shares)
 	if err != nil {
 		return nil, err

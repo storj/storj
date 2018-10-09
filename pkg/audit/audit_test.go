@@ -50,7 +50,7 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		auditor := &Auditor{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		badNodes, err := auditor.auditStripe(ctx, pointer, 6, 20, 40)
+		badNodes, err := auditor.auditStripe(ctx, pointer, 6)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -145,7 +145,7 @@ func TestNotEnoughNodes(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		auditor := &Auditor{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		_, err := auditor.auditStripe(ctx, pointer, 6, 20, 40)
+		_, err := auditor.auditStripe(ctx, pointer, 6)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -180,8 +180,8 @@ func makePointer(nodeAmt int) *pb.Pointer {
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,
-				MinReq:           1,
-				Total:            3,
+				MinReq:           20,
+				Total:            40,
 				RepairThreshold:  2,
 				SuccessThreshold: 3,
 				ErasureShareSize: 4,
