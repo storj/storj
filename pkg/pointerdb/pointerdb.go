@@ -261,3 +261,14 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
 }
+
+// Iterate iterates over items based on IterateRequest
+func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) error {
+	opts := storage.IterateOptions{
+		Prefix: storage.Key(req.Prefix),
+		First: storage.Key(req.First),
+		Recurse: req.Recurse,
+		Reverse: req.Reverse,
+	}
+	return s.DB.Iterate(opts, f)
+}

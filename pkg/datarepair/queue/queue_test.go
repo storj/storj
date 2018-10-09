@@ -23,7 +23,7 @@ func TestEnqueueDequeue(t *testing.T) {
 	q := NewQueue(db)
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
-		LostPieces: []int32{},
+		LostPieces: []int32{int32(1), int32(3)},
 	}
 	err := q.Enqueue(seg)
 	assert.NoError(t, err)
@@ -44,7 +44,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 func TestForceError(t *testing.T) {
 	db := teststore.New()
 	q := NewQueue(db)
-	err := q.Enqueue(&pb.InjuredSegment{Path: "abc", LostPieces: []int32{}})
+	err := q.Enqueue(&pb.InjuredSegment{Path: "abc", LostPieces: []int32{int32(0)}})
 	assert.NoError(t, err)
 	db.ForceError++
 	item, err := q.Dequeue()

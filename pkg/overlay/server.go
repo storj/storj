@@ -154,7 +154,7 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 	return result, nextStart, nil
 }
 
-//lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
+// lookupRequestsToNodeIDs returns the nodeIDs from the LookupRequests
 func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) []string {
 	var ids []string
 	for _, v := range reqs.Lookuprequest {
@@ -163,7 +163,7 @@ func lookupRequestsToNodeIDs(reqs *pb.LookupRequests) []string {
 	return ids
 }
 
-//nodesToLookupResponses returns LookupResponses from the nodes
+// nodesToLookupResponses returns LookupResponses from the nodes
 func nodesToLookupResponses(nodes []*pb.Node) *pb.LookupResponses {
 	var rs []*pb.LookupResponse
 	for _, v := range nodes {
