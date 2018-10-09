@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/pb"
@@ -22,7 +23,7 @@ func TestPassingAudit(t *testing.T) {
 	ctx := context.Background()
 	mockShares := make(map[int]share)
 
-	for i, tt := range []struct {
+	for _, tt := range []struct {
 		nodeAmt  int
 		shareAmt int
 		required int
@@ -32,15 +33,7 @@ func TestPassingAudit(t *testing.T) {
 		{nodeAmt: 30, shareAmt: 30, required: 20, total: 40, err: nil},
 	} {
 		someData := randData(32 * 1024)
-		var nodes []*pb.Node
-		for i = 0; i < tt.nodeAmt; i++ {
-			node := &pb.Node{
-				Id:      strconv.Itoa(i),
-				Address: &pb.NodeAddress{},
-			}
-			nodes = append(nodes, node)
-		}
-		for i = 0; i < tt.shareAmt; i++ {
+		for i := 0; i < tt.shareAmt; i++ {
 			mockShares[i] = share{
 				Error:       tt.err,
 				PieceNumber: i,
@@ -96,13 +89,13 @@ func TestFailingAudit(t *testing.T) {
 	badPieceNums := []int{0, 2, 3, 4}
 
 	ctx := context.Background()
-	ourPkgShares := make([]share, len(modifiedShares))
+	auditPkgShares := make([]share, len(modifiedShares))
 	for i := range modifiedShares {
-		ourPkgShares[i].PieceNumber = modifiedShares[i].Number
-		ourPkgShares[i].Data = append([]byte(nil), modifiedShares[i].Data...)
-		ourPkgShares[i].Error = nil
+		auditPkgShares[i].PieceNumber = modifiedShares[i].Number
+		auditPkgShares[i].Data = append([]byte(nil), modifiedShares[i].Data...)
+		auditPkgShares[i].Error = nil
 	}
-	pieceNums, err := auditShares(ctx, 8, 14, ourPkgShares)
+	pieceNums, err := auditShares(ctx, 8, 14, auditPkgShares)
 	if err != nil {
 		panic(err)
 	}
@@ -113,43 +106,38 @@ func TestFailingAudit(t *testing.T) {
 	}
 }
 
-func TestNotEnoughNodes(t *testing.T) {
-	ctx := context.Background()
-	mockShares := make(map[int]share)
+func TestNotEnoughShares(t *testing.T) {
+	const (
+		required = 8
+		total    = 14
+	)
 
-	for i, tt := range []struct {
-		nodeAmt  int
-		shareAmt int
-		required int
-		total    int
-		err      error
-	}{
-		{nodeAmt: 30, shareAmt: 30, required: 20, total: 40, err: nil},
-	} {
-		someData := randData(32 * 1024)
-		var nodes []*pb.Node
-		for i = 0; i < tt.nodeAmt; i++ {
-			node := &pb.Node{
-				Id:      strconv.Itoa(i),
-				Address: &pb.NodeAddress{},
-			}
-			nodes = append(nodes, node)
-		}
-		for i = 0; i < tt.shareAmt; i++ {
-			mockShares[i] = share{
-				Error:       tt.err,
-				PieceNumber: i,
-				Data:        someData,
-			}
-		}
-		md := mockDownloader{shares: mockShares}
-		auditor := &Auditor{downloader: &md}
-		pointer := makePointer(tt.nodeAmt)
-		_, err := auditor.auditStripe(ctx, pointer, 6)
-		if err != nil {
-			t.Fatal(err)
-		}
+	f, err := infectious.NewFEC(required, total)
+	if err != nil {
+		panic(err)
 	}
+
+	shares := make([]infectious.Share, total)
+	output := func(s infectious.Share) {
+		shares[s.Number] = s.DeepCopy()
+	}
+
+	// the data to encode must be padded to a multiple of required, hence the
+	// underscores.
+	err = f.Encode([]byte("hello, world! __"), output)
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.Background()
+	auditPkgShares := make([]share, len(shares))
+	for i := range shares {
+		auditPkgShares[i].PieceNumber = shares[i].Number
+		auditPkgShares[i].Data = append([]byte(nil), shares[i].Data...)
+		auditPkgShares[i].Error = nil
+	}
+	_, err = auditShares(ctx, 20, 40, auditPkgShares)
+	assert.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
