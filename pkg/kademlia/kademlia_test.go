@@ -6,7 +6,6 @@ package kademlia
 import (
 	"context"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +62,7 @@ func TestNewKademlia(t *testing.T) {
 			}(),
 			bn:    []pb.Node{pb.Node{Id: "foo"}},
 			addr:  "127.0.0.1:8080",
-			setup: func() error { return os.RemoveAll("db") },
+			setup: func() error { return nil },
 		},
 	}
 
@@ -198,7 +197,6 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { _ = grpcServer.Serve(lis) }()
-
 	return k, grpcServer
 
 }
