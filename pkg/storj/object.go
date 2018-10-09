@@ -32,7 +32,7 @@ type Object struct {
 type Stream struct {
 	// Size is the total size of the stream in bytes
 	Size int64
-	// Checksum is the checksum of the stream content
+	// Checksum is the checksum of the segment checksums
 	Checksum []byte
 
 	// SegmentCount is the number of segments
@@ -50,7 +50,10 @@ type Stream struct {
 // Segment is full segment information
 type Segment struct {
 	Index int64
-	Size  int64
+	// Size is the size of the content in bytes
+	Size int64
+	// Checksum is the checksum of the content
+	Checksum []byte
 	// Local data
 	Inline []byte
 	// Remote data
