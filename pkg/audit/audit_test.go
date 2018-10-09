@@ -140,6 +140,21 @@ func TestNotEnoughShares(t *testing.T) {
 	assert.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
 }
 
+func TestCalcPadded(t *testing.T) {
+
+	for _, tt := range []struct {
+		segSize    int64
+		blockSize  int
+		paddedSize int64
+	}{
+		{segSize: int64(5 * 1024), blockSize: 1024, paddedSize: int64(5120)},
+		{segSize: int64(5 * 1023), blockSize: 1024, paddedSize: int64(5120)},
+	} {
+		result := calcPadded(tt.segSize, tt.blockSize)
+		assert.Equal(t, result, tt.paddedSize)
+	}
+}
+
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
 	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
 	for _, share := range m.shares {

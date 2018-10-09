@@ -38,6 +38,7 @@ type downloader interface {
 }
 
 // downloader implements the downloader interface
+//nolint - defaultDownloader isn't called in tests
 type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
@@ -45,6 +46,7 @@ type defaultDownloader struct {
 }
 
 // newDownloader creates a new instance of a defaultDownloader struct
+//nolint - newDefaultDownloader isn't called in tests
 func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: t, overlay: o, identity: id}
 }
