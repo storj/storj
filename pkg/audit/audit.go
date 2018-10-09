@@ -6,15 +6,13 @@ package audit
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -114,7 +112,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	pieces := pointer.Remote.GetRemotePieces()
 
 	for _, p := range pieces {
-		nodeIds = append(nodeIds, kademlia.StringToNodeID(p.GetNodeId()))
+		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
 	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
 	if err != nil {
@@ -177,10 +175,6 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
-	for i, share := range copies {
-		fmt.Println("precorrect share data", share.Data[:3])
-		fmt.Println("precorrect originals["+strconv.Itoa(i)+"] data", originals[i].Data[:3])
-	}
 
 	err = f.Correct(copies)
 	if err != nil {
@@ -188,9 +182,6 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	}
 	// TODO(nat): add a check for missing shares or arrays of different lengths
 	for i, share := range copies {
-		fmt.Println("post share data", share.Data[:3])
-		fmt.Println("post originals["+strconv.Itoa(i)+"] data", originals[i].Data[:3])
-
 		if !bytes.Equal(originals[i].Data, share.Data) {
 			pieceNums = append(pieceNums, share.Number)
 		}
