@@ -108,9 +108,16 @@ func (k *Kademlia) Disconnect() error {
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes, err := k.routingTable.FindNear(node.IDFromString(start), limit)
 	if err != nil {
-		return []*pb.Node{}, Error.New("could not get nodes %s", err)
+		return []*pb.Node{}, Error.Wrap(err)
 	}
-	return nodes, nil
+	if restrictions != nil || len(restrictions) == 0{
+		return nodes, nil
+	}
+	restrictedNodes := []*pb.Node{}
+	for _, r := range restrictions {
+		restrictedNodes = append(restrictedNodes, Restrict(r, nodes)...)
+	}
+	return restrictedNodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
