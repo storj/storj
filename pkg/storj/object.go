@@ -33,7 +33,7 @@ type Stream struct {
 	// Size is the total size of the stream in bytes
 	Size int64
 	// Checksum is the checksum of the stream content
-	Checksum string
+	Checksum []byte
 
 	// SegmentCount is the number of segments
 	SegmentCount int64
