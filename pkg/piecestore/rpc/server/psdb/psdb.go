@@ -38,21 +38,6 @@ type DB struct {
 	check    *time.Ticker
 }
 
-type StorageMibInfo struct {
-	BwUsageInfo    BwUsageTable
-	UsedSpace      int64
-	AvailableSpace int64
-	/** add new information tables here .... */
-}
-
-type BwUsageTable struct {
-	Size         int64
-	DayStartDate int64
-	DayEndDate   int64
-}
-
-var GStorageMibInfo StorageMibInfo
-
 // Open opens DB at DBPath
 func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -238,7 +223,6 @@ func (db *DB) AddTTL(id string, expiration, size int64) error {
 
 // GetTTLByID finds the TTL in the database by id and return it
 func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
-
 	defer db.locked()()
 
 	err = db.DB.QueryRow(`SELECT expires FROM ttl WHERE id=?`, id).Scan(&expiration)
@@ -276,10 +260,9 @@ func (db *DB) DeleteTTLByID(id string) error {
 }
 
 // AddMIB adds MIB into database by date
-func (db *DB) AddBwUsageTbl(size int64, bwtime time.Time) (err error) {
+func (db *DB) AddBwUsageTbl(size int64, t time.Time) (err error) {
 	defer db.locked()()
-	unixtimenow := bwtime.Unix()
-	t := time.Now()
+	unixtimenow := t.Unix()
 	fmt.Println("time now =", t.Unix())
 	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
 	fmt.Println("daystarttime =", daystartunixtime)
@@ -314,8 +297,8 @@ func (db *DB) AddBwUsageTbl(size int64, bwtime time.Time) (err error) {
 	return err
 }
 
-// GetMIBByDate finds the so far bw used by date and return it
-func (db *DB) GetBwUsageTbl(t time.Time) (size int64, err error) {
+// TotalBandwidthUsedOnADay finds the so far bw used by day and return it
+func (db *DB) TotalBandwidthUsedOnADay(t time.Time) (size int64, err error) {
 	defer db.locked()()
 	//t := time.Unix(reqtime, 0)
 	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
@@ -323,8 +306,8 @@ func (db *DB) GetBwUsageTbl(t time.Time) (size int64, err error) {
 	return size, err
 }
 
-// BandwidthUsage each row in the bwusagetbl contains the total bw used perday
-func (db *DB) BandwidthUsage(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
+// TotalBandwidthUsedSince each row in the bwusagetbl contains the total bw used per day
+func (db *DB) TotalBandwidthUsedSince(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
 	defer db.locked()()
 
 	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()

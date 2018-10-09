@@ -234,12 +234,12 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 	})
 	fmt.Println("toatlbw =", bwTotal)
 
-	t.Run("BandwidthUsage", func(t *testing.T) {
+	t.Run("TotalBandwidthUsedSince", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					size, err := db.BandwidthUsage(bw.timenow, bw.timenow)
+					size, err := db.TotalBandwidthUsedSince(bw.timenow, bw.timenow)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -251,12 +251,12 @@ func TestBwUsageTblHappyPath(t *testing.T) {
 		}
 	})
 
-	t.Run("GetBwUsageTbl", func(t *testing.T) {
+	t.Run("TotalBandwidthUsedOnADay", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
 			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
 				t.Parallel()
 				for _, bw := range bwtests {
-					size, err := db.GetBwUsageTbl(bw.timenow)
+					size, err := db.TotalBandwidthUsedOnADay(bw.timenow)
 					if err != nil {
 						t.Fatal(err)
 					}
