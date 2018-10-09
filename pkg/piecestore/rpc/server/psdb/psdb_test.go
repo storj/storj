@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
@@ -56,11 +57,35 @@ func TestHappyPath(t *testing.T) {
 		Expiration int64
 	}
 
+	type BWUSAGE struct {
+		size    int64
+		timenow int64
+	}
+
 	tests := []TTL{
 		{ID: "", Expiration: 0},
 		{ID: "\x00", Expiration: ^int64(0)},
 		{ID: "test", Expiration: 666},
 	}
+
+	bwtests := []BWUSAGE{
+		{size: 0, timenow: time.Now().Unix()},
+		{size: 0, timenow: time.Now().AddDate(0, 0, 1).Unix()},
+	}
+
+	t.Run("AddToBwUsageTable", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+				for _, bw := range bwtests {
+					err := db.AddBwUsageTbl(bw.size, bw.timenow)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
+	})
 
 	t.Run("Add", func(t *testing.T) {
 		for P := 0; P < concurrency; P++ {
