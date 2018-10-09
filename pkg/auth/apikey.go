@@ -12,12 +12,12 @@ type key int
 // apiKey is the context key for the user API Key
 const apiKey key = 0
 
-// WithAPIKey test
+// WithAPIKey creates context with api key
 func WithAPIKey(ctx context.Context, key []byte) context.Context {
 	return context.WithValue(ctx, apiKey, key)
 }
 
-// GetAPIKey test
+// GetAPIKey returns api key from context is exists
 func GetAPIKey(ctx context.Context) ([]byte, bool) {
 	key, ok := ctx.Value(apiKey).([]byte)
 	return key, ok

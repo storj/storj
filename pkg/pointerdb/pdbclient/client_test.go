@@ -18,9 +18,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/auth/grpcauth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -303,7 +304,7 @@ func TestApiKeyInjector(t *testing.T) {
 		{"abc123", nil},
 		{"", nil},
 	} {
-		injector := apiKeyInjector(tt.APIKey)
+		injector := grpcauth.NewAPIKeyInjector(tt.APIKey)
 
 		// mock for method invoker
 		var outputCtx context.Context

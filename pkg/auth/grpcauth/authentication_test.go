@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package auth
+package grpcauth
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	"storj.io/storj/pkg/auth"
 )
 
 func TestAPIKeyInterceptor(t *testing.T) {
@@ -27,7 +29,7 @@ func TestAPIKeyInterceptor(t *testing.T) {
 
 		// mock for method handler
 		handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-			APIKey, ok := GetAPIKey(ctx)
+			APIKey, ok := auth.GetAPIKey(ctx)
 			if !ok || string(APIKey) != "good key" {
 				return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 			}

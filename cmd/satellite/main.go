@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/satellite/auth"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/statdb"
 )
 
@@ -76,7 +76,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 	return runCfg.Identity.Run(
 		process.Ctx(cmd),
-		auth.NewAPIKeyInterceptor(),
+		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
 		o,

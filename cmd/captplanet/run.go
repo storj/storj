@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/satellite/auth"
+	"storj.io/storj/pkg/auth/grpcauth"
 )
 
 const (
@@ -111,7 +111,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		errch <- runCfg.Satellite.Identity.Run(ctx,
-			auth.NewAPIKeyInterceptor(),
+			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			// runCfg.Satellite.Checker,

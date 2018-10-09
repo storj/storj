@@ -14,10 +14,10 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
-	satAuth "storj.io/storj/pkg/satellite/auth"
+	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -46,8 +46,8 @@ func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logge
 }
 
 func (s *Server) validateAuth(ctx context.Context) error {
-	APIKey, ok := satAuth.GetAPIKey(ctx)
-	if !ok || !auth.ValidateAPIKey(string(APIKey)) {
+	APIKey, ok := auth.GetAPIKey(ctx)
+	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}

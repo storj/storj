@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package auth
+package grpcauth
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"storj.io/storj/pkg/auth"
 )
 
 // NewAPIKeyInterceptor creates instance of apikey interceptor
@@ -22,6 +24,14 @@ func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
 		if !ok || APIKey == "" {
 			return handler(ctx, req)
 		}
-		return handler(WithAPIKey(ctx, []byte(APIKey)), req)
+		return handler(auth.WithAPIKey(ctx, []byte(APIKey)), req)
+	}
+}
+
+// NewAPIKeyInjector injects api key to grpc connection context
+func NewAPIKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", APIKey)
+		return invoker(ctx, method, req, reply, cc)
 	}
 }

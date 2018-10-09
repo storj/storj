@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/satellite/auth"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 	

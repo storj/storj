@@ -8,10 +8,10 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth/grpcauth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -52,13 +52,6 @@ type Client interface {
 	Delete(ctx context.Context, path p.Path) error
 }
 
-func apiKeyInjector(APIKey string) grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = metadata.AppendToOutgoingContext(ctx, "apikey", APIKey)
-		return invoker(ctx, method, req, reply, cc)
-	}
-}
-
 // NewClient initializes a new pointerdb client
 func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
 	dialOpt, err := identity.DialOption()
@@ -66,7 +59,8 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 		return nil, err
 	}
 
-	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector(APIKey)))
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
+	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector))
 
 	if err != nil {
 		return nil, err

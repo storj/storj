@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/satellite/auth"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/redis/redisserver"
 
