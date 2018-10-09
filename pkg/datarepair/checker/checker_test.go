@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
@@ -59,8 +60,8 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		req := &pb.PutRequest{
 			Path:    p.Remote.PieceId,
 			Pointer: p,
-			APIKey:  nil,
 		}
+		ctx = auth.WithAPIKey(ctx, nil)
 		resp, err := pointerdb.Put(ctx, req)
 		assert.NotNil(t, resp)
 		assert.NoError(t, err)
@@ -169,8 +170,8 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 		req := &pb.PutRequest{
 			Path:    p.Remote.PieceId,
 			Pointer: p,
-			APIKey:  nil,
 		}
+		ctx = auth.WithAPIKey(ctx, nil)
 		resp, err := pointerdb.Put(ctx, req)
 		assert.NotNil(b, resp)
 		assert.NoError(b, err)
