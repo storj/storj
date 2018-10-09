@@ -5,6 +5,7 @@ package grpcauth
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,5 +45,33 @@ func TestAPIKeyInterceptor(t *testing.T) {
 		_, err := interceptor(ctx, nil, info, handler)
 
 		assert.Equal(t, err, tt.err)
+	}
+}
+
+func TestAPIKeyInjector(t *testing.T) {
+	for _, tt := range []struct {
+		APIKey string
+		err    error
+	}{
+		{"abc123", nil},
+		{"", nil},
+	} {
+		injector := NewAPIKeyInjector(tt.APIKey)
+
+		// mock for method invoker
+		var outputCtx context.Context
+		invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+			outputCtx = ctx
+			return nil
+		}
+
+		ctx := context.Background()
+		err := injector(ctx, "/test.method", nil, nil, nil, invoker)
+
+		assert.Equal(t, err, tt.err)
+
+		md, ok := metadata.FromOutgoingContext(outputCtx)
+		assert.Equal(t, true, ok)
+		assert.Equal(t, tt.APIKey, strings.Join(md["apikey"], ""))
 	}
 }

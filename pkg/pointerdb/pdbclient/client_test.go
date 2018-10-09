@@ -15,11 +15,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/auth/grpcauth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
@@ -293,33 +290,5 @@ func TestDelete(t *testing.T) {
 		} else {
 			assert.NoError(t, err, errTag)
 		}
-	}
-}
-
-func TestApiKeyInjector(t *testing.T) {
-	for _, tt := range []struct {
-		APIKey string
-		err    error
-	}{
-		{"abc123", nil},
-		{"", nil},
-	} {
-		injector := grpcauth.NewAPIKeyInjector(tt.APIKey)
-
-		// mock for method invoker
-		var outputCtx context.Context
-		invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
-			outputCtx = ctx
-			return nil
-		}
-
-		ctx := context.Background()
-		err := injector(ctx, "/test.method", nil, nil, nil, invoker)
-
-		assert.Equal(t, err, tt.err)
-
-		md, ok := metadata.FromOutgoingContext(outputCtx)
-		assert.Equal(t, true, ok)
-		assert.Equal(t, tt.APIKey, strings.Join(md["apikey"], ""))
 	}
 }
