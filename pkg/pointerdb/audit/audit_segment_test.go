@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/satellite/auth"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/redis/redisserver"
 
@@ -116,6 +117,8 @@ func TestAuditSegment(t *testing.T) {
 			path:   paths.New("Nada/ビデオ/😶"),
 		},
 	}
+
+	ctx = auth.WithAPIKey(ctx, nil)
 
 	//PointerDB instantation
 	db := teststore.New()
