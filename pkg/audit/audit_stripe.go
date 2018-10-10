@@ -13,11 +13,8 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/transport"
 )
 
 var mon = monkit.Package()
@@ -28,32 +25,8 @@ type share struct {
 	Data        []byte
 }
 
-// Auditor implements the downloader interface
-type Auditor struct {
-	downloader downloader
-}
-
 type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
-}
-
-// downloader implements the downloader interface
-//nolint - defaultDownloader isn't called in tests
-type defaultDownloader struct {
-	transport transport.Client
-	overlay   overlay.Client
-	identity  provider.FullIdentity
-}
-
-// newDownloader creates a new instance of a defaultDownloader struct
-//nolint - newDefaultDownloader isn't called in tests
-func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
-	return &defaultDownloader{transport: t, overlay: o, identity: id}
-}
-
-// NewAuditor creates a new instance of an Auditor struct
-func NewAuditor(downloader downloader) *Auditor {
-	return &Auditor{downloader: downloader}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -159,8 +132,6 @@ func makeCopies(ctx context.Context, originals []share) (copies []infectious.Sha
 		}
 		copies[i].Data = append([]byte(nil), original.Data...)
 		copies[i].Number = original.PieceNumber
-
-		// do i encode inside of copies?
 	}
 	return copies, nil
 }
@@ -199,26 +170,26 @@ func calcPadded(size int64, blockSize int) int64 {
 	return size + int64(blockSize) - mod
 }
 
-// auditStripe gets remote segments from a pointer and runs an audit on shares
-// at a given stripe index
-// TODO(nat): maybe removed required/total here?
-func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (badNodes []*pb.Node, err error) {
+// auditStripe downloads shares then audits the shares at a given stripe index
+func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
 	pieceNums, err := auditShares(ctx, required, total, shares)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	var badNodes []*pb.Node
 	for _, pieceNum := range pieceNums {
 		badNodes = append(badNodes, nodes[pieceNum])
 	}
+	// TODO(nat): update statdb with the bad nodes
 
-	return badNodes, nil
+	return nil
 }

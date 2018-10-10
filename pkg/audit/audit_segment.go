@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
-	"sync"
 
 	"github.com/vivint/infectious"
 
@@ -18,47 +17,33 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 )
 
-// Audit to audit segments
-type Audit struct {
-	pointers pdbclient.Client
-	lastPath *paths.Path
-	mutex    sync.Mutex
-}
-
-// NewAudit creates a new instance of audit
-func NewAudit(pointers pdbclient.Client) *Audit {
-	return &Audit{
-		pointers: pointers,
-	}
-}
-
 // Stripe is a struct that contains stripe info
 type Stripe struct {
 	Index int
 }
 
 // NextStripe returns a random stripe to be audited
-func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
-	audit.mutex.Lock()
-	defer audit.mutex.Unlock()
+func (auditor *Auditor) NextStripe(ctx context.Context) (stripe *Stripe, pointer *pb.Pointer, more bool, err error) {
+	auditor.mutex.Lock()
+	defer auditor.mutex.Unlock()
 
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
 
-	if audit.lastPath == nil {
-		pointerItems, more, err = audit.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
+	if auditor.lastPath == nil {
+		pointerItems, more, err = auditor.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
 	} else {
-		pointerItems, more, err = audit.pointers.List(ctx, nil, *audit.lastPath, nil, true, 0, meta.None)
+		pointerItems, more, err = auditor.pointers.List(ctx, nil, *auditor.lastPath, nil, true, 0, meta.None)
 	}
 
 	if err != nil {
-		return nil, more, err
+		return nil, nil, more, err
 	}
 
 	// get random pointer
 	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
-		return nil, more, err
+		return nil, nil, more, err
 	}
 
 	// get path
@@ -66,30 +51,30 @@ func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, 
 
 	// keep track of last path listed
 	if !more {
-		audit.lastPath = nil
+		auditor.lastPath = nil
 	} else {
-		audit.lastPath = &pointerItems[len(pointerItems)-1].Path
+		auditor.lastPath = &pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info
-	pointer, err := audit.pointers.Get(ctx, path)
+	pointer, err = auditor.pointers.Get(ctx, path)
 	if err != nil {
-		return nil, more, err
+		return nil, nil, more, err
 	}
 
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return nil, more, err
+		return nil, nil, more, err
 	}
 
 	//get random stripe
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
-		return nil, more, err
+		return nil, nil, more, err
 	}
 
-	return &Stripe{Index: index}, more, nil
+	return &Stripe{Index: index}, pointer, more, nil
 }
 
 // create the erasure scheme

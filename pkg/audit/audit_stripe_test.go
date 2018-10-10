@@ -43,11 +43,8 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		auditor := &Auditor{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		badNodes, err := auditor.auditStripe(ctx, pointer, 6)
+		err := auditor.auditStripe(ctx, pointer, 6)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if len(badNodes) != 0 {
 			t.Fatal(err)
 		}
 	}
@@ -141,7 +138,6 @@ func TestNotEnoughShares(t *testing.T) {
 }
 
 func TestCalcPadded(t *testing.T) {
-
 	for _, tt := range []struct {
 		segSize    int64
 		blockSize  int

@@ -134,8 +134,11 @@ func TestAuditSegment(t *testing.T) {
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
 	pointers := pdbclient.New(pdbw)
 
+	mockShares := make(map[int]share)
+	md := mockDownloader{shares: mockShares}
+
 	// create a pdb client and instance of audit
-	a := NewAudit(pointers)
+	a := NewAuditor(pointers, &md)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
@@ -166,7 +169,7 @@ func TestAuditSegment(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				stripe, _, err := a.NextStripe(ctx)
+				stripe, _, _, err := a.NextStripe(ctx)
 				if err != nil {
 					assert1.Error(err)
 					assert1.Nil(stripe)
