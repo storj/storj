@@ -204,6 +204,52 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 
 }
 
-func TestGetNode(t *testing.T) {
-	
+func TestGetNodes(t *testing.T) {
+	// func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+
+	// cases := []struct {
+	// }{
+	// 	{},
+	// 	{},
+	// }
+	// for _, v := range cases {
+
+	// }
+}
+
+func TestMeetsRestrictions(t *testing.T) {
+	cases := []struct {
+		testID string
+		r      []pb.Restriction
+		n      pb.Node
+		expect bool
+	}{
+		{	testID: "pass one",
+			r: []pb.Restriction{
+				
+			},
+			n: pb.Node{
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: int64(),
+					FreeDisk:      int64(),
+				},
+			},
+		},
+		{testID: "pass multiple",
+			r: []pb.Restriction{},
+			n: pb.Node{},
+		},
+		{testID: "fail one",
+			r: []pb.Restriction{}, 
+			n: pb.Node{},
+		},
+		{testID: "fail multiple",
+			r: []pb.Restriction{},
+			n: pb.Node{},
+		},
+	}
+	for _, v := range cases {
+		result := meetsRestrictions(v.r, v.n)
+		assert.Equal(t, v.expect, result)
+	}
 }
