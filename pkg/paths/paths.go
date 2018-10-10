@@ -65,13 +65,18 @@ func (p Path) HasPrefix(prefix Path) bool {
 func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 	encrypted = make([]string, len(p))
 	for i, seg := range p {
-		encrypted[i], err = encrypt(seg, key)
-		if err != nil {
-			return nil, err
-		}
-		key, err = deriveSecret(key, seg)
-		if err != nil {
-			return nil, err
+		// TODO(moby) this is a hacky way to deal with buckets
+		if i == 0 {
+			encrypted[i] = seg
+		} else {
+			encrypted[i], err = encrypt(seg, key)
+			if err != nil {
+				return nil, err
+			}
+			key, err = deriveSecret(key, seg)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return encrypted, nil
@@ -81,13 +86,18 @@ func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 func (p Path) Decrypt(key []byte) (decrypted Path, err error) {
 	decrypted = make([]string, len(p))
 	for i, seg := range p {
-		decrypted[i], err = decrypt(seg, key)
-		if err != nil {
-			return nil, err
-		}
-		key, err = deriveSecret(key, decrypted[i])
-		if err != nil {
-			return nil, err
+		// TODO(moby) this is a hacky way to deal with buckets
+		if i == 0 {
+			decrypted[i] = seg
+		} else {
+			decrypted[i], err = decrypt(seg, key)
+			if err != nil {
+				return nil, err
+			}
+			key, err = deriveSecret(key, decrypted[i])
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return decrypted, nil
