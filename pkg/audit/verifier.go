@@ -28,8 +28,8 @@ type share struct {
 	Data        []byte
 }
 
-// Auditor implements the downloader interface
-type Auditor struct {
+// Verifier helps verify the correctness of a given stripe
+type Verifier struct {
 	downloader downloader
 }
 
@@ -37,23 +37,21 @@ type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
 }
 
-// downloader implements the downloader interface
-//nolint - defaultDownloader isn't called in tests
+// defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
 }
 
-// newDownloader creates a new instance of a defaultDownloader struct
-//nolint - newDefaultDownloader isn't called in tests
-func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
-	return &defaultDownloader{transport: t, overlay: o, identity: id}
+// newDefaultDownloader creates a defaultDownloader
+func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
-// NewAuditor creates a new instance of an Auditor struct
-func NewAuditor(downloader downloader) *Auditor {
-	return &Auditor{downloader: downloader}
+// NewVerifier creates a Verifier
+func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -159,8 +157,6 @@ func makeCopies(ctx context.Context, originals []share) (copies []infectious.Sha
 		}
 		copies[i].Data = append([]byte(nil), original.Data...)
 		copies[i].Number = original.PieceNumber
-
-		// do i encode inside of copies?
 	}
 	return copies, nil
 }
@@ -199,13 +195,11 @@ func calcPadded(size int64, blockSize int) int64 {
 	return size + int64(blockSize) - mod
 }
 
-// auditStripe gets remote segments from a pointer and runs an audit on shares
-// at a given stripe index
-// TODO(nat): maybe removed required/total here?
-func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (badNodes []*pb.Node, err error) {
+// verify downloads shares then verifies the data correctness at the given stripe
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (failedNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -216,9 +210,10 @@ func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIn
 	if err != nil {
 		return nil, err
 	}
-	for _, pieceNum := range pieceNums {
-		badNodes = append(badNodes, nodes[pieceNum])
-	}
 
-	return badNodes, nil
+	for _, pieceNum := range pieceNums {
+		failedNodes = append(failedNodes, nodes[pieceNum])
+	}
+	// TODO(nat): update statdb with the bad nodes
+	return failedNodes, nil
 }
