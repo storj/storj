@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -13,18 +14,18 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for checker
 type Config struct {
-	QueueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
-	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
+	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
 // Run runs the checker with configured values
@@ -40,7 +41,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	defer cancel()
 	var errs []error
 
-	go func() {
+	go func() error {
 		for {
 			select {
 			case <-ticker.C:
@@ -51,15 +52,17 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 						errs = append(errs, err)
 					}
 					q := queue.NewQueue(client)
-					cache := overlay.LoadFromContext(ctx)
-					//get pointerdb
-					//get overlay
-					// c := NewChecker(params, pointerdb, repairQueue, overlay, logger) 
-					// err := c.IdentifyInjuredSegments(ctx) 
+					overlay := overlay.LoadServerFromContext(ctx)
+					pointerdb := pointerdb.LoadFromContext(ctx)
+					c := NewChecker(pointerdb, q, overlay, 0, zap.L())
+					err = c.IdentifyInjuredSegments(ctx)
+					if err != nil {
+						errs = append(errs, err)
+					}
 				}()
-
+				return nil
 			case <-ctx.Done():
-				return
+				return combinedError(errs)
 			}
 		}
 	}()
@@ -164,5 +167,13 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 }
 
 func combinedError(errs []error) error {
-	return nil
+	if len(errs) == 0 {
+		return nil
+	}
+	var errStrings []string
+	for _, e := range errs {
+		errStrings = append(errStrings, e.Error())
+	}
+	concat := strings.Join(errStrings, "\n")
+	return Error.New(concat)
 }

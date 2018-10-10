@@ -272,3 +272,4 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 	}
 	return s.DB.Iterate(opts, f)
 }
+
