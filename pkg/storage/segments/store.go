@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -49,6 +50,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
 	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error)
+	Repair(ctx context.Context, path paths.Path, lostPieces []int) (err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -257,6 +259,11 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 
 	// deletes pointer from pointerdb
 	return s.pdb.Delete(ctx, path)
+}
+
+// Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
+func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces []int) (err error) {
+	return errs.New("Not implemented")
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
