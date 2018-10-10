@@ -137,13 +137,9 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
-// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
-func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
-	}
-	tlsInfo := p.AuthInfo.(credentials.TLSInfo)
+// PeerIdentityFromPeer loads a PeerIdentity from a peer connection
+func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
+	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	c := tlsInfo.State.PeerCertificates
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
@@ -154,6 +150,16 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	}
 
 	return pi, nil
+}
+
+// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
+func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, Error.New("unable to get grpc peer from contex")
+	}
+
+	return PeerIdentityFromPeer(p)
 }
 
 // Stat returns the status of the identity cert/key files for the config

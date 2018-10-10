@@ -131,7 +131,7 @@ func TestAuditSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, nil))
 	pointers := pdbclient.New(pdbw)
 
 	// create a pdb client and instance of audit

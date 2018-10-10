@@ -10,7 +10,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -18,6 +20,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -29,19 +32,21 @@ var (
 
 // Server implements the network state RPC service
 type Server struct {
-	DB     storage.KeyValueStore
-	logger *zap.Logger
-	config Config
-	cache  *overlay.Cache
+	DB       storage.KeyValueStore
+	logger   *zap.Logger
+	config   Config
+	cache    *overlay.Cache
+	identity *provider.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config) *Server {
+func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config, identity *provider.FullIdentity) *Server {
 	return &Server{
-		DB:     db,
-		logger: logger,
-		config: c,
-		cache:  cache,
+		DB:       db,
+		logger:   logger,
+		config:   c,
+		cache:    cache,
+		identity: identity,
 	}
 }
 
@@ -52,6 +57,19 @@ func (s *Server) validateAuth(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
+}
+
+func (s *Server) appendSignature(ctx context.Context) error {
+	signature, err := auth.GenerateSignature(s.identity)
+	if err != nil {
+		return err
+	}
+
+	if signature == "" {
+		return nil
+	}
+
+	return grpc.SetHeader(ctx, metadata.Pairs("signature", signature))
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {
@@ -113,6 +131,10 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	s.logger.Debug("entering pointerdb get")
 
 	if err = s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	if err = s.appendSignature(ctx); err != nil {
 		return nil, err
 	}
 
@@ -265,8 +287,8 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 // Iterate iterates over items based on IterateRequest
 func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) error {
 	opts := storage.IterateOptions{
-		Prefix: storage.Key(req.Prefix),
-		First: storage.Key(req.First),
+		Prefix:  storage.Key(req.Prefix),
+		First:   storage.Key(req.First),
 		Recurse: req.Recurse,
 		Reverse: req.Reverse,
 	}
