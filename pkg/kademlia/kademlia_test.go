@@ -5,7 +5,9 @@ package kademlia
 
 import (
 	"context"
+	"io/ioutil"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,6 +37,10 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 }
 
 func TestNewKademlia(t *testing.T) {
+	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	assert.NoError(t, err)
+	defer cleanup(t, dir)
+
 	cases := []struct {
 		id          dht.NodeID
 		bn          []pb.Node
@@ -91,6 +97,10 @@ func TestLookup(t *testing.T) {
 	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
 	go func() { _ = srv.Serve(lis) }()
 	defer srv.Stop()
+
+	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	assert.NoError(t, err)
+	defer cleanup(t, dir)
 
 	k := func() *Kademlia {
 		// make new identity
@@ -150,7 +160,6 @@ func TestLookup(t *testing.T) {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
 	}
-
 }
 
 func TestBootstrap(t *testing.T) {
@@ -199,4 +208,8 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	go func() { _ = grpcServer.Serve(lis) }()
 	return k, grpcServer
 
+}
+
+func cleanup(t *testing.T, dir string) {
+	assert.NoError(t, os.RemoveAll(dir))
 }
