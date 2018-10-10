@@ -89,7 +89,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 	for i, n := range nodes {
 		if n == nil {
-			infos <- info{i: i, err: Error.New("Nil node")}
+			infos <- info{i: i, err: nil}
 			continue
 		}
 
