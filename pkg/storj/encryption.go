@@ -19,5 +19,8 @@ const (
 	Secretbox
 )
 
+// Nonce represents the largest nonce used by any encryption protocol
+type Nonce [24]byte // TODO: unify with eestream.Nonce
+
 // EncryptedPrivateKey is a private key that has been encrypted
 type EncryptedPrivateKey []byte

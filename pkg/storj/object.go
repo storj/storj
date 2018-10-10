@@ -60,6 +60,7 @@ type Segment struct {
 	PieceID PieceID
 	Pieces  []Piece
 	// Encryption
+	Nonce        Nonce
 	EncryptedKey EncryptedPrivateKey
 }
 
