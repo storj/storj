@@ -79,7 +79,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, "db", kc)
+		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
 		assert.NotNil(t, actual.nodeClient)
@@ -115,7 +115,7 @@ func TestLookup(t *testing.T) {
 		assert.NotEqual(t, id, id2)
 
 		kid := dht.NodeID(fid.ID)
-		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
+		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 
 		assert.NoError(t, err)
 		return k
@@ -195,7 +195,10 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
-	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, "db", kc)
+	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	assert.NoError(t, err)
+	defer cleanup(t, dir)
+	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
