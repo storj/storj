@@ -69,7 +69,7 @@ func New(url string) (p FPath, err error) {
 }
 
 // Join is appends the given segment to the path
-func (p *FPath) Join(segment string) *FPath {
+func (p FPath) Join(segment string) FPath {
 	p.path = filepath.Join(p.path, segment)
 	if !p.local {
 		p.path = filepath.ToSlash(p.path)

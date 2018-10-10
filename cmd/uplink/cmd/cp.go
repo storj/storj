@@ -36,7 +36,7 @@ func init() {
 }
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
-func upload(ctx context.Context, bs buckets.Store, srcFile *fpath.FPath, destObj *fpath.FPath) error {
+func upload(ctx context.Context, bs buckets.Store, srcFile fpath.FPath, destObj fpath.FPath) error {
 	var err error
 	if destObj.Scheme() != "sj" {
 		return fmt.Errorf("Invalid destination, not a Storj Bucket")
@@ -94,7 +94,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile *fpath.FPath, destObj
 }
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
-func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destObj *fpath.FPath) error {
+func download(ctx context.Context, bs buckets.Store, srcObj fpath.FPath, destObj fpath.FPath) error {
 	var err error
 	if srcObj.Scheme() != "sj" {
 		return fmt.Errorf("Invalid source, not a Storj Bucket")
@@ -155,7 +155,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destOb
 }
 
 // copy copies s3 compatible object args[0] to s3 compatible object args[1]
-func copy(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destObj *fpath.FPath) error {
+func copy(ctx context.Context, bs buckets.Store, srcObj fpath.FPath, destObj fpath.FPath) error {
 	o, err := bs.GetObjectStore(ctx, srcObj.Bucket())
 	if err != nil {
 		return err
@@ -238,7 +238,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		if u1.Scheme() != "sj" && !u1.IsLocal() {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
-		return upload(ctx, bs, &u0, &u1)
+		return upload(ctx, bs, u0, u1)
 	}
 
 	// if downloading
@@ -246,9 +246,9 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		if u0.Scheme() != "sj" && !u0.IsLocal() {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
-		return download(ctx, bs, &u0, &u1)
+		return download(ctx, bs, u0, u1)
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, bs, &u0, &u1)
+	return copy(ctx, bs, u0, u1)
 }
