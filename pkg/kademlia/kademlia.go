@@ -8,21 +8,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-)
-
-const (
-	alpha                       = 5
-	defaultIDLength             = 256
-	defaultBucketSize           = 20
-	defaultReplacementCacheSize = 5
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -52,14 +48,21 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, kadconfig KadConfig) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return nil, err
+		}
+	}
+	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
-		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
-		idLength:     defaultIDLength,
-		bucketSize:   defaultBucketSize,
-		rcBucketSize: defaultReplacementCacheSize,
+		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
+		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
+		idLength:     kadconfig.DefaultIDLength,
+		bucketSize:   kadconfig.DefaultBucketSize,
+		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
@@ -67,13 +70,16 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
-		if !ok || err != nil {
+		if err != nil {
 			return nil, err
+		}
+		if !ok {
+			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
 		}
 	}
 
 	k := &Kademlia{
-		alpha:          alpha,
+		alpha:          kadconfig.Alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,

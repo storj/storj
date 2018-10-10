@@ -7,22 +7,25 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 var (
 	port   string
-	apiKey = []byte("abc123")
+	APIKey = []byte("")
+	ctx    = context.Background()
 )
 
 func initializeFlags() {
-	flag.StringVar(&port, "port", ":8080", "port")
+	flag.StringVar(&port, "port", ":7777", "port")
 	flag.Parse()
 }
 
@@ -41,16 +44,22 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	conn, err := grpc.Dial(port, grpc.WithInsecure())
+	ca, err := provider.NewCA(ctx, 12, 4)
 	if err != nil {
-		logger.Error("Failed to dial: ", zap.Error(err))
+		logger.Error("Failed to create certificate authority: ", zap.Error(err))
+		os.Exit(1)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		logger.Error("Failed to create full identity: ", zap.Error(err))
+		os.Exit(1)
+	}
+	client, err := sdbclient.NewClient(identity, port, APIKey)
+	if err != nil {
+		logger.Error("Failed to create sdbclient: ", zap.Error(err))
 	}
 
-	client := proto.NewStatDBClient(conn)
-
 	logger.Debug(fmt.Sprintf("client dialed port %s", port))
-
-	ctx := context.Background()
 
 	// Test farmers
 	farmer1 := proto.Node{
@@ -65,29 +74,19 @@ func main() {
 	}
 
 	// Example Creates
-	createReq1 := proto.CreateRequest{
-		Node:   &farmer1,
-		APIKey: apiKey,
-	}
-
-	createReq2 := proto.CreateRequest{
-		Node:   &farmer2,
-		APIKey: apiKey,
-	}
-
-	createRes1, err := client.Create(ctx, &createReq1)
+	err = client.Create(ctx, farmer1.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
+		os.Exit(1)
 	}
-	logger.Info("Farmer 1 after Create 1")
-	printNodeStats(*createRes1.Stats, *logger)
+	logger.Info("Farmer 1 created successfully")
 
-	createRes2, err := client.Create(ctx, &createReq2)
+	err = client.Create(ctx, farmer2.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
+		os.Exit(1)
 	}
-	logger.Info("Farmer 2 after Create 2")
-	printNodeStats(*createRes2.Stats, *logger)
+	logger.Info("Farmer 2 created successfully")
 
 	// Example Updates
 	farmer1.AuditSuccess = true
@@ -95,17 +94,14 @@ func main() {
 	farmer1.UpdateAuditSuccess = true
 	farmer1.UpdateUptime = true
 
-	updateReq := proto.UpdateRequest{
-		Node:   &farmer1,
-		APIKey: apiKey,
-	}
-
-	updateRes, err := client.Update(ctx, &updateReq)
+	nodeStats, err := client.Update(ctx, farmer1.NodeId, farmer1.AuditSuccess, farmer1.IsUp, nil,
+		farmer1.UpdateAuditSuccess, farmer1.UpdateUptime, false)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 1 after Update")
-	printNodeStats(*updateRes.Stats, *logger)
+	printNodeStats(*nodeStats, *logger)
 
 	// Example UpdateBatch
 	farmer1.AuditSuccess = false
@@ -117,45 +113,33 @@ func main() {
 	farmer2.UpdateUptime = true
 
 	nodeList := []*proto.Node{&farmer1, &farmer2}
-	updateBatchReq := proto.UpdateBatchRequest{
-		NodeList: nodeList,
-		APIKey:   apiKey,
-	}
 
-	updateBatchRes, err := client.UpdateBatch(ctx, &updateBatchReq)
+	statsList, err := client.UpdateBatch(ctx, nodeList)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update batch", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer stats after UpdateBatch")
-	statsList := updateBatchRes.StatsList
 	for _, statsEl := range statsList {
 		printNodeStats(*statsEl, *logger)
 	}
 
 	// Example Get
-	getReq1 := proto.GetRequest{
-		NodeId: farmer1.NodeId,
-		APIKey: apiKey,
-	}
-
-	getReq2 := proto.GetRequest{
-		NodeId: farmer2.NodeId,
-		APIKey: apiKey,
-	}
-
-	getRes1, err := client.Get(ctx, &getReq1)
+	nodeStats, err = client.Get(ctx, farmer1.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 1 after Get 1")
-	printNodeStats(*getRes1.Stats, *logger)
+	printNodeStats(*nodeStats, *logger)
 
-	getRes2, err := client.Get(ctx, &getReq2)
+	nodeStats, err = client.Get(ctx, farmer2.NodeId)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
+		os.Exit(1)
 	}
 	logger.Info("Farmer 2 after Get 2")
-	printNodeStats(*getRes2.Stats, *logger)
+	printNodeStats(*nodeStats, *logger)
 }
 
 func printError(fn func() error) {

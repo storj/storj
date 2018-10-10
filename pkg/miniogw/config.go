@@ -133,7 +133,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, []byte(c.APIKey))
+	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
 	if err != nil {
 		return nil, err
 	}
