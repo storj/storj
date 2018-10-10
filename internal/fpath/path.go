@@ -33,9 +33,12 @@ func New(url string) (p FPath, err error) {
 		}
 		// Trim initial slash of the path and clean it, afterwards split on first slash
 		split := strings.SplitN(path.Clean(strings.TrimLeft(sepstring[1], "/")), "/", 2)
+		if p.bucket == "." { // result from path.Clean("") or path.Clean("/")
+			return FPath{}, fmt.Errorf("malformed URL: %s", url)
+		}
 		p.bucket = split[0]
 		if len(split) == 2 {
-			p.path = filepath.ToSlash(split[1])
+			p.path = split[1]
 		}
 	case 1: // No scheme
 		p.local = true
