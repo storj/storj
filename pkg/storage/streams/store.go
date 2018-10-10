@@ -174,12 +174,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
+			encPath, err := path.Encrypt(s.rootKey)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			if !eofReader.isEOF() {
-				segmentPath := getSegmentPath(path, currentSegment)
+				segmentPath := getSegmentPath(encPath, currentSegment)
 				return segmentPath, encryptedEncKey, nil
 			}
 
-			lastSegmentPath := path.Prepend("l")
+			lastSegmentPath := encPath.Prepend("l")
 			msi := pb.MetaStreamInfo{
 				NumberOfSegments:         currentSegment + 1,
 				SegmentsSize:             s.segmentSize,
@@ -227,7 +232,12 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	encPath, err := path.Encrypt(s.rootKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -250,7 +260,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments-1; i++ {
-		currentPath := getSegmentPath(path, i)
+		currentPath := getSegmentPath(encPath, i)
 		size := msi.SegmentsSize
 		var nonce eestream.Nonce
 		_, err := nonce.Increment(i)
