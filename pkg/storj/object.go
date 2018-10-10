@@ -60,8 +60,8 @@ type Segment struct {
 	PieceID PieceID
 	Pieces  []Piece
 	// Encryption
-	Nonce        Nonce
-	EncryptedKey EncryptedPrivateKey
+	EncryptedKeyNonce Nonce
+	EncryptedKey      EncryptedPrivateKey
 }
 
 // PieceID is an identificator for a piece
