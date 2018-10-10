@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
@@ -16,6 +17,7 @@ import (
 type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
+	statdb   *statdb
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
@@ -29,13 +31,20 @@ func NewService(pointers pdbclient.Client, transport transport.Client, overlay o
 // a random stripe within a segment
 func (service *Service) Run(ctx context.Context) (err error) {
 	// TODO(James): make this function run indefinitely instead of once
-	newStripe, err := service.Cursor.NextStripe(ctx)
+	stripe, err := service.Cursor.NextStripe(ctx)
 	if err != nil {
 		return err
 	}
-	err = service.Verifier.auditStripe(ctx, newStripe.Index, newStripe.Pointer)
+	failedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
 	if err != nil {
 		return err
+	}
+	for _, fail := range failedNodes {
+		service.statdb.RecordFailedAudit(fail)
 	}
 	return nil
 }
+
+type statdb struct{}
+
+func (db *statdb) RecordFailedAudit(*pb.Node) {}

@@ -43,9 +43,12 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		err := verifier.auditStripe(ctx, 6, pointer)
+		failedNodes, err := verifier.verify(ctx, 6, pointer)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(failedNodes) != 0 {
+			t.Fatal("expected there to be no recorded bad nodes")
 		}
 	}
 }

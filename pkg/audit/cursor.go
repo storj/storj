@@ -18,10 +18,10 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 )
 
-// Stripe keeps track of a stripe's index and its parent pointer
+// Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
 	Index   int
-	Pointer *pb.Pointer
+	Segment *pb.Pointer
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -89,7 +89,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	return &Stripe{Index: index, Pointer: pointer}, nil
+	return &Stripe{Index: index, Segment: pointer}, nil
 }
 
 // create the erasure scheme

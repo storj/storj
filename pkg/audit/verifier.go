@@ -195,26 +195,25 @@ func calcPadded(size int64, blockSize int) int64 {
 	return size + int64(blockSize) - mod
 }
 
-// auditStripe downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) auditStripe(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (err error) {
+// verify downloads shares then verifies the data correctness at the given stripe
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (failedNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
 	pieceNums, err := auditShares(ctx, required, total, shares)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var badNodes []*pb.Node
+
 	for _, pieceNum := range pieceNums {
-		badNodes = append(badNodes, nodes[pieceNum])
+		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
 	// TODO(nat): update statdb with the bad nodes
-
-	return nil
+	return failedNodes, nil
 }
