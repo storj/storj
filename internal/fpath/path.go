@@ -23,29 +23,44 @@ type FPath struct {
 // New creates new FPath from the given URL
 func New(url string) (p FPath, err error) {
 	// Check for schema
-	sepstring := strings.SplitN(url, "://", 2)
+	split := strings.SplitN(url, "://", 2)
 
-	switch len(sepstring) {
-	case 2: // Has scheme
-		p.scheme = sepstring[0]
-		if p.scheme != "sj" {
-			return FPath{}, fmt.Errorf("unsupported URL scheme: %s", p.scheme)
-		}
-		// Trim initial slash of the path and clean it, afterwards split on first slash
-		split := strings.SplitN(path.Clean(strings.TrimLeft(sepstring[1], "/")), "/", 2)
-		if p.bucket == "." { // result from path.Clean("") or path.Clean("/")
-			return FPath{}, fmt.Errorf("malformed URL: %s", url)
-		}
-		p.bucket = split[0]
-		if len(split) == 2 {
-			p.path = split[1]
-		}
+	switch len(split) {
 	case 1: // No scheme
-		p.local = true
-		p.path = sepstring[0]
+		return parseLocalPath(split[0])
+	case 2: // Has scheme
+		return parseStorjURL(split[0], split[1])
 	default: // Everything else is malformed
 		return FPath{}, fmt.Errorf("malformed URL: %s", url)
 	}
+}
+
+func parseStorjURL(scheme, bucketPath string) (FPath, error) {
+	if scheme != "sj" {
+		return FPath{}, fmt.Errorf("unsupported URL scheme: %s", scheme)
+	}
+
+	var p FPath
+	p.scheme = scheme
+	// Trim initial slash of the path and clean it, afterwards split on first slash
+	split := strings.SplitN(path.Clean(strings.TrimLeft(bucketPath, "/")), "/", 2)
+	if p.bucket == "." { // result from path.Clean("") or path.Clean("/")
+		return FPath{}, fmt.Errorf("malformed URL: %s://%s", scheme, bucketPath)
+	}
+
+	p.bucket = split[0]
+	if len(split) == 2 {
+		p.path = split[1]
+	}
+
+	return p, nil
+}
+
+func parseLocalPath(path string) (FPath, error) {
+	var p FPath
+
+	p.local = true
+	p.path = path
 
 	// Check for Universal Naming Convention path (Windows)
 	cprefix, err := regexp.Compile(`^\\\\\?\\(UNC\\)?`)
@@ -60,14 +75,16 @@ func New(url string) (p FPath, err error) {
 		return p, nil
 	}
 
-	// if file is local, ensure path is absolute
-	if p.IsLocal() && !filepath.IsAbs(p.path) {
-		fullpath, err := filepath.Abs(p.path)
-		if err != nil {
-			return FPath{}, fmt.Errorf("unable to create absolute path for: %s", p.path)
-		}
-		p.path = fullpath
+	if filepath.IsAbs(p.path) {
+		return p, nil
 	}
+
+	// Ensure path is absolute
+	p.path, err = filepath.Abs(p.path)
+	if err != nil {
+		return FPath{}, fmt.Errorf("cannot create absolute path for %s", p.path)
+	}
+
 	return p, nil
 }
 
