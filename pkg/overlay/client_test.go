@@ -71,10 +71,10 @@ func TestChoose(t *testing.T) {
 			limit: 50,
 			space: 100,
 			excluded: func() []dht.NodeID {
-				id1 := kademlia.StringToNodeID("n1")
-				id2 := kademlia.StringToNodeID("n2")
-				id3 := kademlia.StringToNodeID("n3")
-				id4 := kademlia.StringToNodeID("n4")
+				id1 := node.IDFromString("n1")
+				id2 := node.IDFromString("n2")
+				id3 := node.IDFromString("n3")
+				id4 := node.IDFromString("n4")
 				return []dht.NodeID{id2, id1, id3, id4}
 			}(),
 			expectedCalls: 1,
