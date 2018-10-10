@@ -14,10 +14,10 @@ import (
 
 // FPath is an OS independently path handling structure
 type FPath struct {
-	local  bool   //set if file is local
-	scheme string //url scheme
-	bucket string //set, when remote scheme
-	path   string //filepath OR remote path (without bucket)
+	local  bool   // if file is local
+	scheme string // url scheme
+	bucket string // set if remote scheme
+	path   string // local file path or Storj path (without bucket), cleaned, with forward slashes
 }
 
 // New creates new FPath from the given URL
