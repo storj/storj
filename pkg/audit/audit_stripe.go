@@ -37,16 +37,14 @@ type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
 }
 
-// downloader implements the downloader interface
-//nolint - defaultDownloader isn't called in tests
+// defaultDownloader implements the downloader interface
 type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
 }
 
-// newDownloader creates a new instance of a defaultDownloader struct
-//nolint - newDefaultDownloader isn't called in tests
+// newDefaultDownloader creates a new instance of a defaultDownloader struct
 func newDefaultDownloader(t transport.Client, o overlay.Client, id provider.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: t, overlay: o, identity: id}
 }
