@@ -41,9 +41,9 @@ func TestPassingAudit(t *testing.T) {
 			}
 		}
 		md := mockDownloader{shares: mockShares}
-		auditor := &Auditor{downloader: &md}
+		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		err := auditor.auditStripe(ctx, pointer, 6)
+		err := verifier.auditStripe(ctx, 6, pointer)
 		if err != nil {
 			t.Fatal(err)
 		}

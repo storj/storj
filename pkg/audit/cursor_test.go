@@ -115,7 +115,7 @@ func TestAuditSegment(t *testing.T) {
 
 	ctx = auth.WithAPIKey(ctx, nil)
 
-	//PointerDB instantation
+	// PointerDB instantiation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
 
@@ -134,11 +134,8 @@ func TestAuditSegment(t *testing.T) {
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
 	pointers := pdbclient.New(pdbw)
 
-	mockShares := make(map[int]share)
-	md := mockDownloader{shares: mockShares}
-
 	// create a pdb client and instance of audit
-	a := NewAuditor(pointers, &md)
+	cursor := NewCursor(pointers)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
@@ -152,7 +149,7 @@ func TestAuditSegment(t *testing.T) {
 				// create putreq. object
 				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer}
 
-				//Put pointer into db
+				// put pointer into db
 				_, err := pdbw.Put(ctx, req)
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
@@ -169,7 +166,7 @@ func TestAuditSegment(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				stripe, _, _, err := a.NextStripe(ctx)
+				stripe, err := cursor.NextStripe(ctx)
 				if err != nil {
 					assert1.Error(err)
 					assert1.Nil(stripe)
@@ -182,7 +179,7 @@ func TestAuditSegment(t *testing.T) {
 	})
 
 	// test to see how random paths are
-	t.Run("probalisticTest", func(t *testing.T) {
+	t.Run("probabilisticTest", func(t *testing.T) {
 		list, _, err := pointers.List(ctx, nil, nil, nil, true, 10, meta.None)
 		if err != nil {
 			t.Error(ErrNoList)

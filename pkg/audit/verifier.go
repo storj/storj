@@ -13,8 +13,11 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 )
 
 var mon = monkit.Package()
@@ -25,8 +28,31 @@ type share struct {
 	Data        []byte
 }
 
+// Verifier helps verify the correctness of a given stripe
+type Verifier struct {
+	downloader downloader
+}
+
 type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
+}
+
+// defaultDownloader has access to the transport client, overlay client, and full identity
+// to aid in dialing nodes and downloading from them
+type defaultDownloader struct {
+	transport transport.Client
+	overlay   overlay.Client
+	identity  provider.FullIdentity
+}
+
+// newDefaultDownloader instantiates a defaultDownloader with a transport client, overlay client, and full identity
+func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
+}
+
+// NewVerifier instantiates the Verifier struct with access to a downloader
+func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -170,11 +196,11 @@ func calcPadded(size int64, blockSize int) int64 {
 	return size + int64(blockSize) - mod
 }
 
-// auditStripe downloads shares then audits the shares at a given stripe index
-func (a *Auditor) auditStripe(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (err error) {
+// auditStripe downloads shares then verifies the data correctness at the given stripe
+func (verifier *Verifier) auditStripe(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := a.downloader.DownloadShares(ctx, pointer, stripeIndex)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
 		return err
 	}
