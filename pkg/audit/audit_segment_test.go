@@ -27,22 +27,19 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-const (
-	noList = "list error: failed to get list"
-	noNum  = "num error: failed to get num"
-)
-
 var (
-	ctx        = context.Background()
-	ErrNoList  = errors.New(noList)
-	ErrorNoNum = errors.New(noNum)
+	ctx       = context.Background()
+	ErrNoList = errors.New("list error: failed to get list")
+	ErrNoNum  = errors.New("num error: failed to get num")
 )
 
-// The client and server implementation are different;
-// This is a  wrapper so the pointerdb client can be implemented
-//R***********R***********/PointerDB Wrapper/***********R***********R********//
+// pointerDBWrapper wraps pb.PointerDBServer to be compatible with pb.PointerDBClient
 type pointerDBWrapper struct {
 	s pb.PointerDBServer
+}
+
+func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
+	return &pointerDBWrapper{pdbs}
 }
 
 func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
@@ -61,16 +58,12 @@ func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, o
 	return pbd.s.Delete(ctx, in)
 }
 
-func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
-	return &pointerDBWrapper{pdbs}
-}
-
-type pathCount struct {
-	path  paths.Path
-	count int
-}
-
 func TestAuditSegment(t *testing.T) {
+	type pathCount struct {
+		path  paths.Path
+		count int
+	}
+
 	// note: to simulate better,
 	// change limit in library to 5 in
 	// list api call, default is  0 == 1000 listing
@@ -200,7 +193,7 @@ func TestAuditSegment(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
-				t.Error(ErrorNoNum)
+				t.Error(ErrNoNum)
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path
