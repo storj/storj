@@ -323,8 +323,8 @@ func TestAuth(t *testing.T) {
 		signatureHeader: &header,
 		peer: peer,
 	}
-	
-	auth, err := pointerdb.Auth()
+
+	auth, _ := pointerdb.Auth()
 
 	pk, _ := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	expectedKey, _ := cryptopasta.EncodePublicKey(pk)
