@@ -11,14 +11,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
 
 	"github.com/gtank/cryptopasta"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -37,6 +37,7 @@ var (
 type Config struct {
 	Path               string `help:"path to store data in" default:"$CONFDIR"`
 	AllocatedDiskSpace int64  `help:"total allocated disk space, default(1GB)" default:"1073741824"`
+	AllocatedBandwidth int64  `help:"total allocated bandwidth, default(100GB)" default:"107374182400"`
 }
 
 // Run implements provider.Responsibility
@@ -77,10 +78,11 @@ func DirSize(path string) (int64, error) {
 
 // Server -- GRPC server meta data used in route calls
 type Server struct {
-	DataDir        string
-	DB             *psdb.DB
-	pkey           crypto.PrivateKey
-	totalAllocated int64
+	DataDir          string
+	DB               *psdb.DB
+	pkey             crypto.PrivateKey
+	totalAllocated   int64
+	totalBwAllocated int64
 }
 
 // Initialize -- initializes a server struct
@@ -90,6 +92,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 
 	// read the allocated disk space from the config file
 	allocatedDiskSpace := config.AllocatedDiskSpace
+	allocatedBandwidth := config.AllocatedBandwidth
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
@@ -112,12 +115,23 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		totalUsed = 0x00
 	}
 
+	// get used bandwidth from the beginning of the month to till date
+	usedBandwidth, err := db.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
+	if err != nil {
+		return nil, ServerError.Wrap(err)
+	}
+	if usedBandwidth > allocatedBandwidth {
+		zap.S().Warnf("Exceed the allowed Bandwidth setting")
+	} else {
+		zap.S().Info("Remaining Bandwidth ", allocatedBandwidth-usedBandwidth)
+	}
+
 	// check your hard drive is big enough
 	// first time setup as a piece node server
 	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
@@ -125,7 +139,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
 		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// the available diskspace is less than remaining allocated space,
@@ -133,10 +147,10 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
-	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 }
 
 // Stop the piececstore node
@@ -186,7 +200,12 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 		return nil, err
 	}
 
-	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed)}, nil
+	totalUsedBandwidth, err := s.DB.GetTotalBandwidthBetween(getBeginningOfMonth(), time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.StatSummary{UsedSpace: totalUsed, AvailableSpace: (s.totalAllocated - totalUsed), UsedBandwidth: totalUsedBandwidth, AvailableBandwidth: (s.totalBwAllocated - totalUsedBandwidth)}, nil
 }
 
 // Delete -- Delete data by Id from piecestore
@@ -231,4 +250,10 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 		return ServerError.New("Failed to verify Signature")
 	}
 	return nil
+}
+
+func getBeginningOfMonth() time.Time {
+	t := time.Now()
+	y, m, _ := t.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }
