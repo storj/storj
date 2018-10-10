@@ -254,6 +254,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		return Meta{}, eofReader.err
 	}
 
+	// does metadata get encrypted here?
 	resultMeta := Meta{
 		Modified:   putMeta.Modified,
 		Expiration: expiration,
