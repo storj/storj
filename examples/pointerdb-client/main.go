@@ -47,7 +47,7 @@ func main() {
 		logger.Error("Failed to create full identity: ", zap.Error(err))
 		os.Exit(1)
 	}
-	APIKey := []byte("abc123")
+	APIKey := "abc123"
 	client, err := pdbclient.NewClient(identity, pointerdbClientPort, APIKey)
 
 	if err != nil {

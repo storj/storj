@@ -105,21 +105,6 @@ func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destOb
 		return err
 	}
 
-	if fi, err := os.Stat(destObj.Path()); err == nil && fi.IsDir() {
-		destObj = destObj.Join(srcObj.Base())
-	}
-
-	var f *os.File
-	if destObj.Path() == "-" {
-		f = os.Stdout
-	} else {
-		f, err = os.Create(destObj.Path())
-		if err != nil {
-			return err
-		}
-		defer utils.LogClose(f)
-	}
-
 	rr, _, err := o.Get(ctx, paths.New(srcObj.Path()))
 	if err != nil {
 		return err
@@ -136,6 +121,21 @@ func download(ctx context.Context, bs buckets.Store, srcObj *fpath.FPath, destOb
 		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
+	}
+
+	if fi, err := os.Stat(destObj.Path()); err == nil && fi.IsDir() {
+		destObj = destObj.Join((srcObj.Base()))
+	}
+
+	var f *os.File
+	if destObj.Path() == "-" {
+		f = os.Stdout
+	} else {
+		f, err = os.Create(destObj.Path())
+		if err != nil {
+			return err
+		}
+		defer utils.LogClose(f)
 	}
 
 	_, err = io.Copy(f, r)

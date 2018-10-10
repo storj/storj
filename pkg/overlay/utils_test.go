@@ -4,10 +4,6 @@
 package overlay
 
 import (
-	"testing"
-
-	proto "github.com/gogo/protobuf/proto"
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -42,13 +38,4 @@ func NewMockServer(items []storage.ListItem) *grpc.Server {
 	pb.RegisterOverlayServer(grpcServer, &s)
 
 	return grpcServer
-}
-
-// NewNodeAddressValue provides a convient way to create a storage.Value for testing purposes
-func NewNodeAddressValue(t *testing.T, address string) storage.Value {
-	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: address}}
-	d, err := proto.Marshal(na)
-	assert.NoError(t, err)
-
-	return d
 }

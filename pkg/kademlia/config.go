@@ -5,11 +5,11 @@ package kademlia
 
 import (
 	"context"
-	"net"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -31,51 +31,59 @@ const (
 // server endpoints (and not necessarily client code).
 type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
+	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	// TODO(jt): remove this! kademlia should just use the grpc server
-	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
+	TODOListenAddr              string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
+	Alpha                       int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+	DefaultIDLength             int    `help:"Length of Kademlia Node ID's. This is tied to provider.FullIdentity." default:"256"`
+	DefaultBucketSize           int    `help:"Size of each Kademlia bucket." default:"20"`
+	DefaultReplacementCacheSize int    `help:"Size of Replacement Cache" default:"5"`
+}
+
+// KadConfig defines the parameters for Kademlia to operate and
+// exposes them to the Config struct for easier use.
+type KadConfig struct {
+	Alpha                       int
+	DefaultIDLength             int
+	DefaultBucketSize           int
+	DefaultReplacementCacheSize int
 }
 
 // Run implements provider.Responsibility
 func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(jt): don't split the host/port
-	host, port, err := net.SplitHostPort(c.BootstrapAddr)
-	if err != nil {
-		return Error.Wrap(err)
+	// Create a KadConfig from the root Config
+	kadconfig := KadConfig{
+		Alpha:                       c.Alpha,
+		DefaultIDLength:             c.DefaultIDLength,
+		DefaultBucketSize:           c.DefaultBucketSize,
+		DefaultReplacementCacheSize: c.DefaultReplacementCacheSize,
 	}
-	// TODO(jt): an intro node shouldn't require an ID, and should only be an
-	// address
-	in, err := GetIntroNode("", host, port)
+
+	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
+	in, err := GetIntroNode(c.BootstrapAddr)
 	if err != nil {
 		return err
 	}
 
-	// TODO(jt): don't split the host/port
-	host, port, err = net.SplitHostPort(c.TODOListenAddr)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, host, port)
+	in.Id = "foo"
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, kadconfig)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = kad.Disconnect() }()
 
-	// TODO(jt): ListenAndServe should probably be blocking and we should kick
-	// it off in a goroutine here
-	err = kad.ListenAndServe()
-	if err != nil {
-		return err
-	}
+	mn := node.NewServer(kad)
+	pb.RegisterNodesServer(server.GRPC(), mn)
 
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here
-	err = kad.Bootstrap(ctx)
-	if err != nil {
+	if err = kad.Bootstrap(ctx); err != nil {
 		return err
 	}
 

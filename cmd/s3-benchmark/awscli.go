@@ -160,7 +160,8 @@ func (client *AWSCLI) ListObjects(bucket, prefix string) ([]string, error) {
 	cmd := client.cmd("s3api", "list-objects",
 		"--output", "json",
 		"--bucket", bucket,
-		"--prefix", prefix)
+		"--prefix", prefix,
+		"--delimiter", "/")
 
 	jsondata, err := cmd.Output()
 	if err != nil {
@@ -171,6 +172,9 @@ func (client *AWSCLI) ListObjects(bucket, prefix string) ([]string, error) {
 		Contents []struct {
 			Key string `json:"Key"`
 		} `json:"Contents"`
+		CommonPrefixes []struct {
+			Key string `json:"Prefix"`
+		} `json:"CommonPrefixes"`
 	}
 
 	err = json.Unmarshal(jsondata, &response)
@@ -180,6 +184,9 @@ func (client *AWSCLI) ListObjects(bucket, prefix string) ([]string, error) {
 
 	names := []string{}
 	for _, object := range response.Contents {
+		names = append(names, object.Key)
+	}
+	for _, object := range response.CommonPrefixes {
 		names = append(names, object.Key)
 	}
 

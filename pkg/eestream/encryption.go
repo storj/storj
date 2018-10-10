@@ -48,7 +48,7 @@ func (nonce *Nonce) Increment(amount int64) (truncated bool, err error) {
 // AESGCMNonce returns the nonce as a AES-GCM nonce
 func (nonce *Nonce) AESGCMNonce() *AESGCMNonce {
 	aes := new(AESGCMNonce)
-	copy((*aes)[:], (*nonce)[:AESGCMNonceSize])
+	copy((*aes)[:], nonce[:AESGCMNonceSize])
 	return aes
 }
 
@@ -67,7 +67,7 @@ func (cipher Cipher) Encrypt(data []byte, key *Key, nonce *Nonce) (cipherData []
 	case None:
 		return data, nil
 	case AESGCM:
-		return EncryptAESGCM(data, key[:], nonce[:AESGCMNonceSize])
+		return EncryptAESGCM(data, key, nonce.AESGCMNonce())
 	case SecretBox:
 		return EncryptSecretBox(data, key, nonce)
 	default:
@@ -82,7 +82,7 @@ func (cipher Cipher) Decrypt(cipherData []byte, key *Key, nonce *Nonce) (data []
 	case None:
 		return cipherData, nil
 	case AESGCM:
-		return DecryptAESGCM(cipherData, key[:], nonce[:AESGCMNonceSize])
+		return DecryptAESGCM(cipherData, key, nonce.AESGCMNonce())
 	case SecretBox:
 		return DecryptSecretBox(cipherData, key, nonce)
 	default:

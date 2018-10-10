@@ -15,8 +15,11 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool initializes a new in memory pool
-func NewConnectionPool() Pool {
-	return &ConnectionPool{}
+func NewConnectionPool() *ConnectionPool {
+	return &ConnectionPool{
+		cache: make(map[string]interface{}),
+		mu:    sync.RWMutex{},
+	}
 }
 
 // Add takes a node ID as the key and a node client as the value to store
