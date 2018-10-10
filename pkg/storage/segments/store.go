@@ -6,11 +6,13 @@ package segments
 import (
 	"context"
 	"io"
+	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -23,7 +25,7 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/ec"
+	ecclient "storj.io/storj/pkg/storage/ec"
 )
 
 var (
@@ -49,6 +51,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
 	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error)
+	Repair(ctx context.Context, path paths.Path, lostPieces []int) (err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path paths.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -198,6 +201,12 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
+	// log.Println("KISHORE --> Testing the repair START ******")
+	// lostPieces := []int{1, 4, 6, 8, 9, 16, 18, 19}
+	// s.Repair(ctx, path, lostPieces)
+
+	// log.Println("KISHORE --> Testing the repair END ******")
+
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
@@ -257,6 +266,88 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 
 	// deletes pointer from pointerdb
 	return s.pdb.Delete(ctx, path)
+}
+
+// Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
+func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces []int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	//Read the segment's pointer from the PointerDB
+	pr, err := s.pdb.Get(ctx, path)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if pr.GetType() == pb.Pointer_REMOTE {
+		seg := pr.GetRemote()
+		pid := client.PieceID(seg.PieceId)
+
+		// Get the list of remote pieces from the pointer
+		nodes, err := s.lookupNodes(ctx, seg)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		log.Printf("KISHORE --> list of nodes before", nodes)
+
+		//Remove all lost pieces from the list to have only healthy pieces
+		//Request Overlay for n-h new storage nodes
+		newNodes, err := s.oc.Choose(ctx, len(lostPieces), 0)
+		log.Printf("KISHORE --> list of newNodes ", newNodes)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		var i int = 0
+		for j := range nodes {
+			if j != lostPieces[i] {
+				nodes[j] = nil
+			} else {
+				nodes[j] = newNodes[i]
+				i = i + 1
+			}
+			log.Printf("KISHORE --> replaced with new node ", nodes[lostPieces[i]], newNodes[i])
+		}
+
+		log.Printf("KISHORE --> list of nodes after", nodes)
+		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
+		if err != nil {
+			return err
+		}
+
+		rr, err := s.ec.Get(ctx, nodes, es, pid, pr.GetSize())
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// get io.Reader from ranger
+		r, err := rr.Range(ctx, 0, rr.Size())
+		if err != nil {
+			return err
+		}
+
+		peekReader := NewPeekThresholdReader(r)
+		sizedReader := SizeReader(peekReader)
+
+		// puts file to ecclient
+		exp := pr.GetExpirationDate()
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pid, sizedReader, time.Time{})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		metadata := pr.GetMetadata()
+
+		pointer, err := s.makeRemotePointer(successfulNodes, pid, sizedReader.Size(), exp, metadata)
+		if err != nil {
+			return err
+		}
+		// puts pointer to pointerDB
+		err = s.pdb.Put(ctx, path, pointer)
+		return err
+	}
+
+	zap.S().Error("Shouldn't be here.....: ", err)
+	return errs.New("Cannot repair inline segment")
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
