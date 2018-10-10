@@ -28,11 +28,6 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	/*u0, err := utils.ParseURL(args[0])
-	if err != nil {
-		return err
-	}*/
-
 	u0, err := fpath.New(args[0])
 	if err != nil {
 		return err
