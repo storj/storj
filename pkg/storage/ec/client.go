@@ -88,12 +88,13 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	infos := make(chan info, len(nodes))
 
 	for i, n := range nodes {
-		if n == nil {
-			infos <- info{i: i, err: nil}
-			continue
-		}
 
 		go func(i int, n *pb.Node) {
+			if n == nil {
+				_, err := io.Copy(ioutil.Discard, readers[i])
+				infos <- info{i: i, err: err}
+				return
+			}
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
