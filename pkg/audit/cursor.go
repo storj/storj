@@ -24,14 +24,14 @@ type Stripe struct {
 	Pointer *pb.Pointer
 }
 
-// Cursor keeps track of pointers
+// Cursor keeps track of audit location in pointer db
 type Cursor struct {
 	pointers pdbclient.Client
 	lastPath *paths.Path
 	mutex    sync.Mutex
 }
 
-// NewCursor instantiates a Cursor with access to a pointerdb client
+// NewCursor creates a Cursor which iterates over pointer db
 func NewCursor(pointers pdbclient.Client) *Cursor {
 	return &Cursor{pointers: pointers}
 }

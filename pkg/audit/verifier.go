@@ -37,20 +37,19 @@ type downloader interface {
 	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
 }
 
-// defaultDownloader has access to the transport client, overlay client, and full identity
-// to aid in dialing nodes and downloading from them
+// defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
 }
 
-// newDefaultDownloader instantiates a defaultDownloader with a transport client, overlay client, and full identity
+// newDefaultDownloader creates a defaultDownloader
 func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
 	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
-// NewVerifier instantiates the Verifier struct with access to a downloader
+// NewVerifier creates a Verifier
 func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }

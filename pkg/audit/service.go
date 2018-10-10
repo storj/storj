@@ -28,6 +28,7 @@ func NewService(pointers pdbclient.Client, transport transport.Client, overlay o
 // Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
 // a random stripe within a segment
 func (service *Service) Run(ctx context.Context) (err error) {
+	// TODO(James): make this function run indefinitely instead of once
 	newStripe, err := service.Cursor.NextStripe(ctx)
 	if err != nil {
 		return err
