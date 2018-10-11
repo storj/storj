@@ -27,7 +27,6 @@ var windowsHandlingPrefix = regexp.MustCompile(`^\\\\\?\\(UNC\\)?`)
 func New(url string) (p FPath, err error) {
 	// Check for schema
 	split := strings.SplitN(url, "://", 2)
-
 	switch len(split) {
 	case 1: // No scheme
 		return parseLocalPath(split[0])
@@ -44,14 +43,12 @@ func parseStorjURL(scheme, bucketPath string) (FPath, error) {
 	if scheme != "sj" {
 		return FPath{}, fmt.Errorf("unsupported URL scheme: %s", scheme)
 	}
-
 	p.scheme = scheme
 	// Trim initial slash of the path and clean it, afterwards split on first slash
 	split := strings.SplitN(path.Clean(strings.TrimLeft(bucketPath, "/")), "/", 2)
 	if p.bucket == "." { // result from path.Clean("") or path.Clean("/")
 		return FPath{}, fmt.Errorf("malformed URL: %s://%s", scheme, bucketPath)
 	}
-
 	p.bucket = split[0]
 	if len(split) == 2 {
 		p.path = split[1]
@@ -66,18 +63,15 @@ func parseLocalPath(path string) (FPath, error) {
 
 	p.local = true
 	p.path = path
-
 	// If UNC prefix is present, omit further changes to the path
 	if prefix := windowsHandlingPrefix.FindString(p.path); prefix != "" {
 		p.scheme = prefix
 		p.path = strings.Replace(p.path, prefix, "", 1) // strip prefix
 		return p, nil
 	}
-
 	if filepath.IsAbs(p.path) {
 		return p, nil
 	}
-
 	// Ensure path is absolute
 	p.path, err = filepath.Abs(p.path)
 	if err != nil {
