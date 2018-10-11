@@ -6,7 +6,6 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/base64"
 	"testing"
 
 	"github.com/gtank/cryptopasta"
@@ -32,15 +31,10 @@ func TestGenerateSignature(t *testing.T) {
 		{identity.ID.Bytes(), true},
 		{[]byte("non verifiable data"), false},
 	} {
-
 		signature, err := GenerateSignature(identity)
 		assert.NoError(t, err)
 
-		base64 := base64.StdEncoding
-		decodedSignature, err := base64.DecodeString(signature)
-		assert.NoError(t, err)
-
-		verified := cryptopasta.Verify(tt.data, decodedSignature, k)
+		verified := cryptopasta.Verify(tt.data, signature, k)
 		assert.Equal(t, tt.verified, verified)
 	}
 }

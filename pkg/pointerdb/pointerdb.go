@@ -4,6 +4,7 @@
 package pointerdb
 
 import (
+	"encoding/base64"
 	"context"
 
 	"github.com/golang/protobuf/proto"
@@ -65,11 +66,13 @@ func (s *Server) appendSignature(ctx context.Context) error {
 		return err
 	}
 
-	if signature == "" {
+	if signature == nil {
 		return nil
 	}
 
-	return grpc.SetHeader(ctx, metadata.Pairs("signature", signature))
+	base64 := base64.StdEncoding
+	encodedSignature := base64.EncodeToString(signature)
+	return grpc.SetHeader(ctx, metadata.Pairs("signature", encodedSignature))
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {

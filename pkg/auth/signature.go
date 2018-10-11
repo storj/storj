@@ -5,7 +5,6 @@ package auth
 
 import (
 	"crypto/ecdsa"
-	"encoding/base64"
 
 	"github.com/gtank/cryptopasta"
 
@@ -20,22 +19,20 @@ type SignatureAuthProvider interface {
 }
 
 // GenerateSignature creates signature from identity id
-func GenerateSignature(identity *provider.FullIdentity) (string, error) {
+func GenerateSignature(identity *provider.FullIdentity) ([]byte, error) {
 	if identity == nil {
-		return "", nil
+		return nil, nil
 	}
 
 	k, ok := identity.Key.(*ecdsa.PrivateKey)
 	if !ok {
-		return "", peertls.ErrUnsupportedKey.New("%T", identity.Key)
+		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Key)
 	}
 	signature, err := cryptopasta.Sign(identity.ID.Bytes(), k)
 	if err != nil {
-		return "", nil
+		return nil, err
 	}
-	base64 := base64.StdEncoding
-	encodedSignature := base64.EncodeToString(signature)
-	return encodedSignature, nil
+	return signature, nil
 }
 
 // NewSignatureAuth creates instance of signature auth data
