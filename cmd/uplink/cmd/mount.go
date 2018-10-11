@@ -178,7 +178,7 @@ type storjFile struct {
 	name            string
 	ctx             context.Context
 	store           objects.Store
-	ranger          ranger.RangeCloser
+	ranger          ranger.Ranger
 	reader          io.ReadCloser
 	predictedOffset int64
 	nodefs.File
@@ -225,10 +225,6 @@ func (f *storjFile) Flush() fuse.Status {
 }
 
 func (f *storjFile) close() {
-	if f.ranger != nil {
-		utils.LogClose(f.ranger)
-		f.ranger = nil
-	}
 	if f.reader != nil {
 		utils.LogClose(f.reader)
 		f.reader = nil
