@@ -48,9 +48,12 @@ func convertMeta(lastSegmentMeta segments.Meta) (Meta, error) {
 	stream := pb.StreamInfo{}
 	err = proto.Unmarshal(streamMeta.EncryptedStreamInfo, &stream)
 	if err != nil {
+		logger.Debug("we are in streamstore convertmeta-3")
+		fmt.Println("this is meta: ", msi)
 		return Meta{}, err
 	}
 
+	logger.Debug("we are in streamstore convertmeta-4")
 	return Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
@@ -104,6 +107,12 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 // of segments, in a new protobuf, in the metadata of l/<path>.
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+
+	logger.Debug("entering put streamstore")
+	
 
 	// previously file uploaded?
 	err = s.Delete(ctx, path)
@@ -238,23 +247,33 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 			lastSegmentMeta, err := proto.Marshal(&streamMeta)
 			if err != nil {
+				logger.Debug("WE ARE IN STREAMSTORE -encrypt-a\n\n\n\n\n\n")
 				return nil, nil, err
 			}
+			logger.Debug("WE ARE IN STREAMSTORE -encrypt before return -aa\n\n\n\n\n\n")
+				return lastSegmentPath, encryptedLastSegmentMeta, nil
+			})
+
+			logger.Debug("WE ARE IN STREAMSTORE -2 \n\n\n\n\n\n")
 
 			return lastSegmentPath, lastSegmentMeta, nil
 		})
 		if err != nil {
+			logger.Debug("WE ARE IN STREAMSTORE -3 \n\n\n\n\n\n")
 			return Meta{}, err
 		}
 
+		logger.Debug("WE ARE IN STREAMSTORE -4 \n\n\n\n\n\n")
 		currentSegment++
 		streamSize += sizeReader.Size()
 	}
+	logger.Debug("WE ARE IN STREAMSTORE -5 \n\n\n\n\n\n")
 	if eofReader.hasError() {
+		logger.Debug("WE ARE IN STREAMSTORE -6 \n\n\n\n\n\n")
 		return Meta{}, eofReader.err
 	}
 
-	// does metadata get encrypted here?
+	logger.Debug("WE ARE IN STREAMSTORE -7 \n\n\n\n\n\n")
 	resultMeta := Meta{
 		Modified:   putMeta.Modified,
 		Expiration: expiration,
@@ -262,6 +281,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		Data:       metadata,
 	}
 
+	logger.Debug("WE ARE IN STREAMSTORE -8 \n\n\n\n\n\n")
 	return resultMeta, nil
 }
 
@@ -276,12 +296,12 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryptAfterBucket(path, s.rootKey)
-	if err != nil {
-		return nil, Meta{}, err
-	}
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
 
-	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, encPath.Prepend("l"))
+	logger.Debug("WE ARE IN STREAMSTORE GET -1 \n\n\n\n\n\n")
+
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -358,24 +378,59 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 }
 
 // Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 
-	encPath, err := encryptAfterBucket(path, s.rootKey)
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+
+	logger.Debug("We are in streamstore META -1\n\n\n\n\n\n")
+
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+	fmt.Println("streamstore meta- lastSegmentMeta: ", lastSegmentMeta, "\n\n\n\n\n\n")
+	logger.Debug("We are in streamstore META -2\n\n\n\n\n\n")
 	if err != nil {
+		logger.Debug("We are in streamstore META -3\n\n\n\n\n\n")
 		return Meta{}, err
 	}
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
+	logger.Debug("We are in streamstore META -4\n\n\n\n\n\n")
+
+	//DECRYPT HERE - BEFORE SENDING TO CONVERTMETA
+	cipher := s.encType
+	//var encKey eestream.Key
+	var nonce eestream.Nonce
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return Meta{}, err
 	}
+	// decrypter, err := cipher.NewDecrypter(&encKey,&nonce,s.encBlockSize)
+	// if err != nil {
+	// 	return Meta{}, err
+	// }
 
-	streamMeta, err := convertMeta(lastSegmentMeta)
+
+	decryptedMetaData, err := cipher.Decrypt(lastSegmentMeta.Data, (*eestream.Key)(derivedKey), &nonce)
+		if err != nil {
+			return Meta{}, err
+		}
+
+		segMetaDecrypted := segments.Meta{ 
+			Modified:lastSegmentMeta.Modified,
+			Expiration: lastSegmentMeta.Expiration,
+			Size: lastSegmentMeta.Size,
+			Data: decryptedMetaData, 
+		}
+
+		fmt.Println("decrypted metadata segments in streamstore: ", segMetaDecrypted)
+		streamMeta, err := convertMeta(segMetaDecrypted)
+	//streamMeta, err := convertMeta(lastSegmentMeta)
+	logger.Debug("We are in streamstore META -5\n\n\n\n\n\n")
 	if err != nil {
+		logger.Debug("We are in streamstore META -6\n\n\n\n\n\n")
 		return Meta{}, err
 	}
 
+	logger.Debug("We are in streamstore META -7\n\n\n\n\n\n")
 	return streamMeta, nil
 }
 
