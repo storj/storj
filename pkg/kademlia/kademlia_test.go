@@ -39,7 +39,6 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 func TestNewKademlia(t *testing.T) {
 	dir, err := ioutil.TempDir(os.TempDir(), "test")
 	assert.NoError(t, err)
-	defer cleanup(t, dir)
 
 	cases := []struct {
 		id          dht.NodeID
@@ -80,6 +79,7 @@ func TestNewKademlia(t *testing.T) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
+		defer cleanup(t, actual, dir)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
 		assert.NotNil(t, actual.nodeClient)
@@ -100,7 +100,6 @@ func TestLookup(t *testing.T) {
 
 	dir, err := ioutil.TempDir(os.TempDir(), "test")
 	assert.NoError(t, err)
-	defer cleanup(t, dir)
 
 	k := func() *Kademlia {
 		// make new identity
@@ -159,13 +158,14 @@ func TestLookup(t *testing.T) {
 	for _, v := range cases {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
+		defer cleanup(t, v.k, dir)
 	}
 }
 
 func TestBootstrap(t *testing.T) {
 	bn, s := testNode(t, []pb.Node{})
 	defer s.Stop()
-
+	
 	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
 	defer s1.Stop()
 
@@ -181,7 +181,7 @@ func TestBootstrap(t *testing.T) {
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
-
+	defer bn.routingTable.Close()
 }
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
@@ -197,7 +197,6 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	// new kademlia
 	dir, err := ioutil.TempDir(os.TempDir(), "test")
 	assert.NoError(t, err)
-	defer cleanup(t, dir)
 	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
@@ -209,10 +208,12 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { _ = grpcServer.Serve(lis) }()
+	defer os.RemoveAll(dir)
 	return k, grpcServer
 
 }
 
-func cleanup(t *testing.T, dir string) {
+func cleanup(t *testing.T, k *Kademlia, dir string) {
+	assert.NoError(t, k.routingTable.Close())
 	assert.NoError(t, os.RemoveAll(dir))
 }
