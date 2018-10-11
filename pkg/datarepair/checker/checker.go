@@ -120,13 +120,12 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 	return nodes
 }
 
-
-// Run 
+// Run
 func (c *checker) Run() error {
 	return nil
 }
 
-// Stop 
+// Stop
 func (c *checker) Stop() error {
 	return nil
 }
