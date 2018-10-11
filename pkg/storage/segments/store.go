@@ -196,16 +196,17 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	c := make(chan bool, 1)
+	log.Println("KISHORE --> Testing the repair START ******")
+	lostPieces := []int{1, 2}
+	s.Repair(ctx, path, lostPieces)
+
+	log.Println("KISHORE --> Testing the repair END ******")
+	<-c
 	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
-
-	log.Println("KISHORE --> Testing the repair START ******")
-	lostPieces := []int{1, 4, 6, 8, 9, 16, 18, 19}
-	s.Repair(ctx, path, lostPieces)
-
-	log.Println("KISHORE --> Testing the repair END ******")
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
@@ -272,7 +273,7 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces []int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//Read the segment's pointer from the PointerDB
+	//Read the segment's pointer's info from the PointerDB
 	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
@@ -284,32 +285,34 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		log.Println("KISHORE --> segment pid ", pid)
 
 		// Get the list of remote pieces from the pointer
-		nodes, err := s.lookupNodes(ctx, seg)
+		originalNodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		log.Println("KISHORE --> list of nodes before", nodes)
+		log.Println("KISHORE -->  length of originalNodes =", len(originalNodes))
+		nilNodes := 0
+		for i := range originalNodes {
+			if originalNodes[i] == nil {
+				nilNodes = nilNodes + 1
+			}
+			log.Println("KISHORE -->  originalNodes [", i, "] = ", originalNodes[i])
+		}
+		log.Println("KISHORE -->  total nil nodes =", nilNodes)
 
-		//Remove all lost pieces from the list to have only healthy pieces
 		//Request Overlay for n-h new storage nodes
-		newNodes, err := s.oc.Choose(ctx, len(lostPieces), 0)
-		log.Println("KISHORE --> list of newNodes ", newNodes)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		newNodes, err := s.getNewUniqueNodes(ctx, originalNodes, (len(lostPieces) + nilNodes), 0)
+		log.Println("KISHORE --> list of unique nodes", newNodes)
 
-		for j := range nodes {
-			nodes[j] = nil
-			log.Println("KISHORE --> replacing node j with nil ", j, nodes[j])
+		//remove all lost pieces from the list to have only healthy pieces
+		for j := range originalNodes {
 			for i := range lostPieces {
 				if j == lostPieces[i] {
-					log.Println("KISHORE --> replacing old node j ", j, nodes[j])
-					nodes[j] = newNodes[i]
-					log.Println("KISHORE --> with newNode i ", nodes[j], i, newNodes[i])
+					originalNodes[j] = nil
+					log.Println("KISHORE --> replacing original node", j, "with nil ", originalNodes[j])
 				}
 			}
 		}
-		log.Println("KISHORE --> list of nodes after", nodes)
+		log.Println("KISHORE --> list of nodes after", originalNodes)
 
 		log.Println("KISHORE -->  start of repair work")
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
@@ -317,7 +320,8 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 			return err
 		}
 
-		rr, err := s.ec.Get(ctx, nodes, es, pid, pr.GetSize())
+		// download the segment using the nodes without bad nodes
+		rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize())
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -328,30 +332,69 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		if err != nil {
 			return err
 		}
+		log.Println("KISHORE -->  downloaded the of the segment using healthy nodes list, size =", rr.Size())
+		log.Println("KISHORE -->  print ranger", r)
 
-		peekReader := NewPeekThresholdReader(r)
-		sizedReader := SizeReader(peekReader)
+		// // puts file to ecclient
+		// exp := pr.GetExpirationDate()
 
-		// puts file to ecclient
-		exp := pr.GetExpirationDate()
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pid, sizedReader, time.Time{})
+		successfulNodes, err := s.ec.Repair(ctx, originalNodes, newNodes, s.rs, pid, r, time.Time{})
 		if err != nil {
+			log.Println("KISHORE --> error in putting the pieces")
 			return Error.Wrap(err)
 		}
+		log.Println("KISHORE --> uploading new pieceIDs replaceing lost pieces", successfulNodes)
 
-		metadata := pr.GetMetadata()
+		// metadata := pr.GetMetadata()
 
-		pointer, err := s.makeRemotePointer(successfulNodes, pid, sizedReader.Size(), exp, metadata)
-		if err != nil {
-			return err
-		}
-		// puts pointer to pointerDB
-		err = s.pdb.Put(ctx, path, pointer)
+		// //
+		// pointer, err := s.makeRemotePointer(successfulNodes, pid, sizedReader.Size(), exp, metadata)
+		// if err != nil {
+		// 	return err
+		// }
+		// // puts pointer to pointerDB
+		// err = s.pdb.Put(ctx, path, pointer)
 		return err
 	}
 
 	zap.S().Error("Shouldn't be here.....: ", err)
 	return errs.New("Cannot repair inline segment")
+}
+
+// getNewUniqueNodes gets a list of new nodes different from the passed nodes list
+func (s *segmentStore) getNewUniqueNodes(ctx context.Context, nodes []*pb.Node, numOfNodes int, space int64) ([]*pb.Node, error) {
+	newNodes, err := s.oc.Choose(ctx, numOfNodes, space)
+	if err != nil {
+		return nil, err
+	}
+
+	if nodes == nil {
+		return newNodes, err
+	}
+	log.Println("KISHORE --> list of newNodes ", newNodes)
+
+	uniqueNodes := len(newNodes)
+	for uniqueNodes > 0 {
+		for j := range newNodes {
+			for i := range nodes {
+
+				if newNodes[j] == nodes[i] {
+					uniqueNodes = uniqueNodes + 1
+				}
+			}
+			uniqueNodes = (uniqueNodes - 1)
+			log.Println("KISHORE --> uniqueNodes = ", uniqueNodes)
+		}
+		if uniqueNodes > 0 {
+			// request a new set of nodes
+			newNodes, err = s.oc.Choose(ctx, numOfNodes, space)
+			if err != nil {
+				return nil, err
+			}
+		}
+		log.Println("KISHORE --> got unique nodes")
+	}
+	return newNodes, err
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
