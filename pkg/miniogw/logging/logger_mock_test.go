@@ -5,9 +5,8 @@
 package logging
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockErrorLogger is a mock of ErrorLogger interface
