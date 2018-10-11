@@ -26,7 +26,7 @@ func TestIDFromString(t *testing.T) {
 	assert.Equal(t, expected.String(), node.String())
 }
 
-func TestNewID(t *testing.T) {
-	_, err := NewID()
+func TestNewFullIdentity(t *testing.T) {
+	_, err := NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 }

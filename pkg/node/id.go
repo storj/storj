@@ -4,13 +4,29 @@
 package node
 
 import (
+	"context"
 	"crypto/rand"
 
 	base58 "github.com/jbenet/go-base58"
+
+	"storj.io/storj/pkg/provider"
 )
 
 // ID is the unique identifier of a Node in the overlay network
 type ID string
+
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
+func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*provider.FullIdentity, error) {
+	ca, err := provider.NewCA(ctx, difficulty, concurrency)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return identity, err
+}
 
 // String transforms the ID to a string type
 func (n *ID) String() string {
@@ -28,8 +44,8 @@ func IDFromString(s string) *ID {
 	return &n
 }
 
-// NewID returns a pointer to a newly intialized ID
-// TODO@ASK: this should be removed; superseded by `CASetupConfig.Create` / `IdentitySetupConfig.Create`
+// NewID is a deprecated function to generate Kademlia ID's for tests. IT IS BEING REMOVED.
+// Use NewFullIdentity instead in the meantime.
 func NewID() (*ID, error) {
 	b, err := newID()
 	if err != nil {
