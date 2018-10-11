@@ -153,7 +153,7 @@ TestLoop:
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
-		{[]*pb.Node{node0, nil, node2, node3}, 0, 0, false,
+		{[]*pb.Node{nil, nil, node2, node3}, 0, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
