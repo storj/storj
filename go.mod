@@ -72,7 +72,7 @@ require (
 	github.com/nats-io/go-nats v1.6.0 // indirect
 	github.com/nats-io/go-nats-streaming v0.4.0 // indirect
 	github.com/nats-io/nats v1.6.0 // indirect
-	github.com/nats-io/nats-streaming-server v0.11.0 // indirect
+	github.com/nats-io/nats-streaming-server v0.11.0
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/onsi/gomega v1.4.2 // indirect
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
@@ -132,6 +132,7 @@ require (
 	github.com/prometheus/common v0.0.0-20180326160409-38c53a9f4bfc // indirect
 	github.com/prometheus/procfs v0.0.0-20180408092902-8b1c2da0d56d // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+	golang.org/x/tools v0.0.0-20180828015842-6cd1fcedba52
 )
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869

@@ -16,9 +16,13 @@ import (
 	"storj.io/storj/storage/storelogger"
 )
 
+// CtxKeyPointerdb Used as pointerdb key
+type CtxKeyPointerdb int
+
 const (
 	// PointerBucket is the string representing the bucket used for `PointerEntries`
 	PointerBucket = "pointers"
+	ctxKey CtxKeyPointerdb = iota
 )
 
 // Config is a configuration struct that is everything you need to start a
@@ -48,7 +52,16 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 
 	cache := overlay.LoadFromContext(ctx)
 	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c))
+	pdb := NewServer(bdblogged, cache, zap.L(), c)
+	pb.RegisterPointerDBServer(server.GRPC(), pdb)
 
-	return server.Run(ctx)
+	return server.Run(context.WithValue(ctx, ctxKey, pdb))
+}
+
+// LoadFromContext gives access to the pointerdb server from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Server {
+	if v, ok := ctx.Value(ctxKey).(*Server); ok {
+		return v
+	}
+	return nil
 }
