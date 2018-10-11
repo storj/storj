@@ -309,6 +309,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	streamMeta := pb.StreamMeta{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
+		fmt.Println("WE ARE IN STREAMSTORE GET -5 error in unmarshaling \n\n\n\n\n\n")
 		return nil, Meta{}, err
 	}
 
@@ -319,10 +320,19 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := path.DeriveContentKey(s.rootKey)
+
+
+	streamMeta, err := convertMeta(lastlastSegMetaDecrypted)
 	if err != nil {
+		fmt.Println("WE ARE IN STREAMSTORE GET -7 \n\n\n\n\n\n")
 		return nil, Meta{}, err
 	}
+
+	fmt.Println("WE ARE IN STREAMSTORE GET -8 \n\n\n\n\n\n")
+	// derivedKey, err = path.DeriveContentKey(s.rootKey)
+	// if err != nil {
+	// 	return nil, Meta{}, err
+	// }
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
@@ -343,11 +353,13 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			encType:       eestream.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
+		fmt.Println("WE ARE IN STREAMSTORE GET -10 \n\n\n\n\n\n")
 	}
 
 	var nonce eestream.Nonce
 	_, err = nonce.Increment(stream.NumberOfSegments - 1)
 	if err != nil {
+		fmt.Println("WE ARE IN STREAMSTORE GET -12 \n\n\n\n\n\n")
 		return nil, Meta{}, err
 	}
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
@@ -363,8 +375,11 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		int(streamMeta.EncryptionBlockSize),
 	)
 	if err != nil {
+		fmt.Println("WE ARE IN STREAMSTORE GET -13 \n\n\n\n\n\n")
+		fmt.Println("This is the error: ", err, "\n\n\n\n")
 		return nil, Meta{}, err
 	}
+	fmt.Println("WE ARE IN STREAMSTORE GET -14 \n\n\n\n\n\n")
 	rangers = append(rangers, decryptedLastSegmentRanger)
 
 	catRangers := ranger.Concat(rangers...)
@@ -414,15 +429,15 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 			return Meta{}, err
 		}
 
-		segMetaDecrypted := segments.Meta{ 
+		lastSegMetaDecrypted := segments.Meta{ 
 			Modified:lastSegmentMeta.Modified,
 			Expiration: lastSegmentMeta.Expiration,
 			Size: lastSegmentMeta.Size,
 			Data: decryptedMetaData, 
 		}
 
-		fmt.Println("decrypted metadata segments in streamstore: ", segMetaDecrypted)
-		streamMeta, err := convertMeta(segMetaDecrypted)
+		fmt.Println("decrypted metadata segments in streamstore: ", lastSegMetaDecrypted)
+		streamMeta, err := convertMeta(lastSegMetaDecrypted)
 	//streamMeta, err := convertMeta(lastSegmentMeta)
 	logger.Debug("We are in streamstore META -5\n\n\n\n\n\n")
 	if err != nil {
@@ -592,7 +607,8 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	var encKey eestream.Key
-	copy(encKey[:], e)
+	copy(encKey[:], encryptedEncKey)
+	//copy(encKey[:], e)
 	decrypter, err := cipher.NewDecrypter(&encKey, startingNonce, encBlockSize)
 	if err != nil {
 		return nil, err
