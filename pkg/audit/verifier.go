@@ -214,6 +214,5 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
-	// TODO(nat): update statdb with the bad nodes
 	return failedNodes, nil
 }
