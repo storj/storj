@@ -67,7 +67,7 @@ func TestNewKademlia(t *testing.T) {
 			}(),
 			bn:    []pb.Node{pb.Node{Id: "foo"}},
 			addr:  "127.0.0.1:8080",
-			setup: func() error { return nil },
+			setup: func() error { return os.RemoveAll(dir) },
 		},
 	}
 
@@ -165,7 +165,7 @@ func TestLookup(t *testing.T) {
 func TestBootstrap(t *testing.T) {
 	bn, s := testNode(t, []pb.Node{})
 	defer s.Stop()
-	
+
 	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
 	defer s1.Stop()
 
