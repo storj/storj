@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -76,6 +75,8 @@ func TestNewKademlia(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	addr := lis.Addr().String()
+
 	assert.NoError(t, err)
 	kc := kadconfig()
 
@@ -94,7 +95,7 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity, "db", kc)
+		k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: addr}}}, addr, identity, "db", kc)
 		assert.NoError(t, err)
 		return k
 	}()
@@ -111,7 +112,7 @@ func TestLookup(t *testing.T) {
 			target: func() *node.ID {
 				id, err := node.NewID()
 				assert.NoError(t, err)
-				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}}
+				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
 				return id
 			}(),
 			opts:        lookupOpts{amount: 5},
@@ -134,8 +135,6 @@ func TestLookup(t *testing.T) {
 	for _, v := range cases {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
-
-		time.Sleep(1 * time.Second)
 	}
 
 }
@@ -155,8 +154,7 @@ func TestBootstrap(t *testing.T) {
 
 	err = n2.Bootstrap(context.Background())
 	assert.NoError(t, err)
-	time.Sleep(time.Second)
-
+	
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
