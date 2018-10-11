@@ -20,6 +20,9 @@ type FPath struct {
 	path   string // local file path or Storj path (without bucket), cleaned, with forward slashes
 }
 
+//WindowsPrefix is a filter for the Universal Naming Convention path (Windows)
+var WindowsHandlingPrefix = regexp.MustCompile(`^\\\\\?\\(UNC\\)?`)
+
 // New creates new FPath from the given URL
 func New(url string) (p FPath, err error) {
 	// Check for schema
@@ -36,11 +39,12 @@ func New(url string) (p FPath, err error) {
 }
 
 func parseStorjURL(scheme, bucketPath string) (FPath, error) {
+	var p FPath
+
 	if scheme != "sj" {
 		return FPath{}, fmt.Errorf("unsupported URL scheme: %s", scheme)
 	}
 
-	var p FPath
 	p.scheme = scheme
 	// Trim initial slash of the path and clean it, afterwards split on first slash
 	split := strings.SplitN(path.Clean(strings.TrimLeft(bucketPath, "/")), "/", 2)
@@ -58,18 +62,13 @@ func parseStorjURL(scheme, bucketPath string) (FPath, error) {
 
 func parseLocalPath(path string) (FPath, error) {
 	var p FPath
+	var err error
 
 	p.local = true
 	p.path = path
 
-	// Check for Universal Naming Convention path (Windows)
-	cprefix, err := regexp.Compile(`^\\\\\?\\(UNC\\)?`)
-	if err != nil {
-		return FPath{}, err
-	}
-
 	// If UNC prefix is present, omit further changes to the path
-	if prefix := cprefix.FindString(p.path); prefix != "" {
+	if prefix := WindowsHandlingPrefix.FindString(p.path); prefix != "" {
 		p.scheme = prefix
 		p.path = strings.Replace(p.path, prefix, "", 1) // strip prefix
 		return p, nil
@@ -123,13 +122,15 @@ func (p FPath) Bucket() string {
 
 // BucketPath returns path prepended with the bucket name
 func (p FPath) BucketPath() string {
-	if !p.local && p.bucket != "" {
-		return p.bucket + "/" + p.path
+	if p.local || p.bucket != "" {
+		return ""
 	}
-	return ""
+	return p.bucket + "/" + p.path
 }
 
-// Path returns the URL path without the scheme
+// Path returns
+// URL path for remote paths (ex. "/folder/example.txt")
+// Filepath for local paths (ex. "C:\User\example.txt", "\\remote\example.txt" or "/home/user/example.txt")
 func (p FPath) Path() string {
 	return p.path
 }
@@ -151,8 +152,14 @@ func (p FPath) Scheme() string {
 
 // String returns the entire URL
 func (p FPath) String() string {
-	if p.HasScheme() {
+	if p.HasScheme() && !p.IsLocal() {
+		// URL-s like sj://bucket/folder/file.txt
 		return p.scheme + "://" + p.BucketPath()
 	}
+	if p.HasScheme() && p.IsLocal() {
+		// UNC Path or Path with WindowsHandlingPrefix
+		return p.scheme + p.path
+	}
+	// Paths like "/home/user/example.txt" or "C:\folder\example.txt"
 	return p.path
 }
