@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -76,7 +75,7 @@ func TestNewKademlia(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	addr := list.Addr().String()
+	addr := lis.Addr().String()
 
 	assert.NoError(t, err)
 	kc := kadconfig()
