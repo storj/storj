@@ -305,8 +305,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 }
 
 // Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	encPath, err := path.EncryptWithBucket(s.rootKey)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
 	}
