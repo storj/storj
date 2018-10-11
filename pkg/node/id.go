@@ -4,13 +4,20 @@
 package node
 
 import (
-	"crypto/rand"
+	"context"
 
-	base58 "github.com/jbenet/go-base58"
+	"storj.io/storj/pkg/provider"
 )
 
 // ID is the unique identifier of a Node in the overlay network
 type ID string
+
+// NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
+func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*provider.FullIdentity, error) {
+	ca, err := provider.NewCA(ctx, difficulty, concurrency)
+	identity, err := ca.NewIdentity()
+	return identity, err
+}
 
 // String transforms the ID to a string type
 func (n *ID) String() string {
@@ -26,24 +33,4 @@ func (n *ID) Bytes() []byte {
 func IDFromString(s string) *ID {
 	n := ID(s)
 	return &n
-}
-
-// NewID returns a pointer to a newly intialized ID
-// TODO@ASK: this should be removed; superseded by `CASetupConfig.Create` / `IdentitySetupConfig.Create`
-func NewID() (*ID, error) {
-	b, err := newID()
-	if err != nil {
-		return nil, err
-	}
-
-	bb := ID(base58.Encode(b))
-	return &bb, nil
-}
-
-// newID generates a new random ID.
-// This purely to get things working. We shouldn't use this as the ID in the actual network
-func newID() ([]byte, error) {
-	result := make([]byte, 20)
-	_, err := rand.Read(result)
-	return result, err
 }
