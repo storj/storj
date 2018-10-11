@@ -29,19 +29,6 @@ func kadconfig() KadConfig {
 	}
 }
 
-// func newFullIdentity() {
-// 	kc := kadconfig()
-// 	ca, err := provider.NewCA(ctx, 12, 4)
-// 	assert.NoError(t, err)
-// 	identity, err := ca.NewIdentity()
-// 	assert.NoError(t, err)
-// 	actual, err := NewKademlia(v.id, v.bn, v.addr, identity, "db", kc)
-// 	assert.Equal(t, v.expectedErr, err)
-// 	assert.Equal(t, actual.bootstrapNodes, v.bn)
-// 	assert.NotNil(t, actual.nodeClient)
-// 	assert.NotNil(t, actual.routingTable)
-// }
-
 func TestNewKademlia(t *testing.T) {
 	cases := []struct {
 		id          dht.NodeID
