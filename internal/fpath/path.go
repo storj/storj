@@ -20,8 +20,8 @@ type FPath struct {
 	path   string // local file path or Storj path (without bucket), cleaned, with forward slashes
 }
 
-//WindowsPrefix is a filter for the Universal Naming Convention path (Windows)
-var WindowsHandlingPrefix = regexp.MustCompile(`^\\\\\?\\(UNC\\)?`)
+//windowsHandlingPrefix is a filter for the Universal Naming Convention path (Windows)
+var windowsHandlingPrefix = regexp.MustCompile(`^\\\\\?\\(UNC\\)?`)
 
 // New creates new FPath from the given URL
 func New(url string) (p FPath, err error) {
@@ -68,7 +68,7 @@ func parseLocalPath(path string) (FPath, error) {
 	p.path = path
 
 	// If UNC prefix is present, omit further changes to the path
-	if prefix := WindowsHandlingPrefix.FindString(p.path); prefix != "" {
+	if prefix := windowsHandlingPrefix.FindString(p.path); prefix != "" {
 		p.scheme = prefix
 		p.path = strings.Replace(p.path, prefix, "", 1) // strip prefix
 		return p, nil
