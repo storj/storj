@@ -37,7 +37,7 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 }
 
 func TestNewKademlia(t *testing.T) {
-	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	dir, err := ioutil.TempDir("", "kad_test")
 	assert.NoError(t, err)
 
 	cases := []struct {
@@ -79,7 +79,7 @@ func TestNewKademlia(t *testing.T) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
-		defer cleanup(t, actual, dir)
+		defer cleanup(t, actual.routingTable, dir)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
 		assert.NotNil(t, actual.nodeClient)
@@ -98,7 +98,7 @@ func TestLookup(t *testing.T) {
 	go func() { _ = srv.Serve(lis) }()
 	defer srv.Stop()
 
-	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	dir, err := ioutil.TempDir("", "kad_test")
 	assert.NoError(t, err)
 
 	k := func() *Kademlia {
@@ -158,7 +158,7 @@ func TestLookup(t *testing.T) {
 	for _, v := range cases {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
-		defer cleanup(t, v.k, dir)
+		defer cleanup(t, v.k.routingTable, dir)
 	}
 }
 
@@ -181,7 +181,10 @@ func TestBootstrap(t *testing.T) {
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
-	defer bn.routingTable.Close()
+
+	dir, err := ioutil.TempDir("", "kad_test")
+	assert.NoError(t, err)
+	cleanup(t, bn.routingTable, dir)
 }
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
@@ -195,7 +198,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
-	dir, err := ioutil.TempDir(os.TempDir(), "test")
+	dir, err := ioutil.TempDir("", "kad_test")
 	assert.NoError(t, err)
 	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
@@ -208,12 +211,11 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { _ = grpcServer.Serve(lis) }()
-	defer os.RemoveAll(dir)
 	return k, grpcServer
 
 }
 
-func cleanup(t *testing.T, k *Kademlia, dir string) {
-	assert.NoError(t, k.routingTable.Close())
+func cleanup(t *testing.T, rt *RoutingTable, dir string) {
+	assert.NoError(t, rt.Close())
 	assert.NoError(t, os.RemoveAll(dir))
 }
