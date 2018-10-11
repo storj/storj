@@ -135,19 +135,11 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 		return err
 	}
 
-	ctx, cf := context.WithCancel(ctx)
-	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
-	w.SetCancellation(cf)
-
-	wch := make(chan *pb.Node, k.alpha)
-	// kick off go routine to fetch work and send on work channel
-	go w.getWork(ctx, wch)
-	// kick off alpha works to consume from work channel
-	for i := 0; i < k.alpha; i++ {
-		go w.work(ctx, wch)
+	lookup := newSequentialLookup(k.routingTable, nodes, k.nodeClient, target, opts.amount)
+	err = lookup.Run(ctx)
+	if err != nil {
+		zap.L().Warn("lookup failed", zap.Error(err))
 	}
-
-	<-ctx.Done()
 
 	return nil
 }
