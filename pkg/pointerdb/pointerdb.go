@@ -4,8 +4,8 @@
 package pointerdb
 
 import (
-	"encoding/base64"
 	"context"
+	"encoding/base64"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"

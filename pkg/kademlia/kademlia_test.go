@@ -154,7 +154,7 @@ func TestBootstrap(t *testing.T) {
 
 	err = n2.Bootstrap(context.Background())
 	assert.NoError(t, err)
-	
+
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
