@@ -54,7 +54,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	return runCfg.Identity.Run(process.Ctx(cmd), runCfg.Kademlia, runCfg.Storage)
+	return runCfg.Identity.Run(process.Ctx(cmd), nil, runCfg.Kademlia, runCfg.Storage)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

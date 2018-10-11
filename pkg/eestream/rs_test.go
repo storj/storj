@@ -93,10 +93,10 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encKey := sha256.Sum256([]byte("the secret key"))
-	var firstNonce [12]byte
-	encrypter, err := NewAESGCMEncrypter(
-		&encKey, &firstNonce, rs.DecodedBlockSize())
+	encKey := Key(sha256.Sum256([]byte("the secret key")))
+	var firstNonce Nonce
+	cipher := AESGCM
+	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, rs.StripeSize())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,11 +109,11 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rrs := map[int]ranger.RangeCloser{}
+	rrs := map[int]ranger.Ranger{}
 	for i, piece := range pieces {
-		rrs[i] = ranger.ByteRangeCloser(piece)
+		rrs[i] = ranger.ByteRanger(piece)
 	}
-	decrypter, err := NewAESGCMDecrypter(&encKey, &firstNonce, rs.DecodedBlockSize())
+	decrypter, err := cipher.NewDecrypter(&encKey, &firstNonce, rs.StripeSize())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,11 +121,6 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := rc.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}()
 	rr, err := Transform(rc, decrypter)
 	if err != nil {
 		t.Fatal(err)
@@ -149,22 +144,22 @@ func TestRSRanger(t *testing.T) {
 
 func TestNewRedundancyStrategy(t *testing.T) {
 	for i, tt := range []struct {
-		min       int
+		rep       int
 		opt       int
-		expMin    int
+		expRep    int
 		expOpt    int
 		errString string
 	}{
 		{0, 0, 4, 4, ""},
-		{-1, 0, 0, 0, "eestream error: negative minimum threshold"},
-		{1, 0, 0, 0, "eestream error: minimum threshold less than required count"},
-		{5, 0, 0, 0, "eestream error: minimum threshold greater than total count"},
-		{0, -1, 0, 0, "eestream error: negative optimum threshold"},
-		{0, 1, 0, 0, "eestream error: optimum threshold less than required count"},
-		{0, 5, 0, 0, "eestream error: optimum threshold greater than total count"},
+		{-1, 0, 0, 0, "eestream error: negative repair threshold"},
+		{1, 0, 0, 0, "eestream error: repair threshold less than required count"},
+		{5, 0, 0, 0, "eestream error: repair threshold greater than total count"},
+		{0, -1, 0, 0, "eestream error: negative optimal threshold"},
+		{0, 1, 0, 0, "eestream error: optimal threshold less than required count"},
+		{0, 5, 0, 0, "eestream error: optimal threshold greater than total count"},
 		{3, 4, 3, 4, ""},
-		{0, 3, 0, 0, "eestream error: minimum threshold greater than optimum threshold"},
-		{4, 3, 0, 0, "eestream error: minimum threshold greater than optimum threshold"},
+		{0, 3, 0, 0, "eestream error: repair threshold greater than optimal threshold"},
+		{4, 3, 0, 0, "eestream error: repair threshold greater than optimal threshold"},
 		{4, 4, 4, 4, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
@@ -173,14 +168,14 @@ func TestNewRedundancyStrategy(t *testing.T) {
 			continue
 		}
 		es := NewRSScheme(fc, 8*1024)
-		rs, err := NewRedundancyStrategy(es, tt.min, tt.opt)
+		rs, err := NewRedundancyStrategy(es, tt.rep, tt.opt)
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
 			continue
 		}
 		assert.NoError(t, err, errTag)
-		assert.Equal(t, tt.expMin, rs.MinimumThreshold(), errTag)
-		assert.Equal(t, tt.expOpt, rs.OptimumThreshold(), errTag)
+		assert.Equal(t, tt.expRep, rs.RepairThreshold(), errTag)
+		assert.Equal(t, tt.expOpt, rs.OptimalThreshold(), errTag)
 	}
 }
 

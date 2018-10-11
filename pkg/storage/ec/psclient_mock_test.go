@@ -11,14 +11,13 @@ package ecclient
 
 import (
 	context "context"
+	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
-	time "time"
-
-	gomock "github.com/golang/mock/gomock"
+	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
-	piecestore "storj.io/storj/protos/piecestore"
+	time "time"
 )
 
 // MockPSClient is a mock of PSClient interface
@@ -69,9 +68,9 @@ func (mr *MockPSClientMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // Get mocks base method
-func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *piecestore.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+func (m *MockPSClient) Get(arg0 context.Context, arg1 client.PieceID, arg2 int64, arg3 *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(ranger.RangeCloser)
+	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -82,9 +81,9 @@ func (mr *MockPSClientMockRecorder) Get(arg0, arg1, arg2, arg3 interface{}) *gom
 }
 
 // Meta mocks base method
-func (m *MockPSClient) Meta(arg0 context.Context, arg1 client.PieceID) (*piecestore.PieceSummary, error) {
+func (m *MockPSClient) Meta(arg0 context.Context, arg1 client.PieceID) (*pb.PieceSummary, error) {
 	ret := m.ctrl.Call(m, "Meta", arg0, arg1)
-	ret0, _ := ret[0].(*piecestore.PieceSummary)
+	ret0, _ := ret[0].(*pb.PieceSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -95,7 +94,7 @@ func (mr *MockPSClientMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *piecestore.PayerBandwidthAllocation) error {
+func (m *MockPSClient) Put(arg0 context.Context, arg1 client.PieceID, arg2 io.Reader, arg3 time.Time, arg4 *pb.PayerBandwidthAllocation) error {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -107,10 +106,11 @@ func (mr *MockPSClientMockRecorder) Put(arg0, arg1, arg2, arg3, arg4 interface{}
 }
 
 // Stats mocks base method
-func (m *MockPSClient) Stats(arg0 context.Context) error {
+func (m *MockPSClient) Stats(arg0 context.Context) (*pb.StatSummary, error) {
 	ret := m.ctrl.Call(m, "Stats", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*pb.StatSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Stats indicates an expected call of Stats

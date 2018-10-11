@@ -30,6 +30,7 @@ var (
 		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
 		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
+		EncKey        string `default:"" help:"your root encryption key"`
 	}
 )
 
@@ -89,6 +90,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"overlay-addr":    setupCfg.SatelliteAddr,
 		"access-key":      accessKey,
 		"secret-key":      secretKey,
+		"enc-key":         setupCfg.EncKey,
 	}
 
 	return process.SaveConfig(runCmd.Flags(),

@@ -11,7 +11,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	dht "storj.io/storj/pkg/dht"
-	overlay "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // MockDHT is a mock of DHT interface
@@ -62,9 +62,9 @@ func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
 }
 
 // FindNode mocks base method
-func (m *MockDHT) FindNode(arg0 context.Context, arg1 dht.NodeID) (overlay.Node, error) {
+func (m *MockDHT) FindNode(arg0 context.Context, arg1 dht.NodeID) (pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNode", arg0, arg1)
-	ret0, _ := ret[0].(overlay.Node)
+	ret0, _ := ret[0].(pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -75,13 +75,13 @@ func (mr *MockDHTMockRecorder) FindNode(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // GetNodes mocks base method
-func (m *MockDHT) GetNodes(arg0 context.Context, arg1 string, arg2 int, arg3 ...overlay.Restriction) ([]*overlay.Node, error) {
+func (m *MockDHT) GetNodes(arg0 context.Context, arg1 string, arg2 int, arg3 ...pb.Restriction) ([]*pb.Node, error) {
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetNodes", varargs...)
-	ret0, _ := ret[0].([]*overlay.Node)
+	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -106,9 +106,9 @@ func (mr *MockDHTMockRecorder) GetRoutingTable(arg0 interface{}) *gomock.Call {
 }
 
 // Ping mocks base method
-func (m *MockDHT) Ping(arg0 context.Context, arg1 overlay.Node) (overlay.Node, error) {
+func (m *MockDHT) Ping(arg0 context.Context, arg1 pb.Node) (pb.Node, error) {
 	ret := m.ctrl.Call(m, "Ping", arg0, arg1)
-	ret0, _ := ret[0].(overlay.Node)
+	ret0, _ := ret[0].(pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -154,7 +154,7 @@ func (mr *MockRoutingTableMockRecorder) CacheSize() *gomock.Call {
 }
 
 // ConnectionFailed mocks base method
-func (m *MockRoutingTable) ConnectionFailed(arg0 *overlay.Node) error {
+func (m *MockRoutingTable) ConnectionFailed(arg0 *pb.Node) error {
 	ret := m.ctrl.Call(m, "ConnectionFailed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -166,7 +166,7 @@ func (mr *MockRoutingTableMockRecorder) ConnectionFailed(arg0 interface{}) *gomo
 }
 
 // ConnectionSuccess mocks base method
-func (m *MockRoutingTable) ConnectionSuccess(arg0 *overlay.Node) error {
+func (m *MockRoutingTable) ConnectionSuccess(arg0 *pb.Node) error {
 	ret := m.ctrl.Call(m, "ConnectionSuccess", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -178,9 +178,9 @@ func (mr *MockRoutingTableMockRecorder) ConnectionSuccess(arg0 interface{}) *gom
 }
 
 // FindNear mocks base method
-func (m *MockRoutingTable) FindNear(arg0 dht.NodeID, arg1 int) ([]*overlay.Node, error) {
+func (m *MockRoutingTable) FindNear(arg0 dht.NodeID, arg1 int) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "FindNear", arg0, arg1)
-	ret0, _ := ret[0].([]*overlay.Node)
+	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -242,9 +242,9 @@ func (mr *MockRoutingTableMockRecorder) K() *gomock.Call {
 }
 
 // Local mocks base method
-func (m *MockRoutingTable) Local() overlay.Node {
+func (m *MockRoutingTable) Local() pb.Node {
 	ret := m.ctrl.Call(m, "Local")
-	ret0, _ := ret[0].(overlay.Node)
+	ret0, _ := ret[0].(pb.Node)
 	return ret0
 }
 

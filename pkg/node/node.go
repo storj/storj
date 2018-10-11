@@ -5,22 +5,26 @@ package node
 
 import (
 	"context"
+	"log"
 
 	"google.golang.org/grpc"
+
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
-	proto "storj.io/storj/protos/overlay"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
-	self  proto.Node
+	dht   dht.DHT
+	self  pb.Node
 	tc    transport.Client
 	cache pool.Pool
 }
 
 // Lookup queries nodes looking for a particular node in the network
-func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*proto.Node, error) {
+func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
 	v, err := n.cache.Get(ctx, to.GetId())
 	if err != nil {
 		return nil, err
@@ -34,13 +38,27 @@ func (n *Node) Lookup(ctx context.Context, to proto.Node, find proto.Node) ([]*p
 		if err != nil {
 			return nil, err
 		}
+
+		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
+			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
+		}
 		conn = c
 	}
 
-	c := proto.NewNodesClient(conn)
-	resp, err := c.Query(ctx, &proto.QueryRequest{Sender: &n.self, Target: &find})
+	c := pb.NewNodesClient(conn)
+	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
 		return nil, err
+	}
+
+	rt, err := n.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rt.ConnectionSuccess(&to); err != nil {
+		return nil, err
+
 	}
 
 	return resp.Response, nil

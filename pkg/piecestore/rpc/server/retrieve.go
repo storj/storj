@@ -15,9 +15,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // RetrieveError is a type of error for failures in Server.Retrieve()
@@ -165,6 +165,11 @@ func (s *Server) retrieveData(ctx context.Context, stream pb.PieceStoreRoutes_Re
 			allocationTracking.Fail(err)
 			break
 		}
+	}
+
+	// write to bandwidth usage table
+	if err = s.DB.AddBandwidthUsed(used); err != nil {
+		return retrieved, allocated, StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
 
 	// TODO: handle errors

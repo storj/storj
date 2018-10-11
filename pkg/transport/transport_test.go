@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var ctx = context.Background()
@@ -25,10 +25,10 @@ func TestDialNode(t *testing.T) {
 	}
 
 	// node.Address.Address == "" condition test
-	node := proto.Node{
+	node := pb.Node{
 		Id: "DUMMYID1",
-		Address: &proto.NodeAddress{
-			Transport: proto.NodeTransport_TCP,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP,
 			Address:   "",
 		},
 	}
@@ -37,7 +37,7 @@ func TestDialNode(t *testing.T) {
 	assert.Nil(t, conn)
 
 	// node.Address == nil condition test
-	node = proto.Node{
+	node = pb.Node{
 		Id:      "DUMMYID2",
 		Address: nil,
 	}
@@ -46,10 +46,10 @@ func TestDialNode(t *testing.T) {
 	assert.Nil(t, conn)
 
 	// node is valid argument condition test
-	node = proto.Node{
+	node = pb.Node{
 		Id: "DUMMYID3",
-		Address: &proto.NodeAddress{
-			Transport: proto.NodeTransport_TCP,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP,
 			Address:   "127.0.0.0:9000",
 		},
 	}

@@ -31,6 +31,24 @@ type transformedReader struct {
 	bytesRead    int
 }
 
+// NoopTransformer is a dummy Transformer that passes data through without modifying it
+type NoopTransformer struct{}
+
+// InBlockSize is 1
+func (t *NoopTransformer) InBlockSize() int {
+	return 1
+}
+
+// OutBlockSize is 1
+func (t *NoopTransformer) OutBlockSize() int {
+	return 1
+}
+
+// Transform returns the input without modification
+func (t *NoopTransformer) Transform(out, in []byte, blockNum int64) ([]byte, error) {
+	return append(out, in...), nil
+}
+
 // TransformReader applies a Transformer to a Reader. startingBlockNum should
 // probably be 0 unless you know you're already starting at a block offset.
 func TransformReader(r io.ReadCloser, t Transformer,
@@ -92,12 +110,12 @@ func (t *transformedReader) Close() error {
 }
 
 type transformedRanger struct {
-	rr ranger.RangeCloser
+	rr ranger.Ranger
 	t  Transformer
 }
 
 // Transform will apply a Transformer to a Ranger.
-func Transform(rr ranger.RangeCloser, t Transformer) (ranger.RangeCloser, error) {
+func Transform(rr ranger.Ranger, t Transformer) (ranger.Ranger, error) {
 	if rr.Size()%int64(t.InBlockSize()) != 0 {
 		return nil, Error.New("invalid transformer and range reader combination." +
 			"the range reader size is not a multiple of the block size")
@@ -158,8 +176,4 @@ func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (io
 	}
 	// the range might have been too long. only return what was requested
 	return readcloser.LimitReadCloser(tr, length), nil
-}
-
-func (t *transformedRanger) Close() error {
-	return t.rr.Close()
 }

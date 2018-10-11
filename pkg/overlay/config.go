@@ -14,9 +14,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/overlay"
 )
 
 var (
@@ -31,6 +31,13 @@ type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
 }
+
+// CtxKey used for assigning cache
+type CtxKey int
+
+const (
+	ctxKeyOverlay CtxKey = iota
+)
 
 // Run implements the provider.Responsibility interface. Run assumes a
 // Kademlia responsibility has been started before this one.
@@ -95,7 +102,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	proto.RegisterOverlayServer(server.GRPC(), &Server{
+	pb.RegisterOverlayServer(server.GRPC(), &Server{
 		dht:   kad,
 		cache: cache,
 
@@ -104,7 +111,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		metrics: monkit.Default,
 	})
 
-	return server.Run(ctx)
+	return server.Run(context.WithValue(ctx, ctxKeyOverlay, cache))
+}
+
+// LoadFromContext gives access to the cache from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Cache {
+	if v, ok := ctx.Value(ctxKeyOverlay).(*Cache); ok {
+		return v
+	}
+	return nil
 }
 
 // GetUserPassword extracts password from scheme://user:password@hostname

@@ -33,6 +33,7 @@ Download and install the latest release of Go, at least Go 1.11:
 https://golang.org/
 
 You will also need Git. (`brew install git`, `apt-get install git`, etc).
+If you're building on Windows, you also need to install and have gcc setup correctly (easiest way via mingw64).
 
 Install git and golang. We support Linux, Mac, and Windows operating
 systems. Other operating systems supported by Go are probably not much
@@ -106,7 +107,6 @@ AWS Access Key ID [None]: insecure-dev-access-key
 AWS Secret Access Key [None]: insecure-dev-secret-key
 Default region name [None]: us-east-1
 Default output format [None]:
-$ aws configure set default.s3.multipart_threshold 1TB  # until we support multipart
 ```
 
 #### Test out some AWS S3 CLI commands!

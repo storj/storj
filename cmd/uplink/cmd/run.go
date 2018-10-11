@@ -39,5 +39,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("Access key: %s\n", cfg.AccessKey)
 	fmt.Printf("Secret key: %s\n", cfg.SecretKey)
 
+	ctx := process.Ctx(cmd)
+	bs, err := cfg.BucketStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = bs.List(ctx, "", "", 0)
+	if err != nil {
+		return fmt.Errorf("Failed to contact Satellite.\n"+
+			"Perhaps your configuration is invalid?\n%s", err)
+	}
+
 	return cfg.Run(process.Ctx(cmd))
 }

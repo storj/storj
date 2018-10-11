@@ -5,6 +5,7 @@ package pool
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,14 +16,19 @@ type TestFoo struct {
 }
 
 func TestGet(t *testing.T) {
+	ctx := context.Background()
 	cases := []struct {
-		pool          ConnectionPool
+		pool          *ConnectionPool
 		key           string
 		expected      TestFoo
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
+			pool: func() *ConnectionPool {
+				p := NewConnectionPool()
+				assert.NoError(t, p.Add(ctx, "foo", TestFoo{called: "hoot"}))
+				return p
+			}(),
 			key:           "foo",
 			expected:      TestFoo{called: "hoot"},
 			expectedError: nil,
@@ -31,7 +37,7 @@ func TestGet(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		test, err := v.pool.Get(context.Background(), v.key)
+		test, err := v.pool.Get(ctx, v.key)
 		assert.Equal(t, v.expectedError, err)
 		assert.Equal(t, v.expected, test)
 	}
@@ -46,7 +52,9 @@ func TestAdd(t *testing.T) {
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{}},
+			pool: ConnectionPool{
+				mu:    sync.RWMutex{},
+				cache: map[string]interface{}{}},
 			key:           "foo",
 			value:         TestFoo{called: "hoot"},
 			expected:      TestFoo{called: "hoot"},
@@ -74,7 +82,9 @@ func TestRemove(t *testing.T) {
 		expectedError error
 	}{
 		{
-			pool:          ConnectionPool{cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
+			pool: ConnectionPool{
+				mu:    sync.RWMutex{},
+				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
 			key:           "foo",
 			expected:      nil,
 			expectedError: nil,

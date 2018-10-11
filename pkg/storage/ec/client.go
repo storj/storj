@@ -14,28 +14,27 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
-	proto "storj.io/storj/protos/overlay"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time) error
-	Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-		pieceID client.PieceID, size int64) (ranger.RangeCloser, error)
-	Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) error
+	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
+		pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error)
+	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
+		pieceID client.PieceID, size int64) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) error
 }
 
 type dialer interface {
-	dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error)
+	dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error)
 }
 
 type defaultDialer struct {
@@ -43,8 +42,9 @@ type defaultDialer struct {
 	identity *provider.FullIdentity
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node *proto.Node) (ps client.PSClient, err error) {
+func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	c, err := d.t.DialNode(ctx, node)
 	if err != nil {
 		return nil, err
@@ -64,76 +64,113 @@ func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Cli
 	return &ecClient{d: &d, mbm: mbm}
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*proto.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time) (err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
+	pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(nodes) != rs.TotalCount() {
-		return Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme",
-			len(nodes), rs.TotalCount())
+		return nil, Error.New("number of nodes (%d) do not match total count (%d) of erasure scheme", len(nodes), rs.TotalCount())
 	}
 	if !unique(nodes) {
-		return Error.New("duplicated nodes are not allowed")
+		return nil, Error.New("duplicated nodes are not allowed")
 	}
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.DecodedBlockSize())
+
+	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	errs := make(chan error, len(readers))
+
+	type info struct {
+		i   int
+		err error
+	}
+	infos := make(chan info, len(nodes))
+
 	for i, n := range nodes {
-		go func(i int, n *proto.Node) {
+		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				errs <- err
+				infos <- info{i: i, err: err}
 				return
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
-				errs <- err
+				infos <- info{i: i, err: err}
 				return
 			}
 			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
-			if err != nil {
+			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
+			// No error logging for this case.
+			if err != nil && err != io.ErrUnexpectedEOF {
 				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 			}
-			errs <- err
+			infos <- info{i: i, err: err}
 		}(i, n)
 	}
-	allerrs := collectErrors(errs, len(readers))
-	sc := len(readers) - len(allerrs)
-	if sc < rs.MinimumThreshold() {
-		return Error.New(
-			"successful puts (%d) less than minimum threshold (%d)",
-			sc, rs.MinimumThreshold())
+
+	successfulNodes = make([]*pb.Node, len(nodes))
+	var successfulCount int
+	for range nodes {
+		info := <-infos
+		if info.err == nil {
+			successfulNodes[info.i] = nodes[info.i]
+			successfulCount++
+		}
 	}
-	return nil
+
+	/* clean up the partially uploaded segment's pieces */
+	defer func() {
+		select {
+		case <-ctx.Done():
+			err = utils.CombineErrors(
+				Error.New("upload cancelled by user"),
+				ec.Delete(context.Background(), nodes, pieceID),
+			)
+		default:
+		}
+	}()
+
+	if successfulCount < rs.RepairThreshold() {
+		return nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
+	}
+
+	return successfulNodes, nil
 }
 
-func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.ErasureScheme,
-	pieceID client.PieceID, size int64) (rr ranger.RangeCloser, err error) {
+func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
+	pieceID client.PieceID, size int64) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
 		return nil, Error.New("number of nodes (%v) do not match total count (%v) of erasure scheme", len(nodes), es.TotalCount())
 	}
-	paddedSize := calcPadded(size, es.DecodedBlockSize())
+
+	paddedSize := calcPadded(size, es.StripeSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
-	rrs := map[int]ranger.RangeCloser{}
+	rrs := map[int]ranger.Ranger{}
+
 	type rangerInfo struct {
 		i   int
-		rr  ranger.RangeCloser
+		rr  ranger.Ranger
 		err error
 	}
 	ch := make(chan rangerInfo, len(nodes))
+
 	for i, n := range nodes {
-		go func(i int, n *proto.Node) {
+		if n == nil {
+			ch <- rangerInfo{i: i, rr: nil, err: nil}
+			continue
+		}
+
+		go func(i int, n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -152,32 +189,34 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*proto.Node, es eestream.Er
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
 		}(i, n)
 	}
+
 	for range nodes {
 		rri := <-ch
-		if rri.err == nil {
+		if rri.err == nil && rri.rr != nil {
 			rrs[rri.i] = rri.rr
 		}
 	}
+
 	rr, err = eestream.Decode(rrs, es, ec.mbm)
 	if err != nil {
-		for _, rr := range rrs {
-			_ = rr.Close()
-		}
 		return nil, err
 	}
-	uprr, err := eestream.Unpad(rr, int(paddedSize-size))
-	if err != nil {
-		_ = rr.Close()
-		return nil, err
-	}
-	return uprr, nil
+
+	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID client.PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	errs := make(chan error, len(nodes))
+
 	for _, n := range nodes {
-		go func(n *proto.Node) {
+		if n == nil {
+			errs <- nil
+			continue
+		}
+
+		go func(n *pb.Node) {
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -202,10 +241,13 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*proto.Node, pieceID cli
 			errs <- err
 		}(n)
 	}
+
 	allerrs := collectErrors(errs, len(nodes))
+
 	if len(allerrs) > 0 && len(allerrs) == len(nodes) {
 		return allerrs[0]
 	}
+
 	return nil
 }
 
@@ -220,7 +262,7 @@ func collectErrors(errs <-chan error, size int) []error {
 	return result
 }
 
-func unique(nodes []*proto.Node) bool {
+func unique(nodes []*pb.Node) bool {
 	if len(nodes) < 2 {
 		return true
 	}
@@ -250,9 +292,9 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	ranger ranger.RangeCloser
+	ranger ranger.Ranger
 	dialer dialer
-	node   *proto.Node
+	node   *pb.Node
 	id     client.PieceID
 	size   int64
 	pba    *pb.PayerBandwidthAllocation
@@ -263,14 +305,6 @@ func (lr *lazyPieceRanger) Size() int64 {
 	return lr.size
 }
 
-// Size implements Ranger.Close
-func (lr *lazyPieceRanger) Close() error {
-	if lr.ranger == nil {
-		return nil
-	}
-	return lr.ranger.Close()
-}
-
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	if lr.ranger == nil {
@@ -279,8 +313,6 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 			return nil, err
 		}
 		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
-		// no ps.CloseConn() here, the connection will be closed by
-		// the caller using RangeCloser.Close
 		if err != nil {
 			return nil, err
 		}

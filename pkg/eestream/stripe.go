@@ -15,39 +15,40 @@ import (
 
 // StripeReader can read and decodes stripes from a set of readers
 type StripeReader struct {
-	scheme ErasureScheme
-	cond   *sync.Cond
-	bufs   map[int]*PieceBuffer
-	inbufs [][]byte
-	inmap  map[int][]byte
-	errmap map[int]error
+	scheme      ErasureScheme
+	cond        *sync.Cond
+	readerCount int
+	bufs        map[int]*PieceBuffer
+	inbufs      map[int][]byte
+	inmap       map[int][]byte
+	errmap      map[int]error
 }
 
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
 func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
-	bufSize := mbm / es.TotalCount()
-	bufSize -= bufSize % es.EncodedBlockSize()
-	if bufSize < es.EncodedBlockSize() {
-		bufSize = es.EncodedBlockSize()
-	}
+	readerCount := len(rs)
 
 	r := &StripeReader{
-		scheme: es,
-		cond:   sync.NewCond(&sync.Mutex{}),
-		bufs:   make(map[int]*PieceBuffer, es.TotalCount()),
-		inbufs: make([][]byte, es.TotalCount()),
-		inmap:  make(map[int][]byte, es.TotalCount()),
-		errmap: make(map[int]error, es.TotalCount()),
+		scheme:      es,
+		cond:        sync.NewCond(&sync.Mutex{}),
+		readerCount: readerCount,
+		bufs:        make(map[int]*PieceBuffer, readerCount),
+		inbufs:      make(map[int][]byte, readerCount),
+		inmap:       make(map[int][]byte, readerCount),
+		errmap:      make(map[int]error, readerCount),
 	}
 
-	for i := 0; i < es.TotalCount(); i++ {
-		r.inbufs[i] = make([]byte, es.EncodedBlockSize())
-		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.EncodedBlockSize(), r.cond)
+	bufSize := mbm / readerCount
+	bufSize -= bufSize % es.ErasureShareSize()
+	if bufSize < es.ErasureShareSize() {
+		bufSize = es.ErasureShareSize()
 	}
 
-	// Kick off a goroutine each reader to be copied into a PieceBuffer.
-	for i, buf := range r.bufs {
+	for i := range rs {
+		r.inbufs[i] = make([]byte, es.ErasureShareSize())
+		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.ErasureShareSize(), r.cond)
+		// Kick off a goroutine each reader to be copied into a PieceBuffer.
 		go func(r io.Reader, buf *PieceBuffer) {
 			_, err := io.Copy(buf, r)
 			if err != nil {
@@ -55,7 +56,7 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *Strip
 				return
 			}
 			buf.SetError(io.EOF)
-		}(rs[i], buf)
+		}(rs[i], r.bufs[i])
 	}
 
 	return r
@@ -105,19 +106,19 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 		}
 	}
 	// could not read enough shares to attempt a decode
-	return nil, r.combineErrs()
+	return nil, r.combineErrs(num)
 }
 
 // readAvailableShares reads the available num-th erasure shares from the piece
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
 func (r *StripeReader) readAvailableShares(num int64) (n int) {
-	for i := 0; i < len(r.bufs); i++ {
+	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue
 		}
-		if r.bufs[i].HasShare(num) {
-			err := r.bufs[i].ReadShare(num, r.inbufs[i])
+		if buf.HasShare(num) {
+			err := buf.ReadShare(num, r.inbufs[i])
 			if err != nil {
 				r.errmap[i] = err
 			} else {
@@ -131,7 +132,7 @@ func (r *StripeReader) readAvailableShares(num int64) (n int) {
 
 // pendingReaders checks if there are any pending readers to get a share from.
 func (r *StripeReader) pendingReaders() bool {
-	return len(r.inmap)+len(r.errmap) < r.scheme.TotalCount()
+	return len(r.inmap)+len(r.errmap) < r.readerCount
 }
 
 // hasEnoughShares check if there are enough erasure shares read to attempt
@@ -155,16 +156,14 @@ func (r *StripeReader) shouldWaitForMore(err error) bool {
 
 // combineErrs makes a useful error message from the errors in errmap.
 // combineErrs always returns an error.
-func (r *StripeReader) combineErrs() error {
+func (r *StripeReader) combineErrs(num int64) error {
 	if len(r.errmap) == 0 {
 		return Error.New("programmer error: no errors to combine")
 	}
 	errstrings := make([]string, 0, len(r.errmap))
 	for i, err := range r.errmap {
-		errstrings = append(errstrings,
-			fmt.Sprintf("\nerror retrieving piece %02d: %v", i, err))
+		errstrings = append(errstrings, fmt.Sprintf("\nerror retrieving piece %02d: %v", i, err))
 	}
 	sort.Strings(errstrings)
-	return Error.New("failed to download stripe: %s",
-		strings.Join(errstrings, ""))
+	return Error.New("failed to download stripe %d: %s", num, strings.Join(errstrings, ""))
 }

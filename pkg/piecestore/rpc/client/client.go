@@ -20,8 +20,8 @@ import (
 
 	"github.com/gtank/cryptopasta"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 // ClientError is any error returned by the client
@@ -40,9 +40,9 @@ var (
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
-	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error)
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
 	Delete(ctx context.Context, pieceID PieceID) error
-	Stats(ctx context.Context) error
+	Stats(ctx context.Context) (*pb.StatSummary, error)
 	io.Closer
 }
 
@@ -129,7 +129,10 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	if err == io.ErrUnexpectedEOF {
 		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
-		return client.Delete(ctx, id)
+		deleteErr := client.Delete(ctx, id)
+		if deleteErr != nil {
+			return deleteErr
+		}
 	}
 	if err != nil {
 		return err
@@ -139,7 +142,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.RangeCloser, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
 	stream, err := client.route.Retrieve(ctx)
 	if err != nil {
 		return nil, err
@@ -159,14 +162,8 @@ func (client *Client) Delete(ctx context.Context, id PieceID) error {
 }
 
 // Stats will retrieve stats about a piece storage node
-func (client *Client) Stats(ctx context.Context) error {
-	reply, err := client.route.Stats(ctx, &pb.StatsReq{})
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Stats Summary : %v", reply)
-	return nil
+func (client *Client) Stats(ctx context.Context) (*pb.StatSummary, error) {
+	return client.route.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key

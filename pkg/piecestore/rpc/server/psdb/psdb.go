@@ -6,6 +6,7 @@ package psdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -18,9 +19,9 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
-	pb "storj.io/storj/protos/piecestore"
 )
 
 var (
@@ -75,6 +76,11 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	}
 
 	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
 	if err != nil {
 		return nil, err
 	}
@@ -201,20 +207,12 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 	return agreements, nil
 }
 
-// AddTTLToDB adds TTL into database by id
-func (db *DB) AddTTLToDB(id string, expiration int64) error {
+// AddTTL adds TTL into database by id
+func (db *DB) AddTTL(id string, expiration, size int64) error {
 	defer db.locked()()
 
 	created := time.Now().Unix()
-	_, err := db.DB.Exec("INSERT or REPLACE INTO ttl (id, created, expires) VALUES (?, ?, ?)", id, created, expiration)
-	return err
-}
-
-// UpdateTTLSize adds stored data size into database by id
-func (db *DB) UpdateTTLSize(id string, size int64) error {
-	defer db.locked()()
-
-	_, err := db.DB.Exec("UPDATE ttl SET size=? WHERE id=?", size, id)
+	_, err := db.DB.Exec("INSERT OR REPLACE INTO ttl (id, created, expires, size) VALUES (?, ?, ?, ?)", id, created, expiration, size)
 	return err
 }
 
@@ -230,6 +228,17 @@ func (db *DB) GetTTLByID(id string) (expiration int64, err error) {
 func (db *DB) SumTTLSizes() (sum int64, err error) {
 	defer db.locked()()
 
+	var count int
+	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM ttl")
+	err = rows.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	if count == 0 {
+		return 0, nil
+	}
+
 	err = db.DB.QueryRow(`SELECT SUM(size) FROM ttl;`).Scan(&sum)
 	return sum, err
 }
@@ -243,4 +252,55 @@ func (db *DB) DeleteTTLByID(id string) error {
 		err = nil
 	}
 	return err
+}
+
+// AddBandwidthUsed adds bandwidth usage into database by date
+func (db *DB) AddBandwidthUsed(size int64) (err error) {
+	defer db.locked()()
+
+	t := time.Now()
+	daystartunixtime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+	dayendunixtime := time.Date(t.Year(), t.Month(), t.Day(), 24, 0, 0, 0, t.Location()).Unix()
+
+	var getSize int64
+	if (t.Unix() >= daystartunixtime) && (t.Unix() <= dayendunixtime) {
+		err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate <= ? AND ? <= dayenddate`, t.Unix(), t.Unix()).Scan(&getSize)
+		switch {
+		case err == sql.ErrNoRows:
+			_, err = db.DB.Exec("INSERT INTO bwusagetbl (size, daystartdate, dayenddate) VALUES (?, ?, ?)", size, daystartunixtime, dayendunixtime)
+			return err
+		case err != nil:
+			return err
+		default:
+			getSize = size + getSize
+			_, err = db.DB.Exec("UPDATE bwusagetbl SET size = ? WHERE daystartdate = ?", getSize, daystartunixtime)
+			return err
+		}
+	}
+	return err
+}
+
+// GetBandwidthUsedByDay finds the so far bw used by day and return it
+func (db *DB) GetBandwidthUsedByDay(t time.Time) (size int64, err error) {
+	defer db.locked()()
+
+	daystarttime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()
+	err = db.DB.QueryRow(`SELECT size FROM bwusagetbl WHERE daystartdate=?`, daystarttime).Scan(&size)
+	return size, err
+}
+
+// GetTotalBandwidthBetween each row in the bwusagetbl contains the total bw used per day
+func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (totalbwusage int64, err error) {
+	defer db.locked()()
+
+	startTimeUnix := time.Date(startdate.Year(), startdate.Month(), startdate.Day(), 0, 0, 0, 0, startdate.Location()).Unix()
+	endTimeUnix := time.Date(enddate.Year(), enddate.Month(), enddate.Day(), 0, 0, 0, 0, enddate.Location()).Unix()
+	defaultunixtime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Now().Location()).Unix()
+
+	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
+		return totalbwusage, errors.New("Invalid date range")
+	}
+
+	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)
+	return totalbwusage, err
 }

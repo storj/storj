@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	proto "storj.io/storj/protos/overlay"
+	"storj.io/storj/pkg/pb"
 )
 
 // NodeID is the unique identifier used for Nodes in the DHT
@@ -18,28 +18,28 @@ type NodeID interface {
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start string, limit int, restrictions ...proto.Restriction) ([]*proto.Node, error)
+	GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
-	Ping(ctx context.Context, node proto.Node) (proto.Node, error)
-	FindNode(ctx context.Context, ID NodeID) (proto.Node, error)
+	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
+	FindNode(ctx context.Context, ID NodeID) (pb.Node, error)
 	Disconnect() error
 }
 
 // RoutingTable contains information on nodes we have locally
 type RoutingTable interface {
 	// local params
-	Local() proto.Node
+	Local() pb.Node
 	K() int
 	CacheSize() int
 
 	GetBucket(id string) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
 
-	FindNear(id NodeID, limit int) ([]*proto.Node, error)
+	FindNear(id NodeID, limit int) ([]*pb.Node, error)
 
-	ConnectionSuccess(node *proto.Node) error
-	ConnectionFailed(node *proto.Node) error
+	ConnectionSuccess(node *pb.Node) error
+	ConnectionFailed(node *pb.Node) error
 
 	// these are for refreshing
 	SetBucketTimestamp(id string, now time.Time) error
@@ -48,8 +48,8 @@ type RoutingTable interface {
 
 // Bucket is a set of methods to act on kademlia k buckets
 type Bucket interface {
-	Routing() []proto.Node
-	Cache() []proto.Node
+	Routing() []pb.Node
+	Cache() []pb.Node
 	Midpoint() string
-	Nodes() []*proto.Node
+	Nodes() []*pb.Node
 }

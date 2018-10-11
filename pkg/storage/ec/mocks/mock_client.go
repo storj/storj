@@ -11,10 +11,11 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	eestream "storj.io/storj/pkg/eestream"
+	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
-	overlay "storj.io/storj/protos/overlay"
 )
 
 // MockClient is a mock of Client interface
@@ -41,7 +42,7 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Delete mocks base method
-func (m *MockClient) Delete(arg0 context.Context, arg1 []*overlay.Node, arg2 client.PieceID) error {
+func (m *MockClient) Delete(arg0 context.Context, arg1 []*pb.Node, arg2 client.PieceID) error {
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -53,9 +54,9 @@ func (mr *MockClientMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.C
 }
 
 // Get mocks base method
-func (m *MockClient) Get(arg0 context.Context, arg1 []*overlay.Node, arg2 eestream.ErasureScheme, arg3 client.PieceID, arg4 int64) (ranger.RangeCloser, error) {
+func (m *MockClient) Get(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.ErasureScheme, arg3 client.PieceID, arg4 int64) (ranger.Ranger, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(ranger.RangeCloser)
+	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -66,10 +67,11 @@ func (mr *MockClientMockRecorder) Get(arg0, arg1, arg2, arg3, arg4 interface{}) 
 }
 
 // Put mocks base method
-func (m *MockClient) Put(arg0 context.Context, arg1 []*overlay.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 time.Time) error {
+func (m *MockClient) Put(arg0 context.Context, arg1 []*pb.Node, arg2 eestream.RedundancyStrategy, arg3 client.PieceID, arg4 io.Reader, arg5 time.Time) ([]*pb.Node, error) {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].([]*pb.Node)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Put indicates an expected call of Put
