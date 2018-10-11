@@ -96,3 +96,9 @@ message StatSummary {
   int64 usedSpace = 1;
   int64 availableSpace = 2;
 }
+
+message SignatureAuth {
+  bytes data = 1;
+  bytes signature = 2;
+  bytes publicKey = 3;
+}
