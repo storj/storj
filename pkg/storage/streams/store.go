@@ -381,11 +381,18 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	if err != nil {
 		return nil, false, err
 	}
-	encStartAfter, err := startAfter.Encrypt(s.rootKey)
+
+	prefixNoBucket := paths.Path([]string(prefix)[1:])
+	prefixKey, err := prefixNoBucket.DeriveKey(s.rootKey, len(prefixNoBucket))
 	if err != nil {
 		return nil, false, err
 	}
-	encEndBefore, err := endBefore.Encrypt(s.rootKey)
+
+	encStartAfter, err := startAfter.Encrypt(prefixKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encEndBefore, err := endBefore.Encrypt(prefixKey)
 	if err != nil {
 		return nil, false, err
 	}
@@ -401,7 +408,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, false, err
 		}
-		decPath, err := item.Path.Decrypt(s.rootKey)
+		decPath, err := item.Path.Decrypt(prefixKey)
 		if err != nil {
 			return nil, false, err
 		}
