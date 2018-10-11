@@ -3,6 +3,13 @@ set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
 captplanet setup --overwrite
+
+# run captplanet for 5 seconds to reproduce kademlia problems. See V3-526
+captplanet run &
+CAPT_PID=$!
+sleep 5
+kill -9 $CAPT_PID
+
 captplanet run &
 CAPT_PID=$!
 
