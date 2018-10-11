@@ -19,6 +19,13 @@ import (
 	"storj.io/storj/storage"
 )
 
+// Repairer is the interface for the data repair queue
+type Repairer interface {
+	Repair(seg *pb.InjuredSegment) error
+	Run() error
+	Stop() error
+}
+
 // Config contains configurable values for checker
 type Config struct {
 	// QueueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
@@ -52,7 +59,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // Checker contains the information needed to do checks for missing pieces
-type Checker struct {
+type checker struct {
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -61,8 +68,8 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *Checker {
-	return &Checker{
+func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *checker {
+	return &checker{
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -72,7 +79,7 @@ func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay p
 }
 
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
-func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
+func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
 
@@ -115,7 +122,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 }
 
 // returns the indices of offline and online nodes
-func (c *Checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
+func (c *checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, nodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err
