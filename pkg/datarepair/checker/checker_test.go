@@ -31,7 +31,7 @@ var ctx = context.Background()
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
 	repairQueue := queue.NewQueue(teststore.New())
 
@@ -106,7 +106,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 func TestOfflineAndOnlineNodes(t *testing.T) {
 	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
 	repairQueue := queue.NewQueue(teststore.New())
 	const N = 50
@@ -136,7 +136,7 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	logger := zap.NewNop()
-	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{})
+	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()

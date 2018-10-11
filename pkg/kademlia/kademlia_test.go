@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -29,6 +28,13 @@ func kadconfig() KadConfig {
 	}
 }
 
+// helper function to generate new node identities with
+// correct difficulty and concurrency
+func newTestIdentity() (*provider.FullIdentity, error) {
+	fid, err := node.NewFullIdentity(ctx, 12, 4)
+	return fid, err
+}
+
 func TestNewKademlia(t *testing.T) {
 	cases := []struct {
 		id          dht.NodeID
@@ -39,7 +45,7 @@ func TestNewKademlia(t *testing.T) {
 	}{
 		{
 			id: func() *node.ID {
-				id, err := node.NewFullIdentity(ctx, 12, 4)
+				id, err := newTestIdentity()
 				assert.NoError(t, err)
 				n := node.ID(id.ID)
 				return &n
@@ -50,7 +56,7 @@ func TestNewKademlia(t *testing.T) {
 		},
 		{
 			id: func() *node.ID {
-				id, err := node.NewFullIdentity(ctx, 12, 4)
+				id, err := newTestIdentity()
 				assert.NoError(t, err)
 				n := node.ID(id.ID)
 				return &n
@@ -78,6 +84,8 @@ func TestNewKademlia(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	addr := lis.Addr().String()
+
 	assert.NoError(t, err)
 	kc := kadconfig()
 
@@ -87,9 +95,9 @@ func TestLookup(t *testing.T) {
 
 	k := func() *Kademlia {
 		// make new identity
-		fid, err := node.NewFullIdentity(ctx, 12, 4)
+		fid, err := newTestIdentity()
 		assert.NoError(t, err)
-		fid2, err := node.NewFullIdentity(ctx, 12, 4)
+		fid2, err := newTestIdentity()
 		assert.NoError(t, err)
 
 		// create two new unique identities
@@ -99,6 +107,7 @@ func TestLookup(t *testing.T) {
 
 		kid := dht.NodeID(fid.ID)
 		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
+
 		assert.NoError(t, err)
 		return k
 	}()
@@ -113,11 +122,11 @@ func TestLookup(t *testing.T) {
 		{
 			k: k,
 			target: func() *node.ID {
-				fid, err := node.NewFullIdentity(ctx, 12, 4)
+				fid, err := newTestIdentity()
 				id := dht.NodeID(fid.ID)
 				nid := node.ID(fid.ID)
 				assert.NoError(t, err)
-				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}}
+				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
 				return &nid
 			}(),
 			opts:        lookupOpts{amount: 5},
@@ -127,7 +136,7 @@ func TestLookup(t *testing.T) {
 		{
 			k: k,
 			target: func() *node.ID {
-				id, err := node.NewFullIdentity(ctx, 12, 4)
+				id, err := newTestIdentity()
 				assert.NoError(t, err)
 				n := node.ID(id.ID)
 				return &n
@@ -141,8 +150,6 @@ func TestLookup(t *testing.T) {
 	for _, v := range cases {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
-
-		time.Sleep(1 * time.Second)
 	}
 
 }
@@ -162,7 +169,6 @@ func TestBootstrap(t *testing.T) {
 
 	err = n2.Bootstrap(context.Background())
 	assert.NoError(t, err)
-	time.Sleep(time.Second)
 
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
@@ -177,7 +183,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	// new config
 	kc := kadconfig()
 	// new identity
-	fid, err := node.NewFullIdentity(ctx, 12, 4)
+	fid, err := newTestIdentity()
 	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
