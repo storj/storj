@@ -12,6 +12,7 @@ import (
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/redis"
 )
 
@@ -94,7 +95,7 @@ func (r *repairer) Run() (err error) {
 	for {
 		select {
 		case <-r.ctx.Done():
-			return r.combinedError()
+			return utils.CombineErrors(r.errs...)
 		case seg := <-c:
 			go func() {
 				err := r.Repair(seg)
@@ -122,12 +123,4 @@ func (r *repairer) Repair(seg *pb.InjuredSegment) (err error) {
 func (r *repairer) Stop() (err error) {
 	r.cancel()
 	return nil
-}
-
-func (r *repairer) combinedError() error {
-	if len(r.errs) == 0 {
-		return nil
-	}
-	// TODO: combine errors
-	return r.errs[0]
 }
