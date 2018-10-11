@@ -10,6 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	dht "storj.io/storj/pkg/dht"
+	x "storj.io/storj/pkg/overlay"
 	pb "storj.io/storj/pkg/pb"
 )
 
@@ -37,16 +38,16 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Choose mocks base method
-func (m *MockClient) Choose(ctx context.Context, limit int, space int64, excluded []dht.NodeID) ([]*pb.Node, error) {
-	ret := m.ctrl.Call(m, "Choose", ctx, limit, space, excluded)
+func (m *MockClient) Choose(ctx context.Context, op x.Options) ([]*pb.Node, error) {
+	ret := m.ctrl.Call(m, "Choose", ctx, op)
 	ret0, _ := ret[0].([]*pb.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Choose indicates an expected call of Choose
-func (mr *MockClientMockRecorder) Choose(ctx, limit, space, excluded interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Choose", reflect.TypeOf((*MockClient)(nil).Choose), ctx, limit, space, excluded)
+func (mr *MockClientMockRecorder) Choose(ctx, op interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Choose", reflect.TypeOf((*MockClient)(nil).Choose), ctx, op)
 }
 
 // Lookup mocks base method

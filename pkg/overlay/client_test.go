@@ -101,7 +101,7 @@ func TestChoose(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(ctx, v.limit, v.space, v.excluded)
+		_, err = oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
 		assert.NoError(t, err)
 		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
 	}
