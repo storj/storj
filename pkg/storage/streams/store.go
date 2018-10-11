@@ -174,7 +174,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
-			encPath, err := path.Encrypt(s.rootKey)
+			encPath, err := path.EncryptWithBucket(s.rootKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -232,7 +232,7 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := path.Encrypt(s.rootKey)
+	encPath, err := path.EncryptWithBucket(s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -323,7 +323,11 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+	encPath, err := path.EncryptWithBucket(s.rootKey)
+	if err != nil {
+		return err
+	}
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return err
 	}
@@ -335,14 +339,18 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
-		currentPath := getSegmentPath(path, int64(i))
+		encPath, err = path.EncryptWithBucket(s.rootKey)
+		if err != nil {
+			return err
+		}
+		currentPath := getSegmentPath(encPath, int64(i))
 		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			return err
 		}
 	}
 
-	return s.segments.Delete(ctx, path.Prepend("l"))
+	return s.segments.Delete(ctx, encPath.Prepend("l"))
 }
 
 // ListItem is a single item in a listing
@@ -362,7 +370,20 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	encPrefix, err := prefix.EncryptWithBucket(s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encStartAfter, err := startAfter.Encrypt(s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encEndBefore, err := endBefore.Encrypt(s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+
+	segments, more, err := s.segments.List(ctx, encPrefix.Prepend("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -373,7 +394,11 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
+		decPath, err := item.Path.Decrypt(s.rootKey)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil
