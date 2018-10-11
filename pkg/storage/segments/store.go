@@ -290,27 +290,6 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		}
 		log.Println("KISHORE --> list of nodes before", nodes)
 
-		//Remove all lost pieces from the list to have only healthy pieces
-		//Request Overlay for n-h new storage nodes
-		newNodes, err := s.oc.Choose(ctx, len(lostPieces), 0)
-		log.Println("KISHORE --> list of newNodes ", newNodes)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		for j := range nodes {
-			nodes[j] = nil
-			log.Println("KISHORE --> replacing node j with nil ", j, nodes[j])
-			for i := range lostPieces {
-				if j == lostPieces[i] {
-					log.Println("KISHORE --> replacing old node j ", j, nodes[j])
-					nodes[j] = newNodes[i]
-					log.Println("KISHORE --> with newNode i ", nodes[j], i, newNodes[i])
-				}
-			}
-		}
-		log.Println("KISHORE --> list of nodes after", nodes)
-
 		log.Println("KISHORE -->  start of repair work")
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
 		if err != nil {
@@ -334,6 +313,28 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 
 		// puts file to ecclient
 		exp := pr.GetExpirationDate()
+
+		//Remove all lost pieces from the list to have only healthy pieces
+		//Request Overlay for n-h new storage nodes
+		newNodes, err := s.oc.Choose(ctx, len(lostPieces), 0)
+		log.Println("KISHORE --> list of newNodes ", newNodes)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		for j := range nodes {
+			nodes[j] = nil
+			log.Println("KISHORE --> replacing node j with nil ", j, nodes[j])
+			for i := range lostPieces {
+				if j == lostPieces[i] {
+					log.Println("KISHORE --> replacing old node j ", j, nodes[j])
+					nodes[j] = newNodes[i]
+					log.Println("KISHORE --> with newNode i ", nodes[j], i, newNodes[i])
+				}
+			}
+		}
+		log.Println("KISHORE --> list of nodes after", nodes)
+
 		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pid, sizedReader, time.Time{})
 		if err != nil {
 			return Error.Wrap(err)
