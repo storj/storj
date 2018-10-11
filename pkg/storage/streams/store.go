@@ -453,13 +453,41 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryptAfterBucket(path, s.rootKey)
+	fmt.Println("Entering Delete Streamstore-1")
+	
+
+	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
+		fmt.Println("Entering Delete Streamstore-2")
 		return err
 	}
-	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
+
+
+
+
+
+
+	fmt.Println("Entering Delete Streamstore-3")
+//DECRYPT HERE - BEFORE SENDING TO CONVERTMETA
+cipher := s.encType
+//var encKey eestream.Key
+var nonce eestream.Nonce
+derivedKey, err := path.DeriveContentKey(s.rootKey)
+if err != nil {
+	fmt.Println("Entering Delete Streamstore-4")
+	return  err
+}
+// decrypter, err := cipher.NewDecrypter(&encKey,&nonce,s.encBlockSize)
+// if err != nil {
+// 	return Meta{}, err
+// }
+
+fmt.Println("Entering Delete Streamstore-5")
+decryptedMetaData, err := cipher.Decrypt(lastSegmentMeta.Data, (*eestream.Key)(derivedKey), &nonce)
 	if err != nil {
+		fmt.Println("Entering Delete Streamstore-6")
 		return err
+		
 	}
 
 	streamMeta := pb.StreamMeta{}
@@ -472,6 +500,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	stream := pb.StreamInfo{}
 	err = proto.Unmarshal(streamMeta.EncryptedStreamInfo, &stream)
 	if err != nil {
+		fmt.Println("Entering Delete Streamstore-8")
 		return err
 	}
 
@@ -483,11 +512,13 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		currentPath := getSegmentPath(encPath, int64(i))
 		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
+			fmt.Println("Entering Delete Streamstore-10")
 			return err
 		}
 	}
 
-	return s.segments.Delete(ctx, encPath.Prepend("l"))
+	fmt.Println("Entering Delete Streamstore-11")
+	return s.segments.Delete(ctx, path.Prepend("l"))
 }
 
 // ListItem is a single item in a listing
