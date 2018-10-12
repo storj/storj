@@ -6,10 +6,9 @@ package audit
 import (
 	"context"
 
-	"github.com/spacemonkeygo/dbx"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	dbx "storj.io/storj/pkg/statdb/dbx"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
 )
