@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"time"
+	"reflect"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -532,48 +533,93 @@ type ListItem struct {
 func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	fmt.Println("Entering LIST streamstore")
 	if metaFlags&meta.Size != 0 {
+		fmt.Println("Entering LIST streamstore-2")
 		// Calculating the stream's size require also the user-defined metadata,
 		// where stream store keeps info about the number of segments and their size.
 		metaFlags |= meta.UserDefined
 	}
 
-	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
+	fmt.Println("Entering LIST streamstore-3")
+	allSegments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
+		fmt.Println("Entering LIST streamstore-4 err")
 		return nil, false, err
 	}
 
-	prefixKey, err := prefix.DeriveKey(s.rootKey, len(prefix))
-	if err != nil {
-		return nil, false, err
-	}
 
-	encStartAfter, err := s.encryptMarker(startAfter, prefixKey)
-	if err != nil {
-		return nil, false, err
-	}
-	encEndBefore, err := s.encryptMarker(endBefore, prefixKey)
-	if err != nil {
-		return nil, false, err
-	}
 
-	segments, more, err := s.segments.List(ctx, encPrefix.Prepend("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
-	if err != nil {
-		return nil, false, err
-	}
 
-	items = make([]ListItem, len(segments))
-	for i, item := range segments {
-		newMeta, err := convertMeta(item.Meta)
+
+    
+
+
+
+
+	fmt.Println("Entering LIST streamstore-5, segemnts are: ", allSegments, "\n\n\n\n")
+	items = make([]ListItem, len(allSegments))
+	for i, item := range allSegments {
+		fmt.Println("Entering LIST streamstore-6")
+		// need to fix this error
+
+		typeMeta := reflect.TypeOf(item.Meta)
+
+		fmt.Println("item in segment are : ", item, "\n\n\n\n\n")
+		fmt.Println("newMeta: ", item.Meta , "\n\n\n\n\n")
+
+		fmt.Println("type of item.Meta is: ", typeMeta, "\n\n\n\n\n")
+		fmt.Println(item.Meta)
+
+
+
+	cipher := s.encType
+	var nonce eestream.Nonce
+	wholePath := prefix.Append([]string(item.Path)...)
+	
+	derivedKey, err := wholePath.DeriveContentKey(s.rootKey)
+
+
+	fmt.Println("wholePath is: ", wholePath, "\n\n\n\n\n")
+	
+	if err != nil {
+		fmt.Println("WE ARE IN STREAMSTORE list -3 error in derived key \n\n\n\n\n\n")
+		return nil, more, err
+	}
+	fmt.Println("WE ARE IN STREAMSTORE list -4 before encrypting \n\n\n\n\n\n")
+	
+	decryptedMetaData, err := cipher.Decrypt(item.Meta.Data, (*eestream.Key)(derivedKey), &nonce)
 		if err != nil {
+			fmt.Println("decrypted err LIST ", err, "\n\n\n\n\n")
+			return nil, more, err
+		}
+
+		fmt.Println(decryptedMetaData, "is decmetadatam", "\n\n\n\n\n")
+
+	fmt.Println(item.Meta)
+
+	var lastSegMetaDecrypted = segments.Meta{
+		Modified:item.Meta.Modified,
+		Expiration: item.Meta.Expiration,
+		Size: item.Meta.Size,
+		Data: decryptedMetaData, 
+	}
+
+
+
+
+
+		
+		
+		newMeta, err := convertMeta(lastSegMetaDecrypted)
+		if err != nil {
+			fmt.Println("Entering LIST streamstore-7")
 			return nil, false, err
 		}
-		decPath, err := s.decryptMarker(item.Path, prefixKey)
-		if err != nil {
-			return nil, false, err
-		}
-		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
+		fmt.Println("Entering LIST streamstore-8")
+		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
+	fmt.Println("Entering LIST streamstore-9")
 
 	return items, more, nil
 }
