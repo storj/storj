@@ -44,9 +44,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return err
 	}
 	err = service.Reporter.RecordFailedAudits(ctx, failedNodes)
-	if Error.Has(err) {
-		// TODO: log this error because it means not all node stats updated
-	}
+	// if Error.Has(err) then log the error because it means not all node stats updated
 	if !Error.Has(err) && err != nil {
 		return err
 	}
