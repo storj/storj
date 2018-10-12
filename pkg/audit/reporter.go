@@ -84,5 +84,7 @@ func (reporter *Reporter) RecordFailedAudits(ctx context.Context, failedNodes []
 		nodes = failedNodes
 		retries++
 	}
+	// TODO(nat): if not all failed nodes were recorded after 3 attempts to UpdateBatch,
+	// some sort of error should be logged or returned
 	return nil
 }
