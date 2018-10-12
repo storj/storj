@@ -105,9 +105,6 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
-
 	// previously file uploaded?
 	err = s.Delete(ctx, path)
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
@@ -279,9 +276,6 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
-
 	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
@@ -359,10 +353,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 // Meta implements Store.Meta
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
-
 	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
@@ -466,7 +456,6 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		cipher := s.encType
 		var nonce eestream.Nonce
 		wholePath := prefix.Append([]string(item.Path)...)
-
 		derivedKey, err := wholePath.DeriveContentKey(s.rootKey)
 
 		if err != nil {
@@ -477,8 +466,6 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, more, err
 		}
-
-		fmt.Println(item.Meta)
 
 		var lastSegMetaDecrypted = segments.Meta{
 			Modified:   item.Meta.Modified,
@@ -556,8 +543,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	var encKey eestream.Key
-	copy(encKey[:], encryptedEncKey)
-	//copy(encKey[:], e)
+	copy(encKey[:], key)
 	decrypter, err := cipher.NewDecrypter(&encKey, startingNonce, encBlockSize)
 	if err != nil {
 		return nil, err
