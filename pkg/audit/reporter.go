@@ -29,6 +29,7 @@ var (
 
 // NewReporter instantiates a reporter
 func NewReporter() (reporter *Reporter, err error) {
+	ctx := context.Background()
 	ca, err := provider.NewCA(ctx, 12, 14)
 	if err != nil {
 		return nil, err
