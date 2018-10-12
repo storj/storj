@@ -377,6 +377,10 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
+	if prefix == nil {
+		return listNoPrefix(ctx, s, startAfter, endBefore, recursive, limit, metaFlags)
+	}
+
 	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
 	if err != nil {
 		return nil, false, err
@@ -408,6 +412,39 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 			return nil, false, err
 		}
 		decPath, err := item.Path.Decrypt(prefixKey)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
+	}
+
+	return items, more, nil
+}
+
+func listNoPrefix(ctx context.Context, s *streamStore, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	encStartAfter, err := encryptAfterBucket(startAfter, s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encEndBefore, err := encryptAfterBucket(endBefore, s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+
+	segments, more, err := s.segments.List(ctx, paths.New("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
+	if err != nil {
+		return nil, false, err
+	}
+
+	items = make([]ListItem, len(segments))
+	for i, item := range segments {
+		newMeta, err := convertMeta(item.Meta)
+		if err != nil {
+			return nil, false, err
+		}
+		decPath, err := decryptAfterBucket(item.Path, s.rootKey)
 		if err != nil {
 			return nil, false, err
 		}
@@ -487,6 +524,9 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 
 // encryptAfterBucket encrypts a path without encrypting its first element
 func encryptAfterBucket(p paths.Path, key []byte) (encrypted paths.Path, err error) {
+	if len(p) <= 1 {
+		return p, nil
+	}
 	bucket := p[0]
 	toEncrypt := p[1:]
 
@@ -504,6 +544,9 @@ func encryptAfterBucket(p paths.Path, key []byte) (encrypted paths.Path, err err
 
 // decryptAfterBucket decrypts a path without modifying its first element
 func decryptAfterBucket(p paths.Path, key []byte) (decrypted paths.Path, err error) {
+	if len(p) <= 1 {
+		return p, nil
+	}
 	bucket := p[0]
 	toDecrypt := p[1:]
 
