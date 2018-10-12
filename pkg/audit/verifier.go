@@ -40,9 +40,9 @@ type downloader interface {
 
 // defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
-	transport transport.Client
-	overlay   overlay.Client
-	identity  provider.FullIdentity
+	transport    transport.Client
+	overlay      overlay.Client
+	identity     provider.FullIdentity
 	authProvider auth.SignatureAuthProvider
 }
 
