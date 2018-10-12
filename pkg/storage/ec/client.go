@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -40,6 +41,7 @@ type dialer interface {
 type defaultDialer struct {
 	t        transport.Client
 	identity *provider.FullIdentity
+	authProvider auth.SignatureAuthProvider
 }
 
 func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -50,7 +52,7 @@ func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSCl
 		return nil, err
 	}
 
-	return client.NewPSClient(c, 0, d.identity.Key)
+	return client.NewPSClient(c, 0, d.identity.Key, d.authProvider)
 }
 
 type ecClient struct {
@@ -59,8 +61,8 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Client {
-	d := defaultDialer{identity: identity, t: t}
+func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int, authProvider auth.SignatureAuthProvider) Client {
+	d := defaultDialer{identity: identity, t: t, authProvider: authProvider}
 	return &ecClient{d: &d, mbm: mbm}
 }
 

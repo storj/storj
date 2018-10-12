@@ -5,6 +5,7 @@ package auth
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/gtank/cryptopasta"
 
@@ -51,4 +52,25 @@ func NewSignatureAuth(signature []byte, identity *provider.PeerIdentity) (*pb.Si
 		Signature: signature,
 		PublicKey: encodedKey,
 	}, nil
+}
+
+// SignatureAuthVerifier checks if provided signature auth can be verified
+type SignatureAuthVerifier func(signature *pb.SignatureAuth) error
+
+// NewSignatureAuthVerifier creates default implementation of SignatureAuthVerifier
+func NewSignatureAuthVerifier() SignatureAuthVerifier {
+	return func(signature *pb.SignatureAuth) error {
+		if signature == nil || signature.Signature == nil || signature.Data == nil || signature.PublicKey == nil {
+			return fmt.Errorf("Failed to verify signature")
+		}
+
+		k, err := cryptopasta.DecodePublicKey(signature.GetPublicKey())
+		if err != nil {
+			return err
+		}
+		if ok := cryptopasta.Verify(signature.GetData(), signature.GetSignature(), k); !ok {
+			return fmt.Errorf("Failed to verify signature")
+		}
+		return nil
+	}
 }

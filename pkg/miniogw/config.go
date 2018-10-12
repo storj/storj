@@ -138,7 +138,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, t, c.MaxBufferMem, pdb)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
 		return nil, err

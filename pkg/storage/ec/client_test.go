@@ -64,7 +64,7 @@ func TestNewECClient(t *testing.T) {
 
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	identity := &provider.FullIdentity{Key: privKey}
-	ec := NewClient(identity, tc, mbm)
+	ec := NewClient(identity, tc, mbm, nil)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)

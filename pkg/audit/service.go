@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -23,7 +24,9 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Service {
 	cursor := NewCursor(pointers)
-	verifier := NewVerifier(transport, overlay, id)
+
+	authProvider := pointers.(auth.SignatureAuthProvider)
+	verifier := NewVerifier(transport, overlay, id, authProvider)
 	return &Service{Cursor: cursor, Verifier: verifier}
 }
 

@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -81,6 +82,7 @@ type Server struct {
 	DB             *psdb.DB
 	pkey           crypto.PrivateKey
 	totalAllocated int64
+	verifier       auth.SignatureAuthVerifier
 }
 
 // Initialize -- initializes a server struct
@@ -136,7 +138,8 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
-	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
+	signatureVerifier := auth.NewSignatureAuthVerifier()
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, verifier: signatureVerifier}, nil
 }
 
 // Stop the piececstore node
@@ -192,6 +195,11 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.GetId())
+
+	signature := in.GetSignatureAuth()
+	if err := s.verifier(signature); err != nil {
+		return nil, err
+	}
 
 	if err := s.deleteByID(in.GetId()); err != nil {
 		return nil, err

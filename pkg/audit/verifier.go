@@ -11,6 +11,7 @@ import (
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -42,16 +43,17 @@ type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
+	authProvider auth.SignatureAuthProvider
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, authProvider auth.SignatureAuthProvider) *defaultDownloader {
 	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
+func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, authProvider auth.SignatureAuthProvider) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id, authProvider)}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -60,7 +62,7 @@ func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 0, d.identity.Key)
+	return client.NewPSClient(c, 0, d.identity.Key, d.authProvider)
 }
 
 // getShare use piece store clients to download shares from a given node

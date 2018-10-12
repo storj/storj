@@ -17,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -24,6 +25,19 @@ import (
 
 var ctx = context.Background()
 var argError = errs.Class("argError")
+
+type basicSignatureAuthProvider struct {
+	identity *provider.FullIdentity
+}
+
+func (p *basicSignatureAuthProvider) Auth() (*pb.SignatureAuth, error) {
+	signature, err := auth.GenerateSignature(p.identity)
+	if err != nil {
+		return nil, err
+	}
+	peerIdentity := &provider.PeerIdentity{ID: p.identity.ID, CA: p.identity.CA, Leaf: p.identity.Leaf}
+	return auth.NewSignatureAuth(signature, peerIdentity)
+}
 
 func main() {
 	cobra.EnableCommandSorting = false
@@ -49,7 +63,8 @@ func main() {
 	}
 	defer printError(conn.Close)
 
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
+	authProvider := &basicSignatureAuthProvider{identity: identity}
+	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey), authProvider)
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}

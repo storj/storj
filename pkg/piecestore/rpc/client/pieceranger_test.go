@@ -77,7 +77,7 @@ func TestPieceRanger(t *testing.T) {
 
 		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
-		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{})
+		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
 		if assert.NoError(t, err, errTag) {
 			assert.Equal(t, tt.size, rr.Size(), errTag)
 		}
@@ -148,7 +148,7 @@ func TestPieceRangerSize(t *testing.T) {
 
 		c, err := NewCustomRoute(route, 32*1024, priv)
 		assert.NoError(t, err)
-		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{})
+		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{}, nil)
 		assert.Equal(t, tt.size, rr.Size(), errTag)
 		r, err := rr.Range(ctx, tt.offset, tt.length)
 		if tt.errString != "" {

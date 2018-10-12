@@ -20,6 +20,7 @@ import (
 
 	"github.com/gtank/cryptopasta"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
@@ -52,10 +53,11 @@ type Client struct {
 	conn             *grpc.ClientConn
 	prikey           crypto.PrivateKey
 	bandwidthMsgSize int
+	authProvider     auth.SignatureAuthProvider
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey, authProvider auth.SignatureAuthProvider) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -69,6 +71,7 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.Priv
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
+		authProvider:     authProvider,
 	}, nil
 }
 
@@ -106,7 +109,14 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return err
 	}
 
-	msg := &pb.PieceStore{Piecedata: &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()}}
+	auth, err := client.authProvider.Auth()
+	if err != nil {
+		return err
+	}
+	msg := &pb.PieceStore{
+		Piecedata:     &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
+		SignatureAuth: auth,
+	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
 			zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
@@ -148,12 +158,20 @@ func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.Pa
 		return nil, err
 	}
 
-	return PieceRangerSize(client, stream, id, size, ba), nil
+	auth, err := client.authProvider.Auth()
+	if err != nil {
+		return nil, err
+	}
+	return PieceRangerSize(client, stream, id, size, ba, auth), nil
 }
 
 // Delete a Piece from a piece store Server
 func (client *Client) Delete(ctx context.Context, id PieceID) error {
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String()})
+	auth, err := client.authProvider.Auth()
+	if err != nil {
+		return err
+	}
+	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String(), SignatureAuth: auth})
 	if err != nil {
 		return err
 	}
