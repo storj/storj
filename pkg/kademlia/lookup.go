@@ -19,9 +19,10 @@ type sequentialLookup struct {
 	client          node.Client
 	target          dht.NodeID
 	limit           int
+	bootstrap       bool
 }
 
-func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client, target dht.NodeID, limit int) *sequentialLookup {
+func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client, target dht.NodeID, limit int, bootstrap bool) *sequentialLookup {
 	targetBytes := new(big.Int).SetBytes(target.Bytes())
 
 	var queue PriorityQueue
@@ -44,6 +45,7 @@ func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client,
 		client:          client,
 		target:          target,
 		limit:           limit,
+		bootstrap:       bootstrap,
 	}
 }
 
@@ -59,7 +61,7 @@ func (lookup *sequentialLookup) Run(ctx context.Context) error {
 		}
 
 		item := heap.Pop(&lookup.queue).(*Item)
-		if item.priority.Cmp(zero) == 0 {
+		if !lookup.bootstrap && item.priority.Cmp(zero) == 0 {
 			// found the result
 			return nil
 		}
