@@ -47,7 +47,33 @@ func NewReporter() (reporter *Reporter, err error) {
 
 // RecordFailedAudits saves failed audit details to statdb
 func (reporter *Reporter) RecordFailedAudits(ctx context.Context, failedNodes []*pb.Node) (err error) {
-	nodes := make([]*proto.Node, len(failedNodes))
+	nodes, err := reporter.recordEntryIfNotExists(ctx, failedNodes)
+	if err != nil {
+		return err
+	}
+
+	finished := false
+	retries := 0
+	for !finished && retries < 3 {
+		_, failedNodes, err := reporter.statdb.UpdateBatch(ctx, nodes)
+		if err != nil {
+			return err
+		}
+		if len(failedNodes) == 0 {
+			finished = true
+		}
+		nodes = failedNodes
+		retries++
+	}
+	if retries == 3 {
+		return Error.New("some nodes who failed the audit also failed to be updated in statdb")
+	}
+	return nil
+}
+
+// creates a statdb proto with node information and saves to statdb if it didn't already exist
+func (reporter *Reporter) recordEntryIfNotExists(ctx context.Context, failedNodes []*pb.Node) (nodes []*proto.Node, err error) {
+	nodes = make([]*proto.Node, len(failedNodes))
 	for i, fail := range failedNodes {
 		nodes[i] = &proto.Node{
 			NodeId:             []byte(fail.GetId()),
@@ -57,34 +83,15 @@ func (reporter *Reporter) RecordFailedAudits(ctx context.Context, failedNodes []
 			UpdateAuditSuccess: true,
 			UpdateUptime:       true,
 		}
-		// checks to see if node entry exists in statdb
 		_, err = reporter.statdb.Get(ctx, nodes[i].NodeId)
 		if err != nil {
 			if serr, ok := err.(*dbx.Error); ok && serr.Code == dbx.ErrorCode_NoRows {
 				err = reporter.statdb.Create(ctx, nodes[i].NodeId)
 				if err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
-
-	var finalNodeStats []*proto.NodeStats
-	finished := false
-	retries := 0
-	for !finished && retries < 3 {
-		nodeStats, failedNodes, err := reporter.statdb.UpdateBatch(ctx, nodes)
-		if err != nil {
-			return err
-		}
-		finalNodeStats = append(finalNodeStats, nodeStats...)
-		if len(failedNodes) == 0 {
-			finished = true
-		}
-		nodes = failedNodes
-		retries++
-	}
-	// TODO(nat): if not all failed nodes were recorded after 3 attempts to UpdateBatch,
-	// some sort of error should be logged or returned
-	return nil
+	return nodes, nil
 }
