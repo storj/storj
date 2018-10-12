@@ -97,6 +97,10 @@ func TestLocalPath(t *testing.T) {
 			base: "-",
 		},
 		{
+			url:  "",
+			base: ".",
+		},
+		{
 			url:  ".",
 			base: ".",
 		},

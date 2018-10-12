@@ -31,28 +31,32 @@ func New(p string) (FPath, error) {
 		return fp, nil
 	}
 
-Parse:
-	u, err := url.Parse(p)
-	if err != nil {
-		return fp, fmt.Errorf("malformed URL: %v, use format sj://bucket/", err)
-	}
+	var u *url.URL
+	var err error
+	for {
+		u, err = url.Parse(p)
+		if err != nil {
+			return fp, fmt.Errorf("malformed URL: %v, use format sj://bucket/", err)
+		}
 
-	if u.Scheme == "" {
-		fp.local = true
-		return fp, nil
-	}
+		if u.Scheme == "" {
+			fp.local = true
+			return fp, nil
+		}
 
-	if u.Scheme != storjScheme {
-		return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
-	}
+		if u.Scheme != storjScheme {
+			return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
+		}
 
-	if u.Host == "" && u.Path == "" {
-		return fp, errors.New("no bucket specified, use format sj://bucket/")
-	}
+		if u.Host == "" && u.Path == "" {
+			return fp, errors.New("no bucket specified, use format sj://bucket/")
+		}
 
-	for u.Host == "" && u.Path != "" {
+		if u.Host != "" {
+			break
+		}
+
 		p = strings.Replace(p, ":///", "://", 1)
-		goto Parse
 	}
 
 	if u.Port() != "" {
