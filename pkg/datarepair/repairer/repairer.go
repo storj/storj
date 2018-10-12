@@ -4,15 +4,17 @@
 package repairer
 
 import (
-	"go.uber.org/zap"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/redis"
 )
@@ -26,7 +28,7 @@ type Repairer interface {
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=abc123"`
+	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=0&password=testpass"`
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
@@ -38,6 +40,7 @@ func (c Config) initialize(ctx context.Context) (Repairer, error) {
 
 	client, err := redis.NewClientFrom(c.QueueAddress)
 	if err != nil {
+		fmt.Println(err)
 		return nil, Error.Wrap(err)
 	}
 	r.queue = q.NewQueue(client)
@@ -54,7 +57,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-
+	
 	return r.Run()
 }
 
@@ -109,6 +112,8 @@ func (r *repairer) Run() (err error) {
 			}()
 		}
 	}
+
+	return nil
 }
 
 // Repair starts repair of the segment
