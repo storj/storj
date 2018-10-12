@@ -61,7 +61,7 @@ func TestNewKademlia(t *testing.T) {
 	for _, v := range cases {
 		assert.NoError(t, v.setup())
 		kc := kadconfig()
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -91,7 +91,7 @@ func TestLookup(t *testing.T) {
 		id2, err := node.NewID()
 		assert.NoError(t, err)
 		// initialize kademlia
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -171,7 +171,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	id, err := node.NewID()
 	assert.NoError(t, err)
 	// New identity
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewCA(context.Background(), 12, 4)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
