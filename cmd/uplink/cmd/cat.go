@@ -28,9 +28,13 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	u0, err := fpath.New(args[0])
+	src, err := fpath.New(args[0])
 	if err != nil {
 		return err
+	}
+
+	if src.IsLocal() {
+		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
 	bs, err := cfg.BucketStore(ctx)
@@ -38,14 +42,10 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if u0.Bucket() == "" {
-		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
-	}
-
-	clp, err := fpath.New("-")
+	dst, err := fpath.New("-")
 	if err != nil {
 		return err
 	}
 
-	return download(ctx, bs, u0, clp)
+	return download(ctx, bs, src, dst)
 }

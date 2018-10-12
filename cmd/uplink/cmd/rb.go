@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
 
@@ -29,12 +29,17 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified for deletion")
 	}
 
-	u, err := utils.ParseURL(args[0])
+	dst, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-	if u.Host == "" {
-		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+
+	if dst.IsLocal() {
+		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+	}
+
+	if dst.Path() != "" {
+		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
 	bs, err := cfg.BucketStore(ctx)
@@ -42,15 +47,15 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_, err = bs.Get(ctx, u.Host)
+	_, err = bs.Get(ctx, dst.Bucket())
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return fmt.Errorf("Bucket not found: %s", u.Host)
+			return fmt.Errorf("Bucket not found: %s", dst.Bucket())
 		}
 		return err
 	}
 
-	o, err := bs.GetObjectStore(ctx, u.Host)
+	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
@@ -61,15 +66,15 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(items) > 0 {
-		return fmt.Errorf("Bucket not empty: %s", u.Host)
+		return fmt.Errorf("Bucket not empty: %s", dst.Bucket())
 	}
 
-	err = bs.Delete(ctx, u.Host)
+	err = bs.Delete(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Bucket %s deleted\n", u.Host)
+	fmt.Printf("Bucket %s deleted\n", dst.Bucket())
 
 	return nil
 }
