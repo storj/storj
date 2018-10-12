@@ -20,7 +20,7 @@ import (
 
 var (
 	port   string
-	APIKey = []byte("")
+	apiKey = []byte("")
 	ctx    = context.Background()
 )
 
@@ -54,7 +54,7 @@ func main() {
 		logger.Error("Failed to create full identity: ", zap.Error(err))
 		os.Exit(1)
 	}
-	client, err := sdbclient.NewClient(identity, port, APIKey)
+	client, err := sdbclient.NewClient(identity, port, apiKey)
 	if err != nil {
 		logger.Error("Failed to create sdbclient: ", zap.Error(err))
 	}
@@ -114,7 +114,7 @@ func main() {
 
 	nodeList := []*proto.Node{&farmer1, &farmer2}
 
-	statsList, err := client.UpdateBatch(ctx, nodeList)
+	statsList, _, err := client.UpdateBatch(ctx, nodeList)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update batch", zap.Error(err))
 		os.Exit(1)
