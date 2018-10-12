@@ -19,12 +19,40 @@ type Service struct {
 	Reporter reporter
 }
 
+type servicer struct {
+	service *Service
+	ctx     context.Context
+	cancel  context.CancelFunc
+	errs    []error
+}
+
+// Config contains configurable values for audit service
+type Config struct {
+	Pointers   pdbclient.Client      ``
+	Transport  transport.Client      ``
+	Overlay    overlay.Client        ``
+	ID         provider.FullIdentity ``
+	StatDBPort string                `help:"port to contact statDB client" default:":7777"`
+}
+
+func (c Config) initialize(ctx context.Context) (servicer, error) {
+	var s servicer
+	serv, err := NewService(ctx, c.StatDBPort, c.Pointers, c.Transport, c.Overlay, c.ID)
+	if err != nil {
+		return servicer{}, err
+	}
+	s.service = serv
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
+	return s, nil
+}
+
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, statDBPort string, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
-	reporter, err := NewReporter(ctx)
+	reporter, err := NewReporter(ctx, statDBPort)
 	if err != nil {
 		return nil, err
 	}

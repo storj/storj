@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	dbx "storj.io/storj/pkg/statdb/dbx"
@@ -22,13 +23,8 @@ type Reporter struct {
 	statdb sdbclient.Client
 }
 
-var (
-	port   = ":7777"
-	apiKey = []byte("")
-)
-
 // NewReporter instantiates a reporter
-func NewReporter(ctx context.Context) (reporter *Reporter, err error) {
+func NewReporter(ctx context.Context, statDBPort string) (reporter *Reporter, err error) {
 	ca, err := provider.NewCA(ctx, 12, 14)
 	if err != nil {
 		return nil, err
@@ -37,7 +33,12 @@ func NewReporter(ctx context.Context) (reporter *Reporter, err error) {
 	if err != nil {
 		return nil, err
 	}
-	client, err := sdbclient.NewClient(identity, port, apiKey)
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return nil, Error.New("invalid API credentials")
+	}
+
+	client, err := sdbclient.NewClient(identity, statDBPort, apiKey)
 	if err != nil {
 		return nil, err
 	}
