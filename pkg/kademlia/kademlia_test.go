@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
@@ -205,16 +206,69 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 }
 
 func TestGetNodes(t *testing.T) {
-	// func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
 
-	// cases := []struct {
-	// }{
-	// 	{},
-	// 	{},
-	// }
-	// for _, v := range cases {
+	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
+	assert.NotNil(t, mns)
+	go func() { _ = srv.Serve(lis) }()
+	defer srv.Stop()
+	// make new identity
+	id, err := node.NewID()
+	assert.NoError(t, err)
+	id2, err := node.NewID()
+	assert.NoError(t, err)
+	// initialize kademlia
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+	//TODO make sure to clean up the test files
+	k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity, "db")
+	assert.NoError(t, err)
+	// add nodes
+	ids := []string{"A", "B", "C", "D"}
+	bw := []int64{1, 2, 3, 4}
+	nodes := []*pb.Node{}
+	for i, v := range ids {
+		n := &pb.Node{
+			Id: v,
+			Restrictions: &pb.NodeRestrictions{
+				FreeBandwidth: bw[i],
+			},
+		}
+		nodes = append(nodes, n)
+		err = k.routingTable.ConnectionSuccess(n)
+		assert.NoError(t, err)
+	}
 
-	// }
+	cases := []struct {
+		testID       string
+		start        string
+		limit        int
+		restrictions []pb.Restriction
+		expected     []*pb.Node
+	}{
+		{testID: "one",
+			start:        "B",
+			limit:        2,
+			restrictions: []pb.Restriction{},
+			expected:     []*pb.Node{},
+		}, //one
+		{}, //multiple
+		{}, //none
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			nodes, err := k.GetNodes(ctx, c.start, c.limit, c.restrictions...)
+			assert.NoError(t, err)
+			assert.Equal(t, len(c.expected), len(nodes))
+			for i, n := range nodes {
+				assert.True(t, proto.Equal(c.expected[i], n))
+			}
+		})
+	}
+
 }
 
 func TestMeetsRestrictions(t *testing.T) {
@@ -224,32 +278,89 @@ func TestMeetsRestrictions(t *testing.T) {
 		n      pb.Node
 		expect bool
 	}{
-		{	testID: "pass one",
+		{testID: "pass one",
 			r: []pb.Restriction{
-				
+				pb.Restriction{
+					Operator: pb.Restriction_EQ,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(1),
+				},
 			},
 			n: pb.Node{
 				Restrictions: &pb.NodeRestrictions{
-					FreeBandwidth: int64(),
-					FreeDisk:      int64(),
+					FreeBandwidth: int64(1),
 				},
 			},
+			expect: true,
 		},
 		{testID: "pass multiple",
-			r: []pb.Restriction{},
-			n: pb.Node{},
+			r: []pb.Restriction{
+				pb.Restriction{
+					Operator: pb.Restriction_LTE,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(2),
+				},
+				pb.Restriction{
+					Operator: pb.Restriction_GTE,
+					Operand:  pb.Restriction_freeDisk,
+					Value:    int64(2),
+				},
+			},
+			n: pb.Node{
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: int64(1),
+					FreeDisk:      int64(3),
+				},
+			},
+			expect: true,
 		},
 		{testID: "fail one",
-			r: []pb.Restriction{}, 
-			n: pb.Node{},
+			r: []pb.Restriction{
+				pb.Restriction{
+					Operator: pb.Restriction_LT,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(2),
+				},
+				pb.Restriction{
+					Operator: pb.Restriction_GT,
+					Operand:  pb.Restriction_freeDisk,
+					Value:    int64(2),
+				},
+			},
+			n: pb.Node{
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: int64(2),
+					FreeDisk:      int64(3),
+				},
+			},
+			expect: false,
 		},
 		{testID: "fail multiple",
-			r: []pb.Restriction{},
-			n: pb.Node{},
+			r: []pb.Restriction{
+				pb.Restriction{
+					Operator: pb.Restriction_LT,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(2),
+				},
+				pb.Restriction{
+					Operator: pb.Restriction_GT,
+					Operand:  pb.Restriction_freeDisk,
+					Value:    int64(2),
+				},
+			},
+			n: pb.Node{
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: int64(2),
+					FreeDisk:      int64(2),
+				},
+			},
+			expect: false,
 		},
 	}
-	for _, v := range cases {
-		result := meetsRestrictions(v.r, v.n)
-		assert.Equal(t, v.expect, result)
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			result := meetsRestrictions(c.r, c.n)
+			assert.Equal(t, c.expect, result)
+		})
 	}
 }

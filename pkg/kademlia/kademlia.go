@@ -241,7 +241,7 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 
 		switch op {
 		case pb.Restriction_EQ:
-			if comp != val {
+			if comp == val {
 				results = append(results, v)
 				continue
 			}
@@ -287,7 +287,7 @@ func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
 		}
 		switch op {
 		case pb.Restriction_EQ:
-			if comp == val {
+			if comp != val {
 				return false
 			}
 		case pb.Restriction_LT:
