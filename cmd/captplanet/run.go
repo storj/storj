@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -101,6 +102,22 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
+	// start miniredis for the repair process
+	c := make(chan int, 1)
+	go func() {
+		m := miniredis.NewMiniRedis()
+
+		go func () {
+		<- c
+		m.Close()
+		}()
+
+		err := m.StartAddr(":6378")
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
+
 	// start satellite
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
@@ -113,9 +130,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 			runCfg.Satellite.Kademlia,
-			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
 			o)
 	}()
 
@@ -130,5 +147,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("%s : %s", err, v)
 	}
 
+	c <- 1
 	return err
 }
