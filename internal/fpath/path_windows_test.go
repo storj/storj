@@ -13,36 +13,72 @@ func TestLocalPathWindows(t *testing.T) {
 		base string
 	}{
 		{
-			url:  "\\",
-			base: "\\",
+			url:  `\`,
+			base: `\`,
 		},
 		{
-			url:  "\\\\",
-			base: "\\",
+			url:  `\\`,
+			base: `\`,
 		},
 		{
-			url:  "c:\\",
-			base: "\\",
+			url:  `c:\`,
+			base: `\`,
 		},
 		{
-			url:  "c:\\",
-			base: "\\",
+			url:  `c:\`,
+			base: `\`,
 		},
 		{
-			url:  "c:\\a\\b\\c",
-			base: "c",
+			url:  `c:\a\b\c`,
+			base: `c`,
 		},
 		{
-			url:  "a\\b\\c",
-			base: "c",
+			url:  `c:\\a\\b\\c`,
+			base: `c`,
 		},
 		{
-			url:  "\\\\\\a\\b\\c",
-			base: "c",
+			url:  `c:/a/b/c`,
+			base: `c`,
 		},
 		{
-			url:  "\\\\unc\\a\\b\\c",
-			base: "c",
+			url:  `c://a//b//c`,
+			base: `c`,
+		},
+		{
+			url:  `c:\a/b\c`,
+			base: `c`,
+		},
+		{
+			url:  `a\b\c`,
+			base: `c`,
+		},
+		{
+			url:  `a/b/c`,
+			base: `c`,
+		},
+		{
+			url:  `\\\a\b\c`,
+			base: `c`,
+		},
+		{
+			url:  `///a/b/c`,
+			base: `c`,
+		},
+		{
+			url:  `\\\unc\a\b\c`,
+			base: `c`,
+		},
+		{
+			url:  `///unc/a/b/c`,
+			base: `c`,
+		},
+		{
+			url:  `\\?\UNC\a\b\c`,
+			base: `c`,
+		},
+		{
+			url:  `\\?\C:\a\b\c`,
+			base: `c`,
 		},
 	} {
 		testLocalPath(t, tt.url, tt.base, i)
