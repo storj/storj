@@ -103,8 +103,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// start miniredis for the repair process
+	c := make(chan int, 1)
 	go func() {
 		m := miniredis.NewMiniRedis()
+
+		go func () {
+		<- c
+		m.Close()
+		}()
+
 		err := m.StartAddr(":6378")
 		if err != nil {
 			fmt.Println(err)
@@ -140,5 +147,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("%s : %s", err, v)
 	}
 
+	c <- 1
 	return err
 }
