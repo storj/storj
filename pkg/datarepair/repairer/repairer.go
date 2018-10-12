@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
@@ -36,6 +38,8 @@ type repairer struct {
 
 // Run the repairer loop
 func (r *repairer) Run() (err error) {
+	zap.S().Info("Repairer is starting up")
+
 	c := make(chan *pb.InjuredSegment)
 
 	ticker := time.NewTicker(r.interval)

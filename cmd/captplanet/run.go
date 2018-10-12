@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/alicebob/miniredis"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -114,10 +115,28 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
-			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
-			o)
+			o,
+		)
 	}()
+
+	// start Repair
+	m := miniredis.NewMiniRedis()
+	m.RequireAuth("abc123")
+
+	if err = m.StartAddr(":6378"); err != nil {
+		errch <- err
+	} else {
+		defer m.Close()
+
+		go func() {
+			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
+		}()
+
+		go func() {
+			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
+		}()
+
+	}
 
 	// start s3 uplink
 	go func() {
