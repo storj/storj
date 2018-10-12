@@ -128,9 +128,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	} else {
 		defer m.Close()
 
-		// go func() {
-		// 	errch <- runCfg.Satellite.Checker.Run(ctx, nil)
-		// }()
+		go func() {
+			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
+		}()
 
 		go func() {
 			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
