@@ -5,8 +5,8 @@ package overlay
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -66,7 +66,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kadem
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
-	kad, err := kademlia.NewKademlia(&id, n, fmt.Sprintf("%s:%s", ip, port), identity, "db", kc)
+	kad, err := kademlia.NewKademlia(&id, n, net.JoinHostPort(ip, port), identity, "db", kc)
 	assert.NoError(t, err)
 
 	return kad
@@ -81,9 +81,8 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
-	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
-	intro, err := kademlia.GetIntroNode(fmt.Sprintf("%s:%s", ip, pm))
+	intro, err := kademlia.GetIntroNode(net.JoinHostPort(ip, port))
 	assert.NoError(t, err)
 
 	ca, err := provider.NewCA(ctx, 12, 4)
@@ -91,7 +90,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity, "db", kc)
+	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, net.JoinHostPort(ip, port), identity, "db", kc)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -117,7 +116,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), identity, "db", kc)
+		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), identity, "db", kc)
 		assert.NoError(t, err)
 
 		p++
