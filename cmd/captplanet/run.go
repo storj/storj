@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/alicebob/miniredis"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -22,7 +23,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"github.com/alicebob/miniredis"
 )
 
 const (
@@ -131,11 +131,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		// go func() {
 		// 	errch <- runCfg.Satellite.Checker.Run(ctx, nil)
 		// }()
-	
+
 		go func() {
 			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
 		}()
-	
+
 	}
 
 	// start s3 uplink

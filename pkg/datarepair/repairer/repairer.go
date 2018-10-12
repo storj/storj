@@ -57,7 +57,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	
+
 	return r.Run()
 }
 
@@ -112,8 +112,6 @@ func (r *repairer) Run() (err error) {
 			}()
 		}
 	}
-
-	return nil
 }
 
 // Repair starts repair of the segment
