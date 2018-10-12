@@ -48,7 +48,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 
 	cache := overlay.LoadFromContext(ctx)
 	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c))
+	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c, server.Identity()))
 
 	return server.Run(ctx)
 }

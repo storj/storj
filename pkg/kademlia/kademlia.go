@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
@@ -69,8 +70,11 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
-		if !ok || err != nil {
+		if err != nil {
 			return nil, err
+		}
+		if !ok {
+			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
 		}
 	}
 
