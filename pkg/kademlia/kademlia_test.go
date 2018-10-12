@@ -1,5 +1,6 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
+// See LICENSE for copying information.
 
 package kademlia
 
@@ -31,7 +32,7 @@ func kadconfig() KadConfig {
 // helper function to generate new node identities with
 // correct difficulty and concurrency
 func newTestIdentity() (*provider.FullIdentity, error) {
-	fid, err := node.NewFullIdentity(ctx, 12, 4)
+	fid, err := node.NewFullIdentity(context.Background(), 12, 4)
 	return fid, err
 }
 
@@ -70,7 +71,7 @@ func TestNewKademlia(t *testing.T) {
 	for _, v := range cases {
 		assert.NoError(t, v.setup())
 		kc := kadconfig()
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
