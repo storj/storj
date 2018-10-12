@@ -100,7 +100,8 @@ func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.
 
 // NewNodeID returns the string representation of a dht node ID
 func NewNodeID(t *testing.T) string {
-	id, err := NewID()
+	fid, err := NewFullIdentity(ctx, 12, 4)
+	id := ID(fid.ID)
 	assert.NoError(t, err)
 
 	return id.String()
