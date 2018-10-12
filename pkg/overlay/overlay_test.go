@@ -21,17 +21,17 @@ func TestFindStorageNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
-	id, err := node.NewID()
+	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
-	id2, err := node.NewID()
+	fid2, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
 	srv := NewMockServer([]storage.ListItem{
 		{
-			Key:   storage.Key(id.String()),
+			Key:   storage.Key(fid.ID.String()),
 			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		}, {
-			Key:   storage.Key(id2.String()),
+			Key:   storage.Key(fid2.ID.String()),
 			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
@@ -55,13 +55,13 @@ func TestOverlayLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
-	id, err := node.NewID()
+	fid, err := node.NewFullIdentity(ctx, 12, 4)
 
 	assert.NoError(t, err)
 
 	srv := NewMockServer([]storage.ListItem{
 		{
-			Key:   storage.Key(id.String()),
+			Key:   storage.Key(fid.ID.String()),
 			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
@@ -72,7 +72,7 @@ func TestOverlayLookup(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeID: id.String()})
+	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeID: fid.ID.String()})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 }
@@ -81,14 +81,14 @@ func TestOverlayBulkLookup(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 
-	id, err := node.NewID()
+	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
-	id2, err := node.NewID()
+	fid2, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
 	srv := NewMockServer([]storage.ListItem{
 		{
-			Key:   storage.Key(id.String()),
+			Key:   storage.Key(fid.ID.String()),
 			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
@@ -99,8 +99,8 @@ func TestOverlayBulkLookup(t *testing.T) {
 	c, err := NewClient(address, grpc.WithInsecure())
 	assert.NoError(t, err)
 
-	req1 := &pb.LookupRequest{NodeID: id.String()}
-	req2 := &pb.LookupRequest{NodeID: id2.String()}
+	req1 := &pb.LookupRequest{NodeID: fid.ID.String()}
+	req2 := &pb.LookupRequest{NodeID: fid2.ID.String()}
 	rs := &pb.LookupRequests{Lookuprequest: []*pb.LookupRequest{req1, req2}}
 	r, err := c.BulkLookup(context.Background(), rs)
 	assert.NoError(t, err)
