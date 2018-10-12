@@ -4,10 +4,10 @@
 package pdbclient
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
 	"context"
+	"crypto/ecdsa"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gtank/cryptopasta"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -308,8 +308,8 @@ func TestAuth(t *testing.T) {
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
-	
-	peerCertificates := make([]*x509.Certificate, 2);
+
+	peerCertificates := make([]*x509.Certificate, 2)
 	peerCertificates[0] = identity.Leaf
 	peerCertificates[1] = identity.CA
 
@@ -321,7 +321,7 @@ func TestAuth(t *testing.T) {
 	peer := &peer.Peer{AuthInfo: info}
 	pointerdb := &PointerDB{
 		signatureHeader: &header,
-		peer: peer,
+		peer:            peer,
 	}
 
 	auth, _ := pointerdb.Auth()

@@ -4,9 +4,9 @@
 package pdbclient
 
 import (
-	"strings"
-	"encoding/base64"
 	"context"
+	"encoding/base64"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -153,6 +153,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 
 	return err
 }
+
 // Auth gets signature auth data from last request
 func (pdb *PointerDB) Auth() (*pb.SignatureAuth, error) {
 	signature := pdb.signatureHeader.Get("signature")
