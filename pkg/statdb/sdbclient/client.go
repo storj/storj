@@ -30,6 +30,7 @@ type Client interface {
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
+	CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error)
 }
 
 // NewClient initializes a new statdb client
@@ -129,4 +130,18 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 	res, err := sdb.grpcClient.UpdateBatch(ctx, updateBatchReq)
 
 	return res.StatsList, res.FailedNodes, err
+}
+
+// CreateEntryIfNotExists creates a db entry for a node if entry doesn't already exist
+func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	createReq := &pb.CreateEntryIfNotExistsRequest{
+		Node:   node,
+		APIKey: sdb.APIKey,
+	}
+
+	res, err := sdb.grpcClient.CreateEntryIfNotExists(ctx, createReq)
+
+	return res.Stats, err
 }

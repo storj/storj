@@ -288,6 +288,51 @@ func TestUpdateBatchEmpty(t *testing.T) {
 	assert.Equal(t, len(resp.StatsList), 0)
 }
 
+func TestCreateEntryIfNotExists(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	apiKey := []byte("")
+	nodeID1 := []byte("testnodeid1")
+	nodeID2 := []byte("testnodeid2")
+
+	auditSuccessCount1, totalAuditCount1, auditRatio1 := getRatio(4, 10)
+	uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1 := getRatio(8, 25)
+	err = createNode(ctx, db, nodeID1, auditSuccessCount1, totalAuditCount1, auditRatio1,
+		uptimeSuccessCount1, totalUptimeCount1, uptimeRatio1)
+	assert.NoError(t, err)
+
+	node1 := &pb.Node{
+		NodeId:             nodeID1,
+		UpdateAuditSuccess: true,
+		AuditSuccess:       true,
+		UpdateUptime:       true,
+		IsUp:               false,
+	}
+	node2 := &pb.Node{
+		NodeId:             nodeID2,
+		UpdateAuditSuccess: true,
+		AuditSuccess:       true,
+		UpdateUptime:       true,
+		IsUp:               false,
+	}
+
+	createIfNotExistsReq1 := &pb.CreateEntryIfNotExistsRequest{
+		Node:   node1,
+		APIKey: apiKey,
+	}
+	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq1)
+	assert.NoError(t, err)
+
+	createIfNotExistsReq2 := &pb.CreateEntryIfNotExistsRequest{
+		Node:   node2,
+		APIKey: apiKey,
+	}
+	_, err = statdb.CreateEntryIfNotExists(ctx, createIfNotExistsReq2)
+	assert.NoError(t, err)
+}
+
 func getDBPath() string {
 	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
 }

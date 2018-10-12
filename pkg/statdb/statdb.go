@@ -190,9 +190,9 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	APIKeyBytes := updateBatchReq.APIKey
-	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
+	var nodeStatsList []*pb.NodeStats
 	var failedNodes []*pb.Node
-	for i, node := range updateBatchReq.NodeList {
+	for _, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
 			Node:   node,
 			APIKey: APIKeyBytes,
@@ -203,7 +203,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 			s.logger.Error(err.Error())
 			failedNodes = append(failedNodes, node)
 		} else {
-			nodeStatsList[i] = updateRes.Stats
+			nodeStatsList = append(nodeStatsList, updateRes.Stats)
 		}
 	}
 
@@ -212,6 +212,39 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 		StatsList:   nodeStatsList,
 	}
 	return updateBatchRes, nil
+}
+
+// CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
+func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
+	APIKeyBytes := createIfReq.APIKey
+	getReq := &pb.GetRequest{
+		NodeId: createIfReq.Node.NodeId,
+		APIKey: APIKeyBytes,
+	}
+	getRes, err := s.Get(ctx, getReq)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result set") {
+			createReq := &pb.CreateRequest{
+				Node:   createIfReq.Node,
+				APIKey: APIKeyBytes,
+			}
+			res, err := s.Create(ctx, createReq)
+			if err != nil {
+				return nil, err
+			}
+			createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+				Stats:   res.Stats,
+				Existed: false,
+			}
+			return createEntryIfNotExistsRes, nil
+		}
+		return nil, err
+	}
+	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+		Stats:   getRes.Stats,
+		Existed: true,
+	}
+	return createEntryIfNotExistsRes, nil
 }
 
 func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {

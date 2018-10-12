@@ -19,40 +19,18 @@ type Service struct {
 	Reporter reporter
 }
 
-type servicer struct {
-	service *Service
-	ctx     context.Context
-	cancel  context.CancelFunc
-	errs    []error
-}
-
 // Config contains configurable values for audit service
 type Config struct {
-	Pointers   pdbclient.Client      ``
-	Transport  transport.Client      ``
-	Overlay    overlay.Client        ``
-	ID         provider.FullIdentity ``
-	StatDBPort string                `help:"port to contact statDB client" default:":7777"`
-}
-
-func (c Config) initialize(ctx context.Context) (servicer, error) {
-	var s servicer
-	serv, err := NewService(ctx, c.StatDBPort, c.Pointers, c.Transport, c.Overlay, c.ID)
-	if err != nil {
-		return servicer{}, err
-	}
-	s.service = serv
-	s.ctx, s.cancel = context.WithCancel(ctx)
-
-	return s, nil
+	StatDBPort       string `help:"port to contact statDB client" default:":7777"`
+	MaxRetriesStatDB int    `help:"max number of times to attempt updating a statdb batch" default:"3"`
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
-	reporter, err := NewReporter(ctx, statDBPort)
+	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +49,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = service.Reporter.RecordFailedAudits(ctx, failedNodes)
+	setNodes := service.Reporter.setAuditFailStatus(ctx, failedNodes)
+	err = service.Reporter.RecordAudits(ctx, setNodes)
 	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 	if !Error.Has(err) && err != nil {
 		return err

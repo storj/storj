@@ -9,22 +9,23 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	dbx "storj.io/storj/pkg/statdb/dbx"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 type reporter interface {
-	RecordFailedAudits(ctx context.Context, failedNodes []*pb.Node) (err error)
+	RecordAudits(ctx context.Context, failedNodes []*proto.Node) (err error)
+	setAuditFailStatus(ctx context.Context, failedNodes []*pb.Node) (setNodes []*proto.Node)
 }
 
 // Reporter records audit reports in statdb and implements the reporter interface
 type Reporter struct {
-	statdb sdbclient.Client
+	statdb     sdbclient.Client
+	maxRetries int
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(ctx context.Context, statDBPort string) (reporter *Reporter, err error) {
+func NewReporter(ctx context.Context, statDBPort string, maxRetries int) (reporter *Reporter, err error) {
 	ca, err := provider.NewCA(ctx, 12, 14)
 	if err != nil {
 		return nil, err
@@ -42,56 +43,49 @@ func NewReporter(ctx context.Context, statDBPort string) (reporter *Reporter, er
 	if err != nil {
 		return nil, err
 	}
-	return &Reporter{statdb: client}, nil
+	return &Reporter{statdb: client, maxRetries: maxRetries}, nil
 }
 
-// RecordFailedAudits saves failed audit details to statdb
-func (reporter *Reporter) RecordFailedAudits(ctx context.Context, failedNodes []*pb.Node) (err error) {
-	nodes, err := reporter.recordEntryIfNotExists(ctx, failedNodes)
-	if err != nil {
-		return err
+// RecordAudits saves failed audit details to statdb
+func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*proto.Node) (err error) {
+	for i, node := range nodes {
+		_, err := reporter.statdb.CreateEntryIfNotExists(ctx, node)
+		if err != nil {
+			return err
+		}
+		_, err = reporter.statdb.Update(ctx, nodes[i].NodeId, nodes[i].GetAuditSuccess(),
+			nodes[i].GetIsUp(), nodes[i].GetLatencyList(), nodes[i].GetUpdateAuditSuccess(),
+			nodes[i].GetUpdateUptime(), nodes[i].GetUpdateLatency())
+		if err != nil {
+			return err
+		}
 	}
-
-	finished := false
 	retries := 0
-	for !finished && retries < 3 {
+	for len(nodes) < reporter.maxRetries && retries < reporter.maxRetries {
 		_, failedNodes, err := reporter.statdb.UpdateBatch(ctx, nodes)
 		if err != nil {
 			return err
 		}
-		if len(failedNodes) == 0 {
-			finished = true
-		}
 		nodes = failedNodes
 		retries++
 	}
-	if retries == 3 {
+	if retries >= reporter.maxRetries && len(nodes) > 0 {
 		return Error.New("some nodes who failed the audit also failed to be updated in statdb")
 	}
 	return nil
 }
 
-// creates a statdb proto with node information and saves to statdb if it didn't already exist
-func (reporter *Reporter) recordEntryIfNotExists(ctx context.Context, failedNodes []*pb.Node) (nodes []*proto.Node, err error) {
-	nodes = make([]*proto.Node, len(failedNodes))
-	for i, fail := range failedNodes {
-		nodes[i] = &proto.Node{
-			NodeId:             []byte(fail.GetId()),
+func (reporter *Reporter) setAuditFailStatus(ctx context.Context, failedNodes []*pb.Node) (setNodes []*proto.Node) {
+	for i := range failedNodes {
+		setNode := &proto.Node{
+			NodeId:             []byte(failedNodes[i].GetId()),
 			AuditSuccess:       false,
 			IsUp:               true,
 			UpdateLatency:      false,
 			UpdateAuditSuccess: true,
 			UpdateUptime:       true,
 		}
-		_, err = reporter.statdb.Get(ctx, nodes[i].NodeId)
-		if err != nil {
-			if serr, ok := err.(*dbx.Error); ok && serr.Code == dbx.ErrorCode_NoRows {
-				err = reporter.statdb.Create(ctx, nodes[i].NodeId)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+		setNodes = append(setNodes, setNode)
 	}
-	return nodes, nil
+	return setNodes
 }
