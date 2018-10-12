@@ -34,7 +34,8 @@ var defaultTransport = pb.NodeTransport_TCP
 var NodeNotFound = NodeErr.New("node not found")
 
 type lookupOpts struct {
-	amount int
+	amount    int
+	bootstrap bool
 }
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
@@ -124,7 +125,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), lookupOpts{amount: 5})
+	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), lookupOpts{amount: 5, bootstrap: true})
 }
 
 func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) error {
@@ -135,19 +136,11 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 		return err
 	}
 
-	ctx, cf := context.WithCancel(ctx)
-	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
-	w.SetCancellation(cf)
-
-	wch := make(chan *pb.Node, k.alpha)
-	// kick off go routine to fetch work and send on work channel
-	go w.getWork(ctx, wch)
-	// kick off alpha works to consume from work channel
-	for i := 0; i < k.alpha; i++ {
-		go w.work(ctx, wch)
+	lookup := newSequentialLookup(k.routingTable, nodes, k.nodeClient, target, opts.amount, opts.bootstrap)
+	err = lookup.Run(ctx)
+	if err != nil {
+		zap.L().Warn("lookup failed", zap.Error(err))
 	}
-
-	<-ctx.Done()
 
 	return nil
 }

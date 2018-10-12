@@ -13,13 +13,13 @@ import (
 
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/statdb"
 )
 
@@ -48,9 +48,6 @@ var (
 		Overlay     overlay.Config
 		MockOverlay mockOverlay.Config
 		StatDB      statdb.Config
-		// RepairQueue   queue.Config
-		// RepairChecker checker.Config
-		// Repairer      repairer.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`

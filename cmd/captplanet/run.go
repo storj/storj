@@ -11,6 +11,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -22,7 +23,6 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/auth/grpcauth"
 )
 
 const (
