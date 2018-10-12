@@ -132,6 +132,7 @@ require (
 	github.com/prometheus/common v0.0.0-20180326160409-38c53a9f4bfc // indirect
 	github.com/prometheus/procfs v0.0.0-20180408092902-8b1c2da0d56d // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
+	golang.org/x/tools v0.0.0-20181011204843-157aeed469d4 // indirect
 )
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
