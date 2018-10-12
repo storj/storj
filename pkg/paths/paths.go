@@ -61,34 +61,6 @@ func (p Path) HasPrefix(prefix Path) bool {
 	return true
 }
 
-// EncryptWithBucket creates new Path by encrypting the current path with the given key
-// while keeping the bucket portion of the path unencrypted
-func (p Path) EncryptWithBucket(key []byte) (encrypted Path, err error) {
-	pathItems := []string(p)
-	bucket := pathItems[0]
-	toEncrypt := Path(pathItems[1:])
-
-	encPath, err := toEncrypt.Encrypt(key)
-	if err != nil {
-		return nil, err
-	}
-	return encPath.Prepend(bucket), nil
-}
-
-// DecryptWithBucket creates new Path by decrypting the current path with the given key
-// The first element in the provided path will be the unencrypted bucket name
-func (p Path) DecryptWithBucket(key []byte) (decrypted Path, err error) {
-	pathItems := []string(p)
-	bucket := pathItems[0]
-	toDecrypt := Path(pathItems[1:])
-
-	decPath, err := toDecrypt.Decrypt(key)
-	if err != nil {
-		return nil, err
-	}
-	return decPath.Prepend(bucket), nil
-}
-
 // Encrypt creates new Path by encrypting the current path with the given key
 func (p Path) Encrypt(key []byte) (encrypted Path, err error) {
 	encrypted = make([]string, len(p))

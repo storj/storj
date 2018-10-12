@@ -174,7 +174,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
-			encPath, err := path.EncryptWithBucket(s.rootKey)
+			encPath, err := encryptAfterBucket(path, s.rootKey)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -232,7 +232,7 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := path.EncryptWithBucket(s.rootKey)
+	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -308,7 +308,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := path.EncryptWithBucket(s.rootKey)
+	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -330,7 +330,7 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := path.EncryptWithBucket(s.rootKey)
+	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
-		encPath, err = path.EncryptWithBucket(s.rootKey)
+		encPath, err = encryptAfterBucket(path, s.rootKey)
 		if err != nil {
 			return err
 		}
@@ -377,13 +377,12 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	encPrefix, err := prefix.EncryptWithBucket(s.rootKey)
+	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
 	if err != nil {
 		return nil, false, err
 	}
 
-	prefixNoBucket := paths.Path([]string(prefix)[1:])
-	prefixKey, err := prefixNoBucket.DeriveKey(s.rootKey, len(prefixNoBucket))
+	prefixKey, err := prefix.DeriveKey(s.rootKey, len(prefix))
 	if err != nil {
 		return nil, false, err
 	}
@@ -484,6 +483,39 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+}
+
+// encryptAfterBucket encrypts a path without encrypting its first element
+func encryptAfterBucket(p paths.Path, key []byte) (encrypted paths.Path, err error) {
+	bucket := p[0]
+	toEncrypt := p[1:]
+
+	// derive a key from the bucket so the same path in different buckets is encrypted differently
+	bucketKey, err := p.DeriveKey(key, 1)
+	if err != nil {
+		return nil, err
+	}
+	encPath, err := toEncrypt.Encrypt(bucketKey)
+	if err != nil {
+		return nil, err
+	}
+	return encPath.Prepend(bucket), nil
+}
+
+// decryptAfterBucket decrypts a path without modifying its first element
+func decryptAfterBucket(p paths.Path, key []byte) (decrypted paths.Path, err error) {
+	bucket := p[0]
+	toDecrypt := p[1:]
+
+	bucketKey, err := p.DeriveKey(key, 1)
+	if err != nil {
+		return nil, err
+	}
+	decPath, err := toDecrypt.Decrypt(bucketKey)
+	if err != nil {
+		return nil, err
+	}
+	return decPath.Prepend(bucket), nil
 }
 
 // CancelHandler handles clean up of segments on receiving CTRL+C
