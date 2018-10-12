@@ -184,14 +184,14 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
-// UpdateBatch for updating  multiple farmers' stats in the db
+// UpdateBatch for updating multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
-	// todo(moby) how should we handle one node failing to update but not all?
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	APIKeyBytes := updateBatchReq.APIKey
 	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
+	var failedNodes []*pb.Node
 	for i, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
 			Node:   node,
@@ -200,14 +200,16 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 		updateRes, err := s.Update(ctx, updateReq)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			s.logger.Error(err.Error())
+			failedNodes = append(failedNodes, node)
+		} else {
+			nodeStatsList[i] = updateRes.Stats
 		}
-
-		nodeStatsList[i] = updateRes.Stats
 	}
 
 	updateBatchRes := &pb.UpdateBatchResponse{
-		StatsList: nodeStatsList,
+		FailedNodes: failedNodes,
+		StatsList:   nodeStatsList,
 	}
 	return updateBatchRes, nil
 }

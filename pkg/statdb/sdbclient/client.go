@@ -29,7 +29,7 @@ type Client interface {
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
-	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, error)
+	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
 }
 
 // NewClient initializes a new statdb client
@@ -118,7 +118,7 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp
 }
 
 // UpdateBatch is used for updating multiple nodes' stats in the stats db
-func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList []*pb.NodeStats, err error) {
+func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList []*pb.NodeStats, failedNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateBatchReq := &pb.UpdateBatchRequest{
@@ -128,5 +128,5 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 
 	res, err := sdb.grpcClient.UpdateBatch(ctx, updateBatchReq)
 
-	return res.StatsList, err
+	return res.StatsList, res.FailedNodes, err
 }

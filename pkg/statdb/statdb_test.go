@@ -262,7 +262,7 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 		APIKey:   apiKey,
 	}
 	_, err = statdb.UpdateBatch(ctx, updateBatchReq)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestUpdateBatchEmpty(t *testing.T) {

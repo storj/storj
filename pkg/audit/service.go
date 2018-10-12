@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
@@ -17,14 +16,19 @@ import (
 type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
-	statdb   *statdb
+	Reporter reporter
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Service {
+func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
-	return &Service{Cursor: cursor, Verifier: verifier}
+	reporter, err := NewReporter()
+	if err != nil {
+		return nil, err
+	}
+	return &Service{Cursor: cursor, Verifier: verifier, Reporter: reporter}, nil
 }
 
 // Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
@@ -39,12 +43,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	for _, fail := range failedNodes {
-		service.statdb.RecordFailedAudit(fail)
+	err = service.Reporter.RecordFailedAudits(ctx, failedNodes)
+	if err != nil {
+		return err
 	}
 	return nil
 }
-
-type statdb struct{}
-
-func (db *statdb) RecordFailedAudit(*pb.Node) {}

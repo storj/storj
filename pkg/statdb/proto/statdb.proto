@@ -77,4 +77,5 @@ message UpdateBatchRequest {
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
 message UpdateBatchResponse {
   repeated NodeStats stats_list = 1;
+  repeated Node failed_nodes = 2;
 }
