@@ -28,8 +28,7 @@ var (
 )
 
 // NewReporter instantiates a reporter
-func NewReporter() (reporter *Reporter, err error) {
-	ctx := context.Background()
+func NewReporter(ctx context.Context) (reporter *Reporter, err error) {
 	ca, err := provider.NewCA(ctx, 12, 14)
 	if err != nil {
 		return nil, err

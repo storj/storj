@@ -20,11 +20,11 @@ type Service struct {
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
-	reporter, err := NewReporter()
+	reporter, err := NewReporter(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return err
 	}
 	err = service.Reporter.RecordFailedAudits(ctx, failedNodes)
-	// if Error.Has(err) then log the error because it means not all node stats updated
+	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 	if !Error.Has(err) && err != nil {
 		return err
 	}
