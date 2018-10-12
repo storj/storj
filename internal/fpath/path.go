@@ -112,7 +112,7 @@ func (p FPath) IsLocal() bool {
 	return p.local
 }
 
-// String returns the entire URL
+// String returns the entire URL (untouched)
 func (p FPath) String() string {
 	return p.original
 }

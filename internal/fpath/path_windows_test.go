@@ -49,6 +49,10 @@ func TestLocalPathWindows(t *testing.T) {
 			base: `c`,
 		},
 		{
+			url:  `\\a/b\c`,
+			base: `c`,
+		},
+		{
 			url:  `a\b\c`,
 			base: `c`,
 		},
@@ -79,6 +83,22 @@ func TestLocalPathWindows(t *testing.T) {
 		{
 			url:  `\\?\C:\a\b\c`,
 			base: `c`,
+		},
+		{
+			url:  `\\?\C:\\a\\b\\c`,
+			base: `c`,
+		},
+		{
+			url:  `C:\a\b\`,
+			base: `b`,
+		},
+		{
+			url:  `C:\a\b\c.txt:extended`,
+			base: `c.txt:extended`,
+		},
+		{
+			url:  `\\a\b\c.txt:extended`,
+			base: `c.txt:extended`,
 		},
 	} {
 		testLocalPath(t, tt.url, tt.base, i)

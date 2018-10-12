@@ -36,16 +36,16 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
-// upload uploads src from local machine to s3 compatible object dst
+// upload transfers src from local machine to s3 compatible object dst
 func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
-	
+
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
-	
+
 	// if object name not specified, default to filename
 	if strings.HasSuffix(dst.Path(), "/") || dst.Path() == "" {
 		dst = dst.Join(src.Base())
@@ -98,12 +98,12 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 	return nil
 }
 
-// download downloads s3 compatible object src to dst on local machine
+// download transfers s3 compatible object src to dst on local machine
 func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
-	
+
 	if !dst.IsLocal() {
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
@@ -167,7 +167,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
-	
+
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}

@@ -138,10 +138,6 @@ func TestLocalPath(t *testing.T) {
 			url:  "///a/b/c",
 			base: "c",
 		},
-		{
-			url:  "//unc/a/b/c",
-			base: "c",
-		},
 	} {
 		testLocalPath(t, tt.url, tt.base, i)
 	}
