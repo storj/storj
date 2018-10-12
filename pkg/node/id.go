@@ -40,23 +40,3 @@ func IDFromString(s string) *ID {
 	n := ID(s)
 	return &n
 }
-
-// NewID is a deprecated function to generate Kademlia ID's for tests. IT IS BEING REMOVED.
-// Use NewFullIdentity instead in the meantime.
-// func NewID() (*ID, error) {
-// 	b, err := newID()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-//
-// 	bb := ID(base58.Encode(b))
-// 	return &bb, nil
-// }
-//
-// // newID generates a new random ID.
-// // This purely to get things working. We shouldn't use this as the ID in the actual network
-// func newID() ([]byte, error) {
-// 	result := make([]byte, 20)
-// 	_, err := rand.Read(result)
-// 	return result, err
-// }
