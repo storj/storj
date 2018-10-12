@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,17 +38,13 @@ func init() {
 
 // upload uploads args[0] from local machine to s3 compatible object args[1]
 func upload(ctx context.Context, bs buckets.Store, srcFile fpath.FPath, destObj fpath.FPath) error {
-	var err error
-	if destObj.Scheme() != "sj" {
-		return fmt.Errorf("Invalid destination, not a Storj Bucket")
-	}
-
 	// if object name not specified, default to filename
 	if strings.HasSuffix(destObj.Path(), "/") || destObj.Path() == "" {
-		destObj.Join(srcFile.Base())
+		destObj = destObj.Join(srcFile.Base())
 	}
 
 	var f *os.File
+	var err error
 	if srcFile.Base() == "-" {
 		f = os.Stdin
 	} else {
@@ -95,11 +92,6 @@ func upload(ctx context.Context, bs buckets.Store, srcFile fpath.FPath, destObj 
 
 // download downloads s3 compatible object args[0] to args[1] on local machine
 func download(ctx context.Context, bs buckets.Store, srcObj fpath.FPath, destObj fpath.FPath) error {
-	var err error
-	if srcObj.Scheme() != "sj" {
-		return fmt.Errorf("Invalid source, not a Storj Bucket")
-	}
-
 	o, err := bs.GetObjectStore(ctx, srcObj.Bucket())
 	if err != nil {
 		return err
@@ -128,7 +120,7 @@ func download(ctx context.Context, bs buckets.Store, srcObj fpath.FPath, destObj
 	}
 
 	var f *os.File
-	if destObj.Path() == "-" {
+	if destObj.Base() == "-" {
 		f = os.Stdout
 	} else {
 		f, err = os.Create(destObj.Path())
@@ -219,11 +211,11 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	u0, err := fpath.New(args[0])
+	src, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-	u1, err := fpath.New(args[1])
+	dest, err := fpath.New(args[1])
 	if err != nil {
 		return err
 	}
@@ -233,22 +225,21 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	// if both local
+	if src.IsLocal() && dest.IsLocal() {
+		return errors.New("At least one of the source or the desination must be a Storj URL")
+	}
+
 	// if uploading
-	if u0.IsLocal() {
-		if u1.Scheme() != "sj" && !u1.IsLocal() {
-			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
-		}
-		return upload(ctx, bs, u0, u1)
+	if src.IsLocal() {
+		return upload(ctx, bs, src, dest)
 	}
 
 	// if downloading
-	if u1.IsLocal() {
-		if u0.Scheme() != "sj" && !u0.IsLocal() {
-			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
-		}
-		return download(ctx, bs, u0, u1)
+	if dest.IsLocal() {
+		return download(ctx, bs, src, dest)
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, bs, u0, u1)
+	return copy(ctx, bs, src, dest)
 }

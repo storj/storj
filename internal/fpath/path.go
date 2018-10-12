@@ -4,109 +4,90 @@
 package fpath
 
 import (
+	"errors"
 	"fmt"
-	"os"
+	"net/url"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
+const storjScheme = "sj"
+
 // FPath is an OS independently path handling structure
 type FPath struct {
-	local  bool   // if file is local
-	scheme string // url scheme
-	bucket string // set if remote scheme
-	path   string // local file path or Storj path (without bucket), cleaned, with forward slashes
+	original string // the original URL or local path
+	local    bool   // if local path
+	bucket   string // only for Storj URL
+	path     string // only for Storj URL - the path within the bucket, cleaned from duplicated slashes
 }
-
-//windowsHandlingPrefix is a filter for the Universal Naming Convention path (Windows)
-var windowsHandlingPrefix = regexp.MustCompile(`^\\\\\?\\(UNC\\)?`)
 
 // New creates new FPath from the given URL
-func New(url string) (p FPath, err error) {
-	// Check for schema
-	split := strings.SplitN(url, "://", 2)
-	switch len(split) {
-	case 1: // No scheme
-		return parseLocalPath(split[0])
-	case 2: // Has scheme
-		return parseStorjURL(split[0], split[1])
-	default: // Everything else is malformed
-		return FPath{}, fmt.Errorf("malformed URL: %s", url)
-	}
-}
+func New(p string) (FPath, error) {
+	fp := FPath{original: p}
 
-func parseStorjURL(scheme, bucketPath string) (FPath, error) {
-	var p FPath
-
-	if scheme != "sj" {
-		return FPath{}, fmt.Errorf("unsupported URL scheme: %s", scheme)
-	}
-	p.scheme = scheme
-	// Trim initial slash of the path and clean it, afterwards split on first slash
-	split := strings.SplitN(path.Clean(strings.TrimLeft(bucketPath, "/")), "/", 2)
-	if p.bucket == "." { // result from path.Clean("") or path.Clean("/")
-		return FPath{}, fmt.Errorf("malformed URL: %s://%s", scheme, bucketPath)
-	}
-	p.bucket = split[0]
-	if len(split) == 2 {
-		p.path = split[1]
+	if filepath.IsAbs(p) {
+		fp.local = true
+		return fp, nil
 	}
 
-	return p, nil
-}
-
-func parseLocalPath(path string) (FPath, error) {
-	var p FPath
-	var err error
-
-	p.local = true
-	p.path = path
-	// If UNC prefix is present, omit further changes to the path
-	if prefix := windowsHandlingPrefix.FindString(p.path); prefix != "" {
-		p.scheme = prefix
-		p.path = strings.Replace(p.path, prefix, "", 1) // strip prefix
-		return p, nil
-	}
-	if filepath.IsAbs(p.path) {
-		return p, nil
-	}
-	// Ensure path is absolute
-	p.path, err = filepath.Abs(p.path)
+Parse:
+	u, err := url.Parse(p)
 	if err != nil {
-		return FPath{}, fmt.Errorf("cannot create absolute path for %s", p.path)
+		return fp, fmt.Errorf("malformed URL: %v, use format sj://bucket/", err)
 	}
 
-	return p, nil
+	if u.Scheme == "" {
+		fp.local = true
+		return fp, nil
+	}
+
+	if u.Scheme != storjScheme {
+		return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
+	}
+
+	if u.Host == "" && u.Path == "" {
+		return fp, errors.New("no bucket specified, use format sj://bucket/")
+	}
+
+	for u.Host == "" && u.Path != "" {
+		p = strings.Replace(p, ":///", "://", 1)
+		goto Parse
+	}
+
+	if u.Port() != "" {
+		return fp, errors.New("port in Storj URL is not supported, use format sj://bucket/")
+	}
+
+	fp.bucket = u.Host
+	if u.Path != "" {
+		fp.path = strings.TrimLeft(path.Clean(u.Path), "/")
+	}
+
+	return fp, nil
 }
 
 // Join is appends the given segment to the path
 func (p FPath) Join(segment string) FPath {
-	p.path = filepath.Join(p.path, segment)
-	if !p.local {
-		p.path = filepath.ToSlash(p.path)
+	if p.local {
+		p.original = filepath.Join(p.original, segment)
+		return p
 	}
+
+	p.original += "/" + segment
+	p.path = path.Join(p.path, segment)
 	return p
-}
-
-// Folder returns the parent folder of path
-func (p FPath) Folder() string {
-	return filepath.Dir(p.path)
-}
-
-// IsFolder returns if path is a folder
-func (p FPath) IsFolder() bool {
-	fileInfo, err := os.Stat(p.path)
-	if err != nil {
-		return false
-	}
-	return fileInfo.IsDir()
 }
 
 // Base returns the last segment of the path
 func (p FPath) Base() string {
-	return filepath.Base(p.path)
+	if p.local {
+		return filepath.Base(p.original)
+	}
+	if p.path == "" {
+		return ""
+	}
+	return path.Base(p.path)
 }
 
 // Bucket returns the first segment of path
@@ -114,18 +95,11 @@ func (p FPath) Bucket() string {
 	return p.bucket
 }
 
-// BucketPath returns path prepended with the bucket name
-func (p FPath) BucketPath() string {
-	if p.local || p.bucket != "" {
-		return ""
-	}
-	return p.bucket + "/" + p.path
-}
-
-// Path returns
-// URL path for remote paths (ex. "/folder/example.txt")
-// Filepath for local paths (ex. "C:\User\example.txt", "\\remote\example.txt" or "/home/user/example.txt")
+// Path returns the URL path without the scheme
 func (p FPath) Path() string {
+	if p.local {
+		return p.original
+	}
 	return p.path
 }
 
@@ -134,26 +108,7 @@ func (p FPath) IsLocal() bool {
 	return p.local
 }
 
-// HasScheme returns if the URL had a scheme
-func (p FPath) HasScheme() bool {
-	return p.scheme != ""
-}
-
-// Scheme returns the scheme of the URL
-func (p FPath) Scheme() string {
-	return p.scheme
-}
-
 // String returns the entire URL
 func (p FPath) String() string {
-	if p.HasScheme() && !p.IsLocal() {
-		// URL-s like sj://bucket/folder/file.txt
-		return p.scheme + "://" + p.BucketPath()
-	}
-	if p.HasScheme() && p.IsLocal() {
-		// UNC Path or Path with WindowsHandlingPrefix
-		return p.scheme + p.path
-	}
-	// Paths like "/home/user/example.txt" or "C:\folder\example.txt"
-	return p.path
+	return p.original
 }
