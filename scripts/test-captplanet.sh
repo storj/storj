@@ -79,6 +79,9 @@ fi
 kill -9 $CAPT_PID
 
 rm small-upload-testfile
+rm small-download-testfile
 rm big-upload-testfile
+rm big-download-testfile
 rm multipart-upload-testfile
+rm multipart-download-testfile
 rm big-download-testfile-ipv6
