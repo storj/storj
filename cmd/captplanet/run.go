@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"github.com/alicebob/miniredis"
 )
 
 const (
@@ -100,6 +101,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
 	}
+
+	m := miniredis.NewMiniRedis()
+	m.RequireAuth("abc123")
+
+	if err = m.StartAddr(":6378"); err != nil {
+	   return err
+    }
+
+   defer m.Close()
 
 	// start satellite
 	go func() {

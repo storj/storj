@@ -112,8 +112,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	startingPort := setupCfg.StartingPort
 
 	overrides := map[string]interface{}{
-		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
-		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
+		"satellite.repairer.queue-address": "redis://localhost:6378?db=0&password=abc123",
+		"satellite.identity.cert-path":     setupCfg.HCIdentity.CertPath,
+		"satellite.identity.key-path":      setupCfg.HCIdentity.KeyPath,
 		"satellite.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.todo-listen-addr": joinHostPort(

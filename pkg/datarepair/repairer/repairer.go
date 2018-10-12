@@ -4,6 +4,7 @@
 package repairer
 
 import (
+	"go.uber.org/zap"
 	"context"
 	"fmt"
 	"sync"
@@ -25,7 +26,7 @@ type Repairer interface {
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
+	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=abc123"`
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
@@ -72,6 +73,8 @@ type repairer struct {
 
 // Run the repairer loop
 func (r *repairer) Run() (err error) {
+	zap.S().Info("Repairer is starting up")
+
 	c := make(chan *pb.InjuredSegment)
 
 	ticker := time.NewTicker(r.interval)
