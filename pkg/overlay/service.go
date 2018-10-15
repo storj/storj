@@ -5,7 +5,7 @@ package overlay
 
 import (
 	"google.golang.org/grpc"
-	
+
 	"storj.io/storj/pkg/pb"
 )
 
