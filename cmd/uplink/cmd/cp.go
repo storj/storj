@@ -5,18 +5,17 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
-	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/cheggaaa/pb"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
@@ -37,33 +36,27 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 }
 
-func cleanAbsPath(p string) string {
-	prefix := strings.HasSuffix(p, "/")
-	p = path.Join("/", p)
-	if !strings.HasSuffix(p, "/") && prefix {
-		p += "/"
-	}
-	return p
-}
-
-// upload uploads args[0] from local machine to s3 compatible object args[1]
-func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.URL) error {
-	var err error
-	if destObj.Scheme == "" {
-		return fmt.Errorf("Invalid destination")
+// upload transfers src from local machine to s3 compatible object dst
+func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+	if !src.IsLocal() {
+		return fmt.Errorf("source must be local path: %s", src)
 	}
 
-	destObj.Path = cleanAbsPath(destObj.Path)
+	if dst.IsLocal() {
+		return fmt.Errorf("destination must be Storj URL: %s", dst)
+	}
+
 	// if object name not specified, default to filename
-	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = path.Join(destObj.Path, path.Base(srcFile))
+	if strings.HasSuffix(dst.Path(), "/") || dst.Path() == "" {
+		dst = dst.Join(src.Base())
 	}
 
 	var f *os.File
-	if srcFile == "-" {
+	var err error
+	if src.Base() == "-" {
 		f = os.Stdin
 	} else {
-		f, err = os.Open(srcFile)
+		f, err = os.Open(src.Path())
 		if err != nil {
 			return err
 		}
@@ -83,7 +76,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		r = bar.NewProxyReader(r)
 	}
 
-	o, err := bs.GetObjectStore(ctx, destObj.Host)
+	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
@@ -91,7 +84,7 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
+	_, err = o.Put(ctx, paths.New(dst.Path()), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -100,24 +93,27 @@ func upload(ctx context.Context, bs buckets.Store, srcFile string, destObj *url.
 		bar.Finish()
 	}
 
-	fmt.Printf("Created %s\n", destObj)
+	fmt.Printf("Created %s\n", dst.String())
 
 	return nil
 }
 
-// download downloads s3 compatible object args[0] to args[1] on local machine
-func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile string) error {
-	var err error
-	if srcObj.Scheme == "" {
-		return fmt.Errorf("Invalid source")
+// download transfers s3 compatible object src to dst on local machine
+func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+	if src.IsLocal() {
+		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
 
-	o, err := bs.GetObjectStore(ctx, srcObj.Host)
+	if !dst.IsLocal() {
+		return fmt.Errorf("destination must be local path: %s", dst)
+	}
+
+	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
 		return err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
+	rr, _, err := o.Get(ctx, paths.New(src.Path()))
 	if err != nil {
 		return err
 	}
@@ -135,15 +131,15 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		r = bar.NewProxyReader(r)
 	}
 
-	if fi, err := os.Stat(destFile); err == nil && fi.IsDir() {
-		destFile = filepath.Join(destFile, filepath.Base(srcObj.Path))
+	if fi, err := os.Stat(dst.Path()); err == nil && fi.IsDir() {
+		dst = dst.Join((src.Base()))
 	}
 
 	var f *os.File
-	if destFile == "-" {
+	if dst.Base() == "-" {
 		f = os.Stdout
 	} else {
-		f, err = os.Create(destFile)
+		f, err = os.Create(dst.Path())
 		if err != nil {
 			return err
 		}
@@ -159,21 +155,29 @@ func download(ctx context.Context, bs buckets.Store, srcObj *url.URL, destFile s
 		bar.Finish()
 	}
 
-	if destFile != "-" {
-		fmt.Printf("Downloaded %s to %s\n", srcObj, destFile)
+	if dst.Base() != "-" {
+		fmt.Printf("Downloaded %s to %s\n", src.String(), dst.String())
 	}
 
 	return nil
 }
 
-// copy copies s3 compatible object args[0] to s3 compatible object args[1]
-func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.URL) error {
-	o, err := bs.GetObjectStore(ctx, srcObj.Host)
+// copy copies s3 compatible object src to s3 compatible object dst
+func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+	if src.IsLocal() {
+		return fmt.Errorf("source must be Storj URL: %s", src)
+	}
+
+	if dst.IsLocal() {
+		return fmt.Errorf("destination must be Storj URL: %s", dst)
+	}
+
+	o, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
 		return err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(srcObj.Path))
+	rr, _, err := o.Get(ctx, paths.New(src.Path()))
 	if err != nil {
 		return err
 	}
@@ -191,8 +195,8 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		r = bar.NewProxyReader(r)
 	}
 
-	if destObj.Host != srcObj.Host {
-		o, err = bs.GetObjectStore(ctx, destObj.Host)
+	if dst.Bucket() != src.Bucket() {
+		o, err = bs.GetObjectStore(ctx, dst.Bucket())
 		if err != nil {
 			return err
 		}
@@ -201,13 +205,12 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	destObj.Path = cleanAbsPath(destObj.Path)
 	// if destination object name not specified, default to source object name
-	if strings.HasSuffix(destObj.Path, "/") {
-		destObj.Path = path.Join(destObj.Path, path.Base(srcObj.Path))
+	if strings.HasSuffix(dst.Path(), "/") {
+		dst = dst.Join(src.Base())
 	}
 
-	_, err = o.Put(ctx, paths.New(destObj.Path), r, meta, expTime)
+	_, err = o.Put(ctx, paths.New(dst.Path()), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -216,7 +219,7 @@ func copy(ctx context.Context, bs buckets.Store, srcObj *url.URL, destObj *url.U
 		bar.Finish()
 	}
 
-	fmt.Printf("%s copied to %s\n", srcObj, destObj)
+	fmt.Printf("%s copied to %s\n", src.String(), dst.String())
 
 	return nil
 }
@@ -232,12 +235,11 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	u0, err := utils.ParseURL(args[0])
+	src, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-
-	u1, err := utils.ParseURL(args[1])
+	dst, err := fpath.New(args[1])
 	if err != nil {
 		return err
 	}
@@ -247,24 +249,21 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// if uploading
-	if u0.Scheme == "" {
-		if u1.Host == "" {
-			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
-		}
+	// if both local
+	if src.IsLocal() && dst.IsLocal() {
+		return errors.New("At least one of the source or the desination must be a Storj URL")
+	}
 
-		return upload(ctx, bs, args[0], u1)
+	// if uploading
+	if src.IsLocal() {
+		return upload(ctx, bs, src, dst)
 	}
 
 	// if downloading
-	if u1.Scheme == "" {
-		if u0.Host == "" {
-			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
-		}
-
-		return download(ctx, bs, u0, args[1])
+	if dst.IsLocal() {
+		return download(ctx, bs, src, dst)
 	}
 
 	// if copying from one remote location to another
-	return copy(ctx, bs, u0, u1)
+	return copy(ctx, bs, src, dst)
 }
