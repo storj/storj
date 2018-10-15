@@ -197,7 +197,7 @@ func main() {
 				return err
 			}
 
-			log.Printf("Space Used: %v, Space Available: %v\n", summary.UsedSpace, summary.AvailableSpace)
+			log.Printf("Space Used: %v, Space Available: %v\nBandwidth Available: %v, Bandwidth Used: %v\n", summary.GetUsedSpace(), summary.GetAvailableSpace(), summary.GetAvailableBandwidth(), summary.GetUsedBandwidth())
 			return nil
 		},
 	})
