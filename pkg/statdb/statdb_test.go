@@ -155,29 +155,6 @@ func TestUpdateExists(t *testing.T) {
 	assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
 }
 
-func TestUpdateDoesNotExist(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, _, err := getServerAndDB(dbPath)
-	assert.NoError(t, err)
-
-	apiKey := []byte("")
-	nodeID := []byte("testnodeid")
-
-	node := &pb.Node{
-		NodeId:             nodeID,
-		UpdateAuditSuccess: true,
-		AuditSuccess:       true,
-		UpdateUptime:       true,
-		IsUp:               false,
-	}
-	updateReq := &pb.UpdateRequest{
-		Node:   node,
-		APIKey: apiKey,
-	}
-	_, err = statdb.Update(ctx, updateReq)
-	assert.Error(t, err)
-}
-
 func TestUpdateBatchExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)

@@ -48,18 +48,6 @@ func NewReporter(ctx context.Context, statDBPort string, maxRetries int) (report
 
 // RecordAudits saves failed audit details to statdb
 func (reporter *Reporter) RecordAudits(ctx context.Context, nodes []*proto.Node) (err error) {
-	for i, node := range nodes {
-		_, err := reporter.statdb.CreateEntryIfNotExists(ctx, node)
-		if err != nil {
-			return err
-		}
-		_, err = reporter.statdb.Update(ctx, nodes[i].NodeId, nodes[i].GetAuditSuccess(),
-			nodes[i].GetIsUp(), nodes[i].GetLatencyList(), nodes[i].GetUpdateAuditSuccess(),
-			nodes[i].GetUpdateUptime(), nodes[i].GetUpdateLatency())
-		if err != nil {
-			return err
-		}
-	}
 	retries := 0
 	for len(nodes) < reporter.maxRetries && retries < reporter.maxRetries {
 		_, failedNodes, err := reporter.statdb.UpdateBatch(ctx, nodes)

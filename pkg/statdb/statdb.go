@@ -130,7 +130,17 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		return nil, err
 	}
 
-	node := updateReq.Node
+	node := updateReq.GetNode()
+
+	createIfReq := &pb.CreateEntryIfNotExistsRequest{
+		Node:   updateReq.GetNode(),
+		APIKey: APIKeyBytes,
+	}
+
+	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
+	if err != nil {
+		return nil, err
+	}
 
 	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(string(node.NodeId)))
 	if err != nil {
@@ -233,16 +243,14 @@ func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 				return nil, err
 			}
 			createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
-				Stats:   res.Stats,
-				Existed: false,
+				Stats: res.Stats,
 			}
 			return createEntryIfNotExistsRes, nil
 		}
 		return nil, err
 	}
 	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
-		Stats:   getRes.Stats,
-		Existed: true,
+		Stats: getRes.Stats,
 	}
 	return createEntryIfNotExistsRes, nil
 }

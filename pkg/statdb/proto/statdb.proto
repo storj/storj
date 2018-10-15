@@ -91,5 +91,4 @@ message CreateEntryIfNotExistsRequest {
 // CreateEntryIfNotExistsResponse is a response message for the CreateEntryIfNotExists rpc call
 message CreateEntryIfNotExistsResponse  {
   NodeStats stats = 1;
-  bool existed = 2;
 }
