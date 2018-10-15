@@ -30,13 +30,19 @@ func TestStreamStoreMeta(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
-	md := pb.MetaStreamInfo{
+	stream, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 2,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
 		Metadata:         []byte{},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	lastSegmentMetadata, err := proto.Marshal(&md)
+
+	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: stream,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,12 +193,18 @@ func TestStreamStoreGet(t *testing.T) {
 		closer: readCloserStub{},
 	}
 
-	msi := pb.MetaStreamInfo{
+	stream, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 1,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	lastSegmentMeta, err := proto.Marshal(&msi)
+
+	lastSegmentMeta, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: stream,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
