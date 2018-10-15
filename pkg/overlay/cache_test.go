@@ -133,7 +133,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "foo",
 			expectedResponses: func() responses {
-				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   na,
 					bolt:   na,
@@ -148,7 +148,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("foo"),
 				Value: func() storage.Value {
-					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -161,7 +161,7 @@ var (
 			expectedTimesCalled: 1,
 			key:                 "error",
 			expectedResponses: func() responses {
-				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 				return responses{
 					mock:   nil,
 					bolt:   na,
@@ -176,7 +176,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("error"),
 				Value: func() storage.Value {
-					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -202,7 +202,7 @@ var (
 			data: []storage.ListItem{{
 				Key: storage.Key("foo"),
 				Value: func() storage.Value {
-					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
 					if err != nil {
 						panic(err)
@@ -224,7 +224,7 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1"},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 				ns := []*pb.Node{n1}
 				return responsesB{
 					mock:   ns,
@@ -241,7 +241,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -255,8 +255,8 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1", "key2"},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
-				n2 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
+				n2 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}}
 				ns := []*pb.Node{n1, n2}
 				return responsesB{
 					mock:   ns,
@@ -273,7 +273,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -283,7 +283,7 @@ var (
 				}, {
 					Key: storage.Key("key2"),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9998"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -297,7 +297,7 @@ var (
 			expectedTimesCalled: 1,
 			keys:                []string{"key1", "key3"},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 				ns := []*pb.Node{n1, nil}
 				return responsesB{
 					mock:   ns,
@@ -314,7 +314,7 @@ var (
 				{
 					Key: storage.Key("key1"),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}}
+						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 						d, err := proto.Marshal(na)
 						if err != nil {
 							panic(err)
@@ -370,7 +370,7 @@ var (
 			testID:              "valid Put",
 			expectedTimesCalled: 1,
 			key:                 "foo",
-			value:               pb.Node{Id: "foo", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: "127.0.0.1:9999"}},
+			value:               pb.Node{Id: "foo", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}},
 			expectedErrors: errors{
 				mock:   nil,
 				bolt:   nil,
