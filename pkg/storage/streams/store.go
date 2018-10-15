@@ -276,6 +276,11 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	encPath, err := encryptAfterBucket(path, s.rootKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
 	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
@@ -388,6 +393,11 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 // Delete all the segments, with the last one last
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	encPath, err := encryptAfterBucket(path, s.rootKey)
+	if err != nil {
+		return err
+	}
 
 	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
 	if err != nil {
