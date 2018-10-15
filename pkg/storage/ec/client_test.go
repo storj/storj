@@ -59,12 +59,12 @@ func TestNewECClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	tc := NewMockClient(ctrl)
+	transport := NewMockClient(ctrl)
 	mbm := 1234
 
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	identity := &provider.FullIdentity{Key: privKey}
-	ec := NewClient(identity, tc, mbm)
+	ec := NewClient(identity, transport, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
@@ -74,8 +74,8 @@ func TestNewECClient(t *testing.T) {
 
 	dd, ok := ecc.d.(*defaultDialer)
 	assert.True(t, ok)
-	assert.NotNil(t, dd.t)
-	assert.Equal(t, dd.t, tc)
+	assert.NotNil(t, dd.transport)
+	assert.Equal(t, dd.transport, transport)
 }
 
 func TestDefaultDialer(t *testing.T) {
@@ -95,10 +95,10 @@ func TestDefaultDialer(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		tc := NewMockClient(ctrl)
-		tc.EXPECT().DialNode(gomock.Any(), node0).Return(nil, tt.err)
+		transport := NewMockClient(ctrl)
+		transport.EXPECT().DialNode(gomock.Any(), node0).Return(nil, tt.err)
 
-		dd := defaultDialer{t: tc, identity: identity}
+		dd := defaultDialer{transport: transport, identity: identity}
 		_, err := dd.dial(ctx, node0)
 
 		if tt.errString != "" {
