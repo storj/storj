@@ -28,7 +28,7 @@ func TestDialNode(t *testing.T) {
 	node := pb.Node{
 		Id: "DUMMYID1",
 		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "",
 		},
 	}
@@ -49,7 +49,7 @@ func TestDialNode(t *testing.T) {
 	node = pb.Node{
 		Id: "DUMMYID3",
 		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   "127.0.0.0:9000",
 		},
 	}
