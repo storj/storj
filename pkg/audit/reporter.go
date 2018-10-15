@@ -75,6 +75,7 @@ func setAuditFailStatus(ctx context.Context, failedNodes []string) (failStatusNo
 	return failStatusNodes
 }
 
+// TODO: offline nodes should maybe be marked as failing the audit in the future
 func setOfflineStatus(ctx context.Context, offlineNodeIDs []string) (offlineStatusNodes []*proto.Node) {
 	for i := range offlineNodeIDs {
 		setNode := &proto.Node{

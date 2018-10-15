@@ -92,7 +92,7 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		}
 		var nodesDown int
 		for _, node := range verifiedNodes {
-			if node.IsUp == false {
+			if !node.IsUp {
 				nodesDown++
 			}
 		}

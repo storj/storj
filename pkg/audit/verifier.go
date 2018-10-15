@@ -224,13 +224,14 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		failedNodes = append(failedNodes, nodes[pieceNum].GetId())
 	}
 
-	successNodes := setSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
+	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
 	verifiedNodes = setVerifiedNodes(ctx, nodes, offlineNodes, failedNodes, successNodes)
 
 	return verifiedNodes, nil
 }
 
-func setSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes []string) (successStatusNodes []*proto.Node) {
+// getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
+func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes []string) (successNodes []string) {
 	fails := make(map[string]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -239,23 +240,23 @@ func setSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offline
 		fails[offline] = true
 	}
 
-	var successNodes []string
 	for _, node := range nodes {
 		if !fails[node.GetId()] {
 			successNodes = append(successNodes, node.GetId())
 		}
 	}
-	successStatusNodes = setSuccessStatus(ctx, successNodes)
-	return successStatusNodes
+	return successNodes
 }
 
-func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes []string, successNodes []*proto.Node) (verifiedNodes []*proto.Node) {
+// setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
+func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*proto.Node) {
 	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
 	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
+	successStatusNodes := setSuccessStatus(ctx, successNodes)
 
 	verifiedNodes = append(verifiedNodes, offlineStatusNodes...)
 	verifiedNodes = append(verifiedNodes, failStatusNodes...)
-	verifiedNodes = append(verifiedNodes, successNodes...)
+	verifiedNodes = append(verifiedNodes, successStatusNodes...)
 
 	return verifiedNodes
 }
