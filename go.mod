@@ -6,15 +6,10 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20180725035823-b12b22c5341f // indirect
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629
-	github.com/anacrolix/missinggo v0.0.0-20180525074307-ca16e9f398a9 // indirect
-	github.com/anacrolix/sync v0.0.0-20180525101250-3870fa5b90c5 // indirect
-	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572 // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/boltdb/bolt v1.3.1
-	github.com/ccding/go-stun v0.0.0-20180726100737-be486d185f3d // indirect
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
-	github.com/coyle/kademlia v0.0.0-20180731134840-067f3a3d536b
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/djherbis/atime v1.0.0 // indirect
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d // indirect
@@ -31,6 +26,7 @@ require (
 	github.com/gogo/protobuf v1.1.1
 	github.com/golang/mock v1.1.1
 	github.com/golang/protobuf v1.2.0
+	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.2.0
 	github.com/gopherjs/gopherjs v0.0.0-20180825215210-0210a2f0f73c // indirect
