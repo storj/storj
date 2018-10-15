@@ -121,8 +121,7 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 	return p.g.Serve(p.lis)
 }
 
-func streamInterceptor(srv interface{}, ss grpc.ServerStream,
-	info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
 		// no zap errors for canceled or wrong file downloads
@@ -137,8 +136,7 @@ func streamInterceptor(srv interface{}, ss grpc.ServerStream,
 	return err
 }
 
-func unaryInterceptor(ctx context.Context, req interface{},
-	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
+func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
 	err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
