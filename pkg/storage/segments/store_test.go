@@ -113,7 +113,7 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		calls := []*gomock.Call{
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return([]*pb.Node{
 				{Id: "im-a-node"},
 			}, nil),

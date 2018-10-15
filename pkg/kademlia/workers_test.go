@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
-	mock "storj.io/storj/pkg/overlay/mocks"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -199,7 +199,6 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 	mn := &mockNodeServer{queryCalled: 0}
 
 	pb.RegisterNodesServer(grpcServer, mn)
-	pb.RegisterOverlayServer(grpcServer, mock.NewOverlay(nn))
 
 	return grpcServer, mn
 }

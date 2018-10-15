@@ -73,6 +73,7 @@ message OverlayOptions {
     int64 minSpeedKbps = 3;
     int64 amount = 4;
     NodeRestrictions restrictions = 5;
+    repeated string excluded_nodes = 6;
 }
 
 // NodeRep is the reputation characteristics of a node
@@ -123,7 +124,7 @@ message Restriction {
         freeBandwidth = 0;
         freeDisk = 1;
     }
-    
+
     Operator operator = 1;
     Operand operand = 2;
     int64 value = 3;
