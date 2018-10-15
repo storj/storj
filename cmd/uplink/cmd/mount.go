@@ -17,7 +17,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/spf13/cobra"
-	
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/ranger"
