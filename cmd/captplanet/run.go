@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -69,6 +70,19 @@ var (
 func init() {
 	rootCmd.AddCommand(runCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
+}
+
+func collectErrors(errch chan error, d time.Duration) error {
+	errs := []error{<-errch}
+
+	for {
+		select {
+		case err := <-errch:
+			errs = append(errs, err)
+		case <-time.After(d):
+			return utils.CombineErrors(errs...)
+		}
+	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -147,10 +161,5 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	select {
-	case error := <-errch:
-		runCfg.Errors = append(runCfg.Errors, error)
-	}
-
-	return utils.CombineErrors(runCfg.Errors...)
+	return collectErrors(errch, time.Duration(5*time.Second))
 }
