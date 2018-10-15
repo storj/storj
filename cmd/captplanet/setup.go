@@ -112,8 +112,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	startingPort := setupCfg.StartingPort
 
 	overrides := map[string]interface{}{
-		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
-		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
+		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
+		"satellite.identity.cert-path":     setupCfg.HCIdentity.CertPath,
+		"satellite.identity.key-path":      setupCfg.HCIdentity.KeyPath,
 		"satellite.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.todo-listen-addr": joinHostPort(
@@ -134,7 +135,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.ListenHost, startingPort+1),
 		"uplink.minio-dir": filepath.Join(
 			setupCfg.BasePath, "uplink", "minio"),
-		"uplink.enc-key": setupCfg.EncKey,
+		"uplink.enc-key":          setupCfg.EncKey,
 		"uplink.api-key":          setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
 	}

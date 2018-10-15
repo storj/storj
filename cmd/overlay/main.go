@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/process"
 )
 
 var (

@@ -58,15 +58,10 @@ func kadconfig() kademlia.KadConfig {
 
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
 	kc := kadconfig()
-	i, err := node.NewID()
+	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
-	id := *i
 	n := []pb.Node{b}
-	ca, err := provider.NewCA(ctx, 12, 4)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-	kad, err := kademlia.NewKademlia(&id, n, fmt.Sprintf("%s:%s", ip, port), identity, "db", kc)
+	kad, err := kademlia.NewKademlia(fid.ID, n, fmt.Sprintf("%s:%s", ip, port), fid, "db", kc)
 	assert.NoError(t, err)
 
 	return kad
@@ -74,10 +69,9 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kadem
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	kc := kadconfig()
-	bid, err := node.NewID()
+	bid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
-	bnid := *bid
 	dhts := []dht.DHT{}
 
 	p, err := strconv.Atoi(port)
@@ -91,7 +85,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(&bnid, []pb.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity, "db", kc)
+	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, fmt.Sprintf("%s:%s", ip, pm), identity, "db", kc)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -108,16 +102,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 		gg := strconv.Itoa(p)
 		kc := kadconfig()
 
-		nid, err := node.NewID()
-		assert.NoError(t, err)
-		id := *nid
-
-		ca, err := provider.NewCA(ctx, 12, 4)
-		assert.NoError(t, err)
-		identity, err := ca.NewIdentity()
+		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(&id, []pb.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), identity, "db", kc)
+		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, fmt.Sprintf("%s:%s", ip, gg), fid, "db", kc)
 		assert.NoError(t, err)
 
 		p++
