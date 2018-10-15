@@ -229,12 +229,14 @@ func TestGetNodes(t *testing.T) {
 	// add nodes
 	ids := []string{"A", "B", "C", "D"}
 	bw := []int64{1, 2, 3, 4}
+	disk := []int64{4, 3, 2, 1}
 	nodes := []*pb.Node{}
 	for i, v := range ids {
 		n := &pb.Node{
 			Id: v,
 			Restrictions: &pb.NodeRestrictions{
 				FreeBandwidth: bw[i],
+				FreeDisk:      disk[i],
 			},
 		}
 		nodes = append(nodes, n)
@@ -250,20 +252,47 @@ func TestGetNodes(t *testing.T) {
 		expected     []*pb.Node
 	}{
 		{testID: "one",
-			start:        "B",
-			limit:        2,
+			start: "B",
+			limit: 2,
+			restrictions: []pb.Restriction{
+				pb.Restriction{
+					Operator: pb.Restriction_GT,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(2),
+				},
+			},
+			expected: nodes[2:],
+		},
+		{testID: "two",
+			start: "A",
+			limit: 3,
+			restrictions: []pb.Restriction{
+				pb.Restriction{
+					Operator: pb.Restriction_GT,
+					Operand:  pb.Restriction_freeBandwidth,
+					Value:    int64(2),
+				},
+				pb.Restriction{
+					Operator: pb.Restriction_LT,
+					Operand:  pb.Restriction_freeDisk,
+					Value:    int64(2),
+				},
+			},
+			expected: nodes[3:],
+		},
+		{testID: "three",
+			start:        "A",
+			limit:        4,
 			restrictions: []pb.Restriction{},
-			expected:     []*pb.Node{},
-		}, //one
-		{}, //multiple
-		{}, //none
+			expected:     nodes,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			nodes, err := k.GetNodes(ctx, c.start, c.limit, c.restrictions...)
+			ns, err := k.GetNodes(ctx, c.start, c.limit, c.restrictions...)
 			assert.NoError(t, err)
-			assert.Equal(t, len(c.expected), len(nodes))
-			for i, n := range nodes {
+			assert.Equal(t, len(c.expected), len(ns))
+			for i, n := range ns {
 				assert.True(t, proto.Equal(c.expected[i], n))
 			}
 		})

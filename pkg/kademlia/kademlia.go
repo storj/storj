@@ -109,7 +109,6 @@ func (k *Kademlia) Disconnect() error {
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes := []*pb.Node{}
-
 	err := k.routingTable.iterate(storage.IterateOptions{
 		First:   storage.Key(start),
 		Recurse: true,
