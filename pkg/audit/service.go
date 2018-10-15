@@ -21,7 +21,7 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	StatDBPort       string `help:"port to contact statDB client" default:":7777"`
+	StatDBPort       string `help:"port to contact statDB client" default:":9090"`
 	MaxRetriesStatDB int    `help:"max number of times to attempt updating a statdb batch" default:"3"`
 }
 
