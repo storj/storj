@@ -28,7 +28,7 @@ var NodeErr = errs.Class("node error")
 var BootstrapErr = errs.Class("bootstrap node error")
 
 //TODO: shouldn't default to TCP but not sure what to do yet
-var defaultTransport = pb.NodeTransport_TCP
+var defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 
 // NodeNotFound is returned when a lookup can not produce the requested node
 var NodeNotFound = NodeErr.New("node not found")
