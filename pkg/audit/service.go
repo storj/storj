@@ -45,12 +45,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	failedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
 	if err != nil {
 		return err
 	}
-	setNodes := service.Reporter.setAuditFailStatus(ctx, failedNodes)
-	err = service.Reporter.RecordAudits(ctx, setNodes)
+	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 	if !Error.Has(err) && err != nil {
 		return err

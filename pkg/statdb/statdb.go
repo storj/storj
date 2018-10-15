@@ -233,6 +233,7 @@ func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 	}
 	getRes, err := s.Get(ctx, getReq)
 	if err != nil {
+		// TODO: figure out how to confirm error is type dbx.ErrorCode_NoRows
 		if strings.Contains(err.Error(), "no rows in result set") {
 			createReq := &pb.CreateRequest{
 				Node:   createIfReq.Node,
