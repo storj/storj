@@ -292,15 +292,24 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		log.Println("KISHORE -->  length of originalNodes =", len(originalNodes))
 		nilNodes := 0
 		for i := range originalNodes {
+			log.Println("KISHORE -->  originalNodes [", i, "] = ", originalNodes[i])
 			if originalNodes[i] == nil {
 				nilNodes = nilNodes + 1
+				continue
 			}
-			log.Println("KISHORE -->  originalNodes [", i, "] = ", originalNodes[i])
 		}
 		log.Println("KISHORE -->  total nil nodes =", nilNodes)
 
+		var excludeNodeIDs []dht.NodeID
+		for _, v := range originalNodes {
+			if v != nil {
+				excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.Id))
+			}
+		}
+		log.Println("KISHORE -->  list of excluded nodeIDs =", excludeNodeIDs)
+
 		//Request Overlay for n-h new storage nodes
-		newNodes, err := s.getNewUniqueNodes(ctx, originalNodes, (len(lostPieces) + nilNodes), 0)
+		newNodes, err := s.getNewUniqueNodes(ctx, excludeNodeIDs, (len(lostPieces) + nilNodes), 0)
 		log.Println("KISHORE --> list of unique nodes", newNodes)
 
 		//remove all lost pieces from the list to have only healthy pieces
@@ -335,6 +344,15 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		log.Println("KISHORE -->  downloaded the of the segment using healthy nodes list, size =", rr.Size())
 		log.Println("KISHORE -->  print ranger", r)
 
+		/* to really make the piecenodes unique test code */
+		log.Println("KISHORE -->  making the piecestore nodes unique start")
+		// ecclient sends delete request
+		err = s.ec.Delete(ctx, newNodes, pid)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		log.Println("KISHORE -->  making the piecestore nodes unique done")
+
 		// // puts file to ecclient
 		// exp := pr.GetExpirationDate()
 
@@ -362,38 +380,39 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 }
 
 // getNewUniqueNodes gets a list of new nodes different from the passed nodes list
-func (s *segmentStore) getNewUniqueNodes(ctx context.Context, nodes []*pb.Node, numOfNodes int, space int64) ([]*pb.Node, error) {
-	newNodes, err := s.oc.Choose(ctx, numOfNodes, space)
+func (s *segmentStore) getNewUniqueNodes(ctx context.Context, nodes []dht.NodeID, numOfNodes int, space int64) ([]*pb.Node, error) {
+	op := overlay.Options{Amount: numOfNodes, Space: space, Excluded: nodes}
+	newNodes, err := s.oc.Choose(ctx, op)
 	if err != nil {
 		return nil, err
 	}
 
-	if nodes == nil {
-		return newNodes, err
-	}
-	log.Println("KISHORE --> list of newNodes ", newNodes)
+	// if nodes == nil {
+	// 	return newNodes, err
+	// }
+	// log.Println("KISHORE --> list of newNodes ", newNodes)
 
-	uniqueNodes := len(newNodes)
-	for uniqueNodes > 0 {
-		for j := range newNodes {
-			for i := range nodes {
+	// uniqueNodes := len(newNodes)
+	// for uniqueNodes > 0 {
+	// 	for j := range newNodes {
+	// 		for i := range nodes {
 
-				if newNodes[j] == nodes[i] {
-					uniqueNodes = uniqueNodes + 1
-				}
-			}
-			uniqueNodes = (uniqueNodes - 1)
-			log.Println("KISHORE --> uniqueNodes = ", uniqueNodes)
-		}
-		if uniqueNodes > 0 {
-			// request a new set of nodes
-			newNodes, err = s.oc.Choose(ctx, numOfNodes, space)
-			if err != nil {
-				return nil, err
-			}
-		}
-		log.Println("KISHORE --> got unique nodes")
-	}
+	// 			if newNodes[j] == nodes[i] {
+	// 				uniqueNodes = uniqueNodes + 1
+	// 			}
+	// 		}
+	// 		uniqueNodes = (uniqueNodes - 1)
+	// 		log.Println("KISHORE --> uniqueNodes = ", uniqueNodes)
+	// 	}
+	// 	if uniqueNodes > 0 {
+	// 		// request a new set of nodes
+	// 		newNodes, err = s.oc.Choose(ctx, numOfNodes, space)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 	}
+	// 	log.Println("KISHORE --> got unique nodes")
+	// }
 	return newNodes, err
 }
 

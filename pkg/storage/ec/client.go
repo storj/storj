@@ -90,6 +90,7 @@ func (ec *ecClient) Repair(ctx context.Context, healthyNodes []*pb.Node, newNode
 
 		if healthyNodes[i] != nil {
 			log.Println("KISHORE --> Inside erasure client i =", i)
+			infos <- info{i: i, err: nil}
 			continue
 		}
 		newIds = newIds - 1
@@ -134,6 +135,7 @@ func (ec *ecClient) Repair(ctx context.Context, healthyNodes []*pb.Node, newNode
 			successfulCount++
 		}
 	}
+	log.Println("KISHORE --> successfulCount=", successfulCount, "successfulNodes =", successfulNodes)
 
 	return successfulNodes, nil
 }
