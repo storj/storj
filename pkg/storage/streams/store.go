@@ -174,12 +174,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (paths.Path, []byte, error) {
+			encPath, err := encryptAfterBucket(path, s.rootKey)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			if !eofReader.isEOF() {
-				segmentPath := getSegmentPath(path, currentSegment)
+				segmentPath := getSegmentPath(encPath, currentSegment)
 				return segmentPath, encryptedEncKey, nil
 			}
 
-			lastSegmentPath := path.Prepend("l")
+			lastSegmentPath := encPath.Prepend("l")
 			msi := pb.MetaStreamInfo{
 				NumberOfSegments:         currentSegment + 1,
 				SegmentsSize:             s.segmentSize,
@@ -227,7 +232,12 @@ func getSegmentPath(p paths.Path, segNum int64) paths.Path {
 func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	encPath, err := encryptAfterBucket(path, s.rootKey)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -250,7 +260,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < msi.NumberOfSegments-1; i++ {
-		currentPath := getSegmentPath(path, i)
+		currentPath := getSegmentPath(encPath, i)
 		size := msi.SegmentsSize
 		var nonce eestream.Nonce
 		_, err := nonce.Increment(i)
@@ -295,8 +305,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 }
 
 // Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	encPath, err := encryptAfterBucket(path, s.rootKey)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
 	}
@@ -313,7 +330,11 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+	encPath, err := encryptAfterBucket(path, s.rootKey)
+	if err != nil {
+		return err
+	}
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return err
 	}
@@ -325,14 +346,18 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	}
 
 	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
-		currentPath := getSegmentPath(path, int64(i))
+		encPath, err = encryptAfterBucket(path, s.rootKey)
+		if err != nil {
+			return err
+		}
+		currentPath := getSegmentPath(encPath, int64(i))
 		err := s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			return err
 		}
 	}
 
-	return s.segments.Delete(ctx, path.Prepend("l"))
+	return s.segments.Delete(ctx, encPath.Prepend("l"))
 }
 
 // ListItem is a single item in a listing
@@ -352,7 +377,26 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	segments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
+	if err != nil {
+		return nil, false, err
+	}
+
+	prefixKey, err := prefix.DeriveKey(s.rootKey, len(prefix))
+	if err != nil {
+		return nil, false, err
+	}
+
+	encStartAfter, err := s.encryptMarker(startAfter, prefixKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encEndBefore, err := s.encryptMarker(endBefore, prefixKey)
+	if err != nil {
+		return nil, false, err
+	}
+
+	segments, more, err := s.segments.List(ctx, encPrefix.Prepend("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -363,10 +407,30 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
+		decPath, err := s.decryptMarker(item.Path, prefixKey)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil
+}
+
+// encryptMarker is a helper method for encrypting startAfter and endBefore markers
+func (s *streamStore) encryptMarker(marker paths.Path, prefixKey []byte) (paths.Path, error) {
+	if bytes.Equal(s.rootKey, prefixKey) { // empty prefix
+		return encryptAfterBucket(marker, s.rootKey)
+	}
+	return marker.Encrypt(prefixKey)
+}
+
+// decryptMarker is a helper method for decrypting listed path markers
+func (s *streamStore) decryptMarker(marker paths.Path, prefixKey []byte) (paths.Path, error) {
+	if bytes.Equal(s.rootKey, prefixKey) { // empty prefix
+		return decryptAfterBucket(marker, s.rootKey)
+	}
+	return marker.Decrypt(prefixKey)
 }
 
 type lazySegmentRanger struct {
@@ -435,6 +499,45 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	return eestream.Unpad(rd, int(rd.Size()-decryptedSize))
+}
+
+// encryptAfterBucket encrypts a path without encrypting its first element
+func encryptAfterBucket(p paths.Path, key []byte) (encrypted paths.Path, err error) {
+	if len(p) <= 1 {
+		return p, nil
+	}
+	bucket := p[0]
+	toEncrypt := p[1:]
+
+	// derive a key from the bucket so the same path in different buckets is encrypted differently
+	bucketKey, err := p.DeriveKey(key, 1)
+	if err != nil {
+		return nil, err
+	}
+	encPath, err := toEncrypt.Encrypt(bucketKey)
+	if err != nil {
+		return nil, err
+	}
+	return encPath.Prepend(bucket), nil
+}
+
+// decryptAfterBucket decrypts a path without modifying its first element
+func decryptAfterBucket(p paths.Path, key []byte) (decrypted paths.Path, err error) {
+	if len(p) <= 1 {
+		return p, nil
+	}
+	bucket := p[0]
+	toDecrypt := p[1:]
+
+	bucketKey, err := p.DeriveKey(key, 1)
+	if err != nil {
+		return nil, err
+	}
+	decPath, err := toDecrypt.Decrypt(bucketKey)
+	if err != nil {
+		return nil, err
+	}
+	return decPath.Prepend(bucket), nil
 }
 
 // CancelHandler handles clean up of segments on receiving CTRL+C
