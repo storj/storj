@@ -38,8 +38,15 @@ type Meta struct {
 
 // convertMeta converts segment metadata to stream metadata
 func convertMeta(lastSegmentMeta segments.Meta) (Meta, error) {
-	msi := pb.MetaStreamInfo{}
-	err := proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	streamMeta := pb.StreamMeta{}
+	err := proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	// TODO decrypt before unmarshalling
+	stream := pb.StreamInfo{}
+	err = proto.Unmarshal(streamMeta.EncryptedStreamInfo, &stream)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -47,8 +54,8 @@ func convertMeta(lastSegmentMeta segments.Meta) (Meta, error) {
 	return Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
-		Size:       ((msi.NumberOfSegments - 1) * msi.SegmentsSize) + msi.LastSegmentSize,
-		Data:       msi.Metadata,
+		Size:       ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
+		Data:       stream.Metadata,
 	}, nil
 }
 
@@ -145,7 +152,14 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return Meta{}, err
 		}
 
-		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.Key)(derivedKey), &nonce)
+		// generate random nonce for encrypting the encryption key
+		var keyNonce eestream.Nonce
+		_, err = rand.Read(keyNonce[:])
+		if err != nil {
+			return Meta{}, err
+		}
+
+		encryptedEncKey, err := cipher.Encrypt(encKey[:], (*eestream.Key)(derivedKey), &keyNonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -181,23 +195,52 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 			if !eofReader.isEOF() {
 				segmentPath := getSegmentPath(encPath, currentSegment)
-				return segmentPath, encryptedEncKey, nil
+
+				if cipher == eestream.None {
+					return segmentPath, nil, nil
+				}
+
+				segmentMeta, err := proto.Marshal(&pb.SegmentMeta{
+					EncryptedKey:      encryptedEncKey,
+					EncryptedKeyNonce: keyNonce[:],
+				})
+				if err != nil {
+					return nil, nil, err
+				}
+
+				return segmentPath, segmentMeta, nil
 			}
 
 			lastSegmentPath := encPath.Prepend("l")
-			msi := pb.MetaStreamInfo{
-				NumberOfSegments:         currentSegment + 1,
-				SegmentsSize:             s.segmentSize,
-				LastSegmentSize:          sizeReader.Size(),
-				Metadata:                 metadata,
-				EncryptionType:           int32(s.encType),
-				EncryptionBlockSize:      int32(s.encBlockSize),
-				LastSegmentEncryptionKey: encryptedEncKey,
-			}
-			lastSegmentMeta, err := proto.Marshal(&msi)
+
+			streamInfo, err := proto.Marshal(&pb.StreamInfo{
+				NumberOfSegments: currentSegment + 1,
+				SegmentsSize:     s.segmentSize,
+				LastSegmentSize:  sizeReader.Size(),
+				Metadata:         metadata,
+			})
 			if err != nil {
 				return nil, nil, err
 			}
+
+			streamMeta := pb.StreamMeta{
+				EncryptedStreamInfo: streamInfo, // TODO encrypt this
+				EncryptionType:      int32(s.encType),
+				EncryptionBlockSize: int32(s.encBlockSize),
+			}
+
+			if cipher != eestream.None {
+				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+					EncryptedKey:      encryptedEncKey,
+					EncryptedKeyNonce: keyNonce[:],
+				}
+			}
+
+			lastSegmentMeta, err := proto.Marshal(&streamMeta)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			return lastSegmentPath, lastSegmentMeta, nil
 		})
 		if err != nil {
@@ -242,13 +285,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	msi := pb.MetaStreamInfo{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
 		return nil, Meta{}, err
 	}
 
-	streamMeta, err := convertMeta(lastSegmentMeta)
+	// TODO decrypt before umarshalling
+	stream := pb.StreamInfo{}
+	err = proto.Unmarshal(streamMeta.EncryptedStreamInfo, &stream)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -259,9 +304,9 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	}
 
 	var rangers []ranger.Ranger
-	for i := int64(0); i < msi.NumberOfSegments-1; i++ {
+	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
 		currentPath := getSegmentPath(encPath, i)
-		size := msi.SegmentsSize
+		size := stream.SegmentsSize
 		var nonce eestream.Nonce
 		_, err := nonce.Increment(i)
 		if err != nil {
@@ -273,26 +318,28 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			size:          size,
 			derivedKey:    (*eestream.Key)(derivedKey),
 			startingNonce: &nonce,
-			encBlockSize:  int(msi.EncryptionBlockSize),
-			encType:       eestream.Cipher(msi.EncryptionType),
+			encBlockSize:  int(streamMeta.EncryptionBlockSize),
+			encType:       eestream.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
 
 	var nonce eestream.Nonce
-	_, err = nonce.Increment(msi.NumberOfSegments - 1)
+	_, err = nonce.Increment(stream.NumberOfSegments - 1)
 	if err != nil {
 		return nil, Meta{}, err
 	}
+	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 	decryptedLastSegmentRanger, err := decryptRanger(
 		ctx,
 		lastSegmentRanger,
-		msi.LastSegmentSize,
-		eestream.Cipher(msi.EncryptionType),
-		msi.LastSegmentEncryptionKey,
+		stream.LastSegmentSize,
+		eestream.Cipher(streamMeta.EncryptionType),
 		(*eestream.Key)(derivedKey),
+		encryptedKey,
+		keyNonce,
 		&nonce,
-		int(msi.EncryptionBlockSize),
+		int(streamMeta.EncryptionBlockSize),
 	)
 	if err != nil {
 		return nil, Meta{}, err
@@ -301,7 +348,12 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 	catRangers := ranger.Concat(rangers...)
 
-	return catRangers, streamMeta, nil
+	meta, err = convertMeta(lastSegmentMeta)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	return catRangers, meta, nil
 }
 
 // Meta implements Store.Meta
@@ -339,13 +391,20 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		return err
 	}
 
-	msi := pb.MetaStreamInfo{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &msi)
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < int(msi.NumberOfSegments-1); i++ {
+	// TODO decrypt before unmarshalling
+	stream := pb.StreamInfo{}
+	err = proto.Unmarshal(streamMeta.EncryptedStreamInfo, &stream)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < int(stream.NumberOfSegments-1); i++ {
 		encPath, err = encryptAfterBucket(path, s.rootKey)
 		if err != nil {
 			return err
@@ -456,7 +515,13 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 		if err != nil {
 			return nil, err
 		}
-		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.encType, m.Data, lr.derivedKey, lr.startingNonce, lr.encBlockSize)
+		segmentMeta := pb.SegmentMeta{}
+		err = proto.Unmarshal(m.Data, &segmentMeta)
+		if err != nil {
+			return nil, err
+		}
+		encryptedKey, keyNonce := getEncryptedKeyAndNonce(&segmentMeta)
+		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.encType, lr.derivedKey, encryptedKey, keyNonce, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
 		}
@@ -465,8 +530,8 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 }
 
 // decryptRanger returns a decrypted ranger of the given rr ranger
-func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher eestream.Cipher, encryptedEncKey []byte, derivedKey *eestream.Key, startingNonce *eestream.Nonce, encBlockSize int) (ranger.Ranger, error) {
-	e, err := cipher.Decrypt(encryptedEncKey, derivedKey, startingNonce)
+func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher eestream.Cipher, derivedKey *eestream.Key, encryptedKey []byte, encryptedKeyNonce, startingNonce *eestream.Nonce, encBlockSize int) (ranger.Ranger, error) {
+	e, err := cipher.Decrypt(encryptedKey, derivedKey, encryptedKeyNonce)
 	if err != nil {
 		return nil, err
 	}
@@ -549,4 +614,15 @@ func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, pa
 			zap.S().Warnf("Failed deleting a segment %v %v", currentPath, err)
 		}
 	}
+}
+
+func getEncryptedKeyAndNonce(m *pb.SegmentMeta) ([]byte, *eestream.Nonce) {
+	if m == nil {
+		return nil, nil
+	}
+
+	var nonce eestream.Nonce
+	copy(nonce[:], m.EncryptedKeyNonce)
+
+	return m.EncryptedKey, &nonce
 }

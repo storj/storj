@@ -42,7 +42,7 @@ func (nonce *Nonce) Bytes() *[NonceSize]byte {
 
 // Increment increments the nonce with the given amount
 func (nonce *Nonce) Increment(amount int64) (truncated bool, err error) {
-	return incrementBytes(nonce.Bytes()[:], amount)
+	return incrementBytes(nonce[:], amount)
 }
 
 // AESGCMNonce returns the nonce as a AES-GCM nonce
