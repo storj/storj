@@ -18,13 +18,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
-	
 )
 
 func TestServicePut(t *testing.T) {
@@ -173,7 +172,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	type Test struct {
-		APIKey string
+		APIKey   string
 		Request  pb.ListRequest
 		Expected *pb.ListResponse
 		Error    func(i int, err error)
@@ -217,8 +216,8 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 		}, {
-			APIKey: "wrong key",
-			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All},//, APIKey: []byte("wrong key")},
+			APIKey:  "wrong key",
+			Request: pb.ListRequest{Recursive: true, MetaFlags: meta.All}, //, APIKey: []byte("wrong key")},
 			Error:   errorWithCode(codes.Unauthenticated),
 		}, {
 			Request: pb.ListRequest{Recursive: true, Limit: 3},

@@ -18,47 +18,47 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 )
 
-// Audit to audit segments
-type Audit struct {
+// Stripe keeps track of a stripe's index and its parent segment
+type Stripe struct {
+	Index   int
+	Segment *pb.Pointer
+}
+
+// Cursor keeps track of audit location in pointer db
+type Cursor struct {
 	pointers pdbclient.Client
 	lastPath *paths.Path
 	mutex    sync.Mutex
 }
 
-// NewAudit creates a new instance of audit
-func NewAudit(pointers pdbclient.Client) *Audit {
-	return &Audit{
-		pointers: pointers,
-	}
-}
-
-// Stripe is a struct that contains stripe info
-type Stripe struct {
-	Index int
+// NewCursor creates a Cursor which iterates over pointer db
+func NewCursor(pointers pdbclient.Client) *Cursor {
+	return &Cursor{pointers: pointers}
 }
 
 // NextStripe returns a random stripe to be audited
-func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
-	audit.mutex.Lock()
-	defer audit.mutex.Unlock()
+func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error) {
+	cursor.mutex.Lock()
+	defer cursor.mutex.Unlock()
 
 	var pointerItems []pdbclient.ListItem
 	var path paths.Path
+	var more bool
 
-	if audit.lastPath == nil {
-		pointerItems, more, err = audit.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
+	if cursor.lastPath == nil {
+		pointerItems, more, err = cursor.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
 	} else {
-		pointerItems, more, err = audit.pointers.List(ctx, nil, *audit.lastPath, nil, true, 0, meta.None)
+		pointerItems, more, err = cursor.pointers.List(ctx, nil, *cursor.lastPath, nil, true, 0, meta.None)
 	}
 
 	if err != nil {
-		return nil, more, err
+		return nil, err
 	}
 
 	// get random pointer
 	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
-		return nil, more, err
+		return nil, err
 	}
 
 	// get path
@@ -66,30 +66,30 @@ func (audit *Audit) NextStripe(ctx context.Context) (stripe *Stripe, more bool, 
 
 	// keep track of last path listed
 	if !more {
-		audit.lastPath = nil
+		cursor.lastPath = nil
 	} else {
-		audit.lastPath = &pointerItems[len(pointerItems)-1].Path
+		cursor.lastPath = &pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info
-	pointer, err := audit.pointers.Get(ctx, path)
+	pointer, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
-		return nil, more, err
+		return nil, err
 	}
 
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return nil, more, err
+		return nil, err
 	}
 
 	//get random stripe
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
-		return nil, more, err
+		return nil, err
 	}
 
-	return &Stripe{Index: index}, more, nil
+	return &Stripe{Index: index, Segment: pointer}, nil
 }
 
 // create the erasure scheme

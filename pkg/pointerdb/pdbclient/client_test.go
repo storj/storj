@@ -5,6 +5,10 @@ package pdbclient
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -14,11 +18,16 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/auth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -291,4 +300,36 @@ func TestDelete(t *testing.T) {
 			assert.NoError(t, err, errTag)
 		}
 	}
+}
+
+func TestAuth(t *testing.T) {
+	ctx := context.Background()
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	peerCertificates := make([]*x509.Certificate, 2)
+	peerCertificates[0] = identity.Leaf
+	peerCertificates[1] = identity.CA
+
+	info := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: peerCertificates}}
+
+	signature := base64.StdEncoding.EncodeToString([]byte("some value"))
+
+	header := metadata.Pairs("signature", signature)
+	peer := &peer.Peer{AuthInfo: info}
+	pointerdb := &PointerDB{
+		signatureHeader: &header,
+		peer:            peer,
+	}
+
+	auth, _ := pointerdb.Auth()
+
+	pk, _ := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
+	expectedKey, _ := cryptopasta.EncodePublicKey(pk)
+
+	assert.Equal(t, expectedKey, auth.GetPublicKey())
+	assert.Equal(t, identity.ID.Bytes(), auth.GetData())
+	assert.Equal(t, "some value", string(auth.GetSignature()))
 }

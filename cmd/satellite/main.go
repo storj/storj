@@ -13,13 +13,13 @@ import (
 
 	// "storj.io/storj/pkg/datarepair/repairer"
 	// "storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/statdb"
 )
 
@@ -40,9 +40,9 @@ var (
 	}
 
 	runCfg struct {
-		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
-		PointerDB   pointerdb.Config
+		Identity  provider.IdentityConfig
+		Kademlia  kademlia.Config
+		PointerDB pointerdb.Config
 		// Checker     checker.Config
 		// Repairer    repairer.Config
 		Overlay     overlay.Config

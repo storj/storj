@@ -5,7 +5,6 @@ package checker
 
 import (
 	"context"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -15,44 +14,18 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage"
 )
 
-// Config contains configurable values for checker
-type Config struct {
-	// QueueAddress string `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
-	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
-}
-
-// Run runs the checker with configured values
-func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	zap.S().Info("Checker is starting up")
-
-	ticker := time.NewTicker(c.Interval)
-	defer ticker.Stop()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				zap.S().Info("Starting segment checker service")
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return server.Run(ctx)
+// Checker is the interface for the data repair queue
+type Checker interface {
+	IdentifyInjuredSegments(ctx context.Context) (err error)
+	Run() error
+	Stop() error
 }
 
 // Checker contains the information needed to do checks for missing pieces
-type Checker struct {
+type checker struct {
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -61,8 +34,8 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *Checker {
-	return &Checker{
+func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *checker {
+	return &checker{
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
@@ -72,7 +45,7 @@ func NewChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay p
 }
 
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
-func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
+func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	c.logger.Debug("entering pointerdb iterate")
 
@@ -115,7 +88,7 @@ func (c *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 }
 
 // returns the indices of offline and online nodes
-func (c *Checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
+func (c *checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, nodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err
@@ -145,4 +118,14 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+// Run
+func (c *checker) Run() error {
+	return nil
+}
+
+// Stop
+func (c *checker) Stop() error {
+	return nil
 }

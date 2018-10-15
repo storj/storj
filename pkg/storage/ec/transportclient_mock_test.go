@@ -51,16 +51,3 @@ func (m *MockClient) DialNode(arg0 context.Context, arg1 *pb.Node) (*grpc.Client
 func (mr *MockClientMockRecorder) DialNode(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DialNode", reflect.TypeOf((*MockClient)(nil).DialNode), arg0, arg1)
 }
-
-// DialUnauthenticated mocks base method
-func (m *MockClient) DialUnauthenticated(arg0 context.Context, arg1 pb.NodeAddress) (*grpc.ClientConn, error) {
-	ret := m.ctrl.Call(m, "DialUnauthenticated", arg0, arg1)
-	ret0, _ := ret[0].(*grpc.ClientConn)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DialUnauthenticated indicates an expected call of DialUnauthenticated
-func (mr *MockClientMockRecorder) DialUnauthenticated(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DialUnauthenticated", reflect.TypeOf((*MockClient)(nil).DialUnauthenticated), arg0, arg1)
-}
