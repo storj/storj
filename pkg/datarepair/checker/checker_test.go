@@ -85,7 +85,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	//fill a overlay cache
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
-	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 	err := checker.IdentifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
@@ -128,7 +128,7 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 	}
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
-	checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
@@ -197,7 +197,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	limit := 0
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		checker := NewChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+		checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
