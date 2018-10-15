@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -176,7 +177,12 @@ TestLoop:
 					}
 					ps := NewMockPSClient(ctrl)
 					gomock.InOrder(
-						ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]),
+						ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]).
+							Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) {
+								// simulate that the mocked piece store client is reading the data
+								_, err := io.Copy(ioutil.Discard, data)
+								assert.NoError(t, err, errTag)
+							}),
 						ps.EXPECT().Close().Return(nil),
 					)
 					m[n] = ps

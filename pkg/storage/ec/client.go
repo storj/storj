@@ -91,8 +91,8 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 		go func(i int, n *pb.Node) {
 			if n == nil {
-				//_, err := io.Copy(ioutil.Discard, readers[i])
-				infos <- info{i: i, err: nil}
+				_, err := io.Copy(ioutil.Discard, readers[i])
+				infos <- info{i: i, err: err}
 				return
 			}
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
