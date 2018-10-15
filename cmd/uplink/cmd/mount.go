@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage"
 )
 
 func init() {
@@ -97,10 +97,10 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 
 	meta, err := sf.store.Meta(sf.ctx, paths.New(name))
 	if err != nil {
-		if boltdb.ErrKeyNotFound.Has(err) {
-			fmt.Println(err)
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, fuse.ENOENT
 		}
-		return nil, fuse.ENOENT
+		return nil, fuse.EIO
 	}
 
 	return &fuse.Attr{
@@ -115,7 +115,6 @@ func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 	if name == "" {
 		entries, err := sf.listFiles(sf.ctx, sf.store)
 		if err != nil {
-			fmt.Println(err)
 			return nil, fuse.EIO
 		}
 
@@ -164,9 +163,11 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 }
 
 func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
-	err := sf.store.Delete(sf.ctx, paths.New(name))
+	err := sf.store.Delete(sf.ctx, paths.New("test"))
 	if err != nil {
-		fmt.Println(err)
+		if storage.ErrKeyNotFound.Has(err) {
+			return fuse.ENOENT
+		}
 		return fuse.EIO
 	}
 
@@ -188,6 +189,8 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
+	// fuse ask for data from offset not only in ascending order. This is kind of initial optimization 
+	// to aviod creating new readers (from Ranger). If predicted offset != fuse offset then recreate Ranger/Reader.
 	if off != f.predictedOffset {
 		f.close()
 	}
@@ -196,12 +199,13 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	if f.reader == nil {
 		f.ranger, _, err = f.store.Get(f.ctx, paths.New(f.name))
 		if err != nil {
-			fmt.Println(err)
+			if storage.ErrKeyNotFound.Has(err) {
+				return nil, fuse.ENOENT
+			}
 			return nil, fuse.EIO
 		}
 		f.reader, err = f.ranger.Range(f.ctx, off, f.ranger.Size()-off)
 		if err != nil {
-			fmt.Println(err)
 			return nil, fuse.EIO
 		}
 	}
@@ -209,7 +213,6 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	n, err := io.ReadFull(f.reader, buf)
 	if err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
-			fmt.Println(err)
 			return nil, fuse.EIO
 		}
 	}
