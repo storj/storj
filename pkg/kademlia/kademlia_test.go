@@ -207,24 +207,28 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 
 func TestGetNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
 
-	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
-	assert.NotNil(t, mns)
+	assert.NoError(t, err)
+	kc := kadconfig()
+
+	srv, _ := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
 	go func() { _ = srv.Serve(lis) }()
 	defer srv.Stop()
+
 	// make new identity
-	id, err := node.NewID()
+	fid, err := newTestIdentity()
 	assert.NoError(t, err)
-	id2, err := node.NewID()
+	fid2, err := newTestIdentity()
 	assert.NoError(t, err)
-	// initialize kademlia
-	ca, err := provider.NewCA(ctx, 12, 4)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-	//TODO make sure to clean up the test files
-	k, err := NewKademlia(id, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), identity, "db")
+
+	// create two new unique identities
+	id := node.ID(fid.ID)
+	id2 := node.ID(fid2.ID)
+	assert.NotEqual(t, id, id2)
+
+	kid := dht.NodeID(fid.ID)
+	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
+
 	assert.NoError(t, err)
 	// add nodes
 	ids := []string{"A", "B", "C", "D"}
@@ -289,7 +293,7 @@ func TestGetNodes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := k.GetNodes(ctx, c.start, c.limit, c.restrictions...)
+			ns, err := k.GetNodes(context.Background(), c.start, c.limit, c.restrictions...)
 			assert.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for i, n := range ns {
