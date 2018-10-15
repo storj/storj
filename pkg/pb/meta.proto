@@ -6,12 +6,21 @@ option go_package = "pb";
 
 package streams;
 
-message MetaStreamInfo {
+message SegmentMeta {
+    bytes encrypted_key = 1;
+    bytes encrypted_key_nonce = 2;
+}
+
+message StreamInfo {
     int64 number_of_segments = 1;
     int64 segments_size = 2;
     int64 last_segment_size = 3;
     bytes metadata = 4;
-    int32 encryption_type = 5;
-    int32 encryption_block_size = 6;
-    bytes last_segment_encryption_key = 7;
+}
+
+message StreamMeta {
+    bytes encrypted_stream_info = 1;
+    int32 encryption_type = 2;
+    int32 encryption_block_size = 3;
+    SegmentMeta last_segment_meta = 4;
 }
