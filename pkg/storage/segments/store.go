@@ -196,13 +196,13 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c := make(chan bool, 1)
+	//c := make(chan bool, 1)
 	log.Println("KISHORE --> Testing the repair START ******")
 	lostPieces := []int{1, 2}
 	s.Repair(ctx, path, lostPieces)
 
 	log.Println("KISHORE --> Testing the repair END ******")
-	<-c
+	//<-c
 	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
@@ -353,8 +353,8 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		}
 		log.Println("KISHORE -->  making the piecestore nodes unique done")
 
-		// // puts file to ecclient
-		// exp := pr.GetExpirationDate()
+		// puts file to ecclient
+		exp := pr.GetExpirationDate()
 
 		successfulNodes, err := s.ec.Repair(ctx, originalNodes, newNodes, s.rs, pid, r, time.Time{})
 		if err != nil {
@@ -363,15 +363,15 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		}
 		log.Println("KISHORE --> uploading new pieceIDs replaceing lost pieces", successfulNodes)
 
-		// metadata := pr.GetMetadata()
+		metadata := pr.GetMetadata()
 
-		// //
-		// pointer, err := s.makeRemotePointer(successfulNodes, pid, sizedReader.Size(), exp, metadata)
-		// if err != nil {
-		// 	return err
-		// }
-		// // puts pointer to pointerDB
-		// err = s.pdb.Put(ctx, path, pointer)
+		//
+		pointer, err := s.makeRemotePointer(successfulNodes, pid, rr.Size(), exp, metadata)
+		if err != nil {
+			return err
+		}
+		// puts pointer to pointerDB
+		err = s.pdb.Put(ctx, path, pointer)
 		return err
 	}
 
