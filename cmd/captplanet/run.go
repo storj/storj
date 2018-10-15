@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -61,6 +62,7 @@ var (
 		Satellite    Satellite
 		StorageNodes [storagenodeCount]StorageNode
 		Uplink       miniogw.Config
+		Errors       []error
 	}
 )
 
@@ -145,9 +147,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	for v := range errch {
-		err = fmt.Errorf("%s : %s", err, v)
+	select {
+	case error := <-errch:
+		runCfg.Errors = append(runCfg.Errors, error)
 	}
 
-	return err
+	return utils.CombineErrors(runCfg.Errors...)
 }
