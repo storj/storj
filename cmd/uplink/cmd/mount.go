@@ -17,7 +17,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/spf13/cobra"
-
+	
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/ranger"
@@ -149,7 +149,7 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 			var d fuse.DirEntry
 			d.Name = path
 			d.Mode = fuse.S_IFREG
-			entries = append(entries, fuse.DirEntry(d))
+			entries = append(entries, d)
 		}
 
 		if !more {
@@ -189,7 +189,7 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	// fuse ask for data from offset not only in ascending order. This is kind of initial optimization 
+	// Fuse ask for data from offset not only in ascending order. This is kind of initial optimization
 	// to aviod creating new readers (from Ranger). If predicted offset != fuse offset then recreate Ranger/Reader.
 	if off != f.predictedOffset {
 		f.close()
