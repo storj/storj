@@ -240,14 +240,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			if err != nil {
 				return nil, nil, err
 			}
-			return lastSegmentPath, encryptedLastSegmentMeta, nil
-		})
 
 			return lastSegmentPath, lastSegmentMeta, nil
 		})
 		if err != nil {
 			return Meta{}, err
 		}
+
 		currentSegment++
 		streamSize += sizeReader.Size()
 	}
@@ -281,7 +280,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, path.Prepend("l"))
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -299,7 +298,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	streamMeta, err := convertMeta(lastlastSegMetaDecrypted)
+	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -346,6 +345,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 	rangers = append(rangers, decryptedLastSegmentRanger)
+
 	catRangers := ranger.Concat(rangers...)
 
 	meta, err = convertMeta(lastSegmentMeta)
@@ -357,32 +357,20 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 }
 
 // Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path paths.Path) (Meta, error) {
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
+func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	cipher := s.encType
-	var nonce eestream.Nonce
-	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return Meta{}, err
 	}
 
-	decryptedMetaData, err := cipher.Decrypt(lastSegmentMeta.Data, (*eestream.Key)(derivedKey), &nonce)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	lastSegMetaDecrypted := segments.Meta{
-		Modified:   lastSegmentMeta.Modified,
-		Expiration: lastSegmentMeta.Expiration,
-		Size:       lastSegmentMeta.Size,
-		Data:       decryptedMetaData,
-	}
-
-	streamMeta, err := convertMeta(lastSegMetaDecrypted)
+	streamMeta, err := convertMeta(lastSegmentMeta)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -398,15 +386,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	if err != nil {
 		return err
 	}
-
-	lastSegmentMeta, err := s.segments.Meta(ctx, path.Prepend("l"))
-	if err != nil {
-		return err
-	}
-
-	cipher := s.encType
-	var nonce eestream.Nonce
-	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	lastSegmentMeta, err := s.segments.Meta(ctx, encPath.Prepend("l"))
 	if err != nil {
 		return err
 	}
@@ -436,7 +416,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 		}
 	}
 
-	return s.segments.Delete(ctx, path.Prepend("l"))
+	return s.segments.Delete(ctx, encPath.Prepend("l"))
 }
 
 // ListItem is a single item in a listing
@@ -456,38 +436,41 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	allSegments, more, err := s.segments.List(ctx, prefix.Prepend("l"), startAfter, endBefore, recursive, limit, metaFlags)
+	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
 	if err != nil {
 		return nil, false, err
 	}
 
-	items = make([]ListItem, len(allSegments))
-	for i, item := range allSegments {
-		cipher := s.encType
-		var nonce eestream.Nonce
-		wholePath := prefix.Append([]string(item.Path)...)
-		derivedKey, err := wholePath.DeriveContentKey(s.rootKey)
+	prefixKey, err := prefix.DeriveKey(s.rootKey, len(prefix))
+	if err != nil {
+		return nil, false, err
+	}
 
-		if err != nil {
-			return nil, more, err
-		}
+	encStartAfter, err := s.encryptMarker(startAfter, prefixKey)
+	if err != nil {
+		return nil, false, err
+	}
+	encEndBefore, err := s.encryptMarker(endBefore, prefixKey)
+	if err != nil {
+		return nil, false, err
+	}
 
-		decryptedMetaData, err := cipher.Decrypt(item.Meta.Data, (*eestream.Key)(derivedKey), &nonce)
-		if err != nil {
-			return nil, more, err
-		}
+	segments, more, err := s.segments.List(ctx, encPrefix.Prepend("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
+	if err != nil {
+		return nil, false, err
+	}
 
-		var lastSegMetaDecrypted = segments.Meta{
-			Modified:   item.Meta.Modified,
-			Expiration: item.Meta.Expiration,
-			Size:       item.Meta.Size,
-			Data:       decryptedMetaData,
-		}
-		newMeta, err := convertMeta(lastSegMetaDecrypted)
+	items = make([]ListItem, len(segments))
+	for i, item := range segments {
+		newMeta, err := convertMeta(item.Meta)
 		if err != nil {
 			return nil, false, err
 		}
-		items[i] = ListItem{Path: item.Path, Meta: newMeta, IsPrefix: item.IsPrefix}
+		decPath, err := s.decryptMarker(item.Path, prefixKey)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
 	}
 
 	return items, more, nil
@@ -553,7 +536,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return nil, err
 	}
 	var encKey eestream.Key
-	copy(encKey[:], key)
+	copy(encKey[:], e)
 	decrypter, err := cipher.NewDecrypter(&encKey, startingNonce, encBlockSize)
 	if err != nil {
 		return nil, err
