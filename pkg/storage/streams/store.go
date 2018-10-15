@@ -377,10 +377,6 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	if prefix == nil {
-		return listNoPrefix(ctx, s, startAfter, endBefore, recursive, limit, metaFlags)
-	}
-
 	encPrefix, err := encryptAfterBucket(prefix, s.rootKey)
 	if err != nil {
 		return nil, false, err
@@ -391,11 +387,11 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		return nil, false, err
 	}
 
-	encStartAfter, err := startAfter.Encrypt(prefixKey)
+	encStartAfter, err := s.encryptMarker(startAfter, prefixKey)
 	if err != nil {
 		return nil, false, err
 	}
-	encEndBefore, err := endBefore.Encrypt(prefixKey)
+	encEndBefore, err := s.encryptMarker(endBefore, prefixKey)
 	if err != nil {
 		return nil, false, err
 	}
@@ -411,7 +407,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		if err != nil {
 			return nil, false, err
 		}
-		decPath, err := item.Path.Decrypt(prefixKey)
+		decPath, err := s.decryptMarker(item.Path, prefixKey)
 		if err != nil {
 			return nil, false, err
 		}
@@ -421,37 +417,20 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	return items, more, nil
 }
 
-func listNoPrefix(ctx context.Context, s *streamStore, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	encStartAfter, err := encryptAfterBucket(startAfter, s.rootKey)
-	if err != nil {
-		return nil, false, err
+// encryptMarker is a helper method for encrypting startAfter and endBefore markers
+func (s *streamStore) encryptMarker(marker paths.Path, prefixKey []byte) (paths.Path, error) {
+	if bytes.Equal(s.rootKey, prefixKey) { // empty prefix
+		return encryptAfterBucket(marker, s.rootKey)
 	}
-	encEndBefore, err := encryptAfterBucket(endBefore, s.rootKey)
-	if err != nil {
-		return nil, false, err
-	}
+	return marker.Encrypt(prefixKey)
+}
 
-	segments, more, err := s.segments.List(ctx, paths.New("l"), encStartAfter, encEndBefore, recursive, limit, metaFlags)
-	if err != nil {
-		return nil, false, err
+// decryptMarker is a helper method for decrypting listed path markers
+func (s *streamStore) decryptMarker(marker paths.Path, prefixKey []byte) (paths.Path, error) {
+	if bytes.Equal(s.rootKey, prefixKey) { // empty prefix
+		return decryptAfterBucket(marker, s.rootKey)
 	}
-
-	items = make([]ListItem, len(segments))
-	for i, item := range segments {
-		newMeta, err := convertMeta(item.Meta)
-		if err != nil {
-			return nil, false, err
-		}
-		decPath, err := decryptAfterBucket(item.Path, s.rootKey)
-		if err != nil {
-			return nil, false, err
-		}
-		items[i] = ListItem{Path: decPath, Meta: newMeta, IsPrefix: item.IsPrefix}
-	}
-
-	return items, more, nil
+	return marker.Decrypt(prefixKey)
 }
 
 type lazySegmentRanger struct {
