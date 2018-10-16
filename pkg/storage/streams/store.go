@@ -400,7 +400,7 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err
 // Delete all the segments, with the last one last
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	
+
 	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return err
