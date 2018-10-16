@@ -3,11 +3,7 @@
 
 package kvmetainfo
 
-import (
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/storj"
-)
-
+/*
 func bucketPath(bucket string) paths.Path {
 	return paths.New(bucket)
 }
@@ -24,6 +20,7 @@ func firstToStartAfterPath(first string) paths.Path {
 	}
 	return startAfter
 }
+*/
 
 func firstToStartAfter(first string) string {
 	if first == "" {

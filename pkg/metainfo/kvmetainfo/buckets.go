@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Buckets implements storj.Metainfo bucket handling
 type Buckets struct {
 	store buckets.Store
 }
