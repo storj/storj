@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+
 	dht "storj.io/storj/pkg/dht"
 	x "storj.io/storj/pkg/overlay"
 	pb "storj.io/storj/pkg/pb"

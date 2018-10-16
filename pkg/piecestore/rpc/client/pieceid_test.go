@@ -9,6 +9,7 @@ import (
 
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/provider"

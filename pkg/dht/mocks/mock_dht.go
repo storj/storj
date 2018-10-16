@@ -10,6 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	dht "storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 )
