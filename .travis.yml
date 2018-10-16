@@ -22,14 +22,15 @@ before_install:
   - source scripts/travis-deps.sh
 
 install:
-  - GOPATH=~/go go get github.com/mattn/goveralls
-  - GOPATH=~/go go get golang.org/x/tools/cover
-  - GOPATH=~/go go get github.com/modocache/gover
+#  - GOPATH=~/go go get github.com/mattn/goveralls
+#  - GOPATH=~/go go get golang.org/x/tools/cover
+#  - GOPATH=~/go go get github.com/modocache/gover
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
   - go install -v ./...
 
 script:
   - make lint
   - make test
-  - goveralls -coverprofile=.coverprofile -service=travis-ci
+  - go test -race -v -cover -coverprofile=.coverprofile ./...
+# - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet

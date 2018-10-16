@@ -21,7 +21,6 @@ mv $GOPATH/src/storj.io/storj/scripts/storj-vendor.zip ~/cache/storj-vendor.zip
 
 gospace unzip-vendor ~/cache/storj-vendor.zip
 gospace flatten-vendor
-gospace update
 
 export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
