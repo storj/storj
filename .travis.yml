@@ -6,6 +6,10 @@ go:
 git:
   depth: 1
 
+ cache:
+    directories:
+     - /home/travis/cache
+
 services:
   - redis
 
