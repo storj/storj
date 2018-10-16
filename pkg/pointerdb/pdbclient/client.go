@@ -156,7 +156,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	return err
 }
 
-// Auth gets signature auth data from last request
+// SignedMessage gets signed message from last request
 func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
 	signature := pdb.signatureHeader.Get("signature")
 	if signature == nil {

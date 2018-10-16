@@ -329,7 +329,6 @@ func TestSignedMessage(t *testing.T) {
 
 	pk, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	assert.Equal(t, true, ok)
-	
 
 	expectedKey, err := cryptopasta.EncodePublicKey(pk)
 	assert.NoError(t, err)
