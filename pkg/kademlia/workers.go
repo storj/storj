@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"

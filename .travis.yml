@@ -1,10 +1,14 @@
 language: go
 
 go:
-  - 1.10.x
+  - 1.11.x
 
 git:
   depth: 1
+
+cache:
+  directories:
+    - /home/travis/cache
 
 services:
   - redis
@@ -17,16 +21,20 @@ before_script:
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
     fi
 
-
 before_install:
-  - source scripts/travis-deps.sh
+  - source scripts/setup-gopath.sh
+  - source scripts/install-awscli.sh
 
 install:
-  - make build-dev-deps
+  - pushd ~
+  - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
+  - popd
+  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
   - go install -v ./...
 
 script:
-  - make lint
-  - make test
+  - ./scripts/check-for-header.sh
+  - golangci-lint run
+  - go test -race -v -cover -coverprofile=.coverprofile ./...
   - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet

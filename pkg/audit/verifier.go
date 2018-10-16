@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
+	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -42,6 +43,7 @@ type defaultDownloader struct {
 	transport transport.Client
 	overlay   overlay.Client
 	identity  provider.FullIdentity
+	reporter
 }
 
 // newDefaultDownloader creates a defaultDownloader
@@ -129,7 +131,6 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node)
 		if err != nil {
-			// TODO(nat): update the statdb to indicate this node failed the audit
 			s = share{
 				Error:       err,
 				PieceNumber: i,
@@ -138,6 +139,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		}
 		shares = append(shares, s)
 	}
+
 	return shares, nodes, nil
 }
 
@@ -178,7 +180,6 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
-	// TODO(nat): add a check for missing shares or arrays of different lengths
 	for i, share := range copies {
 		if !bytes.Equal(originals[i].Data, share.Data) {
 			pieceNums = append(pieceNums, share.Number)
@@ -196,12 +197,19 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (failedNodes []*pb.Node, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (verifiedNodes []*proto.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex)
 	if err != nil {
 		return nil, err
+	}
+
+	var offlineNodes []string
+	for i, share := range shares {
+		if shares[i].Error != nil {
+			offlineNodes = append(offlineNodes, nodes[share.PieceNumber].GetId())
+		}
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -211,8 +219,44 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		return nil, err
 	}
 
+	var failedNodes []string
 	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum])
+		failedNodes = append(failedNodes, nodes[pieceNum].GetId())
 	}
-	return failedNodes, nil
+
+	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
+	verifiedNodes = setVerifiedNodes(ctx, nodes, offlineNodes, failedNodes, successNodes)
+
+	return verifiedNodes, nil
+}
+
+// getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
+func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes []string) (successNodes []string) {
+	fails := make(map[string]bool)
+	for _, fail := range failedNodes {
+		fails[fail] = true
+	}
+	for _, offline := range offlineNodes {
+		fails[offline] = true
+	}
+
+	for _, node := range nodes {
+		if !fails[node.GetId()] {
+			successNodes = append(successNodes, node.GetId())
+		}
+	}
+	return successNodes
+}
+
+// setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
+func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*proto.Node) {
+	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
+	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
+	successStatusNodes := setSuccessStatus(ctx, successNodes)
+
+	verifiedNodes = append(verifiedNodes, offlineStatusNodes...)
+	verifiedNodes = append(verifiedNodes, failStatusNodes...)
+	verifiedNodes = append(verifiedNodes, successStatusNodes...)
+
+	return verifiedNodes
 }

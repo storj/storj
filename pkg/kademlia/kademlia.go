@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/storage"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -106,14 +108,43 @@ func (k *Kademlia) Disconnect() error {
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	// TODO(coyle)
-	return []*pb.Node{}, errors.New("TODO GetNodes")
+	nodes := []*pb.Node{}
+	iteratorMethod := func(it storage.Iterator) error {
+		var item storage.ListItem
+		maxLimit := storage.LookupLimit
+		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
+			id := string(item.Key)
+			node := &pb.Node{}
+			err := proto.Unmarshal(item.Value, node)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			node.Id = id
+			if meetsRestrictions(restrictions, *node) {
+				nodes = append(nodes, node)
+			}
+			if len(nodes) == limit {
+				return nil
+			}
+		}
+		return nil
+	}
+	err := k.routingTable.iterate(
+		storage.IterateOptions{
+			First:   storage.Key(start),
+			Recurse: true,
+		},
+		iteratorMethod,
+	)
+	if err != nil {
+		return []*pb.Node{}, Error.Wrap(err)
+	}
+	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
 	return k.routingTable, nil
-
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
@@ -213,7 +244,7 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 
 		switch op {
 		case pb.Restriction_EQ:
-			if comp != val {
+			if comp == val {
 				results = append(results, v)
 				continue
 			}
@@ -243,4 +274,42 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 	}
 
 	return results
+}
+
+func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
+	for _, r := range rs {
+		oper := r.GetOperand()
+		op := r.GetOperator()
+		val := r.GetValue()
+		var comp int64
+		switch oper {
+		case pb.Restriction_freeBandwidth:
+			comp = n.GetRestrictions().GetFreeBandwidth()
+		case pb.Restriction_freeDisk:
+			comp = n.GetRestrictions().GetFreeDisk()
+		}
+		switch op {
+		case pb.Restriction_EQ:
+			if comp != val {
+				return false
+			}
+		case pb.Restriction_LT:
+			if comp >= val {
+				return false
+			}
+		case pb.Restriction_LTE:
+			if comp > val {
+				return false
+			}
+		case pb.Restriction_GT:
+			if comp <= val {
+				return false
+			}
+		case pb.Restriction_GTE:
+			if comp < val {
+				return false
+			}
+		}
+	}
+	return true
 }

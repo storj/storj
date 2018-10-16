@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
@@ -17,14 +16,25 @@ import (
 type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
-	statdb   *statdb
+	Reporter reporter
+}
+
+// Config contains configurable values for audit service
+type Config struct {
+	StatDBPort       string `help:"port to contact statDB client" default:":9090"`
+	MaxRetriesStatDB int    `help:"max number of times to attempt updating a statdb batch" default:"3"`
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Service {
+func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
-	return &Service{Cursor: cursor, Verifier: verifier}
+	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{Cursor: cursor, Verifier: verifier, Reporter: reporter}, nil
 }
 
 // Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
@@ -35,16 +45,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	failedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
 	if err != nil {
 		return err
 	}
-	for _, fail := range failedNodes {
-		service.statdb.RecordFailedAudit(fail)
+	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
+	if !Error.Has(err) && err != nil {
+		return err
 	}
 	return nil
 }
-
-type statdb struct{}
-
-func (db *statdb) RecordFailedAudit(*pb.Node) {}

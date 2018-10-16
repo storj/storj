@@ -14,9 +14,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
-	"storj.io/storj/pkg/pb"
-
 	"golang.org/x/net/context"
+
+	"storj.io/storj/pkg/pb"
 )
 
 var ctx = context.Background()

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
-	"github.com/alicebob/miniredis"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"

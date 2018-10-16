@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/kademlia"
 )
 
