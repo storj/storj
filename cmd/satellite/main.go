@@ -11,8 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/cfgstruct" // "storj.io/storj/pkg/datarepair/repairer"
-	// "storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
