@@ -26,6 +26,8 @@ type Checker interface {
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
+	ctx         context.Context
+	cancel      context.CancelFunc
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer

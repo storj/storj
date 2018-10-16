@@ -18,6 +18,20 @@ type Config struct {
 
 // Initialize a Checker struct
 func (c Config) initialize(ctx context.Context) (Checker, error) {
+	// var check checker
+	// check.ctx, check.cancel = context.WithCancel(ctx)
+	check := newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger)
+
+	// client, err := redis.NewClientFrom(c.QueueAddress)
+	// if err != nil {
+	// 	return nil, Error.Wrap(err)
+	// }
+	// r.queue = q.NewQueue(client)
+
+	// r.cond.L = &r.mu
+	// r.maxRepair = c.MaxRepair
+	// r.interval = c.Interval
+	// return &r, nil
 	return &checker{}, nil
 }
 
