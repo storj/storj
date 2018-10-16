@@ -10,7 +10,6 @@ import (
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/zeebo/errs"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/paths"

@@ -68,17 +68,21 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 		return err
 	}
 
+	if fi.IsDir() {
+		return fmt.Errorf("source cannot be a directory: %s", src)
+	}
+
+	o, err := bs.GetObjectStore(ctx, dst.Bucket())
+	if err != nil {
+		return err
+	}
+
 	r := io.Reader(f)
 	var bar *pb.ProgressBar
 	if *progress {
 		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
-	}
-
-	o, err := bs.GetObjectStore(ctx, dst.Bucket())
-	if err != nil {
-		return err
 	}
 
 	meta := objects.SerializableMeta{}

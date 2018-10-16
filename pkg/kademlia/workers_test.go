@@ -13,9 +13,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )

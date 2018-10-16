@@ -14,6 +14,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
-
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
