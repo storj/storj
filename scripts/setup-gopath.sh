@@ -3,15 +3,12 @@ set -x
 mkdir -p ~/bin ~/cache
 export PATH=~/bin:$PATH
 
-export GOPATH=$HOME/storj
-
 export GOSPACE_ROOT=$GOPATH
 export GOSPACE_PKG=storj.io/storj
 export GOSPACE_REPO=git@github.com:storj/storj/git
 
 mkdir -p $GOPATH/src/storj.io
-mv $HOME/gopath/src/github.com/storj/storj $GOPATH/src/storj.io
-rm -rf $HOME/gopath
+mv $GOPATH/src/github.com/storj/storj $GOPATH/src/storj.io
 
 # TODO: setup gospace
 mv $GOPATH/src/storj.io/storj/scripts/gospace ~/bin
