@@ -10,8 +10,8 @@ export GOSPACE_REPO=git@github.com:storj/storj/git
 mkdir -p $GOPATH/src/storj.io
 mv $GOPATH/src/github.com/storj/storj $GOPATH/src/storj.io
 
-# TODO: setup gospace
-mv $GOPATH/src/storj.io/storj/scripts/gospace ~/bin
+# setup gospace
+wget -O ~/bin/gospace https://github.com/storj/gospace/releases/download/v0.0.1/gospace_linux_amd64
 chmod +x ~/bin/gospace
 
 # find module dependency hash
