@@ -21,10 +21,6 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-<<<<<<< HEAD
-=======
-	errs     []error
->>>>>>> rm redundant ctx
 }
 
 // Config contains configurable values for audit service
@@ -64,10 +60,6 @@ func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers
 	return &Service{Cursor: cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-<<<<<<< HEAD
-=======
-		errs:     []error{},
->>>>>>> rm redundant ctx
 	}, nil
 }
 
@@ -91,17 +83,12 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 			case <-ticker.C:
 				stripe, err := service.Cursor.NextStripe(ctx)
 				if err != nil {
-<<<<<<< HEAD
 					errch <- err
-=======
-					service.errs = append(service.errs, err)
->>>>>>> rm redundant ctx
 					cancel()
 				}
 
 				authorization, err := service.Cursor.pointers.SignedMessage()
 				if err != nil {
-<<<<<<< HEAD
 					errch <- err
 					cancel()
 				}
@@ -109,19 +96,12 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
 				if err != nil {
 					errch <- err
-=======
-					service.errs = append(service.errs, err)
->>>>>>> rm redundant ctx
 					cancel()
 				}
 				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 				if err != nil {
-<<<<<<< HEAD
 					errch <- err
-=======
-					service.errs = append(service.errs, err)
->>>>>>> rm redundant ctx
 					cancel()
 				}
 			case <-ctx.Done():
@@ -129,11 +109,16 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 			}
 		}
 	}()
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 	// TODO(James): convert to collectErrors
 	return utils.CollectErrors(errch, 5*time.Second)
 =======
+=======
+	
+	// TODO(James): convert to collectErrors
+>>>>>>> add todo for collectErrors
 	return utils.CombineErrors(service.errs...)
 >>>>>>> rm redundant ctx
 }
