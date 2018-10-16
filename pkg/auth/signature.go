@@ -14,9 +14,9 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// SignatureAuthProvider interface provides access to last signature auth data
-type SignatureAuthProvider interface {
-	Auth() (*pb.SignatureAuth, error)
+// SignedMessageProvider interface provides access to last signed message
+type SignedMessageProvider interface {
+	SignedMessage() (*pb.SignedMessage, error)
 }
 
 // GenerateSignature creates signature from identity id
@@ -36,8 +36,8 @@ func GenerateSignature(identity *provider.FullIdentity) ([]byte, error) {
 	return signature, nil
 }
 
-// NewSignatureAuth creates instance of signature auth data
-func NewSignatureAuth(signature []byte, identity *provider.PeerIdentity) (*pb.SignatureAuth, error) {
+// NewSignedMessage creates instance of signed message
+func NewSignedMessage(signature []byte, identity *provider.PeerIdentity) (*pb.SignedMessage, error) {
 	k, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Leaf.PublicKey)
@@ -47,29 +47,29 @@ func NewSignatureAuth(signature []byte, identity *provider.PeerIdentity) (*pb.Si
 	if err != nil {
 		return nil, err
 	}
-	return &pb.SignatureAuth{
+	return &pb.SignedMessage{
 		Data:      identity.ID.Bytes(),
 		Signature: signature,
 		PublicKey: encodedKey,
 	}, nil
 }
 
-// SignatureAuthVerifier checks if provided signature auth can be verified
-type SignatureAuthVerifier func(signature *pb.SignatureAuth) error
+// SignedMessageVerifier checks if provided signed message can be verified
+type SignedMessageVerifier func(signature *pb.SignedMessage) error
 
-// NewSignatureAuthVerifier creates default implementation of SignatureAuthVerifier
-func NewSignatureAuthVerifier() SignatureAuthVerifier {
-	return func(signature *pb.SignatureAuth) error {
-		if signature == nil || signature.Signature == nil || signature.Data == nil || signature.PublicKey == nil {
-			return fmt.Errorf("Failed to verify signature")
+// NewSignedMessageVerifier creates default implementation of SignedMessageVerifier
+func NewSignedMessageVerifier() SignedMessageVerifier {
+	return func(signedMessage *pb.SignedMessage) error {
+		if signedMessage == nil || signedMessage.Signature == nil || signedMessage.Data == nil || signedMessage.PublicKey == nil {
+			return fmt.Errorf("Failed to verify message")
 		}
 
-		k, err := cryptopasta.DecodePublicKey(signature.GetPublicKey())
+		k, err := cryptopasta.DecodePublicKey(signedMessage.GetPublicKey())
 		if err != nil {
 			return err
 		}
-		if ok := cryptopasta.Verify(signature.GetData(), signature.GetSignature(), k); !ok {
-			return fmt.Errorf("Failed to verify signature")
+		if ok := cryptopasta.Verify(signedMessage.GetData(), signedMessage.GetSignature(), k); !ok {
+			return fmt.Errorf("Failed to verify message")
 		}
 		return nil
 	}

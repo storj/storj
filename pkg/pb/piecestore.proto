@@ -49,7 +49,7 @@ message PieceStore {
 
   RenterBandwidthAllocation bandwidthallocation = 1;
   PieceData piecedata = 2;
-  SignatureAuth SignatureAuth = 3;
+  SignedMessage signedMessage = 3;
 }
 
 message PieceId {
@@ -71,7 +71,7 @@ message PieceRetrieval {
 
   RenterBandwidthAllocation bandwidthallocation = 1;
   PieceData pieceData = 2;
-  SignatureAuth SignatureAuth = 3;
+  SignedMessage signedMessage = 3;
 }
 
 message PieceRetrievalStream {
@@ -81,7 +81,7 @@ message PieceRetrievalStream {
 
 message PieceDelete {
   string id = 1;
-  SignatureAuth SignatureAuth = 3;
+  SignedMessage signedMessage = 3;
 }
 
 message PieceDeleteSummary {
@@ -100,7 +100,7 @@ message StatSummary {
   int64 availableSpace = 2;
 }
 
-message SignatureAuth {
+message SignedMessage {
   bytes data = 1;
   bytes signature = 2;
   bytes publicKey = 3;

@@ -57,6 +57,8 @@ type Client interface {
 		recursive bool, limit int, metaFlags uint32) (
 		items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path p.Path) error
+
+	auth.SignedMessageProvider
 }
 
 // NewClient initializes a new pointerdb client
@@ -155,7 +157,7 @@ func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 }
 
 // Auth gets signature auth data from last request
-func (pdb *PointerDB) Auth() (*pb.SignatureAuth, error) {
+func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
 	signature := pdb.signatureHeader.Get("signature")
 	if signature == nil {
 		return nil, nil
@@ -171,5 +173,5 @@ func (pdb *PointerDB) Auth() (*pb.SignatureAuth, error) {
 		return nil, err
 	}
 
-	return auth.NewSignatureAuth(decodedSignature, identity)
+	return auth.NewSignedMessage(decodedSignature, identity)
 }

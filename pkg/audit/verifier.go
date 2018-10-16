@@ -40,20 +40,20 @@ type downloader interface {
 
 // defaultDownloader downloads shares from networked storage nodes
 type defaultDownloader struct {
-	transport    transport.Client
-	overlay      overlay.Client
-	identity     provider.FullIdentity
-	authProvider auth.SignatureAuthProvider
+	transport  transport.Client
+	overlay    overlay.Client
+	identity   provider.FullIdentity
+	smProvider auth.SignedMessageProvider
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, authProvider auth.SignatureAuthProvider) *defaultDownloader {
-	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
+func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, smProvider auth.SignedMessageProvider) *defaultDownloader {
+	return &defaultDownloader{transport: transport, overlay: overlay, identity: id, smProvider: smProvider}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, authProvider auth.SignatureAuthProvider) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id, authProvider)}
+func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, smProvider auth.SignedMessageProvider) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id, smProvider)}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -62,7 +62,7 @@ func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 0, d.identity.Key, d.authProvider)
+	return client.NewPSClient(c, 0, d.identity.Key, d.smProvider)
 }
 
 // getShare use piece store clients to download shares from a given node

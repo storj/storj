@@ -26,17 +26,17 @@ import (
 var ctx = context.Background()
 var argError = errs.Class("argError")
 
-type basicSignatureAuthProvider struct {
+type basicSignedMessageProvider struct {
 	identity *provider.FullIdentity
 }
 
-func (p *basicSignatureAuthProvider) Auth() (*pb.SignatureAuth, error) {
+func (p *basicSignedMessageProvider) SignedMessage() (*pb.SignedMessage, error) {
 	signature, err := auth.GenerateSignature(p.identity)
 	if err != nil {
 		return nil, err
 	}
 	peerIdentity := &provider.PeerIdentity{ID: p.identity.ID, CA: p.identity.CA, Leaf: p.identity.Leaf}
-	return auth.NewSignatureAuth(signature, peerIdentity)
+	return auth.NewSignedMessage(signature, peerIdentity)
 }
 
 func main() {
@@ -63,8 +63,8 @@ func main() {
 	}
 	defer printError(conn.Close)
 
-	authProvider := &basicSignatureAuthProvider{identity: identity}
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey), authProvider)
+	smProvider := &basicSignedMessageProvider{identity: identity}
+	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey), smProvider)
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}

@@ -37,8 +37,8 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("error receiving piece data")
 	}
 
-	signature := recv.GetSignatureAuth()
-	if err := s.verifier(signature); err != nil {
+	signedMessage := recv.GetSignedMessage()
+	if err := s.verifier(signedMessage); err != nil {
 		return err
 	}
 

@@ -41,7 +41,7 @@ type dialer interface {
 type defaultDialer struct {
 	transport    transport.Client
 	identity     *provider.FullIdentity
-	authProvider auth.SignatureAuthProvider
+	smProvider auth.SignedMessageProvider
 }
 
 func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -52,7 +52,7 @@ func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client
 		return nil, err
 	}
 
-	return client.NewPSClient(conn, 0, dialer.identity.Key, dialer.authProvider)
+	return client.NewPSClient(conn, 0, dialer.identity.Key, dialer.smProvider)
 }
 
 type ecClient struct {
@@ -61,8 +61,8 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(identity *provider.FullIdentity, transport transport.Client, mbm int, authProvider auth.SignatureAuthProvider) Client {
-	d := defaultDialer{identity: identity, transport: transport, authProvider: authProvider}
+func NewClient(identity *provider.FullIdentity, transport transport.Client, mbm int, smProvider auth.SignedMessageProvider) Client {
+	d := defaultDialer{identity: identity, transport: transport, smProvider: smProvider}
 	return &ecClient{d: &d, mbm: mbm}
 }
 

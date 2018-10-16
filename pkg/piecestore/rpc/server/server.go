@@ -82,7 +82,7 @@ type Server struct {
 	DB             *psdb.DB
 	pkey           crypto.PrivateKey
 	totalAllocated int64
-	verifier       auth.SignatureAuthVerifier
+	verifier       auth.SignedMessageVerifier
 }
 
 // Initialize -- initializes a server struct
@@ -138,7 +138,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace}, nil
 	}
 
-	signatureVerifier := auth.NewSignatureAuthVerifier()
+	signatureVerifier := auth.NewSignedMessageVerifier()
 	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, verifier: signatureVerifier}, nil
 }
 
@@ -196,7 +196,7 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.GetId())
 
-	signature := in.GetSignatureAuth()
+	signature := in.GetSignedMessage()
 	if err := s.verifier(signature); err != nil {
 		return nil, err
 	}

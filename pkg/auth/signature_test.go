@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	errorVerification = fmt.Errorf("Failed to verify signature")
+	errorVerification = fmt.Errorf("Failed to verify message")
 )
 
 func TestGenerateSignature(t *testing.T) {
@@ -44,7 +44,7 @@ func TestGenerateSignature(t *testing.T) {
 	}
 }
 
-func TestSignatureAuthVerifier(t *testing.T) {
+func TestSignedMessageVerifier(t *testing.T) {
 	ctx := context.Background()
 	ca, err := provider.NewCA(ctx, 12, 4)
 	assert.NoError(t, err)
@@ -55,7 +55,7 @@ func TestSignatureAuthVerifier(t *testing.T) {
 	assert.NoError(t, err)
 
 	peerIdentity := &provider.PeerIdentity{ID: identity.ID, Leaf: identity.Leaf}
-	auth, err := NewSignatureAuth(signature, peerIdentity)
+	signedMessage, err := NewSignedMessage(signature, peerIdentity)
 	assert.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -64,18 +64,18 @@ func TestSignatureAuthVerifier(t *testing.T) {
 		publicKey []byte
 		err       error
 	}{
-		{auth.Signature, auth.Data, auth.PublicKey, nil},
-		{nil, auth.Data, auth.PublicKey, errorVerification},
-		{auth.Signature, nil, auth.PublicKey, errorVerification},
-		{auth.Signature, auth.Data, nil, errorVerification},
+		{signedMessage.Signature, signedMessage.Data, signedMessage.PublicKey, nil},
+		{nil, signedMessage.Data, signedMessage.PublicKey, errorVerification},
+		{signedMessage.Signature, nil, signedMessage.PublicKey, errorVerification},
+		{signedMessage.Signature, signedMessage.Data, nil, errorVerification},
 
-		{auth.Signature, []byte("malformed data"), auth.PublicKey, errorVerification},
+		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, errorVerification},
 	} {
-		auth.Signature = tt.signature
-		auth.Data = tt.data
-		auth.PublicKey = tt.publicKey
+		signedMessage.Signature = tt.signature
+		signedMessage.Data = tt.data
+		signedMessage.PublicKey = tt.publicKey
 
-		err := NewSignatureAuthVerifier()(auth)
+		err := NewSignedMessageVerifier()(signedMessage)
 		assert.Equal(t, tt.err, err)
 	}
 }

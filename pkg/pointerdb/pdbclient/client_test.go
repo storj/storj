@@ -302,7 +302,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestAuth(t *testing.T) {
+func TestSignedMessage(t *testing.T) {
 	ctx := context.Background()
 	ca, err := provider.NewCA(ctx, 12, 4)
 	assert.NoError(t, err)
@@ -324,7 +324,7 @@ func TestAuth(t *testing.T) {
 		peer:            peer,
 	}
 
-	auth, _ := pointerdb.Auth()
+	auth, _ := pointerdb.SignedMessage()
 
 	pk, _ := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	expectedKey, _ := cryptopasta.EncodePublicKey(pk)
