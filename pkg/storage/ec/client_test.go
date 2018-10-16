@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -153,6 +154,8 @@ TestLoop:
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
+		{[]*pb.Node{nil, nil, node2, node3}, 0, 0, false,
+			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -166,18 +169,24 @@ TestLoop:
 
 		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if !tt.badInput {
-				derivedID, err := id.Derive([]byte(n.GetId()))
-				if !assert.NoError(t, err, errTag) {
-					continue TestLoop
-				}
-				ps := NewMockPSClient(ctrl)
-				gomock.InOrder(
-					ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]),
-					ps.EXPECT().Close().Return(nil),
-				)
-				m[n] = ps
+			if n == nil || tt.badInput {
+				continue
 			}
+			derivedID, err := id.Derive([]byte(n.GetId()))
+			if !assert.NoError(t, err, errTag) {
+				continue TestLoop
+			}
+			ps := NewMockPSClient(ctrl)
+			gomock.InOrder(
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]).
+					Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) {
+						// simulate that the mocked piece store client is reading the data
+						_, err := io.Copy(ioutil.Discard, data)
+						assert.NoError(t, err, errTag)
+					}),
+				ps.EXPECT().Close().Return(nil),
+			)
+			m[n] = ps
 		}
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
@@ -185,6 +194,7 @@ TestLoop:
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
+
 		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl)
 
 		if tt.errString != "" {
