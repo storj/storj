@@ -20,6 +20,8 @@ type Metainfo interface {
 	DeleteBucket(ctx context.Context, bucket string) error
 	// GetBucket gets bucket information
 	GetBucket(ctx context.Context, bucket string) (Bucket, error)
+	// ListBuckets lists buckets starting from first
+	ListBuckets(ctx context.Context, first string, limit int) (BucketList, error)
 
 	// GetObject returns information about an object
 	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
@@ -75,6 +77,14 @@ type ObjectList struct {
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
+}
+
+// BucketList is a list of buckets
+type BucketList struct {
+	NextFirst string
+	More      bool
+
+	Buckets []Bucket
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database
