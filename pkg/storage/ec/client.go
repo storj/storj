@@ -168,6 +168,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			if n == nil {
 				_, err := io.Copy(ioutil.Discard, readers[i])
 				infos <- info{i: i, err: err}
+				return
 			}
 
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
