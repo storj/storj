@@ -1,14 +1,20 @@
 set -x
 
-mkdir -p $HOME/gopath-staging
-cd $HOME/gopath-staging
-git clone --recursive https://github.com/storj/storj-vendor.git .
-./setup.sh
-mkdir -p src/storj.io
+export GOPATH=$HOME/storj
+
+export GOSPACE_ROOT=$GOPATH
+export GOSPACE_PKG=storj.io/storj
+export GOSPACE_REPO=git@github.com:storj/storj/git
+
+mkdir -p $GOPATH/src/storj.io
 mv $HOME/gopath/src/github.com/storj/storj src/storj.io
 rm -rf $HOME/gopath
-mv $HOME/gopath{-staging,}
-export TRAVIS_BUILD_DIR=$HOME/gopath/src/storj.io/storj
+
+./$GOPATH/src/storj.io/storj/scripts/gospace unzip-vendor ./$GOPATH/src/storj.io/storj/scripts/storj-vendor.zip
+./$GOPATH/src/storj.io/storj/scripts/gospace flatten-vendor
+./$GOPATH/src/storj.io/storj/scripts/gospace update
+
+export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
 
 mkdir -p $HOME/awscli
