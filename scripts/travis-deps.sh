@@ -15,6 +15,7 @@ rm -rf $HOME/gopath
 
 # TODO: setup gospace
 mv $GOPATH/src/storj.io/storj/scripts/gospace ~/bin
+chmod +x ~/bin/gospace
 # TODO: setup cache
 mv $GOPATH/src/storj.io/storj/scripts/storj-vendor.zip ~/cache/storj-vendor.zip
 
