@@ -109,10 +109,7 @@ func (k *Kademlia) Disconnect() error {
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
 	nodes := []*pb.Node{}
-	err := k.routingTable.iterate(storage.IterateOptions{
-		First:   storage.Key(start),
-		Recurse: true,
-	}, func(it storage.Iterator) error {
+	iteratorMethod := func(it storage.Iterator) error {
 		var item storage.ListItem
 		maxLimit := storage.LookupLimit
 		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
@@ -131,7 +128,14 @@ func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restri
 			}
 		}
 		return nil
-	})
+	}
+	err := k.routingTable.iterate(
+		storage.IterateOptions{
+			First:   storage.Key(start),
+			Recurse: true,
+		},
+		iteratorMethod,
+	)
 	if err != nil {
 		return []*pb.Node{}, Error.Wrap(err)
 	}
