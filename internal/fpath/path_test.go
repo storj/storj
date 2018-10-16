@@ -93,6 +93,7 @@ func TestInvalidStorjURL(t *testing.T) {
 		"sj://mybucket:8080/",
 		"sj:///mybucket:8080/",
 		"sj:////mybucket:8080/",
+		"http://bucket/file.txt",
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		_, err := New(tt)
