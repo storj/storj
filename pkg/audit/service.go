@@ -93,7 +93,7 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 				}
 				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
-				if !Error.Has(err) && err != nil {
+				if err != nil {
 					service.errs = append(service.errs, err)
 					service.cancel()
 				}
