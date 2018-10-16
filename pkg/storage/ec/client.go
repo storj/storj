@@ -39,8 +39,8 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	transport    transport.Client
-	identity     *provider.FullIdentity
+	transport  transport.Client
+	identity   *provider.FullIdentity
 	smProvider auth.SignedMessageProvider
 }
 

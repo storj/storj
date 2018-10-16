@@ -5,9 +5,9 @@ package auth
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 
 	"github.com/gtank/cryptopasta"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
@@ -60,8 +60,17 @@ type SignedMessageVerifier func(signature *pb.SignedMessage) error
 // NewSignedMessageVerifier creates default implementation of SignedMessageVerifier
 func NewSignedMessageVerifier() SignedMessageVerifier {
 	return func(signedMessage *pb.SignedMessage) error {
-		if signedMessage == nil || signedMessage.Signature == nil || signedMessage.Data == nil || signedMessage.PublicKey == nil {
-			return fmt.Errorf("Failed to verify message")
+		if signedMessage == nil {
+			return errs.New("No message to verify")
+		}
+		if signedMessage.Signature == nil {
+			return errs.New("Missing signature for verification")
+		}
+		if signedMessage.Data == nil {
+			return errs.New("Missing data for verification")
+		}
+		if signedMessage.PublicKey == nil {
+			return errs.New("Missing public key for verification")
 		}
 
 		k, err := cryptopasta.DecodePublicKey(signedMessage.GetPublicKey())
@@ -69,7 +78,7 @@ func NewSignedMessageVerifier() SignedMessageVerifier {
 			return err
 		}
 		if ok := cryptopasta.Verify(signedMessage.GetData(), signedMessage.GetSignature(), k); !ok {
-			return fmt.Errorf("Failed to verify message")
+			return errs.New("Failed to verify message")
 		}
 		return nil
 	}

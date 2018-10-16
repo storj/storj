@@ -6,17 +6,12 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"testing"
 
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/provider"
-)
-
-var (
-	errorVerification = fmt.Errorf("Failed to verify message")
 )
 
 func TestGenerateSignature(t *testing.T) {
@@ -62,20 +57,24 @@ func TestSignedMessageVerifier(t *testing.T) {
 		signature []byte
 		data      []byte
 		publicKey []byte
-		err       error
+		errString string
 	}{
-		{signedMessage.Signature, signedMessage.Data, signedMessage.PublicKey, nil},
-		{nil, signedMessage.Data, signedMessage.PublicKey, errorVerification},
-		{signedMessage.Signature, nil, signedMessage.PublicKey, errorVerification},
-		{signedMessage.Signature, signedMessage.Data, nil, errorVerification},
+		{signedMessage.Signature, signedMessage.Data, signedMessage.PublicKey, ""},
+		{nil, signedMessage.Data, signedMessage.PublicKey, "Missing signature for verification"},
+		{signedMessage.Signature, nil, signedMessage.PublicKey, "Missing data for verification"},
+		{signedMessage.Signature, signedMessage.Data, nil, "Missing public key for verification"},
 
-		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, errorVerification},
+		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "Failed to verify message"},
 	} {
 		signedMessage.Signature = tt.signature
 		signedMessage.Data = tt.data
 		signedMessage.PublicKey = tt.publicKey
 
 		err := NewSignedMessageVerifier()(signedMessage)
-		assert.Equal(t, tt.err, err)
+		if tt.errString != "" {
+			assert.EqualError(t, err, tt.errString)
+		} else {
+			assert.NoError(t, err)
+		}
 	}
 }
