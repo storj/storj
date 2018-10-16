@@ -19,7 +19,8 @@ before_script:
 
 
 before_install:
-  - source scripts/travis-deps.sh
+  - source scripts/setup-gopath.sh
+  - source scripts/install-awscli.sh
 
 install:
 #  - GOPATH=~/go go get github.com/mattn/goveralls

@@ -25,13 +25,4 @@ gospace flatten-vendor
 export TRAVIS_BUILD_DIR=$GOPATH/src/storj.io/storj
 cd $TRAVIS_BUILD_DIR
 
-mkdir -p $HOME/awscli
-pushd $HOME/awscli
-
-curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
-unzip awscli-bundle.zip
-./awscli-bundle/install -b ~/bin/aws
-
-popd
-
 set +x
