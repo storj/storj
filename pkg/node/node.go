@@ -51,8 +51,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	c, err := n.getConnection(to)
-	if err != nil {
+	if _, err := n.getConnection(to); err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
 
