@@ -304,7 +304,7 @@ func TestDelete(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
