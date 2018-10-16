@@ -18,6 +18,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
@@ -67,7 +68,7 @@ type streamStore struct {
 	segmentSize  int64
 	rootKey      []byte
 	encBlockSize int
-	encType      eestream.Cipher
+	encType      encryption.Cipher
 }
 
 // NewStreamStore stuff
@@ -87,7 +88,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 		segmentSize:  segmentSize,
 		rootKey:      []byte(rootKey),
 		encBlockSize: encBlockSize,
-		encType:      eestream.Cipher(encType),
+		encType:      encryption.Cipher(encType),
 	}, nil
 }
 
@@ -127,7 +128,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
 		// generate random key for encrypting the segment's content
-		var contentKey eestream.Key
+		var contentKey encryption.Key
 		_, err = rand.Read(contentKey[:])
 		if err != nil {
 			return Meta{}, err
@@ -136,7 +137,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		// Initialize the content nonce with the segment's index incremented by 1.
 		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 		// which is encrypted with the zero nonce.
-		var contentNonce eestream.Nonce
+		var contentNonce encryption.Nonce
 		_, err := contentNonce.Increment(currentSegment + 1)
 		if err != nil {
 			return Meta{}, err
@@ -148,13 +149,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		// generate random nonce for encrypting the content key
-		var keyNonce eestream.Nonce
+		var keyNonce encryption.Nonce
 		_, err = rand.Read(keyNonce[:])
 		if err != nil {
 			return Meta{}, err
 		}
 
-		encryptedKey, err := cipher.Encrypt(contentKey[:], (*eestream.Key)(derivedKey), &keyNonce)
+		encryptedKey, err := cipher.Encrypt(contentKey[:], (*encryption.Key)(derivedKey), &keyNonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -169,7 +170,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		var transformedReader io.Reader
 		if largeData {
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
-			transformedReader = eestream.TransformReader(paddedReader, encrypter, 0)
+			transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
 		} else {
 			data, err := ioutil.ReadAll(peekReader)
 			if err != nil {
@@ -191,7 +192,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			if !eofReader.isEOF() {
 				segmentPath := getSegmentPath(encPath, currentSegment)
 
-				if cipher == eestream.None {
+				if cipher == encryption.None {
 					return segmentPath, nil, nil
 				}
 
@@ -219,7 +220,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			}
 
 			// encrypt metadata with the content encryption key and zero nonce
-			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &contentKey, &eestream.Nonce{})
+			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &contentKey, &encryption.Nonce{})
 			if err != nil {
 				return nil, nil, err
 			}
@@ -230,7 +231,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 				EncryptionBlockSize: int32(s.encBlockSize),
 			}
 
-			if cipher != eestream.None {
+			if cipher != encryption.None {
 				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 					EncryptedKey: encryptedKey,
 					KeyNonce:     keyNonce[:],
@@ -313,7 +314,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
 		currentPath := getSegmentPath(encPath, i)
 		size := stream.SegmentsSize
-		var contentNonce eestream.Nonce
+		var contentNonce encryption.Nonce
 		_, err := contentNonce.Increment(i + 1)
 		if err != nil {
 			return nil, Meta{}, err
@@ -322,15 +323,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			segments:      s.segments,
 			path:          currentPath,
 			size:          size,
-			derivedKey:    (*eestream.Key)(derivedKey),
+			derivedKey:    (*encryption.Key)(derivedKey),
 			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
-			encType:       eestream.Cipher(streamMeta.EncryptionType),
+			encType:       encryption.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
 
-	var contentNonce eestream.Nonce
+	var contentNonce encryption.Nonce
 	_, err = contentNonce.Increment(stream.NumberOfSegments)
 	if err != nil {
 		return nil, Meta{}, err
@@ -340,8 +341,8 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		ctx,
 		lastSegmentRanger,
 		stream.LastSegmentSize,
-		eestream.Cipher(streamMeta.EncryptionType),
-		(*eestream.Key)(derivedKey),
+		encryption.Cipher(streamMeta.EncryptionType),
+		(*encryption.Key)(derivedKey),
 		encryptedKey,
 		keyNonce,
 		&contentNonce,
@@ -517,10 +518,10 @@ type lazySegmentRanger struct {
 	segments      segments.Store
 	path          paths.Path
 	size          int64
-	derivedKey    *eestream.Key
-	startingNonce *eestream.Nonce
+	derivedKey    *encryption.Key
+	startingNonce *encryption.Nonce
 	encBlockSize  int
-	encType       eestream.Cipher
+	encType       encryption.Cipher
 }
 
 // Size implements Ranger.Size
@@ -550,12 +551,12 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 }
 
 // decryptRanger returns a decrypted ranger of the given rr ranger
-func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher eestream.Cipher, derivedKey *eestream.Key, encryptedKey []byte, encryptedKeyNonce, startingNonce *eestream.Nonce, encBlockSize int) (ranger.Ranger, error) {
+func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher encryption.Cipher, derivedKey *encryption.Key, encryptedKey []byte, encryptedKeyNonce, startingNonce *encryption.Nonce, encBlockSize int) (ranger.Ranger, error) {
 	e, err := cipher.Decrypt(encryptedKey, derivedKey, encryptedKeyNonce)
 	if err != nil {
 		return nil, err
 	}
-	var encKey eestream.Key
+	var encKey encryption.Key
 	copy(encKey[:], e)
 	decrypter, err := cipher.NewDecrypter(&encKey, startingNonce, encBlockSize)
 	if err != nil {
@@ -579,7 +580,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 		return ranger.ByteRanger(data), nil
 	}
 
-	rd, err = eestream.Transform(rr, decrypter)
+	rd, err = encryption.Transform(rr, decrypter)
 	if err != nil {
 		return nil, err
 	}
@@ -636,12 +637,12 @@ func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, pa
 	}
 }
 
-func getEncryptedKeyAndNonce(m *pb.SegmentMeta) ([]byte, *eestream.Nonce) {
+func getEncryptedKeyAndNonce(m *pb.SegmentMeta) ([]byte, *encryption.Nonce) {
 	if m == nil {
 		return nil, nil
 	}
 
-	var nonce eestream.Nonce
+	var nonce encryption.Nonce
 	copy(nonce[:], m.KeyNonce)
 
 	return m.EncryptedKey, &nonce
@@ -659,16 +660,16 @@ func decryptStreamInfo(ctx context.Context, item segments.Meta, path paths.Path,
 		return nil, err
 	}
 
-	cipher := eestream.Cipher(streamMeta.EncryptionType)
+	cipher := encryption.Cipher(streamMeta.EncryptionType)
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
-	e, err := cipher.Decrypt(encryptedKey, (*eestream.Key)(derivedKey), keyNonce)
+	e, err := cipher.Decrypt(encryptedKey, (*encryption.Key)(derivedKey), keyNonce)
 	if err != nil {
 		return nil, err
 	}
 
-	var contentKey eestream.Key
+	var contentKey encryption.Key
 	copy(contentKey[:], e)
 
 	// decrypt metadata with the content encryption key and zero nonce
-	return cipher.Decrypt(streamMeta.EncryptedStreamInfo, &contentKey, &eestream.Nonce{})
+	return cipher.Decrypt(streamMeta.EncryptedStreamInfo, &contentKey, &encryption.Nonce{})
 }
