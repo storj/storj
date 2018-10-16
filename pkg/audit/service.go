@@ -21,23 +21,26 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	errs     []error
 }
 
 // Config contains configurable values for audit service
 type Config struct {
-	StatDBPort       string                `help:"port to contact statDB client" default:":9090"`
-	MaxRetriesStatDB int                   `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Pointers         pdbclient.Client      `help:"Pointers for a instantiation of a new service"`
-	Transport        transport.Client      `help:"Transport for a instantiation of a new service"`
-	Overlay          overlay.Client        `help:"Overlay for a instantiation of a new service"`
-	ID               provider.FullIdentity `help:"ID for a instantiation of a new service"`
-	Interval         time.Duration         `help:"how frequently segements should audited" default:"30s"`
+	StatDBPort          string        `help:"port to contact statDB client" default:":9090"`
+	MaxRetriesStatDB    int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	PointerDBPort       string        `help:"Pointers for a instantiation of a new service"`
+	TransportClientPort string        `help:"Transport for a instantiation of a new service"`
+	OverlayClientPort   string        `help:"Overlay for a instantiation of a new service"`
+	ID                  string        `help:"ID for a instantiation of a new service"`
+	Interval            time.Duration `help:"how frequently segements should audited" default:"30s"`
 }
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
+	var pdb pdbclient.Client
+	var tc transport.Client
+	var oc overlay.Client
+	var id provider.FullIdentity
+	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, pdb, tc, oc, id)
 	if err != nil {
 		return err
 	}
@@ -57,7 +60,6 @@ func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers
 	return &Service{Cursor: cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-		errs:     []error{},
 	}, nil
 }
 
@@ -73,31 +75,33 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	errch := make(chan error)
+
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				stripe, err := service.Cursor.NextStripe(ctx)
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 
 				authorization, err := service.Cursor.pointers.SignedMessage()
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 
 				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 			case <-ctx.Done():
@@ -106,5 +110,6 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 		}
 	}()
 
-	return utils.CombineErrors(service.errs...)
+	// TODO(James): convert to collectErrors
+	return utils.CollectErrors(errch, 5*time.Second)
 }
