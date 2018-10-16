@@ -72,7 +72,7 @@ func TestNewKademlia(t *testing.T) {
 	for _, v := range cases {
 		assert.NoError(t, v.setup())
 		kc := kadconfig()
-		ca, err := provider.NewCA(context.Background(), 12, 4)
+		ca, err := provider.NewTestCA(context.Background())
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)

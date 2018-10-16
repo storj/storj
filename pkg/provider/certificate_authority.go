@@ -172,6 +172,11 @@ func NewCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCerti
 	}
 }
 
+// NewTestCA creates a new full low-difficulty identity intended for testing
+func NewTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
+	return NewCA(ctx, 4, 2)
+}
+
 // Save saves a CA with the given configuration
 func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	f := os.O_WRONLY | os.O_CREATE

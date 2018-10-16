@@ -52,7 +52,7 @@ func TestLookup(t *testing.T) {
 		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
 		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -67,7 +67,7 @@ func TestLookup(t *testing.T) {
 }
 
 func newTestServer(ctx context.Context) (*grpc.Server, *mockNodeServer, error) {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
