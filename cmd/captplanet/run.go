@@ -147,7 +147,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	return collectErrors(errch, time.Duration(5*time.Second))
+	return collectErrors(errch, 5*time.Second)
 }
 
 // collectErrors returns first error from channel and all errors that happen within duration
