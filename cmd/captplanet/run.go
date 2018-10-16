@@ -63,26 +63,12 @@ var (
 		Satellite    Satellite
 		StorageNodes [storagenodeCount]StorageNode
 		Uplink       miniogw.Config
-		Errors       []error
 	}
 )
 
 func init() {
 	rootCmd.AddCommand(runCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
-}
-
-func collectErrors(errch chan error, d time.Duration) error {
-	errs := []error{<-errch}
-
-	for {
-		select {
-		case err := <-errch:
-			errs = append(errs, err)
-		case <-time.After(d):
-			return utils.CombineErrors(errs...)
-		}
-	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -162,4 +148,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return collectErrors(errch, time.Duration(5*time.Second))
+}
+
+// collectErrors pushes all errors on the errch channel and times out to wait for more
+// then it sends all errors it received as a single signal out.
+func collectErrors(errch chan error, d time.Duration) error {
+	errs := []error{<-errch}
+	timeout := time.After(d)
+	for {
+		select {
+		case err := <-errch:
+			errs = append(errs, err)
+		case <-timeout:
+			return utils.CombineErrors(errs...)
+		}
+	}
 }
