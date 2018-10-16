@@ -47,7 +47,7 @@ func New(p string) (FPath, error) {
 			return fp, nil
 		}
 
-		if _, valid := storjScheme[u.Scheme]; valid {
+		if !storjScheme[u.Scheme] {
 			return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
 		}
 
