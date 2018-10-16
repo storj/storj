@@ -11,13 +11,15 @@ package ecclient
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
+	time "time"
+
+	gomock "github.com/golang/mock/gomock"
+
 	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
-	time "time"
 )
 
 // MockPSClient is a mock of PSClient interface

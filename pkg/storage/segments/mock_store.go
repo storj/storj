@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	paths "storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
 )
