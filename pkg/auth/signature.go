@@ -13,11 +13,6 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// SignedMessageProvider interface provides access to last signed message
-type SignedMessageProvider interface {
-	SignedMessage() (*pb.SignedMessage, error)
-}
-
 // GenerateSignature creates signature from identity id
 func GenerateSignature(identity *provider.FullIdentity) ([]byte, error) {
 	if identity == nil {

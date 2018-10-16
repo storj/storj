@@ -17,7 +17,6 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -25,19 +24,6 @@ import (
 
 var ctx = context.Background()
 var argError = errs.Class("argError")
-
-type basicSignedMessageProvider struct {
-	identity *provider.FullIdentity
-}
-
-func (p *basicSignedMessageProvider) SignedMessage() (*pb.SignedMessage, error) {
-	signature, err := auth.GenerateSignature(p.identity)
-	if err != nil {
-		return nil, err
-	}
-	peerIdentity := &provider.PeerIdentity{ID: p.identity.ID, CA: p.identity.CA, Leaf: p.identity.Leaf}
-	return auth.NewSignedMessage(signature, peerIdentity)
-}
 
 func main() {
 	cobra.EnableCommandSorting = false
@@ -63,8 +49,7 @@ func main() {
 	}
 	defer printError(conn.Close)
 
-	smProvider := &basicSignedMessageProvider{identity: identity}
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey), smProvider)
+	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
@@ -106,7 +91,7 @@ func main() {
 
 			id := client.NewPieceID()
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}, &pb.SignedMessage{}); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
@@ -155,7 +140,7 @@ func main() {
 				return err
 			}
 
-			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
+			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{}, &pb.SignedMessage{})
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)
@@ -197,7 +182,7 @@ func main() {
 		Aliases: []string{"x"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			return psClient.Delete(context.Background(), client.PieceID(id))
+			return psClient.Delete(context.Background(), client.PieceID(id), &pb.SignedMessage{})
 		},
 	})
 

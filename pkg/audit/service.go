@@ -24,7 +24,7 @@ type Service struct {
 func NewService(pointers pdbclient.Client, transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Service {
 	cursor := NewCursor(pointers)
 
-	verifier := NewVerifier(transport, overlay, id, pointers)
+	verifier := NewVerifier(transport, overlay, id)
 	return &Service{Cursor: cursor, Verifier: verifier}
 }
 

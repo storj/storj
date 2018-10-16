@@ -11,7 +11,6 @@ import (
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -43,17 +42,16 @@ type defaultDownloader struct {
 	transport  transport.Client
 	overlay    overlay.Client
 	identity   provider.FullIdentity
-	smProvider auth.SignedMessageProvider
 }
 
 // newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, smProvider auth.SignedMessageProvider) *defaultDownloader {
-	return &defaultDownloader{transport: transport, overlay: overlay, identity: id, smProvider: smProvider}
+func newDefaultDownloader(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *defaultDownloader {
+	return &defaultDownloader{transport: transport, overlay: overlay, identity: id}
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity, smProvider auth.SignedMessageProvider) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id, smProvider)}
+func NewVerifier(transport transport.Client, overlay overlay.Client, id provider.FullIdentity) *Verifier {
+	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
 func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -62,7 +60,7 @@ func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 0, d.identity.Key, d.smProvider)
+	return client.NewPSClient(c, 0, d.identity.Key)
 }
 
 // getShare use piece store clients to download shares from a given node
@@ -80,7 +78,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
+	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{}, &pb.SignedMessage{})
 	if err != nil {
 		return s, err
 	}

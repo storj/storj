@@ -19,7 +19,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
@@ -39,9 +38,9 @@ var (
 // PSClient is an interface describing the functions for interacting with piecestore nodes
 type PSClient interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
-	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error
-	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error)
-	Delete(ctx context.Context, pieceID PieceID) error
+	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, sm *pb.SignedMessage) error
+	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, sm *pb.SignedMessage) (ranger.Ranger, error)
+	Delete(ctx context.Context, pieceID PieceID, sm *pb.SignedMessage) error
 	Stats(ctx context.Context) (*pb.StatSummary, error)
 	io.Closer
 }
@@ -52,11 +51,10 @@ type Client struct {
 	conn             *grpc.ClientConn
 	prikey           crypto.PrivateKey
 	bandwidthMsgSize int
-	smProvider       auth.SignedMessageProvider
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey, smProvider auth.SignedMessageProvider) (PSClient, error) {
+func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -70,7 +68,6 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.Priv
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		smProvider:       smProvider,
 	}, nil
 }
 
@@ -102,19 +99,15 @@ func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, e
 }
 
 // Put uploads a Piece to a piece store Server
-func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation) error {
+func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, sm *pb.SignedMessage) error {
 	stream, err := client.route.Store(ctx)
 	if err != nil {
 		return err
 	}
 
-	signedMessage, err := client.smProvider.SignedMessage()
-	if err != nil {
-		return err
-	}
 	msg := &pb.PieceStore{
 		Piecedata:     &pb.PieceStore_PieceData{Id: id.String(), ExpirationUnixSec: ttl.Unix()},
-		SignedMessage: signedMessage,
+		SignedMessage: sm,
 	}
 	if err = stream.Send(msg); err != nil {
 		if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
@@ -138,7 +131,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	if err == io.ErrUnexpectedEOF {
 		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
-		deleteErr := client.Delete(ctx, id)
+		deleteErr := client.Delete(ctx, id, sm)
 		if deleteErr != nil {
 			return deleteErr
 		}
@@ -151,26 +144,18 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation) (ranger.Ranger, error) {
+func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, sm *pb.SignedMessage) (ranger.Ranger, error) {
 	stream, err := client.route.Retrieve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	signedMessage, err := client.smProvider.SignedMessage()
-	if err != nil {
-		return nil, err
-	}
-	return PieceRangerSize(client, stream, id, size, ba, signedMessage), nil
+	return PieceRangerSize(client, stream, id, size, ba, sm), nil
 }
 
 // Delete a Piece from a piece store Server
-func (client *Client) Delete(ctx context.Context, id PieceID) error {
-	signedMessage, err := client.smProvider.SignedMessage()
-	if err != nil {
-		return err
-	}
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String(), SignedMessage: signedMessage})
+func (client *Client) Delete(ctx context.Context, id PieceID, sm *pb.SignedMessage) error {
+	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String(), SignedMessage: sm})
 	if err != nil {
 		return err
 	}

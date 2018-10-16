@@ -58,7 +58,7 @@ type Client interface {
 		items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path p.Path) error
 
-	auth.SignedMessageProvider
+	SignedMessage() (*pb.SignedMessage, error)
 }
 
 // NewClient initializes a new pointerdb client
