@@ -6,11 +6,11 @@ package overlay
 import (
 	"context"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
-	"net"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
