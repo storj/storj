@@ -2,7 +2,7 @@ GO_VERSION ?= 1.11
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH},master)
 TAG    	:= $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 else
@@ -109,6 +109,14 @@ binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
+	rm -f cmd/${COMPONENT}/resource.syso
+	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
+	goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
+	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
+	-description "${COMPONENT} program for Storj" \
+	-product-ver-build 2 -ver-build 2 \
+	-product-version "alpha2" \
+	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	tar -c . | docker run --rm -i -e TAR=1 -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e CGO_ENABLED=1 \
 	-w /go/src/storj.io/storj storjlabs/golang \
