@@ -220,18 +220,18 @@ func TestGetNodes(t *testing.T) {
 	assert.NoError(t, err)
 	fid2, err := newTestIdentity()
 	assert.NoError(t, err)
-
+	fid.ID = "AAAAA"
+	fid2.ID = "BBBBB"
 	// create two new unique identities
 	id := node.ID(fid.ID)
 	id2 := node.ID(fid2.ID)
 	assert.NotEqual(t, id, id2)
-
 	kid := dht.NodeID(fid.ID)
 	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
 
 	assert.NoError(t, err)
 	// add nodes
-	ids := []string{"A", "B", "C", "D"}
+	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
 	bw := []int64{1, 2, 3, 4}
 	disk := []int64{4, 3, 2, 1}
 	nodes := []*pb.Node{}
@@ -256,7 +256,7 @@ func TestGetNodes(t *testing.T) {
 		expected     []*pb.Node
 	}{
 		{testID: "one",
-			start: "B",
+			start: "BBBBB",
 			limit: 2,
 			restrictions: []pb.Restriction{
 				pb.Restriction{
@@ -268,7 +268,7 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[2:],
 		},
 		{testID: "two",
-			start: "A",
+			start: "AAAAA",
 			limit: 3,
 			restrictions: []pb.Restriction{
 				pb.Restriction{
@@ -285,7 +285,7 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[3:],
 		},
 		{testID: "three",
-			start:        "A",
+			start:        "AAAAA",
 			limit:        4,
 			restrictions: []pb.Restriction{},
 			expected:     nodes,
