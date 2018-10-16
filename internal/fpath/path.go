@@ -12,9 +12,10 @@ import (
 	"strings"
 )
 
-var storjScheme = map[string]bool{
-	"sj": true,
-	"s3": true,
+// Create a set
+var storjScheme = map[string]struct{}{
+	"sj": {},
+	"s3": {},
 }
 
 // FPath is an OS independently path handling structure
@@ -47,7 +48,7 @@ func New(p string) (FPath, error) {
 			return fp, nil
 		}
 
-		if !storjScheme[u.Scheme] {
+		if _, validScheme := storjScheme[u.Scheme]; !validScheme {
 			return fp, fmt.Errorf("unsupported URL scheme: %s, use format sj://bucket/", u.Scheme)
 		}
 
