@@ -15,8 +15,8 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
-	"storj.io/storj/storage"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 )
 
 // Checker is the interface for the data repair queue
@@ -131,7 +131,7 @@ func (c *checker) Run(ctx context.Context, interval time.Duration) error {
 	defer cancel()
 	var errs []error
 
-	go func() error {
+	go func() {
 		for {
 			select {
 			case <-ticker.C:
@@ -142,13 +142,14 @@ func (c *checker) Run(ctx context.Context, interval time.Duration) error {
 						errs = append(errs, err)
 					}
 				}()
-				return nil
+				return
 			case <-ctx.Done():
-				return utils.CombineErrors(errs...)
+				return
 			}
 		}
 	}()
-	return nil
+	//TODO collectErrors and wait?
+	return utils.CombineErrors(errs...)
 }
 
 // Stop the checker loop

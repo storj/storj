@@ -17,13 +17,14 @@ import (
 	"storj.io/storj/storage/postgreskv"
 	"storj.io/storj/storage/storelogger"
 )
+
 // CtxKeyPointerdb Used as pointerdb key
 type CtxKeyPointerdb int
 
 const (
 	// BoltPointerBucket is the string representing the bucket used for `PointerEntries` in BoltDB
-	BoltPointerBucket = "pointers"
-	ctxKey CtxKeyPointerdb = iota
+	BoltPointerBucket                 = "pointers"
+	ctxKey            CtxKeyPointerdb = iota
 )
 
 // Config is a configuration struct that is everything you need to start a

@@ -36,7 +36,7 @@ type Config struct {
 type CtxKey int
 
 const (
-	ctxKeyOverlay CtxKey = iota
+	ctxKeyOverlay       CtxKey = iota
 	ctxKeyOverlayServer CtxKey = iota + 1
 )
 
