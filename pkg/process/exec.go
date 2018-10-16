@@ -4,9 +4,25 @@
 package process
 
 import (
+	"fmt"
 	"log"
 	"os"
+
+	"github.com/spf13/cobra"
 )
+
+func init() {
+
+	cobra.MousetrapHelpText = "This is a command line tool.\n\n" +
+		"This needs to be run from a Command Prompt.\n"
+
+	// Figure out the executable name.
+	exe, err := os.Executable()
+	if err == nil {
+		cobra.MousetrapHelpText += fmt.Sprintf(
+			"Try running \"%s help\" for more information\n", exe)
+	}
+}
 
 // check if file exists, handle error correctly if it doesn't
 func fileExists(path string) bool {

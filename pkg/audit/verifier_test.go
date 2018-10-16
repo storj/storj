@@ -43,13 +43,60 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		failedNodes, err := verifier.verify(ctx, 6, pointer)
+		verifiedNodes, err := verifier.verify(ctx, 6, pointer)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(failedNodes) != 0 {
-			t.Fatal("expected there to be no recorded bad nodes")
+		if len(verifiedNodes) == 0 {
+			t.Fatal("expected there to be verified nodes")
 		}
+	}
+}
+
+func TestSomeNodesPassAudit(t *testing.T) {
+	ctx := context.Background()
+	mockShares := make(map[int]share)
+
+	for _, tt := range []struct {
+		nodeAmt  int
+		shareAmt int
+		required int
+		total    int
+		err0     error
+		err1     error
+	}{
+		{nodeAmt: 30, shareAmt: 30, required: 20, total: 40, err0: Error.New("unable to get node"), err1: nil},
+	} {
+		someData := randData(32 * 1024)
+		for i := 0; i < 10; i++ {
+			mockShares[i] = share{
+				Error:       tt.err0,
+				PieceNumber: i,
+				Data:        someData,
+			}
+		}
+		for i := 10; i < tt.shareAmt; i++ {
+			mockShares[i] = share{
+				Error:       tt.err1,
+				PieceNumber: i,
+				Data:        someData,
+			}
+		}
+
+		md := mockDownloader{shares: mockShares}
+		verifier := &Verifier{downloader: &md}
+		pointer := makePointer(tt.nodeAmt)
+		verifiedNodes, err := verifier.verify(ctx, 6, pointer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var nodesDown int
+		for _, node := range verifiedNodes {
+			if !node.IsUp {
+				nodesDown++
+			}
+		}
+		assert.Equal(t, nodesDown, 10)
 	}
 }
 
@@ -161,8 +208,10 @@ func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer
 	}
 	for i := 0; i < 30; i++ {
 		node := &pb.Node{
-			Id:      strconv.Itoa(i),
-			Address: &pb.NodeAddress{},
+			Id: strconv.Itoa(i),
+			Address: &pb.NodeAddress{
+				Address: strconv.Itoa(i),
+			},
 		}
 		nodes = append(nodes, node)
 	}

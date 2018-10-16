@@ -31,6 +31,11 @@ func ExecuteWithConfig(cmd *cobra.Command, defaultConfig string) {
 // Exec runs a Cobra command. If a "config" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
+	exe, err := os.Executable()
+	if err == nil {
+		cmd.Use = exe
+	}
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	cleanup(cmd)
 	_ = cmd.Execute()
