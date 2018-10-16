@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"

@@ -5,6 +5,7 @@ package server
 
 import (
 	"github.com/gogo/protobuf/proto"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 )

@@ -13,9 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/storage"
-
 	"github.com/golang/mock/gomock"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
@@ -25,7 +22,9 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	mock_buckets "storj.io/storj/pkg/storage/buckets/mocks"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/storage"
 )
 
 var (
