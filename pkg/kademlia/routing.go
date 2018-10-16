@@ -229,3 +229,7 @@ func (rt *RoutingTable) GetBucketTimestamp(id string, bucket dht.Bucket) (time.T
 
 	return time.Unix(0, timestamp).UTC(), nil
 }
+
+func (rt *RoutingTable) iterate(opts storage.IterateOptions, f func(it storage.Iterator) error) error {
+	return rt.nodeBucketDB.Iterate(opts, f)
+}
