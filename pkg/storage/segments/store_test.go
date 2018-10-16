@@ -234,6 +234,123 @@ func TestSegmentStoreGetInline(t *testing.T) {
 	}
 }
 
+func TestSegmentStoreRepairRemote(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ti := time.Unix(0, 0).UTC()
+	someTime, err := ptypes.TimestampProto(ti)
+	assert.NoError(t, err)
+
+	for _, tt := range []struct {
+		pathInput     string
+		thresholdSize int
+		pointerType   pb.Pointer_DataType
+		size          int64
+		metadata      []byte
+	}{
+		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata")},
+	} {
+		mockOC := mock_overlay.NewMockClient(ctrl)
+		mockEC := mock_ecclient.NewMockClient(ctrl)
+		mockPDB := mock_pointerdb.NewMockClient(ctrl)
+		mockES := mock_eestream.NewMockErasureScheme(ctrl)
+		rs := eestream.RedundancyStrategy{
+			ErasureScheme: mockES,
+		}
+
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		assert.NotNil(t, ss)
+
+		p := paths.New(tt.pathInput)
+
+		calls := []*gomock.Call{
+			mockPDB.EXPECT().Get(
+				gomock.Any(), gomock.Any(),
+			).Return(&pb.Pointer{
+				Type: tt.pointerType,
+				Remote: &pb.RemoteSegment{
+					Redundancy: &pb.RedundancyScheme{
+						Type:             pb.RedundancyScheme_RS,
+						MinReq:           1,
+						Total:            2,
+						RepairThreshold:  1,
+						SuccessThreshold: 2,
+					},
+					PieceId:      "here's my piece id",
+					RemotePieces: []*pb.RemotePiece{},
+				},
+				CreationDate:   someTime,
+				ExpirationDate: someTime,
+				Size:           tt.size,
+				Metadata:       tt.metadata,
+			}, nil),
+			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
+			mockEC.EXPECT().Get(
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			),
+		}
+		gomock.InOrder(calls...)
+
+		_, _, err := ss.Get(ctx, p)
+		assert.NoError(t, err)
+	}
+
+	ctrl = gomock.NewController(t)
+
+	for _, tt := range []struct {
+		name          string
+		pathInput     string
+		mdInput       []byte
+		thresholdSize int
+		expiration    time.Time
+		readerContent string
+	}{
+		{"test remote put", "path/1", []byte("abcdefghijklmnopqrstuvwxyz"), 2, time.Unix(0, 0).UTC(), "readerreaderreader"},
+	} {
+		mockOC := mock_overlay.NewMockClient(ctrl)
+		mockEC := mock_ecclient.NewMockClient(ctrl)
+		mockPDB := mock_pointerdb.NewMockClient(ctrl)
+		mockES := mock_eestream.NewMockErasureScheme(ctrl)
+		rs := eestream.RedundancyStrategy{
+			ErasureScheme: mockES,
+		}
+
+		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
+		assert.NotNil(t, ss)
+
+		p := paths.New(tt.pathInput)
+		r := strings.NewReader(tt.readerContent)
+
+		calls := []*gomock.Call{
+			mockES.EXPECT().TotalCount().Return(1),
+			mockOC.EXPECT().Choose(
+				gomock.Any(), gomock.Any(),
+			).Return([]*pb.Node{
+				{Id: "im-a-node"},
+			}, nil),
+			mockEC.EXPECT().Put(
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			),
+			mockES.EXPECT().RequiredCount().Return(1),
+			mockES.EXPECT().TotalCount().Return(1),
+			mockES.EXPECT().ErasureShareSize().Return(1),
+			mockPDB.EXPECT().Put(
+				gomock.Any(), gomock.Any(), gomock.Any(),
+			).Return(nil),
+			mockPDB.EXPECT().Get(
+				gomock.Any(), gomock.Any(),
+			),
+		}
+		gomock.InOrder(calls...)
+
+		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
+			return p, tt.mdInput, nil
+		})
+		assert.NoError(t, err, tt.name)
+	}
+}
+
 func TestSegmentStoreGetRemote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

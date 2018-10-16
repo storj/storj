@@ -199,8 +199,10 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	//c := make(chan bool, 1)
 	log.Println("KISHORE --> Testing the repair START ******")
 	lostPieces := []int{1, 2}
-	s.Repair(ctx, path, lostPieces)
-
+	err = s.Repair(ctx, path, lostPieces)
+	if err != nil {
+		return rr, meta, Error.New("not cool 8903898980383083483uuou ")
+	}
 	log.Println("KISHORE --> Testing the repair END ******")
 	//<-c
 	pr, err := s.pdb.Get(ctx, path)
@@ -305,6 +307,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 				}
 			}
 		}
+		log.Println("KISHORE --> originalNodes after cleaned up = ", originalNodes)
 
 		// count the number of nil nodes thats needs to be repaired
 		totalNilNodes := 0
@@ -314,9 +317,12 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 				continue
 			}
 		}
+		log.Println("KISHORE --> totalNilNodes  = ", totalNilNodes)
 
 		//Request Overlay for n-h new storage nodes
+		log.Println("KISHORE --> passing excludedNodesIDs list  = ", excludeNodeIDs)
 		newNodes, err := s.getNewUniqueNodes(ctx, excludeNodeIDs, totalNilNodes, 0)
+		log.Println("KISHORE --> newNodes  = ", newNodes)
 
 		totalRepairCount := len(newNodes)
 		if totalRepairCount != totalNilNodes {
@@ -325,15 +331,17 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 
 		//make a repair nodes list just with new unique ids
 		repairNodesList := make([]*pb.Node, len(originalNodes))
-		for _, vn := range newNodes {
-			for j, vr := range originalNodes {
-				// find the nil in the original node list
-				if vr == nil {
-					// replace the location with the newNode Node info
-					repairNodesList[j] = vn
-				}
+		for j, vr := range originalNodes {
+			// find the nil in the original node list
+			if vr == nil {
+				// replace the location with the newNode Node info
+				totalRepairCount = totalRepairCount - 1
+				repairNodesList[j] = newNodes[totalRepairCount]
+				log.Println("KISHORE --> newNodes[", totalRepairCount, "]= ", newNodes[totalRepairCount])
+				log.Println("KISHORE --> repairNodesList[", j, "]= ", repairNodesList[j])
 			}
 		}
+		log.Println("KISHORE --> repairNodesList  = ", repairNodesList)
 
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
 		if err != nil {
@@ -345,12 +353,14 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		log.Println("KISHORE --> ** Retrieved the Segment **")
 
 		// get io.Reader from ranger
 		r, err := rr.Range(ctx, 0, rr.Size())
 		if err != nil {
 			return err
 		}
+		log.Println("KISHORE --> ** Retrieved the io.Reader off of ranger **")
 
 		/* to really make the piecenodes unique test code */
 		// ecclient sends delete request
@@ -358,6 +368,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		log.Println("KISHORE --> ** Deleted the newNodes segments **")
 
 		// puts file to ecclient
 		exp := pr.GetExpirationDate()
@@ -367,6 +378,8 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		log.Println("KISHORE --> successfulNodes  = ", successfulNodes)
+		log.Println("KISHORE --> ** Uploaded the pieces to newNodes list **")
 
 		// merge the successful nodes list into the originalNodes list
 		for i, v := range originalNodes {
@@ -375,6 +388,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 				originalNodes[i] = successfulNodes[i]
 			}
 		}
+		log.Println("KISHORE --> final after repair and merging the successfulNodes list = ", originalNodes)
 
 		metadata := pr.GetMetadata()
 		pointer, err := s.makeRemotePointer(originalNodes, pid, rr.Size(), exp, metadata)
@@ -397,33 +411,6 @@ func (s *segmentStore) getNewUniqueNodes(ctx context.Context, nodes []dht.NodeID
 	if err != nil {
 		return nil, err
 	}
-
-	// if nodes == nil {
-	// 	return newNodes, err
-	// }
-	// log.Println("KISHORE --> list of newNodes ", newNodes)
-
-	// uniqueNodes := len(newNodes)
-	// for uniqueNodes > 0 {
-	// 	for j := range newNodes {
-	// 		for i := range nodes {
-
-	// 			if newNodes[j] == nodes[i] {
-	// 				uniqueNodes = uniqueNodes + 1
-	// 			}
-	// 		}
-	// 		uniqueNodes = (uniqueNodes - 1)
-	// 		log.Println("KISHORE --> uniqueNodes = ", uniqueNodes)
-	// 	}
-	// 	if uniqueNodes > 0 {
-	// 		// request a new set of nodes
-	// 		newNodes, err = s.oc.Choose(ctx, numOfNodes, space)
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 	}
-	// 	log.Println("KISHORE --> got unique nodes")
-	// }
 	return newNodes, err
 }
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"log"
 	"sort"
 	"time"
 
@@ -27,8 +26,6 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Repair(ctx context.Context, healthyNodes []*pb.Node, newNodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error)
 	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
 		pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error)
 	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
@@ -65,79 +62,6 @@ type ecClient struct {
 func NewClient(identity *provider.FullIdentity, transport transport.Client, mbm int) Client {
 	d := defaultDialer{identity: identity, transport: transport}
 	return &ecClient{d: &d, mbm: mbm}
-}
-
-func (ec *ecClient) Repair(ctx context.Context, healthyNodes []*pb.Node, newNodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.mbm)
-	if err != nil {
-		return nil, err
-	}
-
-	type info struct {
-		i   int
-		err error
-	}
-	infos := make(chan info, len(healthyNodes))
-	newIds := len(newNodes)
-	for i, n := range healthyNodes {
-		log.Println("KISHORE --> value of i =", i)
-		log.Println("KISHORE --> value of n =", n)
-		log.Println("KISHORE --> value of healtyNodes[", i, "] =", healthyNodes[i])
-
-		if healthyNodes[i] != nil {
-			log.Println("KISHORE --> Inside erasure client i =", i)
-			infos <- info{i: i, err: nil}
-			continue
-		}
-		newIds = newIds - 1
-		healthyNodes[i] = newNodes[newIds]
-		n = healthyNodes[i]
-		log.Println("KISHORE --> value of newIds =", newIds)
-		log.Println("KISHORE --> outside erasure client i =", i, "healtyNodes[", i, "]=", healthyNodes[i])
-		go func(i int, n *pb.Node) {
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
-			if err != nil {
-				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			ps, err := ec.d.dial(ctx, n)
-			if err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
-				infos <- info{i: i, err: err}
-				return
-			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
-			// normally the bellow call should be deferred, but doing so fails
-			// randomly the unit tests
-			utils.LogClose(ps)
-			// io.ErrUnexpectedEOF means the piece upload was interrupted due to slow connection.
-			// No error logging for this case.
-			if err != nil && err != io.ErrUnexpectedEOF {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
-					pieceID, derivedPieceID, n.GetId(), err)
-			}
-			infos <- info{i: i, err: err}
-		}(i, n)
-	}
-
-	successfulNodes = make([]*pb.Node, len(healthyNodes))
-	var successfulCount int
-	for range healthyNodes {
-		info := <-infos
-		if info.err == nil {
-			successfulNodes[info.i] = healthyNodes[info.i]
-			successfulCount++
-		}
-	}
-	log.Println("KISHORE --> successfulCount=", successfulCount, "successfulNodes =", successfulNodes)
-
-	return successfulNodes, nil
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
