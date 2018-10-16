@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -15,19 +16,18 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/utils"
 )
 
 // Checker is the interface for the data repair queue
 type Checker interface {
 	IdentifyInjuredSegments(ctx context.Context) (err error)
-	Run() error
-	Stop() error
+	Run(ctx context.Context, interval time.Duration) error
+	Stop(ctx context.Context) error
 }
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
@@ -122,12 +122,38 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 	return nodes
 }
 
-// Run
-func (c *checker) Run() error {
+// Run the checker loop
+func (c *checker) Run(ctx context.Context, interval time.Duration) error {
+	zap.S().Info("Checker is starting up")
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var errs []error
+
+	go func() error {
+		for {
+			select {
+			case <-ticker.C:
+				zap.S().Info("Starting segment checker service")
+				go func() {
+					err := c.IdentifyInjuredSegments(ctx)
+					if err != nil {
+						errs = append(errs, err)
+					}
+				}()
+				return nil
+			case <-ctx.Done():
+				return utils.CombineErrors(errs...)
+			}
+		}
+	}()
 	return nil
 }
 
-// Stop
-func (c *checker) Stop() error {
+// Stop the checker loop
+func (c *checker) Stop(ctx context.Context) error {
+	_, cancel := context.WithCancel(ctx)
+	cancel()
 	return nil
 }

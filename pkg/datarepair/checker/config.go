@@ -7,7 +7,13 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
+	q "storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/storage/redis"
 )
 
 // Config contains configurable values for repairer
@@ -18,21 +24,15 @@ type Config struct {
 
 // Initialize a Checker struct
 func (c Config) initialize(ctx context.Context) (Checker, error) {
-	// var check checker
-	// check.ctx, check.cancel = context.WithCancel(ctx)
-	check := newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger)
-
-	// client, err := redis.NewClientFrom(c.QueueAddress)
-	// if err != nil {
-	// 	return nil, Error.Wrap(err)
-	// }
-	// r.queue = q.NewQueue(client)
-
-	// r.cond.L = &r.mu
-	// r.maxRepair = c.MaxRepair
-	// r.interval = c.Interval
-	// return &r, nil
-	return &checker{}, nil
+	pointerdb := pointerdb.LoadFromContext(ctx)
+	overlay := overlay.LoadServerFromContext(ctx)
+	client, err := redis.NewClientFrom(c.QueueAddress)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	repairQueue := q.NewQueue(client)
+	check := newChecker(pointerdb, repairQueue, overlay, 0, zap.L())
+	return check, nil
 }
 
 // Run runs the checker with configured values
@@ -41,5 +41,5 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	return check.Run()
+	return check.Run(ctx, c.Interval)
 }

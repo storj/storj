@@ -37,6 +37,7 @@ type CtxKey int
 
 const (
 	ctxKeyOverlay CtxKey = iota
+	ctxKeyOverlayServer CtxKey = iota + 1
 )
 
 // Run implements the provider.Responsibility interface. Run assumes a
@@ -102,21 +103,31 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	pb.RegisterOverlayServer(server.GRPC(), &Server{
+	srv := &Server{
 		dht:   kad,
 		cache: cache,
 
 		// TODO(jt): do something else
 		logger:  zap.L(),
 		metrics: monkit.Default,
-	})
-
-	return server.Run(context.WithValue(ctx, ctxKeyOverlay, cache))
+	}
+	pb.RegisterOverlayServer(server.GRPC(), srv)
+	context.WithValue(ctx, ctxKeyOverlay, cache)
+	context.WithValue(ctx, ctxKeyOverlayServer, srv)
+	return server.Run(ctx)
 }
 
 // LoadFromContext gives access to the cache from the context, or returns nil
 func LoadFromContext(ctx context.Context) *Cache {
 	if v, ok := ctx.Value(ctxKeyOverlay).(*Cache); ok {
+		return v
+	}
+	return nil
+}
+
+// LoadServerFromContext gives access to the overlay server from the context, or returns nil
+func LoadServerFromContext(ctx context.Context) *Server {
+	if v, ok := ctx.Value(ctxKeyOverlayServer).(*Server); ok {
 		return v
 	}
 	return nil
