@@ -29,11 +29,11 @@ install:
   - GOPATH=~/gotools GOBIN=$GOPATH/bin go get github.com/modocache/gover
   - popd
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
-  - go install -mod readonly -v ./...
+  - go install -v ./...
 
 script:
   - ./scripts/check-for-header.sh
   - golangci-lint run
-  - go test  -mod readonly -race -v -cover -coverprofile=.coverprofile ./...
+  - go test -race -v -cover -coverprofile=.coverprofile ./...
   - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet
