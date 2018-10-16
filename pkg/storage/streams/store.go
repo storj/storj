@@ -40,7 +40,7 @@ type Meta struct {
 func convertMeta(lastSegmentMeta segments.Meta) (Meta, error) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
-	 logger.Debug("entering STREAMSTORE META -1\n\n\n\n\n")
+	logger.Debug("entering STREAMSTORE META -1\n\n\n\n\n")
 
 	// streamMeta := pb.StreamMeta{}
 	// err := proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
@@ -346,7 +346,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 
 
-
+	fmt.Println("last segmentmeta.data: ", lastSegmentMeta.Data)
 
 	logger.Debug("in stream get -7")
 	cipher := eestream.Cipher(streamMeta.EncryptionType)
@@ -354,6 +354,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
+		logger.Debug("get streamstore err in derived key")
 		return nil,Meta{}, err
 	}
 
@@ -365,11 +366,17 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 	e, err := cipher.Decrypt(encryptedKey, (*eestream.Key)(derivedKey), keyNonce)
 	if err != nil {
+		logger.Debug("err in derypted enc key streamstore get")
 		return nil, Meta{}, err
 	}
 
 	var encKey eestream.Key
 	copy(encKey[:], e)
+
+	fmt.Println("enckey: ", encKey, "\n\n\n\n\n\n\n\n")
+	fmt.Println("enctype: ", streamMeta.EncryptionType, "\n\n\n\n\n\n")
+	fmt.Println("nonce: ", &nonce, "\n\n\n\n\n\n\n\n")
+	fmt.Println("stream meta encrypted streamninfo: ", streamMeta.EncryptedStreamInfo, "\n\n\n\n\n")
 
 	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &nonce)
 
@@ -379,7 +386,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	// decrypt stramMeata.EncryptedStreamInfo 
 
 
-
+	fmt.Println("decryptedStreamInfo: ", decryptedStreamInfo, "\n\n\n\n\n\n\n\n")
 
 	stream := pb.StreamInfo{}
 	err = proto.Unmarshal(decryptedStreamInfo, &stream) //streamMeta.EncryptedStreamInfo
@@ -388,12 +395,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
+	fmt.Println("streams are: ", stream)
+
+	fmt.Println("stream segments: ", stream.NumberOfSegments, "\n\n\n\n\n\n\n")
 	logger.Debug("in stream get -9")
 	//derivedKey, err := path.DeriveContentKey(s.rootKey)
-	if err != nil {
-		logger.Debug("in stream get -10")
-		return nil, Meta{}, err
-	}
+	// if err != nil {
+	// 	logger.Debug("in stream get -10")
+	// 	return nil, Meta{}, err
+	// }
 
 	logger.Debug("in stream get -11")
 	var rangers []ranger.Ranger
@@ -420,9 +430,10 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	}
 
 	//var nonce eestream.Nonce
-	_, err = nonce.Increment(stream.NumberOfSegments - 1)
+	i, err := nonce.Increment(stream.NumberOfSegments - 1)
 	if err != nil {
 		logger.Debug("in stream get -14")
+		fmt.Println("this is i: ", i)
 		return nil, Meta{}, err
 	}
 	//encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
