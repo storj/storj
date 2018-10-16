@@ -139,6 +139,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	var streamSize int64
 	var putMeta segments.Meta
 
+	fmt.Println(currentSegment, " this is currentSegment in PUT-1")
+
 	defer func() {
 		select {
 		case <-ctx.Done():
@@ -147,6 +149,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 	}()
 
+
+	fmt.Println(currentSegment, " this is currentSegment in PUT-2")
 	logger.Debug("streamstore put-3")
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
@@ -174,6 +178,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			logger.Debug("streamstore put-8")
 			return Meta{}, err
 		}
+
+		fmt.Println(currentSegment, " this is currentSegment in PUT-3")
 
 		logger.Debug("streamstore put-9")
 		encrypter, err := cipher.NewEncrypter(&encKey, &nonce, s.encBlockSize)
@@ -278,15 +284,26 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 			logger.Debug("stream info-put-1- before encrypting")
 
+	
 
-			// encrypt streaminfo -- do i need a new nonce?
-			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, (*eestream.Key)(derivedKey), &nonce)
+
+	
+
+			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &encKey, &nonce)
 			if err != nil {
 				logger.Debug("stream info-put-aaaa- after encrypting")
 				return nil, nil, err
 			}
 
 			logger.Debug("stream info-put-2- after encrypting")
+
+
+
+
+
+
+
+
 
 
 
@@ -320,7 +337,10 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		logger.Debug("stream info-put-39")
 		currentSegment++
 		streamSize += sizeReader.Size()
-	}
+	} //end for loop
+
+
+
 	logger.Debug("stream info-put-40")
 	if eofReader.hasError() {
 		logger.Debug("stream info-put-41")
@@ -383,7 +403,10 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	cipher := eestream.Cipher(streamMeta.EncryptionType)
 	var nonce eestream.Nonce
 
+
+
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
+	fmt.Println("this is the derivedKey: ", derivedKey, "\n\n\n\n\n\n\n\n")
 	if err != nil {
 		logger.Debug("get streamstore err in derived key")
 		return nil,Meta{}, err
@@ -409,7 +432,13 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	fmt.Println("nonce: ", &nonce, "\n\n\n\n\n\n\n\n")
 	fmt.Println("stream meta encrypted streamninfo: ", streamMeta.EncryptedStreamInfo, "\n\n\n\n\n")
 
-	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, (*eestream.Key)(derivedKey), &nonce)
+	
+	
+	
+	
+	
+	
+	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &nonce)
 	if err != nil {
 		fmt.Println("error in decrypting the stream info")
 		return nil, Meta{}, err
@@ -429,15 +458,6 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	//fmt.Println("streams are: ", stream)
-
-	//fmt.Println("stream segments: ", stream.NumberOfSegments, "\n\n\n\n\n\n\n")
-	//logger.Debug("in stream get -9")
-	//derivedKey, err := path.DeriveContentKey(s.rootKey)
-	// if err != nil {
-	// 	logger.Debug("in stream get -10")
-	// 	return nil, Meta{}, err
-	// }
 
 
 	decryptedLastSegmentMetaData := segments.Meta{
@@ -572,7 +592,7 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err
 	var encKey eestream.Key
 	copy(encKey[:], e)
 
-	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, (*eestream.Key)(derivedKey), &nonce)
+	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &nonce)
 	if err != nil {
 		logger.Debug("error in decrypting data")
 		return Meta{}, err
@@ -648,7 +668,7 @@ func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	var encKey eestream.Key
 	copy(encKey[:], e)
 
-	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, (*eestream.Key)(derivedKey), &nonce)
+	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &nonce)
 	if err != nil {
 		logger.Debug("error in decrypting data")
 		return err
@@ -762,7 +782,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 	var encKey eestream.Key
 	copy(encKey[:], e)
 
-	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, (*eestream.Key)(derivedKey), &nonce)
+	decryptedStreamInfo, err := cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &nonce)
 	if err != nil {
 		//logger.Debug("error in decrypting data")
 		return nil, false,  err
