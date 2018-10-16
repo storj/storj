@@ -69,6 +69,13 @@ func TestStorjURL(t *testing.T) {
 			base:   "myfile",
 			joint:  "myfolder/myfile/suffix",
 		},
+		{
+			url:    "s3:////mybucket///myfolder///myfile",
+			bucket: "mybucket",
+			path:   "myfolder/myfile",
+			base:   "myfile",
+			joint:  "myfolder/myfile/suffix",
+		},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
