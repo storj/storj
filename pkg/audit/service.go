@@ -21,8 +21,6 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	ctx      context.Context
-	cancel   context.CancelFunc
 	errs     []error
 }
 
@@ -55,12 +53,10 @@ func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers
 	if err != nil {
 		return nil, err
 	}
-	localCtx, localCancel := context.WithCancel(ctx)
+
 	return &Service{Cursor: cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-		ctx:      localCtx,
-		cancel:   localCancel,
 		errs:     []error{},
 	}, nil
 }
@@ -84,23 +80,24 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 				stripe, err := service.Cursor.NextStripe(ctx)
 				if err != nil {
 					service.errs = append(service.errs, err)
-					service.cancel()
+					cancel()
 				}
 				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
 				if err != nil {
 					service.errs = append(service.errs, err)
-					service.cancel()
+					cancel()
 				}
 				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 				if err != nil {
 					service.errs = append(service.errs, err)
-					service.cancel()
+					cancel()
 				}
-			case <-service.ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
+
 	return utils.CombineErrors(service.errs...)
 }
