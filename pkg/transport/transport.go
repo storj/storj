@@ -36,14 +36,3 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node) (conn *grpc.Cli
 	}
 	return grpc.Dial(node.Address.Address, dialOpt)
 }
-
-// DialUnauthenticated using unauthenticated mode
-func (o *Transport) DialUnauthenticated(ctx context.Context, addr pb.NodeAddress) (conn *grpc.ClientConn, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if addr.Address == "" {
-		return nil, Error.New("no address")
-	}
-
-	return grpc.Dial(addr.Address, grpc.WithInsecure())
-}

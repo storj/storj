@@ -5,12 +5,18 @@ package pdbclient
 
 import (
 	"context"
+	"encoding/base64"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/auth/grpcauth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -23,16 +29,14 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	grpcClient pb.PointerDBClient
-	APIKey     []byte
+	grpcClient      pb.PointerDBClient
+	signatureHeader *metadata.MD
+	peer            *peer.Peer
 }
 
 // New Used as a public function
-func New(gcclient pb.PointerDBClient, APIKey []byte) (pdbc *PointerDB) {
-	return &PointerDB{
-		grpcClient: gcclient,
-		APIKey:   APIKey,
-	}
+func New(gcclient pb.PointerDBClient) (pdbc *PointerDB) {
+	return &PointerDB{grpcClient: gcclient}
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -56,21 +60,21 @@ type Client interface {
 }
 
 // NewClient initializes a new pointerdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (*PointerDB, error) {
+func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
 	dialOpt, err := identity.DialOption()
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := clientConnection(address, dialOpt)
+	signatureHeader := &metadata.MD{}
+	peer := &peer.Peer{}
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey, grpc.Header(signatureHeader), grpc.Peer(peer))
+	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector))
 
 	if err != nil {
 		return nil, err
 	}
-	return &PointerDB{
-		grpcClient: c,
-		APIKey:     APIKey,
-	}, nil
+	return &PointerDB{grpcClient: c, signatureHeader: signatureHeader, peer: peer}, nil
 }
 
 // a compiler trick to make sure *PointerDB implements Client
@@ -90,7 +94,7 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer, APIKey: pdb.APIKey})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer})
 
 	return err
 }
@@ -99,7 +103,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer)
 func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String(), APIKey: pdb.APIKey})
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
@@ -123,7 +127,6 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
-		APIKey:     pdb.APIKey,
 	})
 	if err != nil {
 		return nil, false, err
@@ -146,7 +149,27 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String(), APIKey: pdb.APIKey})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()})
 
 	return err
+}
+
+// Auth gets signature auth data from last request
+func (pdb *PointerDB) Auth() (*pb.SignatureAuth, error) {
+	signature := pdb.signatureHeader.Get("signature")
+	if signature == nil {
+		return nil, nil
+	}
+
+	base64 := base64.StdEncoding
+	decodedSignature, err := base64.DecodeString(strings.Join(signature, ""))
+	if err != nil {
+		return nil, err
+	}
+	identity, err := provider.PeerIdentityFromPeer(pdb.peer)
+	if err != nil {
+		return nil, err
+	}
+
+	return auth.NewSignatureAuth(decodedSignature, identity)
 }

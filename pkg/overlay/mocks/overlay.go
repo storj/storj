@@ -78,7 +78,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 		nodes = append(nodes, &pb.Node{
 			Id: id,
 			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP,
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   addr,
 			}})
 	}

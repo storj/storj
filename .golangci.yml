@@ -21,7 +21,7 @@ linters:
     - deadcode    # find code that is not used
     #TODO#- unparam     # check for unused parameters
     - nakedret    # check for naked returns
-    # - goimports   # fix import order
+    - goimports   # fix import order
     - misspell    # check spelling
     - unconvert   # remove unnecessary conversions
     #TODO#- maligned    # check for better memory usage
@@ -65,6 +65,8 @@ linters-settings:
     #  2. you use go >= 1.10
     #  3. you do repeated runs (false for CI) or cache $GOPATH/pkg or `go env GOCACHE` dir in CI.
     use-installed-packages: false
+  goimports:
+    local: "storj.io"
   golint:
     min-confidence: 0.8
   gofmt:

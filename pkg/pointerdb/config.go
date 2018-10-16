@@ -25,7 +25,7 @@ const (
 // PointerDB responsibility
 type Config struct {
 	DatabaseURL          string `help:"the database connection string to use" default:"bolt://$CONFDIR/pointerdb.db"`
-	MinInlineSegmentSize int64  `default:"1240" help:"minimum inline segment size"`
+	MinRemoteSegmentSize int    `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize int    `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool   `default:"false" help:"toggle flag if overlay is enabled"`
 }
@@ -48,7 +48,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 
 	cache := overlay.LoadFromContext(ctx)
 	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c))
+	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c, server.Identity()))
 
 	return server.Run(ctx)
 }

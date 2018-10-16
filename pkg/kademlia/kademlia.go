@@ -8,21 +8,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-)
-
-const (
-	alpha                       = 5
-	defaultIDLength             = 256
-	defaultBucketSize           = 20
-	defaultReplacementCacheSize = 5
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -32,13 +28,14 @@ var NodeErr = errs.Class("node error")
 var BootstrapErr = errs.Class("bootstrap node error")
 
 //TODO: shouldn't default to TCP but not sure what to do yet
-var defaultTransport = pb.NodeTransport_TCP
+var defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 
 // NodeNotFound is returned when a lookup can not produce the requested node
 var NodeNotFound = NodeErr.New("node not found")
 
 type lookupOpts struct {
-	amount int
+	amount    int
+	bootstrap bool
 }
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
@@ -52,14 +49,21 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, kadconfig KadConfig) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return nil, err
+		}
+	}
+	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        fmt.Sprintf("db/kbucket_%s.db", id.String()[:5]),
-		npath:        fmt.Sprintf("db/nbucket_%s.db", id.String()[:5]),
-		idLength:     defaultIDLength,
-		bucketSize:   defaultBucketSize,
-		rcBucketSize: defaultReplacementCacheSize,
+		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
+		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
+		idLength:     kadconfig.DefaultIDLength,
+		bucketSize:   kadconfig.DefaultBucketSize,
+		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
@@ -67,13 +71,16 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
-		if !ok || err != nil {
+		if err != nil {
 			return nil, err
+		}
+		if !ok {
+			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
 		}
 	}
 
 	k := &Kademlia{
-		alpha:          alpha,
+		alpha:          kadconfig.Alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
@@ -118,7 +125,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), lookupOpts{amount: 5})
+	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), lookupOpts{amount: 5, bootstrap: true})
 }
 
 func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) error {
@@ -129,19 +136,11 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 		return err
 	}
 
-	ctx, cf := context.WithCancel(ctx)
-	w := newWorker(ctx, k.routingTable, nodes, k.nodeClient, target, opts.amount)
-	w.SetCancellation(cf)
-
-	wch := make(chan *pb.Node, k.alpha)
-	// kick off go routine to fetch work and send on work channel
-	go w.getWork(ctx, wch)
-	// kick off alpha works to consume from work channel
-	for i := 0; i < k.alpha; i++ {
-		go w.work(ctx, wch)
+	lookup := newSequentialLookup(k.routingTable, nodes, k.nodeClient, target, opts.amount, opts.bootstrap)
+	err = lookup.Run(ctx)
+	if err != nil {
+		zap.L().Warn("lookup failed", zap.Error(err))
 	}
-
-	<-ctx.Done()
 
 	return nil
 }

@@ -10,10 +10,15 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pointerdb/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Server implements the statdb RPC service
@@ -50,6 +55,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 
 // Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
 
 	APIKeyBytes := createReq.APIKey
@@ -89,6 +95,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 // Get a storagenode's stats from the db
 func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
 	APIKeyBytes := getReq.APIKey
@@ -114,6 +121,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 
 // Update a single storagenode's stats in the db
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Update")
 
 	APIKeyBytes := updateReq.APIKey
@@ -132,7 +140,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	auditSuccessCount := dbNode.AuditSuccessCount
 	totalAuditCount := dbNode.TotalAuditCount
 	var auditSuccessRatio float64
-	var uptimeSuccessCount int64
+	uptimeSuccessCount := dbNode.UptimeSuccessCount
 	totalUptimeCount := dbNode.TotalUptimeCount
 	var uptimeRatio float64
 
@@ -178,6 +186,8 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 
 // UpdateBatch for updating  multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
+	// todo(moby) how should we handle one node failing to update but not all?
+	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	APIKeyBytes := updateBatchReq.APIKey

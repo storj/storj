@@ -5,6 +5,10 @@ package pdbclient
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -14,10 +18,16 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
+	"storj.io/storj/pkg/auth"
 	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 )
 
@@ -27,7 +37,6 @@ const (
 )
 
 var (
-	ctx                = context.Background()
 	ErrUnauthenticated = errors.New(unauthenticated)
 	ErrNoFileGiven     = errors.New(noPathGiven)
 )
@@ -45,7 +54,7 @@ func TestNewPointerDBClient(t *testing.T) {
 	assert.NotNil(t, pdb.grpcClient)
 }
 
-func makePointer(path p.Path, auth []byte) pb.PutRequest {
+func makePointer(path p.Path) pb.PutRequest {
 	// rps is an example slice of RemotePieces to add to this
 	// REMOTE pointer type.
 	var rps []*pb.RemotePiece
@@ -70,7 +79,6 @@ func makePointer(path p.Path, auth []byte) pb.PutRequest {
 			},
 			Size: int64(1),
 		},
-		APIKey: auth,
 	}
 	return pr
 }
@@ -91,11 +99,14 @@ func TestPut(t *testing.T) {
 		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 	} {
-		putRequest := makePointer(tt.path, tt.APIKey)
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
+		putRequest := makePointer(tt.path)
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		// here we don't care what type of context we pass
 		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
@@ -126,8 +137,11 @@ func TestGet(t *testing.T) {
 		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
-		getPointer := makePointer(tt.path, tt.APIKey)
-		getRequest := pb.GetRequest{Path: tt.path.String(), APIKey: tt.APIKey}
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
+		getPointer := makePointer(tt.path)
+		getRequest := pb.GetRequest{Path: tt.path.String()}
 
 		data, err := proto.Marshal(getPointer.Pointer)
 		if err != nil {
@@ -144,7 +158,7 @@ func TestGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
@@ -204,6 +218,9 @@ func TestList(t *testing.T) {
 			},
 			true, nil, ""},
 	} {
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, []byte(tt.APIKey))
+
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		listRequest := pb.ListRequest{
@@ -213,13 +230,12 @@ func TestList(t *testing.T) {
 			Recursive:  tt.recursive,
 			Limit:      int32(tt.limit),
 			MetaFlags:  tt.metaFlags,
-			APIKey:     []byte(tt.APIKey),
 		}
 
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: []byte(tt.APIKey)}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
@@ -265,11 +281,14 @@ func TestDelete(t *testing.T) {
 		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
 		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
 	} {
-		deleteRequest := pb.DeleteRequest{Path: tt.path.String(), APIKey: tt.APIKey}
+		ctx := context.Background()
+		ctx = auth.WithAPIKey(ctx, tt.APIKey)
+
+		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc, APIKey: tt.APIKey}
+		pdb := PointerDB{grpcClient: gc}
 
 		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 
@@ -281,4 +300,36 @@ func TestDelete(t *testing.T) {
 			assert.NoError(t, err, errTag)
 		}
 	}
+}
+
+func TestAuth(t *testing.T) {
+	ctx := context.Background()
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	peerCertificates := make([]*x509.Certificate, 2)
+	peerCertificates[0] = identity.Leaf
+	peerCertificates[1] = identity.CA
+
+	info := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: peerCertificates}}
+
+	signature := base64.StdEncoding.EncodeToString([]byte("some value"))
+
+	header := metadata.Pairs("signature", signature)
+	peer := &peer.Peer{AuthInfo: info}
+	pointerdb := &PointerDB{
+		signatureHeader: &header,
+		peer:            peer,
+	}
+
+	auth, _ := pointerdb.Auth()
+
+	pk, _ := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
+	expectedKey, _ := cryptopasta.EncodePublicKey(pk)
+
+	assert.Equal(t, expectedKey, auth.GetPublicKey())
+	assert.Equal(t, identity.ID.Bytes(), auth.GetData())
+	assert.Equal(t, "some value", string(auth.GetSignature()))
 }

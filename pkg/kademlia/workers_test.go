@@ -13,15 +13,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
-	mock "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-)
-
-var (
-	ctx = context.Background()
 )
 
 func TestGetWork(t *testing.T) {
@@ -64,8 +60,15 @@ func TestGetWork(t *testing.T) {
 		} else {
 			assert.Len(t, v.ch, 0)
 		}
-
 	}
+}
+
+func TestWorkCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	worker := newWorker(ctx, nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.IDFromString("1000"), 5)
+	// TODO: ensure this also works when running
+	cancel()
+	worker.work(ctx, make(chan *pb.Node))
 }
 
 func TestWorkerLookup(t *testing.T) {
@@ -89,7 +92,7 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				ca, err := provider.NewCA(ctx, 12, 4)
+				ca, err := provider.NewCA(context.Background(), 12, 4)
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -135,7 +138,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test nil nodes",
 			worker: func() *worker {
-				ca, err := provider.NewCA(ctx, 12, 4)
+				ca, err := provider.NewCA(context.Background(), 12, 4)
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -151,7 +154,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test combined less than k",
 			worker: func() *worker {
-				ca, err := provider.NewCA(ctx, 12, 4)
+				ca, err := provider.NewCA(context.Background(), 12, 4)
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -180,7 +183,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewCA(context.Background(), 12, 4)
 	if err != nil {
 		return nil, nil
 	}
@@ -196,7 +199,6 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 	mn := &mockNodeServer{queryCalled: 0}
 
 	pb.RegisterNodesServer(grpcServer, mn)
-	pb.RegisterOverlayServer(grpcServer, mock.NewOverlay(nn))
 
 	return grpcServer, mn
 }

@@ -13,12 +13,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/gtank/cryptopasta"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"github.com/gtank/cryptopasta"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"

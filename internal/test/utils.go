@@ -15,7 +15,7 @@ import (
 
 // NewNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
 func NewNodeStorageValue(t *testing.T, address string) storage.Value {
-	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP, Address: address}}
+	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
 	d, err := proto.Marshal(na)
 	assert.NoError(t, err)
 	return d

@@ -6,10 +6,10 @@ package testsuite
 import (
 	"testing"
 
-	"storj.io/storj/storage"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"storj.io/storj/storage"
 )
 
 func newItem(key, value string, isPrefix bool) storage.ListItem {

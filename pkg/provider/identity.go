@@ -8,7 +8,10 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
+	"math/bits"
 	"net"
 	"os"
 
@@ -17,10 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
-	"encoding/base64"
-	"fmt"
-	"math/bits"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
@@ -137,13 +136,9 @@ func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
 	}, nil
 }
 
-// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
-func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
-	}
-	tlsInfo := p.AuthInfo.(credentials.TLSInfo)
+// PeerIdentityFromPeer loads a PeerIdentity from a peer connection
+func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
+	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	c := tlsInfo.State.PeerCertificates
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
@@ -154,6 +149,16 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	}
 
 	return pi, nil
+}
+
+// PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
+func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, Error.New("unable to get grpc peer from contex")
+	}
+
+	return PeerIdentityFromPeer(p)
 }
 
 // Stat returns the status of the identity cert/key files for the config
@@ -218,7 +223,7 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (ic IdentityConfig) Run(ctx context.Context,
+func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -234,7 +239,7 @@ func (ic IdentityConfig) Run(ctx context.Context,
 	}
 	defer func() { _ = lis.Close() }()
 
-	s, err := NewProvider(pi, lis, responsibilities...)
+	s, err := NewProvider(pi, lis, interceptor, responsibilities...)
 	if err != nil {
 		return err
 	}

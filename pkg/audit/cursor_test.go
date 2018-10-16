@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package audit
 
 import (
@@ -13,33 +16,30 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/redis/redisserver"
-
-)
-
-const (
-	noList    = "list error: failed to get list"
-	noNum     = "num error: failed to get num"
+	"storj.io/storj/storage/teststore"
 )
 
 var (
-	ctx          = context.Background()
-	ErrNoList    = errors.New(noList)
-	ErrorNoNum   = errors.New(noNum)
+	ctx       = context.Background()
+	ErrNoList = errors.New("list error: failed to get list")
+	ErrNoNum  = errors.New("num error: failed to get num")
 )
 
-// The client and server implementation are different;
-// This is a  wrapper so the pointerdb client can be implemented
-//R***********R***********/PointerDB Wrapper/***********R***********R********//
+// pointerDBWrapper wraps pb.PointerDBServer to be compatible with pb.PointerDBClient
 type pointerDBWrapper struct {
 	s pb.PointerDBServer
+}
+
+func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
+	return &pointerDBWrapper{pdbs}
 }
 
 func (pbd *pointerDBWrapper) Put(ctx context.Context, in *pb.PutRequest, opts ...grpc.CallOption) (*pb.PutResponse, error) {
@@ -58,85 +58,72 @@ func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, o
 	return pbd.s.Delete(ctx, in)
 }
 
-func newPointerDBWrapper(pdbs pb.PointerDBServer) pb.PointerDBClient {
-	return &pointerDBWrapper{pdbs}
-}
-
-type pathCount struct {
-	path  paths.Path
-	count int
-}
-
 func TestAuditSegment(t *testing.T) {
+	type pathCount struct {
+		path  paths.Path
+		count int
+	}
+
 	// note: to simulate better,
 	// change limit in library to 5 in
 	// list api call, default is  0 == 1000 listing
 	tests := []struct {
-		bm     string
-		path   paths.Path
-		APIKey []byte
+		bm   string
+		path paths.Path
 	}{
 		{
-			bm:     "success-1",
-			path:   paths.New("folder1/file1"),
-			APIKey: nil,
+			bm:   "success-1",
+			path: paths.New("folder1/file1"),
 		},
 		{
-			bm:     "success-2",
-			path:   paths.New("foodFolder1/file1/file2"),
-			APIKey: nil,
+			bm:   "success-2",
+			path: paths.New("foodFolder1/file1/file2"),
 		},
 		{
-			bm:     "success-3",
-			path:   paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
-			APIKey: nil,
+			bm:   "success-3",
+			path: paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
 		},
 		{
-			bm:     "success-4",
-			path:   paths.New("projectFolder/project1.txt/"),
-			APIKey: nil,
+			bm:   "success-4",
+			path: paths.New("projectFolder/project1.txt/"),
 		},
 		{
-			bm:     "success-5",
-			path:   paths.New("newProjectFolder/project2.txt"),
-			APIKey: nil,
+			bm:   "success-5",
+			path: paths.New("newProjectFolder/project2.txt"),
 		},
 		{
-			bm:     "success-6",
-			path:   paths.New("Pictures/image1.png"),
-			APIKey: nil,
+			bm:   "success-6",
+			path: paths.New("Pictures/image1.png"),
 		},
 		{
-			bm:     "success-7",
-			path:   paths.New("Pictures/Nature/mountains.png"),
-			APIKey: nil,
+			bm:   "success-7",
+			path: paths.New("Pictures/Nature/mountains.png"),
 		},
 		{
-			bm:     "success-8",
-			path:   paths.New("Pictures/City/streets.png"),
-			APIKey: nil,
+			bm:   "success-8",
+			path: paths.New("Pictures/City/streets.png"),
 		},
 		{
-			bm:     "success-9",
-			path:   paths.New("Pictures/Animals/Dogs/dogs.png"),
-			APIKey: nil,
+			bm:   "success-9",
+			path: paths.New("Pictures/Animals/Dogs/dogs.png"),
 		},
 		{
-			bm:     "success-10",
-			path:   paths.New("Nada/ビデオ/😶"),
-			APIKey: nil,
+			bm:   "success-10",
+			path: paths.New("Nada/ビデオ/😶"),
 		},
 	}
 
-	//PointerDB instantation
+	ctx = auth.WithAPIKey(ctx, nil)
+
+	// PointerDB instantiation
 	db := teststore.New()
 	c := pointerdb.Config{MaxInlineSegmentSize: 8000}
-	
+
 	redisAddr, cleanup, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	defer cleanup()
 
 	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil)
@@ -144,11 +131,11 @@ func TestAuditSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c))
-	pointers := pdbclient.New(pdbw, nil)
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, nil))
+	pointers := pdbclient.New(pdbw)
 
 	// create a pdb client and instance of audit
-	a := NewAudit(pointers)
+	cursor := NewCursor(pointers)
 
 	// put 10 paths in db
 	t.Run("putToDB", func(t *testing.T) {
@@ -157,12 +144,12 @@ func TestAuditSegment(t *testing.T) {
 				assert1 := assert.New(t)
 
 				// create a pointer and put in db
-				putRequest := makePointer(tt.path, tt.APIKey)
+				putRequest := makePutRequest(tt.path)
 
 				// create putreq. object
-				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer, APIKey: tt.APIKey}
+				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer}
 
-				//Put pointer into db
+				// put pointer into db
 				_, err := pdbw.Put(ctx, req)
 				if err != nil {
 					t.Fatalf("failed to put %v: error: %v", req.Pointer, err)
@@ -179,7 +166,7 @@ func TestAuditSegment(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				assert1 := assert.New(t)
-				stripe, _, err := a.NextStripe(ctx)
+				stripe, err := cursor.NextStripe(ctx)
 				if err != nil {
 					assert1.Error(err)
 					assert1.Nil(stripe)
@@ -192,7 +179,7 @@ func TestAuditSegment(t *testing.T) {
 	})
 
 	// test to see how random paths are
-	t.Run("probalisticTest", func(t *testing.T) {
+	t.Run("probabilisticTest", func(t *testing.T) {
 		list, _, err := pointers.List(ctx, nil, nil, nil, true, 10, meta.None)
 		if err != nil {
 			t.Error(ErrNoList)
@@ -206,7 +193,7 @@ func TestAuditSegment(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
 			if err != nil {
-				t.Error(ErrorNoNum)
+				t.Error(ErrNoNum)
 			}
 			pointerItem := list[randomNum.Int64()]
 			path := pointerItem.Path
@@ -250,7 +237,7 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePointer(path paths.Path, auth []byte) pb.PutRequest {
+func makePutRequest(path paths.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
@@ -274,7 +261,6 @@ func makePointer(path paths.Path, auth []byte) pb.PutRequest {
 			},
 			Size: int64(10),
 		},
-		APIKey: auth,
 	}
 	return pr
 }

@@ -5,18 +5,23 @@ package pointerdb
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
+	pointerdbAuth "storj.io/storj/pkg/pointerdb/auth"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -28,39 +33,59 @@ var (
 
 // Server implements the network state RPC service
 type Server struct {
-	DB     storage.KeyValueStore
-	logger *zap.Logger
-	config Config
-	cache  *overlay.Cache
+	DB       storage.KeyValueStore
+	logger   *zap.Logger
+	config   Config
+	cache    *overlay.Cache
+	identity *provider.FullIdentity
 }
 
 // NewServer creates instance of Server
-func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config) *Server {
+func NewServer(db storage.KeyValueStore, cache *overlay.Cache, logger *zap.Logger, c Config, identity *provider.FullIdentity) *Server {
 	return &Server{
-		DB:     db,
-		logger: logger,
-		config: c,
-		cache:  cache,
+		DB:       db,
+		logger:   logger,
+		config:   c,
+		cache:    cache,
+		identity: identity,
 	}
 }
 
-func (s *Server) validateAuth(APIKey []byte) error {
-	if !auth.ValidateAPIKey(string(APIKey)) {
+func (s *Server) validateAuth(ctx context.Context) error {
+	APIKey, ok := auth.GetAPIKey(ctx)
+	if !ok || !pointerdbAuth.ValidateAPIKey(string(APIKey)) {
 		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
 }
 
+func (s *Server) appendSignature(ctx context.Context) error {
+	signature, err := auth.GenerateSignature(s.identity)
+	if err != nil {
+		return err
+	}
+
+	if signature == nil {
+		return nil
+	}
+
+	base64 := base64.StdEncoding
+	encodedSignature := base64.EncodeToString(signature)
+	return grpc.SetHeader(ctx, metadata.Pairs("signature", encodedSignature))
+}
+
 func (s *Server) validateSegment(req *pb.PutRequest) error {
-	min := s.config.MinInlineSegmentSize
+	min := s.config.MinRemoteSegmentSize
+	remote := req.GetPointer().Remote
+	remoteSize := req.GetPointer().GetSize()
+
+	if remote != nil && remoteSize < int64(min) {
+		return segmentError.New("remote segment size %d less than minimum allowed %d", remoteSize, min)
+	}
+
 	max := s.config.MaxInlineSegmentSize
 	inlineSize := len(req.GetPointer().InlineSegment)
-	remote := req.GetPointer().Remote
-
-	if remote != nil && req.GetPointer().GetSize() < min {
-		return segmentError.New("inline segment size %d less than minimum allowed %d", inlineSize, min)
-	}
 
 	if inlineSize > max {
 		return segmentError.New("inline segment size %d greater than maximum allowed %d", inlineSize, max)
@@ -78,7 +103,7 @@ func (s *Server) Put(ctx context.Context, req *pb.PutRequest) (resp *pb.PutRespo
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -108,7 +133,11 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 
 	s.logger.Debug("entering pointerdb get")
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	if err = s.appendSignature(ctx); err != nil {
 		return nil, err
 	}
 
@@ -158,7 +187,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 func (s *Server) List(ctx context.Context, req *pb.ListRequest) (resp *pb.ListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err = s.validateAuth(req.APIKey); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -245,7 +274,7 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering pointerdb delete")
 
-	if err = s.validateAuth(req.GetAPIKey()); err != nil {
+	if err = s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
@@ -256,4 +285,15 @@ func (s *Server) Delete(ctx context.Context, req *pb.DeleteRequest) (resp *pb.De
 	}
 	s.logger.Debug("deleted pointer at path: " + req.GetPath())
 	return &pb.DeleteResponse{}, nil
+}
+
+// Iterate iterates over items based on IterateRequest
+func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it storage.Iterator) error) error {
+	opts := storage.IterateOptions{
+		Prefix:  storage.Key(req.Prefix),
+		First:   storage.Key(req.First),
+		Recurse: req.Recurse,
+		Reverse: req.Reverse,
+	}
+	return s.DB.Iterate(opts, f)
 }
