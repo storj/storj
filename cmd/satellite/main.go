@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
@@ -49,6 +50,7 @@ var (
 		// RepairQueue   queue.Config
 		// RepairChecker checker.Config
 		// Repairer      repairer.Config
+		Audit audit.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -79,6 +81,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.PointerDB,
 		o,
 		runCfg.StatDB,
+		runCfg.Audit,
 	)
 }
 

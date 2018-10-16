@@ -109,16 +109,7 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 			}
 		}
 	}()
-<<<<<<< HEAD
 
-<<<<<<< HEAD
 	// TODO(James): convert to collectErrors
 	return utils.CollectErrors(errch, 5*time.Second)
-=======
-=======
-	
-	// TODO(James): convert to collectErrors
->>>>>>> add todo for collectErrors
-	return utils.CombineErrors(service.errs...)
->>>>>>> rm redundant ctx
 }
