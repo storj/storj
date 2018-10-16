@@ -168,20 +168,19 @@ TestLoop:
 
 		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if n != nil {
-				if !tt.badInput {
-					derivedID, err := id.Derive([]byte(n.GetId()))
-					if !assert.NoError(t, err, errTag) {
-						continue TestLoop
-					}
-					ps := NewMockPSClient(ctrl)
-					gomock.InOrder(
-						ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]),
-						ps.EXPECT().Close().Return(nil),
-					)
-					m[n] = ps
-				}
+			if n == nil || tt.badInput {
+				continue
 			}
+			derivedID, err := id.Derive([]byte(n.GetId()))
+			if !assert.NoError(t, err, errTag) {
+				continue TestLoop
+			}
+			ps := NewMockPSClient(ctrl)
+			gomock.InOrder(
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]),
+				ps.EXPECT().Close().Return(nil),
+			)
+			m[n] = ps
 		}
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
