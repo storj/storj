@@ -60,11 +60,11 @@ func TestSignedMessageVerifier(t *testing.T) {
 		errString string
 	}{
 		{signedMessage.Signature, signedMessage.Data, signedMessage.PublicKey, ""},
-		{nil, signedMessage.Data, signedMessage.PublicKey, "Missing signature for verification"},
-		{signedMessage.Signature, nil, signedMessage.PublicKey, "Missing data for verification"},
-		{signedMessage.Signature, signedMessage.Data, nil, "Missing public key for verification"},
+		{nil, signedMessage.Data, signedMessage.PublicKey, "auth error: missing signature for verification"},
+		{signedMessage.Signature, nil, signedMessage.PublicKey, "auth error: missing data for verification"},
+		{signedMessage.Signature, signedMessage.Data, nil, "auth error: missing public key for verification"},
 
-		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "Failed to verify message"},
+		{signedMessage.Signature, []byte("malformed data"), signedMessage.PublicKey, "auth error: failed to verify message"},
 	} {
 		signedMessage.Signature = tt.signature
 		signedMessage.Data = tt.data
