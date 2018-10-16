@@ -400,10 +400,7 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err
 // Delete all the segments, with the last one last
 func (s *streamStore) Delete(ctx context.Context, path paths.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
-
+	
 	encPath, err := encryptAfterBucket(path, s.rootKey)
 	if err != nil {
 		return err
@@ -676,7 +673,6 @@ func getEncryptedKeyAndNonce(m *pb.SegmentMeta) ([]byte, *eestream.Nonce) {
 }
 
 func getDecryptedStreamInfo(ctx context.Context, derivedKey *eestream.Key, item segments.Meta) (decryptedStreamInfo []byte, err error) {
-
 	streamMeta := pb.StreamMeta{}
 	err = proto.Unmarshal(item.Data, &streamMeta)
 	if err != nil {
