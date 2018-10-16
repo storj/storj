@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/boltdb/bolt"
+
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-
-	"github.com/boltdb/bolt"
 )
 
 // Client is the entrypoint into a bolt data store

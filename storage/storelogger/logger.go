@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"storj.io/storj/storage"
-
 	"go.uber.org/zap"
+
+	"storj.io/storj/storage"
 )
 
 var id int64

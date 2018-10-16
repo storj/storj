@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/process"
 )

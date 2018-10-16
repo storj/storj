@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"storj.io/storj/storage"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"storj.io/storj/storage"
 )
 
 func testList(t *testing.T, store storage.KeyValueStore) {
