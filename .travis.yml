@@ -23,9 +23,11 @@ before_install:
   - source scripts/install-awscli.sh
 
 install:
+  - pushd ~
   - GOPATH=~/gotools GOBIN=$GOPATH/bin go get github.com/mattn/goveralls
   - GOPATH=~/gotools GOBIN=$GOPATH/bin go get golang.org/x/tools/cover
   - GOPATH=~/gotools GOBIN=$GOPATH/bin go get github.com/modocache/gover
+  - popd
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
   - go install -v ./...
 
