@@ -69,9 +69,9 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 	}
 
 	if fi.IsDir() {
-		return fmt.Errorf("source cannot be a directory: %s", src) 
+		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
-	
+
 	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
 		return err
