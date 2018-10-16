@@ -152,6 +152,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 // collectErrors returns first error from channel and all errors that happen within duration
 func collectErrors(errch chan error, duration time.Duration) error {
+	errch = discardNil(errch)
 	errs := []error{<-errch}
 	timeout := time.After(duration)
 	for {
@@ -162,4 +163,19 @@ func collectErrors(errch chan error, duration time.Duration) error {
 			return utils.CombineErrors(errs...)
 		}
 	}
+}
+
+// discard nil errors that are returned from services
+func discardNil(ch chan error) chan error {
+	r := make(chan error)
+	go func() {
+		for err := range ch {
+			if err == nil {
+				continue
+			}
+			r <- err
+		}
+		close(r)
+	}()
+	return r
 }
