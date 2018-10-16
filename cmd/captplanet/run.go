@@ -150,8 +150,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return collectErrors(errch, time.Duration(5*time.Second))
 }
 
-// collectErrors pushes all errors on the errch channel and times out to wait for more
-// then it sends all errors it received as a single signal out.
+// collectErrors returns first error from channel and all errors that happen within duration
 func collectErrors(errch chan error, duration time.Duration) error {
 	errs := []error{<-errch}
 	timeout := time.After(duration)
