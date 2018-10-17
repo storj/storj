@@ -35,7 +35,7 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int) (shares []share, nodes []*pb.Node, err error)
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -67,7 +67,7 @@ func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id client.PieceID, pieceSize int64, node *pb.Node) (s share, err error) {
+	id client.PieceID, pieceSize int64, node *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ps, err := d.dial(ctx, node)
@@ -80,7 +80,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{})
+	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{}, authorization)
 	if err != nil {
 		return s, err
 	}
@@ -108,7 +108,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
+	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIds []dht.NodeID
 	pieces := pointer.Remote.GetRemotePieces()
@@ -129,7 +129,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node, authorization)
 		if err != nil {
 			s = share{
 				Error:       err,
@@ -197,10 +197,10 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer) (verifiedNodes []*proto.Node, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []*proto.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex)
+	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex, authorization)
 	if err != nil {
 		return nil, err
 	}

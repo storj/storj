@@ -43,7 +43,7 @@ func TestPassingAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, 6, pointer)
+		verifiedNodes, err := verifier.verify(ctx, 6, pointer, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestSomeNodesPassAudit(t *testing.T) {
 		md := mockDownloader{shares: mockShares}
 		verifier := &Verifier{downloader: &md}
 		pointer := makePointer(tt.nodeAmt)
-		verifiedNodes, err := verifier.verify(ctx, 6, pointer)
+		verifiedNodes, err := verifier.verify(ctx, 6, pointer, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -202,7 +202,7 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int) (shares []share, nodes []*pb.Node, err error) {
+	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
 	for _, share := range m.shares {
 		shares = append(shares, share)
 	}
