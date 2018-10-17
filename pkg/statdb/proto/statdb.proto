@@ -14,6 +14,8 @@ service StatDB {
   rpc Update(UpdateRequest) returns (UpdateResponse);
   // UpdateBatch updates storagenode stats for multiple farmers at a time
   rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
+  // CreateEntryIfNotExists creates a db entry if it didn't exist
+  rpc CreateEntryIfNotExists(CreateEntryIfNotExistsRequest) returns (CreateEntryIfNotExistsResponse);
 }
 
 // Node is info for a updating a single storagenode, used in the Update rpc calls
@@ -77,4 +79,16 @@ message UpdateBatchRequest {
 // UpdateBatchResponse is a response message for the UpdateBatch rpc call
 message UpdateBatchResponse {
   repeated NodeStats stats_list = 1;
+  repeated Node failed_nodes = 2;
+}
+
+// CreateEntryIfNotExistsRequest is a request message for the CreateEntryIfNotExists rpc call
+message CreateEntryIfNotExistsRequest {
+  Node node = 1;
+  bytes APIKey = 2;
+}
+
+// CreateEntryIfNotExistsResponse is a response message for the CreateEntryIfNotExists rpc call
+message CreateEntryIfNotExistsResponse  {
+  NodeStats stats = 1;
 }

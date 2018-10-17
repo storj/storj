@@ -130,7 +130,17 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		return nil, err
 	}
 
-	node := updateReq.Node
+	node := updateReq.GetNode()
+
+	createIfReq := &pb.CreateEntryIfNotExistsRequest{
+		Node:   updateReq.GetNode(),
+		APIKey: APIKeyBytes,
+	}
+
+	_, err = s.CreateEntryIfNotExists(ctx, createIfReq)
+	if err != nil {
+		return nil, err
+	}
 
 	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(string(node.NodeId)))
 	if err != nil {
@@ -184,15 +194,15 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 	}, nil
 }
 
-// UpdateBatch for updating  multiple farmers' stats in the db
+// UpdateBatch for updating multiple farmers' stats in the db
 func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatchRequest) (resp *pb.UpdateBatchResponse, err error) {
-	// todo(moby) how should we handle one node failing to update but not all?
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb UpdateBatch")
 
 	APIKeyBytes := updateBatchReq.APIKey
-	nodeStatsList := make([]*pb.NodeStats, len(updateBatchReq.NodeList))
-	for i, node := range updateBatchReq.NodeList {
+	var nodeStatsList []*pb.NodeStats
+	var failedNodes []*pb.Node
+	for _, node := range updateBatchReq.NodeList {
 		updateReq := &pb.UpdateRequest{
 			Node:   node,
 			APIKey: APIKeyBytes,
@@ -200,16 +210,50 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 		updateRes, err := s.Update(ctx, updateReq)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			s.logger.Error(err.Error())
+			failedNodes = append(failedNodes, node)
+		} else {
+			nodeStatsList = append(nodeStatsList, updateRes.Stats)
 		}
-
-		nodeStatsList[i] = updateRes.Stats
 	}
 
 	updateBatchRes := &pb.UpdateBatchResponse{
-		StatsList: nodeStatsList,
+		FailedNodes: failedNodes,
+		StatsList:   nodeStatsList,
 	}
 	return updateBatchRes, nil
+}
+
+// CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
+func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
+	APIKeyBytes := createIfReq.APIKey
+	getReq := &pb.GetRequest{
+		NodeId: createIfReq.Node.NodeId,
+		APIKey: APIKeyBytes,
+	}
+	getRes, err := s.Get(ctx, getReq)
+	if err != nil {
+		// TODO: figure out how to confirm error is type dbx.ErrorCode_NoRows
+		if strings.Contains(err.Error(), "no rows in result set") {
+			createReq := &pb.CreateRequest{
+				Node:   createIfReq.Node,
+				APIKey: APIKeyBytes,
+			}
+			res, err := s.Create(ctx, createReq)
+			if err != nil {
+				return nil, err
+			}
+			createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+				Stats: res.Stats,
+			}
+			return createEntryIfNotExistsRes, nil
+		}
+		return nil, err
+	}
+	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+		Stats: getRes.Stats,
+	}
+	return createEntryIfNotExistsRes, nil
 }
 
 func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {

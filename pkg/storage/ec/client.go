@@ -88,13 +88,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	infos := make(chan info, len(nodes))
 
 	for i, n := range nodes {
+
 		go func(i int, n *pb.Node) {
 			if n == nil {
 				_, err := io.Copy(ioutil.Discard, readers[i])
 				infos <- info{i: i, err: err}
+				return
 			}
-
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				infos <- info{i: i, err: err}
@@ -281,7 +283,7 @@ func unique(nodes []*pb.Node) bool {
 	// sort the ids and check for identical neighbors
 	sort.Strings(ids)
 	for i := 1; i < len(ids); i++ {
-		if ids[i] == ids[i-1] {
+		if ids[i] != "" && ids[i] == ids[i-1] {
 			return false
 		}
 	}
