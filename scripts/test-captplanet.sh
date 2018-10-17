@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
@@ -89,3 +89,4 @@ rm small-upload-testfile
 rm big-upload-testfile
 rm multipart-upload-testfile
 rm big-download-testfile-ipv6
+rm multipart-upload-testfile
