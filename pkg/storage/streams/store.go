@@ -211,8 +211,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 				return nil, nil, err
 			}
 
-			var streamNonce eestream.Nonce 
-			_, err = streamNonce.Increment(currentSegment+1)
+			var streamNonce eestream.Nonce
+			_, err = streamNonce.Increment(currentSegment + 1)
 			if err != nil {
 				return nil, nil, err
 			}
