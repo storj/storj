@@ -37,6 +37,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("error receiving piece data")
 	}
 
+	authorization := recv.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return err
+	}
+
 	pd := recv.GetPieceData()
 	if pd == nil {
 		return RetrieveError.New("PieceStore message is nil")

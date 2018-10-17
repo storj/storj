@@ -492,7 +492,10 @@ func newTestServerStruct(t *testing.T) (*Server, func()) {
 		t.Fatalf("failed open psdb: %v", err)
 	}
 
-	server := &Server{DataDir: tempDir, DB: psDB}
+	verifier := func(authorization *pb.SignedMessage) error {
+		return nil
+	}
+	server := &Server{DataDir: tempDir, DB: psDB, verifier: verifier}
 	return server, func() {
 		if serr := server.Stop(ctx); serr != nil {
 			t.Fatal(serr)
