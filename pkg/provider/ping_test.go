@@ -111,13 +111,8 @@ func (p *Server) Ping(ctx context.Context, req *Request) (*Response, error) {
 		rpc Ping(Request) returns (Response) {}
 	}
 
-	message Request {
-		string msg = 1;
-	}
-
-	message Response {
-		string msg = 1;
-	}
+	message Request  { string text = 1; }
+	message Response { string text = 1; }
 */
 
 type Request struct {
