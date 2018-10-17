@@ -87,7 +87,7 @@ func TestPing(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rep, err := client.Ping(ctx, &Request{"hello"})
+		rep, err := client.Ping(ctx, &Request{Text: "hello"})
 		if err != nil {
 			t.Fatal(err)
 		}
