@@ -38,8 +38,8 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	transport  transport.Client
-	identity   *provider.FullIdentity
+	transport transport.Client
+	identity  *provider.FullIdentity
 }
 
 func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
@@ -191,7 +191,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				id:     derivedPieceID,
 				size:   pieceSize,
 				pba:    &pb.PayerBandwidthAllocation{},
-				sm: sm,
+				sm:     sm,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -306,7 +306,7 @@ type lazyPieceRanger struct {
 	id     client.PieceID
 	size   int64
 	pba    *pb.PayerBandwidthAllocation
-	sm *pb.SignedMessage
+	sm     *pb.SignedMessage
 }
 
 // Size implements Ranger.Size

@@ -48,7 +48,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
-
 	verifier := NewVerifier(transport, overlay, id)
 	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
 	if err != nil {
