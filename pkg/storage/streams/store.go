@@ -131,13 +131,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return Meta{}, err
 		}
 
-		var nonce eestream.Nonce
-		_, err := nonce.Increment(currentSegment)
+		var contentNonce eestream.Nonce
+		_, err := contentNonce.Increment(currentSegment)
 		if err != nil {
 			return Meta{}, err
 		}
 
-		encrypter, err := cipher.NewEncrypter(&encKey, &nonce, s.encBlockSize)
+		encrypter, err := cipher.NewEncrypter(&encKey, &contentNonce, s.encBlockSize)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -170,7 +170,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			if err != nil {
 				return Meta{}, err
 			}
-			cipherData, err := cipher.Encrypt(data, &encKey, &nonce)
+			cipherData, err := cipher.Encrypt(data, &encKey, &contentNonce)
 			if err != nil {
 				return Meta{}, err
 			}
@@ -211,13 +211,13 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 				return nil, nil, err
 			}
 
-			var streamNonce eestream.Nonce
-			_, err = streamNonce.Increment(currentSegment + 1)
+			var metaDataNonce eestream.Nonce
+			_, err = metaDataNonce.Increment(currentSegment)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &encKey, &streamNonce)
+			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &encKey, &metaDataNonce)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -671,10 +671,10 @@ func getDecryptedStreamInfo(ctx context.Context, item segments.Meta, path paths.
 	key := (*eestream.Key)(derivedKey)
 	cipher := eestream.Cipher(streamMeta.EncryptionType)
 
-	var streamNonce eestream.Nonce
+	var metaDataNonce eestream.Nonce
 	var currentSegment int64
 
-	_, err = streamNonce.Increment(currentSegment + 1)
+	_, err = metaDataNonce.Increment(currentSegment)
 	if err != nil {
 		return nil, err
 	}
@@ -689,7 +689,7 @@ func getDecryptedStreamInfo(ctx context.Context, item segments.Meta, path paths.
 	var encKey eestream.Key
 	copy(encKey[:], e)
 
-	decryptedStreamInfo, err = cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &streamNonce)
+	decryptedStreamInfo, err = cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &metaDataNonce)
 	if err != nil {
 		return nil, err
 	}
