@@ -211,8 +211,8 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 				return nil, nil, err
 			}
 
-			var streamNonce eestream.Nonce
-			_, err = streamNonce.Increment(int64(s.encBlockSize))
+			var streamNonce eestream.Nonce 
+			_, err = streamNonce.Increment(currentSegment+1)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -672,7 +672,9 @@ func getDecryptedStreamInfo(ctx context.Context, item segments.Meta, path paths.
 	cipher := eestream.Cipher(streamMeta.EncryptionType)
 
 	var streamNonce eestream.Nonce
-	_, err = streamNonce.Increment(int64(streamMeta.EncryptionBlockSize))
+	var currentSegment int64
+
+	_, err = streamNonce.Increment(currentSegment + 1)
 	if err != nil {
 		return nil, err
 	}
