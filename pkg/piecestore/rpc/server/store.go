@@ -34,8 +34,8 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Error receiving Piece metadata")
 	}
 
-	signedMessage := recv.GetSignedMessage()
-	if err := s.verifier(signedMessage); err != nil {
+	authorization := recv.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
 		return err
 	}
 

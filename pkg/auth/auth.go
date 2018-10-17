@@ -7,5 +7,5 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Error default auth error
+// Error is the default auth error class
 var Error = errs.Class("auth error")

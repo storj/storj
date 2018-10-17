@@ -216,8 +216,8 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.GetId())
 
-	signature := in.GetSignedMessage()
-	if err := s.verifier(signature); err != nil {
+	authorization := in.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
 		return nil, err
 	}
 

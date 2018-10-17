@@ -179,7 +179,7 @@ TestLoop:
 			ps := NewMockPSClient(ctrl)
 			gomock.InOrder(
 				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any(), gomock.Any()).Return(errs[n]).
-					Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, sm *pb.SignedMessage) {
+					Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) {
 						// simulate that the mocked piece store client is reading the data
 						_, err := io.Copy(ioutil.Discard, data)
 						assert.NoError(t, err, errTag)
