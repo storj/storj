@@ -33,7 +33,6 @@ var (
 
 func main() {
 	go dumpHandler()
-
 	// process.Exec will load this for this command.
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
