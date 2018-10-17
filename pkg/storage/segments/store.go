@@ -123,8 +123,12 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		pieceID := client.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
+		signedMessage, err := s.pdb.SignedMessage()
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
 		// puts file to ecclient
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, signedMessage)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -213,7 +217,11 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 			return nil, Meta{}, err
 		}
 
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize())
+		signedMessage, err := s.pdb.SignedMessage()
+		if err != nil {
+			return nil, Meta{}, Error.Wrap(err)
+		}
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), signedMessage)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -250,8 +258,12 @@ func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) 
 			return Error.Wrap(err)
 		}
 
+		signedMessage, err := s.pdb.SignedMessage()
+		if err != nil {
+			return Error.Wrap(err)
+		}
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid)
+		err = s.ec.Delete(ctx, nodes, pid, signedMessage)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -334,8 +346,13 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 			return Error.Wrap(err)
 		}
 
+		signedMessage, err := s.pdb.SignedMessage()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		// download the segment using the nodes just with healthy nodes
-		rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize())
+		rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize(), signedMessage)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -348,7 +365,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 
 		/* to really make the piecenodes unique test code */
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, newNodes, pid)
+		err = s.ec.Delete(ctx, newNodes, pid, signedMessage)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -357,7 +374,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 		exp := pr.GetExpirationDate()
 
 		//@TODO-ASK check the expiration timer
-		successfulNodes, err := s.ec.Put(ctx, repairNodesList, s.rs, pid, r, time.Time{})
+		successfulNodes, err := s.ec.Put(ctx, repairNodesList, s.rs, pid, r, time.Time{}, signedMessage)
 		if err != nil {
 			return Error.Wrap(err)
 		}
