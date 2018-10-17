@@ -132,7 +132,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		}
 
 		var contentNonce eestream.Nonce
-		_, err := contentNonce.Increment(currentSegment)
+		_, err := contentNonce.Increment(currentSegment + 1)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -211,13 +211,9 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 				return nil, nil, err
 			}
 
-			var metaDataNonce eestream.Nonce
-			_, err = metaDataNonce.Increment(currentSegment)
-			if err != nil {
-				return nil, nil, err
-			}
+			var metadataNonce eestream.Nonce
 
-			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &encKey, &metaDataNonce)
+			encryptedStreamInfo, err := cipher.Encrypt(streamInfo, &encKey, &metadataNonce)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -290,7 +286,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		return nil, Meta{}, err
 	}
 
-	decryptedLastSegmentMetaData := segments.Meta{
+	decryptedLastSegmentMetadata := segments.Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
 		Size:       lastSegmentMeta.Size,
@@ -313,8 +309,8 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
 		currentPath := getSegmentPath(encPath, i)
 		size := stream.SegmentsSize
-		var nonce eestream.Nonce
-		_, err := nonce.Increment(i)
+		var contentNonce eestream.Nonce
+		_, err := contentNonce.Increment(i + 1)
 		if err != nil {
 			return nil, Meta{}, err
 		}
@@ -323,15 +319,15 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			path:          currentPath,
 			size:          size,
 			derivedKey:    (*eestream.Key)(derivedKey),
-			startingNonce: &nonce,
+			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
 			encType:       eestream.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
 
-	var nonce eestream.Nonce
-	_, err = nonce.Increment(stream.NumberOfSegments - 1)
+	var contentNonce eestream.Nonce
+	_, err = contentNonce.Increment(stream.NumberOfSegments)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -344,7 +340,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		(*eestream.Key)(derivedKey),
 		encryptedKey,
 		keyNonce,
-		&nonce,
+		&contentNonce,
 		int(streamMeta.EncryptionBlockSize),
 	)
 	if err != nil {
@@ -354,7 +350,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 
 	catRangers := ranger.Concat(rangers...)
 
-	meta, err = convertMeta(decryptedLastSegmentMetaData)
+	meta, err = convertMeta(decryptedLastSegmentMetadata)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -381,14 +377,14 @@ func (s *streamStore) Meta(ctx context.Context, path paths.Path) (meta Meta, err
 		return Meta{}, err
 	}
 
-	decryptedLastSegmentMetaData := segments.Meta{
+	decryptedLastSegmentMetadata := segments.Meta{
 		Modified:   lastSegmentMeta.Modified,
 		Expiration: lastSegmentMeta.Expiration,
 		Size:       lastSegmentMeta.Size,
 		Data:       streamInfo,
 	}
 
-	newStreamMeta, err := convertMeta(decryptedLastSegmentMetaData)
+	newStreamMeta, err := convertMeta(decryptedLastSegmentMetadata)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -485,14 +481,14 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 			return nil, false, err
 		}
 
-		decryptedLastSegmentMetaData := segments.Meta{
+		decryptedLastSegmentMetadata := segments.Meta{
 			Modified:   item.Meta.Modified,
 			Expiration: item.Meta.Expiration,
 			Size:       item.Meta.Size,
 			Data:       streamInfo,
 		}
 
-		newMeta, err := convertMeta(decryptedLastSegmentMetaData)
+		newMeta, err := convertMeta(decryptedLastSegmentMetadata)
 		if err != nil {
 			return nil, false, err
 		}
@@ -671,13 +667,7 @@ func getDecryptedStreamInfo(ctx context.Context, item segments.Meta, path paths.
 	key := (*eestream.Key)(derivedKey)
 	cipher := eestream.Cipher(streamMeta.EncryptionType)
 
-	var metaDataNonce eestream.Nonce
-	var currentSegment int64
-
-	_, err = metaDataNonce.Increment(currentSegment)
-	if err != nil {
-		return nil, err
-	}
+	var metadataNonce eestream.Nonce
 
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 
@@ -689,7 +679,7 @@ func getDecryptedStreamInfo(ctx context.Context, item segments.Meta, path paths.
 	var encKey eestream.Key
 	copy(encKey[:], e)
 
-	streamInfo, err = cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &metaDataNonce)
+	streamInfo, err = cipher.Decrypt(streamMeta.EncryptedStreamInfo, &encKey, &metadataNonce)
 	if err != nil {
 		return nil, err
 	}
