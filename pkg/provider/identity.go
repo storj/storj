@@ -259,7 +259,6 @@ func privateKeyToSigner(pkey crypto.PrivateKey) crypto.Signer {
 	case *ecdsa.PrivateKey:
 		return key
 	}
-	panic(pkey)
 	return nil
 }
 
@@ -273,9 +272,10 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 	}
 
 	cert := &mint.Certificate{
-		Chain:      []*x509.Certificate{tlscert.Leaf},
+		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlscert.PrivateKey),
 	}
+	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
 		Certificates:       []*mint.Certificate{cert},
@@ -300,9 +300,10 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 	}
 
 	cert := &mint.Certificate{
-		Chain:      []*x509.Certificate{tlscert.Leaf},
+		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlscert.PrivateKey),
 	}
+	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
 		Certificates:       []*mint.Certificate{cert},
