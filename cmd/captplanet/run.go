@@ -147,35 +147,5 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	return collectErrors(errch, 5*time.Second)
-}
-
-// collectErrors returns first error from channel and all errors that happen within duration
-func collectErrors(errch chan error, duration time.Duration) error {
-	errch = discardNil(errch)
-	errs := []error{<-errch}
-	timeout := time.After(duration)
-	for {
-		select {
-		case err := <-errch:
-			errs = append(errs, err)
-		case <-timeout:
-			return utils.CombineErrors(errs...)
-		}
-	}
-}
-
-// discard nil errors that are returned from services
-func discardNil(ch chan error) chan error {
-	r := make(chan error)
-	go func() {
-		for err := range ch {
-			if err == nil {
-				continue
-			}
-			r <- err
-		}
-		close(r)
-	}()
-	return r
+	return utils.CollectErrors(errch, 5*time.Second)
 }
