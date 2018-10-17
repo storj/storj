@@ -114,6 +114,7 @@ require (
 
 // force specific versions for minio
 require (
+	github.com/bifurcation/mint v0.0.0-20180715133206-93c51c6ce115
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
