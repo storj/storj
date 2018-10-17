@@ -119,7 +119,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
-			runCfg.Satellite.Audit,
+			// runCfg.Satellite.Audit,
 			o,
 		)
 	}()
