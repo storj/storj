@@ -6,6 +6,7 @@ package segments
 import (
 	"context"
 	"io"
+	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -199,6 +200,14 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	c := make(chan bool, 1)
+	log.Println("KISHORE --> Testing the repair START ******")
+	lostPieces := []int{1, 2}
+	s.Repair(ctx, path, lostPieces)
+
+	log.Println("KISHORE --> Testing the repair END ******")
+	<-c
+
 	pr, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
@@ -206,7 +215,7 @@ func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.PieceId)
+		pid := client.PieceID(seg.GetPieceId())
 		nodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
@@ -285,19 +294,20 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.PieceId)
+		pid := client.PieceID(seg.GetPieceId())
 
 		// Get the list of remote pieces from the pointer
 		originalNodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		log.Println("KISHORE --> list of originalNodes ", originalNodes)
 
 		// get the nodes list that needs to be excluded
 		var excludeNodeIDs []dht.NodeID
 		for _, v := range originalNodes {
 			if v != nil {
-				excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.Id))
+				excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
 			}
 		}
 
@@ -403,7 +413,7 @@ func (s *segmentStore) Repair(ctx context.Context, path paths.Path, lostPieces [
 
 // getNewUniqueNodes gets a list of new nodes different from the passed nodes list
 func (s *segmentStore) getNewUniqueNodes(ctx context.Context, nodes []dht.NodeID, numOfNodes int, space int64) ([]*pb.Node, error) {
-	op := overlay.Options{Amount: numOfNodes, Space: space, Excluded: nodes}
+	op := overlay.Options{Amount: numOfNodes * 3, Space: space, Excluded: nodes}
 	newNodes, err := s.oc.Choose(ctx, op)
 	if err != nil {
 		return nil, err
