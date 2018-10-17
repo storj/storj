@@ -112,7 +112,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	defer mon.Task()(&ctx)(&err)
 	var nodeIds []dht.NodeID
 	pieces := pointer.Remote.GetRemotePieces()
-	
+
 	for _, p := range pieces {
 		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
