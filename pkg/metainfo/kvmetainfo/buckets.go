@@ -15,6 +15,9 @@ type Buckets struct {
 	store buckets.Store
 }
 
+// NewBuckets creates Buckets
+func NewBuckets(store buckets.Store) *Buckets { return &Buckets{store} }
+
 // CreateBucket creates a new bucket with the specified information
 func (db *Buckets) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (storj.Bucket, error) {
 	if bucket == "" {
