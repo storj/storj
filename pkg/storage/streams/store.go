@@ -155,7 +155,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return Meta{}, err
 		}
 
-		encryptedKey, err := cipher.Encrypt(contentKey[:], (*encryption.Key)(derivedKey), &keyNonce)
+		encryptedKey, err := contentKey.Encrypt(cipher, (*encryption.Key)(derivedKey), &keyNonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -637,7 +637,7 @@ func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, pa
 	}
 }
 
-func getEncryptedKeyAndNonce(m *pb.SegmentMeta) ([]byte, *encryption.Nonce) {
+func getEncryptedKeyAndNonce(m *pb.SegmentMeta) (encryption.EncryptedPrivateKey, *encryption.Nonce) {
 	if m == nil {
 		return nil, nil
 	}
@@ -662,14 +662,11 @@ func decryptStreamInfo(ctx context.Context, item segments.Meta, path paths.Path,
 
 	cipher := encryption.Cipher(streamMeta.EncryptionType)
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
-	e, err := cipher.Decrypt(encryptedKey, (*encryption.Key)(derivedKey), keyNonce)
+	contentKey, err := encryptedKey.Decrypt(cipher, (*encryption.Key)(derivedKey), keyNonce)
 	if err != nil {
 		return nil, err
 	}
 
-	var contentKey encryption.Key
-	copy(contentKey[:], e)
-
 	// decrypt metadata with the content encryption key and zero nonce
-	return cipher.Decrypt(streamMeta.EncryptedStreamInfo, &contentKey, &encryption.Nonce{})
+	return cipher.Decrypt(streamMeta.EncryptedStreamInfo, contentKey, &encryption.Nonce{})
 }
