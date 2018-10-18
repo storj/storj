@@ -28,8 +28,13 @@ const (
 type Key [KeySize]byte
 
 // Bytes returns the key as a byte array pointer
-func (key *Key) Bytes() *[KeySize]byte {
-	return (*[KeySize]byte)(key)
+func (k *Key) Bytes() *[KeySize]byte {
+	return (*[KeySize]byte)(k)
+}
+
+// Encrypt encrypts the current key with the given key and nonce
+func (k *Key) Encrypt(cipher Cipher, key *Key, nonce *Nonce) (EncryptedPrivateKey, error) {
+	return cipher.Encrypt(k[:], key, nonce)
 }
 
 // Nonce represents the largest nonce used by any encryption protocol
@@ -58,6 +63,22 @@ type AESGCMNonce [AESGCMNonceSize]byte
 // Bytes returns the nonce as a byte array pointer
 func (nonce *AESGCMNonce) Bytes() *[AESGCMNonceSize]byte {
 	return (*[AESGCMNonceSize]byte)(nonce)
+}
+
+// EncryptedPrivateKey is a private key that has been encrypted
+type EncryptedPrivateKey []byte
+
+// Decrypt decrypts the current key with the given key and nonce
+func (k EncryptedPrivateKey) Decrypt(cipher Cipher, key *Key, nonce *Nonce) (*Key, error) {
+	plainData, err := cipher.Decrypt(k, key, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	var decryptedKey Key
+	copy(decryptedKey[:], plainData)
+
+	return &decryptedKey, nil
 }
 
 // Encrypt encrypts byte data with a key and nonce. The cipher data is returned
