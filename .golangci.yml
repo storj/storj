@@ -6,6 +6,7 @@ run:
 
   skip-files:
     - ".*\\.pb\\.go$"
+    - ".*\\.pb_test.go$"
     - ".*\\.dbx\\.go$"
 
 

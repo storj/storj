@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package ping;
+option go_package = "provider_test";
+
+service PingService {
+    rpc Ping(Request) returns (Response) {}
+}
+
+message Request  { string text = 1; }
+message Response { string text = 1; }
