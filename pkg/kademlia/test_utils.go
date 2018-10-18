@@ -52,6 +52,6 @@ func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, er
 }
 
 // Disconnect increments the DisconnectCalled field on MockKademlia
-func (k *MockKademlia) Disconnect() error {
+func (k *MockKademlia) Disconnect(ctx context.Context) error {
 	return nil
 }

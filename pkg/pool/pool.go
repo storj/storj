@@ -12,5 +12,5 @@ type Pool interface {
 	Add(ctx context.Context, key string, value interface{}) error
 	Get(ctx context.Context, key string) (interface{}, error)
 	Remove(ctx context.Context, key string) error
-	Disconnect(ctx context.Context) error 
+	Disconnect(ctx context.Context) error
 }
