@@ -20,7 +20,7 @@ type Client struct {
 	Path   string
 	Bucket []byte
 
-	referenceCount int32
+	referenceCount *int32
 }
 
 const (
@@ -48,9 +48,12 @@ func New(path, bucket string) (*Client, error) {
 		return nil, err
 	}
 
+	refCount := new(int32)
+	*refCount = 1
+
 	return &Client{
 		db:             db,
-		referenceCount: 1,
+		referenceCount: refCount,
 		Path:           path,
 		Bucket:         []byte(bucket),
 	}, nil
@@ -80,11 +83,14 @@ func NewShared(path string, buckets ...string) ([]*Client, error) {
 		return nil, err
 	}
 
+	refCount := new(int32)
+	*refCount = int32(len(buckets))
+
 	clients := []*Client{}
 	for _, bucket := range buckets {
 		clients = append(clients, &Client{
 			db:             db,
-			referenceCount: int32(len(buckets)),
+			referenceCount: refCount,
 			Path:           path,
 			Bucket:         []byte(bucket),
 		})
@@ -149,7 +155,7 @@ func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, e
 
 // Close closes a BoltDB client
 func (client *Client) Close() error {
-	if atomic.AddInt32(&client.referenceCount, -1) == 0 {
+	if atomic.AddInt32(client.referenceCount, -1) == 0 {
 		return client.db.Close()
 	}
 	return nil
