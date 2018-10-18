@@ -109,8 +109,9 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 }
 
 // Disconnect safely closes connections to the Kademlia network
-func (k *Kademlia) Disconnect() error {
+func (k *Kademlia) Disconnect(ctx context.Context) error {
 	return utils.CombineErrors(
+		k.nodeClient.Disconnect(ctx),
 		k.routingTable.Close(),
 	)
 }
