@@ -59,6 +59,7 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 			return nil, err
 		}
 	}
+
 	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
 	rt, err := NewRoutingTable(&self, &RoutingOptions{
 		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
@@ -83,6 +84,39 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 	k := &Kademlia{
 		alpha:          kadconfig.Alpha,
+		routingTable:   rt,
+		bootstrapNodes: bootstrapNodes,
+		address:        address,
+		identity:       identity,
+	}
+
+	nc, err := node.NewNodeClient(identity, self, k)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+
+	k.nodeClient = nc
+
+	return k, nil
+}
+
+// NewKademliaWithRoutingTable returns a newly configured Kademlia instance
+func NewKademliaWithRoutingTable(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
+	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
+
+	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
+	for _, v := range bootstrapNodes {
+		ok, err := rt.addNode(&v)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
+		}
+	}
+
+	k := &Kademlia{
+		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        address,
