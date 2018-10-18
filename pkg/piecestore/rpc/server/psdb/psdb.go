@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -69,7 +70,7 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 		return nil, err
 	}
 
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`satellite` TEXT, `agreement` BLOB, `signature` BLOB);")
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +179,20 @@ func (db *DB) garbageCollect(ctx context.Context) {
 func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 	defer db.locked()()
 
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (agreement, signature) VALUES (?, ?)`, ba.GetData(), ba.GetSignature())
+	// We begin extracting the payer_id
+	// The payer id can be used to sort the bandwidth agreements
+	// If the agreements are sorted we can send them in bulk streams to the payer
+	rbad := &pb.RenterBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
+		return err
+	}
+
+	pbad := &pb.PayerBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
+		return err
+	}
+
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.GetPayer(), ba.GetData(), ba.GetSignature())
 	return err
 }
 
