@@ -4,8 +4,6 @@
 package kademlia
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -17,18 +15,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )
-
-func tempdir(t testing.TB) (dir string, cleanup func()) {
-	dir, err := ioutil.TempDir("", "storj-kademlia")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir, func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
 
 func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()) {
 	if localNodeID == nil {
