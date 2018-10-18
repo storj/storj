@@ -278,12 +278,10 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
-		Certificates:       []*mint.Certificate{cert},
-		InsecureSkipVerify: true,
-		RequireClientAuth:  true,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			peertls.VerifyPeerCertChains,
-		),
+		Certificates:          []*mint.Certificate{cert},
+		InsecureSkipVerify:    true,
+		RequireClientAuth:     false,
+		VerifyPeerCertificate: nil,
 	}
 
 	return grpc.Creds(tls13.NewCredentials(tlsConfig)), nil
@@ -303,14 +301,13 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlscert.PrivateKey),
 	}
+
 	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
-		Certificates:       []*mint.Certificate{cert},
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			peertls.VerifyPeerCertChains,
-		),
+		Certificates:          []*mint.Certificate{cert},
+		InsecureSkipVerify:    true,
+		VerifyPeerCertificate: nil,
 	}
 
 	return grpc.WithTransportCredentials(tls13.NewCredentials(tlsConfig)), nil
