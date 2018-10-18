@@ -25,18 +25,22 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	StatDBPort       string                `help:"port to contact statDB client" default:":9090"`
-	MaxRetriesStatDB int                   `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Pointers         pdbclient.Client      `help:"Pointers for a instantiation of a new service"`
-	Transport        transport.Client      `help:"Transport for a instantiation of a new service"`
-	Overlay          overlay.Client        `help:"Overlay for a instantiation of a new service"`
-	ID               provider.FullIdentity `help:"ID for a instantiation of a new service"`
-	Interval         time.Duration         `help:"how frequently segements should audited" default:"30s"`
+	StatDBPort          string        `help:"port to contact statDB client" default:":9090"`
+	MaxRetriesStatDB    int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	PointerDBPort       string        `help:"Pointers for a instantiation of a new service"`
+	TransportClientPort string        `help:"Transport for a instantiation of a new service"`
+	OverlayClientPort   string        `help:"Overlay for a instantiation of a new service"`
+	ID                  string        `help:"ID for a instantiation of a new service"`
+	Interval            time.Duration `help:"how frequently segements should audited" default:"30s"`
 }
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
+	var pdb pdbclient.Client
+	var tc transport.Client
+	var oc overlay.Client
+	var id provider.FullIdentity
+	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, pdb, tc, oc, id)
 	if err != nil {
 		return err
 	}
