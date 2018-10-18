@@ -283,7 +283,7 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 	tlsConfig := &mint.Config{
 		Certificates:          []*mint.Certificate{cert},
 		InsecureSkipVerify:    true,
-		RequireClientAuth:     false,
+		RequireClientAuth:     true,
 		VerifyPeerCertificate: nil,
 	}
 	tlsConfig.Init(false)
@@ -311,7 +311,7 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 	tlsConfig := &mint.Config{
 		Certificates:       []*mint.Certificate{cert},
 		InsecureSkipVerify: true,
-		RequireClientAuth:  false,
+		RequireClientAuth:  true,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
