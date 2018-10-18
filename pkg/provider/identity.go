@@ -259,7 +259,9 @@ func privateKeyToSigner(pkey crypto.PrivateKey) crypto.Signer {
 	case *ecdsa.PrivateKey:
 		return key
 	}
-	return nil
+
+	// TODO: don't panic
+	panic("shouldn't happen")
 }
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
@@ -275,30 +277,16 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
+
 	// TODO: check PrivateKey
 
-	var config mint.Config
-	xpriv, xcert, err := mint.MakeNewSelfSignedCert("127.0.0.1", mint.RSA_PKCS1_SHA256)
-	config.Certificates = []*mint.Certificate{
-		{
-			Chain:      []*x509.Certificate{xcert},
-			PrivateKey: xpriv,
-		},
-	}
-	config.Init(false)
-
 	tlsConfig := &mint.Config{
-		Certificates:       []*mint.Certificate{cert},
-		InsecureSkipVerify: true,
-		RequireClientAuth:  false,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		},
+		Certificates:          []*mint.Certificate{cert},
+		InsecureSkipVerify:    true,
+		RequireClientAuth:     false,
+		VerifyPeerCertificate: nil,
 	}
 	tlsConfig.Init(false)
-
-	tlsConfig = &config
-	tlsConfig.InsecureSkipVerify = true
 
 	return grpc.Creds(tls13.NewCredentials(tlsConfig)), nil
 }
@@ -323,14 +311,12 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 	tlsConfig := &mint.Config{
 		Certificates:       []*mint.Certificate{cert},
 		InsecureSkipVerify: true,
+		RequireClientAuth:  false,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
 	}
 	tlsConfig.Init(true)
-
-	tlsConfig = &mint.Config{}
-	tlsConfig.InsecureSkipVerify = true
 
 	return grpc.WithTransportCredentials(tls13.NewCredentials(tlsConfig)), nil
 }
