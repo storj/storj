@@ -31,6 +31,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 	var conn *grpc.ClientConn
 	if c, ok := v.(*grpc.ClientConn); ok {
 		conn = c
+		defer conn.Close()
 	} else {
 		c, err := n.tc.DialNode(ctx, &to)
 		if err != nil {
@@ -41,6 +42,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
 		}
 		conn = c
+		defer conn.Close()
 	}
 
 	c := pb.NewNodesClient(conn)

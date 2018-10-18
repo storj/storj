@@ -112,7 +112,6 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 func (k *Kademlia) Disconnect() error {
 	return utils.CombineErrors(
 		k.routingTable.Close(),
-		// TODO: close connections
 	)
 }
 
