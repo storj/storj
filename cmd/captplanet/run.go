@@ -12,6 +12,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -39,6 +40,7 @@ type Satellite struct {
 	Overlay     overlay.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
+	Audit       audit.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -136,6 +138,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 		go func() {
 			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
+		}()
+
+		go func() {
+			errch <- runCfg.Satellite.Audit.Run(ctx, nil)
 		}()
 
 	}

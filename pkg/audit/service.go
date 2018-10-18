@@ -21,7 +21,6 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	errs     []error
 }
 
 // Config contains configurable values for audit service
@@ -57,7 +56,6 @@ func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers
 	return &Service{Cursor: cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-		errs:     []error{},
 	}, nil
 }
 
@@ -73,31 +71,33 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	errch := make(chan error)
+
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				stripe, err := service.Cursor.NextStripe(ctx)
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 
 				authorization, err := service.Cursor.pointers.SignedMessage()
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 
 				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
 				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 				if err != nil {
-					service.errs = append(service.errs, err)
+					errch <- err
 					cancel()
 				}
 			case <-ctx.Done():
@@ -106,5 +106,6 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 		}
 	}()
 
-	return utils.CombineErrors(service.errs...)
+	// TODO(James): convert to collectErrors
+	return utils.CollectErrors(errch, 5*time.Second)
 }
