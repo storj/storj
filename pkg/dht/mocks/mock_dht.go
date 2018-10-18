@@ -6,13 +6,11 @@ package mock_dht
 
 import (
 	context "context"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
-
+	reflect "reflect"
 	dht "storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/pb"
+	pb "storj.io/storj/pkg/pb"
+	time "time"
 )
 
 // MockDHT is a mock of DHT interface
@@ -51,15 +49,15 @@ func (mr *MockDHTMockRecorder) Bootstrap(arg0 interface{}) *gomock.Call {
 }
 
 // Disconnect mocks base method
-func (m *MockDHT) Disconnect() error {
-	ret := m.ctrl.Call(m, "Disconnect")
+func (m *MockDHT) Disconnect(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Disconnect", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Disconnect indicates an expected call of Disconnect
-func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockDHT)(nil).Disconnect))
+func (mr *MockDHTMockRecorder) Disconnect(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockDHT)(nil).Disconnect), arg0)
 }
 
 // FindNode mocks base method

@@ -76,7 +76,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	if err != nil {
 		return err
 	}
-	defer func() { _ = kad.Disconnect() }()
+	defer func() { _ = kad.Disconnect(ctx) }()
 
 	mn := node.NewServer(kad)
 	pb.RegisterNodesServer(server.GRPC(), mn)

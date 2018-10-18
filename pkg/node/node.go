@@ -5,12 +5,14 @@ package node
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/utils"
 )
 
 // Node is the storj definition for a node in the network
@@ -31,7 +33,6 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 	var conn *grpc.ClientConn
 	if c, ok := v.(*grpc.ClientConn); ok {
 		conn = c
-		defer conn.Close()
 	} else {
 		c, err := n.tc.DialNode(ctx, &to)
 		if err != nil {
@@ -42,7 +43,6 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
 		}
 		conn = c
-		defer conn.Close()
 	}
 
 	c := pb.NewNodesClient(conn)
@@ -62,4 +62,9 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 	}
 
 	return resp.Response, nil
+}
+
+// Disconnect closes connections within the cache
+func (n *Node) Disconnect(ctx context.Context) error {
+	return utils.CombineErrors(n.cache.Disconnect(ctx))
 }

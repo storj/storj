@@ -5,7 +5,15 @@ package node
 
 import (
 	"sync"
+
+	"github.com/zeebo/errs"
+	"google.golang.org/grpc"
+
+	"storj.io/storj/pkg/utils"
 )
+
+// Error defines a connection pool error
+var Error = errs.Class("connection pool error")
 
 // ConnectionPool is the in memory implementation of a connection Pool
 type ConnectionPool struct {
@@ -43,4 +51,26 @@ func (pool *ConnectionPool) Remove(key string) error {
 	defer pool.mu.Unlock()
 	pool.cache[key] = nil
 	return nil
+}
+
+// Disconnect closes the connection to the node and removes it from the connection pool
+func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
+	var err error
+	var errs []error
+	for k, v := range mp.cache {
+		conn, ok := v.(*grpc.ClientConn)
+		if !ok {
+			err = Error.New("connection pool value not a grpc client connection")
+			errs = append(errs, err)
+		}
+		err = conn.Close()
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+		}
+		err = mp.Remove(ctx, k)
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+		}
+	}
+	return utils.CombineErrors(errs...)
 }
