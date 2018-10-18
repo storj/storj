@@ -24,15 +24,18 @@ var (
 	ASError = errs.Class("agreement sender error")
 )
 
+// AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
 	DB   *psdb.DB
 	errs []error
 }
 
+// Initialize the Agreement Sender
 func Initialize(DB *psdb.DB) (*AgreementSender, error) {
 	return &AgreementSender{DB: DB}, nil
 }
 
+// Run the afreement sender with a context to cehck for cancel
 func (as *AgreementSender) Run(ctx context.Context) error {
 	log.Println("AgreementSender is starting up")
 

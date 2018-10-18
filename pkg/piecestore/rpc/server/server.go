@@ -47,6 +47,8 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	s, err := Initialize(ctx, c, server.Identity().Key)
 	if err != nil {
 		return err
@@ -59,7 +61,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	go asProcess.Run(ctx)
+	go func() {
+		if err := asProcess.Run(ctx); err != nil {
+			cancel()
+		}
+	}()
 
 	defer func() {
 		log.Fatal(s.Stop(ctx))
