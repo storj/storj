@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/utils"
 )
@@ -171,7 +172,7 @@ func (dr *decodedRanger) Size() int64 {
 func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
-	firstBlock, blockCount := calcEncompassingBlocks(offset, length, dr.es.StripeSize())
+	firstBlock, blockCount := encryption.CalcEncompassingBlocks(offset, length, dr.es.StripeSize())
 	// go ask for ranges for all those block boundaries
 	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
