@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	q "storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
@@ -30,7 +30,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	repairQueue := q.NewQueue(client)
+	repairQueue := queue.NewQueue(client)
 	check := newChecker(pointerdb, repairQueue, overlay, 0, zap.L())
 	return check, nil
 }

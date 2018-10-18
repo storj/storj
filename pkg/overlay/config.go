@@ -37,7 +37,7 @@ type CtxKey int
 
 const (
 	ctxKeyOverlay       CtxKey = iota
-	ctxKeyOverlayServer CtxKey = iota + 1
+	ctxKeyOverlayServer
 )
 
 // Run implements the provider.Responsibility interface. Run assumes a
