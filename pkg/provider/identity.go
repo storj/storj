@@ -266,23 +266,39 @@ func privateKeyToSigner(pkey crypto.PrivateKey) crypto.Signer {
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
-	tlscert, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	tlsCert, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
 
 	cert := &mint.Certificate{
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
-		PrivateKey: privateKeyToSigner(tlscert.PrivateKey),
+		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
 	// TODO: check PrivateKey
 
-	tlsConfig := &mint.Config{
-		Certificates:          []*mint.Certificate{cert},
-		InsecureSkipVerify:    true,
-		RequireClientAuth:     false,
-		VerifyPeerCertificate: nil,
+	var config mint.Config
+	xpriv, xcert, err := mint.MakeNewSelfSignedCert("127.0.0.1", mint.RSA_PKCS1_SHA256)
+	config.Certificates = []*mint.Certificate{
+		{
+			Chain:      []*x509.Certificate{xcert},
+			PrivateKey: xpriv,
+		},
 	}
+	config.Init(false)
+
+	tlsConfig := &mint.Config{
+		Certificates:       []*mint.Certificate{cert},
+		InsecureSkipVerify: true,
+		RequireClientAuth:  false,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return nil
+		},
+	}
+	tlsConfig.Init(false)
+
+	tlsConfig = &config
+	tlsConfig.InsecureSkipVerify = true
 
 	return grpc.Creds(tls13.NewCredentials(tlsConfig)), nil
 }
@@ -292,23 +308,29 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 
-	tlscert, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	tlsCert, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
 
 	cert := &mint.Certificate{
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
-		PrivateKey: privateKeyToSigner(tlscert.PrivateKey),
+		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
 
 	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
-		Certificates:          []*mint.Certificate{cert},
-		InsecureSkipVerify:    true,
-		VerifyPeerCertificate: nil,
+		Certificates:       []*mint.Certificate{cert},
+		InsecureSkipVerify: true,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return nil
+		},
 	}
+	tlsConfig.Init(true)
+
+	tlsConfig = &mint.Config{}
+	tlsConfig.InsecureSkipVerify = true
 
 	return grpc.WithTransportCredentials(tls13.NewCredentials(tlsConfig)), nil
 }

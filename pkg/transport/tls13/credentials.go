@@ -47,7 +47,7 @@ func (c *Credentials) ClientHandshake(ctx context.Context, authority string, raw
 	}()
 	select {
 	case err := <-errChannel:
-		if err != nil {
+		if err != nil && err != mint.AlertNoAlert {
 			return nil, nil, err
 		}
 	case <-ctx.Done():
