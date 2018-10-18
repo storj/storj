@@ -397,3 +397,8 @@ func TestMeetsRestrictions(t *testing.T) {
 		})
 	}
 }
+
+func cleanup(t *testing.T, k *Kademlia, dir string) {
+	assert.NoError(t, k.Disconnect())
+	assert.NoError(t, os.RemoveAll(dir))
+}
