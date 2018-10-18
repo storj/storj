@@ -288,7 +288,7 @@ func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
 	if namespace == nil {
 		return string(pieceID), nil
 	}
-	
+
 	mac := hmac.New(sha512.New, namespace)
 	_, err := mac.Write(pieceID)
 	if err != nil {
