@@ -57,13 +57,23 @@ func (create CreateObject) Object(bucket string, path Path) Object {
 	}
 }
 
+// ListDirection specifies listing direction
+type ListDirection int8
+
+const (
+	Before   = ListDirection(-2) // list backwards from cursor, without cursor
+	Backward = ListDirection(-1) // list backwards from cursor, with cursor
+	Forward  = ListDirection(1)  // list forwards from cursor, with cursor
+	After    = ListDirection(2)  // list forwards from cursor, without cursor
+)
+
 // ListOptions lists objects
 type ListOptions struct {
 	Prefix    Path
-	First     Path // First is relative to Prefix, full path is Prefix + First
+	Cursor    Path // Cursor is relative to Prefix, full path is Prefix + First
 	Delimiter rune
 	Recursive bool
-	Reverse   bool
+	Direction ListDirection
 	Limit     int
 }
 
@@ -71,28 +81,78 @@ type ListOptions struct {
 type ObjectList struct {
 	Bucket string
 	Prefix Path
-
-	NextFirst Path // relative to Prefix, to get the full path use Prefix + NextFirst
-	More      bool
+	More   bool
 
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
 }
 
+// PreviousPage returns options for listing the previous page
+func (list *ObjectList) PreviousPage(limit int) (ListOptions, bool) {
+	if !list.More {
+		return ListOptions{}, false
+	}
+
+	return ListOptions{
+		Prefix:    list.Prefix,
+		Cursor:    list.Items[0].Path,
+		Direction: Before,
+		Limit:     limit,
+	}, true
+}
+
+// NextPage returns options for listing the next page
+func (list *ObjectList) NextPage(limit int) (ListOptions, bool) {
+	if !list.More {
+		return ListOptions{}, false
+	}
+
+	return ListOptions{
+		Prefix:    list.Prefix,
+		Cursor:    list.Items[len(list.Items)-1].Path,
+		Direction: After,
+		Limit:     limit,
+	}, true
+}
+
 // BucketListOptions lists objects
 type BucketListOptions struct {
-	First   string
-	Reverse bool
-	Limit   int
+	Cursor    string
+	Direction ListDirection
+	Limit     int
 }
 
 // BucketList is a list of buckets
 type BucketList struct {
-	NextFirst string
-	More      bool
-
+	More    bool
 	Buckets []Bucket
+}
+
+// PreviousPage returns options for listing the previous page
+func (list *BucketList) PreviousPage(limit int) (BucketListOptions, bool) {
+	if !list.More {
+		return BucketListOptions{}, false
+	}
+
+	return BucketListOptions{
+		Cursor:    list.Buckets[0].Name,
+		Direction: Before,
+		Limit:     limit,
+	}, true
+}
+
+// NextPage returns options for listing the next page
+func (list *BucketList) NextPage(limit int) (BucketListOptions, bool) {
+	if !list.More {
+		return BucketListOptions{}, false
+	}
+
+	return BucketListOptions{
+		Cursor:    list.Buckets[len(list.Buckets)-1].Name,
+		Direction: After,
+		Limit:     limit,
+	}, true
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database
