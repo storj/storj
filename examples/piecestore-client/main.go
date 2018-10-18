@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -91,7 +92,21 @@ func main() {
 
 			id := client.NewPieceID()
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}, nil); err != nil {
+
+			data := &pb.PayerBandwidthAllocation_Data {
+				Payer: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+			}		
+
+			serializedData, err := proto.Marshal(data)
+			if err != nil {
+				return err
+			}
+
+			pba := &pb.PayerBandwidthAllocation{
+				Data: serializedData,
+			}
+
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, pba, nil); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
