@@ -2,29 +2,42 @@ package utils_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
 )
 
-var (
-	testCases = []struct {
-		testID        string
-		errorslice    []error
-		expectedError error
-	}{
-		{
-			testID:        "valid collection",
-			errorslice:    []error{errs.New("collecterror")},
-			expectedError: errs.New("collecterror"),
-		},
-	}
-)
+func TestCollectSingleError(t *testing.T) {
+	errchan := make(chan error)
+	defer close(errchan)
 
-func TestCollectErrors(t *testing.T) {
+	go func() {
+		errchan <- returnError()
+	}()
 
-	for _, c := range testCases {
-		t.Run(c.testID, func(t *testing.T) {
-			t.Logf("starting test case: %s\n %+v\n %+v\n", c.testID, c.errorslice, c.expectedError)
-		})
-	}
+	err := utils.CollectErrors(errchan, 1*time.Second)
+	assert.Error(t, err)
+	assert.Equal(t, err.Error(), "error")
+}
+
+func TestCollecMultipleError(t *testing.T) {
+	errchan := make(chan error)
+	defer close(errchan)
+
+	go func() {
+		errchan <- returnError()
+		errchan <- returnError()
+		errchan <- returnError()
+	}()
+
+	err := utils.CollectErrors(errchan, 1*time.Second)
+	assert.Error(t, err)
+	assert.Equal(t, err.Error(), "error\nerror\nerror")
+}
+
+func returnError() error {
+	return errs.New("error")
 }
