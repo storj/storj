@@ -64,7 +64,7 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		endBefore = options.First + "\x00"
 	}
 
-	items, more, err := db.store.List(ctx, startAfter, endBefore, options.List)
+	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)
 	if err != nil {
 		return storj.BucketList{}, err
 	}

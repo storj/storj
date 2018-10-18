@@ -82,7 +82,7 @@ type ObjectList struct {
 
 // BucketListOptions lists objects
 type BucketListOptions struct {
-	First   string // First is relative to Prefix, full path is Prefix + First
+	First   string
 	Reverse bool
 	Limit   int
 }
