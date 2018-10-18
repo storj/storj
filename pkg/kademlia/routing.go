@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
 )
 
@@ -45,32 +44,20 @@ type RoutingTable struct {
 
 //RoutingOptions for configuring RoutingTable
 type RoutingOptions struct {
-	kpath        string
-	npath        string
 	idLength     int //TODO (JJ): add checks for > 0
 	bucketSize   int
 	rcBucketSize int
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *pb.Node, options *RoutingOptions) (*RoutingTable, error) {
-	kdb, err := boltdb.New(options.kpath, KademliaBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
-	}
-
-	ndb, err := boltdb.New(options.npath, NodeBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
-	}
-	rp := make(map[string][]*pb.Node)
+func NewRoutingTable(localNode *pb.Node, kdb, ndb storage.KeyValueStore, options *RoutingOptions) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      storelogger.New(zap.L(), kdb),
 		nodeBucketDB:     storelogger.New(zap.L(), ndb),
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
-		replacementCache: rp,
+		replacementCache: make(map[string][]*pb.Node),
 		idLength:         options.idLength,
 		bucketSize:       options.bucketSize,
 		rcBucketSize:     options.rcBucketSize,
@@ -84,9 +71,10 @@ func NewRoutingTable(localNode *pb.Node, options *RoutingOptions) (*RoutingTable
 
 // Close closes underlying databases
 func (rt *RoutingTable) Close() error {
-	kerr := rt.kadBucketDB.Close()
-	nerr := rt.nodeBucketDB.Close()
-	return utils.CombineErrors(kerr, nerr)
+	return utils.CombineErrors(
+		rt.kadBucketDB.Close(),
+		rt.nodeBucketDB.Close(),
+	)
 }
 
 // Local returns the local nodes ID
