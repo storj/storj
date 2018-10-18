@@ -10,6 +10,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/bits"
@@ -281,9 +282,7 @@ func privateKeyToSigner(pkey crypto.PrivateKey) crypto.Signer {
 	case *ecdsa.PrivateKey:
 		return key
 	}
-
-	// TODO: don't panic
-	panic("shouldn't happen")
+	return nil
 }
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
@@ -299,6 +298,9 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
+	if cert.PrivateKey == nil {
+		return nil, errors.New("unknown private key")
+	}
 
 	// TODO: check PrivateKey
 
@@ -308,7 +310,9 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 		RequireClientAuth:     true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains),
 	}
-	tlsConfig.Init(false)
+	if err := tlsConfig.Init(false); err != nil {
+		return nil, err
+	}
 
 	return grpc.Creds(tls13.NewCredentials(tlsConfig)), nil
 }
@@ -327,7 +331,9 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
-	// TODO: check PrivateKey
+	if cert.PrivateKey == nil {
+		return nil, errors.New("unknown private key")
+	}
 
 	tlsConfig := &mint.Config{
 		Certificates:          []*mint.Certificate{cert},
@@ -335,7 +341,9 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		RequireClientAuth:     true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains),
 	}
-	tlsConfig.Init(true)
+	if err := tlsConfig.Init(true); err != nil {
+		return nil, err
+	}
 
 	return grpc.WithTransportCredentials(tls13.NewCredentials(tlsConfig)), nil
 }

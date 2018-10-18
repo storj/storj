@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// Credentials is the credentials required for authenticating a connection using TLS.
+// Credentials is the credentials required for authenticating a connection using mint.TLS.
 type Credentials struct {
 	// TLS configuration
 	Config *mint.Config
@@ -22,14 +22,16 @@ func NewCredentials(c *mint.Config) credentials.TransportCredentials {
 	return tc
 }
 
-func (c Credentials) Info() credentials.ProtocolInfo {
-	return credentials.ProtocolInfo{
-		SecurityProtocol: "tls",
-		SecurityVersion:  "1.3",
-		ServerName:       "", //TODO:
-	}
-}
-
+// ClientHandshake does the authentication handshake specified by the corresponding
+// authentication protocol on rawConn for clients. It returns the authenticated
+// connection and the corresponding auth information about the connection.
+// Implementations must use the provided context to implement timely cancellation.
+// gRPC will try to reconnect if the error returned is a temporary error
+// (io.EOF, context.DeadlineExceeded or err.Temporary() == true).
+// If the returned error is a wrapper error, implementations should make sure that
+// the error implements Temporary() to have the correct retry behaviors.
+//
+// If the returned net.Conn is closed, it MUST close the net.Conn provided.
 func (c *Credentials) ClientHandshake(ctx context.Context, authority string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	// use local cfg to avoid clobbering ServerName if using multiple endpoints
 	cfg := c.Config.Clone()
@@ -56,6 +58,11 @@ func (c *Credentials) ClientHandshake(ctx context.Context, authority string, raw
 	return conn, TLSInfo{conn.ConnectionState()}, nil
 }
 
+// ServerHandshake does the authentication handshake for servers. It returns
+// the authenticated connection and the corresponding auth information about
+// the connection.
+//
+// If the returned net.Conn is closed, it MUST close the net.Conn provided.
 func (c *Credentials) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn := mint.Server(rawConn, c.Config)
 	if err := conn.Handshake(); err != mint.AlertNoAlert {
@@ -64,10 +71,23 @@ func (c *Credentials) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.A
 	return conn, TLSInfo{conn.ConnectionState()}, nil
 }
 
+// Info provides the ProtocolInfo of this TransportCredentials.
+func (c Credentials) Info() credentials.ProtocolInfo {
+	return credentials.ProtocolInfo{
+		SecurityProtocol: "tls",
+		SecurityVersion:  "1.3",
+		ServerName:       "", //TODO:
+	}
+}
+
+// Clone makes a copy of this TransportCredentials.
 func (c *Credentials) Clone() credentials.TransportCredentials {
 	return NewCredentials(c.Config)
 }
 
+// OverrideServerName overrides the server name used to verify the hostname on the returned certificates from the server.
+// gRPC internals also use it to override the virtual hosting name if it is set.
+// It must be called before dialing. Currently, this is only used by grpclb.
 func (c *Credentials) OverrideServerName(serverNameOverride string) error {
 	c.Config.ServerName = serverNameOverride
 	return nil
