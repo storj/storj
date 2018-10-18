@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"encoding/binary"
@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	crcBlockSize = 64 // this could literally be whatever
+	crcBlockSize = 64 // this could literally be
+	uint32Size   = 4
 	uint64Size   = 8
 )
 

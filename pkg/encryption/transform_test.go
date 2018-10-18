@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func TestCalcEncompassingBlocks(t *testing.T) {
 		{4, 4, 5, 1, 2},
 		{4, 4, 6, 1, 2},
 	} {
-		first, count := calcEncompassingBlocks(
+		first, count := CalcEncompassingBlocks(
 			example.offset, example.length, example.blockSize)
 		if first != example.firstBlock || count != example.blockCount {
 			t.Fatalf("invalid calculation for %#v: %v %v", example, first, count)
