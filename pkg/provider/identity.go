@@ -284,7 +284,7 @@ func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
 		Certificates:          []*mint.Certificate{cert},
 		InsecureSkipVerify:    true,
 		RequireClientAuth:     true,
-		VerifyPeerCertificate: nil,
+		VerifyPeerCertificate: peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains),
 	}
 	tlsConfig.Init(false)
 
@@ -305,16 +305,13 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		Chain:      []*x509.Certificate{fi.Leaf, fi.CA},
 		PrivateKey: privateKeyToSigner(tlsCert.PrivateKey),
 	}
-
 	// TODO: check PrivateKey
 
 	tlsConfig := &mint.Config{
-		Certificates:       []*mint.Certificate{cert},
-		InsecureSkipVerify: true,
-		RequireClientAuth:  true,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		},
+		Certificates:          []*mint.Certificate{cert},
+		InsecureSkipVerify:    true,
+		RequireClientAuth:     true,
+		VerifyPeerCertificate: peertls.VerifyPeerFunc(peertls.VerifyPeerCertChains),
 	}
 	tlsConfig.Init(true)
 
