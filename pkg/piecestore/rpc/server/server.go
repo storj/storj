@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
+	as "storj.io/storj/pkg/piecestore/rpc/server/agreementsender"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 )
@@ -55,6 +56,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	}
 
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
+
+	// Run the agreement sender process
+	asProcess, err := as.Initialize(s.DB)
+	if err != nil {
+		return err
+	}
+	go asProcess.Run(ctx)
 
 	defer func() {
 		log.Fatal(s.Stop(ctx))
