@@ -21,7 +21,7 @@ type Metainfo interface {
 	// GetBucket gets bucket information
 	GetBucket(ctx context.Context, bucket string) (Bucket, error)
 	// ListBuckets lists buckets starting from first
-	ListBuckets(ctx context.Context, first string, limit int) (BucketList, error)
+	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
 	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
@@ -63,6 +63,7 @@ type ListOptions struct {
 	First     Path // First is relative to Prefix, full path is Prefix + First
 	Delimiter rune
 	Recursive bool
+	Reverse   bool
 	Limit     int
 }
 
@@ -77,6 +78,13 @@ type ObjectList struct {
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
+}
+
+// BucketListOptions lists objects
+type BucketListOptions struct {
+	First   string // First is relative to Prefix, full path is Prefix + First
+	Reverse bool
+	Limit   int
 }
 
 // BucketList is a list of buckets

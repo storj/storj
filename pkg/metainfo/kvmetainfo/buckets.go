@@ -56,10 +56,15 @@ func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, 
 }
 
 // ListBuckets lists buckets
-func (db *Buckets) ListBuckets(ctx context.Context, first string, limit int) (storj.BucketList, error) {
-	startAfter := firstToStartAfter(first)
+func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOptions) (storj.BucketList, error) {
+	var startAfter, endBefore string
+	if !options.Reverse {
+		startAfter = firstToStartAfter(options.First)
+	} else {
+		endBefore = options.First + "\x00"
+	}
 
-	items, more, err := db.store.List(ctx, startAfter, "", limit)
+	items, more, err := db.store.List(ctx, startAfter, endBefore, options.List)
 	if err != nil {
 		return storj.BucketList{}, err
 	}
@@ -75,7 +80,11 @@ func (db *Buckets) ListBuckets(ctx context.Context, first string, limit int) (st
 	}
 
 	if len(list.Buckets) > 0 && more {
-		list.NextFirst = list.Buckets[len(list.Buckets)-1].Name + "\x00"
+		if !options.Reverse {
+			list.NextFirst = list.Buckets[len(list.Buckets)-1].Name + "\x00"
+		} else {
+			list.NextFirst = firstToStartAfter(list.Buckets[0].Name)
+		}
 	}
 
 	return list, nil
