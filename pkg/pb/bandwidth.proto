@@ -1,0 +1,17 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package bandwidth;
+
+import "piecestore.proto";
+
+service Bandwidth {
+  rpc BandwidthAgreements(stream piecestoreroutes.RenterBandwidthAllocation) returns (AgreementsSummary) {}
+}
+
+
+message AgreementsSummary {
+}
