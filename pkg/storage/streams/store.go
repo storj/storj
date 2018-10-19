@@ -69,7 +69,7 @@ type streamStore struct {
 	segmentSize  int64
 	rootKey      []byte
 	encBlockSize int
-	cipher storj.Cipher
+	cipher       storj.Cipher
 }
 
 // NewStreamStore stuff
@@ -89,7 +89,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 		segmentSize:  segmentSize,
 		rootKey:      []byte(rootKey),
 		encBlockSize: encBlockSize,
-		cipher: cipher,
+		cipher:       cipher,
 	}, nil
 }
 
@@ -326,7 +326,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			derivedKey:    (*storj.Key)(derivedKey),
 			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
-			cipher:  storj.Cipher(streamMeta.EncryptionType),
+			cipher:        storj.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
@@ -521,7 +521,7 @@ type lazySegmentRanger struct {
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
 	encBlockSize  int
-	cipher  storj.Cipher
+	cipher        storj.Cipher
 }
 
 // Size implements Ranger.Size
