@@ -36,7 +36,7 @@ func LeafTemplate() (*x509.Certificate, error) {
 		SerialNumber:          serialNumber,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		DNSNames:              []string{"127.0.0.1", "localhost", "0:0:0:0:0:0:0:1", "::1"}, // TODO: fix
+		DNSNames:              []string{"storj"}, // TODO: fix
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 	}

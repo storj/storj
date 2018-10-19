@@ -76,7 +76,7 @@ func (c Credentials) Info() credentials.ProtocolInfo {
 	return credentials.ProtocolInfo{
 		SecurityProtocol: "tls",
 		SecurityVersion:  "1.3",
-		ServerName:       "", //TODO:
+		ServerName:       "storj", //TODO:
 	}
 }
 
