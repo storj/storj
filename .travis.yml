@@ -44,6 +44,7 @@ matrix:
     - env: MODE=integration
       install:
         - source scripts/install-awscli.sh
+        - go install storj.io/storj/cmd/captplanet
       script:
         - make test-captplanet
   fast_finish: true
