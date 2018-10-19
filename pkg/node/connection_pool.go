@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/utils"
 )
