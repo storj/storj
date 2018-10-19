@@ -42,7 +42,7 @@ matrix:
         - ./scripts/check-for-header.sh
         - golangci-lint run
     - env: MODE=integration
-      before_install:
+      install:
         - source scripts/install-awscli.sh
       script:
         - make test-captplanet
