@@ -28,15 +28,15 @@ matrix:
   include:
     - env: MODE=tests
       install:
+        - pushd ~
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
+        - popd
         - go install -v -race ./...
       script:
         - go test -race -v -cover -coverprofile=.coverprofile ./...
         - goveralls -coverprofile=.coverprofile -service=travis-ci
     - env: MODE=lint
       install:
-        - pushd ~
-        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
-        - popd
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
       script:
         - ./scripts/check-for-header.sh
