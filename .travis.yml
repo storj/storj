@@ -29,11 +29,11 @@ matrix:
     - env: MODE=tests
       install:
         - pushd ~
-        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
         - popd
-        - go install -v -race ./...
+        - go install -race ./...
       script:
-        - go test -race -v -cover -coverprofile=.coverprofile ./...
+        - go test -race -cover -coverprofile=.coverprofile ./...
         - goveralls -coverprofile=.coverprofile -service=travis-ci
     - env: MODE=lint
       install:
