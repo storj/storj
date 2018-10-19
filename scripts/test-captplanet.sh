@@ -1,6 +1,6 @@
 #!/bin/bash 
 set -ueo pipefail
-go install -v storj.io/storj/cmd/captplanet
+go install -v -race storj.io/storj/cmd/captplanet
 
 captplanet setup --overwrite
 
