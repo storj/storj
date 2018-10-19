@@ -5,16 +5,15 @@ package storj
 
 // EncryptionScheme is the scheme and parameters used for encryption
 type EncryptionScheme struct {
-	Algorithm EncryptionAlgorithm
+	Cipher Cipher
 }
 
-// EncryptionAlgorithm specifies an encryption algorithm
-type EncryptionAlgorithm byte
+// Cipher specifies an encryption algorithm
+type Cipher byte
 
 // List of supported encryption algorithms
 const (
-	// InvalidEncryptionAlgorithm = EncryptionAlgorithm(iota)
-	Unencrypted = EncryptionAlgorithm(iota)
+	Unencrypted = Cipher(iota)
 	AESGCM
 	SecretBox
 )

@@ -69,11 +69,11 @@ type streamStore struct {
 	segmentSize  int64
 	rootKey      []byte
 	encBlockSize int
-	encAlgorithm storj.EncryptionAlgorithm
+	cipher storj.Cipher
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, encBlockSize int, encAlgorithm storj.EncryptionAlgorithm) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, encBlockSize int, cipher storj.Cipher) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
@@ -89,7 +89,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey string, 
 		segmentSize:  segmentSize,
 		rootKey:      []byte(rootKey),
 		encBlockSize: encBlockSize,
-		encAlgorithm: encAlgorithm,
+		cipher: cipher,
 	}, nil
 }
 
@@ -143,7 +143,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return Meta{}, err
 		}
 
-		encrypter, err := encryption.NewEncrypter(s.encAlgorithm, &contentKey, &contentNonce, s.encBlockSize)
+		encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -155,7 +155,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return Meta{}, err
 		}
 
-		encryptedKey, err := encryption.EncryptKey(&contentKey, s.encAlgorithm, (*storj.Key)(derivedKey), &keyNonce)
+		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, (*storj.Key)(derivedKey), &keyNonce)
 		if err != nil {
 			return Meta{}, err
 		}
@@ -176,7 +176,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			if err != nil {
 				return Meta{}, err
 			}
-			cipherData, err := encryption.Encrypt(data, s.encAlgorithm, &contentKey, &contentNonce)
+			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
 			if err != nil {
 				return Meta{}, err
 			}
@@ -192,7 +192,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			if !eofReader.isEOF() {
 				segmentPath := getSegmentPath(encPath, currentSegment)
 
-				if s.encAlgorithm == storj.Unencrypted {
+				if s.cipher == storj.Unencrypted {
 					return segmentPath, nil, nil
 				}
 
@@ -220,18 +220,18 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			}
 
 			// encrypt metadata with the content encryption key and zero nonce
-			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.encAlgorithm, &contentKey, &storj.Nonce{})
+			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
 			if err != nil {
 				return nil, nil, err
 			}
 
 			streamMeta := pb.StreamMeta{
 				EncryptedStreamInfo: encryptedStreamInfo,
-				EncryptionType:      int32(s.encAlgorithm),
+				EncryptionType:      int32(s.cipher),
 				EncryptionBlockSize: int32(s.encBlockSize),
 			}
 
-			if s.encAlgorithm != storj.Unencrypted {
+			if s.cipher != storj.Unencrypted {
 				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 					EncryptedKey: encryptedKey,
 					KeyNonce:     keyNonce[:],
@@ -326,7 +326,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 			derivedKey:    (*storj.Key)(derivedKey),
 			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
-			encAlgorithm:  storj.EncryptionAlgorithm(streamMeta.EncryptionType),
+			cipher:  storj.Cipher(streamMeta.EncryptionType),
 		}
 		rangers = append(rangers, rr)
 	}
@@ -341,7 +341,7 @@ func (s *streamStore) Get(ctx context.Context, path paths.Path) (rr ranger.Range
 		ctx,
 		lastSegmentRanger,
 		stream.LastSegmentSize,
-		storj.EncryptionAlgorithm(streamMeta.EncryptionType),
+		storj.Cipher(streamMeta.EncryptionType),
 		(*storj.Key)(derivedKey),
 		encryptedKey,
 		keyNonce,
@@ -521,7 +521,7 @@ type lazySegmentRanger struct {
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
 	encBlockSize  int
-	encAlgorithm  storj.EncryptionAlgorithm
+	cipher  storj.Cipher
 }
 
 // Size implements Ranger.Size
@@ -542,7 +542,7 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 			return nil, err
 		}
 		encryptedKey, keyNonce := getEncryptedKeyAndNonce(&segmentMeta)
-		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.encAlgorithm, lr.derivedKey, encryptedKey, keyNonce, lr.startingNonce, lr.encBlockSize)
+		lr.ranger, err = decryptRanger(ctx, rr, lr.size, lr.cipher, lr.derivedKey, encryptedKey, keyNonce, lr.startingNonce, lr.encBlockSize)
 		if err != nil {
 			return nil, err
 		}
@@ -551,13 +551,13 @@ func (lr *lazySegmentRanger) Range(ctx context.Context, offset, length int64) (i
 }
 
 // decryptRanger returns a decrypted ranger of the given rr ranger
-func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, encAlgorithm storj.EncryptionAlgorithm, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (ranger.Ranger, error) {
-	contentKey, err := encryption.DecryptKey(encryptedKey, encAlgorithm, derivedKey, encryptedKeyNonce)
+func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, cipher storj.Cipher, derivedKey *storj.Key, encryptedKey storj.EncryptedPrivateKey, encryptedKeyNonce, startingNonce *storj.Nonce, encBlockSize int) (ranger.Ranger, error) {
+	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, encryptedKeyNonce)
 	if err != nil {
 		return nil, err
 	}
 
-	decrypter, err := encryption.NewDecrypter(encAlgorithm, contentKey, startingNonce, encBlockSize)
+	decrypter, err := encryption.NewDecrypter(cipher, contentKey, startingNonce, encBlockSize)
 	if err != nil {
 		return nil, err
 	}
@@ -572,7 +572,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, e
 		if err != nil {
 			return nil, err
 		}
-		data, err := encryption.Decrypt(cipherData, encAlgorithm, contentKey, startingNonce)
+		data, err := encryption.Decrypt(cipherData, cipher, contentKey, startingNonce)
 		if err != nil {
 			return nil, err
 		}
@@ -659,13 +659,13 @@ func decryptStreamInfo(ctx context.Context, item segments.Meta, path paths.Path,
 		return nil, err
 	}
 
-	algorithm := storj.EncryptionAlgorithm(streamMeta.EncryptionType)
+	cipher := storj.Cipher(streamMeta.EncryptionType)
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
-	contentKey, err := encryption.DecryptKey(encryptedKey, algorithm, (*storj.Key)(derivedKey), keyNonce)
+	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, (*storj.Key)(derivedKey), keyNonce)
 	if err != nil {
 		return nil, err
 	}
 
 	// decrypt metadata with the content encryption key and zero nonce
-	return encryption.Decrypt(streamMeta.EncryptedStreamInfo, algorithm, contentKey, &storj.Nonce{})
+	return encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
 }

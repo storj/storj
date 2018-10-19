@@ -27,9 +27,9 @@ func Increment(nonce *storj.Nonce, amount int64) (truncated bool, err error) {
 	return incrementBytes(nonce[:], amount)
 }
 
-// Encrypt encrypts data with the given algorithm, key and nonce
-func Encrypt(data []byte, algorithm storj.EncryptionAlgorithm, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
-	switch algorithm {
+// Encrypt encrypts data with the given cipher, key and nonce
+func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
+	switch cipher {
 	case storj.Unencrypted:
 		return data, nil
 	case storj.AESGCM:
@@ -41,9 +41,9 @@ func Encrypt(data []byte, algorithm storj.EncryptionAlgorithm, key *storj.Key, n
 	}
 }
 
-// Decrypt decrypts cipherData with the given algorithm, key and nonce
-func Decrypt(cipherData []byte, algorithm storj.EncryptionAlgorithm, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
-	switch algorithm {
+// Decrypt decrypts cipherData with the given cipher, key and nonce
+func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
+	switch cipher {
 	case storj.Unencrypted:
 		return cipherData, nil
 	case storj.AESGCM:
@@ -55,9 +55,9 @@ func Decrypt(cipherData []byte, algorithm storj.EncryptionAlgorithm, key *storj.
 	}
 }
 
-// NewEncrypter creates a Transformer using the given algorithm, key and nonce to encrypt data passing through it
-func NewEncrypter(algorithm storj.EncryptionAlgorithm, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
-	switch algorithm {
+// NewEncrypter creates a Transformer using the given cipher, key and nonce to encrypt data passing through it
+func NewEncrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
+	switch cipher {
 	case storj.Unencrypted:
 		return &NoopTransformer{}, nil
 	case storj.AESGCM:
@@ -69,9 +69,9 @@ func NewEncrypter(algorithm storj.EncryptionAlgorithm, key *storj.Key, startingN
 	}
 }
 
-// NewDecrypter creates a Transformer using the given algorithm, key and nonce to decrypt data passing through it
-func NewDecrypter(algorithm storj.EncryptionAlgorithm, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
-	switch algorithm {
+// NewDecrypter creates a Transformer using the given cipher, key and nonce to decrypt data passing through it
+func NewDecrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
+	switch cipher {
 	case storj.Unencrypted:
 		return &NoopTransformer{}, nil
 	case storj.AESGCM:
@@ -83,14 +83,14 @@ func NewDecrypter(algorithm storj.EncryptionAlgorithm, key *storj.Key, startingN
 	}
 }
 
-// EncryptKey encrypts keyToEncrypt with the given algorithm, key and nonce
-func EncryptKey(keyToEncrypt *storj.Key, algorithm storj.EncryptionAlgorithm, key *storj.Key, nonce *storj.Nonce) (storj.EncryptedPrivateKey, error) {
-	return Encrypt(keyToEncrypt[:], algorithm, key, nonce)
+// EncryptKey encrypts keyToEncrypt with the given cipher, key and nonce
+func EncryptKey(keyToEncrypt *storj.Key, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (storj.EncryptedPrivateKey, error) {
+	return Encrypt(keyToEncrypt[:], cipher, key, nonce)
 }
 
-// DecryptKey decrypts keyToDecrypt with the given algorithm, key and nonce
-func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, algorithm storj.EncryptionAlgorithm, key *storj.Key, nonce *storj.Nonce) (*storj.Key, error) {
-	plainData, err := Decrypt(keyToDecrypt, algorithm, key, nonce)
+// DecryptKey decrypts keyToDecrypt with the given cipher, key and nonce
+func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (*storj.Key, error) {
+	plainData, err := Decrypt(keyToDecrypt, cipher, key, nonce)
 	if err != nil {
 		return nil, err
 	}
