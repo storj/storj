@@ -72,7 +72,7 @@ func TestNewKademlia(t *testing.T) {
 			setup: func() error { return os.RemoveAll(dir) },
 		},
 	}
-
+	var actual *Kademlia
 	for _, v := range cases {
 		assert.NoError(t, v.setup())
 		kc := kadconfig()
@@ -80,13 +80,13 @@ func TestNewKademlia(t *testing.T) {
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
-		defer cleanup(ctx, t, actual, dir)
+		actual, err = NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, actual.bootstrapNodes, v.bn)
 		assert.NotNil(t, actual.nodeClient)
 		assert.NotNil(t, actual.routingTable)
 	}
+	defer cleanup(ctx, t, actual, dir)
 }
 
 func TestLookup(t *testing.T) {
@@ -160,7 +160,7 @@ func TestLookup(t *testing.T) {
 		err := v.k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
 	}
-	cleanup(ctx, t, k, dir)
+	defer cleanup(ctx, t, k, dir)
 }
 
 func TestBootstrap(t *testing.T) {
@@ -187,7 +187,7 @@ func TestBootstrap(t *testing.T) {
 
 	dir, err := ioutil.TempDir("", "kad_test")
 	assert.NoError(t, err)
-	cleanup(ctx, t, bn, dir)
+	defer cleanup(ctx, t, bn, dir)
 }
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
@@ -319,7 +319,7 @@ func TestGetNodes(t *testing.T) {
 			}
 		})
 	}
-	cleanup(ctx, t, k, dir)
+	defer cleanup(ctx, t, k, dir)
 }
 
 func TestMeetsRestrictions(t *testing.T) {

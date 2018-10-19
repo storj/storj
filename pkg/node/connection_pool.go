@@ -58,18 +58,21 @@ func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
 	var err error
 	var errs []error
 	for k, v := range mp.cache {
-		conn, ok := v.(*grpc.ClientConn)
+		conn, ok := v.(interface{ Close() error })
 		if !ok {
 			err = Error.New("connection pool value not a grpc client connection")
 			errs = append(errs, err)
+			continue
 		}
 		err = conn.Close()
 		if err != nil {
 			errs = append(errs, Error.Wrap(err))
+			continue
 		}
 		err = mp.Remove(ctx, k)
 		if err != nil {
 			errs = append(errs, Error.Wrap(err))
+			continue
 		}
 	}
 	return utils.CombineErrors(errs...)

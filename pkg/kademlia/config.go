@@ -6,6 +6,8 @@ package kademlia
 import (
 	"context"
 
+	"storj.io/storj/pkg/utils"
+
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -76,7 +78,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	if err != nil {
 		return err
 	}
-	defer func() { _ = kad.Disconnect(ctx) }()
+	defer func() {
+		rerr := kad.Disconnect(ctx)
+		if rerr != nil {
+			err = utils.CombineErrors(err, rerr)
+		}
+	}()
 
 	mn := node.NewServer(kad)
 	pb.RegisterNodesServer(server.GRPC(), mn)

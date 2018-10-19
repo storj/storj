@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 // Node is the storj definition for a node in the network
@@ -66,5 +65,5 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 // Disconnect closes connections within the cache
 func (n *Node) Disconnect(ctx context.Context) error {
-	return utils.CombineErrors(n.cache.Disconnect(ctx))
+	return n.cache.Disconnect(ctx)
 }
