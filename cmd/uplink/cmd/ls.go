@@ -6,16 +6,15 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/utils"
 )
 
 var (
@@ -40,15 +39,16 @@ func list(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) > 0 {
-		u, err := utils.ParseURL(args[0])
+		src, err := fpath.New(args[0])
 		if err != nil {
 			return err
 		}
-		if u.Host == "" {
+
+		if src.IsLocal() {
 			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 		}
 
-		return listFiles(ctx, bs, u, false)
+		return listFiles(ctx, bs, src, false)
 	}
 
 	startAfter := ""
@@ -64,7 +64,11 @@ func list(cmd *cobra.Command, args []string) error {
 			for _, bucket := range items {
 				fmt.Println("BKT", formatTime(bucket.Meta.Created), bucket.Bucket)
 				if *recursiveFlag {
-					err := listFiles(ctx, bs, &url.URL{Host: bucket.Bucket, Path: "/"}, true)
+					prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucket.Bucket))
+					if err != nil {
+						return err
+					}
+					err = listFiles(ctx, bs, prefix, true)
 					if err != nil {
 						return err
 					}
@@ -84,8 +88,8 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket bool) error {
-	o, err := bs.GetObjectStore(ctx, u.Host)
+func listFiles(ctx context.Context, bs buckets.Store, prefix fpath.FPath, prependBucket bool) error {
+	o, err := bs.GetObjectStore(ctx, prefix.Bucket())
 	if err != nil {
 		return err
 	}
@@ -93,7 +97,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket 
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := o.List(ctx, paths.New(u.Path), startAfter, nil, *recursiveFlag, 0, meta.Modified|meta.Size)
+		items, more, err := o.List(ctx, paths.New(prefix.Path()), startAfter, nil, *recursiveFlag, 0, meta.Modified|meta.Size)
 		if err != nil {
 			return err
 		}
@@ -101,7 +105,7 @@ func listFiles(ctx context.Context, bs buckets.Store, u *url.URL, prependBucket 
 		for _, object := range items {
 			path := object.Path.String()
 			if prependBucket {
-				path = fmt.Sprintf("%s/%s", u.Host, path)
+				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
 			}
 			if object.IsPrefix {
 				fmt.Println("PRE", path+"/")

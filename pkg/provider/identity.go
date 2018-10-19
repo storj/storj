@@ -8,7 +8,10 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
+	"math/bits"
 	"net"
 	"os"
 
@@ -17,10 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
-	"encoding/base64"
-	"fmt"
-	"math/bits"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"

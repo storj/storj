@@ -26,7 +26,7 @@ var ClientError = errs.Class("Client Error")
 
 //Client implements the Overlay Client interface
 type Client interface {
-	Choose(ctx context.Context, limit int, space int64) ([]*pb.Node, error)
+	Choose(ctx context.Context, op Options) ([]*pb.Node, error)
 	Lookup(ctx context.Context, nodeID dht.NodeID) (*pb.Node, error)
 	BulkLookup(ctx context.Context, nodeIDs []dht.NodeID) ([]*pb.Node, error)
 }
@@ -34,6 +34,13 @@ type Client interface {
 // Overlay is the overlay concrete implementation of the client interface
 type Overlay struct {
 	client pb.OverlayClient
+}
+
+// Options contains parameters for selecting nodes
+type Options struct {
+	Amount   int
+	Space    int64
+	Excluded []dht.NodeID
 }
 
 // NewOverlayClient returns a new intialized Overlay Client
@@ -56,12 +63,18 @@ func NewOverlayClient(identity *provider.FullIdentity, address string) (*Overlay
 var _ Client = (*Overlay)(nil)
 
 // Choose implements the client.Choose interface
-func (o *Overlay) Choose(ctx context.Context, amount int, space int64) ([]*pb.Node, error) {
+func (o *Overlay) Choose(ctx context.Context, op Options) ([]*pb.Node, error) {
+	var exIDs []string
+	for _, id := range op.Excluded {
+		exIDs = append(exIDs, id.String())
+	}
 	// TODO(coyle): We will also need to communicate with the reputation service here
 	resp, err := o.client.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{
-		Opts: &pb.OverlayOptions{Amount: int64(amount), Restrictions: &pb.NodeRestrictions{
-			FreeDisk: space,
-		}},
+		Opts: &pb.OverlayOptions{
+			Amount:        int64(op.Amount),
+			Restrictions:  &pb.NodeRestrictions{FreeDisk: op.Space},
+			ExcludedNodes: exIDs,
+		},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)

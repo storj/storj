@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/utils"
 )
 
 func init() {
@@ -28,11 +28,12 @@ func delete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No object specified for deletion")
 	}
 
-	u, err := utils.ParseURL(args[0])
+	dst, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-	if u.Host == "" {
+
+	if dst.IsLocal() {
 		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 	}
 
@@ -41,17 +42,17 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	o, err := bs.GetObjectStore(ctx, u.Host)
+	o, err := bs.GetObjectStore(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
 
-	err = o.Delete(ctx, paths.New(u.Path))
+	err = o.Delete(ctx, paths.New(dst.Path()))
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Deleted %s\n", u)
+	fmt.Printf("Deleted %s\n", dst)
 
 	return nil
 }

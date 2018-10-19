@@ -14,6 +14,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	ranger "storj.io/storj/pkg/ranger"
@@ -30,25 +31,44 @@ func TestStreamStoreMeta(t *testing.T) {
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
 
-	md := pb.MetaStreamInfo{
+	stream, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 2,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
 		Metadata:         []byte{},
-	}
-	lastSegmentMetadata, err := proto.Marshal(&md)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: stream,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	staticTime := time.Now()
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
-		Size:       10,
+		Size:       50,
 		Data:       lastSegmentMetadata,
 	}
-	streamMeta, err := convertMeta(segmentMeta)
+
+	streamMetaUnmarshaled := pb.StreamMeta{}
+	err = proto.Unmarshal(segmentMeta.Data, &streamMetaUnmarshaled)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	segmentMetaStreamInfo := segments.Meta{
+		Modified:   staticTime,
+		Expiration: staticTime,
+		Size:       50,
+		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
+	}
+
+	streamMeta, err := convertMeta(segmentMetaStreamInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,12 +207,18 @@ func TestStreamStoreGet(t *testing.T) {
 		closer: readCloserStub{},
 	}
 
-	msi := pb.MetaStreamInfo{
+	stream, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 1,
 		SegmentsSize:     10,
 		LastSegmentSize:  0,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	lastSegmentMeta, err := proto.Marshal(&msi)
+
+	lastSegmentMeta, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: stream,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

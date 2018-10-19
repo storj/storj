@@ -6,10 +6,9 @@ package ranger
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
-
-	"net/http/httptest"
 
 	"github.com/stretchr/testify/assert"
 )

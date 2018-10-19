@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"net"
 	"strings"
-
-	"github.com/spf13/cobra"
+	"time"
 
 	"github.com/alicebob/miniredis"
+	"github.com/spf13/cobra"
+
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 const (
@@ -145,9 +147,5 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- runCfg.Uplink.Run(ctx)
 	}()
 
-	for v := range errch {
-		err = fmt.Errorf("%s : %s", err, v)
-	}
-
-	return err
+	return utils.CollectErrors(errch, 5*time.Second)
 }

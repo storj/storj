@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+
 	buckets "storj.io/storj/pkg/storage/buckets"
 	objects "storj.io/storj/pkg/storage/objects"
 )

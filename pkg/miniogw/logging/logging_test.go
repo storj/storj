@@ -11,13 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio/pkg/madmin"
-	policy "github.com/minio/minio/pkg/policy"
-
 	"github.com/golang/mock/gomock"
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
+	"github.com/minio/minio/pkg/madmin"
+	policy "github.com/minio/minio/pkg/policy"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )

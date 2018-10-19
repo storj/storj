@@ -27,10 +27,10 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error)
+		pieceID client.PieceID, data io.Reader, expiration time.Time, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
 	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-		pieceID client.PieceID, size int64) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) error
+		pieceID client.PieceID, size int64, authorization *pb.SignedMessage) (ranger.Ranger, error)
+	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID, authorization *pb.SignedMessage) error
 }
 
 type dialer interface {
@@ -38,19 +38,19 @@ type dialer interface {
 }
 
 type defaultDialer struct {
-	t        transport.Client
-	identity *provider.FullIdentity
+	transport transport.Client
+	identity  *provider.FullIdentity
 }
 
-func (d *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
+func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c, err := d.t.DialNode(ctx, node)
+	conn, err := dialer.transport.DialNode(ctx, node)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.NewPSClient(c, 0, d.identity.Key)
+	return client.NewPSClient(conn, 0, dialer.identity.Key)
 }
 
 type ecClient struct {
@@ -59,13 +59,13 @@ type ecClient struct {
 }
 
 // NewClient from the given TransportClient and max buffer memory
-func NewClient(identity *provider.FullIdentity, t transport.Client, mbm int) Client {
-	d := defaultDialer{identity: identity, t: t}
+func NewClient(identity *provider.FullIdentity, transport transport.Client, mbm int) Client {
+	d := defaultDialer{identity: identity, transport: transport}
 	return &ecClient{d: &d, mbm: mbm}
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, err error) {
+	pieceID client.PieceID, data io.Reader, expiration time.Time, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != rs.TotalCount() {
@@ -88,8 +88,15 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	infos := make(chan info, len(nodes))
 
 	for i, n := range nodes {
+
 		go func(i int, n *pb.Node) {
+			if n == nil {
+				_, err := io.Copy(ioutil.Discard, readers[i])
+				infos <- info{i: i, err: err}
+				return
+			}
 			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				infos <- info{i: i, err: err}
@@ -97,12 +104,12 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
+				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 				infos <- info{i: i, err: err}
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{})
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{}, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -132,7 +139,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		case <-ctx.Done():
 			err = utils.CombineErrors(
 				Error.New("upload cancelled by user"),
-				ec.Delete(context.Background(), nodes, pieceID),
+				ec.Delete(context.Background(), nodes, pieceID, authorization),
 			)
 		default:
 		}
@@ -146,7 +153,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID client.PieceID, size int64) (rr ranger.Ranger, err error) {
+	pieceID client.PieceID, size int64, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -179,11 +186,12 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 			}
 
 			rr := &lazyPieceRanger{
-				dialer: ec.d,
-				node:   n,
-				id:     derivedPieceID,
-				size:   pieceSize,
-				pba:    &pb.PayerBandwidthAllocation{},
+				dialer:        ec.d,
+				node:          n,
+				id:            derivedPieceID,
+				size:          pieceSize,
+				pba:           &pb.PayerBandwidthAllocation{},
+				authorization: authorization,
 			}
 
 			ch <- rangerInfo{i: i, rr: rr, err: nil}
@@ -205,7 +213,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID, authorization *pb.SignedMessage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errs := make(chan error, len(nodes))
@@ -225,12 +233,12 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
+				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 				errs <- err
 				return
 			}
-			err = ps.Delete(ctx, derivedPieceID)
+			err = ps.Delete(ctx, derivedPieceID, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -275,7 +283,7 @@ func unique(nodes []*pb.Node) bool {
 	// sort the ids and check for identical neighbors
 	sort.Strings(ids)
 	for i := 1; i < len(ids); i++ {
-		if ids[i] == ids[i-1] {
+		if ids[i] != "" && ids[i] == ids[i-1] {
 			return false
 		}
 	}
@@ -292,12 +300,13 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	ranger ranger.Ranger
-	dialer dialer
-	node   *pb.Node
-	id     client.PieceID
-	size   int64
-	pba    *pb.PayerBandwidthAllocation
+	ranger        ranger.Ranger
+	dialer        dialer
+	node          *pb.Node
+	id            client.PieceID
+	size          int64
+	pba           *pb.PayerBandwidthAllocation
+	authorization *pb.SignedMessage
 }
 
 // Size implements Ranger.Size
@@ -312,7 +321,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		if err != nil {
 			return nil, err
 		}
-		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba)
+		ranger, err := ps.Get(ctx, lr.id, lr.size, lr.pba, lr.authorization)
 		if err != nil {
 			return nil, err
 		}

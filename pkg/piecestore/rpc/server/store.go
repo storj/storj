@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
@@ -31,6 +32,11 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	}
 	if recv == nil {
 		return StoreError.New("Error receiving Piece metadata")
+	}
+
+	authorization := recv.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return err
 	}
 
 	pd := recv.GetPiecedata()

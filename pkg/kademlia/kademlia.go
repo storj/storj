@@ -5,12 +5,12 @@ package kademlia
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -19,6 +19,9 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -28,7 +31,7 @@ var NodeErr = errs.Class("node error")
 var BootstrapErr = errs.Class("bootstrap node error")
 
 //TODO: shouldn't default to TCP but not sure what to do yet
-var defaultTransport = pb.NodeTransport_TCP
+var defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 
 // NodeNotFound is returned when a lookup can not produce the requested node
 var NodeNotFound = NodeErr.New("node not found")
@@ -57,14 +60,22 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 			return nil, err
 		}
 	}
+
 	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
-		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
+	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+
+	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+	kdb, ndb := dbs[0], dbs[1]
+
+	rt, err := NewRoutingTable(&self, kdb, ndb, &RoutingOptions{
 		idLength:     kadconfig.DefaultIDLength,
 		bucketSize:   kadconfig.DefaultBucketSize,
 		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
+
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
@@ -99,21 +110,52 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	// TODO(coyle)
-	return errors.New("TODO Disconnect")
+	return utils.CombineErrors(
+		k.routingTable.Close(),
+		// TODO: close connections
+	)
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table limiting the result by the specified restrictions
 func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error) {
-	// TODO(coyle)
-	return []*pb.Node{}, errors.New("TODO GetNodes")
+	nodes := []*pb.Node{}
+	iteratorMethod := func(it storage.Iterator) error {
+		var item storage.ListItem
+		maxLimit := storage.LookupLimit
+		for ; maxLimit > 0 && it.Next(&item); maxLimit-- {
+			id := string(item.Key)
+			node := &pb.Node{}
+			err := proto.Unmarshal(item.Value, node)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			node.Id = id
+			if meetsRestrictions(restrictions, *node) {
+				nodes = append(nodes, node)
+			}
+			if len(nodes) == limit {
+				return nil
+			}
+		}
+		return nil
+	}
+	err := k.routingTable.iterate(
+		storage.IterateOptions{
+			First:   storage.Key(start),
+			Recurse: true,
+		},
+		iteratorMethod,
+	)
+	if err != nil {
+		return []*pb.Node{}, Error.Wrap(err)
+	}
+	return nodes, nil
 }
 
 // GetRoutingTable provides the routing table for the Kademlia DHT
 func (k *Kademlia) GetRoutingTable(ctx context.Context) (dht.RoutingTable, error) {
 	return k.routingTable, nil
-
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
@@ -213,7 +255,7 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 
 		switch op {
 		case pb.Restriction_EQ:
-			if comp != val {
+			if comp == val {
 				results = append(results, v)
 				continue
 			}
@@ -243,4 +285,42 @@ func Restrict(r pb.Restriction, n []*pb.Node) []*pb.Node {
 	}
 
 	return results
+}
+
+func meetsRestrictions(rs []pb.Restriction, n pb.Node) bool {
+	for _, r := range rs {
+		oper := r.GetOperand()
+		op := r.GetOperator()
+		val := r.GetValue()
+		var comp int64
+		switch oper {
+		case pb.Restriction_freeBandwidth:
+			comp = n.GetRestrictions().GetFreeBandwidth()
+		case pb.Restriction_freeDisk:
+			comp = n.GetRestrictions().GetFreeDisk()
+		}
+		switch op {
+		case pb.Restriction_EQ:
+			if comp != val {
+				return false
+			}
+		case pb.Restriction_LT:
+			if comp >= val {
+				return false
+			}
+		case pb.Restriction_LTE:
+			if comp > val {
+				return false
+			}
+		case pb.Restriction_GT:
+			if comp <= val {
+				return false
+			}
+		case pb.Restriction_GTE:
+			if comp < val {
+				return false
+			}
+		}
+	}
+	return true
 }

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
-
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -299,6 +298,17 @@ func (db *DB) GetTotalBandwidthBetween(startdate time.Time, enddate time.Time) (
 
 	if (endTimeUnix < startTimeUnix) && (startTimeUnix > defaultunixtime || endTimeUnix > defaultunixtime) {
 		return totalbwusage, errors.New("Invalid date range")
+	}
+
+	var count int
+	rows := db.DB.QueryRow("SELECT COUNT(*) as count FROM bwusagetbl")
+	err = rows.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	if count == 0 {
+		return 0, nil
 	}
 
 	err = db.DB.QueryRow(`SELECT SUM(size) FROM bwusagetbl WHERE daystartdate BETWEEN ? AND ?`, startTimeUnix, endTimeUnix).Scan(&totalbwusage)

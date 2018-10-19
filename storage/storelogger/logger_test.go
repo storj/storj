@@ -6,10 +6,10 @@ package storelogger
 import (
 	"testing"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storage/testsuite"
-
-	"go.uber.org/zap"
 )
 
 func TestSuite(t *testing.T) {

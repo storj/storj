@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/process"
 )
@@ -32,7 +33,6 @@ var (
 
 func main() {
 	go dumpHandler()
-
 	// process.Exec will load this for this command.
 	runCmd.Flags().String("config",
 		filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")

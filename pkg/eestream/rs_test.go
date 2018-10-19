@@ -19,8 +19,18 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 )
+
+func randData(amount int) []byte {
+	buf := make([]byte, amount)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+	return buf
+}
 
 func TestRS(t *testing.T) {
 	ctx := context.Background()
@@ -93,14 +103,14 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encKey := Key(sha256.Sum256([]byte("the secret key")))
-	var firstNonce Nonce
-	cipher := AESGCM
+	encKey := encryption.Key(sha256.Sum256([]byte("the secret key")))
+	var firstNonce encryption.Nonce
+	cipher := encryption.AESGCM
 	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, rs.StripeSize())
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, TransformReader(PadReader(ioutil.NopCloser(
+	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
 		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +131,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rr, err := Transform(rc, decrypter)
+	rr, err := encryption.Transform(rc, decrypter)
 	if err != nil {
 		t.Fatal(err)
 	}

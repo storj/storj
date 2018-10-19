@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/pkg/eestream"
 	mock_eestream "storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
@@ -113,12 +113,13 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		calls := []*gomock.Call{
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(),
 			).Return([]*pb.Node{
 				{Id: "im-a-node"},
 			}, nil),
+			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
@@ -286,8 +287,9 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 				Metadata:       tt.metadata,
 			}, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
+			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
@@ -402,8 +404,9 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				Metadata:       tt.metadata,
 			}, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
+			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Delete(
-				gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 			mockPDB.EXPECT().Delete(
 				gomock.Any(), gomock.Any(),
