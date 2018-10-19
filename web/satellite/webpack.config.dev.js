@@ -8,8 +8,8 @@ module.exports = {
   mode: 'development',
   entry: './src/main.ts',
   output: {
-    path: path.resolve(__dirname, '../dist'),
-    publicPath: '../dist/',
+    path: path.resolve(__dirname, './dist'),
+    publicPath: './dist/',
     filename: 'build.js',
     devtoolModuleFilenameTemplate: '[absolute-resource-path]',
     devtoolFallbackModuleFilenameTemplate: '[absolute-resource-path]'
@@ -19,7 +19,7 @@ module.exports = {
     new HtmlWebpackPlugin({
       vue: true,
       template: './index.html',
-      filename: path.resolve(__dirname, '../dist/public', 'index.html')
+      filename: path.resolve(__dirname, './dist/public', 'index.html')
     }),
   ],
   module: {

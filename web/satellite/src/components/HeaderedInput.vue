@@ -1,7 +1,7 @@
 <template>
     <div class="inputContainer">
 		<div v-if="!isOptional" class="labelContainer">
-			<img v-if="error" src="../../static/assets/images/register/ErrorInfo.svg"/>
+			<img v-if="error" src="../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
 			<h3 class="error" v-if="error">{{error}}</h3>
 		</div>
@@ -14,7 +14,7 @@
 			v-if="!isMultiline" 
 			@input="onInput" 
 			:id="this.$props.label" 
-			:placeholder="this.$props.placeholder" 
+			:placeholder="this.$props.placeholder"
 			v-model="value" 
 			v-bind:type="[isPassword ? passwordType : textType]"
 			:style="style"/>
@@ -24,6 +24,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+// Custom input component with labeled header
 @Component(
     { 
 		data: () => {
@@ -33,7 +34,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 				passwordType: "password"
 			}
 		},
-
 		methods: {
 			onInput () {
 				this.$emit('setData', this.$data.value)
@@ -79,9 +79,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 		}
     },
 )
-export default class HeaderedInput extends Vue {
-	
-}
+export default class HeaderedInput extends Vue { }
+
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
@@ -90,12 +89,10 @@ export default class HeaderedInput extends Vue {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	// align-self: center;
 	margin-top: 10px;
 	width: 35vw;
 }
 .labelContainer {
-	// align-self: flex-start;
 	display: flex;
 	justify-content: flex-start;
 	flex-direction: row;

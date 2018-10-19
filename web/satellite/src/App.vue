@@ -25,15 +25,15 @@
 
 @font-face {
   font-family: "montserrat_regular";
-  src: url("../static/assets/fonts/montserrat_regular.ttf");
+  src: url("../static/fonts/montserrat_regular.ttf");
 }
 @font-face {
   font-family: "montserrat_medium";
-  src: url("../static/assets/fonts/montserrat_medium.ttf");
+  src: url("../static/fonts/montserrat_medium.ttf");
 }
 @font-face {
   font-family: "montserrat_bold";
-  src: url("../static/assets/fonts/montserrat_bold.ttf");
+  src: url("../static/fonts/montserrat_bold.ttf");
 }
 
 input,

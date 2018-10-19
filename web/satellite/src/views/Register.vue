@@ -49,8 +49,8 @@
 							<h2 v-if="!optionalAreaShown" class="detailsText">Details</h2>
 							<h2 v-if="optionalAreaShown" class="detailsText">Hide Details</h2>
 							<div class="expanderArea">
-								<img v-if="!optionalAreaShown" src="../../static/assets/images/register/BlueExpand.svg" />
-								<img v-if="optionalAreaShown" src="../../static/assets/images/register/BlueHide.svg" />
+								<img v-if="!optionalAreaShown" src="../../static/images/register/BlueExpand.svg" />
+								<img v-if="optionalAreaShown" src="../../static/images/register/BlueHide.svg" />
 							</div>
 						</div>
 					</div>
@@ -106,7 +106,7 @@
 			
 		</div>
 		
-		<img class="layoutImage" src ="../../static/assets/images/register/RegisterImage.svg"/>
+		<img class="layoutImage" src ="../../static/images/register/RegisterImage.svg"/>
 	</div>
 </template>
 
