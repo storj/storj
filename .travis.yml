@@ -35,7 +35,7 @@ install:
 script:
   - ./scripts/check-for-header.sh
   - golangci-lint run
-  - wget -O ~/bin/leakcheck https://github.com/loov/leakcheck/releases/download/v0.0.3/leakcheck_linux_amd64
-  - go test -exec "~/bin/leakcheck -temp -proc" -race -cover -coverprofile=.coverprofile ./...
+  - wget -O /home/travis/bin/leakcheck https://github.com/loov/leakcheck/releases/download/v0.0.3/leakcheck_linux_amd64
+  - go test -exec "/home/travis/bin/leakcheck -temp -proc" -race -cover -coverprofile=.coverprofile ./...
   - goveralls -coverprofile=.coverprofile -service=travis-ci
   - make test-captplanet
