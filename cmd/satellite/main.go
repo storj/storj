@@ -94,7 +94,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	} else if setupCfg.Overwrite && err == nil {
 		fmt.Println("overwriting existing satellite config")
-		os.RemoveAll(setupCfg.BasePath)
+		err = os.RemoveAll(setupCfg.BasePath)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = os.MkdirAll(setupCfg.BasePath, 0700)
