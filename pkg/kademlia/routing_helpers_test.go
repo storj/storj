@@ -4,9 +4,6 @@
 package kademlia
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,41 +13,31 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/teststore"
 )
 
-func tempdir(t testing.TB) (dir string, cleanup func()) {
-	dir, err := ioutil.TempDir("", "storj-kademlia")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir, func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()) {
-	tempdir, cleanup := tempdir(t)
-
 	if localNodeID == nil {
 		localNodeID = []byte("AA")
 	}
 	localNode := &pb.Node{Id: string(localNodeID)}
+
 	options := &RoutingOptions{
-		kpath:        filepath.Join(tempdir, "Kadbucket"),
-		npath:        filepath.Join(tempdir, "Nodebucket"),
 		idLength:     16,
 		bucketSize:   6,
 		rcBucketSize: 2,
 	}
-	rt, err := NewRoutingTable(localNode, options)
+	rt, err := NewRoutingTable(localNode,
+		teststore.New(),
+		teststore.New(),
+		options,
+	)
+
 	if err != nil {
 		t.Fatal(err)
 	}
 	return rt, func() {
 		err := rt.Close()
-		cleanup()
 		if err != nil {
 			t.Fatal(err)
 		}
