@@ -30,7 +30,6 @@ install:
   - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
   - popd
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
-  - go install -v ./...
 
 script:
   - ./scripts/check-for-header.sh
