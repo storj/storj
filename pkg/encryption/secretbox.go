@@ -6,12 +6,14 @@ package encryption
 import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
+
+	"storj.io/storj/pkg/storj"
 )
 
 type secretboxEncrypter struct {
 	blockSize     int
-	key           Key
-	startingNonce Nonce
+	key           *storj.Key
+	startingNonce *storj.Nonce
 }
 
 // NewSecretboxEncrypter returns a Transformer that encrypts the data passing
@@ -27,14 +29,14 @@ type secretboxEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewSecretboxEncrypter(key *Key, startingNonce *Nonce, encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxEncrypter(key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
 	return &secretboxEncrypter{
 		blockSize:     encryptedBlockSize - secretbox.Overhead,
-		key:           *key,
-		startingNonce: *startingNonce,
+		key:           key,
+		startingNonce: startingNonce,
 	}, nil
 }
 
@@ -46,8 +48,8 @@ func (s *secretboxEncrypter) OutBlockSize() int {
 	return s.blockSize + secretbox.Overhead
 }
 
-func calcNonce(startingNonce *Nonce, blockNum int64) (rv *Nonce, err error) {
-	rv = new(Nonce)
+func calcNonce(startingNonce *storj.Nonce, blockNum int64) (rv *storj.Nonce, err error) {
+	rv = new(storj.Nonce)
 	if copy(rv[:], (*startingNonce)[:]) != len(rv) {
 		return rv, Error.New("didn't copy memory?!")
 	}
@@ -56,30 +58,30 @@ func calcNonce(startingNonce *Nonce, blockNum int64) (rv *Nonce, err error) {
 }
 
 func (s *secretboxEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
-	n, err := calcNonce(&s.startingNonce, blockNum)
+	nonce, err := calcNonce(s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
-	return secretbox.Seal(out, in, n.Bytes(), s.key.Bytes()), nil
+	return secretbox.Seal(out, in, nonce.Raw(), s.key.Raw()), nil
 }
 
 type secretboxDecrypter struct {
 	blockSize     int
-	key           Key
-	startingNonce Nonce
+	key           *storj.Key
+	startingNonce *storj.Nonce
 }
 
 // NewSecretboxDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewSecretboxEncrypter about
 // startingNonce.
-func NewSecretboxDecrypter(key *Key, startingNonce *Nonce, encryptedBlockSize int) (Transformer, error) {
+func NewSecretboxDecrypter(key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
 		return nil, Error.New("block size too small")
 	}
 	return &secretboxDecrypter{
 		blockSize:     encryptedBlockSize - secretbox.Overhead,
-		key:           *key,
-		startingNonce: *startingNonce,
+		key:           key,
+		startingNonce: startingNonce,
 	}, nil
 }
 
@@ -92,11 +94,11 @@ func (s *secretboxDecrypter) OutBlockSize() int {
 }
 
 func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
-	n, err := calcNonce(&s.startingNonce, blockNum)
+	nonce, err := calcNonce(s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
-	rv, success := secretbox.Open(out, in, n.Bytes(), s.key.Bytes())
+	rv, success := secretbox.Open(out, in, nonce.Raw(), s.key.Raw())
 	if !success {
 		return nil, Error.New("failed decrypting")
 	}
@@ -104,13 +106,13 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, 
 }
 
 // EncryptSecretBox encrypts byte data with a key and nonce. The cipher data is returned
-func EncryptSecretBox(data []byte, key *Key, nonce *Nonce) (cipherData []byte, err error) {
-	return secretbox.Seal(nil, data, nonce.Bytes(), key.Bytes()), nil
+func EncryptSecretBox(data []byte, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
+	return secretbox.Seal(nil, data, nonce.Raw(), key.Raw()), nil
 }
 
 // DecryptSecretBox decrypts byte data with a key and nonce. The plain data is returned
-func DecryptSecretBox(cipherData []byte, key *Key, nonce *Nonce) (data []byte, err error) {
-	data, success := secretbox.Open(nil, cipherData, nonce.Bytes(), key.Bytes())
+func DecryptSecretBox(cipherData []byte, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
+	data, success := secretbox.Open(nil, cipherData, nonce.Raw(), key.Raw())
 	if !success {
 		return nil, errs.New("Failed decrypting")
 	}
