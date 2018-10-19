@@ -13,6 +13,10 @@ cache:
 services:
   - redis
 
+env:
+  - TEST=1
+  - INTEGRATION=1
+
 before_script:
   # Add an IPv6 config - see the corresponding Travis issue
   # https://github.com/travis-ci/travis-ci/issues/8361
@@ -23,18 +27,18 @@ before_script:
 
 before_install:
   - source scripts/setup-gopath.sh
-  - source scripts/install-awscli.sh
+  - [[ -n $INTEGRATION ]] && source scripts/install-awscli.sh
 
 install:
   - pushd ~
-  - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
+  - [[ -z $TEST ]] && GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
   - popd
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
-  - go install -v ./...
+  - [[ -z $TEST ]] && curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
+  - [[ -z $TEST ]] && go install -v -race ./...
 
 script:
-  - ./scripts/check-for-header.sh
-  - golangci-lint run
-  - go test -race -v -cover -coverprofile=.coverprofile ./...
-  - goveralls -coverprofile=.coverprofile -service=travis-ci
-  - make test-captplanet
+  - [[ -n $TEST ]] && ./scripts/check-for-header.sh
+  - [[ -n $TEST ]] && golangci-lint run
+  - [[ -n $TEST ]] && go test -race -v -cover -coverprofile=.coverprofile ./...
+  - [[ -n $TEST ]] && goveralls -coverprofile=.coverprofile -service=travis-ci
+  - [[ -n $INTEGRATION ]] && make test-captplanet
