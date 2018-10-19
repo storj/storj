@@ -14,8 +14,8 @@ captplanet run &
 CAPT_PID=$!
 
 #setup tmpdir for testfiles and cleanup
-TMP_DIR=/tmp/capt
-CMP_DIR=/tmp/capt/cmp
+TMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
+CMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 mkdir -p $TMP_DIR
 mkdir -p $CMP_DIR
 
