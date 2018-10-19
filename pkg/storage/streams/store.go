@@ -107,6 +107,17 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		return Meta{}, err
 	}
 
+	m, lastSegment, err := s.upload(ctx, path, data, metadata, expiration)
+	if err != nil {
+		s.cancelHandler(context.Background(), lastSegment, path)
+	}
+
+	return m, err
+}
+
+func (s *streamStore) upload(ctx context.Context, path paths.Path, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var currentSegment int64
 	var streamSize int64
 	var putMeta segments.Meta
@@ -121,7 +132,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 
 	derivedKey, err := path.DeriveContentKey(s.rootKey)
 	if err != nil {
-		return Meta{}, err
+		return Meta{}, currentSegment, err
 	}
 
 	eofReader := NewEOFReader(data)
@@ -131,7 +142,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		var contentKey storj.Key
 		_, err = rand.Read(contentKey[:])
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		// Initialize the content nonce with the segment's index incremented by 1.
@@ -140,24 +151,24 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		var contentNonce storj.Nonce
 		_, err := encryption.Increment(&contentNonce, currentSegment+1)
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		// generate random nonce for encrypting the content key
 		var keyNonce storj.Nonce
 		_, err = rand.Read(keyNonce[:])
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, (*storj.Key)(derivedKey), &keyNonce)
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		sizeReader := NewSizeReader(eofReader)
@@ -165,7 +176,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
 		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 		var transformedReader io.Reader
 		if largeData {
@@ -174,11 +185,11 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		} else {
 			data, err := ioutil.ReadAll(peekReader)
 			if err != nil {
-				return Meta{}, err
+				return Meta{}, currentSegment, err
 			}
 			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
 			if err != nil {
-				return Meta{}, err
+				return Meta{}, currentSegment, err
 			}
 			transformedReader = bytes.NewReader(cipherData)
 		}
@@ -246,7 +257,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 			return lastSegmentPath, lastSegmentMeta, nil
 		})
 		if err != nil {
-			return Meta{}, err
+			return Meta{}, currentSegment, err
 		}
 
 		currentSegment++
@@ -254,7 +265,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 	}
 
 	if eofReader.hasError() {
-		return Meta{}, eofReader.err
+		return Meta{}, currentSegment, eofReader.err
 	}
 
 	resultMeta := Meta{
@@ -264,7 +275,7 @@ func (s *streamStore) Put(ctx context.Context, path paths.Path, data io.Reader, 
 		Data:       metadata,
 	}
 
-	return resultMeta, nil
+	return resultMeta, currentSegment, nil
 }
 
 // getSegmentPath returns the unique path for a particular segment
@@ -628,8 +639,13 @@ func decryptAfterBucket(p paths.Path, key []byte) (decrypted paths.Path, err err
 // CancelHandler handles clean up of segments on receiving CTRL+C
 func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path paths.Path) {
 	for i := int64(0); i < totalSegments; i++ {
-		currentPath := getSegmentPath(path, i)
-		err := s.segments.Delete(ctx, currentPath)
+		encPath, err := encryptAfterBucket(path, s.rootKey)
+		if err != nil {
+			zap.S().Warnf("Failed deleting a segment due to encryption path %v %v", i, err)
+		}
+
+		currentPath := getSegmentPath(encPath, i)
+		err = s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			zap.S().Warnf("Failed deleting a segment %v %v", currentPath, err)
 		}
