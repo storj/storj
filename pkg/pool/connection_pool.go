@@ -2,7 +2,7 @@
 // See LICENSE for copying information
 
 package pool
-
+//TODO combine this package with node pkg
 import (
 	"context"
 	"sync"
