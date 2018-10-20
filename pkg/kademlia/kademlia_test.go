@@ -185,9 +185,7 @@ func TestBootstrap(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 
-	dir, err := ioutil.TempDir("", "kad_test")
-	assert.NoError(t, err)
-	defer cleanup(ctx, t, bn, dir)
+	defer disconnect(ctx, t, bn)
 }
 
 func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
@@ -417,6 +415,14 @@ func TestMeetsRestrictions(t *testing.T) {
 }
 
 func cleanup(ctx context.Context, t *testing.T, k *Kademlia, dir string) {
+	disconnect(ctx, t, k)
+	removeAll(t, dir)
+}
+
+func disconnect(ctx context.Context, t *testing.T, k *Kademlia) {
 	assert.NoError(t, k.Disconnect(ctx))
+}
+
+func removeAll(t *testing.T, dir string) {
 	assert.NoError(t, os.RemoveAll(dir))
 }
