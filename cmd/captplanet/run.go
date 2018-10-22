@@ -142,17 +142,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}()
 
 		go func() {
-			if runCfg.Satellite.Audit.StatDBAddr == "" {
-				runCfg.Satellite.Audit.StatDBAddr = ":9000"
-			}
-			if runCfg.Satellite.Audit.PointerDBAddr == "" {
-				runCfg.Satellite.Audit.PointerDBAddr = ":10000"
-			}
-			if runCfg.Satellite.Audit.TransportAddr == "" {
-				runCfg.Satellite.Audit.TransportAddr = ":11000"
-			}
-			if runCfg.Satellite.Audit.OverlayAddr == "" {
-				runCfg.Satellite.Audit.OverlayAddr = ":12000"
+			if runCfg.Satellite.Audit.SatelliteAddr == "" {
+				runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
 			}
 			errch <- runCfg.Satellite.Audit.Run(ctx, nil)
 		}()

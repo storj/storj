@@ -25,11 +25,8 @@ type Service struct {
 // Config contains configurable values for audit service
 type Config struct {
 	APIKey           string        `help:"APIKey to access the statdb"`
-	StatDBAddr       string        `help:"address to contact statDB client"`
+	SatelliteAddr    string        `help:"address to contact services on the satellite"`
 	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	PointerDBAddr    string        `help:"address to contact the pointerDB client"`
-	TransportAddr    string        `help:"address to contact the transport client"`
-	OverlayAddr      string        `help:"address to contact the overlay client"`
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
 }
 
@@ -43,11 +40,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	pointers, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
+	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
 	if err != nil {
 		return err
 	}
-	overlay, err := overlay.NewOverlayClient(identity, c.OverlayAddr)
+	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
 	if err != nil {
 		return err
 	}
@@ -55,25 +52,23 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, *identity)
-	reporter, err := NewReporter(ctx, c.StatDBAddr, c.MaxRetriesStatDB)
+	reporter, err := NewReporter(ctx, c.SatelliteAddr, c.MaxRetriesStatDB)
 	if err != nil {
 		return err
 	}
 
-	service, err := NewService(cursor, verifier, reporter)
-	if err != nil {
-		return err
-	}
+	service := NewService(cursor, verifier, reporter)
+
 	return service.Run(ctx, c.Interval)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(cursor *Cursor, verifier *Verifier, reporter *Reporter) (service *Service, err error) {
+func NewService(cursor *Cursor, verifier *Verifier, reporter *Reporter) (service *Service) {
 	return &Service{
 		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-	}, nil
+	}
 }
 
 // Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
