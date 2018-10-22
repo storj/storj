@@ -18,6 +18,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/ranger"
@@ -50,21 +51,26 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	u, err := utils.ParseURL(args[0])
+	u, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-	if u.Host == "" {
+	if u.IsLocal() {
 		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 	}
 
-	store, err := bs.GetObjectStore(ctx, u.Host)
+	store, err := bs.GetObjectStore(ctx, u.Bucket())
 	if err != nil {
 		return err
 	}
 
 	nfs := pathfs.NewPathNodeFs(&storjFs{FileSystem: pathfs.NewDefaultFileSystem(), ctx: ctx, store: store}, nil)
-	server, _, err := nodefs.MountRoot(args[1], nfs.Root(), nil)
+	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
+
+	// workaround to avoid async (unordered) reading
+	mountOpts := fuse.MountOptions{}
+	mountOpts.MaxBackground = 1
+	server, err := fuse.NewServer(conn.RawFS(), args[1], &mountOpts)
 	if err != nil {
 		return fmt.Errorf("Mount failed: %v", err)
 	}
@@ -112,15 +118,16 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
-	if name == "" {
-		entries, err := sf.listFiles(sf.ctx, sf.store)
-		if err != nil {
-			return nil, fuse.EIO
-		}
-
-		return entries, fuse.OK
+	// TODO(michal) prefixes/folders are not currently supported.
+	if name != "" {
+		return nil, fuse.ENOENT
 	}
-	return nil, fuse.ENOENT
+	entries, err := sf.listFiles(sf.ctx, sf.store)
+	if err != nil {
+		return nil, fuse.EIO
+	}
+
+	return entries, fuse.OK
 }
 
 func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
@@ -138,7 +145,7 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := store.List(ctx, paths.New(""), startAfter, nil, false, 0, meta.Modified)
+		items, more, err := store.List(ctx, nil, startAfter, nil, false, 0, meta.Modified)
 		if err != nil {
 			return nil, err
 		}
@@ -189,8 +196,7 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	// Fuse ask for data from offset not only in ascending order. This is kind of initial optimization
-	// to aviod creating new readers (from Ranger). If predicted offset != fuse offset then recreate Ranger/Reader.
+	// Detect if offset was moved manually (e.g. stream rev/fwd)
 	if off != f.predictedOffset {
 		f.close()
 	}
