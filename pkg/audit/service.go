@@ -99,6 +99,5 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		return nil
 	}
 }
