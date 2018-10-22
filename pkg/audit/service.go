@@ -82,7 +82,14 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 					service.errs = append(service.errs, err)
 					cancel()
 				}
-				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment)
+
+				authorization, err := service.Cursor.pointers.SignedMessage()
+				if err != nil {
+					service.errs = append(service.errs, err)
+					cancel()
+				}
+
+				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
 				if err != nil {
 					service.errs = append(service.errs, err)
 					cancel()

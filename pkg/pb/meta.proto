@@ -8,7 +8,7 @@ package streams;
 
 message SegmentMeta {
     bytes encrypted_key = 1;
-    bytes encrypted_key_nonce = 2;
+    bytes key_nonce = 2;
 }
 
 message StreamInfo {

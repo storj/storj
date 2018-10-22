@@ -91,7 +91,7 @@ func main() {
 
 			id := client.NewPieceID()
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}); err != nil {
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}, nil); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
@@ -140,7 +140,7 @@ func main() {
 				return err
 			}
 
-			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{})
+			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{}, nil)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)
@@ -182,7 +182,7 @@ func main() {
 		Aliases: []string{"x"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			return psClient.Delete(context.Background(), client.PieceID(id))
+			return psClient.Delete(context.Background(), client.PieceID(id), nil)
 		},
 	})
 
