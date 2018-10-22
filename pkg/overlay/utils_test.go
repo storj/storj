@@ -15,8 +15,8 @@ import (
 )
 
 // NewMockServer provides a mock grpc server for testing
-func NewMockServer(items []storage.ListItem) *grpc.Server {
-	grpcServer := grpc.NewServer()
+func NewMockServer(items []storage.ListItem, opts ...grpc.ServerOption) *grpc.Server {
+	grpcServer := grpc.NewServer(opts...)
 
 	registry := monkit.Default
 

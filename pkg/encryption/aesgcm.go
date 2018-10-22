@@ -8,12 +8,14 @@ import (
 	"crypto/cipher"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/storj"
 )
 
 type aesgcmEncrypter struct {
 	blockSize     int
-	key           Key
-	startingNonce AESGCMNonce
+	key           *storj.Key
+	startingNonce *AESGCMNonce
 	overhead      int
 	aesgcm        cipher.AEAD
 }
@@ -31,8 +33,8 @@ type aesgcmEncrypter struct {
 //
 // When in doubt, generate a new key from crypto/rand and a startingNonce
 // from crypto/rand as often as possible.
-func NewAESGCMEncrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
-	block, err := aes.NewCipher((*key)[:])
+func NewAESGCMEncrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +47,8 @@ func NewAESGCMEncrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
-		key:           *key,
-		startingNonce: *startingNonce,
+		key:           key,
+		startingNonce: startingNonce,
 		overhead:      aesgcmEncrypt.Overhead(),
 		aesgcm:        aesgcmEncrypt,
 	}, nil
@@ -69,19 +71,19 @@ func calcGCMNonce(startingNonce *AESGCMNonce, blockNum int64) (rv [12]byte, err 
 }
 
 func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
-	n, err := calcGCMNonce(&s.startingNonce, blockNum)
+	nonce, err := calcGCMNonce(s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	ciphertext := s.aesgcm.Seal(out, n[:], in, nil)
+	ciphertext := s.aesgcm.Seal(out, nonce[:], in, nil)
 	return ciphertext, nil
 }
 
 type aesgcmDecrypter struct {
 	blockSize     int
-	key           Key
-	startingNonce AESGCMNonce
+	key           *storj.Key
+	startingNonce *AESGCMNonce
 	overhead      int
 	aesgcm        cipher.AEAD
 }
@@ -89,7 +91,7 @@ type aesgcmDecrypter struct {
 // NewAESGCMDecrypter returns a Transformer that decrypts the data passing
 // through with key. See the comments for NewAESGCMEncrypter about
 // startingNonce.
-func NewAESGCMDecrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
+func NewAESGCMDecrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return nil, err
@@ -103,8 +105,8 @@ func NewAESGCMDecrypter(key *Key, startingNonce *AESGCMNonce, encryptedBlockSize
 	}
 	return &aesgcmDecrypter{
 		blockSize:     encryptedBlockSize - aesgcmDecrypt.Overhead(),
-		key:           *key,
-		startingNonce: *startingNonce,
+		key:           key,
+		startingNonce: startingNonce,
 		overhead:      aesgcmDecrypt.Overhead(),
 		aesgcm:        aesgcmDecrypt,
 	}, nil
@@ -118,16 +120,16 @@ func (s *aesgcmDecrypter) OutBlockSize() int {
 }
 
 func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, error) {
-	n, err := calcGCMNonce(&s.startingNonce, blockNum)
+	nonce, err := calcGCMNonce(s.startingNonce, blockNum)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.aesgcm.Open(out, n[:], in, nil)
+	return s.aesgcm.Open(out, nonce[:], in, nil)
 }
 
 // EncryptAESGCM encrypts byte data with a key and nonce. The cipher data is returned
-func EncryptAESGCM(data []byte, key *Key, nonce *AESGCMNonce) (cipherData []byte, err error) {
+func EncryptAESGCM(data []byte, key *storj.Key, nonce *AESGCMNonce) (cipherData []byte, err error) {
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return []byte{}, errs.Wrap(err)
@@ -141,7 +143,7 @@ func EncryptAESGCM(data []byte, key *Key, nonce *AESGCMNonce) (cipherData []byte
 }
 
 // DecryptAESGCM decrypts byte data with a key and nonce. The plain data is returned
-func DecryptAESGCM(cipherData []byte, key *Key, nonce *AESGCMNonce) (data []byte, err error) {
+func DecryptAESGCM(cipherData []byte, key *storj.Key, nonce *AESGCMNonce) (data []byte, err error) {
 	if len(cipherData) == 0 {
 		return []byte{}, errs.New("empty cipher data")
 	}
