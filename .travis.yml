@@ -47,4 +47,16 @@ matrix:
         - go install storj.io/storj/cmd/captplanet
       script:
         - make test-captplanet
+    - env: MODE=windows-tests
+      os: windows
+      cache:
+        directories:
+          - "%HOME%/cache"
+      before_install:
+        - scripts/setup-gopath.bat
+      install:
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile ./...
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
   fast_finish: true
