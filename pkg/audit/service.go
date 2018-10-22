@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -75,41 +74,31 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	errch := make(chan error)
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				stripe, err := service.Cursor.NextStripe(ctx)
-				if err != nil {
-					errch <- err
-					cancel()
-				}
-
-				authorization, err := service.Cursor.pointers.SignedMessage()
-				if err != nil {
-					errch <- err
-					cancel()
-				}
-
-				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
-				if err != nil {
-					errch <- err
-					cancel()
-				}
-				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
-				if err != nil {
-					errch <- err
-					cancel()
-				}
-			case <-ctx.Done():
-				return
+	for {
+		select {
+		case <-ticker.C:
+			stripe, err := service.Cursor.NextStripe(ctx)
+			if err != nil {
+				return err
 			}
-		}
-	}()
 
-	// TODO(James): convert to collectErrors
-	return utils.CollectErrors(errch, 5*time.Second)
+			authorization, err := service.Cursor.pointers.SignedMessage()
+			if err != nil {
+				return err
+			}
+
+			verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+			if err != nil {
+				return err
+			}
+			err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+			// TODO: if Error.Has(err) then log the error because it means not all node stats updated
+			if err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+	}
 }
