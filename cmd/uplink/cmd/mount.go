@@ -51,15 +51,15 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	u, err := fpath.New(args[0])
+	src, err := fpath.New(args[0])
 	if err != nil {
 		return err
 	}
-	if u.IsLocal() {
+	if src.IsLocal() {
 		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
 	}
 
-	store, err := bs.GetObjectStore(ctx, u.Bucket())
+	store, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
 		return err
 	}
@@ -68,8 +68,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 
 	// workaround to avoid async (unordered) reading
-	mountOpts := fuse.MountOptions{}
-	mountOpts.MaxBackground = 1
+	mountOpts := fuse.MountOptions{MaxBackground: 1}
 	server, err := fuse.NewServer(conn.RawFS(), args[1], &mountOpts)
 	if err != nil {
 		return fmt.Errorf("Mount failed: %v", err)
