@@ -24,22 +24,43 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	StatDBPort          string        `help:"port to contact statDB client" default:":9090"`
-	MaxRetriesStatDB    int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	PointerDBPort       string        `help:"Pointers for a instantiation of a new service"`
-	TransportClientPort string        `help:"Transport for a instantiation of a new service"`
-	OverlayClientPort   string        `help:"Overlay for a instantiation of a new service"`
-	ID                  string        `help:"ID for a instantiation of a new service"`
-	Interval            time.Duration `help:"how frequently segements should audited" default:"30s"`
+	APIKey           string        `help:"APIKey to access the statdb"`
+	StatDBAddr       string        `help:"address to contact statDB client"`
+	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	PointerDBAddr    string        `help:"address to contact the pointerDB client"`
+	TransportAddr    string        `help:"address to contact the transport client"`
+	OverlayAddr      string        `help:"address to contact the overlay client"`
+	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
 }
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	var pdb pdbclient.Client
-	var tc transport.Client
-	var oc overlay.Client
-	var id provider.FullIdentity
-	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, pdb, tc, oc, id)
+	ca, err := provider.NewCA(ctx, 12, 4)
+	if err != nil {
+		return err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return err
+	}
+	pointers, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
+	if err != nil {
+		return err
+	}
+	overlay, err := overlay.NewOverlayClient(identity, c.OverlayAddr)
+	if err != nil {
+		return err
+	}
+	transport := transport.NewClient(identity)
+
+	cursor := NewCursor(pointers)
+	verifier := NewVerifier(transport, overlay, *identity)
+	reporter, err := NewReporter(ctx, c.StatDBAddr, c.MaxRetriesStatDB)
+	if err != nil {
+		return err
+	}
+
+	service, err := NewService(cursor, verifier, reporter)
 	if err != nil {
 		return err
 	}
@@ -47,16 +68,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
-	id provider.FullIdentity) (service *Service, err error) {
-	cursor := NewCursor(pointers)
-	verifier := NewVerifier(transport, overlay, id)
-	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Service{Cursor: cursor,
+func NewService(cursor *Cursor, verifier *Verifier, reporter *Reporter) (service *Service, err error) {
+	return &Service{
+		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
 	}, nil
