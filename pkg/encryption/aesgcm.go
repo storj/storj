@@ -6,8 +6,7 @@ package encryption
 import (
 	"crypto/aes"
 	"crypto/cipher"
-
-	"github.com/zeebo/errs"
+	"strconv"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -36,14 +35,14 @@ type aesgcmEncrypter struct {
 func NewAESGCMEncrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	aesgcmEncrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
-		return nil, Error.New("block size too small")
+		return nil, EncryptedBlockSizeTooSmallError.New(strconv.Itoa(encryptedBlockSize))
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
@@ -76,8 +75,8 @@ func (s *aesgcmEncrypter) Transform(out, in []byte, blockNum int64) ([]byte, err
 		return nil, err
 	}
 
-	ciphertext := s.aesgcm.Seal(out, nonce[:], in, nil)
-	return ciphertext, nil
+	cipherData := s.aesgcm.Seal(out, nonce[:], in, nil)
+	return cipherData, nil
 }
 
 type aesgcmDecrypter struct {
@@ -94,14 +93,14 @@ type aesgcmDecrypter struct {
 func NewAESGCMDecrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlockSize int) (Transformer, error) {
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	aesgcmDecrypt, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	if encryptedBlockSize <= aesgcmDecrypt.Overhead() {
-		return nil, Error.New("block size too small")
+		return nil, EncryptedBlockSizeTooSmallError.New(strconv.Itoa(encryptedBlockSize))
 	}
 	return &aesgcmDecrypter{
 		blockSize:     encryptedBlockSize - aesgcmDecrypt.Overhead(),
@@ -125,18 +124,22 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, err
 		return nil, err
 	}
 
-	return s.aesgcm.Open(out, nonce[:], in, nil)
+	plainData, err := s.aesgcm.Open(out, nonce[:], in, nil)
+	if err != nil {
+		return nil, DecryptionFailedError.Wrap(err)
+	}
+	return plainData, nil
 }
 
 // EncryptAESGCM encrypts byte data with a key and nonce. The cipher data is returned
 func EncryptAESGCM(data []byte, key *storj.Key, nonce *AESGCMNonce) (cipherData []byte, err error) {
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
-		return []byte{}, errs.Wrap(err)
+		return []byte{}, Error.Wrap(err)
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return []byte{}, errs.Wrap(err)
+		return []byte{}, Error.Wrap(err)
 	}
 	cipherData = aesgcm.Seal(nil, nonce[:], data, nil)
 	return cipherData, nil
@@ -145,19 +148,19 @@ func EncryptAESGCM(data []byte, key *storj.Key, nonce *AESGCMNonce) (cipherData 
 // DecryptAESGCM decrypts byte data with a key and nonce. The plain data is returned
 func DecryptAESGCM(cipherData []byte, key *storj.Key, nonce *AESGCMNonce) (data []byte, err error) {
 	if len(cipherData) == 0 {
-		return []byte{}, errs.New("empty cipher data")
+		return []byte{}, Error.New("empty cipher data")
 	}
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
-		return []byte{}, errs.Wrap(err)
+		return []byte{}, Error.Wrap(err)
 	}
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return []byte{}, errs.Wrap(err)
+		return []byte{}, Error.Wrap(err)
 	}
-	decrypted, err := aesgcm.Open(nil, nonce[:], cipherData, nil)
+	plainData, err := aesgcm.Open(nil, nonce[:], cipherData, nil)
 	if err != nil {
-		return []byte{}, errs.Wrap(err)
+		return []byte{}, DecryptionFailedError.Wrap(err)
 	}
-	return decrypted, nil
+	return plainData, nil
 }
