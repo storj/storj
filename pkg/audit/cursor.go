@@ -20,8 +20,9 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index   int
-	Segment *pb.Pointer
+	Index         int
+	Segment       *pb.Pointer
+	Authorization *pb.SignedMessage
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -89,7 +90,12 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	return &Stripe{Index: index, Segment: pointer}, nil
+	authorization, err := cursor.pointers.SignedMessage()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
 }
 
 // create the erasure scheme
