@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -20,7 +19,9 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -59,14 +60,22 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 			return nil, err
 		}
 	}
+
 	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
-		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
+	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+
+	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+	kdb, ndb := dbs[0], dbs[1]
+
+	rt, err := NewRoutingTable(&self, kdb, ndb, &RoutingOptions{
 		idLength:     kadconfig.DefaultIDLength,
 		bucketSize:   kadconfig.DefaultBucketSize,
 		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
+
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
@@ -101,8 +110,10 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	// TODO(coyle)
-	return errors.New("TODO Disconnect")
+	return utils.CombineErrors(
+		k.routingTable.Close(),
+		// TODO: close connections
+	)
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit

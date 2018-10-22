@@ -23,18 +23,28 @@ before_script:
 
 before_install:
   - source scripts/setup-gopath.sh
-  - source scripts/install-awscli.sh
 
-install:
-  - pushd ~
-  - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
-  - popd
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
-  - go install -v ./...
-
-script:
-  - ./scripts/check-for-header.sh
-  - golangci-lint run
-  - go test -race -v -cover -coverprofile=.coverprofile ./...
-  - goveralls -coverprofile=.coverprofile -service=travis-ci
-  - make test-captplanet
+matrix:
+  include:
+    - env: MODE=tests
+      install:
+        - pushd ~
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
+        - popd
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile ./...
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
+    - env: MODE=lint
+      install:
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
+      script:
+        - ./scripts/check-for-header.sh
+        - golangci-lint run
+    - env: MODE=integration
+      install:
+        - source scripts/install-awscli.sh
+        - go install storj.io/storj/cmd/captplanet
+      script:
+        - make test-captplanet
+  fast_finish: true

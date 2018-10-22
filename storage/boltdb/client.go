@@ -5,6 +5,7 @@ package boltdb
 
 import (
 	"bytes"
+	"sync/atomic"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -18,6 +19,8 @@ type Client struct {
 	db     *bolt.DB
 	Path   string
 	Bucket []byte
+
+	referenceCount *int32
 }
 
 const (
@@ -45,11 +48,55 @@ func New(path, bucket string) (*Client, error) {
 		return nil, err
 	}
 
+	refCount := new(int32)
+	*refCount = 1
+
 	return &Client{
-		db:     db,
-		Path:   path,
-		Bucket: []byte(bucket),
+		db:             db,
+		referenceCount: refCount,
+		Path:           path,
+		Bucket:         []byte(bucket),
 	}, nil
+}
+
+// NewShared instantiates a new BoltDB with multiple buckets
+func NewShared(path string, buckets ...string) ([]*Client, error) {
+	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		for _, bucket := range buckets {
+			_, err := tx.CreateBucketIfNotExists([]byte(bucket))
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	})
+
+	if err != nil {
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, utils.CombineErrors(err, closeErr)
+		}
+		return nil, err
+	}
+
+	refCount := new(int32)
+	*refCount = int32(len(buckets))
+
+	clients := []*Client{}
+	for _, bucket := range buckets {
+		clients = append(clients, &Client{
+			db:             db,
+			referenceCount: refCount,
+			Path:           path,
+			Bucket:         []byte(bucket),
+		})
+	}
+
+	return clients, nil
 }
 
 func (client *Client) update(fn func(*bolt.Bucket) error) error {
@@ -108,7 +155,10 @@ func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, e
 
 // Close closes a BoltDB client
 func (client *Client) Close() error {
-	return client.db.Close()
+	if atomic.AddInt32(client.referenceCount, -1) == 0 {
+		return client.db.Close()
+	}
+	return nil
 }
 
 // GetAll finds all values for the provided keys up to 100 keys

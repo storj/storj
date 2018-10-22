@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 import (
 	"bytes"
@@ -128,10 +128,10 @@ func (t *transformedRanger) Size() int64 {
 	return blocks * int64(t.t.OutBlockSize())
 }
 
-// calcEncompassingBlocks is a useful helper function that, given an offset,
+// CalcEncompassingBlocks is a useful helper function that, given an offset,
 // length, and blockSize, will tell you which blocks contain the requested
 // offset and length
-func calcEncompassingBlocks(offset, length int64, blockSize int) (
+func CalcEncompassingBlocks(offset, length int64, blockSize int) (
 	firstBlock, blockCount int64) {
 	firstBlock = offset / int64(blockSize)
 	if length <= 0 {
@@ -147,7 +147,7 @@ func calcEncompassingBlocks(offset, length int64, blockSize int) (
 func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
 	// Range may not have been called for block-aligned offsets and lengths, so
 	// let's figure out which blocks encompass the request
-	firstBlock, blockCount := calcEncompassingBlocks(
+	firstBlock, blockCount := CalcEncompassingBlocks(
 		offset, length, t.t.OutBlockSize())
 	// If block count is 0, there is nothing to transform, so return a dumb
 	// reader that will just return io.EOF on read

@@ -104,7 +104,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
-				zap.S().Errorf("Failed putting piece %s -> %s to node %s: %v",
+				zap.S().Errorf("Failed dialing for putting piece %s -> %s to node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 				infos <- info{i: i, err: err}
 				return
@@ -233,7 +233,7 @@ func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID client
 			}
 			ps, err := ec.d.dial(ctx, n)
 			if err != nil {
-				zap.S().Errorf("Failed deleting piece %s -> %s from node %s: %v",
+				zap.S().Errorf("Failed dialing for deleting piece %s -> %s from node %s: %v",
 					pieceID, derivedPieceID, n.GetId(), err)
 				errs <- err
 				return
