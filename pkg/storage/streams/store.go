@@ -169,7 +169,7 @@ func (s *streamStore) upload(ctx context.Context, p storj.Path, data io.Reader, 
 			return Meta{}, currentSegment, err
 		}
 
-		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, (*storj.Key)(derivedKey), &keyNonce)
+		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, derivedKey, &keyNonce)
 		if err != nil {
 			return Meta{}, currentSegment, err
 		}
@@ -337,7 +337,7 @@ func (s *streamStore) Get(ctx context.Context, p storj.Path) (rr ranger.Ranger, 
 			segments:      s.segments,
 			path:          currentPath,
 			size:          size,
-			derivedKey:    (*storj.Key)(derivedKey),
+			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
 			cipher:        storj.Cipher(streamMeta.EncryptionType),
@@ -356,7 +356,7 @@ func (s *streamStore) Get(ctx context.Context, p storj.Path) (rr ranger.Ranger, 
 		lastSegmentRanger,
 		stream.LastSegmentSize,
 		storj.Cipher(streamMeta.EncryptionType),
-		(*storj.Key)(derivedKey),
+		derivedKey,
 		encryptedKey,
 		keyNonce,
 		&contentNonce,
