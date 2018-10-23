@@ -18,7 +18,6 @@ import (
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/buckets"
 	mock_buckets "storj.io/storj/pkg/storage/buckets/mocks"
@@ -98,11 +97,11 @@ func TestCopyObject(t *testing.T) {
 		// if o.Get returns an error, only expect GetObjectStore once, do not expect Put
 		if example.errString != "some Get err" {
 			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil).Times(2)
-			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
-			mockOS.EXPECT().Put(gomock.Any(), paths.New(example.destObject), r, serMeta, time.Time{}).Return(meta, example.putErr)
+			mockOS.EXPECT().Get(gomock.Any(), example.srcObject).Return(rr, meta, example.getErr)
+			mockOS.EXPECT().Put(gomock.Any(), example.destObject, r, serMeta, time.Time{}).Return(meta, example.putErr)
 		} else {
 			mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-			mockOS.EXPECT().Get(gomock.Any(), paths.New(example.srcObject)).Return(rr, meta, example.getErr)
+			mockOS.EXPECT().Get(gomock.Any(), example.srcObject).Return(rr, meta, example.getErr)
 		}
 
 		objInfo, err := storjObj.CopyObject(ctx, example.bucket, example.srcObject, example.bucket, example.destObject, srcInfo)
@@ -158,7 +157,7 @@ func TestGetObject(t *testing.T) {
 		rr := ranger.ByteRanger([]byte(example.data))
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-		mockOS.EXPECT().Get(gomock.Any(), paths.New(example.object)).Return(rr, meta, example.err)
+		mockOS.EXPECT().Get(gomock.Any(), example.object).Return(rr, meta, example.err)
 
 		var buf bytes.Buffer
 		iowriter := io.Writer(&buf)
@@ -195,7 +194,7 @@ func TestDeleteObject(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-		mockOS.EXPECT().Delete(gomock.Any(), paths.New(example.object)).Return(example.err)
+		mockOS.EXPECT().Delete(gomock.Any(), example.object).Return(example.err)
 
 		err := storjObj.DeleteObject(ctx, example.bucket, example.object)
 		assert.NoError(t, err, errTag)
@@ -256,7 +255,7 @@ func TestPutObject(t *testing.T) {
 		}
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-		mockOS.EXPECT().Put(gomock.Any(), paths.New(example.object), data, serMeta, time.Time{}).Return(meta, example.err)
+		mockOS.EXPECT().Put(gomock.Any(), example.object, data, serMeta, time.Time{}).Return(meta, example.err)
 
 		objInfo, err := storjObj.PutObject(ctx, example.bucket, example.object, data, metadata)
 		if err != nil {
@@ -314,7 +313,7 @@ func TestGetObjectInfo(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), example.bucket).Return(mockOS, nil)
-		mockOS.EXPECT().Meta(gomock.Any(), paths.New(example.object)).Return(meta, example.err)
+		mockOS.EXPECT().Meta(gomock.Any(), example.object).Return(meta, example.err)
 
 		objInfo, err := storjObj.GetObjectInfo(ctx, example.bucket, example.object)
 		if err != nil {
@@ -351,8 +350,8 @@ func TestListObjects(t *testing.T) {
 	maxKeys := 123
 
 	items := []objects.ListItem{
-		{Path: paths.New("test-file-1.txt")},
-		{Path: paths.New("test-file-2.txt")},
+		{Path: "test-file-1.txt"},
+		{Path: "test-file-2.txt"},
 	}
 
 	for i, example := range []struct {
@@ -390,8 +389,7 @@ func TestListObjects(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockBS.EXPECT().GetObjectStore(gomock.Any(), bucket).Return(mockOS, nil)
-		mockOS.EXPECT().List(gomock.Any(), paths.New(prefix), paths.New(example.startAfter),
-			nil, example.recursive, maxKeys, meta.All).Return(items, example.more, example.err)
+		mockOS.EXPECT().List(gomock.Any(), prefix, example.startAfter, "", example.recursive, maxKeys, meta.All).Return(items, example.more, example.err)
 
 		listInfo, err := storjObj.ListObjects(ctx, bucket, prefix, example.startAfter, example.delimiter, maxKeys)
 
@@ -422,7 +420,7 @@ func TestDeleteBucket(t *testing.T) {
 	storjObj := storjObjects{storj: &b}
 
 	itemsInBucket := make([]objects.ListItem, 1)
-	itemsInBucket[0] = objects.ListItem{Path: paths.New("path1"), Meta: objects.Meta{}}
+	itemsInBucket[0] = objects.ListItem{Path: "path1", Meta: objects.Meta{}}
 
 	exp := time.Unix(0, 0).UTC()
 	var noItemsInBucket []objects.ListItem

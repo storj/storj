@@ -12,10 +12,10 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 )
 
 // Stripe keeps track of a stripe's index and its parent segment
@@ -27,7 +27,7 @@ type Stripe struct {
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
 	pointers pdbclient.Client
-	lastPath *paths.Path
+	lastPath storj.Path
 	mutex    sync.Mutex
 }
 
@@ -42,13 +42,13 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	defer cursor.mutex.Unlock()
 
 	var pointerItems []pdbclient.ListItem
-	var path paths.Path
+	var path storj.Path
 	var more bool
 
-	if cursor.lastPath == nil {
-		pointerItems, more, err = cursor.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
+	if cursor.lastPath == "" {
+		pointerItems, more, err = cursor.pointers.List(ctx, "", "", "", true, 0, meta.None)
 	} else {
-		pointerItems, more, err = cursor.pointers.List(ctx, nil, *cursor.lastPath, nil, true, 0, meta.None)
+		pointerItems, more, err = cursor.pointers.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
 	}
 
 	if err != nil {
@@ -66,9 +66,9 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 
 	// keep track of last path listed
 	if !more {
-		cursor.lastPath = nil
+		cursor.lastPath = ""
 	} else {
-		cursor.lastPath = &pointerItems[len(pointerItems)-1].Path
+		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info

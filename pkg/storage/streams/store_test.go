@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -96,7 +96,7 @@ func TestStreamStoreMeta(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Meta(ctx, paths.New(test.path))
+		meta, err := streamStore.Meta(ctx, test.path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,7 +146,7 @@ func TestStreamStorePut(t *testing.T) {
 		mockSegmentStore.EXPECT().
 			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError).
-			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (paths.Path, []byte, error)) {
+			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (storj.Path, []byte, error)) {
 				for {
 					buf := make([]byte, 4)
 					_, err := data.Read(buf)
@@ -168,7 +168,7 @@ func TestStreamStorePut(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Put(ctx, paths.New(test.path), test.data, test.metadata, test.expiration)
+		meta, err := streamStore.Put(ctx, test.path, test.data, test.metadata, test.expiration)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -268,7 +268,7 @@ func TestStreamStoreGet(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		ranger, meta, err := streamStore.Get(ctx, paths.New(test.path))
+		ranger, meta, err := streamStore.Get(ctx, test.path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,7 +317,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = streamStore.Delete(ctx, paths.New(test.path))
+		err = streamStore.Delete(ctx, test.path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -361,7 +361,7 @@ func TestStreamStoreList(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		items, more, err := streamStore.List(ctx, paths.New(test.prefix), paths.New(test.startAfter), paths.New(test.endBefore), test.recursive, test.limit, test.metaFlags)
+		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, test.recursive, test.limit, test.metaFlags)
 		if err != nil {
 			t.Fatal(err)
 		}

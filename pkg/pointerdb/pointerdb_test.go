@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
@@ -144,10 +143,6 @@ func TestServiceList(t *testing.T) {
 	db := teststore.New()
 	server := Server{DB: db, logger: zap.NewNop()}
 
-	key := func(s string) storage.Key {
-		return storage.Key(paths.New(s).Bytes())
-	}
-
 	pointer := &pb.Pointer{}
 	pointer.CreationDate = ptypes.TimestampNow()
 
@@ -158,13 +153,13 @@ func TestServiceList(t *testing.T) {
 	pointerValue := storage.Value(pointerBytes)
 
 	err = storage.PutAll(db, []storage.ListItem{
-		{Key: key("sample.😶"), Value: pointerValue},
-		{Key: key("müsic"), Value: pointerValue},
-		{Key: key("müsic/söng1.mp3"), Value: pointerValue},
-		{Key: key("müsic/söng2.mp3"), Value: pointerValue},
-		{Key: key("müsic/album/söng3.mp3"), Value: pointerValue},
-		{Key: key("müsic/söng4.mp3"), Value: pointerValue},
-		{Key: key("ビデオ/movie.mkv"), Value: pointerValue},
+		{Key: storage.Key("sample.😶"), Value: pointerValue},
+		{Key: storage.Key("müsic"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng1.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng2.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/album/söng3.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng4.mp3"), Value: pointerValue},
+		{Key: storage.Key("ビデオ/movie.mkv"), Value: pointerValue},
 	}...)
 	if err != nil {
 		t.Fatal(err)

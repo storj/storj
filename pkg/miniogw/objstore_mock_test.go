@@ -15,7 +15,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	paths "storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
 	objects "storj.io/storj/pkg/storage/objects"
 )
@@ -44,7 +43,7 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 }
 
 // Delete mocks base method
-func (m *MockStore) Delete(arg0 context.Context, arg1 paths.Path) error {
+func (m *MockStore) Delete(arg0 context.Context, arg1 string) error {
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,7 +55,7 @@ func (mr *MockStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Get mocks base method
-func (m *MockStore) Get(arg0 context.Context, arg1 paths.Path) (ranger.Ranger, objects.Meta, error) {
+func (m *MockStore) Get(arg0 context.Context, arg1 string) (ranger.Ranger, objects.Meta, error) {
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(objects.Meta)
@@ -70,7 +69,7 @@ func (mr *MockStoreMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // List mocks base method
-func (m *MockStore) List(arg0 context.Context, arg1, arg2, arg3 paths.Path, arg4 bool, arg5 int, arg6 uint32) ([]objects.ListItem, bool, error) {
+func (m *MockStore) List(arg0 context.Context, arg1, arg2, arg3 string, arg4 bool, arg5 int, arg6 uint32) ([]objects.ListItem, bool, error) {
 	ret := m.ctrl.Call(m, "List", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].([]objects.ListItem)
 	ret1, _ := ret[1].(bool)
@@ -84,7 +83,7 @@ func (mr *MockStoreMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 i
 }
 
 // Meta mocks base method
-func (m *MockStore) Meta(arg0 context.Context, arg1 paths.Path) (objects.Meta, error) {
+func (m *MockStore) Meta(arg0 context.Context, arg1 string) (objects.Meta, error) {
 	ret := m.ctrl.Call(m, "Meta", arg0, arg1)
 	ret0, _ := ret[0].(objects.Meta)
 	ret1, _ := ret[1].(error)
@@ -97,7 +96,7 @@ func (mr *MockStoreMockRecorder) Meta(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Put mocks base method
-func (m *MockStore) Put(arg0 context.Context, arg1 paths.Path, arg2 io.Reader, arg3 objects.SerializableMeta, arg4 time.Time) (objects.Meta, error) {
+func (m *MockStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 objects.SerializableMeta, arg4 time.Time) (objects.Meta, error) {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(objects.Meta)
 	ret1, _ := ret[1].(error)
