@@ -6,7 +6,6 @@ package encryption
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"strconv"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -42,7 +41,7 @@ func NewAESGCMEncrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlo
 		return nil, Error.Wrap(err)
 	}
 	if encryptedBlockSize <= aesgcmEncrypt.Overhead() {
-		return nil, EncryptedBlockSizeTooSmallError.New(strconv.Itoa(encryptedBlockSize))
+		return nil, ErrInvalidConfig.New("encrypted block size %d too small", encryptedBlockSize)
 	}
 	return &aesgcmEncrypter{
 		blockSize:     encryptedBlockSize - aesgcmEncrypt.Overhead(),
@@ -100,7 +99,7 @@ func NewAESGCMDecrypter(key *storj.Key, startingNonce *AESGCMNonce, encryptedBlo
 		return nil, Error.Wrap(err)
 	}
 	if encryptedBlockSize <= aesgcmDecrypt.Overhead() {
-		return nil, EncryptedBlockSizeTooSmallError.New(strconv.Itoa(encryptedBlockSize))
+		return nil, ErrInvalidConfig.New("encrypted block size %d too small", encryptedBlockSize)
 	}
 	return &aesgcmDecrypter{
 		blockSize:     encryptedBlockSize - aesgcmDecrypt.Overhead(),
@@ -126,7 +125,7 @@ func (s *aesgcmDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, err
 
 	plainData, err := s.aesgcm.Open(out, nonce[:], in, nil)
 	if err != nil {
-		return nil, DecryptionFailedError.Wrap(err)
+		return nil, ErrDecryptFailed.Wrap(err)
 	}
 	return plainData, nil
 }
@@ -160,7 +159,7 @@ func DecryptAESGCM(cipherData []byte, key *storj.Key, nonce *AESGCMNonce) (data 
 	}
 	plainData, err := aesgcm.Open(nil, nonce[:], cipherData, nil)
 	if err != nil {
-		return []byte{}, DecryptionFailedError.Wrap(err)
+		return []byte{}, ErrDecryptFailed.Wrap(err)
 	}
 	return plainData, nil
 }
