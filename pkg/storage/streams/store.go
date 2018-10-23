@@ -77,6 +77,9 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.K
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
+	if rootKey == nil {
+		return nil, errs.New("encryption key must not be empty")
+	}
 	if encBlockSize <= 0 {
 		return nil, errs.New("encryption block size must be larger than 0")
 	}
