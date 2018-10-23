@@ -33,6 +33,7 @@ type checker struct {
 	overlay     pb.OverlayServer
 	limit       int
 	logger      *zap.Logger
+	interval 	time.Duration
 }
 
 // NewChecker creates a new instance of checker
@@ -123,38 +124,77 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 }
 
 // Run the checker loop
-func (c *checker) Run(ctx context.Context, interval time.Duration) error {
+func (c *checker) Run() error {
 	zap.S().Info("Checker is starting up")
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	var errs []error
+	// ctx, cancel := context.WithCancel(ctx)
+	// defer cancel()
+	// var errs []error
 
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				zap.S().Info("Starting segment checker service")
-				go func() {
-					err := c.IdentifyInjuredSegments(ctx)
-					if err != nil {
-						errs = append(errs, err)
-					}
-				}()
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	//TODO collectErrors and wait?
-	return utils.CombineErrors(errs...)
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <-ticker.C:
+	// 			zap.S().Info("Starting segment checker service")
+	// 			go func() {
+	// 				err := c.IdentifyInjuredSegments(ctx)
+	// 				if err != nil {
+	// 					errs = append(errs, err)
+	// 				}
+	// 			}()
+	// 			return
+	// 		case <-ctx.Done():
+	// 			return
+	// 		}
+	// 	}
+	// }()
+	// //TODO collectErrors and wait?
+	// return utils.CombineErrors(errs...)
+
+	//////////////////////////////////
+
+	// zap.S().Info("Repairer is starting up")
+
+	// c := make(chan *pb.InjuredSegment)
+
+	// ticker := time.NewTicker(r.interval)
+	// defer ticker.Stop()
+	// go func() {
+	// 	for range ticker.C {
+	// 		for r.inProgress >= r.maxRepair {
+	// 			r.cond.Wait()
+	// 		}
+
+	// 		// GetNext should lock until there is an actual next item in the queue
+	// 		seg, err := r.queue.Dequeue()
+	// 		if err != nil {
+	// 			r.errs = append(r.errs, err)
+	// 			r.cancel()
+	// 		}
+	// 		c <- &seg
+	// 	}
+	// }()
+
+	// for {
+	// 	select {
+	// 	case <-r.ctx.Done():
+	// 		return utils.CombineErrors(r.errs...)
+	// 	case seg := <-c:
+	// 		go func() {
+	// 			err := r.Repair(seg)
+	// 			if err != nil {
+	// 				r.errs = append(r.errs, err)
+	// 				r.cancel()
+	// 			}
+	// 		}()
+	// 	}
+	// }
 }
 
 // Stop the checker loop
 func (c *checker) Stop(ctx context.Context) error {
-	_, cancel := context.WithCancel(ctx)
-	cancel()
-	return nil
+	// _, cancel := context.WithCancel(ctx)
+	// cancel()
+	// return nil
 }
