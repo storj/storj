@@ -2,17 +2,17 @@ $xhome = $env:USERPROFILE
 
 Set-Location $xhome
 
-New-Item "$xhome/bin" -ItemType "directory"
-New-Item "$xhome/cache" -ItemType "directory"
+New-Item "$xhome/bin" -Force -ItemType "directory"
+New-Item "$xhome/cache" -Force -ItemType "directory"
 
 $env:PATH=$env:PATH + ";$xhome/bin"
 
 $env:GOSPACE_ROOT="$env:GOPATH"
 $env:GOSPACE_PKG="storj.io/storj"
-$env:GOSPACE_REPO="git@github.com:storj/storj/git"
+$env:GOSPACE_REPO="git@github.com:storj/storj.git"
 
-New-Item "$env:GOPATH/src/storj.io" -ItemType "directory"
-Copy-Item "$env:GOPATH/src/github.com/storj/storj" "$env:GOPATH/src/storj.io/storj"
+New-Item "$env:GOPATH/src/storj.io" -Force -ItemType "directory"
+Copy-Item -Recurse -Path "$env:GOPATH/src/github.com/storj/storj" -Destination "$env:GOPATH/src/storj.io/storj" 
 
 # setup gospace
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
