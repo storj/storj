@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
@@ -69,11 +70,25 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-
-				// Get satellite ip from payer_id
 				log.Printf("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
-				// Create client from satellite ip
+				// TODO: Get satellite ip from agreementGroup.satellite
+				satelliteAddr := ":7777"
+
+				// TODO: Create client from satellite ip
+				identOpt, err := identity.DialOption()
+				if err != nil {
+					as.errs = append(as.errs, err)
+					return
+				}
+
+				var conn *grpc.ClientConn
+				conn, err = grpc.Dial(satelliteAddr, identOpt)
+				if err != nil {
+					as.errs = append(as.errs, err)
+					return
+				}
+
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
 				if err != nil {
@@ -84,7 +99,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				for _, agreement := range agreementGroup.agreements {
 					log.Println(agreement)
 
-					// Deserealize agreement
+					// TODO: Deserealize agreement
 					msg := &pb.RenterBandwidthAllocation{}
 
 					// Send agreement to satellite
@@ -97,7 +112,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 						return
 					}
 
-					// Delete from PSDB by signature
+					// TODO: Delete from PSDB by signature
 				}
 			}()
 		}
