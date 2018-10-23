@@ -33,12 +33,17 @@ func TestXorQueue(t *testing.T) {
 	for i, value := range testValues {
 		nodes[i] = &pb.Node{Id: BinStr(value)}
 	}
-	pq := NewXorQueue(4)
+	//populate queue
+	pq := NewXorQueue(3)
 	pq.Insert(&target, nodes)
-
+	//make sure we remove as many things as the queue should hold
+	assert.Equal(t, pq.Len(), 3)
 	for i := 0; pq.Len() > 0; i++ {
 		node, priority := pq.Closest()
 		assert.Equal(t, *big.NewInt(int64(expectedPriority[i])), priority)
 		assert.Equal(t, BinStr(expectedIds[i]), node.Id)
 	}
+	//test that reading beyong length returns nil
+	node, _ := pq.Closest()
+	assert.Nil(t, node)
 }

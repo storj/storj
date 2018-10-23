@@ -46,6 +46,9 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 
 //Closest removed the closest priority node from the queue
 func (x *XorQueue) Closest() (*pb.Node, big.Int) {
+	if x.Len() == 0 {
+		return nil, big.Int{}
+	}
 	item := *(heap.Pop(&x.items).(*item))
 	return item.value, *item.priority
 }
