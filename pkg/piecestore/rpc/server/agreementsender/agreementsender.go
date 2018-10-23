@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/utils"
 )
@@ -40,7 +41,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 	log.Println("AgreementSender is starting up")
 
 	type agreementGroup struct {
-		satellite string
+		satellite  string
 		agreements []*psdb.Agreement
 	}
 
@@ -68,14 +69,36 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-			// Deserealize agreements
-			log.Printf("Sending %v agreements\n", len(agreementGroup.agreements))
 
-			// Get satellite ip from payer_id
-			log.Printf("Sending agreements to satellite %s\n", agreementGroup.satellite)
+				// Get satellite ip from payer_id
+				log.Printf("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
-			// Create client from satellite ip
-			// Send agreement to satellite
+				// Create client from satellite ip
+				client := pb.NewBandwidthClient(conn)
+				stream, err := client.BandwidthAgreements(ctx)
+				if err != nil {
+					as.errs = append(as.errs, err)
+					return
+				}
+
+				for _, agreement := range agreementGroup.agreements {
+					log.Println(agreement)
+
+					// Deserealize agreement
+					msg := &pb.RenterBandwidthAllocation{}
+
+					// Send agreement to satellite
+					if err = stream.Send(msg); err != nil {
+						if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
+							log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
+						}
+
+						as.errs = append(as.errs, err)
+						return
+					}
+
+					// Delete from PSDB by signature
+				}
 			}()
 		}
 	}
