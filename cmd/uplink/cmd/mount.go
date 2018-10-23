@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/utils"
@@ -55,7 +54,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	if src.IsLocal() {
-		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+		return fmt.Errorf("No bucket specified. Use format sj://bucket/")
 	}
 
 	store, err := bs.GetObjectStore(ctx, src.Bucket())
@@ -168,7 +167,7 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 }
 
 func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
-	err := sf.store.Delete(sf.ctx, paths.New("test"))
+	err := sf.store.Delete(sf.ctx, paths.New(name))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return fuse.ENOENT
@@ -183,7 +182,6 @@ type storjFile struct {
 	name            string
 	ctx             context.Context
 	store           objects.Store
-	ranger          ranger.Ranger
 	reader          io.ReadCloser
 	predictedOffset int64
 	nodefs.File
@@ -195,31 +193,37 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 		f.close()
 	}
 
-	var err error
-	if f.reader == nil {
-		f.ranger, _, err = f.store.Get(f.ctx, paths.New(f.name))
-		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
-				return nil, fuse.ENOENT
-			}
-			return nil, fuse.EIO
+	reader, err := f.getReader(off)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, fuse.ENOENT
 		}
-		f.reader, err = f.ranger.Range(f.ctx, off, f.ranger.Size()-off)
-		if err != nil {
-			return nil, fuse.EIO
-		}
+		return nil, fuse.EIO
 	}
 
-	n, err := io.ReadFull(f.reader, buf)
-	if err != nil {
-		if err != io.EOF && err != io.ErrUnexpectedEOF {
-			return nil, fuse.EIO
-		}
+	n, err := io.ReadFull(reader, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, fuse.EIO
 	}
 
 	f.predictedOffset = off + int64(n)
 
 	return fuse.ReadResultData(buf[:n]), fuse.OK
+}
+
+func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
+	if f.reader == nil {
+		ranger, _, err := f.store.Get(f.ctx, paths.New(f.name))
+		if err != nil {
+			return nil, err
+		}
+
+		f.reader, err = ranger.Range(f.ctx, off, ranger.Size()-off)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return f.reader, nil
 }
 
 func (f *storjFile) Flush() fuse.Status {
