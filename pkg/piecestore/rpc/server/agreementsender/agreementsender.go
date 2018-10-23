@@ -39,16 +39,26 @@ func Initialize(DB *psdb.DB) (*AgreementSender, error) {
 func (as *AgreementSender) Run(ctx context.Context) error {
 	log.Println("AgreementSender is starting up")
 
-	c := make(chan []byte)
+	type agreementGroup struct {
+		satellite string
+		agreements []*psdb.Agreement
+	}
+
+	c := make(chan *agreementGroup, 1)
 
 	ticker := time.NewTicker(*defaultCheckInterval)
 	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
-			// agreements :=
+			agreementGroups, err := as.DB.GetBandwidthAllocations()
+			if err != nil {
+				as.errs = append(as.errs, err)
+				continue
+			}
 
-			// for range agreements
-			//   c <- &agreement
+			for satellite, agreements := range agreementGroups {
+				c <- &agreementGroup{satellite, agreements}
+			}
 		}
 	}()
 
@@ -56,12 +66,17 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return utils.CombineErrors(as.errs...)
-		case agreement := <-c:
-			log.Println(agreement)
-			// Deserealize agreement
+		case agreementGroup := <-c:
+			go func() {
+			// Deserealize agreements
+			log.Printf("Sending %v agreements\n", len(agreementGroup.agreements))
+
 			// Get satellite ip from payer_id
+			log.Printf("Sending agreements to satellite %s\n", agreementGroup.satellite)
+
 			// Create client from satellite ip
 			// Send agreement to satellite
+			}()
 		}
 	}
 }
