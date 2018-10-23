@@ -130,7 +130,7 @@ func (s *streamStore) upload(ctx context.Context, p storj.Path, data io.Reader, 
 		}
 	}()
 
-	derivedKey, err := encryption.DerivePathContentKey(p, s.rootKey)
+	derivedKey, err := encryption.DeriveContentKey(p, s.rootKey)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
@@ -316,7 +316,7 @@ func (s *streamStore) Get(ctx context.Context, p storj.Path) (rr ranger.Ranger, 
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := encryption.DerivePathContentKey(p, s.rootKey)
+	derivedKey, err := encryption.DeriveContentKey(p, s.rootKey)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -670,7 +670,7 @@ func decryptStreamInfo(ctx context.Context, item segments.Meta, path storj.Path,
 		return nil, err
 	}
 
-	derivedKey, err := encryption.DerivePathContentKey(path, rootKey)
+	derivedKey, err := encryption.DeriveContentKey(path, rootKey)
 	if err != nil {
 		return nil, err
 	}

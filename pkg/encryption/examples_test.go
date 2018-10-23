@@ -54,9 +54,9 @@ func ExampleEncryptPath() {
 	// Output:
 	// root key (32 bytes): 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 	// path to encrypt: fold1/fold2/fold3/file.txt
-	// encrypted path:  1Gurj5g6pHBdX2RpO35yvBazY3OVr/19-Zy--UYZzsavcAPlpggCuVL_bmU/1iqr60cuSjXVINP994lMcUi60IzFr/1wFrLU7nBiaoreIe4wLR9NoCSV837t5H_
+	// encrypted path:  -NFJg3s6dSsA9xnamPmiToejWCvyJop9IQrOc6kwSZV8/jBJ7q_fKGypIFF4I6QNSulyEi7lN3LqkG7PoeNW67PSQ/2hVJuIRjAQ57FTYPd4OCjrCbJit-L2hLLxQ9aD9QHGjG/D4CgV1J4Zv-Tfc4L0GmbuyqtQNJYUTNOtONlrTMgBxCv9ILh
 	// decrypted path:  fold1/fold2/fold3/file.txt
-	// shared path:     1iqr60cuSjXVINP994lMcUi60IzFr/1wFrLU7nBiaoreIe4wLR9NoCSV837t5H_
-	// derived key (32 bytes): 91b36388525a71160157741e1f3f696417f5305f0569b6eb5379b9b8dadaeb49
+	// shared path:     2hVJuIRjAQ57FTYPd4OCjrCbJit-L2hLLxQ9aD9QHGjG/D4CgV1J4Zv-Tfc4L0GmbuyqtQNJYUTNOtONlrTMgBxCv9ILh
+	// derived key (32 bytes): c24f0fe828a5f67e230ec6a20d3bab3f2f31fab9f4af57ef654f152d2a51e31d
 	// decrypted path:  fold3/file.txt
 }
