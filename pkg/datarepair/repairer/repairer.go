@@ -45,7 +45,7 @@ repairloop:
 	for {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
-		case <-r.ctx.Done(): // or the repairer is cancelled via context
+		case <-r.ctx.Done(): // or the repairer is canceled via context
 			break repairloop
 		}
 

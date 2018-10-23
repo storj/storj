@@ -46,10 +46,7 @@ func TestLimiterCancelling(t *testing.T) {
 				}
 
 				waitForCancel <- struct{}{}
-				select {
-				case <-block:
-					return
-				}
+				<-block
 			})
 		}
 	}()

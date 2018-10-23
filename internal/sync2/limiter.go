@@ -23,7 +23,7 @@ func NewLimiter(n int) *Limiter {
 
 // Go tries to starts fn as a goroutine.
 // When the limit is reached it will wait until it can run it
-// or the context is cancelled.
+// or the context is canceled.
 func (limiter *Limiter) Go(ctx context.Context, fn func()) bool {
 	select {
 	case limiter.limit <- struct{}{}:
