@@ -53,7 +53,7 @@ matrix:
         directories:
           - "%HOME%/cache"
       before_install:
-        - powershell scripts/setup-gopath.ps
+        - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
       install:
         - go install -race ./...
       script:
