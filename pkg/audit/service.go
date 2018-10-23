@@ -24,7 +24,7 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	APIKey           string        `help:"APIKey to access the statdb"`
+	APIKey           string        `help:"APIKey to access the statdb" default:"abc123"`
 	SatelliteAddr    string        `help:"address to contact services on the satellite"`
 	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
@@ -32,14 +32,7 @@ type Config struct {
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	ca, err := provider.NewCA(ctx, 12, 4)
-	if err != nil {
-		return err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return err
-	}
+	identity := server.Identity()
 	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
 	if err != nil {
 		return err
@@ -49,10 +42,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 	transport := transport.NewClient(identity)
-
 	cursor := NewCursor(pointers)
+
 	verifier := NewVerifier(transport, overlay, *identity)
-	reporter, err := NewReporter(ctx, c.SatelliteAddr, c.MaxRetriesStatDB)
+	reporter, err := NewReporter(ctx, c.SatelliteAddr, c.MaxRetriesStatDB, []byte(c.APIKey), identity)
 	if err != nil {
 		return err
 	}

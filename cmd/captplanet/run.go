@@ -115,6 +115,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 
+		if runCfg.Satellite.Audit.SatelliteAddr == "" {
+			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
+		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
@@ -139,13 +142,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 		go func() {
 			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
-		}()
-
-		go func() {
-			if runCfg.Satellite.Audit.SatelliteAddr == "" {
-				runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
-			}
-			errch <- runCfg.Satellite.Audit.Run(ctx, nil)
 		}()
 	}
 
