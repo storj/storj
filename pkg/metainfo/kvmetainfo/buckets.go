@@ -58,10 +58,15 @@ func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, 
 // ListBuckets lists buckets
 func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOptions) (storj.BucketList, error) {
 	var startAfter, endBefore string
-	if !options.Reverse {
-		startAfter = firstToStartAfter(options.First)
-	} else {
-		endBefore = options.First + "\x00"
+	switch options.Direction {
+	case storj.Before: // Before lists backwards from cursor, without cursor
+		endBefore = options.Cursor
+	case storj.Backward: // Backward lists backwards from cursor, including cursor
+		endBefore = options.Cursor + "\x00"
+	case storj.Forward: // Forward lists forwards from cursor, including cursor
+		startAfter = firstToStartAfter(options.Cursor)
+	case storj.After: // After lists forwards from cursor, without cursor
+		startAfter = options.Cursor
 	}
 
 	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)
@@ -69,22 +74,11 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		return storj.BucketList{}, err
 	}
 
-	list := storj.BucketList{
-		NextFirst: "",
-		More:      more,
-	}
+	list := storj.BucketList{More: more}
 
 	for _, item := range items {
 		list.Buckets = append(list.Buckets,
 			bucketFromMeta(item.Bucket, item.Meta))
-	}
-
-	if len(list.Buckets) > 0 && more {
-		if !options.Reverse {
-			list.NextFirst = list.Buckets[len(list.Buckets)-1].Name + "\x00"
-		} else {
-			list.NextFirst = firstToStartAfter(list.Buckets[0].Name)
-		}
 	}
 
 	return list, nil

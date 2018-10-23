@@ -61,10 +61,14 @@ func (create CreateObject) Object(bucket string, path Path) Object {
 type ListDirection int8
 
 const (
-	Before   = ListDirection(-2) // list backwards from cursor, without cursor
-	Backward = ListDirection(-1) // list backwards from cursor, with cursor
-	Forward  = ListDirection(1)  // list forwards from cursor, with cursor
-	After    = ListDirection(2)  // list forwards from cursor, without cursor
+	// Before lists backwards from cursor, without cursor
+	Before = ListDirection(-2)
+	// Backward lists backwards from cursor, including cursor
+	Backward = ListDirection(-1)
+	// Forward lists forwards from cursor, including cursor
+	Forward = ListDirection(1)
+	// After lists forwards from cursor, without cursor
+	After = ListDirection(2)
 )
 
 // ListOptions lists objects
