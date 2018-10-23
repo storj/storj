@@ -674,7 +674,7 @@ func decryptStreamInfo(ctx context.Context, item segments.Meta, path storj.Path,
 
 	cipher := storj.Cipher(streamMeta.EncryptionType)
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
-	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, (*storj.Key)(derivedKey), keyNonce)
+	contentKey, err := encryption.DecryptKey(encryptedKey, cipher, derivedKey, keyNonce)
 	if err != nil {
 		return nil, err
 	}
