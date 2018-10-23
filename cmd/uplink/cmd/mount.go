@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"sync"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -181,7 +180,6 @@ func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status)
 }
 
 type storjFile struct {
-	mutex           sync.Mutex
 	name            string
 	ctx             context.Context
 	store           objects.Store
@@ -192,9 +190,6 @@ type storjFile struct {
 }
 
 func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
 	// Detect if offset was moved manually (e.g. stream rev/fwd)
 	if off != f.predictedOffset {
 		f.close()
