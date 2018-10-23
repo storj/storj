@@ -47,15 +47,28 @@ func TestStreamStoreMeta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	staticTime := time.Now()
 	segmentMeta := segments.Meta{
 		Modified:   staticTime,
 		Expiration: staticTime,
-		Size:       10,
+		Size:       50,
 		Data:       lastSegmentMetadata,
 	}
-	streamMeta, err := convertMeta(segmentMeta)
+
+	streamMetaUnmarshaled := pb.StreamMeta{}
+	err = proto.Unmarshal(segmentMeta.Data, &streamMetaUnmarshaled)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	segmentMetaStreamInfo := segments.Meta{
+		Modified:   staticTime,
+		Expiration: staticTime,
+		Size:       50,
+		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
+	}
+
+	streamMeta, err := convertMeta(segmentMetaStreamInfo)
 	if err != nil {
 		t.Fatal(err)
 	}

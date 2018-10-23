@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
 	streams "storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -154,7 +155,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, err
 	}
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncKey, c.EncBlockSize, c.EncType)
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncKey, c.EncBlockSize, storj.Cipher(c.EncType))
 	if err != nil {
 		return nil, err
 	}

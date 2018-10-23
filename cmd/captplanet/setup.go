@@ -58,6 +58,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !setupCfg.Overwrite && err == nil {
 		fmt.Println("A captplanet configuration already exists. Rerun with --overwrite")
 		return nil
+	} else if setupCfg.Overwrite && err == nil {
+		fmt.Println("overwriting existing captplanet config")
+		err = os.RemoveAll(setupCfg.BasePath)
+		if err != nil {
+			return err
+		}
 	}
 
 	hcPath := filepath.Join(setupCfg.BasePath, "satellite")
