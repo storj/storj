@@ -51,6 +51,8 @@ repairloop:
 
 		seg, err := r.queue.Dequeue()
 		if err == nil {
+			// TODO: only log when err != ErrQueueEmpty
+			zap.L().Error("dequeue", zap.Error(err))
 			continue
 		}
 
