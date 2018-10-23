@@ -11,6 +11,9 @@ $env:GOSPACE_ROOT="$env:GOPATH"
 $env:GOSPACE_PKG="storj.io/storj"
 $env:GOSPACE_REPO="git@github.com:storj/storj.git"
 
+$LockingProcess = CMD /C "openfiles /query /fo table | find /I ""$env:GOPATH/src/github.com/storj/storj"""
+Write-Host $LockingProcess
+
 New-Item "$env:GOPATH/src/storj.io" -Force -ItemType "directory"
 Copy-Item -Recurse -Path "$env:GOPATH/src/github.com/storj/storj" -Destination "$env:GOPATH/src/storj.io/storj" 
 
