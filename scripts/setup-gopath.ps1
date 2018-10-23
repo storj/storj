@@ -12,7 +12,7 @@ $env:GOSPACE_PKG="storj.io/storj"
 $env:GOSPACE_REPO="git@github.com:storj/storj/git"
 
 New-Item "$env:GOPATH/src/storj.io" -ItemType "directory"
-Move-Item "$env:GOPATH/src/github.com/storj/storj" "$env:GOPATH/src/storj.io/storj"
+Copy-Item "$env:GOPATH/src/github.com/storj/storj" "$env:GOPATH/src/storj.io/storj"
 
 # setup gospace
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
