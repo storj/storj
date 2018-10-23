@@ -37,6 +37,11 @@ type DB struct {
 	check    *time.Ticker
 }
 
+type Agreement struct {
+	Agreement []byte
+	Signature []byte
+}
+
 // Open opens DB at DBPath
 func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -216,6 +221,31 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 			return agreements, err
 		}
 		agreements = append(agreements, agreement)
+	}
+	return agreements, nil
+}
+
+// GetBandwidthAllocationBySignature finds allocation info by signature
+func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
+	defer db.locked()()
+
+	rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements ORDER BY satellite`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	agreements := make(map[string][]*Agreement)
+	for rows.Next() {
+		var agreement *Agreement
+		var satellite string
+		err := rows.Scan(&satellite, &agreement.Agreement, &agreement.Signature)
+		if err != nil {
+			return agreements, err
+		}
+		agreements[satellite] = append(agreements[satellite], agreement)
 	}
 	return agreements, nil
 }
