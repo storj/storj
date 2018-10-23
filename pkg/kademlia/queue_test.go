@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-//IDFromBinStr turns a string like '110001' into a string like 'a'
+//BinStr turns a string like '110001' into a string like 'a'
 func BinStr(s string) string {
 	b := []byte(strings.Repeat("0", 8-len(s)%8) + s)
 	a := make([]byte, len(b)/8)
@@ -38,7 +38,7 @@ func TestXorQueue(t *testing.T) {
 
 	for i := 0; pq.Len() > 0; i++ {
 		node, priority := pq.Closest()
-		assert.Equal(t, big.NewInt(int64(expectedPriority[i])), priority)
+		assert.Equal(t, *big.NewInt(int64(expectedPriority[i])), priority)
 		assert.Equal(t, BinStr(expectedIds[i]), node.Id)
 	}
 }

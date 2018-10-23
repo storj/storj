@@ -45,9 +45,9 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 }
 
 //Closest removed the closest priority node from the queue
-func (x *XorQueue) Closest() (*pb.Node, dht.NodeID) {
+func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	item := *(heap.Pop(&x.items).(*item))
-	return item.value, item.priority
+	return item.value, *item.priority
 }
 
 //Len returns the number of items in the queue
