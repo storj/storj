@@ -17,7 +17,7 @@ func init() {
 		Use:   "cat",
 		Short: "Copies a Storj object to standard out",
 		RunE:  catMain,
-	})
+	}, CLICmd)
 }
 
 // catMain is the function executed when catCmd is called
