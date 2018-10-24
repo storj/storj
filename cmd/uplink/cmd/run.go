@@ -17,7 +17,7 @@ var (
 		Use:   "run",
 		Short: "Run the S3 gateway",
 		RunE:  cmdRun,
-	})
+	}, GWCmd)
 )
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {

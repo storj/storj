@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	process.Exec(cmd.CLICmd)
+	process.Exec(cmd.GWCmd)
 }

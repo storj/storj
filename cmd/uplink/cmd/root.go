@@ -23,14 +23,20 @@ type Config struct {
 
 var cfg Config
 
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
+// CLICmd represents the base CLI command when called without any subcommands
+var CLICmd = &cobra.Command{
 	Use:   "uplink",
-	Short: "The Storj client-side S3 gateway and CLI",
+	Short: "The Storj client-side CLI",
 }
 
-func addCmd(cmd *cobra.Command) *cobra.Command {
-	RootCmd.AddCommand(cmd)
+// GWCmd represents the base gateway command when called without any subcommands
+var GWCmd = &cobra.Command{
+	Use:   "gateway",
+	Short: "The Storj client-side S3 gateway",
+}
+
+func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
+	root.AddCommand(cmd)
 	cfgstruct.Bind(cmd.Flags(), &cfg, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	return cmd

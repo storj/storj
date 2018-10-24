@@ -36,7 +36,8 @@ var (
 )
 
 func init() {
-	RootCmd.AddCommand(setupCmd)
+	CLICmd.AddCommand(setupCmd)
+	GWCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
