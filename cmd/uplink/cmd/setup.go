@@ -78,8 +78,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err := os.MkdirAll(minioCerts, 0744); err != nil {
 			return err
 		}
-		os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt"))
-		os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key"))
+		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
+			return err
+		}
 	}
 
 	accessKey, err := generateAWSKey()

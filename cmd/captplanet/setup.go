@@ -121,8 +121,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err := os.MkdirAll(minioCertsPath, 0744); err != nil {
 			return err
 		}
-		os.Link(setupCfg.ULIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt"))
-		os.Link(setupCfg.ULIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key"))
+		if err := os.Link(setupCfg.ULIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.ULIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
+			return err
+		}
 	}
 
 	startingPort := setupCfg.StartingPort
