@@ -18,11 +18,11 @@ import (
 type Planet struct {
 	Directory string // TODO: ensure that everything is in-memory to speed things up
 
-	Nodes     []pb.Node
-	NodeLinks []string
+	nodes     []pb.Node
+	nodeLinks []string
 
-	Satellites   []*Node
-	StorageNodes []*Node
+	satellites   []*Node
+	storageNodes []*Node
 
 	identities *Identities
 }
@@ -65,12 +65,12 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.NewNodes(satelliteCount)
+	planet.satellites, err = planet.NewNodes(satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.NewNodes(storageNodeCount)
+	planet.storageNodes, err = planet.NewNodes(storageNodeCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -87,8 +87,8 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 
 func (planet *Planet) allNodes() []*Node {
 	var all []*Node
-	all = append(all, planet.Satellites...)
-	all = append(all, planet.StorageNodes...)
+	all = append(all, planet.satellites...)
+	all = append(all, planet.storageNodes...)
 	return all
 }
 
@@ -133,8 +133,8 @@ func (planet *Planet) NewNode() (*Node, error) {
 		},
 	}
 
-	planet.Nodes = append(planet.Nodes, node.Info)
-	planet.NodeLinks = append(planet.NodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
+	planet.nodes = append(planet.nodes, node.Info)
+	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
 
 	return node, nil
 }
@@ -165,7 +165,7 @@ func (node *Node) InitOverlay(planet *Planet) error {
 		return err
 	}
 
-	kad, err := kademlia.NewKademliaWithRoutingTable(node.Info, planet.Nodes, node.Identity, 5, routing)
+	kad, err := kademlia.NewKademliaWithRoutingTable(node.Info, planet.nodes, node.Identity, 5, routing)
 	if err != nil {
 		return utils.CombineErrors(err, routing.Close())
 	}
@@ -182,8 +182,8 @@ func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
 }
 
-func (planet *Planet) Satellite(index int) *Node { return planet.Satellites[index] }
-func (planet *Planet) SatelliteCount() int       { return len(planet.Satellites) }
+func (planet *Planet) Satellite(index int) *Node { return planet.satellites[index] }
+func (planet *Planet) SatelliteCount() int       { return len(planet.satellites) }
 
-func (planet *Planet) StorageNode(index int) *Node { return planet.StorageNodes[index] }
-func (planet *Planet) StorageNodeCount() int       { return len(planet.StorageNodes) }
+func (planet *Planet) StorageNode(index int) *Node { return planet.storageNodes[index] }
+func (planet *Planet) StorageNodeCount() int       { return len(planet.storageNodes) }
