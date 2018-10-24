@@ -9,17 +9,20 @@ import (
 )
 
 func TestBasic(t *testing.T) {
+	t.Log("New")
 	planet, err := New(1, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
+		t.Log("Shutdown")
 		err = planet.Shutdown()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
+	t.Log("Start")
 	err = planet.Start(context.Background())
 	if err != nil {
 		t.Fatal(err)

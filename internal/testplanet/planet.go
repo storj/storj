@@ -6,17 +6,24 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 
+	"go.uber.org/zap"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	piecestore "storj.io/storj/pkg/piecestore/rpc/server"
+	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
 )
 
 type Planet struct {
-	Directory string // TODO: ensure that everything is in-memory to speed things up
+	directory string // TODO: ensure that everything is in-memory to speed things up
 
 	nodes     []pb.Node
 	nodeLinks []string
@@ -33,8 +40,9 @@ type Node struct {
 	Listener net.Listener
 	Provider *provider.Provider
 	Kademlia *kademlia.Kademlia
+	Overlay  *overlay.Cache
 
-	Responsibilites []provider.Responsibility
+	Dependencies []interface{}
 }
 
 func (node *Node) ID() string   { return node.Info.Id }
@@ -51,6 +59,21 @@ func (node *Node) Shutdown() error {
 	if node.Kademlia != nil {
 		errs = append(errs, node.Kademlia.Disconnect())
 	}
+	for _, dep := range node.Dependencies {
+		if closer, ok := dep.(interface{ Close() error }); ok {
+			errs = append(errs, closer.Close())
+		} else if closer, ok := dep.(interface{ Close(context.Context) error }); ok {
+			errs = append(errs, closer.Close(context.Background()))
+		} else if stopper, ok := dep.(interface{ Stop() error }); ok {
+			errs = append(errs, stopper.Stop())
+		} else if stopper, ok := dep.(interface{ Stop(context.Context) error }); ok {
+			errs = append(errs, stopper.Stop(context.Background()))
+		} else if disconnect, ok := dep.(interface{ Disconnect() error }); ok {
+			errs = append(errs, disconnect.Disconnect())
+		} else if disconnect, ok := dep.(interface{ Disconnect(context.Context) error }); ok {
+			errs = append(errs, disconnect.Disconnect(context.Background()))
+		}
+	}
 	return utils.CombineErrors(errs...)
 }
 
@@ -60,7 +83,7 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 	}
 
 	var err error
-	planet.Directory, err = ioutil.TempDir("", "planet")
+	planet.directory, err = ioutil.TempDir("", "planet")
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +105,34 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		}
 	}
 
+	for _, node := range planet.satellites {
+		server := pointerdb.NewServer(
+			teststore.New(), node.Overlay,
+			zap.NewNop(),
+			pointerdb.Config{
+				MinRemoteSegmentSize: 1240,
+				MaxInlineSegmentSize: 8000,
+				Overlay:              true,
+			},
+			node.Identity)
+		pb.RegisterPointerDBServer(node.Provider.GRPC(), server)
+		node.Dependencies = append(node.Dependencies, server)
+	}
+
+	for _, node := range planet.storageNodes {
+		// TODO: use inmemory databases
+		server, err := piecestore.Initialize(context.Background(), piecestore.Config{
+			Path:               filepath.Join(planet.directory, node.ID()),
+			AllocatedDiskSpace: memory.GB.Int64(),
+			AllocatedBandwidth: 100 * memory.GB.Int64(),
+		}, node.Identity.Key)
+		if err != nil {
+			return nil, utils.CombineErrors(err, planet.Shutdown())
+		}
+		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
+		node.Dependencies = append(node.Dependencies, server)
+	}
+
 	return planet, nil
 }
 
@@ -101,7 +152,7 @@ func (planet *Planet) Shutdown() error {
 	for _, node := range planet.allNodes() {
 		errs = append(errs, node.Shutdown())
 	}
-	errs = append(errs, os.RemoveAll(planet.Directory))
+	errs = append(errs, os.RemoveAll(planet.directory))
 	return utils.CombineErrors(errs...)
 }
 
@@ -171,6 +222,8 @@ func (node *Node) InitOverlay(planet *Planet) error {
 	}
 
 	node.Kademlia = kad
+	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia)
+
 	return nil
 }
 
