@@ -107,7 +107,7 @@ func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, cipher storj.Cipher, key
 // DeriveKey derives new key from the given key and message using HMAC-SHA512
 func DeriveKey(key *storj.Key, message string) (*storj.Key, error) {
 	mac := hmac.New(sha512.New, key[:])
-	_, err := mac.Write([]byte("key" + message))
+	_, err := mac.Write([]byte(message))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

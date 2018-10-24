@@ -19,7 +19,7 @@ func EncryptPath(path storj.Path, key *storj.Key) (encrypted storj.Path, err err
 		if err != nil {
 			return "", err
 		}
-		key, err = DeriveKey(key, comp)
+		key, err = DerivePathKey(comp, key, 1)
 		if err != nil {
 			return "", err
 		}
@@ -35,7 +35,7 @@ func DecryptPath(path storj.Path, key *storj.Key) (decrypted storj.Path, err err
 		if err != nil {
 			return "", err
 		}
-		key, err = DeriveKey(key, comps[i])
+		key, err = DerivePathKey(comps[i], key, 1)
 		if err != nil {
 			return "", err
 		}
@@ -57,7 +57,7 @@ func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *stor
 
 	derivedKey = key
 	for i := 0; i < depth; i++ {
-		derivedKey, err = DeriveKey(derivedKey, comps[i])
+		derivedKey, err = DeriveKey(derivedKey, "path:"+comps[i])
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +85,7 @@ func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, e
 
 func encryptPathComponent(comp string, key *storj.Key) (string, error) {
 	// derive the key for the current path component
-	derivedKey, err := DeriveKey(key, comp)
+	derivedKey, err := DerivePathKey(comp, key, 1)
 	if err != nil {
 		return "", err
 	}
