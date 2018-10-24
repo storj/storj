@@ -9,7 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/internal/readcloser"
 )
 
 // A Ranger is a flexible data stream type that allows for more effective
