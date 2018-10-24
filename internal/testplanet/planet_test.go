@@ -9,7 +9,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	planet, err := New(1, 100)
+	planet, err := New(1, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
