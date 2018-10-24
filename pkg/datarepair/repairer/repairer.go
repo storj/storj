@@ -41,12 +41,14 @@ func newRepairer(ctx context.Context, queue q.RepairQueue, interval time.Duratio
 func (r *repairer) Run() (err error) {
 	defer mon.Task()(&r.ctx)(&err)
 
-repairloop:
+	// wait for all repairs to complete
+	defer r.limiter.Wait()
+
 	for {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-r.ctx.Done(): // or the repairer is canceled via context
-			break repairloop
+			return r.ctx.Err()
 		}
 
 		seg, err := r.queue.Dequeue()
@@ -63,10 +65,6 @@ repairloop:
 			}
 		})
 	}
-
-	// wait for repairers to complete things
-	r.limiter.Wait()
-	return r.ctx.Err()
 }
 
 // Repair starts repair of the segment
