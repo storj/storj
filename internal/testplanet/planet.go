@@ -15,10 +15,6 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-const (
-	kademliaAlpha = 5
-)
-
 type Planet struct {
 	Directory string // TODO: ensure that everything is in-memory to speed things up
 
@@ -93,7 +89,7 @@ func (planet *Planet) allNodes() []*Node {
 }
 
 func (planet *Planet) Start(ctx context.Context) error {
-
+	return nil
 }
 
 func (planet *Planet) Shutdown() error {
@@ -134,7 +130,7 @@ func (planet *Planet) NewNode() (*Node, error) {
 	}
 
 	planet.Nodes = append(planet.Nodes, node.Info)
-	planet.NodeLinks = append(planet.NodeLinks, node.Identity.String()+":"+node.Listener.Addr().String())
+	planet.NodeLinks = append(planet.NodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
 
 	return node, nil
 }
