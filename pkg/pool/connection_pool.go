@@ -103,8 +103,7 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (*Conn, error) {
 			return
 		}
 
-		client := pb.NewNodesClient(conn.grpc)
-		conn.Client = client
+		conn.Client = pb.NewNodesClient(conn.grpc)
 	})
 
 	if conn.err != nil {
