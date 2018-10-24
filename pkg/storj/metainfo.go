@@ -92,7 +92,7 @@ type ObjectList struct {
 	Items []Object
 }
 
-// NextPage returns options for listing the succesive page
+// NextPage returns options for listing the next page
 func (opts ListOptions) NextPage(list ObjectList) ListOptions {
 	if !list.More || len(list.Items) == 0 {
 		return ListOptions{}
