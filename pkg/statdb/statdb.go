@@ -6,6 +6,7 @@ package statdb
 import (
 	"context"
 	"strings"
+	"fmt"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -122,15 +123,54 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 // FindValidNodes finds a subset of storagenodes that meet reputation requirements
 func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering statdb Update")
-
-	/*nodeIds := getReq.NodeIds
-	minAuditCount := getReq.MinStats.AuditCount
-	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
-	minUptime := getReq.MinStats.UptimeRatio*/
+	s.logger.Debug("entering statdb FindValidNodes")
 
 	passedIds := [][]byte{}
+	passedMap := make(map[string]bool)
 	failedIds := [][]byte{}
+
+
+	nodeIds := getReq.NodeIds
+	minAuditCount := getReq.MinStats.AuditCount
+	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
+	minUptime := getReq.MinStats.UptimeRatio
+
+	idStr := "("
+	for i, id := range nodeIds {
+		idStr += fmt.Sprintf(`"%s"`, id)
+		if i+1 < len(nodeIds) {
+			idStr += ","
+		}
+	}
+	idStr += ")"
+	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at 
+		FROM nodes 
+		WHERE nodes.id in %s
+		AND nodes.total_audit_count >= %d
+		AND nodes.audit_success_count >= %f
+		AND nodes.uptime_success_count >= %f`, idStr, minAuditCount, minAuditSuccess, minUptime)
+
+	rows, err := s.DB.Query(queryStr)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		node := &dbx.Node{}
+		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeRatio, &node.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		passedIds =  append(passedIds, []byte(node.Id))
+		passedMap[node.Id] = true
+	}
+
+	for _, id := range nodeIds {
+		if !passedMap[string(id)] {
+			failedIds = append(failedIds, id)
+		}
+	}
 
 	return &pb.FindValidNodesResponse{
 		PassedIds: passedIds,

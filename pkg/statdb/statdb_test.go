@@ -120,6 +120,8 @@ func TestGetDoesNotExist(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TODO(moby) test FindValidNodes
+
 func TestUpdateExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
