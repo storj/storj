@@ -119,6 +119,25 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	}, nil
 }
 
+// FindValidNodes finds a subset of storagenodes that meet reputation requirements
+func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb Update")
+
+	/*nodeIds := getReq.NodeIds
+	minAuditCount := getReq.MinStats.AuditCount
+	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
+	minUptime := getReq.MinStats.UptimeRatio*/
+
+	passedIds := [][]byte{}
+	failedIds := [][]byte{}
+
+	return &pb.FindValidNodesResponse{
+		PassedIds: passedIds,
+		FailedIds: failedIds,
+	}, nil
+}
+
 // Update a single storagenode's stats in the db
 func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp *pb.UpdateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
