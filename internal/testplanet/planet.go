@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -53,9 +54,10 @@ func (node *Node) Shutdown() error {
 	if node.Provider != nil {
 		errs = append(errs, node.Provider.Close())
 	}
-	if node.Listener != nil {
-		errs = append(errs, node.Listener.Close())
-	}
+	// Provider automatically closes listener
+	// if node.Listener != nil {
+	// 	errs = append(errs, node.Listener.Close())
+	// }
 	if node.Kademlia != nil {
 		errs = append(errs, node.Kademlia.Disconnect())
 	}
@@ -143,8 +145,19 @@ func (planet *Planet) allNodes() []*Node {
 	return all
 }
 
-func (planet *Planet) Start(ctx context.Context) error {
-	return nil
+func (planet *Planet) Start(ctx context.Context) {
+	for _, node := range planet.allNodes() {
+		go func(node *Node) {
+			err := node.Provider.Run(ctx)
+			if err == grpc.ErrServerStopped {
+				err = nil
+			}
+			if err != nil {
+				// TODO: better error handling
+				panic(err)
+			}
+		}(node)
+	}
 }
 
 func (planet *Planet) Shutdown() error {
