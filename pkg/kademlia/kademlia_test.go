@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -39,13 +41,17 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 }
 
 func TestNewKademlia(t *testing.T) {
+	rootdir, err := ioutil.TempDir("", "kademlia")
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, os.RemoveAll(rootdir))
+	}()
+
 	cases := []struct {
 		id          dht.NodeID
-		dir         string
 		bn          []pb.Node
 		addr        string
 		expectedErr error
-		setup       func() error
 	}{
 		{
 			id: func() *node.ID {
@@ -54,14 +60,8 @@ func TestNewKademlia(t *testing.T) {
 				n := node.ID(id.ID)
 				return &n
 			}(),
-			dir: func() string {
-				dir, err := ioutil.TempDir("", "kad_test_A")
-				assert.NoError(t, err)
-				return dir
-			}(),
-			bn:    []pb.Node{pb.Node{Id: "foo"}},
-			addr:  "127.0.0.1:8080",
-			setup: func() error { return nil },
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
 		},
 		{
 			id: func() *node.ID {
@@ -70,29 +70,30 @@ func TestNewKademlia(t *testing.T) {
 				n := node.ID(id.ID)
 				return &n
 			}(),
-			dir: func() string {
-				dir, err := ioutil.TempDir("", "kad_test_B")
-				assert.NoError(t, err)
-				return dir
-			}(),
-			bn:    []pb.Node{pb.Node{Id: "foo"}},
-			addr:  "127.0.0.1:8080",
-			setup: func() error { return os.RemoveAll("kad_test_B") },
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
 		},
 	}
-	for _, v := range cases {
-		assert.NoError(t, v.setup())
+
+	for i, v := range cases {
+		dir := filepath.Join(rootdir, strconv.Itoa(i))
+
 		kc := kadconfig()
+
 		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, v.dir, kc)
-		defer cleanup(t, actual, v.dir)
+
+		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
+		assert.NoError(t, err)
+
 		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, actual.bootstrapNodes, v.bn)
-		assert.NotNil(t, actual.nodeClient)
-		assert.NotNil(t, actual.routingTable)
+		assert.Equal(t, kad.bootstrapNodes, v.bn)
+		assert.NotNil(t, kad.nodeClient)
+		assert.NotNil(t, kad.routingTable)
+
+		assert.NoError(t, kad.Disconnect(context.Background()))
 	}
 }
 
