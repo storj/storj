@@ -52,7 +52,7 @@ func (r *repairer) Run() (err error) {
 		}
 
 		seg, err := r.queue.Dequeue()
-		if err == nil {
+		if err != nil {
 			// TODO: only log when err != ErrQueueEmpty
 			zap.L().Error("dequeue", zap.Error(err))
 			continue
