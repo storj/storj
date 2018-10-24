@@ -63,13 +63,17 @@ func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, 
 func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOptions) (storj.BucketList, error) {
 	var startAfter, endBefore string
 	switch options.Direction {
-	case storj.Before: // Before lists backwards from cursor, without cursor
+	case storj.Before:
+		// before lists backwards from cursor, without cursor
 		endBefore = options.Cursor
-	case storj.Backward: // Backward lists backwards from cursor, including cursor
-		endBefore = options.Cursor + "\x00"
-	case storj.Forward: // Forward lists forwards from cursor, including cursor
-		startAfter = firstToStartAfter(options.Cursor)
-	case storj.After: // After lists forwards from cursor, without cursor
+	case storj.Backward:
+		// backward lists backwards from cursor, including cursor
+		endBefore = keyAfter(options.Cursor)
+	case storj.Forward:
+		// forward lists forwards from cursor, including cursor
+		startAfter = keyBefore(options.Cursor)
+	case storj.After:
+		// after lists forwards from cursor, without cursor
 		startAfter = options.Cursor
 	default:
 		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)

@@ -12,22 +12,18 @@ func objectPath(bucket string, path storj.Path) paths.Path {
 	return paths.New(path).Prepend(bucket)
 }
 
-// TODO: this is incorrect since there's no good way to get such a path
-func firstToStartAfterPath(first string) paths.Path {
-	startAfter := paths.New(first)
-	if len(startAfter) > 0 {
-		startAfter[len(startAfter)-1] = firstToStartAfter(startAfter[len(startAfter)-1])
-	}
-	return startAfter
-}
 */
 
-func firstToStartAfter(first string) string {
-	if first == "" {
+// TODO: known issue:
+//   this is incorrect since there's no good way to get such a path
+//   since the exact previous key is
+//     append(previousPrefix(cursor), infinite(0xFF)...)
+func keyBefore(cursor string) string {
+	if cursor == "" {
 		return ""
 	}
 
-	before := []byte(first)
+	before := []byte(cursor)
 	if before[len(before)-1] == 0 {
 		return string(before[:len(before)-1])
 	}
@@ -35,4 +31,8 @@ func firstToStartAfter(first string) string {
 
 	before = append(before, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
 	return string(before)
+}
+
+func keyAfter(cursor string) string {
+	return cursor + "\x00"
 }
