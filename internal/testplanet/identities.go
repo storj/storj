@@ -9,7 +9,7 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-//go:generate go run gen_identities.go -count 200 -out identities_table.go
+//go:generate go run gen_identities.go -count 150 -out identities_table.go
 
 type Identities struct {
 	list []*provider.FullIdentity

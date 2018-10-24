@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	count := flag.Int("count", 3, "number of identities to create")
+	count := flag.Int("count", 5, "number of identities to create")
 	out := flag.String("out", "identities_table.go", "generated file")
 	flag.Parse()
 
