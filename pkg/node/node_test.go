@@ -76,15 +76,9 @@ func TestPing(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			self: pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
-			toID: "",
-			toIdentity: func() *provider.FullIdentity {
-				ca, err := provider.NewCA(ctx, 12, 4)
-				assert.NoError(t, err)
-				identity, err := ca.NewIdentity()
-				assert.NoError(t, err)
-				return identity
-			}(),
+			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			toID:        "",
+			toIdentity:  newTestIdentity(t),
 			expectedErr: nil,
 		},
 	}
