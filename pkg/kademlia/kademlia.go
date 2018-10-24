@@ -149,11 +149,11 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 	ok, err := k.nodeClient.Ping(ctx, node)
 	if err != nil {
-		return nil, NodeErr.Wrap(err)
+		return pb.Node{}, NodeErr.Wrap(err)
 	}
 
 	if !ok {
-		return nil, NodeErr.New("Failed pinging node")
+		return pb.Node{}, NodeErr.New("Failed pinging node")
 	}
 
 	return node, nil

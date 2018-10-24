@@ -25,7 +25,7 @@ type Node struct {
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	c, err := n.getConnection(to)
+	c, err := n.getConnection(ctx, to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
@@ -50,7 +50,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	_, err := n.getConnection(to)
+	_, err := n.getConnection(ctx, to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
@@ -58,7 +58,7 @@ func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
 	return true, nil
 }
 
-func (n *Node) getConnection(to pb.Node) (pb.NodesClient, error) {
+func (n *Node) getConnection(ctx context.Context, to pb.Node) (pb.NodesClient, error) {
 	v, err := n.cache.Get(ctx, to.GetId())
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
