@@ -49,7 +49,7 @@ type EncryptionConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/miniogw"`
+	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
 }
 
 // ClientConfig is a configuration struct for the miniogw that controls how

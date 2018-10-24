@@ -31,6 +31,7 @@ var (
 		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
 		APIKey        string `default:"" help:"the api key to use for the satellite"`
 		EncKey        string `default:"" help:"your root encryption key"`
+		MinioTLS      bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 	}
 )
 
@@ -70,6 +71,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
+	}
+
+	if setupCfg.MinioTLS {
+		minioCerts := filepath.Join(setupCfg.BasePath, "minio", "certs")
+		if err := os.MkdirAll(minioCerts, 0744); err != nil {
+			return err
+		}
+		os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt"))
+		os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key"))
 	}
 
 	accessKey, err := generateAWSKey()
