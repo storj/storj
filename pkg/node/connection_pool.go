@@ -22,10 +22,9 @@ type ConnectionPool struct {
 
 // NewConnectionPool initializes a new in memory pool
 func NewConnectionPool() *ConnectionPool {
-	return &ConnectionPool{
-		cache: make(map[string]interface{}),
-		mu:    sync.RWMutex{},
-	}
+	p := &ConnectionPool{}
+	p.init()
+	return p
 }
 
 // Add takes a node ID as the key and a node client as the value to store
@@ -75,4 +74,8 @@ func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
 		}
 	}
 	return utils.CombineErrors(errs...)
+}
+
+func (mp *ConnectionPool) init() {
+	mp.cache = make(map[string]interface{})
 }
