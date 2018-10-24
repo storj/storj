@@ -21,7 +21,7 @@ func CATemplate() (*x509.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		Subject:               pkix.Name{CommonName: "Storj"},
+		Subject:               pkix.Name{Organization: []string{"Storj"}},
 	}
 
 	return template, nil
@@ -40,7 +40,7 @@ func LeafTemplate() (*x509.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
-		Subject:               pkix.Name{CommonName: "Storj"},
+		Subject:               pkix.Name{Organization: []string{"Storj"}},
 	}
 
 	return template, nil
