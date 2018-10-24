@@ -41,11 +41,8 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 }
 
 func TestNewKademlia(t *testing.T) {
-	rootdir, err := ioutil.TempDir("", "kademlia")
-	assert.NoError(t, err)
-	defer func() {
-		assert.NoError(t, os.RemoveAll(rootdir))
-	}()
+	rootdir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
 
 	cases := []struct {
 		id          dht.NodeID
@@ -93,7 +90,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.NotNil(t, kad.nodeClient)
 		assert.NotNil(t, kad.routingTable)
 
-		assert.NoError(t, kad.Disconnect(context.Background()))
+		disconnect(t, kad)
 	}
 }
 
@@ -105,10 +102,12 @@ func TestLookup(t *testing.T) {
 	kc := kadconfig()
 
 	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
-	go func() { _ = srv.Serve(lis) }()
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
-	dir, err := ioutil.TempDir("", "kad_test")
-	assert.NoError(t, err)
+
+	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
+
 	k := func() *Kademlia {
 		// make new identity
 		fid, err := newTestIdentity()
@@ -126,7 +125,9 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 		return k
 	}()
-	defer cleanup(t, k, dir)
+
+	defer disconnect(t, k)
+
 	cases := []struct {
 		k           *Kademlia
 		target      dht.NodeID
@@ -169,17 +170,22 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, s := testNode(t, []pb.Node{})
+	bn, cleanup, s := testNode(t, []pb.Node{})
 	defer disconnect(t, bn)
+	defer cleanup()
 	defer s.Stop()
 
-	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n1, cleanup1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer disconnect(t, n1)
+	defer cleanup1()
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n2, cleanup2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer disconnect(t, n2)
+	defer cleanup2()
 	defer s2.Stop()
 
 	err = n2.Bootstrap(context.Background())
@@ -190,7 +196,7 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
+func testNode(t *testing.T, bn []pb.Node) (*Kademlia, func(), *grpc.Server) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
@@ -201,9 +207,8 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
+	dir, cleanup := mktempdir(t, "kademlia")
 
-	dir, err := ioutil.TempDir("", "kad_test")
-	assert.NoError(t, err)
 	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
@@ -216,7 +221,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { _ = grpcServer.Serve(lis) }()
 
-	return k, grpcServer
+	return k, cleanup, grpcServer
 
 }
 
@@ -242,11 +247,14 @@ func TestGetNodes(t *testing.T) {
 	id2 := node.ID(fid2.ID)
 	assert.NotEqual(t, id, id2)
 	kid := dht.NodeID(fid.ID)
-	dir, err := ioutil.TempDir("", "kad_test")
-	assert.NoError(t, err)
+
+	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
+
 	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
-	defer cleanup(t, k, dir)
 	assert.NoError(t, err)
+	defer disconnect(t, k)
+
 	// add nodes
 	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
 	bw := []int64{1, 2, 3, 4}
@@ -414,16 +422,15 @@ func TestMeetsRestrictions(t *testing.T) {
 	}
 }
 
-func cleanup(t *testing.T, k *Kademlia, dir string) {
-	disconnect(t, k)
-	removeAll(t, dir)
+func mktempdir(t *testing.T, dir string) (string, func()) {
+	rootdir, err := ioutil.TempDir("", dir)
+	assert.NoError(t, err)
+	cleanup := func() {
+		assert.NoError(t, os.RemoveAll(rootdir))
+	}
+	return rootdir, cleanup
 }
 
 func disconnect(t *testing.T, k *Kademlia) {
 	assert.NoError(t, k.Disconnect(context.Background()))
-
-}
-
-func removeAll(t *testing.T, dir string) {
-	assert.NoError(t, os.RemoveAll(dir))
 }
