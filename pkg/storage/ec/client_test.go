@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -153,6 +154,8 @@ TestLoop:
 		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
+		{[]*pb.Node{nil, nil, node2, node3}, 0, 0, false,
+			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -166,18 +169,24 @@ TestLoop:
 
 		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if !tt.badInput {
-				derivedID, err := id.Derive([]byte(n.GetId()))
-				if !assert.NoError(t, err, errTag) {
-					continue TestLoop
-				}
-				ps := NewMockPSClient(ctrl)
-				gomock.InOrder(
-					ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any()).Return(errs[n]),
-					ps.EXPECT().Close().Return(nil),
-				)
-				m[n] = ps
+			if n == nil || tt.badInput {
+				continue
 			}
+			derivedID, err := id.Derive([]byte(n.GetId()))
+			if !assert.NoError(t, err, errTag) {
+				continue TestLoop
+			}
+			ps := NewMockPSClient(ctrl)
+			gomock.InOrder(
+				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any(), gomock.Any()).Return(errs[n]).
+					Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) {
+						// simulate that the mocked piece store client is reading the data
+						_, err := io.Copy(ioutil.Discard, data)
+						assert.NoError(t, err, errTag)
+					}),
+				ps.EXPECT().Close().Return(nil),
+			)
+			m[n] = ps
 		}
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
@@ -185,7 +194,8 @@ TestLoop:
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl)
+
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -259,12 +269,12 @@ TestLoop:
 					continue TestLoop
 				}
 				ps := NewMockPSClient(ctrl)
-				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
+				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any(), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
 				m[n] = ps
 			}
 		}
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
-		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size))
+		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
 			assert.NoError(t, err, errTag)
@@ -319,7 +329,7 @@ TestLoop:
 				}
 				ps := NewMockPSClient(ctrl)
 				gomock.InOrder(
-					ps.EXPECT().Delete(gomock.Any(), derivedID).Return(errs[n]),
+					ps.EXPECT().Delete(gomock.Any(), derivedID, gomock.Any()).Return(errs[n]),
 					ps.EXPECT().Close().Return(nil),
 				)
 				m[n] = ps
@@ -327,7 +337,7 @@ TestLoop:
 		}
 
 		ec := ecClient{d: &mockDialer{m: m}}
-		err := ec.Delete(ctx, tt.nodes, id)
+		err := ec.Delete(ctx, tt.nodes, id, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)

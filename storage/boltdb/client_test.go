@@ -53,3 +53,28 @@ func BenchmarkSuite(b *testing.B) {
 
 	testsuite.RunBenchmarks(b, store)
 }
+
+func TestSuiteShared(t *testing.T) {
+	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tempdir) }()
+
+	dbname := filepath.Join(tempdir, "bolt.db")
+	stores, err := NewShared(dbname, "alpha", "beta")
+	if err != nil {
+		t.Fatalf("failed to create db: %v", err)
+	}
+	defer func() {
+		for _, store := range stores {
+			if err := store.Close(); err != nil {
+				t.Fatalf("failed to close db: %v", err)
+			}
+		}
+	}()
+
+	for _, store := range stores {
+		testsuite.RunTests(t, store)
+	}
+}

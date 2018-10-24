@@ -37,6 +37,11 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("error receiving piece data")
 	}
 
+	authorization := recv.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return err
+	}
+
 	pd := recv.GetPieceData()
 	if pd == nil {
 		return RetrieveError.New("PieceStore message is nil")
@@ -44,8 +49,13 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 
 	log.Printf("Retrieving %s...", pd.GetId())
 
+	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
+	if err != nil {
+		return err
+	}
+
 	// Get path to data being retrieved
-	path, err := pstore.PathByID(pd.GetId(), s.DataDir)
+	path, err := pstore.PathByID(id, s.DataDir)
 	if err != nil {
 		return err
 	}
@@ -65,7 +75,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		totalToRead = fileSize - pd.GetOffset()
 	}
 
-	retrieved, allocated, err := s.retrieveData(ctx, stream, pd.GetId(), pd.GetOffset(), totalToRead)
+	retrieved, allocated, err := s.retrieveData(ctx, stream, id, pd.GetOffset(), totalToRead)
 	if err != nil {
 		return err
 	}
