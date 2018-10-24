@@ -129,8 +129,8 @@ type BucketListOptions struct {
 
 // BucketList is a list of buckets
 type BucketList struct {
-	More    bool
-	Buckets []Bucket
+	More  bool
+	Items []Bucket
 }
 
 // PreviousPage returns options for listing the previous page
@@ -140,7 +140,7 @@ func (list *BucketList) PreviousPage(limit int) (BucketListOptions, bool) {
 	}
 
 	return BucketListOptions{
-		Cursor:    list.Buckets[0].Name,
+		Cursor:    list.Items[0].Name,
 		Direction: Before,
 		Limit:     limit,
 	}, true
@@ -153,7 +153,7 @@ func (list *BucketList) NextPage(limit int) (BucketListOptions, bool) {
 	}
 
 	return BucketListOptions{
-		Cursor:    list.Buckets[len(list.Buckets)-1].Name,
+		Cursor:    list.Items[len(list.Items)-1].Name,
 		Direction: After,
 		Limit:     limit,
 	}, true

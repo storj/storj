@@ -83,8 +83,7 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 	list := storj.BucketList{More: more}
 
 	for _, item := range items {
-		list.Buckets = append(list.Buckets,
-			bucketFromMeta(item.Bucket, item.Meta))
+		list.Items = append(list.Items, bucketFromMeta(item.Bucket, item.Meta))
 	}
 
 	return list, nil
