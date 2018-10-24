@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 )
 
@@ -365,7 +366,7 @@ func (er *EncodedRanger) OutputSize() int64 {
 func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.Reader, error) {
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
-	firstBlock, blockCount := calcEncompassingBlocks(
+	firstBlock, blockCount := encryption.CalcEncompassingBlocks(
 		offset, length, er.rs.ErasureShareSize())
 	// okay, now let's encode the reader for the range containing the blocks
 	r, err := er.rr.Range(ctx,

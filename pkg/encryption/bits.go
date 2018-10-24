@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package eestream
+package encryption
 
 // incrementBytes takes a byte slice buf and treats it like a little-endian
 // encoded unsigned integer. it adds amount to it (which must be nonnegative)

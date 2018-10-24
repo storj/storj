@@ -34,6 +34,11 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Error receiving Piece metadata")
 	}
 
+	authorization := recv.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return err
+	}
+
 	pd := recv.GetPiecedata()
 	if pd == nil {
 		return StoreError.New("PieceStore message is nil")
@@ -45,13 +50,17 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("Piece ID not specified")
 	}
 
-	total, err := s.storeData(ctx, reqStream, pd.GetId())
+	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
+	if err != nil {
+		return err
+	}
+	total, err := s.storeData(ctx, reqStream, id)
 	if err != nil {
 		return err
 	}
 
-	if err = s.DB.AddTTL(pd.GetId(), pd.GetExpirationUnixSec(), total); err != nil {
-		deleteErr := s.deleteByID(pd.GetId())
+	if err = s.DB.AddTTL(id, pd.GetExpirationUnixSec(), total); err != nil {
+		deleteErr := s.deleteByID(id)
 		return StoreError.New("failed to write piece meta data to database: %v", utils.CombineErrors(err, deleteErr))
 	}
 

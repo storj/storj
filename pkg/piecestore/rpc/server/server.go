@@ -6,6 +6,8 @@ package server
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/hmac"
+	"crypto/sha512"
 	"errors"
 	"log"
 	"os"
@@ -14,12 +16,14 @@ import (
 	"time"
 
 	"github.com/gtank/cryptopasta"
+	"github.com/mr-tron/base58/base58"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
@@ -84,6 +88,7 @@ type Server struct {
 	pkey             crypto.PrivateKey
 	totalAllocated   int64
 	totalBwAllocated int64
+	verifier         auth.SignedMessageVerifier
 }
 
 // Initialize -- initializes a server struct
@@ -151,7 +156,8 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
-	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
+	signatureVerifier := auth.NewSignedMessageVerifier()
+	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth, verifier: signatureVerifier}, nil
 }
 
 // Stop the piececstore node
@@ -163,12 +169,22 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Printf("Getting Meta for %s...", in.GetId())
 
-	path, err := pstore.PathByID(in.GetId(), s.DataDir)
+	authorization := in.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return nil, err
+	}
+
+	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
 		return nil, err
 	}
 
-	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", in.GetId())
+	path, err := pstore.PathByID(id, s.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", id)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +199,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLByID(in.GetId())
+	ttl, err := s.DB.GetTTLByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +229,16 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
 	log.Printf("Deleting %s...", in.GetId())
 
-	if err := s.deleteByID(in.GetId()); err != nil {
+	authorization := in.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return nil, err
+	}
+
+	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.deleteByID(id); err != nil {
 		return nil, err
 	}
 
@@ -257,4 +282,22 @@ func getBeginningOfMonth() time.Time {
 	t := time.Now()
 	y, m, _ := t.Date()
 	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
+}
+
+func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
+	if namespace == nil {
+		return string(pieceID), nil
+	}
+
+	mac := hmac.New(sha512.New, namespace)
+	_, err := mac.Write(pieceID)
+	if err != nil {
+		return "", err
+	}
+	h := mac.Sum(nil)
+	return base58.Encode(h), nil
+}
+
+func getNamespace(signedMessage *pb.SignedMessage) []byte {
+	return signedMessage.GetData()
 }
