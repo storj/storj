@@ -35,8 +35,9 @@ func TestLimiterCancelling(t *testing.T) {
 
 	counter := int32(0)
 
-	waitForCancel := make(chan struct{})
+	waitForCancel := make(chan struct{}, N)
 	block := make(chan struct{})
+	allreturned := make(chan struct{})
 
 	go func() {
 		for i := 0; i < N; i++ {
@@ -49,17 +50,17 @@ func TestLimiterCancelling(t *testing.T) {
 				<-block
 			})
 		}
+		close(allreturned)
 	}()
 
 	for i := 0; i < Limit; i++ {
 		<-waitForCancel
 	}
 	cancel()
-	time.Sleep(time.Millisecond)
+	<-allreturned
 	close(block)
 
 	limiter.Wait()
-
 	if counter > Limit {
 		t.Fatal("too many times run")
 	}
