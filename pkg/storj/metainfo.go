@@ -92,32 +92,30 @@ type ObjectList struct {
 	Items []Object
 }
 
-// PreviousPage returns options for listing the previous page
-func (list *ObjectList) PreviousPage(limit int) (ListOptions, bool) {
-	if !list.More {
-		return ListOptions{}, false
+// NextPage returns options for listing the succesive page
+func (opts ListOptions) NextPage(list ObjectList) ListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return ListOptions{}
 	}
 
-	return ListOptions{
-		Prefix:    list.Prefix,
-		Cursor:    list.Items[0].Path,
-		Direction: Before,
-		Limit:     limit,
-	}, true
-}
-
-// NextPage returns options for listing the next page
-func (list *ObjectList) NextPage(limit int) (ListOptions, bool) {
-	if !list.More {
-		return ListOptions{}, false
+	switch opts.Direction {
+	case Before, Backward:
+		return ListOptions{
+			Prefix:    opts.Prefix,
+			Cursor:    list.Items[0].Path,
+			Direction: Before,
+			Limit:     opts.Limit,
+		}
+	case After, Forward:
+		return ListOptions{
+			Prefix:    opts.Prefix,
+			Cursor:    list.Items[len(list.Items)-1].Path,
+			Direction: After,
+			Limit:     opts.Limit,
+		}
 	}
 
-	return ListOptions{
-		Prefix:    list.Prefix,
-		Cursor:    list.Items[len(list.Items)-1].Path,
-		Direction: After,
-		Limit:     limit,
-	}, true
+	return ListOptions{}
 }
 
 // BucketListOptions lists objects
@@ -133,30 +131,28 @@ type BucketList struct {
 	Items []Bucket
 }
 
-// PreviousPage returns options for listing the previous page
-func (list *BucketList) PreviousPage(limit int) (BucketListOptions, bool) {
-	if !list.More {
-		return BucketListOptions{}, false
-	}
-
-	return BucketListOptions{
-		Cursor:    list.Items[0].Name,
-		Direction: Before,
-		Limit:     limit,
-	}, true
-}
-
 // NextPage returns options for listing the next page
-func (list *BucketList) NextPage(limit int) (BucketListOptions, bool) {
-	if !list.More {
-		return BucketListOptions{}, false
+func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return BucketListOptions{}
 	}
 
-	return BucketListOptions{
-		Cursor:    list.Items[len(list.Items)-1].Name,
-		Direction: After,
-		Limit:     limit,
-	}, true
+	switch opts.Direction {
+	case Before, Backward:
+		return BucketListOptions{
+			Cursor:    list.Items[0].Name,
+			Direction: Before,
+			Limit:     opts.Limit,
+		}
+	case After, Forward:
+		return BucketListOptions{
+			Cursor:    list.Items[len(list.Items)-1].Name,
+			Direction: After,
+			Limit:     opts.Limit,
+		}
+	}
+
+	return BucketListOptions{}
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database
