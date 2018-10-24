@@ -98,9 +98,21 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
-	meta, err := sf.store.Meta(sf.ctx, paths.New(name))
+	metadata, err := sf.store.Meta(sf.ctx, paths.New(name))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
+			items, _, err := sf.store.List(sf.ctx, paths.New(name), nil, nil, false, 1, meta.None)
+			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
+					return nil, fuse.ENOENT
+				}
+				return nil, fuse.EIO
+			}
+			// when at least one element has this prefix then it's directory
+			if len(items) == 1 {
+				return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
+			}
+
 			return nil, fuse.ENOENT
 		}
 		return nil, fuse.EIO
@@ -109,17 +121,13 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	return &fuse.Attr{
 		Owner: *fuse.CurrentOwner(),
 		Mode:  fuse.S_IFREG | 0644,
-		Size:  uint64(meta.Size),
-		Mtime: uint64(meta.Modified.Unix()),
+		Size:  uint64(metadata.Size),
+		Mtime: uint64(metadata.Modified.Unix()),
 	}, fuse.OK
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
-	// TODO(michal) prefixes/folders are not currently supported.
-	if name != "" {
-		return nil, fuse.ENOENT
-	}
-	entries, err := sf.listFiles(sf.ctx, sf.store)
+	entries, err := sf.listFiles(sf.ctx, name, sf.store)
 	if err != nil {
 		return nil, fuse.EIO
 	}
@@ -136,13 +144,13 @@ func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file 
 	}, fuse.OK
 }
 
-func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse.DirEntry, err error) {
+func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
 	var entries []fuse.DirEntry
 
 	startAfter := paths.New("")
 
 	for {
-		items, more, err := store.List(ctx, nil, startAfter, nil, false, 0, meta.Modified)
+		items, more, err := store.List(ctx, paths.New(name), startAfter, nil, false, 0, meta.Modified)
 		if err != nil {
 			return nil, err
 		}
@@ -150,10 +158,11 @@ func (sf *storjFs) listFiles(ctx context.Context, store objects.Store) (c []fuse
 		for _, object := range items {
 			path := object.Path.String()
 
-			var d fuse.DirEntry
-			d.Name = path
-			d.Mode = fuse.S_IFREG
-			entries = append(entries, d)
+			mode := fuse.S_IFREG
+			if object.IsPrefix {
+				mode = fuse.S_IFDIR
+			}
+			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
 		}
 
 		if !more {
