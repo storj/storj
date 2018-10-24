@@ -1,7 +1,7 @@
 language: go
 
-go:
-  - 1.11.x
+go: 1.11.x
+go_import_path: "storj.io/storj"
 
 git:
   depth: 1
@@ -23,9 +23,11 @@ before_script:
 
 before_install:
   - source scripts/setup-gopath.sh
-
 matrix:
+  allow_failures:
+    - os: windows # allow failures on windows because it's slow
   include:
+    ### tests ###
     - env: MODE=tests
       install:
         - pushd ~
@@ -35,16 +37,36 @@ matrix:
       script:
         - go test -race -cover -coverprofile=.coverprofile ./...
         - goveralls -coverprofile=.coverprofile -service=travis-ci
+    
+    ### run linters ###
     - env: MODE=lint
       install:
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
       script:
         - ./scripts/check-for-header.sh
         - golangci-lint run
+    
+    ### captplanet tests ###
     - env: MODE=integration
       install:
         - source scripts/install-awscli.sh
         - go install storj.io/storj/cmd/captplanet
       script:
         - make test-captplanet
+    
+    ### windows tests ###
+    - env: MODE=windows-tests
+      os: windows
+      cache:
+        directories:
+          - "%HOME%/cache"
+      before_install:
+        - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
+      install:
+        - go get github.com/mattn/goveralls
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile ./...
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
+
   fast_finish: true

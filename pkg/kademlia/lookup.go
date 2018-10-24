@@ -4,10 +4,9 @@
 package kademlia
 
 import (
-	"container/heap"
+	"bytes"
 	"context"
 	"log"
-	"math/big"
 	"time"
 
 	"storj.io/storj/pkg/dht"
@@ -17,7 +16,7 @@ import (
 
 type sequentialLookup struct {
 	contacted       map[string]bool
-	queue           PriorityQueue
+	queue           *XorQueue
 	slowestResponse time.Duration
 	client          node.Client
 	target          dht.NodeID
@@ -26,20 +25,8 @@ type sequentialLookup struct {
 }
 
 func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client, target dht.NodeID, limit int, bootstrap bool) *sequentialLookup {
-	targetBytes := new(big.Int).SetBytes(target.Bytes())
-
-	var queue PriorityQueue
-	{
-		for i, node := range nodes {
-			bnode := new(big.Int).SetBytes([]byte(node.GetId()))
-			queue = append(queue, &Item{
-				value:    node,
-				priority: new(big.Int).Xor(targetBytes, bnode),
-				index:    i,
-			})
-		}
-		heap.Init(&queue)
-	}
+	queue := NewXorQueue(limit)
+	queue.Insert(target, nodes)
 
 	return &sequentialLookup{
 		contacted:       map[string]bool{},
@@ -53,38 +40,29 @@ func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client,
 }
 
 func (lookup *sequentialLookup) Run(ctx context.Context) error {
-	zero := &big.Int{}
-	targetBytes := new(big.Int).SetBytes(lookup.target.Bytes())
-
-	for len(lookup.queue) > 0 {
+	for lookup.queue.Len() > 0 {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		item := heap.Pop(&lookup.queue).(*Item)
-		if !lookup.bootstrap && item.priority.Cmp(zero) == 0 {
-			// found the result
-			return nil
+		next, priority := lookup.queue.Closest()
+		if !lookup.bootstrap && bytes.Equal(priority.Bytes(), make([]byte, len(priority.Bytes()))) {
+			return nil // found the result
 		}
-		next := item.value
 
+		uncontactedNeighbors := []*pb.Node{}
 		neighbors := lookup.FetchNeighbors(ctx, next)
 		for _, neighbor := range neighbors {
-			if lookup.contacted[neighbor.GetId()] {
-				continue
+			if !lookup.contacted[neighbor.GetId()] {
+				uncontactedNeighbors = append(uncontactedNeighbors, neighbor)
 			}
-
-			priority := new(big.Int).Xor(targetBytes, new(big.Int).SetBytes(lookup.target.Bytes()))
-			heap.Push(&lookup.queue, &Item{
-				value:    neighbor,
-				priority: priority,
-			})
 		}
+		lookup.queue.Insert(lookup.target, uncontactedNeighbors)
 
-		for len(lookup.queue) > lookup.limit {
-			heap.Pop(&lookup.queue)
+		for lookup.queue.Len() > lookup.limit {
+			lookup.queue.Closest()
 		}
 	}
 	return nil
