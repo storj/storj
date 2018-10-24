@@ -22,20 +22,17 @@ func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()
 	}
 	localNode := &pb.Node{Id: string(localNodeID)}
 
-	options := &RoutingOptions{
-		idLength:     16,
-		bucketSize:   6,
-		rcBucketSize: 2,
-	}
-	rt, err := NewRoutingTable(localNode,
-		teststore.New(),
-		teststore.New(),
-		options,
+	rt, err := NewRoutingTable(localNode, teststore.New(), teststore.New(),
+		&RoutingOptions{
+			IDLength:     16,
+			BucketSize:   6,
+			RCBucketSize: 2,
+		},
 	)
-
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return rt, func() {
 		err := rt.Close()
 		if err != nil {

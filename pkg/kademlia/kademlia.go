@@ -70,49 +70,20 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 	kdb, ndb := dbs[0], dbs[1]
 
-	rt, err := NewRoutingTable(&self, kdb, ndb, &RoutingOptions{
-		idLength:     kadconfig.DefaultIDLength,
-		bucketSize:   kadconfig.DefaultBucketSize,
-		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
+	rt, err := NewRoutingTable(self, kdb, ndb, &RoutingOptions{
+		IDLength:     kadconfig.DefaultIDLength,
+		BucketSize:   kadconfig.DefaultBucketSize,
+		RCBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
-
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	for _, v := range bootstrapNodes {
-		ok, err := rt.addNode(&v)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
-		}
-	}
-
-	k := &Kademlia{
-		alpha:          kadconfig.Alpha,
-		routingTable:   rt,
-		bootstrapNodes: bootstrapNodes,
-		address:        address,
-		identity:       identity,
-	}
-
-	nc, err := node.NewNodeClient(identity, self, k)
-	if err != nil {
-		return nil, BootstrapErr.Wrap(err)
-	}
-
-	k.nodeClient = nc
-
-	return k, nil
+	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, kadconfig.Alpha, rt)
 }
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
-func NewKademliaWithRoutingTable(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
-	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
-
-	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
+func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
 		if err != nil {
@@ -127,7 +98,7 @@ func NewKademliaWithRoutingTable(id dht.NodeID, bootstrapNodes []pb.Node, addres
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
-		address:        address,
+		address:        self.Address.Address,
 		identity:       identity,
 	}
 
