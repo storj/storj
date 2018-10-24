@@ -13,14 +13,19 @@ import (
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 )
 
 var (
 	mon                  = monkit.Package()
 	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check_interval", time.Hour, "number of seconds to sleep between agreement checks")
+	defaultOverlayAddr = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7777", "Overlay Address")
+
 
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
@@ -29,12 +34,19 @@ var (
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
 	DB   *psdb.DB
+	overlay overlay.Client
+	identity *provider.FullIdentity
 	errs []error
 }
 
 // Initialize the Agreement Sender
-func Initialize(DB *psdb.DB) (*AgreementSender, error) {
-	return &AgreementSender{DB: DB}, nil
+func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender, error) {
+	overlay, err := overlay.NewOverlayClient(identity, *defaultOverlayAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AgreementSender{DB: DB, identity: identity, overlay: overlay}, nil
 }
 
 // Run the afreement sender with a context to cehck for cancel
@@ -58,6 +70,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				continue
 			}
 
+			// Send agreements in groups by satellite id to open less connections
 			for satellite, agreements := range agreementGroups {
 				c <- &agreementGroup{satellite, agreements}
 			}
@@ -72,22 +85,27 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			go func() {
 				log.Printf("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
-				// TODO: Get satellite ip from agreementGroup.satellite
-				satelliteAddr := ":7777"
+				// Get satellite ip from overlay by Lookup agreementGroup.satellite
+				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
+				if err != nil {
+					as.errs = append(as.errs, err)
+					return
+				}
 
-				// TODO: Create client from satellite ip
-				identOpt, err := identity.DialOption()
+				// Create client from satellite ip
+				identOpt, err := as.identity.DialOption()
 				if err != nil {
 					as.errs = append(as.errs, err)
 					return
 				}
 
 				var conn *grpc.ClientConn
-				conn, err = grpc.Dial(satelliteAddr, identOpt)
+				conn, err = grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
 					as.errs = append(as.errs, err)
 					return
 				}
+
 
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
@@ -99,8 +117,10 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				for _, agreement := range agreementGroup.agreements {
 					log.Println(agreement)
 
-					// TODO: Deserealize agreement
-					msg := &pb.RenterBandwidthAllocation{}
+					msg := &pb.RenterBandwidthAllocation{
+						Data: agreement.Agreement,
+						Signature: agreement.Signature,
+					}
 
 					// Send agreement to satellite
 					if err = stream.Send(msg); err != nil {
@@ -108,11 +128,13 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 							log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 						}
 
+						// TODO: Handle Errors better
 						as.errs = append(as.errs, err)
 						return
 					}
 
-					// TODO: Delete from PSDB by signature
+					// Delete from PSDB by signature
+					as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature)
 				}
 			}()
 		}
