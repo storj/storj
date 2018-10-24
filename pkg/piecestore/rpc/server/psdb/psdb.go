@@ -201,6 +201,18 @@ func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 	return err
 }
 
+// DeleteBandwidthAllocationBySignature finds an allocation by signature and deletes it
+func (db *DB) DeleteBandwidthAllocationBySignature(signature []byte) error {
+	defer db.locked()()
+
+	_, err := db.DB.Exec(`DELETE FROM bandwidth_agreements WHERE signature=?`, signature)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+
+	return err
+}
+
 // GetBandwidthAllocationBySignature finds allocation info by signature
 func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, error) {
 	defer db.locked()()
