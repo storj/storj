@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/pkg/provider"
 )
 
 type TestFoo struct {
@@ -25,7 +26,7 @@ func TestGet(t *testing.T) {
 	}{
 		{
 			pool: func() *ConnectionPool {
-				p := NewConnectionPool()
+				p := NewConnectionPool(newTestIdentity(t))
 				assert.NoError(t, p.Add(ctx, "foo", TestFoo{called: "hoot"}))
 				return p
 			}(),
@@ -54,7 +55,7 @@ func TestAdd(t *testing.T) {
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				cache: map[string]interface{}{}},
+				items: map[string]*Conn{}},
 			key:           "foo",
 			value:         TestFoo{called: "hoot"},
 			expected:      TestFoo{called: "hoot"},
@@ -84,7 +85,7 @@ func TestRemove(t *testing.T) {
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				cache: map[string]interface{}{"foo": TestFoo{called: "hoot"}}},
+				items: map[string]*Conn{}},
 			key:           "foo",
 			expected:      nil,
 			expectedError: nil,
@@ -101,4 +102,14 @@ func TestRemove(t *testing.T) {
 
 		assert.Equal(t, v.expected, test)
 	}
+}
+
+func newTestIdentity(t *testing.T) *provider.FullIdentity {
+	ctx := context.Background()
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	return identity
 }

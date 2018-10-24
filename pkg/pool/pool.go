@@ -5,7 +5,12 @@ package pool
 
 import (
 	"context"
+
+	"github.com/zeebo/errs"
 )
+
+// PoolError is the class of errors for the pool package
+var PoolError = errs.Class("pool error")
 
 // Pool is a set of actions for maintaining a node connection pool
 type Pool interface {

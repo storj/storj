@@ -5,32 +5,27 @@ package node
 
 import (
 	"context"
-	"log"
-
-	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pool"
-	"storj.io/storj/pkg/transport"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
 	dht   dht.DHT
 	self  pb.Node
-	tc    transport.Client
-	cache pool.Pool
+	cache *pool.ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	c, err := n.getConnection(ctx, to)
+	c, err := n.cache.Dial(ctx, &to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
+	resp, err := c.Client.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
@@ -50,34 +45,10 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	_, err := n.getConnection(ctx, to)
+	_, err := n.cache.Dial(ctx, &to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
 
 	return true, nil
-}
-
-func (n *Node) getConnection(ctx context.Context, to pb.Node) (pb.NodesClient, error) {
-	v, err := n.cache.Get(ctx, to.GetId())
-	if err != nil {
-		return nil, NodeClientErr.Wrap(err)
-	}
-
-	var conn *grpc.ClientConn
-	if c, ok := v.(*grpc.ClientConn); ok {
-		conn = c
-	} else {
-		c, err := n.tc.DialNode(ctx, &to)
-		if err != nil {
-			return nil, NodeClientErr.Wrap(err)
-		}
-
-		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
-			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
-		}
-		conn = c
-	}
-
-	return pb.NewNodesClient(conn), nil
 }

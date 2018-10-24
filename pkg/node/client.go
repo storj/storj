@@ -24,8 +24,7 @@ func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (
 	return &Node{
 		dht:   dht,
 		self:  self,
-		tc:    client,
-		cache: pool.NewConnectionPool(),
+		cache: pool.NewConnectionPool(identity),
 	}, nil
 }
 
