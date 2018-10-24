@@ -6,9 +6,13 @@ package kvmetainfo
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
 )
+
+var errClass = errs.Class("kvmetainfo")
 
 // Buckets implements storj.Metainfo bucket handling
 type Buckets struct {
@@ -67,6 +71,8 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		startAfter = firstToStartAfter(options.Cursor)
 	case storj.After: // After lists forwards from cursor, without cursor
 		startAfter = options.Cursor
+	default:
+		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
 	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)

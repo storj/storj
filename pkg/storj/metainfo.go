@@ -74,7 +74,7 @@ const (
 // ListOptions lists objects
 type ListOptions struct {
 	Prefix    Path
-	Cursor    Path // Cursor is relative to Prefix, full path is Prefix + First
+	Cursor    Path // Cursor is relative to Prefix, full path is Prefix + Cursor
 	Delimiter rune
 	Recursive bool
 	Direction ListDirection
