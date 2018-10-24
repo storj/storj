@@ -37,7 +37,7 @@ func ExampleEncryptPath() {
 	fmt.Println("decrypted path: ", decryptedPath)
 
 	// handling of shared path
-	sharedPath := storj.TrimLeftPathComponents(encryptedPath, 2)
+	sharedPath := storj.JoinPaths(storj.SplitPath(encryptedPath)[2:]...)
 	fmt.Println("shared path:    ", sharedPath)
 	derivedKey, err := encryption.DerivePathKey(decryptedPath, seed, 2)
 	if err != nil {

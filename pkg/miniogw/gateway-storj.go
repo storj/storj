@@ -6,7 +6,7 @@ package miniogw
 import (
 	"context"
 	"io"
-	"path"
+	"strings"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -224,18 +224,18 @@ func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker, 
 	}
 	if len(items) > 0 {
 		for _, item := range items {
-			p := item.Path
-			if recursive {
-				p = path.Join(prefix, p)
+			path := item.Path
+			if recursive && prefix != "" {
+				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
 			}
 			if item.IsPrefix {
-				prefixes = append(prefixes, p+"/")
+				prefixes = append(prefixes, path)
 				continue
 			}
 			objects = append(objects, minio.ObjectInfo{
 				Bucket:      bucket,
 				IsDir:       false,
-				Name:        p,
+				Name:        path,
 				ModTime:     item.Meta.Modified,
 				Size:        item.Meta.Size,
 				ContentType: item.Meta.ContentType,
@@ -290,18 +290,18 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 
 	if len(items) > 0 {
 		for _, item := range items {
-			p := item.Path
-			if recursive {
-				p = path.Join(prefix, p)
+			path := item.Path
+			if recursive && prefix != "" {
+				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
 			}
 			if item.IsPrefix {
-				prefixes = append(prefixes, p+"/")
+				prefixes = append(prefixes, path)
 				continue
 			}
 			objects = append(objects, minio.ObjectInfo{
 				Bucket:      bucket,
 				IsDir:       false,
-				Name:        p,
+				Name:        path,
 				ModTime:     item.Meta.Modified,
 				Size:        item.Meta.Size,
 				ContentType: item.Meta.ContentType,

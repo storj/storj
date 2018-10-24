@@ -107,7 +107,7 @@ func listFiles(ctx context.Context, bs buckets.Store, prefix fpath.FPath, prepen
 				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
 			}
 			if object.IsPrefix {
-				fmt.Println("PRE", path+"/")
+				fmt.Println("PRE", path)
 			} else {
 				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Meta.Modified), object.Meta.Size, path)
 			}

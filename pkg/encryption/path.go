@@ -7,14 +7,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
-	"path"
 
 	"storj.io/storj/pkg/storj"
 )
 
-// EncryptPath encrypts the p path with the given key
-func EncryptPath(p storj.Path, key *storj.Key) (encrypted storj.Path, err error) {
-	comps := storj.PathComponents(p)
+// EncryptPath encrypts path with the given key
+func EncryptPath(path storj.Path, key *storj.Key) (encrypted storj.Path, err error) {
+	comps := storj.SplitPath(path)
 	for i, comp := range comps {
 		comps[i], err = encryptPathComponent(comp, key)
 		if err != nil {
@@ -25,12 +24,12 @@ func EncryptPath(p storj.Path, key *storj.Key) (encrypted storj.Path, err error)
 			return "", err
 		}
 	}
-	return path.Join(comps...), nil
+	return storj.JoinPaths(comps...), nil
 }
 
-// DecryptPath decrypts the p path with the given key
-func DecryptPath(p storj.Path, key *storj.Key) (decrypted storj.Path, err error) {
-	comps := storj.PathComponents(p)
+// DecryptPath decrypts path with the given key
+func DecryptPath(path storj.Path, key *storj.Key) (decrypted storj.Path, err error) {
+	comps := storj.SplitPath(path)
 	for i, comp := range comps {
 		comps[i], err = decryptPathComponent(comp, key)
 		if err != nil {
@@ -41,7 +40,7 @@ func DecryptPath(p storj.Path, key *storj.Key) (decrypted storj.Path, err error)
 			return "", err
 		}
 	}
-	return path.Join(comps...), nil
+	return storj.JoinPaths(comps...), nil
 }
 
 // DerivePathKey derives the key for the given depth from the given root key.
@@ -51,7 +50,7 @@ func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *stor
 		return nil, Error.New("negative depth")
 	}
 
-	comps := storj.PathComponents(path)
+	comps := storj.SplitPath(path)
 	if depth > len(comps) {
 		return nil, Error.New("depth greater than path length")
 	}
@@ -69,7 +68,7 @@ func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *stor
 // DeriveContentKey derives the key for the encrypted object data using the root key.
 // This method must be called on an unencrypted path.
 func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, err error) {
-	comps := storj.PathComponents(path)
+	comps := storj.SplitPath(path)
 	if len(comps) == 0 {
 		return nil, Error.New("path is empty")
 	}
@@ -113,7 +112,7 @@ func encryptPathComponent(comp string, key *storj.Key) (string, error) {
 
 func decryptPathComponent(comp string, key *storj.Key) (string, error) {
 	if comp == "" {
-		return "", Error.New("empty cipher text")
+		return "", nil
 	}
 
 	data, err := base64.RawURLEncoding.DecodeString(comp)

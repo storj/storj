@@ -15,10 +15,13 @@ import (
 func TestEncryption(t *testing.T) {
 	for i, path := range []storj.Path{
 		"",
+		"/",
+		"//",
 		"file.txt",
+		"file.txt/",
 		"fold1/file.txt",
 		"fold1/fold2/file.txt",
-		"fold1/fold2/fold3/file.txt",
+		"/fold1/fold2/fold3/file.txt",
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -72,12 +75,13 @@ func TestDeriveKey(t *testing.T) {
 			continue
 		}
 
-		shared := storj.TrimLeftPathComponents(encrypted, tt.depth)
+		shared := storj.JoinPaths(storj.SplitPath(encrypted)[tt.depth:]...)
 		decrypted, err := DecryptPath(shared, derivedKey)
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
 
-		assert.Equal(t, storj.TrimLeftPathComponents(tt.path, tt.depth), decrypted, errTag)
+		expected := storj.JoinPaths(storj.SplitPath(tt.path)[tt.depth:]...)
+		assert.Equal(t, expected, decrypted, errTag)
 	}
 }

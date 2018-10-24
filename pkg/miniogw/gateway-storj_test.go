@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path"
 	"testing"
 	"time"
 
@@ -367,22 +366,22 @@ func TestListObjects(t *testing.T) {
 		{
 			more: false, startAfter: "", nextMarker: "", delimiter: "", recursive: true,
 			objInfos: []minio.ObjectInfo{
-				{Bucket: bucket, Name: path.Join("test-prefix/test-file-1.txt")},
-				{Bucket: bucket, Name: path.Join("test-prefix/test-file-2.txt")},
+				{Bucket: bucket, Name: "test-prefix/test-file-1.txt"},
+				{Bucket: bucket, Name: "test-prefix/test-file-2.txt"},
 			}, err: nil, errString: "",
 		},
 		{
 			more: true, startAfter: "test-start-after", nextMarker: "test-file-2.txt", delimiter: "/", recursive: false,
 			objInfos: []minio.ObjectInfo{
-				{Bucket: bucket, Name: path.Join("test-file-1.txt")},
-				{Bucket: bucket, Name: path.Join("test-file-2.txt")},
+				{Bucket: bucket, Name: "test-file-1.txt"},
+				{Bucket: bucket, Name: "test-file-2.txt"},
 			}, err: nil, errString: "",
 		},
 		{
 			more: false, startAfter: "", nextMarker: "", delimiter: "", recursive: true,
 			objInfos: []minio.ObjectInfo{
-				{Bucket: bucket, Name: path.Join("test-prefix/test-file-1.txt")},
-				{Bucket: bucket, Name: path.Join("test-prefix/test-file-2.txt")},
+				{Bucket: bucket, Name: "test-prefix/test-file-1.txt"},
+				{Bucket: bucket, Name: "test-prefix/test-file-2.txt"},
 			}, err: Error.New("error"), errString: "Storj Gateway error: error",
 		},
 	} {

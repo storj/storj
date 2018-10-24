@@ -10,42 +10,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPathComponents(t *testing.T) {
+func TestSplitPath(t *testing.T) {
 	for i, tt := range []struct {
 		path  string
 		comps []string
 	}{
 		{"", []string{}},
-		{"/", []string{}},
-		{"//", []string{}},
+		{"/", []string{"", ""}},
+		{"//", []string{"", "", ""}},
 		{" ", []string{" "}},
 		{"a", []string{"a"}},
-		{"/a/", []string{"a"}},
+		{"/a/", []string{"", "a", ""}},
 		{"a/b/c/d", []string{"a", "b", "c", "d"}},
-		{"///a//b////c/d///", []string{"a", "b", "c", "d"}},
+		{"///a//b////c/d///", []string{"", "", "", "a", "", "b", "", "", "", "c", "d", "", "", ""}},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-		assert.Equal(t, tt.comps, PathComponents(tt.path), errTag)
+		assert.Equal(t, tt.comps, SplitPath(tt.path), errTag)
 	}
 }
 
-func TestTrimLeftPathComponents(t *testing.T) {
+func TestJoinPaths(t *testing.T) {
 	for i, tt := range []struct {
-		path    string
-		num     int
-		trimmed string
+		comps []string
+		path  string
 	}{
-		{"", 0, ""},
-		{"", 1, ""},
-		{" ", 0, " "},
-		{" ", 1, ""},
-		{"a", 0, "a"},
-		{"a", 1, ""},
-		{"a/b/c/d", 0, "a/b/c/d"},
-		{"a/b/c/d", 2, "c/d"},
-		{"a/b/c/d", 5, ""},
+		{[]string{}, ""},
+		{[]string{""}, ""},
+		{[]string{"", ""}, "/"},
+		{[]string{"/", ""}, "//"},
+		{[]string{"/", "/"}, "///"},
+		{[]string{"", "", ""}, "//"},
+		{[]string{" "}, " "},
+		{[]string{"a"}, "a"},
+		{[]string{"", "a", ""}, "/a/"},
+		{[]string{"a", "b", "c", "d"}, "a/b/c/d"},
+		{[]string{"a/b", "c/d"}, "a/b/c/d"},
+		{[]string{"a/b/", "c/d"}, "a/b//c/d"},
+		{[]string{"", "", "", "a", "", "b", "", "", "", "c", "d", "", "", ""}, "///a//b////c/d///"},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-		assert.Equal(t, tt.trimmed, TrimLeftPathComponents(tt.path, tt.num), errTag)
+		assert.Equal(t, tt.path, JoinPaths(tt.comps...), errTag)
 	}
 }
