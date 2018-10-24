@@ -23,6 +23,8 @@ type Planet struct {
 
 	Satellites   []*Node
 	StorageNodes []*Node
+
+	identities *Identities
 }
 
 type Node struct {
@@ -53,7 +55,9 @@ func (node *Node) Shutdown() error {
 }
 
 func New(satelliteCount, storageNodeCount int) (*Planet, error) {
-	planet := &Planet{}
+	planet := &Planet{
+		identities: pregeneratedIdentities.Clone(),
+	}
 
 	var err error
 	planet.Directory, err = ioutil.TempDir("", "planet")
@@ -171,18 +175,7 @@ func (node *Node) InitOverlay(planet *Planet) error {
 }
 
 func (planet *Planet) NewIdentity() (*provider.FullIdentity, error) {
-	// TODO: create a static table
-	ca, err := provider.NewCA(context.Background(), 14, 4)
-	if err != nil {
-		return nil, err
-	}
-
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, err
-	}
-
-	return identity, nil
+	return planet.identities.NewIdentity()
 }
 
 func (planet *Planet) NewListener() (net.Listener, error) {
