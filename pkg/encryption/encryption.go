@@ -4,8 +4,6 @@
 package encryption
 
 import (
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/storj"
 )
 
@@ -37,7 +35,7 @@ func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonc
 	case storj.SecretBox:
 		return EncryptSecretBox(data, key, nonce)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -51,7 +49,7 @@ func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *stor
 	case storj.SecretBox:
 		return DecryptSecretBox(cipherData, key, nonce)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -65,7 +63,7 @@ func NewEncrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonc
 	case storj.SecretBox:
 		return NewSecretboxEncrypter(key, startingNonce, encryptedBlockSize)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -79,7 +77,7 @@ func NewDecrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonc
 	case storj.SecretBox:
 		return NewSecretboxDecrypter(key, startingNonce, encryptedBlockSize)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 

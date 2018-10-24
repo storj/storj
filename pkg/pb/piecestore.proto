@@ -54,6 +54,8 @@ message PieceStore {
 
 message PieceId {
   string id = 1;
+
+  SignedMessage authorization = 2;
 }
 
 message PieceSummary {
