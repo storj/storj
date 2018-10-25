@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"math/bits"
 	"net"
@@ -22,7 +23,6 @@ import (
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
-	"fmt"
 )
 
 const (
