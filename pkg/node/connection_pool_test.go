@@ -11,10 +11,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-type TestFoo struct {
-	called string
-}
-
 func TestGet(t *testing.T) {
 	cases := []struct {
 		pool          *ConnectionPool
