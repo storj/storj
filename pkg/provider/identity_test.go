@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -19,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/peertls"
-	"fmt"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
@@ -215,10 +215,10 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	tmp := path.Join(os.TempDir(), "temp-ca-whitelist.pem")
 	w, err := os.Create(tmp)
 	assert.NoError(t, err)
-	defer func(){
+	defer func() {
 		err := os.RemoveAll(tmp)
 		if err != nil {
-			fmt.Errorf("unable to cleanup temp ca whitelist at \"%s\": %s", tmp, err.Error())
+			fmt.Printf("unable to cleanup temp ca whitelist at \"%s\": %s", tmp, err.Error())
 		}
 	}()
 
