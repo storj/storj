@@ -414,10 +414,10 @@ func mktempdir(t *testing.T, dir string) (string, func(kads ...*Kademlia)) {
 	rootdir, err := ioutil.TempDir("", dir)
 	assert.NoError(t, err)
 	cleanup := func(kads ...*Kademlia) {
-		assert.NoError(t, os.RemoveAll(rootdir))
 		for _, k := range kads {
 			assert.NoError(t, k.Disconnect(context.Background()))
 		}
+		assert.NoError(t, os.RemoveAll(rootdir))
 	}
 	return rootdir, cleanup
 }
