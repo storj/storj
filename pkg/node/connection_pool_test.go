@@ -1,16 +1,14 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package pool
+package node
 
 import (
-	"context"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-	"storj.io/storj/pkg/provider"
 )
 
 type TestFoo struct {
@@ -18,7 +16,6 @@ type TestFoo struct {
 }
 
 func TestGet(t *testing.T) {
-	ctx := context.Background()
 	cases := []struct {
 		pool          *ConnectionPool
 		key           string
@@ -28,7 +25,7 @@ func TestGet(t *testing.T) {
 		{
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
-				assert.NoError(t, p.Add(ctx, "foo", &Conn{addr: "foo"}))
+				assert.NoError(t, p.Add("foo", &Conn{addr: "foo"}))
 				return p
 			}(),
 			key:           "foo",
@@ -39,7 +36,7 @@ func TestGet(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		test, err := v.pool.Get(ctx, v.key)
+		test, err := v.pool.Get(v.key)
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected.addr, test.(*Conn).addr)
@@ -67,10 +64,10 @@ func TestAdd(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		err := v.pool.Add(context.Background(), v.key, v.value)
+		err := v.pool.Add(v.key, v.value)
 		assert.Equal(t, v.expectedError, err)
 
-		test, err := v.pool.Get(context.Background(), v.key)
+		test, err := v.pool.Get(v.key)
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected, test)
@@ -101,22 +98,12 @@ func TestRemove(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		err := v.pool.Remove(context.Background(), v.key)
+		err := v.pool.Remove(v.key)
 		assert.Equal(t, v.expectedError, err)
 
-		test, err := v.pool.Get(context.Background(), v.key)
+		test, err := v.pool.Get(v.key)
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected, test)
 	}
-}
-
-func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ctx := context.Background()
-	ca, err := provider.NewCA(ctx, 12, 4)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-
-	return identity
 }

@@ -8,14 +8,13 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pool"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
 	dht   dht.DHT
 	self  pb.Node
-	cache *pool.ConnectionPool
+	cache *ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network

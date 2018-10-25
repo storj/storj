@@ -1,18 +1,22 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package pool
+package node
 
 import (
 	"context"
 	"sync"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
 )
+
+// PoolError is the class of errors for the connection pool
+var PoolError = errs.Class("pool error")
 
 // ConnectionPool is the in memory implementation of a connection Pool
 type ConnectionPool struct {
@@ -43,7 +47,7 @@ func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
 }
 
 // Add takes a node ID as the key and a node client as the value to store
-func (p *ConnectionPool) Add(ctx context.Context, key string, value interface{}) error {
+func (p *ConnectionPool) Add(key string, value interface{}) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	c, ok := value.(*Conn)
@@ -58,7 +62,7 @@ func (p *ConnectionPool) Add(ctx context.Context, key string, value interface{})
 
 // Get retrieves a node connection with the provided nodeID
 // nil is returned if the NodeID is not in the connection pool
-func (p *ConnectionPool) Get(ctx context.Context, key string) (interface{}, error) {
+func (p *ConnectionPool) Get(key string) (interface{}, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -71,7 +75,7 @@ func (p *ConnectionPool) Get(ctx context.Context, key string) (interface{}, erro
 }
 
 // Remove deletes a connection associated with the provided NodeID
-func (p *ConnectionPool) Remove(ctx context.Context, key string) error {
+func (p *ConnectionPool) Remove(key string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

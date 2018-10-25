@@ -7,10 +7,8 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -22,7 +20,7 @@ func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (
 	return &Node{
 		dht:   dht,
 		self:  self,
-		cache: pool.NewConnectionPool(identity),
+		cache: NewConnectionPool(identity),
 	}, nil
 }
 
