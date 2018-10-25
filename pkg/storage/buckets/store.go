@@ -75,6 +75,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 // Get calls objects store Get
 func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return Meta{}, NoBucketError.New("")
 	}
@@ -89,6 +90,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 // Put calls objects store Put
 func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return Meta{}, NoBucketError.New("")
 	}
@@ -105,6 +107,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 // Delete calls objects store Delete
 func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return NoBucketError.New("")
 	}
@@ -113,13 +116,14 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 }
 
 // List calls objects store List
-func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (
-	items []ListItem, more bool, err error) {
+func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+	
 	objItems, more, err := b.o.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
 	if err != nil {
 		return items, more, err
 	}
+
 	items = make([]ListItem, 0, len(objItems))
 	for _, itm := range objItems {
 		if itm.IsPrefix {
