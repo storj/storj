@@ -16,21 +16,19 @@ import (
 
 // Repairer is the interface for the data repair queue
 type Repairer interface {
-	Repair(seg *pb.InjuredSegment) error
-	Run() error
+	Repair(ctx context.Context, seg *pb.InjuredSegment) error
+	Run(ctx context.Context) error
 }
 
 // repairer holds important values for data repair
 type repairer struct {
-	ctx     context.Context
 	queue   q.RepairQueue
 	limiter *sync2.Limiter
 	ticker  *time.Ticker
 }
 
-func newRepairer(ctx context.Context, queue q.RepairQueue, interval time.Duration, concurrency int) *repairer {
+func newRepairer(queue q.RepairQueue, interval time.Duration, concurrency int) *repairer {
 	return &repairer{
-		ctx:     ctx,
 		queue:   queue,
 		limiter: sync2.NewLimiter(concurrency),
 		ticker:  time.NewTicker(interval),
@@ -38,8 +36,8 @@ func newRepairer(ctx context.Context, queue q.RepairQueue, interval time.Duratio
 }
 
 // Run the repairer loop
-func (r *repairer) Run() (err error) {
-	defer mon.Task()(&r.ctx)(&err)
+func (r *repairer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// wait for all repairs to complete
 	defer r.limiter.Wait()
@@ -47,8 +45,8 @@ func (r *repairer) Run() (err error) {
 	for {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
-		case <-r.ctx.Done(): // or the repairer is canceled via context
-			return r.ctx.Err()
+		case <-ctx.Done(): // or the repairer is canceled via context
+			return ctx.Err()
 		}
 
 		seg, err := r.queue.Dequeue()
@@ -58,8 +56,8 @@ func (r *repairer) Run() (err error) {
 			continue
 		}
 
-		r.limiter.Go(r.ctx, func() {
-			err := r.Repair(&seg)
+		r.limiter.Go(ctx, func() {
+			err := r.Repair(ctx, &seg)
 			if err != nil {
 				zap.L().Error("Repair failed", zap.Error(err))
 			}
@@ -68,8 +66,8 @@ func (r *repairer) Run() (err error) {
 }
 
 // Repair starts repair of the segment
-func (r *repairer) Repair(seg *pb.InjuredSegment) (err error) {
-	defer mon.Task()(&r.ctx)(&err)
+func (r *repairer) Repair(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO:
 	zap.L().Debug("Repairing", zap.Any("segment", seg))
 	return err
