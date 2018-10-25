@@ -118,7 +118,7 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	
+
 	objItems, more, err := b.o.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
 	if err != nil {
 		return items, more, err
