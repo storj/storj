@@ -27,10 +27,11 @@ type ConnectionPool struct {
 
 // Conn is the connection that is stored in the connection pool
 type Conn struct {
+	addr string
+
+	dial   sync.Once
 	Client pb.NodesClient
 	grpc   *grpc.ClientConn
-	addr   string
-	dial   sync.Once
 	err    error
 }
 
@@ -44,20 +45,6 @@ func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
 		items: make(map[string]*Conn),
 		mu:    sync.RWMutex{},
 	}
-}
-
-// Add takes a node ID as the key and a node client as the value to store
-func (p *ConnectionPool) Add(key string, value interface{}) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	c, ok := value.(*Conn)
-	if !ok {
-		return PoolError.New("invalid value for connection pool")
-	}
-
-	p.items[key] = c
-
-	return nil
 }
 
 // Get retrieves a node connection with the provided nodeID
@@ -90,7 +77,6 @@ func (p *ConnectionPool) Remove(key string) error {
 }
 
 // Dial connects to the node with the given ID and Address
-// Needs to only be called once, connection is left open
 func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (*Conn, error) {
 	id := n.GetId()
 	p.mu.Lock()

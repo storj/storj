@@ -4,11 +4,13 @@
 package node
 
 import (
+	"context"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/pb"
 )
 
 func TestGet(t *testing.T) {
@@ -21,7 +23,7 @@ func TestGet(t *testing.T) {
 		{
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
-				assert.NoError(t, p.Add("foo", &Conn{addr: "foo"}))
+				p.items["foo"] = &Conn{addr: "foo"}
 				return p
 			}(),
 			key:           "foo",
@@ -36,37 +38,6 @@ func TestGet(t *testing.T) {
 		assert.Equal(t, v.expectedError, err)
 
 		assert.Equal(t, v.expected.addr, test.(*Conn).addr)
-	}
-}
-
-func TestAdd(t *testing.T) {
-	cases := []struct {
-		pool          ConnectionPool
-		key           string
-		value         *Conn
-		expected      *Conn
-		expectedError error
-	}{
-		{
-			pool: ConnectionPool{
-				mu:    sync.RWMutex{},
-				items: map[string]*Conn{}},
-			key:           "foo",
-			value:         &Conn{addr: "hoot"},
-			expected:      &Conn{addr: "hoot"},
-			expectedError: nil,
-		},
-	}
-
-	for i := range cases {
-		v := &cases[i]
-		err := v.pool.Add(v.key, v.value)
-		assert.Equal(t, v.expectedError, err)
-
-		test, err := v.pool.Get(v.key)
-		assert.Equal(t, v.expectedError, err)
-
-		assert.Equal(t, v.expected, test)
 	}
 }
 
@@ -102,4 +73,36 @@ func TestRemove(t *testing.T) {
 
 		assert.Equal(t, v.expected, test)
 	}
+}
+
+func TestDial(t *testing.T) {
+	cases := []struct {
+		pool          *ConnectionPool
+		node          *pb.Node
+		expectedError error
+		expected      *Conn
+	}{
+		{
+			pool:          NewConnectionPool(newTestIdentity(t)),
+			node:          &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
+			expected:      nil,
+			expectedError: nil,
+		},
+	}
+
+	for _, v := range cases {
+
+		go testDial(t, v.pool, v.node, v.expectedError)
+		go testDial(t, v.pool, v.node, v.expectedError)
+		go testDial(t, v.pool, v.node, v.expectedError)
+		go testDial(t, v.pool, v.node, v.expectedError)
+	}
+
+}
+
+func testDial(t *testing.T, p *ConnectionPool, n *pb.Node, eerr error) {
+	ctx := context.Background()
+	actual, err := p.Dial(ctx, n)
+	assert.Equal(t, eerr, err)
+	assert.NotNil(t, actual)
 }
