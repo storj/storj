@@ -70,16 +70,20 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 	kdb, ndb := dbs[0], dbs[1]
 
-	rt, err := NewRoutingTable(&self, kdb, ndb, &RoutingOptions{
-		idLength:     kadconfig.DefaultIDLength,
-		bucketSize:   kadconfig.DefaultBucketSize,
-		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
+	rt, err := NewRoutingTable(self, kdb, ndb, &RoutingOptions{
+		IDLength:     kadconfig.DefaultIDLength,
+		BucketSize:   kadconfig.DefaultBucketSize,
+		RCBucketSize: kadconfig.DefaultReplacementCacheSize,
 	})
-
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
 
+	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, kadconfig.Alpha, rt)
+}
+
+// NewKademliaWithRoutingTable returns a newly configured Kademlia instance
+func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
 		if err != nil {
@@ -91,10 +95,10 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 
 	k := &Kademlia{
-		alpha:          kadconfig.Alpha,
+		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
-		address:        address,
+		address:        self.Address.Address,
 		identity:       identity,
 	}
 

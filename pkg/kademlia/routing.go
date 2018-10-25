@@ -31,7 +31,7 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self             *pb.Node
+	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
@@ -44,13 +44,13 @@ type RoutingTable struct {
 
 //RoutingOptions for configuring RoutingTable
 type RoutingOptions struct {
-	idLength     int //TODO (JJ): add checks for > 0
-	bucketSize   int
-	rcBucketSize int
+	IDLength     int //TODO (JJ): add checks for > 0
+	BucketSize   int
+	RCBucketSize int
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *pb.Node, kdb, ndb storage.KeyValueStore, options *RoutingOptions) (*RoutingTable, error) {
+func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore, options *RoutingOptions) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      storelogger.New(zap.L(), kdb),
@@ -58,11 +58,11 @@ func NewRoutingTable(localNode *pb.Node, kdb, ndb storage.KeyValueStore, options
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         options.idLength,
-		bucketSize:       options.bucketSize,
-		rcBucketSize:     options.rcBucketSize,
+		idLength:         options.IDLength,
+		bucketSize:       options.BucketSize,
+		rcBucketSize:     options.RCBucketSize,
 	}
-	ok, err := rt.addNode(localNode)
+	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -79,7 +79,7 @@ func (rt *RoutingTable) Close() error {
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() pb.Node {
-	return *rt.self
+	return rt.self
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket

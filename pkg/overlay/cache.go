@@ -39,29 +39,30 @@ type Cache struct {
 }
 
 // NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
-func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache, error) {
-	rc, err := redis.NewClient(address, password, db)
+func NewRedisOverlayCache(address, password string, dbindex int, dht dht.DHT) (*Cache, error) {
+	db, err := redis.NewClient(address, password, dbindex)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Cache{
-		DB:  rc,
-		DHT: DHT,
-	}, nil
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
 }
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
-	bc, err := boltdb.New(dbPath, OverlayBucket)
+func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
+	db, err := boltdb.New(dbPath, OverlayBucket)
 	if err != nil {
 		return nil, err
 	}
 
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
+}
+
+// NewOverlayCache returns a new Cache
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
 	return &Cache{
-		DB:  storelogger.New(zap.L(), bc),
-		DHT: DHT,
-	}, nil
+		DB:  db,
+		DHT: dht,
+	}
 }
 
 // Get looks up the provided nodeID from the overlay cache
