@@ -99,23 +99,23 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}
 
 	metadata, err := sf.store.Meta(sf.ctx, paths.New(name))
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			items, _, err := sf.store.List(sf.ctx, paths.New(name), nil, nil, false, 1, meta.None)
-			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
-					return nil, fuse.ENOENT
-				}
-				return nil, fuse.EIO
-			}
-			// when at least one element has this prefix then it's directory
-			if len(items) == 1 {
-				return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
-			}
-
-			return nil, fuse.ENOENT
-		}
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, fuse.EIO
+	}
+
+	// file not found so maybe it's a prefix/directory
+	if err != nil {
+		items, _, err := sf.store.List(sf.ctx, paths.New(name), nil, nil, false, 1, meta.None)
+		if err != nil && !storage.ErrKeyNotFound.Has(err) {
+			return nil, fuse.EIO
+		}
+
+		// when at least one element has this prefix then it's directory
+		if len(items) == 1 {
+			return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
+		}
+
+		return nil, fuse.ENOENT
 	}
 
 	return &fuse.Attr{
