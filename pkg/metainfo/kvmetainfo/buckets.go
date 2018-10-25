@@ -84,7 +84,10 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		return storj.BucketList{}, err
 	}
 
-	list := storj.BucketList{More: more}
+	list := storj.BucketList{
+		More: more,
+		Items: make([]storj.Bucket, 0, len(items)),
+	}
 
 	for _, item := range items {
 		list.Items = append(list.Items, bucketFromMeta(item.Bucket, item.Meta))
