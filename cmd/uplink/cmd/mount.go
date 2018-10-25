@@ -30,7 +30,7 @@ func init() {
 		Use:   "mount",
 		Short: "Mount a bucket",
 		RunE:  mountBucket,
-	})
+	}, CLICmd)
 }
 
 func mountBucket(cmd *cobra.Command, args []string) (err error) {
