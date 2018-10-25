@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/objects"
@@ -88,7 +87,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 	meta := objects.SerializableMeta{}
 	expTime := time.Time{}
 
-	_, err = o.Put(ctx, paths.New(dst.Path()), r, meta, expTime)
+	_, err = o.Put(ctx, dst.Path(), r, meta, expTime)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,7 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 		return err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(src.Path()))
+	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
 		return err
 	}
@@ -181,7 +180,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 		return err
 	}
 
-	rr, _, err := o.Get(ctx, paths.New(src.Path()))
+	rr, _, err := o.Get(ctx, src.Path())
 	if err != nil {
 		return err
 	}
@@ -214,7 +213,7 @@ func copy(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPat
 		dst = dst.Join(src.Base())
 	}
 
-	_, err = o.Put(ctx, paths.New(dst.Path()), r, meta, expTime)
+	_, err = o.Put(ctx, dst.Path(), r, meta, expTime)
 	if err != nil {
 		return err
 	}

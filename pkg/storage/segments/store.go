@@ -18,12 +18,12 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/ec"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -40,18 +40,18 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     paths.Path
+	Path     storj.Path
 	Meta     Meta
 	IsPrefix bool
 }
 
 // Store for segments
 type Store interface {
-	Meta(ctx context.Context, path paths.Path) (meta Meta, err error)
-	Get(ctx context.Context, path paths.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error)
-	Delete(ctx context.Context, path paths.Path) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
+	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
+	Delete(ctx context.Context, path storj.Path) (err error)
+	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -69,8 +69,7 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
 }
 
 // Meta retrieves the metadata of the segment
-func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
-	err error) {
+func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pr, err := s.pdb.Get(ctx, path)
@@ -82,7 +81,7 @@ func (s *segmentStore) Meta(ctx context.Context, path paths.Path) (meta Meta,
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (paths.Path, []byte, error)) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	exp, err := ptypes.TimestampProto(expiration)
@@ -96,7 +95,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		return Meta{}, err
 	}
 
-	var path paths.Path
+	var path storj.Path
 	var pointer *pb.Pointer
 	if !remoteSized {
 		p, metadata, err := segmentInfo()
@@ -193,7 +192,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 }
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
-func (s *segmentStore) Get(ctx context.Context, path paths.Path) (
+func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -240,7 +239,7 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 }
 
 // Delete tells piece stores to delete a segment and deletes pointer from pointerdb
-func (s *segmentStore) Delete(ctx context.Context, path paths.Path) (err error) {
+func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pr, err := s.pdb.Get(ctx, path)
@@ -293,9 +292,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 }
 
 // List retrieves paths to segments and their metadata stored in the pointerdb
-func (s *segmentStore) List(ctx context.Context, prefix, startAfter,
-	endBefore paths.Path, recursive bool, limit int, metaFlags uint32) (
-	items []ListItem, more bool, err error) {
+func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)

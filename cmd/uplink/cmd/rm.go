@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 )
 
@@ -34,7 +33,7 @@ func delete(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
 	bs, err := cfg.BucketStore(ctx)
@@ -47,7 +46,7 @@ func delete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = o.Delete(ctx, paths.New(dst.Path()))
+	err = o.Delete(ctx, dst.Path())
 	if err != nil {
 		return err
 	}

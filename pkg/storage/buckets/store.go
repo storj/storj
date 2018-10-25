@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/storage"
@@ -81,8 +80,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, NoBucketError.New("")
 	}
 
-	p := paths.New(bucket)
-	objMeta, err := b.o.Meta(ctx, p)
+	objMeta, err := b.o.Meta(ctx, bucket)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -97,10 +95,9 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, NoBucketError.New("")
 	}
 
-	p := paths.New(bucket)
 	r := bytes.NewReader(nil)
 	var exp time.Time
-	m, err := b.o.Put(ctx, p, r, objects.SerializableMeta{}, exp)
+	m, err := b.o.Put(ctx, bucket, r, objects.SerializableMeta{}, exp)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -115,15 +112,14 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 		return NoBucketError.New("")
 	}
 
-	p := paths.New(bucket)
-	return b.o.Delete(ctx, p)
+	return b.o.Delete(ctx, bucket)
 }
 
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	objItems, more, err := b.o.List(ctx, nil, paths.New(startAfter), paths.New(endBefore), false, limit, meta.Modified)
+	objItems, more, err := b.o.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
 	if err != nil {
 		return items, more, err
 	}
@@ -134,7 +130,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 			continue
 		}
 		items = append(items, ListItem{
-			Bucket: itm.Path.String(),
+			Bucket: itm.Path,
 			Meta:   convertMeta(itm.Meta),
 		})
 	}
