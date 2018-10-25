@@ -55,13 +55,15 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	// get random pointer
+	if len(pointerItems) == 0 {
+		return nil, nil
+	}
+
 	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
 		return nil, err
 	}
 
-	// get path
 	path = pointerItem.Path
 
 	// keep track of last path listed
@@ -71,7 +73,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	// get pointer info
 	pointer, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
@@ -83,7 +84,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	//get random stripe
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,6 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
 }
 
-// create the erasure scheme
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
 	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
 	if err != nil {

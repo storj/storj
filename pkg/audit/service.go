@@ -52,7 +52,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	service := NewService(cursor, verifier, reporter)
 
-	return service.Run(ctx, c.Interval)
+	go func() {
+		err := service.Run(ctx, c.Interval)
+		zap.S().Errorf("audit service failed to run: %s", err)
+	}()
+
+	return server.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
@@ -81,17 +86,22 @@ func (service *Service) Run(ctx context.Context, interval time.Duration) (err er
 		case <-ticker.C:
 			stripe, err := service.Cursor.NextStripe(ctx)
 			if err != nil {
-				return err
+				zap.S().Errorf("failed to get stripe: %s", err)
+				continue
+			}
+			if stripe == nil {
+				continue
 			}
 
 			verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, stripe.Authorization)
 			if err != nil {
-				return err
+				zap.S().Errorf("failed to verify stripe: %s", err)
+				continue
 			}
 			err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-			// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 			if err != nil {
-				return err
+				zap.S().Errorf("failed to record audit results: %s", err)
+				continue
 			}
 		case <-ctx.Done():
 			return ctx.Err()
