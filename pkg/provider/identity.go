@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
 	"math/bits"
 	"net"
@@ -23,6 +22,7 @@ import (
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/utils"
+	"fmt"
 )
 
 const (
@@ -252,7 +252,6 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	fmt.Printf("ic.PeerCAWhitelistPath: %s\n", ic.PeerCAWhitelistPath)
 	pi, err := ic.Load()
 	if err != nil {
 		return err
