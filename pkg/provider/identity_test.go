@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -18,8 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/peertls"
-	"path"
-	"fmt"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
@@ -200,7 +199,6 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 
 	fi, err := ic.Load()
 	assert.NoError(t, err)
-	fmt.Println(fi.PeerCAWhitelist)
 	assert.Nil(t, fi.PeerCAWhitelist)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.Key)
@@ -223,7 +221,6 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 
 	ic.PeerCAWhitelistPath = tmp
 	fi, err = ic.Load()
-	fmt.Println(fi.PeerCAWhitelist)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, fi.PeerCAWhitelist)
 }

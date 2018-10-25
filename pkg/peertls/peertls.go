@@ -13,7 +13,6 @@ import (
 	"io"
 
 	"github.com/zeebo/errs"
-	"fmt"
 )
 
 const (
@@ -44,7 +43,7 @@ var (
 	// ErrVerifyCertificateChain is used when a certificate chain can't be verified from leaf to root
 	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed)
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
-	// ErrVerifyCAWhitelsit is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
+	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
 	ErrVerfiyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
 )
 
@@ -118,8 +117,9 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 	return verifyChainSignatures(parsedChains[0])
 }
 
+// VerifyCAWhitelist verifies that the peer identity's leaf was signed by any one of the
+// (certificate authority) certificates in the provided whitelist
 func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
-	fmt.Printf("len(cas): %d\n", len(cas))
 	if cas == nil {
 		return nil
 	}

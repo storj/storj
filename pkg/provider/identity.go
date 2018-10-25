@@ -106,7 +106,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM, CAWhitelistPEM []byte) (*FullIdentity
 	}
 
 	var (
-		wb [][]byte
+		wb        [][]byte
 		whitelist []*x509.Certificate
 	)
 	if CAWhitelistPEM != nil {
@@ -121,10 +121,10 @@ func FullIdentityFromPEM(chainPEM, keyPEM, CAWhitelistPEM []byte) (*FullIdentity
 	}
 
 	return &FullIdentity{
-		CA:   ch[1],
-		Leaf: ch[0],
-		Key:  k,
-		ID:   i,
+		CA:              ch[1],
+		Leaf:            ch[0],
+		Key:             k,
+		ID:              i,
 		PeerCAWhitelist: whitelist,
 	}, nil
 }
@@ -285,7 +285,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 
 	pcvFuncs = append(
 		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
-		pcvFuncs...
+		pcvFuncs...,
 	)
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{*c},
