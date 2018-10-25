@@ -89,7 +89,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.NotNil(t, kad.routingTable)
 		assert.NoError(t, kad.Disconnect(context.Background()))
 	}
-	
+
 }
 
 func TestLookup(t *testing.T) {
@@ -123,7 +123,9 @@ func TestLookup(t *testing.T) {
 		return k
 	}()
 
-	defer k.Disconnect(context.Background())
+	defer func() {
+		assert.NoError(t, k.Disconnect(context.Background()))
+	}()
 
 	cases := []struct {
 		target      dht.NodeID
@@ -210,7 +212,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { assert.NoError(t, grpcServer.Serve(lis)) }()
 
-	return k, grpcServer, func(){
+	return k, grpcServer, func() {
 		defer cleanup()
 		assert.NoError(t, k.Disconnect(context.Background()))
 	}
@@ -244,7 +246,9 @@ func TestGetNodes(t *testing.T) {
 	defer cleanup()
 	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
-	defer k.Disconnect(context.Background())
+	defer func() {
+		assert.NoError(t, k.Disconnect(context.Background()))
+	}()
 
 	// add nodes
 	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
