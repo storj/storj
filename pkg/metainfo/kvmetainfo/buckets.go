@@ -85,7 +85,7 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 	}
 
 	list := storj.BucketList{
-		More: more,
+		More:  more,
 		Items: make([]storj.Bucket, 0, len(items)),
 	}
 
