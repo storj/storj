@@ -87,7 +87,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	keyPEM := bytes.NewBuffer([]byte{})
 	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(lkB)))
 
-	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
+	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes(), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, l.Raw, fi.Leaf.Raw)
 	assert.Equal(t, c.Raw, fi.CA.Raw)
@@ -183,7 +183,7 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 	ic, cleanup, err := tempIdentityConfig()
 	assert.NoError(t, err)
 
-	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key))
+	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key), nil)
 	assert.NoError(t, err)
 
 	return cleanup, ic, fi, difficulty

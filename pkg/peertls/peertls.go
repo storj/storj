@@ -36,8 +36,15 @@ var (
 	ErrTLSTemplate = errs.Class("tls template error")
 	// ErrVerifyPeerCert is used when an error occurs during `VerifyPeerCertificate`
 	ErrVerifyPeerCert = errs.Class("tls peer certificate verification error")
+	// ErrParseCerts is used when an error occurs while parsing a certificate or cert chain
+	ErrParseCerts = errs.Class("unable to parse certificate")
 	// ErrVerifySignature is used when a cert-chain signature verificaion error occurs
 	ErrVerifySignature = errs.Class("tls certificate signature verification error")
+	// ErrVerifyCertificateChain is used when a certificate chain can't be verified from leaf to root
+	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed)
+	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
+	// ErrVerifyCAWhitelsit is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
+	ErrVerfiyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
 )
 
 // PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
@@ -90,13 +97,13 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 	return func(chain [][]byte, _ [][]*x509.Certificate) error {
 		c, err := parseCertificateChains(chain)
 		if err != nil {
-			return err
+			return ErrVerifyPeerCert.Wrap(err)
 		}
 
 		for _, n := range next {
 			if n != nil {
 				if err := n(chain, [][]*x509.Certificate{c}); err != nil {
-					return err
+					return ErrVerifyPeerCert.Wrap(err)
 				}
 			}
 		}
@@ -108,6 +115,26 @@ func VerifyPeerFunc(next ...PeerCertVerificationFunc) PeerCertVerificationFunc {
 // which are signed by their respective parents, ending with a self-signed root
 func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error {
 	return verifyChainSignatures(parsedChains[0])
+}
+
+func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
+	if cas == nil {
+		return nil
+	}
+
+	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+		var (
+			err   error
+			valid bool
+		)
+		for _, ca := range cas {
+			err = verifyCertSignature(ca, parsedChains[0][0])
+			if valid {
+				return nil
+			}
+		}
+		return ErrVerfiyCAWhitelist.Wrap(err)
+	}
 }
 
 // NewKeyBlock converts an ASN1/DER-encoded byte-slice of a private key into
