@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/storage"
 	"storj.io/storj/pkg/peertls"
+	"fmt"
 )
 
 var (
@@ -45,6 +46,7 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
+	fmt.Printf("len(identity.PeerCAWhitelist): %d\n", len(identity.PeerCAWhitelist))
 	ident, err := identity.ServerOption(peertls.VerifyCAWhitelist(identity.PeerCAWhitelist))
 	if err != nil {
 		return nil, err

@@ -13,6 +13,7 @@ import (
 	"io"
 
 	"github.com/zeebo/errs"
+	"fmt"
 )
 
 const (
@@ -118,6 +119,7 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 }
 
 func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
+	fmt.Printf("len(cas): %d\n", len(cas))
 	if cas == nil {
 		return nil
 	}

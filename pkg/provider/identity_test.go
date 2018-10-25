@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/peertls"
+	"path"
+	"fmt"
 )
 
 func TestPeerIdentityFromCertChain(t *testing.T) {
@@ -198,6 +200,8 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 
 	fi, err := ic.Load()
 	assert.NoError(t, err)
+	fmt.Println(fi.PeerCAWhitelist)
+	assert.Nil(t, fi.PeerCAWhitelist)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.Key)
 	assert.NotEmpty(t, fi.Leaf)
@@ -208,6 +212,20 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
 	assert.Equal(t, expectedFI.CA, fi.CA)
 	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
+
+	tmp := path.Join(os.TempDir(), "temp-ca-whitelist.pem")
+	w, err := os.Create(tmp)
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmp)
+
+	err = peertls.WriteChain(w, fi.CA)
+	assert.NoError(t, err)
+
+	ic.PeerCAWhitelistPath = tmp
+	fi, err = ic.Load()
+	fmt.Println(fi.PeerCAWhitelist)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, fi.PeerCAWhitelist)
 }
 
 func TestNodeID_Difficulty(t *testing.T) {
