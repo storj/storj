@@ -160,13 +160,13 @@ func TestBootstrap(t *testing.T) {
 	bn, s := testNode(t, []pb.Node{})
 	defer s.Stop()
 
-	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n1, s1 := testNode(t, []pb.Node{bn.routingTable.Local()})
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n2, s2 := testNode(t, []pb.Node{bn.routingTable.Local()})
 	defer s2.Stop()
 
 	err = n2.Bootstrap(context.Background())

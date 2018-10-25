@@ -20,7 +20,7 @@ func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()
 	if localNodeID == nil {
 		localNodeID = []byte("AA")
 	}
-	localNode := &pb.Node{Id: string(localNodeID)}
+	localNode := pb.Node{Id: string(localNodeID)}
 
 	rt, err := NewRoutingTable(localNode, teststore.New(), teststore.New(),
 		&RoutingOptions{
