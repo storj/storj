@@ -87,7 +87,7 @@ func TestNewKademlia(t *testing.T) {
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
 		assert.NotNil(t, kad.nodeClient)
 		assert.NotNil(t, kad.routingTable)
-		assert.NoError(t, kad.Disconnect(context.Background()))
+		assert.NoError(t, kad.Disconnect())
 	}
 
 }
@@ -124,7 +124,7 @@ func TestLookup(t *testing.T) {
 	}()
 
 	defer func() {
-		assert.NoError(t, k.Disconnect(context.Background()))
+		assert.NoError(t, k.Disconnect())
 	}()
 
 	cases := []struct {
@@ -214,7 +214,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 	return k, grpcServer, func() {
 		defer cleanup()
-		assert.NoError(t, k.Disconnect(context.Background()))
+		assert.NoError(t, k.Disconnect())
 	}
 
 }
@@ -247,7 +247,7 @@ func TestGetNodes(t *testing.T) {
 	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
 	defer func() {
-		assert.NoError(t, k.Disconnect(context.Background()))
+		assert.NoError(t, k.Disconnect())
 	}()
 
 	// add nodes

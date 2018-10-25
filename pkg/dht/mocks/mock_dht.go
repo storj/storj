@@ -49,15 +49,15 @@ func (mr *MockDHTMockRecorder) Bootstrap(arg0 interface{}) *gomock.Call {
 }
 
 // Disconnect mocks base method
-func (m *MockDHT) Disconnect(arg0 context.Context) error {
-	ret := m.ctrl.Call(m, "Disconnect", arg0)
+func (m *MockDHT) Disconnect() error {
+	ret := m.ctrl.Call(m, "Disconnect")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Disconnect indicates an expected call of Disconnect
-func (mr *MockDHTMockRecorder) Disconnect(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockDHT)(nil).Disconnect), arg0)
+func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockDHT)(nil).Disconnect))
 }
 
 // FindNode mocks base method
