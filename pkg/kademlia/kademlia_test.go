@@ -42,7 +42,7 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 
 func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
-
+	defer cleanup()
 	cases := []struct {
 		id          dht.NodeID
 		bn          []pb.Node
@@ -71,7 +71,6 @@ func TestNewKademlia(t *testing.T) {
 		},
 	}
 
-	var kads []*Kademlia
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
@@ -84,13 +83,13 @@ func TestNewKademlia(t *testing.T) {
 
 		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
 		assert.NoError(t, err)
-		kads = append(kads, kad)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
 		assert.NotNil(t, kad.nodeClient)
 		assert.NotNil(t, kad.routingTable)
+		assert.NoError(t, kad.Disconnect(context.Background()))
 	}
-	cleanup(kads...)
+	
 }
 
 func TestLookup(t *testing.T) {
@@ -105,7 +104,7 @@ func TestLookup(t *testing.T) {
 	defer srv.Stop()
 
 	dir, cleanup := mktempdir(t, "kademlia")
-
+	defer cleanup()
 	k := func() *Kademlia {
 		// make new identity
 		fid, err := newTestIdentity()
@@ -124,7 +123,7 @@ func TestLookup(t *testing.T) {
 		return k
 	}()
 
-	defer cleanup(k)
+	defer k.Disconnect(context.Background())
 
 	cases := []struct {
 		target      dht.NodeID
@@ -163,19 +162,19 @@ func TestLookup(t *testing.T) {
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, s, cleanup := testNode(t, []pb.Node{})
-	defer cleanup(bn)
+	bn, s, clean := testNode(t, []pb.Node{})
+	defer clean()
 	defer s.Stop()
 
-	n1, s1, cleanup1 := testNode(t, []pb.Node{*bn.routingTable.self})
-	defer cleanup1(n1)
+	n1, s1, clean1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer clean1()
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2, cleanup2 := testNode(t, []pb.Node{*bn.routingTable.self})
-	defer cleanup2(n2)
+	n2, s2, clean2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer clean2()
 	defer s2.Stop()
 
 	err = n2.Bootstrap(context.Background())
@@ -186,7 +185,7 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func(kad ...*Kademlia)) {
+func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
@@ -211,7 +210,10 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func(kad ...
 	pb.RegisterNodesServer(grpcServer, s)
 	go func() { assert.NoError(t, grpcServer.Serve(lis)) }()
 
-	return k, grpcServer, cleanup
+	return k, grpcServer, func(){
+		defer cleanup()
+		assert.NoError(t, k.Disconnect(context.Background()))
+	}
 
 }
 
@@ -239,9 +241,10 @@ func TestGetNodes(t *testing.T) {
 	kid := dht.NodeID(fid.ID)
 
 	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
 	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
-	defer cleanup(k)
+	defer k.Disconnect(context.Background())
 
 	// add nodes
 	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
@@ -410,13 +413,10 @@ func TestMeetsRestrictions(t *testing.T) {
 	}
 }
 
-func mktempdir(t *testing.T, dir string) (string, func(kads ...*Kademlia)) {
+func mktempdir(t *testing.T, dir string) (string, func()) {
 	rootdir, err := ioutil.TempDir("", dir)
 	assert.NoError(t, err)
-	cleanup := func(kads ...*Kademlia) {
-		for _, k := range kads {
-			assert.NoError(t, k.Disconnect(context.Background()))
-		}
+	cleanup := func() {
 		assert.NoError(t, os.RemoveAll(rootdir))
 	}
 	return rootdir, cleanup
