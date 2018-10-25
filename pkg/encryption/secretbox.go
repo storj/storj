@@ -4,7 +4,6 @@
 package encryption
 
 import (
-	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	"storj.io/storj/pkg/storj"
@@ -31,7 +30,7 @@ type secretboxEncrypter struct {
 // from crypto/rand as often as possible.
 func NewSecretboxEncrypter(key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
-		return nil, Error.New("block size too small")
+		return nil, ErrInvalidConfig.New("encrypted block size %d too small", encryptedBlockSize)
 	}
 	return &secretboxEncrypter{
 		blockSize:     encryptedBlockSize - secretbox.Overhead,
@@ -76,7 +75,7 @@ type secretboxDecrypter struct {
 // startingNonce.
 func NewSecretboxDecrypter(key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	if encryptedBlockSize <= secretbox.Overhead {
-		return nil, Error.New("block size too small")
+		return nil, ErrInvalidConfig.New("encrypted block size %d too small", encryptedBlockSize)
 	}
 	return &secretboxDecrypter{
 		blockSize:     encryptedBlockSize - secretbox.Overhead,
@@ -100,7 +99,7 @@ func (s *secretboxDecrypter) Transform(out, in []byte, blockNum int64) ([]byte, 
 	}
 	rv, success := secretbox.Open(out, in, nonce.Raw(), s.key.Raw())
 	if !success {
-		return nil, Error.New("failed decrypting")
+		return nil, ErrDecryptFailed.New("")
 	}
 	return rv, nil
 }
@@ -114,7 +113,7 @@ func EncryptSecretBox(data []byte, key *storj.Key, nonce *storj.Nonce) (cipherDa
 func DecryptSecretBox(cipherData []byte, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
 	data, success := secretbox.Open(nil, cipherData, nonce.Raw(), key.Raw())
 	if !success {
-		return nil, errs.New("Failed decrypting")
+		return nil, ErrDecryptFailed.New("")
 	}
 	return data, nil
 }

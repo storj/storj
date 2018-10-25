@@ -4,14 +4,14 @@
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/storj/storj)
 [![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
 
-<img src="https://github.com/storj/storj/raw/master/logo/logo.png" width="100">
+<img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
-Storj is building a decentralized cloud storage network and is launching in 
+Storj is building a decentralized cloud storage network and is launching in
 early 2019.
 
 ----
 
-Storj is an S3 compatible platform and suite of decentralized applications that 
+Storj is an S3 compatible platform and suite of decentralized applications that
 allows you to store data in a secure and decentralized manner. Your files are
 encrypted, broken into little pieces and stored in a global decentralized
 network of computers. Luckily, we also support allowing you (and only you) to
@@ -122,12 +122,12 @@ For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli
 
 # License
 
-The network under construction (this repo) is currently licensed with the 
-[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license. Once the network 
-reaches beta phase, we will be licensing all client-side code via the 
+The network under construction (this repo) is currently licensed with the
+[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license. Once the network
+reaches beta phase, we will be licensing all client-side code via the
 [Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
 
-For code released under the AGPLv3, we request that contributors sign 
+For code released under the AGPLv3, we request that contributors sign
 [our Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
 code under Apache v2, or other licenses in the future.
 
