@@ -44,7 +44,7 @@ var (
 	// (i.e.: each cert in the chain should be signed by the preceding cert and the root should be self-signed)
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
 	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
-	ErrVerfiyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
+	ErrVerifyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
 )
 
 // PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
@@ -135,7 +135,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 				return nil
 			}
 		}
-		return ErrVerfiyCAWhitelist.Wrap(err)
+		return ErrVerifyCAWhitelist.Wrap(err)
 	}
 }
 

@@ -177,6 +177,6 @@ func TestVerifyCAWhitelist(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z}))([][]byte{l.Raw, c.Raw}, nil)
-	assert.True(t, ErrVerfiyCAWhitelist.Has(err))
+	assert.True(t, ErrVerifyCAWhitelist.Has(err))
 	assert.True(t, ErrVerifySignature.Has(err))
 }
