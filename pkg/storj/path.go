@@ -12,9 +12,6 @@ type Path = string
 
 // SplitPath splits path into a slice of path components
 func SplitPath(path Path) []string {
-	if path == "" {
-		return []string{}
-	}
 	return strings.Split(path, "/")
 }
 

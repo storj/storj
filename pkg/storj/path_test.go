@@ -15,7 +15,7 @@ func TestSplitPath(t *testing.T) {
 		path  string
 		comps []string
 	}{
-		{"", []string{}},
+		{"", []string{""}},
 		{"/", []string{"", ""}},
 		{"//", []string{"", "", ""}},
 		{" ", []string{" "}},

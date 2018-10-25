@@ -13,6 +13,11 @@ import (
 
 // EncryptPath encrypts path with the given key
 func EncryptPath(path storj.Path, key *storj.Key) (encrypted storj.Path, err error) {
+	// do not encrypt empty paths
+	if len(path) == 0 {
+		return path, nil
+	}
+
 	comps := storj.SplitPath(path)
 	for i, comp := range comps {
 		comps[i], err = encryptPathComponent(comp, key)
@@ -48,6 +53,11 @@ func DecryptPath(path storj.Path, key *storj.Key) (decrypted storj.Path, err err
 func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *storj.Key, err error) {
 	if depth < 0 {
 		return nil, Error.New("negative depth")
+	}
+
+	// do not derive key from empty path
+	if len(path) == 0 {
+		return key, nil
 	}
 
 	comps := storj.SplitPath(path)
