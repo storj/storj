@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"errors"
 	"log"
 
 	"google.golang.org/grpc"
@@ -64,6 +63,6 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 }
 
 // Disconnect closes connections within the cache
-func (n *Node) Disconnect(ctx context.Context) error {
-	return n.cache.Disconnect(ctx)
+func (n *Node) Disconnect() error {
+	return n.cache.Disconnect()
 }

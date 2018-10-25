@@ -22,9 +22,7 @@ type ConnectionPool struct {
 
 // NewConnectionPool initializes a new in memory pool
 func NewConnectionPool() *ConnectionPool {
-	p := &ConnectionPool{}
-	p.init()
-	return p
+	return &ConnectionPool{}
 }
 
 // Add takes a node ID as the key and a node client as the value to store
@@ -52,10 +50,10 @@ func (pool *ConnectionPool) Remove(key string) error {
 }
 
 // Disconnect closes the connection to the node and removes it from the connection pool
-func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
+func (pool *ConnectionPool) Disconnect() error {
 	var err error
 	var errs []error
-	for k, v := range mp.cache {
+	for k, v := range pool.cache {
 		conn, ok := v.(interface{ Close() error })
 		if !ok {
 			err = Error.New("connection pool value not a grpc client connection")
@@ -67,7 +65,7 @@ func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
 			errs = append(errs, Error.Wrap(err))
 			continue
 		}
-		err = mp.Remove(ctx, k)
+		err = pool.Remove(k)
 		if err != nil {
 			errs = append(errs, Error.Wrap(err))
 			continue
@@ -76,6 +74,7 @@ func (mp *ConnectionPool) Disconnect(ctx context.Context) error {
 	return utils.CombineErrors(errs...)
 }
 
-func (mp *ConnectionPool) init() {
-	mp.cache = make(map[string]interface{})
+// Init initializes the cache
+func (pool *ConnectionPool) Init() {
+	pool.cache = make(map[string]interface{})
 }
