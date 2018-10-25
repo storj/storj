@@ -32,6 +32,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 	}
 	repairQueue := queue.NewQueue(client)
 	check := newChecker(pointerdb, repairQueue, overlay, 0, zap.L())
+	check.interval = c.Interval
 	return check, nil
 }
 
@@ -41,5 +42,5 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	return check.Run(ctx, c.Interval)
+	return check.Run()
 }
