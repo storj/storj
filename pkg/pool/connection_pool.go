@@ -62,7 +62,12 @@ func (p *ConnectionPool) Get(ctx context.Context, key string) (interface{}, erro
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.items[key], nil
+	i, ok := p.items[key]
+	if !ok {
+		return nil, nil
+	}
+
+	return i, nil
 }
 
 // Remove deletes a connection associated with the provided NodeID
@@ -75,14 +80,9 @@ func (p *ConnectionPool) Remove(ctx context.Context, key string) error {
 		return nil
 	}
 
-	err := i.grpc.Close()
-	if err != nil {
-		return err
-	}
+	delete(p.items, key)
 
-	p.items[key] = nil
-
-	return nil
+	return i.grpc.Close()
 }
 
 // Dial connects to the node with the given ID and Address

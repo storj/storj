@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -21,17 +22,17 @@ func TestGet(t *testing.T) {
 	cases := []struct {
 		pool          *ConnectionPool
 		key           string
-		expected      TestFoo
+		expected      Conn
 		expectedError error
 	}{
 		{
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
-				assert.NoError(t, p.Add(ctx, "foo", TestFoo{called: "hoot"}))
+				assert.NoError(t, p.Add(ctx, "foo", &Conn{addr: "foo"}))
 				return p
 			}(),
 			key:           "foo",
-			expected:      TestFoo{called: "hoot"},
+			expected:      Conn{addr: "foo"},
 			expectedError: nil,
 		},
 	}
@@ -40,7 +41,8 @@ func TestGet(t *testing.T) {
 		v := &cases[i]
 		test, err := v.pool.Get(ctx, v.key)
 		assert.Equal(t, v.expectedError, err)
-		assert.Equal(t, v.expected, test)
+
+		assert.Equal(t, v.expected.addr, test.(*Conn).addr)
 	}
 }
 
@@ -48,8 +50,8 @@ func TestAdd(t *testing.T) {
 	cases := []struct {
 		pool          ConnectionPool
 		key           string
-		value         TestFoo
-		expected      TestFoo
+		value         *Conn
+		expected      *Conn
 		expectedError error
 	}{
 		{
@@ -57,8 +59,8 @@ func TestAdd(t *testing.T) {
 				mu:    sync.RWMutex{},
 				items: map[string]*Conn{}},
 			key:           "foo",
-			value:         TestFoo{called: "hoot"},
-			expected:      TestFoo{called: "hoot"},
+			value:         &Conn{addr: "hoot"},
+			expected:      &Conn{addr: "hoot"},
 			expectedError: nil,
 		},
 	}
@@ -76,6 +78,10 @@ func TestAdd(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
+
+	conn, err := grpc.Dial("127.0.0.1:0", grpc.WithInsecure())
+	assert.NoError(t, err)
+	// gc.Close = func() error { return nil }
 	cases := []struct {
 		pool          ConnectionPool
 		key           string
@@ -85,7 +91,8 @@ func TestRemove(t *testing.T) {
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				items: map[string]*Conn{}},
+				items: map[string]*Conn{"foo": &Conn{grpc: conn}},
+			},
 			key:           "foo",
 			expected:      nil,
 			expectedError: nil,
