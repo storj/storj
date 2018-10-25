@@ -14,7 +14,7 @@ import (
 // Error defines a connection pool error
 var Error = errs.Class("connection pool error")
 
-// ConnectionPool is the in memory implementation of a connection Pool
+// ConnectionPool is the in memory pool of node connections
 type ConnectionPool struct {
 	mu    sync.RWMutex
 	cache map[string]interface{}
