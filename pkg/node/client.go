@@ -18,12 +18,12 @@ var NodeClientErr = errs.Class("node client error")
 // NewNodeClient instantiates a node client
 func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (Client, error) {
 	node := &Node{
-		dht:   dht,
-		self:  self,
-		cache: NewConnectionPool(identity),
+		dht:  dht,
+		self: self,
+		pool: NewConnectionPool(identity),
 	}
 
-	node.cache.Init()
+	node.pool.Init()
 
 	return node, nil
 }
