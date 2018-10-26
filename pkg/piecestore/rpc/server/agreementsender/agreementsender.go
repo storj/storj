@@ -6,6 +6,7 @@ package agreementsender
 import (
 	"flag"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -37,6 +38,7 @@ type AgreementSender struct {
 	overlay overlay.Client
 	identity *provider.FullIdentity
 	errs []error
+	mu       sync.Mutex
 }
 
 // Initialize the Agreement Sender
@@ -66,7 +68,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for range ticker.C {
 			agreementGroups, err := as.DB.GetBandwidthAllocations()
 			if err != nil {
-				as.errs = append(as.errs, err)
+				as.appendErr(err)
 				continue
 			}
 
@@ -88,21 +90,21 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
 				if err != nil {
-					as.errs = append(as.errs, err)
+					as.appendErr(err)
 					return
 				}
 
 				// Create client from satellite ip
 				identOpt, err := as.identity.DialOption()
 				if err != nil {
-					as.errs = append(as.errs, err)
+					as.appendErr(err)
 					return
 				}
 
 				var conn *grpc.ClientConn
 				conn, err = grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
-					as.errs = append(as.errs, err)
+					as.appendErr(err)
 					return
 				}
 
@@ -110,9 +112,15 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
 				if err != nil {
-					as.errs = append(as.errs, err)
+					as.appendErr(err)
 					return
 				}
+
+				defer func() {
+					if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
+						log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
+					}
+				}()
 
 				for _, agreement := range agreementGroup.agreements {
 					log.Println(agreement)
@@ -124,19 +132,23 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 
 					// Send agreement to satellite
 					if err = stream.Send(msg); err != nil {
-						if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
-							log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
-						}
-
-						// TODO: Handle Errors better
-						as.errs = append(as.errs, err)
+						as.appendErr(err)
 						return
 					}
 
 					// Delete from PSDB by signature
 					as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature)
 				}
+
+				return
 			}()
 		}
 	}
+}
+
+func (as *AgreementSender) appendErr(err error) {
+	// TODO: Should we cancel the context if a certain number of errors show up?
+	as.mu.Lock()
+	as.errs = append(as.errs, err)
+	as.mu.Unlock()
 }
