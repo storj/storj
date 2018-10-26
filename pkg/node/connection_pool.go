@@ -105,10 +105,10 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, 
 }
 
 // Disconnect closes the connection to the node and removes it from the connection pool
-func (pool *ConnectionPool) Disconnect() error {
+func (p *ConnectionPool) Disconnect() error {
 	var err error
 	var errs []error
-	for k, v := range pool.cache {
+	for k, v := range pool.items {
 		conn, ok := v.(interface{ Close() error })
 		if !ok {
 			err = Error.New("connection pool value not a grpc client connection")
@@ -130,6 +130,6 @@ func (pool *ConnectionPool) Disconnect() error {
 }
 
 // Init initializes the cache
-func (pool *ConnectionPool) Init() {
-	pool.cache = make(map[string]interface{})
+func (p *ConnectionPool) Init() {
+	pool.items = make(map[string]interface{})
 }
