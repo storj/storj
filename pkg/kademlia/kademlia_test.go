@@ -23,16 +23,6 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// helper function to get kademlia base configs without root Config struct
-func kadconfig() KadConfig {
-	return KadConfig{
-		Alpha:                       5,
-		DefaultIDLength:             256,
-		DefaultBucketSize:           20,
-		DefaultReplacementCacheSize: 5,
-	}
-}
-
 // helper function to generate new node identities with
 // correct difficulty and concurrency
 func newTestIdentity() (*provider.FullIdentity, error) {
@@ -74,14 +64,12 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		kc := kadconfig()
-
 		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
+		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, defaultAlpha)
 		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -97,7 +85,6 @@ func TestLookup(t *testing.T) {
 	addr := lis.Addr().String()
 
 	assert.NoError(t, err)
-	kc := kadconfig()
 
 	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -118,7 +105,7 @@ func TestLookup(t *testing.T) {
 		assert.NotEqual(t, id, id2)
 
 		kid := dht.NodeID(fid.ID)
-		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
+		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, defaultAlpha)
 		assert.NoError(t, err)
 		return k
 	}()
@@ -192,7 +179,6 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	// new config
-	kc := kadconfig()
 	// new identity
 	fid, err := newTestIdentity()
 	id := dht.NodeID(fid.ID)
@@ -200,7 +186,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
+	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -223,7 +209,6 @@ func TestGetNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 
 	assert.NoError(t, err)
-	kc := kadconfig()
 
 	srv, _ := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -244,7 +229,7 @@ func TestGetNodes(t *testing.T) {
 
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
+	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())

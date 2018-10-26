@@ -42,15 +42,8 @@ type RoutingTable struct {
 	rcBucketSize     int // replacementCache bucket max length
 }
 
-//RoutingOptions for configuring RoutingTable
-type RoutingOptions struct {
-	IDLength     int //TODO (JJ): add checks for > 0
-	BucketSize   int
-	RCBucketSize int
-}
-
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore, options *RoutingOptions) (*RoutingTable, error) {
+func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      storelogger.New(zap.L(), kdb),
@@ -58,9 +51,9 @@ func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore, options 
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         options.IDLength,
-		bucketSize:       options.BucketSize,
-		rcBucketSize:     options.RCBucketSize,
+		idLength:         idLength * 8,
+		bucketSize:       *flagBucketSize,
+		rcBucketSize:     *flagReplacementCacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
