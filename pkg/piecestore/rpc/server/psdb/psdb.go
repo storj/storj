@@ -37,7 +37,7 @@ type DB struct {
 }
 
 // Open opens DB at DBPath
-func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
+func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = os.MkdirAll(filepath.Dir(DBPath), 0700); err != nil {
@@ -50,7 +50,30 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	}
 	db = &DB{
 		DB:       sqlite,
-		dataPath: DataPath,
+		dataPath: dataPath,
+		check:    time.NewTicker(*defaultCheckInterval),
+	}
+	if err := db.init(); err != nil {
+		return nil, utils.CombineErrors(err, db.DB.Close())
+	}
+
+	go db.garbageCollect(ctx)
+
+	return db, nil
+}
+
+// OpenInMemory opens DB at DBPath
+func OpenInMemory(ctx context.Context, dataPath string) (db *DB, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sqlite, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, err
+	}
+
+	db = &DB{
+		DB:       sqlite,
+		dataPath: dataPath,
 		check:    time.NewTicker(*defaultCheckInterval),
 	}
 	if err := db.init(); err != nil {
