@@ -16,7 +16,8 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	piecestore "storj.io/storj/pkg/piecestore/rpc/server"
+	pieceserver "storj.io/storj/pkg/piecestore/rpc/server"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
@@ -122,15 +123,19 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 	}
 
 	for _, node := range planet.storageNodes {
-		// TODO: use inmemory databases
-		server, err := piecestore.Initialize(context.Background(), piecestore.Config{
-			Path:               filepath.Join(planet.directory, node.ID()),
-			AllocatedDiskSpace: memory.GB.Int64(),
-			AllocatedBandwidth: 100 * memory.GB.Int64(),
-		}, node.Identity.Key)
+		storageDir := filepath.Join(planet.directory, node.ID())
+
+		serverdb, err := psdb.OpenInMemory(context.Background(), storageDir)
 		if err != nil {
 			return nil, utils.CombineErrors(err, planet.Shutdown())
 		}
+
+		server := pieceserver.New(storageDir, serverdb, pieceserver.Config{
+			Path:               storageDir,
+			AllocatedDiskSpace: memory.GB.Int64(),
+			AllocatedBandwidth: 100 * memory.GB.Int64(),
+		}, node.Identity.Key)
+
 		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
 		node.Dependencies = append(node.Dependencies, server)
 	}

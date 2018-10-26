@@ -154,7 +154,8 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
 	}
 
-	return &Server{DataDir: dataDir,
+	return &Server{
+		DataDir:          dataDir,
 		DB:               db,
 		pkey:             pkey,
 		totalAllocated:   allocatedDiskSpace,
