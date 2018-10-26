@@ -125,7 +125,7 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	}
 
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		var err   error
+		var err error
 		for _, ca := range cas {
 			err = verifyCertSignature(ca, parsedChains[0][0])
 			if err == nil {
