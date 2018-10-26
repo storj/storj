@@ -189,8 +189,16 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	// TODO(coyle)
-	return pb.Node{}, nil
+	ok, err := k.nodeClient.Ping(ctx, node)
+	if err != nil {
+		return pb.Node{}, NodeErr.Wrap(err)
+	}
+
+	if !ok {
+		return pb.Node{}, NodeErr.New("Failed pinging node")
+	}
+
+	return node, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

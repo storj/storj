@@ -40,7 +40,8 @@ func TestLookup(t *testing.T) {
 
 		v.to = pb.Node{Id: NewNodeID(t), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
 
-		srv, mock, err := newTestServer(ctx)
+		id := newTestIdentity(t)
+		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
 		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
@@ -62,30 +63,63 @@ func TestLookup(t *testing.T) {
 
 		_, err = nc.Lookup(ctx, v.to, v.find)
 		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, 1, mock.queryCalled)
+		assert.Equal(t, 1, mock.(*mockNodeServer).queryCalled)
 	}
 }
 
-func newTestServer(ctx context.Context) (*grpc.Server, *mockNodeServer, error) {
-	ca, err := provider.NewCA(ctx, 12, 4)
-	if err != nil {
-		return nil, nil, err
+func TestPing(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		self        pb.Node
+		toID        string
+		toIdentity  *provider.FullIdentity
+		expectedErr error
+	}{
+		{
+			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			toID:        "",
+			toIdentity:  newTestIdentity(t),
+			expectedErr: nil,
+		},
 	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, nil, err
+
+	for _, v := range cases {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		assert.NoError(t, err)
+		// new mock DHT for node client
+		ctrl := gomock.NewController(t)
+		mdht := mock_dht.NewMockDHT(ctrl)
+		// set up a node server
+		srv := NewServer(mdht)
+
+		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
+		assert.NoError(t, err)
+		// start gRPC server
+
+		go func() { assert.NoError(t, msrv.Serve(lis)) }()
+		defer msrv.Stop()
+
+		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
+		assert.NoError(t, err)
+
+		id := ID(v.toIdentity.ID)
+		ok, err := nc.Ping(ctx, pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}})
+		assert.Equal(t, v.expectedErr, err)
+		assert.Equal(t, ok, true)
 	}
+}
+
+func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.FullIdentity) (*grpc.Server, pb.NodesServer, error) {
 	identOpt, err := identity.ServerOption()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	mn := &mockNodeServer{queryCalled: 0}
 
-	pb.RegisterNodesServer(grpcServer, mn)
+	pb.RegisterNodesServer(grpcServer, ns)
 
-	return grpcServer, mn, nil
+	return grpcServer, ns, nil
 
 }
 
@@ -105,4 +139,13 @@ func NewNodeID(t *testing.T) string {
 	assert.NoError(t, err)
 
 	return id.String()
+}
+
+func newTestIdentity(t *testing.T) *provider.FullIdentity {
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	return identity
 }

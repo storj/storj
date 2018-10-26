@@ -5,64 +5,54 @@ package node
 
 import (
 	"context"
-	"log"
 
-	"google.golang.org/grpc"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/transport"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
-	dht   dht.DHT
-	self  pb.Node
-	tc    transport.Client
-	cache *ConnectionPool
+	dht  dht.DHT
+	self pb.Node
+	pool *ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	v, err := n.cache.Get(to.GetId())
+	c, err := n.pool.Dial(ctx, &to)
 	if err != nil {
-		return nil, err
+		return nil, NodeClientErr.Wrap(err)
 	}
 
-	var conn *grpc.ClientConn
-	if c, ok := v.(*grpc.ClientConn); ok {
-		conn = c
-	} else {
-		c, err := n.tc.DialNode(ctx, &to)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := n.cache.Add(to.GetId(), c); err != nil {
-			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
-		}
-		conn = c
-	}
-
-	c := pb.NewNodesClient(conn)
 	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
-		return nil, err
+		return nil, NodeClientErr.Wrap(err)
 	}
 
 	rt, err := n.dht.GetRoutingTable(ctx)
 	if err != nil {
-		return nil, err
+		return nil, NodeClientErr.Wrap(err)
 	}
 
 	if err := rt.ConnectionSuccess(&to); err != nil {
-		return nil, err
+		return nil, NodeClientErr.Wrap(err)
 
 	}
 
 	return resp.Response, nil
 }
 
-// Disconnect closes connections within the cache
+// Ping attempts to establish a connection with a node to verify it is alive
+func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
+	_, err := n.pool.Dial(ctx, &to)
+	if err != nil {
+		return false, NodeClientErr.Wrap(err)
+	}
+
+	return true, nil
+}
+
+// Disconnect closes all connections within the pool
 func (n *Node) Disconnect() error {
-	return n.cache.Disconnect()
+	return n.pool.DisconnectAll()
 }
