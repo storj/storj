@@ -62,7 +62,7 @@ func Open(ctx context.Context, dataPath, DBPath string) (db *DB, err error) {
 	return db, nil
 }
 
-// OpenInMemory opens DB at DBPath
+// OpenInMemory opens sqlite DB inmemory
 func OpenInMemory(ctx context.Context, dataPath string) (db *DB, err error) {
 	defer mon.Task()(&ctx)(&err)
 

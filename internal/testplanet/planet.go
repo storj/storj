@@ -57,7 +57,7 @@ func (node *Node) Shutdown() error {
 	}
 	// Provider automatically closes listener
 	// if node.Listener != nil {
-	// 	errs = append(errs, node.Listener.Close())
+	//    errs = append(errs, node.Listener.Close())
 	// }
 	if node.Kademlia != nil {
 		errs = append(errs, node.Kademlia.Disconnect())
