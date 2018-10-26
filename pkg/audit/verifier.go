@@ -171,11 +171,11 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
+
 	copies, err := makeCopies(ctx, originals)
 	if err != nil {
 		return nil, err
 	}
-
 	err = f.Correct(copies)
 	if err != nil {
 		return nil, err

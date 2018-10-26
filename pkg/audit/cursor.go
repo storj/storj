@@ -78,6 +78,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
+	if pointer.GetType() != pb.Pointer_REMOTE {
+		return nil, nil
+	}
+
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -98,7 +102,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 }
 
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
-	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
+	required := int(rs.GetMinReq())
+	total := int(rs.GetTotal())
+
+	fc, err := infectious.NewFEC(required, total)
 	if err != nil {
 		return nil, err
 	}
