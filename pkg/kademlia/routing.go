@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/storelogger"
@@ -51,7 +52,7 @@ func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*Routin
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         idLength * 8,
+		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
 		bucketSize:       *flagBucketSize,
 		rcBucketSize:     *flagReplacementCacheSize,
 	}

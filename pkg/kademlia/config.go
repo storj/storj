@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -25,8 +24,6 @@ var (
 
 const (
 	defaultAlpha = 5
-
-	idLength = len(storj.NodeID{}) // NodeID length in bytes
 )
 
 var (
