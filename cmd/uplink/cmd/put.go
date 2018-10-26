@@ -17,7 +17,7 @@ func init() {
 		Use:   "put",
 		Short: "Copies data from standard in to a Storj object",
 		RunE:  putMain,
-	})
+	}, CLICmd)
 }
 
 // putMain is the function executed when putCmd is called

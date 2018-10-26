@@ -13,12 +13,13 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/utils"
 )
 
-// PoolError is the class of errors for the connection pool
-var PoolError = errs.Class("pool error")
+// Error defines a connection pool error
+var Error = errs.Class("connection pool error")
 
-// ConnectionPool is the in memory implementation of a connection Pool
+// ConnectionPool is the in memory pool of node connections
 type ConnectionPool struct {
 	tc    transport.Client
 	mu    sync.RWMutex
@@ -101,4 +102,34 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, 
 	}
 
 	return conn.Client, nil
+}
+
+// Disconnect closes the connection to the node and removes it from the connection pool
+func (pool *ConnectionPool) Disconnect() error {
+	var err error
+	var errs []error
+	for k, v := range pool.cache {
+		conn, ok := v.(interface{ Close() error })
+		if !ok {
+			err = Error.New("connection pool value not a grpc client connection")
+			errs = append(errs, err)
+			continue
+		}
+		err = conn.Close()
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+			continue
+		}
+		err = pool.Remove(k)
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+			continue
+		}
+	}
+	return utils.CombineErrors(errs...)
+}
+
+// Init initializes the cache
+func (pool *ConnectionPool) Init() {
+	pool.cache = make(map[string]interface{})
 }

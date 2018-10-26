@@ -53,6 +53,9 @@ type FullIdentity struct {
 	ID nodeID
 	// Key is the key this identity uses with the leaf for communication.
 	Key crypto.PrivateKey
+	// PeerCAWhitelist is a whitelist of CA certs which, if present, restricts which peers this identity will verify as valid;
+	// peer certs must be signed by a CA in this list to pass peer certificate verification.
+	PeerCAWhitelist []*x509.Certificate
 }
 
 // IdentitySetupConfig allows you to run a set of Responsibilities with the given
@@ -67,14 +70,15 @@ type IdentitySetupConfig struct {
 // IdentityConfig allows you to run a set of Responsibilities with the given
 // identity. You can also just load an Identity from disk.
 type IdentityConfig struct {
-	CertPath string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
-	KeyPath  string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
-	Address  string `help:"address to listen on" default:":7777"`
+	CertPath            string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
+	KeyPath             string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
+	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
+	Address             string `help:"address to listen on" default:":7777"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
 // private key file
-func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
+func FullIdentityFromPEM(chainPEM, keyPEM, CAWhitelistPEM []byte) (*FullIdentity, error) {
 	cb, err := decodePEM(chainPEM)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -101,11 +105,27 @@ func FullIdentityFromPEM(chainPEM, keyPEM []byte) (*FullIdentity, error) {
 		return nil, err
 	}
 
+	var (
+		wb        [][]byte
+		whitelist []*x509.Certificate
+	)
+	if CAWhitelistPEM != nil {
+		wb, err = decodePEM(CAWhitelistPEM)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		whitelist, err = ParseCertChain(wb)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
 	return &FullIdentity{
-		CA:   ch[1],
-		Leaf: ch[0],
-		Key:  k,
-		ID:   i,
+		CA:              ch[1],
+		Leaf:            ch[0],
+		Key:             k,
+		ID:              i,
+		PeerCAWhitelist: whitelist,
 	}, nil
 }
 
@@ -190,8 +210,12 @@ func (ic IdentityConfig) Load() (*FullIdentity, error) {
 	if err != nil {
 		return nil, peertls.ErrNotExist.Wrap(err)
 	}
+	w, err := ioutil.ReadFile(ic.PeerCAWhitelistPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
 
-	fi, err := FullIdentityFromPEM(c, k)
+	fi, err := FullIdentityFromPEM(c, k, w)
 	if err != nil {
 		return nil, errs.New("failed to load identity %#v, %#v: %v",
 			ic.CertPath, ic.KeyPath, err)
@@ -251,19 +275,23 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
-func (fi *FullIdentity) ServerOption() (grpc.ServerOption, error) {
+func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
 
+	pcvFuncs = append(
+		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
+		pcvFuncs...,
+	)
 	tlsConfig := &tls.Config{
 		Certificates:       []tls.Certificate{*c},
 		InsecureSkipVerify: true,
 		ClientAuth:         tls.RequireAnyClientCert,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
-			peertls.VerifyPeerCertChains,
+			pcvFuncs...,
 		),
 	}
 

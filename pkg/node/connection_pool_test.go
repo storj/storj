@@ -23,6 +23,7 @@ func TestGet(t *testing.T) {
 		{
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
+				p.Init()
 				p.items["foo"] = &Conn{addr: "foo"}
 				return p
 			}(),

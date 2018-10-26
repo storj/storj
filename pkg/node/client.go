@@ -17,15 +17,20 @@ var NodeClientErr = errs.Class("node client error")
 
 // NewNodeClient instantiates a node client
 func NewNodeClient(identity *provider.FullIdentity, self pb.Node, dht dht.DHT) (Client, error) {
-	return &Node{
+	node := &Node{
 		dht:   dht,
 		self:  self,
 		cache: NewConnectionPool(identity),
-	}, nil
+	}
+
+	node.cache.Init()
+
+	return node, nil
 }
 
 // Client is the Node client communication interface
 type Client interface {
 	Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error)
 	Ping(ctx context.Context, to pb.Node) (bool, error)
+	Disconnect() error
 }
