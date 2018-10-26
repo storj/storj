@@ -91,16 +91,19 @@ func TestDial(t *testing.T) {
 	}
 
 	for _, v := range cases {
-
-		go testDial(t, v.pool, v.node, v.expectedError)
-		go testDial(t, v.pool, v.node, v.expectedError)
-		go testDial(t, v.pool, v.node, v.expectedError)
-		go testDial(t, v.pool, v.node, v.expectedError)
+		wg := sync.WaitGroup{}
+		wg.Add(4)
+		go testDial(t, &wg, v.pool, v.node, v.expectedError)
+		go testDial(t, &wg, v.pool, v.node, v.expectedError)
+		go testDial(t, &wg, v.pool, v.node, v.expectedError)
+		go testDial(t, &wg, v.pool, v.node, v.expectedError)
+		wg.Wait()
 	}
 
 }
 
-func testDial(t *testing.T, p *ConnectionPool, n *pb.Node, eerr error) {
+func testDial(t *testing.T, wg *sync.WaitGroup, p *ConnectionPool, n *pb.Node, eerr error) {
+	defer wg.Done()
 	ctx := context.Background()
 	actual, err := p.Dial(ctx, n)
 	assert.Equal(t, eerr, err)
