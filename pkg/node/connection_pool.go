@@ -5,9 +5,16 @@ package node
 
 import (
 	"sync"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/utils"
 )
 
-// ConnectionPool is the in memory implementation of a connection Pool
+// Error defines a connection pool error
+var Error = errs.Class("connection pool error")
+
+// ConnectionPool is the in memory pool of node connections
 type ConnectionPool struct {
 	mu    sync.RWMutex
 	cache map[string]interface{}
@@ -15,10 +22,7 @@ type ConnectionPool struct {
 
 // NewConnectionPool initializes a new in memory pool
 func NewConnectionPool() *ConnectionPool {
-	return &ConnectionPool{
-		cache: make(map[string]interface{}),
-		mu:    sync.RWMutex{},
-	}
+	return &ConnectionPool{}
 }
 
 // Add takes a node ID as the key and a node client as the value to store
@@ -43,4 +47,34 @@ func (pool *ConnectionPool) Remove(key string) error {
 	defer pool.mu.Unlock()
 	pool.cache[key] = nil
 	return nil
+}
+
+// Disconnect closes the connection to the node and removes it from the connection pool
+func (pool *ConnectionPool) Disconnect() error {
+	var err error
+	var errs []error
+	for k, v := range pool.cache {
+		conn, ok := v.(interface{ Close() error })
+		if !ok {
+			err = Error.New("connection pool value not a grpc client connection")
+			errs = append(errs, err)
+			continue
+		}
+		err = conn.Close()
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+			continue
+		}
+		err = pool.Remove(k)
+		if err != nil {
+			errs = append(errs, Error.Wrap(err))
+			continue
+		}
+	}
+	return utils.CombineErrors(errs...)
+}
+
+// Init initializes the cache
+func (pool *ConnectionPool) Init() {
+	pool.cache = make(map[string]interface{})
 }

@@ -7,8 +7,6 @@
 *.so
 *.dylib
 *.db
-pkg/kademlia/db/*.db
-db
 
 # Test binary, build with `go test -c`
 *.test
@@ -35,7 +33,6 @@ protos/google/*
 # Test redis log and snapshot files
 *test_redis-server.log
 *dump.rdb
-*test_bolt.db
 
 *.coverprofile
 *.log

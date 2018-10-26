@@ -61,3 +61,8 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 	return resp.Response, nil
 }
+
+// Disconnect closes connections within the cache
+func (n *Node) Disconnect() error {
+	return n.cache.Disconnect()
+}

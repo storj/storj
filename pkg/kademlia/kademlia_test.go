@@ -6,8 +6,11 @@ package kademlia
 
 import (
 	"context"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -38,12 +41,13 @@ func newTestIdentity() (*provider.FullIdentity, error) {
 }
 
 func TestNewKademlia(t *testing.T) {
+	rootdir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
 	cases := []struct {
 		id          dht.NodeID
 		bn          []pb.Node
 		addr        string
 		expectedErr error
-		setup       func() error
 	}{
 		{
 			id: func() *node.ID {
@@ -52,9 +56,8 @@ func TestNewKademlia(t *testing.T) {
 				n := node.ID(id.ID)
 				return &n
 			}(),
-			bn:    []pb.Node{pb.Node{Id: "foo"}},
-			addr:  "127.0.0.1:8080",
-			setup: func() error { return nil },
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
 		},
 		{
 			id: func() *node.ID {
@@ -63,25 +66,30 @@ func TestNewKademlia(t *testing.T) {
 				n := node.ID(id.ID)
 				return &n
 			}(),
-			bn:    []pb.Node{pb.Node{Id: "foo"}},
-			addr:  "127.0.0.1:8080",
-			setup: func() error { return os.RemoveAll("db") },
+			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			addr: "127.0.0.1:8080",
 		},
 	}
 
-	for _, v := range cases {
-		assert.NoError(t, v.setup())
+	for i, v := range cases {
+		dir := filepath.Join(rootdir, strconv.Itoa(i))
+
 		kc := kadconfig()
+
 		ca, err := provider.NewCA(context.Background(), 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
-		actual, err := NewKademlia(v.id, v.bn, v.addr, identity, "db", kc)
+
+		kad, err := NewKademlia(v.id, v.bn, v.addr, identity, dir, kc)
+		assert.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
-		assert.Equal(t, actual.bootstrapNodes, v.bn)
-		assert.NotNil(t, actual.nodeClient)
-		assert.NotNil(t, actual.routingTable)
+		assert.Equal(t, kad.bootstrapNodes, v.bn)
+		assert.NotNil(t, kad.nodeClient)
+		assert.NotNil(t, kad.routingTable)
+		assert.NoError(t, kad.Disconnect())
 	}
+
 }
 
 func TestLookup(t *testing.T) {
@@ -92,9 +100,11 @@ func TestLookup(t *testing.T) {
 	kc := kadconfig()
 
 	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
-	go func() { _ = srv.Serve(lis) }()
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
+	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
 	k := func() *Kademlia {
 		// make new identity
 		fid, err := newTestIdentity()
@@ -108,41 +118,39 @@ func TestLookup(t *testing.T) {
 		assert.NotEqual(t, id, id2)
 
 		kid := dht.NodeID(fid.ID)
-		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
-
+		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 		assert.NoError(t, err)
 		return k
 	}()
 
+	defer func() {
+		assert.NoError(t, k.Disconnect())
+	}()
+
 	cases := []struct {
-		k           *Kademlia
 		target      dht.NodeID
 		opts        lookupOpts
 		expected    *pb.Node
 		expectedErr error
 	}{
-		{
-			k: k,
-			target: func() *node.ID {
-				fid, err := newTestIdentity()
-				id := dht.NodeID(fid.ID)
-				nid := node.ID(fid.ID)
-				assert.NoError(t, err)
-				mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
-				return &nid
-			}(),
+		{target: func() *node.ID {
+			fid, err := newTestIdentity()
+			id := dht.NodeID(fid.ID)
+			nid := node.ID(fid.ID)
+			assert.NoError(t, err)
+			mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
+			return &nid
+		}(),
 			opts:        lookupOpts{amount: 5},
 			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
-		{
-			k: k,
-			target: func() *node.ID {
-				id, err := newTestIdentity()
-				assert.NoError(t, err)
-				n := node.ID(id.ID)
-				return &n
-			}(),
+		{target: func() *node.ID {
+			id, err := newTestIdentity()
+			assert.NoError(t, err)
+			n := node.ID(id.ID)
+			return &n
+		}(),
 			opts:        lookupOpts{amount: 5},
 			expected:    nil,
 			expectedErr: nil,
@@ -150,23 +158,25 @@ func TestLookup(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		err := v.k.lookup(context.Background(), v.target, v.opts)
+		err := k.lookup(context.Background(), v.target, v.opts)
 		assert.Equal(t, v.expectedErr, err)
 	}
-
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, s := testNode(t, []pb.Node{})
+	bn, s, clean := testNode(t, []pb.Node{})
+	defer clean()
 	defer s.Stop()
 
-	n1, s1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n1, s1, clean1 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer clean1()
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	n2, s2, clean2 := testNode(t, []pb.Node{*bn.routingTable.self})
+	defer clean2()
 	defer s2.Stop()
 
 	err = n2.Bootstrap(context.Background())
@@ -175,10 +185,9 @@ func TestBootstrap(t *testing.T) {
 	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
-
 }
 
-func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
+func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
@@ -189,7 +198,9 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
-	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, "db", kc)
+	dir, cleanup := mktempdir(t, "kademlia")
+
+	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -199,9 +210,12 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server) {
 	grpcServer := grpc.NewServer(identOpt)
 
 	pb.RegisterNodesServer(grpcServer, s)
-	go func() { _ = grpcServer.Serve(lis) }()
+	go func() { assert.NoError(t, grpcServer.Serve(lis)) }()
 
-	return k, grpcServer
+	return k, grpcServer, func() {
+		defer cleanup()
+		assert.NoError(t, k.Disconnect())
+	}
 
 }
 
@@ -212,7 +226,7 @@ func TestGetNodes(t *testing.T) {
 	kc := kadconfig()
 
 	srv, _ := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
-	go func() { _ = srv.Serve(lis) }()
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	// make new identity
@@ -227,9 +241,15 @@ func TestGetNodes(t *testing.T) {
 	id2 := node.ID(fid2.ID)
 	assert.NotEqual(t, id, id2)
 	kid := dht.NodeID(fid.ID)
-	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, "db", kc)
 
+	dir, cleanup := mktempdir(t, "kademlia")
+	defer cleanup()
+	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, kc)
 	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, k.Disconnect())
+	}()
+
 	// add nodes
 	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
 	bw := []int64{1, 2, 3, 4}
@@ -301,7 +321,6 @@ func TestGetNodes(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestMeetsRestrictions(t *testing.T) {
@@ -396,4 +415,13 @@ func TestMeetsRestrictions(t *testing.T) {
 			assert.Equal(t, c.expect, result)
 		})
 	}
+}
+
+func mktempdir(t *testing.T, dir string) (string, func()) {
+	rootdir, err := ioutil.TempDir("", dir)
+	assert.NoError(t, err)
+	cleanup := func() {
+		assert.NoError(t, os.RemoveAll(rootdir))
+	}
+	return rootdir, cleanup
 }
