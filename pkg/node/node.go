@@ -12,14 +12,14 @@ import (
 
 // Node is the storj definition for a node in the network
 type Node struct {
-	dht   dht.DHT
-	self  pb.Node
-	cache *ConnectionPool
+	dht  dht.DHT
+	self pb.Node
+	pool *ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	c, err := n.cache.Dial(ctx, &to)
+	c, err := n.pool.Dial(ctx, &to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
@@ -44,7 +44,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 
 // Ping attempts to establish a connection with a node to verify it is alive
 func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	_, err := n.cache.Dial(ctx, &to)
+	_, err := n.pool.Dial(ctx, &to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}
@@ -52,7 +52,7 @@ func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
 	return true, nil
 }
 
-// Disconnect closes all connections within the cache
+// Disconnect closes all connections within the pool
 func (n *Node) Disconnect() error {
-	return n.cache.DisconnectAll()
+	return n.pool.DisconnectAll()
 }

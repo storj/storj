@@ -50,11 +50,11 @@ func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
 
 // Get retrieves a node connection with the provided nodeID
 // nil is returned if the NodeID is not in the connection pool
-func (p *ConnectionPool) Get(key string) (interface{}, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (pool *ConnectionPool) Get(key string) (interface{}, error) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 
-	i, ok := p.items[key]
+	i, ok := pool.items[key]
 	if !ok {
 		return nil, nil
 	}
@@ -63,33 +63,33 @@ func (p *ConnectionPool) Get(key string) (interface{}, error) {
 }
 
 // Disconnect deletes a connection associated with the provided NodeID
-func (p *ConnectionPool) Disconnect(key string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (pool *ConnectionPool) Disconnect(key string) error {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
 
-	i, ok := p.items[key]
+	i, ok := pool.items[key]
 	if !ok {
 		return nil
 	}
 
-	delete(p.items, key)
+	delete(pool.items, key)
 
 	return i.grpc.Close()
 }
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
-func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, error) {
+func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, error) {
 	id := n.GetId()
-	p.mu.Lock()
-	conn, ok := p.items[id]
+	pool.mu.Lock()
+	conn, ok := pool.items[id]
 	if !ok {
 		conn = NewConn(n.GetAddress().Address)
-		p.items[id] = conn
+		pool.items[id] = conn
 	}
-	p.mu.Unlock()
+	pool.mu.Unlock()
 
 	conn.dial.Do(func() {
-		conn.grpc, conn.err = p.tc.DialNode(ctx, n)
+		conn.grpc, conn.err = pool.tc.DialNode(ctx, n)
 		if conn.err != nil {
 			return
 		}
@@ -105,10 +105,10 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, 
 }
 
 // DisconnectAll closes all connections nodes and removes them from the connection pool
-func (p *ConnectionPool) DisconnectAll() error {
+func (pool *ConnectionPool) DisconnectAll() error {
 	errs := []error{}
-	for k := range p.items {
-		if err := p.Disconnect(k); err != nil {
+	for k := range pool.items {
+		if err := pool.Disconnect(k); err != nil {
 			errs = append(errs, Error.Wrap(err))
 			continue
 		}
@@ -118,6 +118,6 @@ func (p *ConnectionPool) DisconnectAll() error {
 }
 
 // Init initializes the cache
-func (p *ConnectionPool) Init() {
-	p.items = make(map[string]*Conn)
+func (pool *ConnectionPool) Init() {
+	pool.items = make(map[string]*Conn)
 }
