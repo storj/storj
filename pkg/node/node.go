@@ -52,7 +52,7 @@ func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
 	return true, nil
 }
 
-// Disconnect closes connections within the cache
+// Disconnect closes all connections within the cache
 func (n *Node) Disconnect() error {
-	return n.cache.Disconnect()
+	return n.cache.DisconnectAll()
 }

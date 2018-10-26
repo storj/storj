@@ -31,7 +31,7 @@ type Conn struct {
 	addr string
 
 	dial   sync.Once
-	Client pb.NodesClient
+	client pb.NodesClient
 	grpc   *grpc.ClientConn
 	err    error
 }
@@ -62,8 +62,8 @@ func (p *ConnectionPool) Get(key string) (interface{}, error) {
 	return i, nil
 }
 
-// Remove deletes a connection associated with the provided NodeID
-func (p *ConnectionPool) Remove(key string) error {
+// Disconnect deletes a connection associated with the provided NodeID
+func (p *ConnectionPool) Disconnect(key string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -94,42 +94,30 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, 
 			return
 		}
 
-		conn.Client = pb.NewNodesClient(conn.grpc)
+		conn.client = pb.NewNodesClient(conn.grpc)
 	})
 
 	if conn.err != nil {
 		return nil, conn.err
 	}
 
-	return conn.Client, nil
+	return conn.client, nil
 }
 
-// Disconnect closes the connection to the node and removes it from the connection pool
-func (p *ConnectionPool) Disconnect() error {
-	var err error
-	var errs []error
-	for k, v := range pool.items {
-		conn, ok := v.(interface{ Close() error })
-		if !ok {
-			err = Error.New("connection pool value not a grpc client connection")
-			errs = append(errs, err)
-			continue
-		}
-		err = conn.Close()
-		if err != nil {
-			errs = append(errs, Error.Wrap(err))
-			continue
-		}
-		err = pool.Remove(k)
-		if err != nil {
+// DisconnectAll closes all connections nodes and removes them from the connection pool
+func (p *ConnectionPool) DisconnectAll() error {
+	errs := []error{}
+	for k := range p.items {
+		if err := p.Disconnect(k); err != nil {
 			errs = append(errs, Error.Wrap(err))
 			continue
 		}
 	}
+
 	return utils.CombineErrors(errs...)
 }
 
 // Init initializes the cache
 func (p *ConnectionPool) Init() {
-	pool.items = make(map[string]interface{})
+	p.items = make(map[string]*Conn)
 }

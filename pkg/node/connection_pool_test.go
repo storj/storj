@@ -42,7 +42,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
-func TestRemove(t *testing.T) {
+func TestDisconnect(t *testing.T) {
 
 	conn, err := grpc.Dial("127.0.0.1:0", grpc.WithInsecure())
 	assert.NoError(t, err)
@@ -66,7 +66,7 @@ func TestRemove(t *testing.T) {
 
 	for i := range cases {
 		v := &cases[i]
-		err := v.pool.Remove(v.key)
+		err := v.pool.Disconnect(v.key)
 		assert.Equal(t, v.expectedError, err)
 
 		test, err := v.pool.Get(v.key)
