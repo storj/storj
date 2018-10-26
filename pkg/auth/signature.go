@@ -14,7 +14,7 @@ import (
 )
 
 // GenerateSignature creates signature from identity id
-func GenerateSignature(identity *provider.FullIdentity) ([]byte, error) {
+func GenerateSignature(data []byte, identity *provider.FullIdentity) ([]byte, error) {
 	if identity == nil {
 		return nil, nil
 	}
@@ -23,7 +23,7 @@ func GenerateSignature(identity *provider.FullIdentity) ([]byte, error) {
 	if !ok {
 		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Key)
 	}
-	signature, err := cryptopasta.Sign(identity.ID.Bytes(), k)
+	signature, err := cryptopasta.Sign(data, k)
 	if err != nil {
 		return nil, err
 	}
