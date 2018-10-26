@@ -6,7 +6,6 @@ package audit
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/vivint/infectious"
