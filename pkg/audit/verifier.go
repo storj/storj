@@ -6,6 +6,7 @@ package audit
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/vivint/infectious"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/utils"
 )
 
 var mon = monkit.Package()
@@ -91,6 +93,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
+	defer utils.LogClose(rc)
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)
@@ -145,20 +148,14 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 func makeCopies(ctx context.Context, originals []share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// Have to use []infectious.Share instead of []audit.Share
-	// in order to run the infectious Correct function.
-	copies = make([]infectious.Share, len(originals))
-	for i, original := range originals {
-
-		// If there was an error downloading a share before,
-		// this line makes it so that there will be an empty
-		// infectious.Share at the copies' index (same index
-		// as in the original slice).
+	copies = make([]infectious.Share, 0, len(originals))
+	for _, original := range originals {
 		if original.Error != nil {
 			continue
 		}
-		copies[i].Data = append([]byte(nil), original.Data...)
-		copies[i].Number = original.PieceNumber
+		copies = append(copies, infectious.Share{
+			Data:   append([]byte(nil), original.Data...),
+			Number: original.PieceNumber})
 	}
 	return copies, nil
 }
@@ -176,6 +173,7 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
+
 	err = f.Correct(copies)
 	if err != nil {
 		return nil, err
