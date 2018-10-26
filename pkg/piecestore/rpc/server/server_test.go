@@ -373,7 +373,7 @@ func TestStore(t *testing.T) {
 			}()
 
 			// check db to make sure agreement and signature were stored correctly
-			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
+			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
 			assert.NoError(err)
 
 			defer func() { assert.NoError(rows.Close()) }()
