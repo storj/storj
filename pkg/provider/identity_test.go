@@ -9,8 +9,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -87,7 +89,7 @@ func TestFullIdentityFromPEM(t *testing.T) {
 	keyPEM := bytes.NewBuffer([]byte{})
 	assert.NoError(t, pem.Encode(keyPEM, peertls.NewKeyBlock(lkB)))
 
-	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes())
+	fi, err := FullIdentityFromPEM(chainPEM.Bytes(), keyPEM.Bytes(), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, l.Raw, fi.Leaf.Raw)
 	assert.Equal(t, c.Raw, fi.CA.Raw)
@@ -183,7 +185,7 @@ AwEHoUQDQgAEoLy/0hs5deTXZunRumsMkiHpF0g8wAc58aXANmr7Mxx9tzoIYFnx
 	ic, cleanup, err := tempIdentityConfig()
 	assert.NoError(t, err)
 
-	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key))
+	fi, err := FullIdentityFromPEM([]byte(chain), []byte(key), nil)
 	assert.NoError(t, err)
 
 	return cleanup, ic, fi, difficulty
@@ -198,6 +200,7 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 
 	fi, err := ic.Load()
 	assert.NoError(t, err)
+	assert.Nil(t, fi.PeerCAWhitelist)
 	assert.NotEmpty(t, fi)
 	assert.NotEmpty(t, fi.Key)
 	assert.NotEmpty(t, fi.Leaf)
@@ -208,6 +211,24 @@ func TestIdentityConfig_LoadIdentity(t *testing.T) {
 	assert.Equal(t, expectedFI.Leaf, fi.Leaf)
 	assert.Equal(t, expectedFI.CA, fi.CA)
 	assert.Equal(t, expectedFI.ID.Bytes(), fi.ID.Bytes())
+
+	tmp := path.Join(os.TempDir(), "temp-ca-whitelist.pem")
+	w, err := os.Create(tmp)
+	assert.NoError(t, err)
+	defer func() {
+		err := os.RemoveAll(tmp)
+		if err != nil {
+			fmt.Printf("unable to cleanup temp ca whitelist at \"%s\": %s", tmp, err.Error())
+		}
+	}()
+
+	err = peertls.WriteChain(w, fi.CA)
+	assert.NoError(t, err)
+
+	ic.PeerCAWhitelistPath = tmp
+	fi, err = ic.Load()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, fi.PeerCAWhitelist)
 }
 
 func TestNodeID_Difficulty(t *testing.T) {
