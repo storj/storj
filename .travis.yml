@@ -12,6 +12,7 @@ cache:
 
 services:
   - redis
+  - postgresql
 
 before_script:
   # Add an IPv6 config - see the corresponding Travis issue
@@ -19,7 +20,8 @@ before_script:
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
-    fi
+      psql -c 'create database pointerdb' -U postgres;
+    fi;
 
 before_install:
   - source scripts/setup-gopath.sh
@@ -28,7 +30,9 @@ matrix:
     - os: windows # allow failures on windows because it's slow
   include:
     ### tests ###
-    - env: MODE=tests
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
       install:
         - pushd ~
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
@@ -70,3 +74,6 @@ matrix:
         - goveralls -coverprofile=.coverprofile -service=travis-ci
 
   fast_finish: true
+
+addons:
+  postgresql: "9.5"

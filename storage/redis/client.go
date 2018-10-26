@@ -117,9 +117,9 @@ func (client *Client) Close() error {
 	return client.db.Close()
 }
 
-// GetAll is the bulk method for gets from the redis data store
-// The maximum keys returned will be 100. If more than that is requested an
-// error will be returned
+// GetAll is the bulk method for gets from the redis data store.
+// The maximum keys returned will be storage.LookupLimit. If more than that
+// is requested, an error will be returned
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded

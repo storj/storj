@@ -24,18 +24,20 @@ var (
 		RunE:  cmdSetup,
 	}
 	setupCfg struct {
-		CA            provider.CASetupConfig
-		Identity      provider.IdentitySetupConfig
-		BasePath      string `default:"$CONFDIR" help:"base path for setup"`
-		Overwrite     bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
-		SatelliteAddr string `default:"localhost:7778" help:"the address to use for the satellite"`
-		APIKey        string `default:"" help:"the api key to use for the satellite"`
-		EncKey        string `default:"" help:"your root encryption key"`
+		CA                 provider.CASetupConfig
+		Identity           provider.IdentitySetupConfig
+		BasePath           string `default:"$CONFDIR" help:"base path for setup"`
+		Overwrite          bool   `default:"false" help:"whether to overwrite pre-existing configuration files"`
+		SatelliteAddr      string `default:"localhost:7778" help:"the address to use for the satellite"`
+		APIKey             string `default:"" help:"the api key to use for the satellite"`
+		EncKey             string `default:"" help:"your root encryption key"`
+		GenerateMinioCerts bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 	}
 )
 
 func init() {
-	RootCmd.AddCommand(setupCmd)
+	CLICmd.AddCommand(setupCmd)
+	GWCmd.AddCommand(setupCmd)
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
@@ -70,6 +72,19 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.CA, setupCfg.Identity)
 	if err != nil {
 		return err
+	}
+
+	if setupCfg.GenerateMinioCerts {
+		minioCerts := filepath.Join(setupCfg.BasePath, "minio", "certs")
+		if err := os.MkdirAll(minioCerts, 0744); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.Identity.CertPath, filepath.Join(minioCerts, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.Identity.KeyPath, filepath.Join(minioCerts, "private.key")); err != nil {
+			return err
+		}
 	}
 
 	accessKey, err := generateAWSKey()

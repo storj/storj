@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
@@ -26,7 +25,7 @@ func init() {
 		Use:   "ls",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
-	})
+	}, CLICmd)
 	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 }
 
@@ -45,7 +44,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 
 		if src.IsLocal() {
-			return fmt.Errorf("No bucket specified. Please use format sj://bucket/")
+			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
 		return listFiles(ctx, bs, src, false)
@@ -94,21 +93,21 @@ func listFiles(ctx context.Context, bs buckets.Store, prefix fpath.FPath, prepen
 		return err
 	}
 
-	startAfter := paths.New("")
+	startAfter := ""
 
 	for {
-		items, more, err := o.List(ctx, paths.New(prefix.Path()), startAfter, nil, *recursiveFlag, 0, meta.Modified|meta.Size)
+		items, more, err := o.List(ctx, prefix.Path(), startAfter, "", *recursiveFlag, 0, meta.Modified|meta.Size)
 		if err != nil {
 			return err
 		}
 
 		for _, object := range items {
-			path := object.Path.String()
+			path := object.Path
 			if prependBucket {
 				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
 			}
 			if object.IsPrefix {
-				fmt.Println("PRE", path+"/")
+				fmt.Println("PRE", path)
 			} else {
 				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Meta.Modified), object.Meta.Size, path)
 			}

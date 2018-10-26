@@ -49,7 +49,7 @@ type EncryptionConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/miniogw"`
+	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
 }
 
 // ClientConfig is a configuration struct for the miniogw that controls how
@@ -155,10 +155,15 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, err
 	}
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncKey, c.EncBlockSize, storj.Cipher(c.EncType))
+
+	key := new(storj.Key)
+	copy(key[:], c.EncKey)
+
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize, key, c.EncBlockSize, storj.Cipher(c.EncType))
 	if err != nil {
 		return nil, err
 	}
+
 	obj := objects.NewStore(stream)
 
 	return buckets.NewStore(obj), nil

@@ -4,6 +4,9 @@
 package encryption
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
+
 	"storj.io/storj/pkg/storj"
 )
 
@@ -97,4 +100,18 @@ func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, cipher storj.Cipher, key
 	copy(decryptedKey[:], plainData)
 
 	return &decryptedKey, nil
+}
+
+// DeriveKey derives new key from the given key and message using HMAC-SHA512
+func DeriveKey(key *storj.Key, message string) (*storj.Key, error) {
+	mac := hmac.New(sha512.New, key[:])
+	_, err := mac.Write([]byte(message))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	derived := new(storj.Key)
+	copy(derived[:], mac.Sum(nil))
+
+	return derived, nil
 }
