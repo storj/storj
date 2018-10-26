@@ -48,55 +48,57 @@ func Open(ctx context.Context, DataPath, DBPath string) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// try to enable write-ahead-logging
-	_, _ = sqlite.Exec(`PRAGMA journal_mode = WAL`)
-
-	defer func() {
-		if err != nil {
-			_ = sqlite.Close()
-		}
-	}()
-
-	tx, err := sqlite.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
-	if err != nil {
-		return nil, err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-
 	db = &DB{
 		DB:       sqlite,
 		dataPath: DataPath,
 		check:    time.NewTicker(*defaultCheckInterval),
 	}
+	if err := db.init(); err != nil {
+		return nil, utils.CombineErrors(err, db.DB.Close())
+	}
+
 	go db.garbageCollect(ctx)
 
 	return db, nil
+}
+
+func (db *DB) init() (err error) {
+	tx, err := db.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `ttl` (`id` BLOB UNIQUE, `created` INT(10), `expires` INT(10), `size` INT(10));")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bandwidth_agreements` (`agreement` BLOB, `signature` BLOB);")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_ttl_expires ON ttl (expires);")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS `bwusagetbl` (`size` INT(10), `daystartdate` INT(10), `dayenddate` INT(10));")
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	// try to enable write-ahead-logging
+	_, _ = db.DB.Exec(`PRAGMA journal_mode = WAL`)
+
+	return nil
 }
 
 // Close the database
