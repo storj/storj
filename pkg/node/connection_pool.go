@@ -76,8 +76,8 @@ func (p *ConnectionPool) Remove(key string) error {
 	return i.grpc.Close()
 }
 
-// Dial connects to the node with the given ID and Address
-func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (*Conn, error) {
+// Dial connects to the node with the given ID and Address returning a gRPC Node Client
+func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, error) {
 	id := n.GetId()
 	p.mu.Lock()
 	conn, ok := p.items[id]
@@ -100,5 +100,5 @@ func (p *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (*Conn, error) {
 		return nil, conn.err
 	}
 
-	return conn, nil
+	return conn.Client, nil
 }
