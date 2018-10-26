@@ -218,13 +218,7 @@ func (planet *Planet) NewNodes(count int) ([]*Node, error) {
 }
 
 func (node *Node) InitOverlay(planet *Planet) error {
-	routing, err := kademlia.NewRoutingTable(node.Info, teststore.New(), teststore.New(),
-		&kademlia.RoutingOptions{
-			IDLength:     16,
-			BucketSize:   6,
-			RCBucketSize: 2,
-		},
-	)
+	routing, err := kademlia.NewRoutingTable(node.Info, teststore.New(), teststore.New())
 	if err != nil {
 		return err
 	}

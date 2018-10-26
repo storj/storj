@@ -38,7 +38,8 @@ func (identities *Identities) NewIdentity() (*provider.FullIdentity, error) {
 }
 
 func mustParsePEM(chain, key string) *provider.FullIdentity {
-	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key))
+	// TODO: whitelist
+	fi, err := provider.FullIdentityFromPEM([]byte(chain), []byte(key), nil)
 	if err != nil {
 		panic(err)
 	}
