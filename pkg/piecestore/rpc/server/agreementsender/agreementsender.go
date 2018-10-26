@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -23,10 +22,8 @@ import (
 )
 
 var (
-	mon                  = monkit.Package()
 	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check_interval", time.Hour, "number of seconds to sleep between agreement checks")
-	defaultOverlayAddr = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7777", "Overlay Address")
-
+	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7777", "Overlay Address")
 
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")
@@ -34,10 +31,10 @@ var (
 
 // AgreementSender maintains variables required for reading bandwidth agreements from a DB and sending them to a Payers
 type AgreementSender struct {
-	DB   *psdb.DB
-	overlay overlay.Client
+	DB       *psdb.DB
+	overlay  overlay.Client
 	identity *provider.FullIdentity
-	errs []error
+	errs     []error
 	mu       sync.Mutex
 }
 
@@ -108,7 +105,6 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					return
 				}
 
-
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
 				if err != nil {
@@ -126,7 +122,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					log.Println(agreement)
 
 					msg := &pb.RenterBandwidthAllocation{
-						Data: agreement.Agreement,
+						Data:      agreement.Agreement,
 						Signature: agreement.Signature,
 					}
 
@@ -137,10 +133,11 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					}
 
 					// Delete from PSDB by signature
-					as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature)
+					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
+						as.appendErr(err)
+						return
+					}
 				}
-
-				return
 			}()
 		}
 	}

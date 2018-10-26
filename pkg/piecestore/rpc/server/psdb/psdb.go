@@ -37,6 +37,7 @@ type DB struct {
 	check    *time.Ticker
 }
 
+// Agreement is a struct that contains a bandwidth agreement and the associated signature
 type Agreement struct {
 	Agreement []byte
 	Signature []byte
@@ -237,7 +238,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 	return agreements, nil
 }
 
-// GetBandwidthAllocationBySignature finds allocation info by signature
+// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
 func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
 	defer db.locked()()
 
