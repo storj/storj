@@ -52,7 +52,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, kadconfig KadConfig) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -70,16 +70,12 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 	kdb, ndb := dbs[0], dbs[1]
 
-	rt, err := NewRoutingTable(self, kdb, ndb, &RoutingOptions{
-		IDLength:     kadconfig.DefaultIDLength,
-		BucketSize:   kadconfig.DefaultBucketSize,
-		RCBucketSize: kadconfig.DefaultReplacementCacheSize,
-	})
+	rt, err := NewRoutingTable(self, kdb, ndb)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
 
-	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, kadconfig.Alpha, rt)
+	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, alpha, rt)
 }
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
@@ -115,8 +111,8 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
 	return utils.CombineErrors(
+		k.nodeClient.Disconnect(),
 		k.routingTable.Close(),
-		// TODO: close connections
 	)
 }
 
@@ -193,8 +189,16 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	// TODO(coyle)
-	return pb.Node{}, nil
+	ok, err := k.nodeClient.Ping(ctx, node)
+	if err != nil {
+		return pb.Node{}, NodeErr.Wrap(err)
+	}
+
+	if !ok {
+		return pb.Node{}, NodeErr.New("Failed pinging node")
+	}
+
+	return node, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

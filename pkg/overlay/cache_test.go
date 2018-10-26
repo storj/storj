@@ -46,29 +46,17 @@ const (
 	testNetSize = 30
 )
 
-// helper function to get kademlia base configs without root Config struct
-func kadconfig() kademlia.KadConfig {
-	return kademlia.KadConfig{
-		Alpha:                       5,
-		DefaultIDLength:             256,
-		DefaultBucketSize:           20,
-		DefaultReplacementCacheSize: 5,
-	}
-}
-
 func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
-	kc := kadconfig()
 	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 	n := []pb.Node{b}
-	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), fid, "db", kc)
+	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), fid, "db", 5)
 	assert.NoError(t, err)
 
 	return kad
 }
 
 func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
-	kc := kadconfig()
 	bid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
@@ -85,7 +73,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), identity, "db", kc)
+	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), identity, "db", 5)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -100,12 +88,11 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	assert.NoError(t, err)
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
-		kc := kadconfig()
 
 		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", kc)
+		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", 5)
 		assert.NoError(t, err)
 
 		p++
