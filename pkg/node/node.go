@@ -8,10 +8,8 @@ import (
 	"log"
 
 	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pool"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -20,12 +18,12 @@ type Node struct {
 	dht   dht.DHT
 	self  pb.Node
 	tc    transport.Client
-	cache pool.Pool
+	cache *ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	v, err := n.cache.Get(ctx, to.GetId())
+	v, err := n.cache.Get(to.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +37,7 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 			return nil, err
 		}
 
-		if err := n.cache.Add(ctx, to.GetId(), c); err != nil {
+		if err := n.cache.Add(to.GetId(), c); err != nil {
 			log.Printf("Error %s occurred adding %s to cache", err, to.GetId())
 		}
 		conn = c
@@ -62,4 +60,9 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 	}
 
 	return resp.Response, nil
+}
+
+// Disconnect closes connections within the cache
+func (n *Node) Disconnect() error {
+	return n.cache.Disconnect()
 }

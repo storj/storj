@@ -11,14 +11,15 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -31,7 +32,7 @@ func init() {
 		Use:   "mount",
 		Short: "Mount a bucket",
 		RunE:  mountBucket,
-	})
+	}, CLICmd)
 }
 
 func mountBucket(cmd *cobra.Command, args []string) (err error) {
@@ -94,18 +95,20 @@ type storjFs struct {
 }
 
 func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
+	zap.S().Infof("GetAttr: %v", name)
+
 	if name == "" {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
-	metadata, err := sf.store.Meta(sf.ctx, paths.New(name))
+	metadata, err := sf.store.Meta(sf.ctx, name)
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, fuse.EIO
 	}
 
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
-		items, _, err := sf.store.List(sf.ctx, paths.New(name), nil, nil, false, 1, meta.None)
+		items, _, err := sf.store.List(sf.ctx, name, "", "", false, 1, meta.None)
 		if err != nil && !storage.ErrKeyNotFound.Has(err) {
 			return nil, fuse.EIO
 		}
@@ -127,6 +130,8 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
+	zap.S().Infof("OpenDir: %v", name)
+
 	entries, err := sf.listFiles(sf.ctx, name, sf.store)
 	if err != nil {
 		return nil, fuse.EIO
@@ -147,19 +152,20 @@ func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file 
 func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
 	var entries []fuse.DirEntry
 
-	startAfter := paths.New("")
+	startAfter := ""
 
 	for {
-		items, more, err := store.List(ctx, paths.New(name), startAfter, nil, false, 0, meta.Modified)
+		items, more, err := store.List(ctx, name, startAfter, "", false, 0, meta.None)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, object := range items {
-			path := object.Path.String()
+			path := object.Path
 
 			mode := fuse.S_IFREG
 			if object.IsPrefix {
+				path = filepath.Clean(path)
 				mode = fuse.S_IFDIR
 			}
 			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
@@ -176,7 +182,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 }
 
 func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
-	err := sf.store.Delete(sf.ctx, paths.New(name))
+	err := sf.store.Delete(sf.ctx, name)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return fuse.ENOENT
@@ -222,7 +228,7 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 
 func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 	if f.reader == nil {
-		ranger, _, err := f.store.Get(f.ctx, paths.New(f.name))
+		ranger, _, err := f.store.Get(f.ctx, f.name)
 		if err != nil {
 			return nil, err
 		}

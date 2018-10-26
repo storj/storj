@@ -28,6 +28,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	queue := q.NewQueue(client)
 
-	repairer := newRepairer(ctx, queue, c.Interval, c.MaxRepair)
-	return repairer.Run()
+	repairer := newRepairer(queue, c.Interval, c.MaxRepair)
+	return repairer.Run(ctx)
 }

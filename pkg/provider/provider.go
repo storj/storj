@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/storage"
 )
 
@@ -44,7 +45,7 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
-	ident, err := identity.ServerOption()
+	ident, err := identity.ServerOption(peertls.VerifyCAWhitelist(identity.PeerCAWhitelist))
 	if err != nil {
 		return nil, err
 	}

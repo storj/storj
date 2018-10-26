@@ -161,8 +161,8 @@ func (client *Client) Close() error {
 	return nil
 }
 
-// GetAll finds all values for the provided keys up to 100 keys
-// if more keys are provided than the maximum an error will be returned.
+// GetAll finds all values for the provided keys (up to storage.LookupLimit).
+// If more keys are provided than the maximum, an error will be returned.
 func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded

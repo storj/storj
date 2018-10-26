@@ -115,8 +115,8 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
 	return utils.CombineErrors(
+		k.nodeClient.Disconnect(),
 		k.routingTable.Close(),
-		// TODO: close connections
 	)
 }
 

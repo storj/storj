@@ -19,7 +19,7 @@ func init() {
 		Use:   "rb",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
-	})
+	}, CLICmd)
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
@@ -60,7 +60,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	items, _, err := o.List(ctx, nil, nil, nil, true, 1, meta.None)
+	items, _, err := o.List(ctx, "", "", "", true, 1, meta.None)
 	if err != nil {
 		return err
 	}
