@@ -15,7 +15,7 @@ import (
 
 // GenerateSignature creates signature from identity id
 func GenerateSignature(data []byte, identity *provider.FullIdentity) ([]byte, error) {
-	if identity == nil {
+	if len(data) == 0 {
 		return nil, nil
 	}
 

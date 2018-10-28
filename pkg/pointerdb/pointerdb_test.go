@@ -19,6 +19,7 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -72,11 +73,12 @@ func TestServiceGet(t *testing.T) {
 	} {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.apiKey)
+		identity := &provider.FullIdentity{ID: ""}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		s := Server{DB: db, logger: zap.NewNop()}
+		s := Server{DB: db, logger: zap.NewNop(), identity: identity}
 
 		path := "a/b/c"
 

@@ -61,10 +61,6 @@ func (s *Server) validateAuth(ctx context.Context) error {
 }
 
 func (s *Server) appendSignature(ctx context.Context) error {
-	if s.identity == nil {
-		return nil
-	}
-
 	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
 	if err != nil {
 		return err
@@ -312,10 +308,6 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 }
 
 func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
-	if s.identity == nil {
-		return nil, nil
-	}
-
 	payer := s.identity.ID.Bytes()
 	pbad := &pb.PayerBandwidthAllocation_Data{Payer: payer}
 
