@@ -112,8 +112,11 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 	}
 
 	res, err := sdb.grpcClient.FindValidNodes(ctx, findValidNodesReq)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return res.PassedIds, res.FailedIds, err
+	return res.PassedIds, res.FailedIds, nil
 }
 
 // Update is used for updating a node's stats in the stats db

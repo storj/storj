@@ -81,7 +81,6 @@ message NodeRep {
     float minUptime = 1;
     float minAuditSuccess = 2;
     int64 minAuditCount = 3;
-    // TODO(moby) mininum age?
 }
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data

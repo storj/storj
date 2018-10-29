@@ -17,11 +17,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-// TODO(moby) cases to test
-// 1. IF exact number of nodes fit requirements return all of them
-// 2. If more nodes available make sure all nodes returned fit requirements
-// 3. If not enough nodes fit requirements, return as many nodes as possible and an error
-
 func TestFindStorageNodes(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)

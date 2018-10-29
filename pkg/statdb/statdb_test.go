@@ -126,7 +126,6 @@ func TestFindValidNodes(t *testing.T) {
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
-	//nodeIDs := []byte{[]byte("id1"), []byte("id1"), []byte("id1"), []byte("id1"), []byte("id1"), []byte("id1")]
 
 	for _, tt := range []struct {
 		nodeID             []byte

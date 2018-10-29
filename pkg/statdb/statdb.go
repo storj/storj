@@ -134,20 +134,7 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
 	minUptime := getReq.MinStats.UptimeRatio
 
-	idStr := "("
-	for i, id := range nodeIds {
-		idStr += fmt.Sprintf(`"%s"`, string(id))
-		if i+1 < len(nodeIds) {
-			idStr += ","
-		}
-	}
-	idStr += ")"
-	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
-		FROM nodes
-		WHERE nodes.id in %s
-		AND nodes.total_audit_count >= %d
-		AND nodes.audit_success_ratio >= %f
-		AND nodes.uptime_ratio >= %f`, idStr, minAuditCount, minAuditSuccess, minUptime)
+	queryStr := getQueryString(nodeIds, minAuditCount, minAuditSuccess, minUptime)
 
 	rows, err := s.DB.Query(queryStr)
 	if err != nil {
@@ -180,6 +167,25 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		PassedIds: passedIds,
 		FailedIds: failedIds,
 	}, nil
+}
+
+func getQueryString(nodeIds [][]byte, auditCount int64, auditSuccess, uptime float64) string {
+	idStr := "("
+	for i, id := range nodeIds {
+		idStr += fmt.Sprintf(`"%s"`, string(id))
+		if i+1 < len(nodeIds) {
+			idStr += ","
+		}
+	}
+	idStr += ")"
+	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
+		FROM nodes
+		WHERE nodes.id in %s
+		AND nodes.total_audit_count >= %d
+		AND nodes.audit_success_ratio >= %f
+		AND nodes.uptime_ratio >= %f`, idStr, auditCount, auditSuccess, uptime)
+
+	return queryStr
 }
 
 // Update a single storagenode's stats in the db
