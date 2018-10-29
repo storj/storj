@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -97,7 +96,7 @@ func TestPing(t *testing.T) {
 		assert.NoError(t, err)
 		// start gRPC server
 
-		go func() { fmt.Printf("\n\n\n%#v\n\n\n", msrv.Serve(lis)) }()
+		go func() { assert.NoError(t, msrv.Serve(lis)) }()
 		defer msrv.Stop()
 
 		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
