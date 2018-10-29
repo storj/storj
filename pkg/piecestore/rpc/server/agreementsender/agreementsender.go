@@ -113,8 +113,17 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				defer func() {
-					if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
+					summary, closeErr := stream.CloseAndRecv(); 
+					if closeErr != nil {
 						log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
+						return
+					}
+
+					// Delete from PSDB by signature
+					for v := range summary.GetFailed() {
+						if err = as.DB.DeleteBandwidthAllocationBySignature(agreementGroup.agreements[v].Signature); err != nil {
+							log.Printf("error deleting bandwidth allocation index %v", v)
+						}
 					}
 				}()
 
@@ -128,12 +137,6 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 
 					// Send agreement to satellite
 					if err = stream.Send(msg); err != nil {
-						as.appendErr(err)
-						return
-					}
-
-					// Delete from PSDB by signature
-					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
 						as.appendErr(err)
 						return
 					}
