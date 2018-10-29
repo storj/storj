@@ -10,7 +10,7 @@ import (
 
 func TestBasic(t *testing.T) {
 	t.Log("New")
-	planet, err := testplanet.New(1, 4)
+	planet, err := testplanet.New(2, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +24,14 @@ func TestBasic(t *testing.T) {
 
 	t.Log("Start")
 	planet.Start(context.Background())
+
+	for i := 0; i < planet.SatelliteCount(); i++ {
+		t.Log("SATELLITE", planet.Satellite(i).ID(), planet.Satellite(i).Addr())
+	}
+
+	for i := 0; i < planet.StorageNodeCount(); i++ {
+		t.Log("STORAGE", planet.StorageNode(i).ID(), planet.StorageNode(i).Addr())
+	}
 }
 
 func BenchmarkCreate(b *testing.B) {
