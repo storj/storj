@@ -8,6 +8,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -16,6 +17,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
@@ -56,28 +58,32 @@ func TestNewOverlayClient(t *testing.T) {
 
 func TestChoose(t *testing.T) {
 	cases := []struct {
-		limit         int
-		space         int64
-		excluded      []dht.NodeID
-		expectedCalls int
+		limit    int
+		space    int64
+		allNodes []*pb.Node
+		excluded []dht.NodeID
 	}{
 		{
-			limit:         50,
-			space:         100,
-			excluded:      nil,
-			expectedCalls: 1,
-		},
-		{
-			limit: 50,
-			space: 100,
+			limit: 4,
+			space: 0,
+			allNodes: func() []*pb.Node {
+				n1 := &pb.Node{Id: "n1"}
+				n2 := &pb.Node{Id: "n2"}
+				n3 := &pb.Node{Id: "n3"}
+				n4 := &pb.Node{Id: "n4"}
+				n5 := &pb.Node{Id: "n5"}
+				n6 := &pb.Node{Id: "n6"}
+				n7 := &pb.Node{Id: "n7"}
+				n8 := &pb.Node{Id: "n8"}
+				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
+			}(),
 			excluded: func() []dht.NodeID {
 				id1 := node.IDFromString("n1")
 				id2 := node.IDFromString("n2")
 				id3 := node.IDFromString("n3")
 				id4 := node.IDFromString("n4")
-				return []dht.NodeID{id2, id1, id3, id4}
+				return []dht.NodeID{id1, id2, id3, id4}
 			}(),
-			expectedCalls: 1,
 		},
 	}
 
@@ -85,15 +91,29 @@ func TestChoose(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		srv, mock, err := newTestServer(ctx)
-		assert.NoError(t, err)
-		go func() { assert.NoError(t, srv.Serve(lis)) }()
-		defer srv.Stop()
+		var listItems []storage.ListItem
+		for _, n := range v.allNodes {
+			data, err := proto.Marshal(n)
+			assert.NoError(t, err)
+			listItems = append(listItems, storage.ListItem{
+				Key:   storage.Key(n.Id),
+				Value: data,
+			})
+		}
 
 		ca, err := provider.NewCA(ctx, 12, 4)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
+
+		srv := NewMockServer(listItems, func() grpc.ServerOption {
+			opt, err := identity.ServerOption()
+			assert.NoError(t, err)
+			return opt
+		}())
+
+		go func() { assert.NoError(t, srv.Serve(lis)) }()
+		defer srv.Stop()
 
 		oc, err := NewOverlayClient(identity, lis.Addr().String())
 		assert.NoError(t, err)
@@ -101,9 +121,13 @@ func TestChoose(t *testing.T) {
 		assert.NotNil(t, oc)
 		assert.NotEmpty(t, oc.client)
 
-		_, err = oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
+		newNodes, err := oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
 		assert.NoError(t, err)
-		assert.Equal(t, mock.FindStorageNodesCalled, v.expectedCalls)
+		for _, new := range newNodes {
+			for _, ex := range v.excluded {
+				assert.NotEqual(t, ex.String(), new.Id)
+			}
+		}
 	}
 }
 

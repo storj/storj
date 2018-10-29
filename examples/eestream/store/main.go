@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -53,10 +54,9 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	encKey := encryption.Key(sha256.Sum256([]byte(*key)))
-	var firstNonce encryption.Nonce
-	cipher := encryption.AESGCM
-	encrypter, err := cipher.NewEncrypter(&encKey, &firstNonce, es.StripeSize())
+	encKey := storj.Key(sha256.Sum256([]byte(*key)))
+	var firstNonce storj.Nonce
+	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}

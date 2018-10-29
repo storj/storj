@@ -16,12 +16,13 @@ import (
 	"storj.io/storj/pkg/eestream"
 	mock_eestream "storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
 	mock_pointerdb "storj.io/storj/pkg/pointerdb/pdbclient/mocks"
 	"storj.io/storj/pkg/ranger"
 	mock_ecclient "storj.io/storj/pkg/storage/ec/mocks"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -68,8 +69,6 @@ func TestSegmentStoreMeta(t *testing.T) {
 	}{
 		{"path/1/2/3", &pb.Pointer{CreationDate: pExp, ExpirationDate: pExp}, Meta{Modified: mExp, Expiration: mExp}},
 	} {
-		p := paths.New(tt.pathInput)
-
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
@@ -77,7 +76,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		m, err := ss.Meta(ctx, p)
+		m, err := ss.Meta(ctx, tt.pathInput)
 		assert.NoError(t, err)
 		assert.Equal(t, m, tt.returnMeta)
 	}
@@ -108,9 +107,6 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		p := paths.New(tt.pathInput)
-		r := strings.NewReader(tt.readerContent)
-
 		calls := []*gomock.Call{
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
@@ -134,8 +130,8 @@ func TestSegmentStorePutRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
-			return p, tt.mdInput, nil
+		_, err := ss.Put(ctx, strings.NewReader(tt.readerContent), tt.expiration, func() (storj.Path, []byte, error) {
+			return tt.pathInput, tt.mdInput, nil
 		})
 		assert.NoError(t, err, tt.name)
 	}
@@ -166,9 +162,6 @@ func TestSegmentStorePutInline(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		p := paths.New(tt.pathInput)
-		r := strings.NewReader(tt.readerContent)
-
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Put(
 				gomock.Any(), gomock.Any(), gomock.Any(),
@@ -179,8 +172,8 @@ func TestSegmentStorePutInline(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, err := ss.Put(ctx, r, tt.expiration, func() (paths.Path, []byte, error) {
-			return p, tt.mdInput, nil
+		_, err := ss.Put(ctx, strings.NewReader(tt.readerContent), tt.expiration, func() (storj.Path, []byte, error) {
+			return tt.pathInput, tt.mdInput, nil
 		})
 		assert.NoError(t, err, tt.name)
 	}
@@ -215,8 +208,6 @@ func TestSegmentStoreGetInline(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		p := paths.New(tt.pathInput)
-
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
@@ -231,7 +222,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, _, err := ss.Get(ctx, p)
+		_, _, err := ss.Get(ctx, tt.pathInput)
 		assert.NoError(t, err)
 	}
 }
@@ -269,8 +260,6 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
-
-		p := paths.New(tt.pathInput)
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
@@ -311,7 +300,7 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		err := ss.Repair(ctx, p, tt.lostPieces)
+		err := ss.Repair(ctx, tt.pathInput, tt.lostPieces)
 		assert.NoError(t, err)
 	}
 }
@@ -344,8 +333,6 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		p := paths.New(tt.pathInput)
-
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
@@ -375,7 +362,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, _, err := ss.Get(ctx, p)
+		_, _, err := ss.Get(ctx, tt.pathInput)
 		assert.NoError(t, err)
 	}
 }
@@ -409,8 +396,6 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		p := paths.New(tt.pathInput)
-
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
@@ -428,7 +413,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		err := ss.Delete(ctx, p)
+		err := ss.Delete(ctx, tt.pathInput)
 		assert.NoError(t, err)
 	}
 }
@@ -460,8 +445,6 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
-
-		p := paths.New(tt.pathInput)
 
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
@@ -495,7 +478,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		err := ss.Delete(ctx, p)
+		err := ss.Delete(ctx, tt.pathInput)
 		assert.NoError(t, err)
 	}
 }
@@ -505,12 +488,12 @@ func TestSegmentStoreList(t *testing.T) {
 	defer ctrl.Finish()
 
 	for _, tt := range []struct {
-		prefixInput     string
-		startAfterInput string
-		thresholdSize   int
-		itemPath        string
-		inlineContent   []byte
-		metadata        []byte
+		prefix        string
+		startAfter    string
+		thresholdSize int
+		itemPath      string
+		inlineContent []byte
+		metadata      []byte
 	}{
 		{"bucket1", "s0/path/1", 10, "s0/path/1", []byte("inline"), []byte("metadata")},
 	} {
@@ -525,10 +508,6 @@ func TestSegmentStoreList(t *testing.T) {
 		ss := segmentStore{mockOC, mockEC, mockPDB, rs, tt.thresholdSize}
 		assert.NotNil(t, ss)
 
-		prefix := paths.New(tt.prefixInput)
-		startAfter := paths.New(tt.startAfterInput)
-		listedPath := paths.New(tt.itemPath)
-
 		ti := time.Unix(0, 0).UTC()
 		someTime, err := ptypes.TimestampProto(ti)
 		assert.NoError(t, err)
@@ -539,7 +518,7 @@ func TestSegmentStoreList(t *testing.T) {
 				gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return([]pdb.ListItem{
 				{
-					Path: listedPath,
+					Path: tt.itemPath,
 					Pointer: &pb.Pointer{
 						Type:           pb.Pointer_INLINE,
 						InlineSegment:  tt.inlineContent,
@@ -553,7 +532,7 @@ func TestSegmentStoreList(t *testing.T) {
 		}
 		gomock.InOrder(calls...)
 
-		_, _, err = ss.List(ctx, prefix, startAfter, nil, false, 10, uint32(1))
+		_, _, err = ss.List(ctx, tt.prefix, tt.startAfter, "", false, 10, meta.Modified)
 		assert.NoError(t, err)
 	}
 }

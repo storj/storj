@@ -4,53 +4,54 @@
 package kademlia
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/storelogger"
+	"storj.io/storj/storage/teststore"
 )
 
-func tempdir(t testing.TB) (dir string, cleanup func()) {
-	dir, err := ioutil.TempDir("", "storj-kademlia")
-	if err != nil {
-		t.Fatal(err)
+// newTestRoutingTable returns a newly configured instance of a RoutingTable
+func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
+	rt := &RoutingTable{
+		self:             localNode,
+		kadBucketDB:      storelogger.New(zap.L(), teststore.New()),
+		nodeBucketDB:     storelogger.New(zap.L(), teststore.New()),
+		transport:        &defaultTransport,
+		mutex:            &sync.Mutex{},
+		replacementCache: make(map[string][]*pb.Node),
+		idLength:         16,
+		bucketSize:       6,
+		rcBucketSize:     2,
 	}
-	return dir, func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
+	ok, err := rt.addNode(&localNode)
+	if !ok || err != nil {
+		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
+	return rt, nil
 }
 
 func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()) {
-	tempdir, cleanup := tempdir(t)
-
 	if localNodeID == nil {
 		localNodeID = []byte("AA")
 	}
-	localNode := &pb.Node{Id: string(localNodeID)}
-	options := &RoutingOptions{
-		kpath:        filepath.Join(tempdir, "Kadbucket"),
-		npath:        filepath.Join(tempdir, "Nodebucket"),
-		idLength:     16,
-		bucketSize:   6,
-		rcBucketSize: 2,
-	}
-	rt, err := NewRoutingTable(localNode, options)
+	localNode := pb.Node{Id: string(localNodeID)}
+
+	rt, err := newTestRoutingTable(localNode)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return rt, func() {
 		err := rt.Close()
-		cleanup()
 		if err != nil {
 			t.Fatal(err)
 		}

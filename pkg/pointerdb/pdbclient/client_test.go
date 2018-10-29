@@ -25,10 +25,10 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/auth"
-	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 )
 
 const (
@@ -54,7 +54,7 @@ func TestNewPointerDBClient(t *testing.T) {
 	assert.NotNil(t, pdb.grpcClient)
 }
 
-func makePointer(path p.Path) pb.PutRequest {
+func makePointer(path storj.Path) pb.PutRequest {
 	// rps is an example slice of RemotePieces to add to this
 	// REMOTE pointer type.
 	var rps []*pb.RemotePiece
@@ -63,7 +63,7 @@ func makePointer(path p.Path) pb.PutRequest {
 		NodeId:   "testId",
 	})
 	pr := pb.PutRequest{
-		Path: path.String(),
+		Path: path,
 		Pointer: &pb.Pointer{
 			Type: pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
@@ -89,15 +89,15 @@ func TestPut(t *testing.T) {
 
 	for i, tt := range []struct {
 		APIKey    []byte
-		path      p.Path
+		path      storj.Path
 		err       error
 		errString string
 	}{
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "file1/file2", nil, ""},
+		{[]byte("wrong key"), "file1/file2", ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "", ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), "", ErrUnauthenticated, unauthenticated},
+		{[]byte(""), "", ErrUnauthenticated, unauthenticated},
 	} {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.APIKey)
@@ -127,21 +127,21 @@ func TestGet(t *testing.T) {
 
 	for i, tt := range []struct {
 		APIKey    []byte
-		path      p.Path
+		path      storj.Path
 		err       error
 		errString string
 	}{
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), "file1/file2", ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "", ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), "", ErrUnauthenticated, unauthenticated},
+		{[]byte(""), "", ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "file1/file2", nil, ""},
 	} {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.APIKey)
 
 		getPointer := makePointer(tt.path)
-		getRequest := pb.GetRequest{Path: tt.path.String()}
+		getRequest := pb.GetRequest{Path: tt.path}
 
 		data, err := proto.Marshal(getPointer.Pointer)
 		if err != nil {
@@ -239,8 +239,7 @@ func TestList(t *testing.T) {
 
 		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
-		items, more, err := pdb.List(ctx, p.New(tt.prefix), p.New(tt.startAfter),
-			p.New(tt.endBefore), tt.recursive, tt.limit, tt.metaFlags)
+		items, more, err := pdb.List(ctx, tt.prefix, tt.startAfter, tt.endBefore, tt.recursive, tt.limit, tt.metaFlags)
 
 		if err != nil {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -253,13 +252,10 @@ func TestList(t *testing.T) {
 			assert.Equal(t, len(tt.items), len(items))
 
 			for i := 0; i < len(items); i++ {
-				assert.Equal(t, tt.items[i].GetPath(), items[i].Path.String())
-				assert.Equal(t, tt.items[i].GetPointer().GetSize(),
-					items[i].Pointer.GetSize())
-				assert.Equal(t, tt.items[i].GetPointer().GetCreationDate(),
-					items[i].Pointer.GetCreationDate())
-				assert.Equal(t, tt.items[i].GetPointer().GetExpirationDate(),
-					items[i].Pointer.GetExpirationDate())
+				assert.Equal(t, tt.items[i].GetPath(), items[i].Path)
+				assert.Equal(t, tt.items[i].GetPointer().GetSize(), items[i].Pointer.GetSize())
+				assert.Equal(t, tt.items[i].GetPointer().GetCreationDate(), items[i].Pointer.GetCreationDate())
+				assert.Equal(t, tt.items[i].GetPointer().GetExpirationDate(), items[i].Pointer.GetExpirationDate())
 			}
 		}
 	}
@@ -271,20 +267,20 @@ func TestDelete(t *testing.T) {
 
 	for i, tt := range []struct {
 		APIKey    []byte
-		path      p.Path
+		path      storj.Path
 		err       error
 		errString string
 	}{
-		{[]byte("wrong key"), p.New("file1/file2"), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New(""), ErrNoFileGiven, noPathGiven},
-		{[]byte("wrong key"), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte(""), p.New(""), ErrUnauthenticated, unauthenticated},
-		{[]byte("abc123"), p.New("file1/file2"), nil, ""},
+		{[]byte("wrong key"), "file1/file2", ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "", ErrNoFileGiven, noPathGiven},
+		{[]byte("wrong key"), "", ErrUnauthenticated, unauthenticated},
+		{[]byte(""), "", ErrUnauthenticated, unauthenticated},
+		{[]byte("abc123"), "file1/file2", nil, ""},
 	} {
 		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.APIKey)
 
-		deleteRequest := pb.DeleteRequest{Path: tt.path.String()}
+		deleteRequest := pb.DeleteRequest{Path: tt.path}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)

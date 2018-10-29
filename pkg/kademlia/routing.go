@@ -14,9 +14,9 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/storelogger"
 )
 
@@ -32,7 +32,7 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self             *pb.Node
+	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
@@ -43,39 +43,20 @@ type RoutingTable struct {
 	rcBucketSize     int // replacementCache bucket max length
 }
 
-//RoutingOptions for configuring RoutingTable
-type RoutingOptions struct {
-	kpath        string
-	npath        string
-	idLength     int //TODO (JJ): add checks for > 0
-	bucketSize   int
-	rcBucketSize int
-}
-
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *pb.Node, options *RoutingOptions) (*RoutingTable, error) {
-	kdb, err := boltdb.New(options.kpath, KademliaBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create kadBucketDB: %s", err)
-	}
-
-	ndb, err := boltdb.New(options.npath, NodeBucket)
-	if err != nil {
-		return nil, RoutingErr.New("could not create nodeBucketDB: %s", err)
-	}
-	rp := make(map[string][]*pb.Node)
+func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
 		kadBucketDB:      storelogger.New(zap.L(), kdb),
 		nodeBucketDB:     storelogger.New(zap.L(), ndb),
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
-		replacementCache: rp,
-		idLength:         options.idLength,
-		bucketSize:       options.bucketSize,
-		rcBucketSize:     options.rcBucketSize,
+		replacementCache: make(map[string][]*pb.Node),
+		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
+		bucketSize:       *flagBucketSize,
+		rcBucketSize:     *flagReplacementCacheSize,
 	}
-	ok, err := rt.addNode(localNode)
+	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -84,14 +65,15 @@ func NewRoutingTable(localNode *pb.Node, options *RoutingOptions) (*RoutingTable
 
 // Close closes underlying databases
 func (rt *RoutingTable) Close() error {
-	kerr := rt.kadBucketDB.Close()
-	nerr := rt.nodeBucketDB.Close()
-	return utils.CombineErrors(kerr, nerr)
+	return utils.CombineErrors(
+		rt.kadBucketDB.Close(),
+		rt.nodeBucketDB.Close(),
+	)
 }
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() pb.Node {
-	return *rt.self
+	return rt.self
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket

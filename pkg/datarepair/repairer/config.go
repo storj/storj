@@ -19,29 +19,15 @@ type Config struct {
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
 
-// Initialize a repairer struct
-func (c Config) initialize(ctx context.Context) (Repairer, error) {
-	var r repairer
-	r.ctx, r.cancel = context.WithCancel(ctx)
-
-	client, err := redis.NewClientFrom(c.QueueAddress)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	r.queue = q.NewQueue(client)
-
-	r.cond.L = &r.mu
-	r.maxRepair = c.MaxRepair
-	r.interval = c.Interval
-	return &r, nil
-}
-
 // Run runs the repairer with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	r, err := c.initialize(ctx)
+	client, err := redis.NewClientFrom(c.QueueAddress)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	return r.Run()
+	queue := q.NewQueue(client)
+
+	repairer := newRepairer(queue, c.Interval, c.MaxRepair)
+	return repairer.Run(ctx)
 }
