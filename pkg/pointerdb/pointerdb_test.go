@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"crypto/x509"
+	"crypto/tls"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -16,6 +18,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/credentials"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
@@ -62,6 +66,18 @@ func TestServicePut(t *testing.T) {
 }
 
 func TestServiceGet(t *testing.T) {
+	ctx := context.Background()
+	ca, err := provider.NewCA(ctx, 12, 4)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	peerCertificates := make([]*x509.Certificate, 2)
+	peerCertificates[0] = identity.Leaf
+	peerCertificates[1] = identity.CA
+
+	info := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: peerCertificates}}
+
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
@@ -71,9 +87,11 @@ func TestServiceGet(t *testing.T) {
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
-		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.apiKey)
-		identity := &provider.FullIdentity{ID: ""}
+		ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: info})
+
+		// TODO(michal) workaround avoid problems with lack of grpc context
+		identity.ID = ""
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
