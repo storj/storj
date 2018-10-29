@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Context is a
+// Context is a context that has utility methods for testing and waiting for asynchronous errors.
 type Context struct {
 	context.Context
 	group *errgroup.Group
