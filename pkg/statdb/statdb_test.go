@@ -120,7 +120,66 @@ func TestGetDoesNotExist(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TODO(moby) test FindValidNodes
+func TestFindValidNodes(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	apiKey := []byte("")
+	//nodeIDs := []byte{[]byte("id1"), []byte("id1"), []byte("id1"), []byte("id1"), []byte("id1"), []byte("id1")]
+
+	for _, tt := range []struct {
+		nodeID             []byte
+		auditSuccessCount             int64
+		totalAuditCount    int64
+		auditRatio float64
+		uptimeSuccessCount     int64
+		totalUptimeCount       int64
+		uptimeRatio float64
+	}{
+		{[]byte("id1"), 10, 20, 0.5, 10, 20, 0.5}, // bad ratios
+		{[]byte("id2"), 20, 20, 1, 20, 20, 1}, // good ratios
+		{[]byte("id3"), 20, 20, 1, 10, 20, 0.5}, // good audit success bad uptime
+		{[]byte("id4"), 10, 20, 0.5, 20, 20, 1}, // good uptime bad audit success
+		{[]byte("id5"), 5, 5, 1, 5, 5, 1}, // good ratios not enough audits
+		{[]byte("id6"), 20, 20, 1, 20, 20, 1}, // good ratios, excluded from query
+		{[]byte("id7"), 19, 20, 0.95, 19, 20, 0.95}, // borderline ratios
+	} {
+		err = createNode(ctx, db, tt.nodeID, tt.auditSuccessCount, tt.totalAuditCount, tt.auditRatio,
+			tt.uptimeSuccessCount, tt.totalUptimeCount, tt.uptimeRatio)
+		assert.NoError(t, err)
+	}
+	
+	findValidNodesReq := &pb.FindValidNodesRequest{
+		NodeIds: [][]byte{
+			[]byte("id1"), []byte("id2"),
+			[]byte("id3"), []byte("id4"),
+			[]byte("id5"), []byte("id7"),
+		},
+		MinStats: &pb.NodeStats{
+			AuditSuccessRatio: 0.95,
+			UptimeRatio: 0.95,
+			AuditCount: 15,
+		},
+		APIKey: apiKey,
+	}
+
+	resp, err := statdb.FindValidNodes(ctx, findValidNodesReq)
+	assert.NoError(t, err)
+
+	passed := resp.PassedIds
+	failed := resp.FailedIds
+
+	assert.Contains(t, passed, []byte("id2"))
+	assert.Contains(t, passed, []byte("id7"))
+	assert.Len(t, passed, 2)
+
+	assert.Contains(t, failed, []byte("id1"))
+	assert.Contains(t, failed, []byte("id3"))
+	assert.Contains(t, failed, []byte("id4"))
+	assert.Contains(t, failed, []byte("id5"))
+	assert.Len(t, failed, 4)
+}
 
 func TestUpdateExists(t *testing.T) {
 	dbPath := getDBPath()
