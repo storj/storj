@@ -22,7 +22,7 @@ func NewXorQueue(size int) *XorQueue {
 	return &XorQueue{items: make(items, 0, size), maxLen: size}
 }
 
-//Insert adds Node onto the queue
+//Insert adds Nodes onto the queue
 func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	targetBytes := new(big.Int).SetBytes(target.Bytes())
 	//insert new nodes
@@ -44,7 +44,7 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	}
 }
 
-//Closest removed the closest priority node from the queue
+//Closest removes the closest priority node from the queue
 func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	if x.Len() == 0 {
 		return nil, big.Int{}

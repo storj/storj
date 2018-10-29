@@ -4,89 +4,134 @@
 package kademlia
 
 import (
-	"bytes"
 	"context"
-	"log"
-	"time"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"sync"
+	"math/big"
+	"log"
 )
 
-type sequentialLookup struct {
-	contacted       map[string]bool
-	queue           *XorQueue
-	slowestResponse time.Duration
-	client          node.Client
-	target          dht.NodeID
-	limit           int
-	bootstrap       bool
+type concurrentLookup struct {
+	client node.Client
+	target dht.NodeID
+	opts   lookupOpts
+
+	cond  *sync.Cond
+	queue *XorQueue
+
+	mu        *sync.Mutex
+	contacted map[string]int
 }
 
-func newSequentialLookup(rt *RoutingTable, nodes []*pb.Node, client node.Client, target dht.NodeID, limit int, bootstrap bool) *sequentialLookup {
-	queue := NewXorQueue(limit)
+func newConcurrentLookup(nodes []*pb.Node, client node.Client, target dht.NodeID, opts lookupOpts) *concurrentLookup {
+	queue := NewXorQueue(opts.concurrency)
 	queue.Insert(target, nodes)
 
-	return &sequentialLookup{
-		contacted:       map[string]bool{},
-		queue:           queue,
-		slowestResponse: 0,
-		client:          client,
-		target:          target,
-		limit:           limit,
-		bootstrap:       bootstrap,
+	return &concurrentLookup{
+		client: client,
+		target: target,
+		opts:   opts,
+
+		cond:  &sync.Cond{L: &sync.Mutex{}},
+		queue: queue,
+
+		mu:        &sync.Mutex{},
+		contacted: map[string]int{},
 	}
 }
 
-func (lookup *sequentialLookup) Run(ctx context.Context) error {
-	for lookup.queue.Len() > 0 {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+func (lookup *concurrentLookup) Run(ctx context.Context) error {
+	wg := sync.WaitGroup{}
 
-		next, priority := lookup.queue.Closest()
-		if !lookup.bootstrap && bytes.Equal(priority.Bytes(), make([]byte, len(priority.Bytes()))) {
-			return nil // found the result
-		}
+	// protected by `lookup.cond.L`
+	working := 0
+	allDone := false
 
-		uncontactedNeighbors := []*pb.Node{}
-		neighbors := lookup.FetchNeighbors(ctx, next)
-		for _, neighbor := range neighbors {
-			if !lookup.contacted[neighbor.GetId()] {
-				uncontactedNeighbors = append(uncontactedNeighbors, neighbor)
+	wg.Add(lookup.opts.concurrency)
+	for i := 0; i < lookup.opts.concurrency; i += 1 {
+		go func() {
+			defer wg.Done()
+			for {
+				var (
+					next     *pb.Node
+					priority big.Int
+				)
+
+				lookup.cond.L.Lock()
+				for {
+					// everything is done, this routine can return
+					if allDone {
+						lookup.cond.L.Unlock()
+						return
+					}
+
+					next, priority = lookup.queue.Closest()
+					if !lookup.opts.bootstrap && priority.Cmp(&big.Int{}) == 0 {
+						allDone = true
+						lookup.cond.L.Unlock()
+						return // closest node is the target and is already in routing table (i.e. no lookup required)
+					}
+
+					if next != nil {
+						working++
+						break
+					}
+
+					// no work, wait until some other routine inserts into the queue
+					lookup.cond.Wait()
+				}
+				lookup.cond.L.Unlock()
+
+				nextId := next.GetId()
+				lookup.mu.Lock()
+				lookup.contacted[nextId]++
+				tries := lookup.contacted[nextId]
+				lookup.mu.Unlock()
+
+				var uncontacted []*pb.Node
+				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
+				if err != nil {
+					if tries < lookup.opts.retries {
+						uncontacted = append(uncontacted, next)
+					} else {
+						log.Printf("Error occurred during lookup for %s on %s :: error = %s", lookup.target.String(), next.GetId(), err.Error())
+					}
+				}
+
+				for _, neighbor := range neighbors {
+					lookup.mu.Lock()
+					contacted := lookup.contacted[neighbor.GetId()] > 0
+					lookup.mu.Unlock()
+
+					if !contacted {
+						uncontacted = append(uncontacted, neighbor)
+					}
+				}
+
+				lookup.cond.L.Lock()
+				if len(uncontacted) > 0 {
+					lookup.queue.Insert(lookup.target, uncontacted)
+				}
+
+				working--
+				allDone = isDone(ctx) || working == 0 && lookup.queue.Len() == 0
+				lookup.cond.L.Unlock()
+				lookup.cond.Broadcast()
 			}
-		}
-		lookup.queue.Insert(lookup.target, uncontactedNeighbors)
-
-		for lookup.queue.Len() > lookup.limit {
-			lookup.queue.Closest()
-		}
+		}()
 	}
-	return nil
+
+	wg.Wait()
+	return ctx.Err()
 }
 
-func (lookup *sequentialLookup) FetchNeighbors(ctx context.Context, node *pb.Node) []*pb.Node {
-	if node.GetAddress() == nil {
-		return nil
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
 	}
-	lookup.contacted[node.GetId()] = true
-
-	start := time.Now()
-	neighbors, err := lookup.client.Lookup(ctx, *node, pb.Node{Id: lookup.target.String()})
-	if err != nil {
-		// TODO(coyle): I think we might want to do another look up on this node or update something
-		// but for now let's just log and ignore.
-		log.Printf("Error occurred during lookup for %s on %s :: error = %s", lookup.target.String(), node.GetId(), err.Error())
-		return []*pb.Node{}
-	}
-
-	latency := time.Since(start)
-	if latency > lookup.slowestResponse {
-		lookup.slowestResponse = latency
-	}
-
-	return neighbors
 }

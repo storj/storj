@@ -128,7 +128,7 @@ func TestLookup(t *testing.T) {
 			mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
 			return &nid
 		}(),
-			opts:        lookupOpts{amount: 5},
+			opts:        lookupOpts{concurrency: 5},
 			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
@@ -138,7 +138,7 @@ func TestLookup(t *testing.T) {
 			n := node.ID(id.ID)
 			return &n
 		}(),
-			opts:        lookupOpts{amount: 5},
+			opts:        lookupOpts{concurrency: 5},
 			expected:    nil,
 			expectedErr: nil,
 		},
