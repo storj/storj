@@ -30,7 +30,7 @@ retrieve those files!
 
 All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along!
 
-Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to [our Rocketchat](https://community.storj.io) to join the community and to talk to the Storj core team.
+Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to [our Rocketchat](https://community.storj.io) and join the #dev channel to join the developer community and to talk to the Storj core team.
 
 # Installation
 
