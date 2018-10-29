@@ -8,10 +8,10 @@ import (
 	"net"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/test"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -29,10 +29,10 @@ func TestFindStorageNodes(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		}, {
 			Key:   storage.Key(fid2.ID.String()),
-			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	assert.NotNil(t, srv)
@@ -62,7 +62,7 @@ func TestOverlayLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -89,7 +89,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: test.NewNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -105,4 +105,12 @@ func TestOverlayBulkLookup(t *testing.T) {
 	r, err := c.BulkLookup(context.Background(), rs)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
+}
+
+// newNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
+func newNodeStorageValue(t *testing.T, address string) storage.Value {
+	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
+	d, err := proto.Marshal(na)
+	assert.NoError(t, err)
+	return d
 }
