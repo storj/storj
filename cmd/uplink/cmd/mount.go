@@ -6,12 +6,12 @@
 package cmd
 
 import (
+	"strings"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -165,7 +165,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 
 			mode := fuse.S_IFREG
 			if object.IsPrefix {
-				path = filepath.Clean(path)
+				path = strings.TrimSuffix(path, "/")
 				mode = fuse.S_IFDIR
 			}
 			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
