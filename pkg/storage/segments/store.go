@@ -297,27 +297,21 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	// get the nodes list that needs to be excluded
 	var excludeNodeIDs []dht.NodeID
-	for _, v := range originalNodes {
-		if v != nil {
-			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
-		}
-	}
-
-	//remove all lost pieces from the list to have only healthy pieces
-	for j := range originalNodes {
-		for i := range lostPieces {
-			if j == lostPieces[i] {
-				originalNodes[j] = nil
-			}
-		}
-	}
 
 	// count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
-	for i := range originalNodes {
-		if originalNodes[i] == nil {
+	for j, v := range originalNodes {
+		if v != nil {
+			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+		} else {
 			totalNilNodes++
-			continue
+		}
+
+		//remove all lost pieces from the list to have only healthy pieces
+		for i := range lostPieces {
+			if j == lostPieces[i] {
+				totalNilNodes++
+			}
 		}
 	}
 
@@ -387,8 +381,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	// update the segment info in the pointerDB
-	err = s.pdb.Put(ctx, path, pointer)
-	return err
+	return s.pdb.Put(ctx, path, pointer)
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
