@@ -137,7 +137,7 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 
 	idStr := "("
 	for i, id := range nodeIds {
-		idStr += fmt.Sprintf(`"%s"`, id)
+		idStr += fmt.Sprintf(`"%s"`, string(id))
 		if i+1 < len(nodeIds) {
 			idStr += ","
 		}
@@ -147,8 +147,8 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		FROM nodes 
 		WHERE nodes.id in %s
 		AND nodes.total_audit_count >= %d
-		AND nodes.audit_success_count >= %f
-		AND nodes.uptime_success_count >= %f`, idStr, minAuditCount, minAuditSuccess, minUptime)
+		AND nodes.audit_success_ratio >= %f
+		AND nodes.uptime_ratio >= %f`, idStr, minAuditCount, minAuditSuccess, minUptime)
 
 	rows, err := s.DB.Query(queryStr)
 	if err != nil {
