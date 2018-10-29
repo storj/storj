@@ -22,30 +22,30 @@ import (
 // Checker is the interface for the data repair queue
 type Checker interface {
 	IdentifyInjuredSegments(ctx context.Context) (err error)
-	Run() error
+	Run(ctx context.Context) error
 }
 
 // Checker contains the information needed to do checks for missing pieces
 type checker struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	errs        []error
 	pointerdb   *pointerdb.Server
 	repairQueue *queue.Queue
 	overlay     pb.OverlayServer
 	limit       int
 	logger      *zap.Logger
-	interval    time.Duration
+	limiter 	*sync2.Limiter
+	ticker  	*time.Ticker
 }
 
 // NewChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *checker {
+func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration, concurrency int) *checker {
 	return &checker{
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		limit:       limit,
 		logger:      logger,
+		limiter: 	 sync2.NewLimiter(concurrency),
+		ticker: 	 time.NewTicker(interval),
 	}
 }
 
@@ -126,28 +126,24 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 }
 
 // Run the checker loop
-func (c *checker) Run() error {
-	zap.S().Info("Checker is starting up")
-	ticker := time.NewTicker(c.interval)
-	defer ticker.Stop()
+func (c *checker) Run(ctx context.Context) err error {
+	defer mon.Task()(&ctx)(&err)
 
-	go func() {
-		for range ticker.C {
-			zap.S().Info("Starting segment checker service")
-			go func() {
-				err := c.IdentifyInjuredSegments(c.ctx)
-				if err != nil {
-					c.errs = append(c.errs, err)
-					c.cancel()
-				}
-			}()
-		}
-	}()
+	// wait for all checkers to complete
+	defer c.limiter.Wait()
 
 	for {
 		select {
-		case <-c.ctx.Done():
-			return utils.CombineErrors(c.errs...)
+		case <-c.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the repairer is canceled via context
+			return ctx.Err()
+		}
+
+		c.limiter.Go(ctx, func() {
+			err = c.IdentifyInjuredSegments
+			if err != nil {
+				zap.L().Error("Checker failed", zap.Error(err))
+			}
 		}
 	}
 }
