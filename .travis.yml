@@ -39,7 +39,7 @@ matrix:
         - popd
         - go install -race ./...
       script:
-        - go test -race -cover -coverprofile=.coverprofile ./...
+        - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
     
     ### run linters ###
