@@ -1,0 +1,18 @@
+// dbx.v1 golang bwagreement.dbx .
+model bwagreement (
+	key signature 
+
+	field signature blob 
+
+	field data blob
+	
+	field created_at timestamp ( autoinsert )
+)
+
+create bwagreement ( )
+delete bwagreement ( where bwagreement.signature = ? )
+read one (
+  select bwagreement 
+  where  bwagreement.signature = ?
+)
+
