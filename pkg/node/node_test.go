@@ -48,7 +48,7 @@ func TestLookup(t *testing.T) {
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
 
-		ctx.GoServe(srv, list)
+		ctx.Go(func() error { return srv.Serve(lis) })
 		defer srv.Stop()
 
 		ctrl := gomock.NewController(t)
@@ -104,7 +104,7 @@ func TestPing(t *testing.T) {
 		assert.NoError(t, err)
 		// start gRPC server
 
-		ctx.GoServe(msrv, lis)
+		ctx.Go(func() error { return msrv.Serve(lis) })
 		defer msrv.Stop()
 
 		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)

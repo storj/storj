@@ -6,7 +6,6 @@ package testcontext
 import (
 	"context"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -40,14 +39,6 @@ func New(test testing.TB) *Context {
 func (ctx *Context) Go(fn func() error) {
 	ctx.test.Helper()
 	ctx.group.Go(fn)
-}
-
-// GoServe runs a server in a func
-func (ctx *Context) GoServe(server interface{ Serve(net.Listener) error }, listener net.Listener) {
-	ctx.test.Helper()
-	ctx.group.Go(func() error {
-		return server.Serve(listener)
-	})
 }
 
 // Check calls fn and checks result
