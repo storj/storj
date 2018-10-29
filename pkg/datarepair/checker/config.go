@@ -31,8 +31,7 @@ func (c Config) initialize(ctx context.Context) (Checker, error) {
 		return nil, Error.Wrap(err)
 	}
 	repairQueue := queue.NewQueue(client)
-	check := newChecker(pointerdb, repairQueue, overlay, 0, zap.L(), c.Interval)
-	return check, nil
+	return newChecker(pointerdb, repairQueue, overlay, 0, zap.L(), c.Interval), nil
 }
 
 // Run runs the checker with configured values
