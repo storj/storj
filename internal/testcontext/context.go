@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -20,6 +21,7 @@ type Context struct {
 	group *errgroup.Group
 	test  testing.TB
 
+	once      sync.Once
 	directory string
 }
 
@@ -27,10 +29,9 @@ type Context struct {
 func New(test testing.TB) *Context {
 	group, ctx := errgroup.WithContext(context.Background())
 	return &Context{
-		Context:   ctx,
-		group:     group,
-		test:      test,
-		directory: "",
+		Context: ctx,
+		group:   group,
+		test:    test,
 	}
 }
 
@@ -62,13 +63,13 @@ func (ctx *Context) Check(fn func() error) {
 func (ctx *Context) Dir(subs ...string) string {
 	ctx.test.Helper()
 
-	if ctx.directory != "" {
+	ctx.once.Do(func() {
 		var err error
 		ctx.directory, err = ioutil.TempDir("", ctx.test.Name())
 		if err != nil {
 			ctx.test.Fatal(err)
 		}
-	}
+	})
 
 	dir := filepath.Join(append([]string{ctx.directory}, subs...)...)
 	_ = os.MkdirAll(dir, 0644)

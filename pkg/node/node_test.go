@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -20,6 +21,9 @@ import (
 var ctx = context.Background()
 
 func TestLookup(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		self        pb.Node
 		to          pb.Node
@@ -43,8 +47,10 @@ func TestLookup(t *testing.T) {
 		id := newTestIdentity(t)
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
-		go func() { assert.NoError(t, srv.Serve(lis)) }()
+
+		ctx.GoServe(srv, list)
 		defer srv.Stop()
+
 		ctrl := gomock.NewController(t)
 
 		mdht := mock_dht.NewMockDHT(ctrl)
@@ -68,7 +74,9 @@ func TestLookup(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	ctx := context.Background()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cases := []struct {
 		self        pb.Node
 		toID        string
@@ -96,7 +104,7 @@ func TestPing(t *testing.T) {
 		assert.NoError(t, err)
 		// start gRPC server
 
-		go func() { assert.NoError(t, msrv.Serve(lis)) }()
+		ctx.GoServe(msrv, lis)
 		defer msrv.Stop()
 
 		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
@@ -116,7 +124,6 @@ func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.Fu
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-
 	pb.RegisterNodesServer(grpcServer, ns)
 
 	return grpcServer, ns, nil
