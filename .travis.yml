@@ -61,7 +61,9 @@ matrix:
         - make test-captplanet
     
     ### windows tests ###
-    - env: MODE=windows-tests
+    - env: 
+        - MODE=windows-tests
+        - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
       os: windows
       services:
         - redis
@@ -73,9 +75,10 @@ matrix:
         - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
       install:
         - go get github.com/mattn/goveralls
+        - go get github.com/mfridman/tparse
         - go install -race ./...
       script:
-        - go test -race -cover -coverprofile=.coverprofile ./...
+        - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
 
   fast_finish: true
