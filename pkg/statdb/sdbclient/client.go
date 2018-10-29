@@ -27,7 +27,7 @@ type StatDB struct {
 type Client interface {
 	Create(ctx context.Context, nodeID []byte) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
-	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64, 
+	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
 		minAuditSuccess, minUptime float64) (passedIDs, failedIDs [][]byte, err error)
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
@@ -105,8 +105,8 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 		NodeIds: nodeIDs,
 		MinStats: &pb.NodeStats{
 			AuditSuccessRatio: minAuditSuccess,
-			UptimeRatio: minUptime,
-			AuditCount: minAuditCount,
+			UptimeRatio:       minUptime,
+			AuditCount:        minAuditCount,
 		},
 		APIKey: sdb.APIKey,
 	}

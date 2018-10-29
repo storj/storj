@@ -5,8 +5,8 @@ package statdb
 
 import (
 	"context"
-	"strings"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -129,7 +129,6 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	passedMap := make(map[string]bool)
 	failedIds := [][]byte{}
 
-
 	nodeIds := getReq.NodeIds
 	minAuditCount := getReq.MinStats.AuditCount
 	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
@@ -143,8 +142,8 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		}
 	}
 	idStr += ")"
-	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at 
-		FROM nodes 
+	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
+		FROM nodes
 		WHERE nodes.id in %s
 		AND nodes.total_audit_count >= %d
 		AND nodes.audit_success_ratio >= %f
@@ -154,7 +153,12 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			s.logger.Error(err.Error())
+		}
+	}()
 
 	for rows.Next() {
 		node := &dbx.Node{}
@@ -162,7 +166,7 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 		if err != nil {
 			return nil, err
 		}
-		passedIds =  append(passedIds, []byte(node.Id))
+		passedIds = append(passedIds, []byte(node.Id))
 		passedMap[node.Id] = true
 	}
 
