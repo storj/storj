@@ -1,14 +1,16 @@
-package testplanet
+package testplanet_test
 
 import (
 	"context"
 	"strconv"
 	"testing"
+
+	"storj.io/storj/internal/testplanet"
 )
 
 func TestBasic(t *testing.T) {
 	t.Log("New")
-	planet, err := New(1, 4)
+	planet, err := testplanet.New(1, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +32,7 @@ func BenchmarkCreate(b *testing.B) {
 		b.Run(strconv.Itoa(count), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {
-				planet, err := New(1, 100)
+				planet, err := testplanet.New(1, 100)
 				if err != nil {
 					b.Fatal(err)
 				}
