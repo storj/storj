@@ -8,8 +8,13 @@ import (
 
 	"go.uber.org/zap"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Config is a configuration struct that is everything you need to start an
@@ -19,8 +24,9 @@ type Config struct {
 }
 
 // Run implements the provider.Responsibility interface
-func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	ns, err := NewServer(c.DatabaseURL, zap.L())
+func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	ns, err := NewServer(c.DatabaseURL, server.Identity(), zap.L())
 	if err != nil {
 		return err
 	}

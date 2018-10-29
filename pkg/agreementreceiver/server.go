@@ -7,22 +7,56 @@ import (
 	"fmt"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 
 	"go.uber.org/zap"
 )
 
+// Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	logger *zap.Logger
+	// DB       *dbx.DB
+	identity *provider.FullIdentity
+	logger   *zap.Logger
 }
 
-func NewServer(source string, logger *zap.Logger) (*Server, error) {
-	//TODO: open dbx postgres database, add DB field to Server
+// NewServer initializes a Server struct
+func NewServer(source string, fi *provider.FullIdentity, logger *zap.Logger) (*Server, error) {
+	//TODO: open dbx postgres database and pass to Server
 	return &Server{
-		logger: logger,
+		identity: fi,
+		logger:   logger,
 	}, nil
 }
 
-func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) error {
-	fmt.Println("NOT IMPLEMENTED")
-	return nil
+// BandwidthAgreements receives and stores bandwidth agreements from storage nodes
+func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	ch := make(chan *pb.RenterBandwidthAllocation, 1)
+	go func() error {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				return err
+			}
+			ch <- msg
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case agreement := <-ch:
+			go func() {
+				fmt.Println(agreement)
+				//TODO: write to DB
+				//err = s.DB.WriteAgreement(agreement)
+				// if err != nil {
+				// 	return err
+				// }
+			}()
+		}
+	}
 }
