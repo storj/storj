@@ -14,4 +14,5 @@ service Bandwidth {
 
 
 message AgreementsSummary {
+  repeated int32 failed = 1;
 }
