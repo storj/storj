@@ -87,8 +87,8 @@ func (lookup *concurrentLookup) Run(ctx context.Context) error {
 
 				nextID := next.GetId()
 				lookup.mu.Lock()
-				lookup.contacted[nextID]++
 				tries := lookup.contacted[nextID]
+				lookup.contacted[nextID]++
 				lookup.mu.Unlock()
 
 				var uncontacted []*pb.Node
