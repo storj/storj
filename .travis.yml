@@ -10,10 +10,6 @@ cache:
   directories:
     - /home/travis/cache
 
-services:
-  - redis
-  - postgresql
-
 before_script:
   # Add an IPv6 config - see the corresponding Travis issue
   # https://github.com/travis-ci/travis-ci/issues/8361
@@ -33,13 +29,17 @@ matrix:
     - env:
         - MODE=tests
         - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
+      services:
+        - redis
+        - postgresql
       install:
         - pushd ~
         - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
         - popd
         - go install -race ./...
       script:
-        - go test -race -cover -coverprofile=.coverprofile ./...
+        - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
     
     ### run linters ###
@@ -52,6 +52,8 @@ matrix:
     
     ### captplanet tests ###
     - env: MODE=integration
+      services:
+        - redis
       install:
         - source scripts/install-awscli.sh
         - go install storj.io/storj/cmd/captplanet
@@ -61,6 +63,8 @@ matrix:
     ### windows tests ###
     - env: MODE=windows-tests
       os: windows
+      services:
+        - redis
       cache:
         directories:
           - "%HOME%/cache"
