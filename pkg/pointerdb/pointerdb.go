@@ -309,7 +309,13 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 
 func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
 	payer := s.identity.ID.Bytes()
-	pbad := &pb.PayerBandwidthAllocation_Data{Payer: payer}
+
+	// TODO(michal) should be replaced with renter id when available
+	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbad := &pb.PayerBandwidthAllocation_Data{Payer: payer, Renter: peerIdentity.ID.Bytes()}
 
 	data, err := proto.Marshal(pbad)
 	if err != nil {
