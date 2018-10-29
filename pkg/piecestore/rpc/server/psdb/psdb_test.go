@@ -5,6 +5,7 @@ package psdb
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -23,7 +23,7 @@ var ctx = context.Background()
 
 const concurrency = 10
 
-func openTest(t testing.TB) (*DB, func()) {
+func newDB(t testing.TB) (*DB, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb")
 	if err != nil {
 		t.Fatal(err)
@@ -48,8 +48,18 @@ func openTest(t testing.TB) (*DB, func()) {
 	}
 }
 
+func TestNewInmemory(t *testing.T) {
+	db, err := OpenInMemory(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHappyPath(t *testing.T) {
-	db, cleanup := openTest(t)
+	db, cleanup := newDB(t)
 	defer cleanup()
 
 	type TTL struct {
@@ -186,7 +196,7 @@ func TestHappyPath(t *testing.T) {
 }
 
 func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := openTest(t)
+	db, cleanup := newDB(t)
 	defer cleanup()
 
 	type BWUSAGE struct {
@@ -250,7 +260,7 @@ func TestBandwidthUsage(t *testing.T) {
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := openTest(b)
+	db, cleanup := newDB(b)
 	defer cleanup()
 
 	const WritesPerLoop = 10
