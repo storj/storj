@@ -5,7 +5,6 @@ package agreementsender
 
 import (
 	"flag"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -35,7 +34,6 @@ type AgreementSender struct {
 	overlay  overlay.Client
 	identity *provider.FullIdentity
 	errs     []error
-	mu       sync.Mutex
 }
 
 // Initialize the Agreement Sender
@@ -139,11 +137,4 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			}()
 		}
 	}
-}
-
-func (as *AgreementSender) appendErr(err error) {
-	// TODO: Should we cancel the context if a certain number of errors show up?
-	as.mu.Lock()
-	as.errs = append(as.errs, err)
-	as.mu.Unlock()
 }
