@@ -210,9 +210,9 @@ func (db *DB) garbageCollect(ctx context.Context) {
 func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 	defer db.locked()()
 
-	// We begin extracting the payer_id
-	// The payer id can be used to sort the bandwidth agreements
-	// If the agreements are sorted we can send them in bulk streams to the payer
+	// We begin extracting the satellite_id
+	// The satellite id can be used to sort the bandwidth agreements
+	// If the agreements are sorted we can send them in bulk streams to the satellite
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
 		return err
@@ -223,7 +223,7 @@ func (db *DB) WriteBandwidthAllocToDB(ba *pb.RenterBandwidthAllocation) error {
 		return err
 	}
 
-	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.GetPayer(), ba.GetData(), ba.GetSignature())
+	_, err := db.DB.Exec(`INSERT INTO bandwidth_agreements (satellite, agreement, signature) VALUES (?, ?, ?)`, pbad.GetSatelliteId(), ba.GetData(), ba.GetSignature())
 	return err
 }
 
