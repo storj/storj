@@ -142,12 +142,15 @@ func newCACert(key, parentKey crypto.PrivateKey, template, parentCert *x509.Cert
 
 		hash := crypto.SHA256.New()
 		_, err := hash.Write(cert.RawTBSCertificate)
+		if err != nil {
+			return nil, peertls.ErrSign.Wrap(err)
+		}
 		r, s, err := ecdsa.Sign(rand.Reader, p, hash.Sum(nil))
 		if err != nil {
 			return nil, peertls.ErrSign.Wrap(err)
 		}
 
-		signature, err := asn1.Marshal(peertls.EcdsaSignature{R: r, S: s})
+		signature, err := asn1.Marshal(peertls.ECDSASignature{R: r, S: s})
 		if err != nil {
 			return nil, peertls.ErrSign.Wrap(err)
 		}

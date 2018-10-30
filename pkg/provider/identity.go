@@ -279,6 +279,7 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	return s.Run(ctx)
 }
 
+// RestChainRaw returns the rest (excluding leaf and CA) of the certficate chain as a 2d byte slice
 func (fi *FullIdentity) RestChainRaw() [][]byte {
 	var chain [][]byte
 	for _, cert := range fi.RestChain {

@@ -23,7 +23,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-type EcdsaSignature struct {
+// ECDSASignature holds the `r` and `s` values in an ecdsa signature
+// (see https://golang.org/pkg/crypto/ecdsa)
+type ECDSASignature struct {
 	R, S *big.Int
 }
 
@@ -82,7 +84,7 @@ func verifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) er
 		return ErrUnsupportedKey.New("%T", key)
 	}
 
-	signature := new(EcdsaSignature)
+	signature := new(ECDSASignature)
 
 	if _, err := asn1.Unmarshal(signedData, signature); err != nil {
 		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)

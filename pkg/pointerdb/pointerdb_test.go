@@ -68,7 +68,7 @@ func TestServicePut(t *testing.T) {
 func TestServiceGet(t *testing.T) {
 	ctx := context.Background()
 	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty: 12,
+		Difficulty:  12,
 		Concurrency: 4,
 	})
 	assert.NoError(t, err)

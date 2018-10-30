@@ -50,11 +50,16 @@ type CASetupConfig struct {
 	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
 }
 
+// NewCAOptions is used to pass parameters to `NewCA`
 type NewCAOptions struct {
-	Difficulty  uint16
+	// Difficulty is the number of trailing zero-bits the nodeID must have
+	Difficulty uint16
+	// Concurrency is the number of go routines used to generate a CA of sufficient difficulty
 	Concurrency uint
-	ParentCert  *x509.Certificate
-	ParentKey   crypto.PrivateKey
+	// ParentCert, if provided will be prepended to the certificate chain
+	ParentCert *x509.Certificate
+	// ParentKey ()
+	ParentKey crypto.PrivateKey
 }
 
 // PeerCAConfig is for locating a CA certificate without a private key
