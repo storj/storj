@@ -82,7 +82,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	}
 
 	allocationData := &pb.PayerBandwidthAllocation_Data{
-		Action: "GET",
+		Action: pb.PayerBandwidthAllocation_GET,
 	}
 
 	serializedAllocation, err := proto.Marshal(allocationData)

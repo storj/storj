@@ -19,13 +19,19 @@ service PieceStoreRoutes {
 }
 
 message PayerBandwidthAllocation { // Payer refers to satellite
+
+  enum Action {
+    PUT = 0;
+    GET = 1;
+  }
+
   message Data {
     bytes satellite_id = 1;        // Satellite Identity
     bytes uplink_id = 2;           // Uplink Identity
     int64 max_size = 3;            // Max amount of data the satellite will pay for in bytes
     int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
     string serial_number = 5;      // Unique serial number
-    string action = 6;             // GET or PUT
+    Action action = 6;             // GET or PUT
   }
 
   bytes signature = 1; // Seralized Data signed by Satellite

@@ -96,7 +96,7 @@ func main() {
 			id := client.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-				Action: "PUT",
+				Action: pb.PayerBandwidthAllocation_PUT,
 			}
 		
 			serializedAllocation, err := proto.Marshal(allocationData)
@@ -158,7 +158,7 @@ func main() {
 			}
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-				Action: "GET",
+				Action: pb.PayerBandwidthAllocation_GET,
 			}
 		
 			serializedAllocation, err := proto.Marshal(allocationData)
