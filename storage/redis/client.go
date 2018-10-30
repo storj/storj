@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )

@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/testqueue"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -34,7 +34,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
-	repairQueue := queue.NewQueue(teststore.New())
+	repairQueue := queue.NewQueue(testqueue.New())
 
 	const N = 25
 	nodes := []*pb.Node{}
@@ -110,7 +110,7 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
-	repairQueue := queue.NewQueue(teststore.New())
+	repairQueue := queue.NewQueue(testqueue.New())
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := []dht.NodeID{}
@@ -144,7 +144,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
-	client, err := redis.NewClient(addr, "", 1)
+	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
 	repairQueue := queue.NewQueue(client)
 

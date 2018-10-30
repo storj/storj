@@ -43,6 +43,5 @@ func BenchmarkSuite(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-
 	testsuite.RunBenchmarks(b, client)
 }
