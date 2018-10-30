@@ -68,11 +68,13 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 
 	s.logger.Debug("Received the bw agreement msg from piecenode ")
 	ch := make(chan *pb.RenterBandwidthAllocation, 1)
-	go func() error {
+	errch := make(chan error, 1)
+	go func() {
 		for {
 			msg, err := stream.Recv()
 			if err != nil {
-				return err
+				errch <- err
+				return
 			}
 			ch <- msg
 		}
@@ -80,15 +82,20 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 
 	for {
 		select {
+		case err := <-errch:
+			return err
 		case <-ctx.Done():
 			s.logger.Debug("ctx<-Done()")
 			return nil
 		case agreement := <-ch:
-			go func() (err error) {
+			go func() {
 				s.logger.Debug("about to create a postgres entry")
 				_, err = s.Create(ctx, agreement)
-				return err
+				if err != nil {
+					errch <- err
+				}
 			}()
 		}
 	}
+
 }
