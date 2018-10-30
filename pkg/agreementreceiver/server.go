@@ -13,7 +13,6 @@ import (
 
 	dbx "storj.io/storj/pkg/agreementreceiver/dbx"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/auth"
 )
 
 // Server is an implementation of the pb.BandwidthServer interface
@@ -39,14 +38,6 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		DB:     db,
 		logger: logger,
 	}, nil
-}
-
-func (s *Server) validateAuth(APIKeyBytes []byte) error {
-	if !auth.ValidateAPIKey(string(APIKeyBytes)) {
-		s.logger.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-	return nil
 }
 
 // Create a db entry for the provided storagenode
@@ -100,5 +91,4 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 			}()
 		}
 	}
-	return err
 }

@@ -6,12 +6,11 @@
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
-Storj is building a decentralized cloud storage network and is launching in
-early 2019.
+Storj is building a decentralized cloud storage network.
 
 ----
 
-Storj is an S3 compatible platform and suite of decentralized applications that
+Storj is an S3-compatible platform and suite of decentralized applications that
 allows you to store data in a secure and decentralized manner. Your files are
 encrypted, broken into little pieces and stored in a global decentralized
 network of computers. Luckily, we also support allowing you (and only you) to
@@ -19,25 +18,25 @@ retrieve those files!
 
 ## Table of Contents
 
-- [Contributing](#start-contributing-to-storj)
-- [Using via Storj CLI](#start-using-storj-via-the-storj-cli)
-- [Using via AWS S3 CLI](#start-using-storj-via-the-aws-s3-cli)
+- [Contributing](#contributing-to-storj)
+- [Start using Storj](#start-using-storj)
 - [License](#license)
 - [Support](#support)
 
-# Start Contributing to Storj
+# Contributing to Storj
+
+All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along! Make sure to sign our [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) first. See our [license section](#license) for more details.
+
+Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team.
 
 ### Install required packages
 
-Download and install the latest release of Go, at least Go 1.11:
-https://golang.org/
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
 
-You will also need Git. (`brew install git`, `apt-get install git`, etc).
-If you're building on Windows, you also need to install and have gcc setup correctly (easiest way via mingw64).
+You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
+If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
 
-Install git and golang. We support Linux, Mac, and Windows operating
-systems. Other operating systems supported by Go are probably not much
-additional work.
+We support Linux, Mac, and Windows operating systems. Other operating systems supported by Go should also be able to run Storj.
 
 ### Download and compile Storj
 
@@ -47,78 +46,52 @@ additional work.
 > falls back to the old behavior if you check out code inside of the directory
 > referenced by your GOPATH variable, so make sure to use another directory,
 > `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
-> instructions. If you don't have a GOPATH set, you can ignore this aside.
+> instructions.
+
+First, fork our repo and clone your copy of our repository.
 
 ```bash
-git clone git@github.com:storj/storj storj
+git clone git@github.com:<your-username>/storj storj
 cd storj
+```
+
+Then, let's install Storj.
+
+```bash
 go install -v ./cmd/...
 ```
 
-### Configure a test network
+### Make changes and test
 
-```bash
-~/go/bin/captplanet setup
-```
-
-### Start the test network
-
-```bash
-~/go/bin/captplanet run
-```
-
-### Run unit tests
+Make the changes you want to see! Once you're done, you can run all of the unit tests:
 
 ```bash
 go test -v ./...
 ```
 
-You can execute only a single test package if you like. For example:
+You can also execute only a single test package if you like. For example:
 `go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
 tests.
 
-# Start Using Storj via the Storj CLI
+### Push up a pull request
 
-#### Configure the Storj CLI
-1) In a new terminal setup the Storj CLI: ```$ storj setup```
-2) Edit the API Key, overlay address, and pointer db address fields in the Storj
-CLI config file located at ```~/.storj/cli/config.yaml``` with values from the
-captplanet config file located at ```~/.storj/capt/config.yaml```
+Use Git to push your changes to your fork:
 
-#### Test out some Storj CLI commands!
-
-1) Create a bucket: ```$ storj mb s3://bucket-name```
-2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
-3) List objects in a bucket: ```$ storj ls s3://bucket-name/ ```
-4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
-6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
-
-
-# Start Using Storj via the AWS S3 CLI
-
-#### Configure AWS CLI
-
-Download and install the AWS S3 CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
-
-In a new terminal session configure the AWS S3 CLI:
 ```bash
-$ aws configure
-AWS Access Key ID [None]: insecure-dev-access-key
-AWS Secret Access Key [None]: insecure-dev-secret-key
-Default region name [None]: us-east-1
-Default output format [None]:
+git commit -a -m 'my changes!'
+git push origin master
 ```
 
-#### Test out some AWS S3 CLI commands!
+Use Github to open a pull request!
 
-1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
-2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
-3) List objects in a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ ls s3://bucket-name/ ```
-4) Download an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
-5) Generate a URL for an object: ``` $ aws s3 --endpoint=http://localhost:7777/ presign s3://bucket-name/your-large-file.mp4```
-6) Delete an object: ```$ aws s3 --endpoint=http://localhost:7777/ rm s3://bucket-name/your-large-file.mp4```
+# Start using Storj
 
-For more information about the AWS s3 CLI visit: https://docs.aws.amazon.com/cli/latest/reference/s3/index.html
+We have another repository dedicated to [documentation and tutorials](https://github.com/storj/docs).
+Check out these three tutorials:
+
+ * [Using the Storj Test Network](https://github.com/storj/docs/blob/master/test-network.md)
+ * [Using the Uplink CLI](https://github.com/storj/docs/blob/master/uplink-cli.md)
+ * [Using the S3 Gateway](https://github.com/storj/docs/blob/master/s3-gateway.md)
 
 # License
 
@@ -127,8 +100,8 @@ The network under construction (this repo) is currently licensed with the
 reaches beta phase, we will be licensing all client-side code via the
 [Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
 
-For code released under the AGPLv3, we request that contributors sign
-[our Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
+For code released under the AGPLv3, we request that contributors sign our
+[Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
 code under Apache v2, or other licenses in the future.
 
 # Support

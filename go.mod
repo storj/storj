@@ -39,8 +39,7 @@ require (
 	github.com/jtolds/monkit-hw v0.0.0-20180827162413-5a254051f35d
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
-	github.com/kr/pretty v0.1.0 // indirect
-	github.com/lib/pq v0.0.0-20180523175426-90697d60dd84
+	github.com/lib/pq v1.0.0
 	github.com/loov/hrtime v0.0.0-20180911122900-a9e82bc6c180
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329 // indirect
