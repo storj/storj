@@ -14,7 +14,7 @@ import (
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=0&password=testpass"`
+	QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 }
