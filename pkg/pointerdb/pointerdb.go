@@ -315,7 +315,7 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 	if err != nil {
 		return nil, err
 	}
-	pbad := &pb.PayerBandwidthAllocation_Data{Payer: payer, Renter: peerIdentity.ID.Bytes()}
+	pbad := &pb.PayerBandwidthAllocation_Data{SatelliteId: payer, UplinkId: peerIdentity.ID.Bytes()}
 
 	data, err := proto.Marshal(pbad)
 	if err != nil {
