@@ -56,13 +56,13 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
-func (d *defaultDownloader) dial(ctx context.Context, storagenode *pb.Node) (ps client.PSClient, err error) {
+func (d *defaultDownloader) dial(ctx context.Context, storageNode *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
-	c, err := d.transport.DialNode(ctx, storagenode)
+	c, err := d.transport.DialNode(ctx, storageNode)
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, node.IDFromString(storagenode.GetId()), 0, d.identity.Key)
+	return client.NewPSClient(c, node.IDFromString(storageNode.GetId()), 0, d.identity.Key)
 }
 
 // getShare use piece store clients to download shares from a given node
