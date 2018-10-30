@@ -59,6 +59,8 @@ type Client interface {
 
 	SignedMessage() (*pb.SignedMessage, error)
 	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
+
+	Disconnect() error
 }
 
 // NewClient initializes a new pointerdb client
@@ -179,4 +181,10 @@ func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
 // PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
 func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
 	return pdb.pba
+}
+
+// Disconnect disconnects the client
+func (pdb *PointerDB) Disconnect() error {
+	// TODO: implement
+	return nil
 }

@@ -2,6 +2,7 @@ package testplanet_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 
 func TestBasic(t *testing.T) {
 	t.Log("New")
-	planet, err := testplanet.New(2, 4)
+	planet, err := testplanet.New(2, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,6 +33,23 @@ func TestBasic(t *testing.T) {
 	for i := 0; i < planet.StorageNodeCount(); i++ {
 		t.Log("STORAGE", planet.StorageNode(i).ID(), planet.StorageNode(i).Addr())
 	}
+
+	for i := 0; i < planet.UplinkCount(); i++ {
+		t.Log("UPLINK", planet.Uplink(i).ID(), planet.Uplink(i).Addr())
+	}
+
+	// Example of using pointer db
+	client, err := planet.Uplink(0).DialPointerDB(planet.Satellite(0), "apikey")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message, err := client.SignedMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(message)
 }
 
 func BenchmarkCreate(b *testing.B) {
@@ -40,7 +58,7 @@ func BenchmarkCreate(b *testing.B) {
 		b.Run(strconv.Itoa(count), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {
-				planet, err := testplanet.New(1, 100)
+				planet, err := testplanet.New(1, count, 1)
 				if err != nil {
 					b.Fatal(err)
 				}

@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
 )
@@ -32,11 +33,12 @@ type Planet struct {
 
 	satellites   []*Node
 	storageNodes []*Node
+	uplinks      []*Node
 
 	identities *Identities
 }
 
-func New(satelliteCount, storageNodeCount int) (*Planet, error) {
+func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
 		identities: pregeneratedIdentities.Clone(),
 	}
@@ -57,6 +59,11 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
+	planet.uplinks, err = planet.NewNodes(uplinkCount)
+	if err != nil {
+		return nil, utils.CombineErrors(err, planet.Shutdown())
+	}
+
 	for _, node := range planet.allNodes() {
 		err := node.InitOverlay(planet)
 		if err != nil {
@@ -64,6 +71,7 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		}
 	}
 
+	// init satellites
 	for _, node := range planet.satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
@@ -78,6 +86,7 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		node.Dependencies = append(node.Dependencies, server)
 	}
 
+	// init storage nodes
 	for _, node := range planet.storageNodes {
 		storageDir := filepath.Join(planet.directory, node.ID())
 
@@ -96,6 +105,8 @@ func New(satelliteCount, storageNodeCount int) (*Planet, error) {
 		node.Dependencies = append(node.Dependencies, server)
 	}
 
+	// init uplinks
+
 	return planet, nil
 }
 
@@ -103,6 +114,7 @@ func (planet *Planet) allNodes() []*Node {
 	var all []*Node
 	all = append(all, planet.satellites...)
 	all = append(all, planet.storageNodes...)
+	all = append(all, planet.uplinks...)
 	return all
 }
 
@@ -146,10 +158,13 @@ func (planet *Planet) NewNode() (*Node, error) {
 		Listener: listener,
 	}
 
+	node.Transport = transport.NewClient(identity)
+
 	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
 	if err != nil {
 		return nil, utils.CombineErrors(err, listener.Close())
 	}
+
 	node.Info = pb.Node{
 		Id: node.Identity.ID.String(),
 		Address: &pb.NodeAddress{
@@ -208,3 +223,6 @@ func (planet *Planet) SatelliteCount() int       { return len(planet.satellites)
 
 func (planet *Planet) StorageNode(index int) *Node { return planet.storageNodes[index] }
 func (planet *Planet) StorageNodeCount() int       { return len(planet.storageNodes) }
+
+func (planet *Planet) Uplink(index int) *Node { return planet.uplinks[index] }
+func (planet *Planet) UplinkCount() int       { return len(planet.uplinks) }

@@ -10,17 +10,20 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
 
 type Node struct {
-	Info     pb.Node
-	Identity *provider.FullIdentity
-	Listener net.Listener
-	Provider *provider.Provider
-	Kademlia *kademlia.Kademlia
-	Overlay  *overlay.Cache
+	Info      pb.Node
+	Identity  *provider.FullIdentity
+	Transport *transport.Transport
+	Listener  net.Listener
+	Provider  *provider.Provider
+	Kademlia  *kademlia.Kademlia
+	Overlay   *overlay.Cache
 
 	Dependencies []interface{}
 }
@@ -56,4 +59,16 @@ func (node *Node) Shutdown() error {
 		}
 	}
 	return utils.CombineErrors(errs...)
+}
+
+func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Client, error) {
+	/*
+		// TODO: use node.Transport
+			conn, err := node.Transport.DialNode(context.Background(), &destination.Info)
+			if err != nil {
+				return nil, err
+			}
+			return piececlient.NewPSClient
+	*/
+	return pdbclient.NewClient(node.Identity, destination.Addr(), apikey)
 }
