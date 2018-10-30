@@ -61,7 +61,7 @@ func (s *Server) validateAuth(ctx context.Context) error {
 }
 
 func (s *Server) appendSignature(ctx context.Context) error {
-	signature, err := auth.GenerateSignature(s.identity)
+	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
 	if err != nil {
 		return err
 	}
@@ -156,11 +156,19 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		s.logger.Error("Error unmarshaling pointer")
 		return nil, err
 	}
+
+	pba, err := s.getPayerBandwidthAllocation(ctx)
+	if err != nil {
+		s.logger.Error("err getting payer bandwidth allocation", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
 	nodes := []*pb.Node{}
 
 	var r = &pb.GetResponse{
 		Pointer: pointer,
 		Nodes:   nil,
+		Pba:     pba,
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -178,6 +186,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	r = &pb.GetResponse{
 		Pointer: pointer,
 		Nodes:   nodes,
+		Pba:     pba,
 	}
 
 	return r, nil
@@ -296,4 +305,25 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 		Reverse: req.Reverse,
 	}
 	return s.DB.Iterate(opts, f)
+}
+
+func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
+	payer := s.identity.ID.Bytes()
+
+	// TODO(michal) should be replaced with renter id when available
+	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbad := &pb.PayerBandwidthAllocation_Data{Payer: payer, Renter: peerIdentity.ID.Bytes()}
+
+	data, err := proto.Marshal(pbad)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := auth.GenerateSignature(data, s.identity)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data}, nil
 }
