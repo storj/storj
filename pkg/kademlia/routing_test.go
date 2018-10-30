@@ -18,8 +18,7 @@ import (
 func TestLocal(t *testing.T) {
 	rt, cleanup := createRoutingTable(t, []byte("AA"))
 	defer cleanup()
-	local := rt.Local()
-	assert.Equal(t, *rt.self, local)
+	assert.Equal(t, rt.Local().Id, "AA")
 }
 
 func TestK(t *testing.T) {

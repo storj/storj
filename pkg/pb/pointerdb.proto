@@ -36,17 +36,6 @@ message RedundancyScheme {
   int32 erasure_share_size = 6;
 }
 
-message EncryptionScheme {
-  enum EncryptionType {
-    AESGCM = 0;
-    SECRETBOX = 1;
-    // only allow authenticated encryption schemes
-  }
-  EncryptionType type = 1;
-  bytes encrypted_encryption_key = 2;
-  bytes encrypted_starting_nonce = 3;
-}
-
 message RemotePiece {
   int32 piece_num = 1;
   string node_id = 2;
