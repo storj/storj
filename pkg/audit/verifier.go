@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
-	
 )
 
 var mon = monkit.Package()
@@ -99,7 +98,6 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
-
 
 	offset := shareSize * stripeIndex
 

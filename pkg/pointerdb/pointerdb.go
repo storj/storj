@@ -316,9 +316,9 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 		return nil, err
 	}
 	pbad := &pb.PayerBandwidthAllocation_Data{
-		SatelliteId: payer, 
-		UplinkId: peerIdentity.ID.Bytes(),
-		Action: "", // TODO: Action should be a GET or a PUT
+		SatelliteId: payer,
+		UplinkId:    peerIdentity.ID.Bytes(),
+		Action:      "", // TODO: Action should be a GET or a PUT
 	}
 
 	data, err := proto.Marshal(pbad)
