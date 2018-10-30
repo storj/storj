@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis/redisserver"
@@ -131,7 +132,8 @@ func TestAuditSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, nil))
+	identity := &provider.FullIdentity{ID: ""}
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
 
 	// create a pdb client and instance of audit
