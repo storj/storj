@@ -14,6 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -42,15 +43,15 @@ type defaultDialer struct {
 	identity  *provider.FullIdentity
 }
 
-func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
+func (dialer *defaultDialer) dial(ctx context.Context, storageNode *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := dialer.transport.DialNode(ctx, node)
+	conn, err := dialer.transport.DialNode(ctx, storageNode)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.NewPSClient(conn, 0, dialer.identity.Key)
+	return client.NewPSClient(conn, node.IDFromString(storageNode.GetId()), 0, dialer.identity.Key)
 }
 
 type ecClient struct {
