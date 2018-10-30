@@ -13,6 +13,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 )
 
 // MockStore is a mock of Store interface
@@ -102,4 +103,16 @@ func (m *MockStore) Put(arg0 context.Context, arg1 io.Reader, arg2 time.Time, ar
 // Put indicates an expected call of Put
 func (mr *MockStoreMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), arg0, arg1, arg2, arg3)
+}
+
+// Repair mocks base method
+func (m *MockStore) Repair(arg0 context.Context, arg1 storj.Path, arg2 []int) error {
+	ret := m.ctrl.Call(m, "Repair", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Repair indicates an expected call of Repair
+func (mr *MockStoreMockRecorder) Repair(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Repair", reflect.TypeOf((*MockStore)(nil).Repair), arg0, arg1, arg2)
 }
