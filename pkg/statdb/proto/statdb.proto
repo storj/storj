@@ -10,6 +10,8 @@ service StatDB {
   rpc Create(CreateRequest) returns (CreateResponse);
   // Get uses a storagenode ID to get that storagenode's stats
   rpc Get(GetRequest) returns (GetResponse);
+  // FindValidNodes gets a subset of storagenodes that fit minimum reputation args
+  rpc FindValidNodes(FindValidNodesRequest) returns (FindValidNodesResponse);
   // Update updates storagenode stats for a single storagenode
   rpc Update(UpdateRequest) returns (UpdateResponse);
   // UpdateBatch updates storagenode stats for multiple farmers at a time
@@ -35,6 +37,7 @@ message NodeStats {
   int64 latency_90 = 2; // 90th percentile measure of storagenode latency
   double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
   double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
+  int64 audit_count = 5; // used for FindValidNodes
 }
 
 // CreateRequest is a request message for the Create rpc call
@@ -57,6 +60,19 @@ message GetRequest {
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
   NodeStats stats = 1;
+}
+
+// FindValidNodesRequest is a request message for the FindValidNodes rpc call
+message FindValidNodesRequest {
+  repeated bytes node_ids = 1;
+  NodeStats min_stats = 2;
+  bytes APIKey = 3;
+}
+
+// FindValidNodesResponse is a response message for the FindValidNodes rpc call
+message FindValidNodesResponse {
+  repeated bytes passed_ids = 1;
+  repeated bytes failed_ids = 2;
 }
 
 // UpdateRequest is a request message for the Update rpc call

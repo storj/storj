@@ -126,8 +126,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+		pba := s.pdb.PayerBandwidthAllocation()
 		// puts file to ecclient
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, signedMessage)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, signedMessage)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -220,7 +221,8 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), signedMessage)
+		pba := s.pdb.PayerBandwidthAllocation()
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, signedMessage)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -344,9 +346,10 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes
-	rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize(), signedMessage)
+	rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -361,7 +364,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	// puts file to ecclient
 	exp := pr.GetExpirationDate()
 
-	successfulNodes, err := s.ec.Put(ctx, repairNodesList, s.rs, pid, r, time.Unix(exp.GetSeconds(), 0), signedMessage)
+	successfulNodes, err := s.ec.Put(ctx, repairNodesList, s.rs, pid, r, time.Unix(exp.GetSeconds(), 0), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}

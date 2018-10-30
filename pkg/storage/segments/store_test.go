@@ -115,8 +115,9 @@ func TestSegmentStorePutRemote(t *testing.T) {
 				{Id: "im-a-node"},
 			}, nil),
 			mockPDB.EXPECT().SignedMessage(),
+			mockPDB.EXPECT().PayerBandwidthAllocation(),
 			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
@@ -285,11 +286,12 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
 			mockPDB.EXPECT().SignedMessage(),
+			mockPDB.EXPECT().PayerBandwidthAllocation(),
 			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(ranger.ByteRanger([]byte(tt.data)), nil),
 			mockEC.EXPECT().Put(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			).Return(tt.newNodes, nil),
 			mockES.EXPECT().RequiredCount().Return(1),
 			mockES.EXPECT().TotalCount().Return(1),
@@ -356,8 +358,9 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 			}, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockPDB.EXPECT().SignedMessage(),
+			mockPDB.EXPECT().PayerBandwidthAllocation(),
 			mockEC.EXPECT().Get(
-				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+				gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			),
 		}
 		gomock.InOrder(calls...)
