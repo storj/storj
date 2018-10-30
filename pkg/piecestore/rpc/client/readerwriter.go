@@ -28,7 +28,6 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	allocationData := &pb.RenterBandwidthAllocation_Data{
 		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
-		Action:          "PUT",
 		StorageNodeId:   s.signer.nodeID.Bytes(),
 	}
 
@@ -110,7 +109,6 @@ func NewStreamReader(client *Client, stream pb.PieceStoreRoutes_RetrieveClient, 
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
-				Action:          "GET",
 				StorageNodeId:   sr.client.nodeID.Bytes(),
 			}
 

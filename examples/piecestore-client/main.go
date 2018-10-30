@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -94,7 +95,20 @@ func main() {
 
 			id := client.NewPieceID()
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}, nil); err != nil {
+			allocationData := &pb.PayerBandwidthAllocation_Data{
+				Action: "PUT",
+			}
+		
+			serializedAllocation, err := proto.Marshal(allocationData)
+			if err != nil {
+				return err
+			}
+		
+			pba := &pb.PayerBandwidthAllocation{
+				Data: serializedAllocation,
+			}
+
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, pba, nil); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
@@ -143,7 +157,20 @@ func main() {
 				return err
 			}
 
-			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{}, nil)
+			allocationData := &pb.PayerBandwidthAllocation_Data{
+				Action: "GET",
+			}
+		
+			serializedAllocation, err := proto.Marshal(allocationData)
+			if err != nil {
+				return err
+			}
+		
+			pba := &pb.PayerBandwidthAllocation{
+				Data: serializedAllocation,
+			}
+
+			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, pba, nil)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)
