@@ -65,7 +65,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for range ticker.C {
 			agreementGroups, err := as.DB.GetBandwidthAllocations()
 			if err != nil {
-				as.appendErr(err)
+				log.Println(err)
 				continue
 			}
 
@@ -87,28 +87,28 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
 				if err != nil {
-					as.appendErr(err)
+					log.Println(err)
 					return
 				}
 
 				// Create client from satellite ip
 				identOpt, err := as.identity.DialOption()
 				if err != nil {
-					as.appendErr(err)
+					log.Println(err)
 					return
 				}
 
 				var conn *grpc.ClientConn
 				conn, err = grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
-					as.appendErr(err)
+					log.Println(err)
 					return
 				}
 
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
 				if err != nil {
-					as.appendErr(err)
+					log.Println(err)
 					return
 				}
 
@@ -119,7 +119,6 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}()
 
 				for _, agreement := range agreementGroup.agreements {
-					log.Println(agreement)
 
 					msg := &pb.RenterBandwidthAllocation{
 						Data:      agreement.Agreement,
@@ -128,13 +127,13 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 
 					// Send agreement to satellite
 					if err = stream.Send(msg); err != nil {
-						as.appendErr(err)
+						log.Println(err)
 						return
 					}
 
 					// Delete from PSDB by signature
 					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						as.appendErr(err)
+						log.Println(err)
 						return
 					}
 				}
