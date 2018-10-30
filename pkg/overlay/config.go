@@ -16,6 +16,8 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 var (
@@ -29,6 +31,7 @@ var (
 type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
+	StatDBPort      string        `help:"port to contact statDB client" default:":9090"`
 }
 
 // CtxKey used for assigning cache
@@ -102,10 +105,27 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
+	ca, err := provider.NewCA(ctx, 12, 14)
+	if err != nil {
+		return err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return err
+	}
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return Error.New("invalid API credentials")
+	}
+	statdb, err := sdbclient.NewClient(identity, c.StatDBPort, apiKey)
+	if err != nil {
+		return err
+	}
+
 	srv := &Server{
 		dht:   kad,
 		cache: cache,
-
+		sdb: statdb,
 		// TODO(jt): do something else
 		logger:  zap.L(),
 		metrics: monkit.Default,

@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 // ServerError creates class of errors for stack traces
@@ -28,6 +29,7 @@ type Server struct {
 	cache   *Cache
 	logger  *zap.Logger
 	metrics *monkit.Registry
+	sdb sdbclient.Client
 }
 
 // Lookup finds the address of a node in our overlay network
@@ -66,9 +68,14 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
+	reputation := opts.GetMinReputation()
+	minUptime := reputation.GetMinUptime()
+	minAuditSuccess := reputation.GetMinAuditSuccess()
+	minAuditCount := reputation.GetMinAuditCount()
 
 	var start storage.Key
-	result := []*pb.Node{}
+	nodeMap := map[string]*pb.Node{}
+	resultIds := [][]byte{}
 	for {
 		var nodes []*pb.Node
 		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, excluded)
@@ -80,24 +87,42 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 			break
 		}
 
-		result = append(result, nodes...)
-
-		if len(result) >= int(maxNodes) || start == nil {
-			break
+		ids := make([][]byte, len(nodes))
+		idsStr := make([]string, len(nodes))
+		for i, n := range nodes {
+			ids[i] = []byte(n.Id)
+			idsStr[i] = n.Id
+			nodeMap[n.Id] = n
 		}
 
+		goodNodes, _, err := o.sdb.FindValidNodes(ctx, ids, minAuditCount, minAuditSuccess, minUptime)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		resultIds = append(resultIds, goodNodes...)
+		excluded = append(excluded, idsStr...) // exclude every node (good or bad) from next round
+
+		if len(resultIds) >= int(maxNodes) || start == nil {
+			break
+		}
 	}
 
-	if len(result) < int(maxNodes) {
-		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
+	resultNodes := []*pb.Node{}
+	for _, id := range resultIds {
+		resultNodes = append(resultNodes, nodeMap[string(id)])
 	}
 
-	if len(result) > int(maxNodes) {
-		result = result[:maxNodes]
+	if len(resultNodes) < int(maxNodes) {
+		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(resultNodes)))
+	}
+
+	if len(resultNodes) > int(maxNodes) {
+		resultNodes = resultNodes[:maxNodes]
 	}
 
 	return &pb.FindStorageNodesResponse{
-		Nodes: result,
+		Nodes: resultNodes,
 	}, nil
 }
 

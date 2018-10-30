@@ -81,8 +81,8 @@ message OverlayOptions {
 
 // NodeRep is the reputation characteristics of a node
 message NodeRep {
-    float minUptime = 1;
-    float minAuditSuccess = 2;
+    double minUptime = 1;
+    double minAuditSuccess = 2;
     int64 minAuditCount = 3;
 }
 
