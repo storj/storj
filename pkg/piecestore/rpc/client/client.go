@@ -49,10 +49,10 @@ type PSClient interface {
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
 	route            pb.PieceStoreRoutesClient // Client for interacting with Storage Node
-	conn             *grpc.ClientConn		   // Connection to Storage Node
+	conn             *grpc.ClientConn          // Connection to Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID *node.ID							   // Storage node being connected to
+	nodeID           *node.ID                  // Storage node being connected to
 }
 
 // NewPSClient initilizes a PSClient
@@ -70,7 +70,7 @@ func NewPSClient(conn *grpc.ClientConn, nodeID *node.ID, bandwidthMsgSize int, p
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID: nodeID,
+		nodeID:           nodeID,
 	}, nil
 }
 
@@ -88,7 +88,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, nodeID *node.ID, bandwidthM
 		route:            route,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID: nodeID,
+		nodeID:           nodeID,
 	}, nil
 }
 
