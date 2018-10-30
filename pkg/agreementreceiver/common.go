@@ -7,5 +7,5 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Error is the default agreementreceiver errs class
+// Error is the default bwagreement errs class
 var Error = errs.Class("bwagreement error")
