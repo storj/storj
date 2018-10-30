@@ -19,84 +19,96 @@ retrieve those files!
 
 ## Table of Contents
 
-- [Contributing](#start-contributing-to-storj)
-- [Using via Storj CLI](#start-using-storj-via-the-storj-cli)
+- [Contributing](#contributing-to-storj)
+- [Installation](#installation)
+- [Using via Storj CLI](#start-using-storj-via-the-uplink-cli)
 - [Using via AWS S3 CLI](#start-using-storj-via-the-aws-s3-cli)
 - [License](#license)
 - [Support](#support)
 
-# Start Contributing to Storj
+# Contributing to Storj
+
+All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along!
+
+Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to [our Rocketchat](https://community.storj.io) and join the #dev channel to join the developer community and to talk to the Storj core team.
+
+# Installation
 
 ### Install required packages
 
-Download and install the latest release of Go, at least Go 1.11:
-https://golang.org/
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
 
-You will also need Git. (`brew install git`, `apt-get install git`, etc).
-If you're building on Windows, you also need to install and have gcc setup correctly (easiest way via mingw64).
+You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
+If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
 
-Install git and golang. We support Linux, Mac, and Windows operating
-systems. Other operating systems supported by Go are probably not much
-additional work.
+We support Linux, Mac, and Windows operating systems. Other operating systems supported by Go should also be able to run Storj.
 
 ### Download and compile Storj
 
-> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
+> **Aside about GOPATH**:  If you don't have a GOPATH set, you can ignore this > aside. Go 1.11 supports a new feature called Go modules,
 > and Storj has adopted Go module support. If you've used previous Go versions,
 > Go modules no longer require a GOPATH environment variable. Go by default
 > falls back to the old behavior if you check out code inside of the directory
 > referenced by your GOPATH variable, so make sure to use another directory,
 > `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
-> instructions. If you don't have a GOPATH set, you can ignore this aside.
+> instructions.
+
+First, clone this repository.
 
 ```bash
 git clone git@github.com:storj/storj storj
 cd storj
+```
+
+Then, let's install Storj.
+
+```bash
 go install -v ./cmd/...
 ```
 
-### Configure a test network
+Done!
+
+### Working with the test network
+
+Our test network daemon is called CaptPlanet. First, configure and run it:
 
 ```bash
 ~/go/bin/captplanet setup
-```
-
-### Start the test network
-
-```bash
 ~/go/bin/captplanet run
 ```
 
-### Run unit tests
+Then, you can run all of the unit tests:
 
 ```bash
 go test -v ./...
 ```
 
-You can execute only a single test package if you like. For example:
+You can also execute only a single test package if you like. For example:
 `go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
 tests.
 
-# Start Using Storj via the Storj CLI
+More options can be shown by running `~/go/bin/captplanet --help`.
 
-#### Configure the Storj CLI
-1) In a new terminal setup the Storj CLI: ```$ storj setup```
+# Start Using Storj via the Uplink CLI
+
+### Configure the Uplink CLI
+
+1) In a new terminal window, setup the uplink CLI: ```$ uplink setup```. Keep `captplanet` running, as it ensures you have a test network to bounce data off of.
 2) Edit the API Key, overlay address, and pointer db address fields in the Storj
-CLI config file located at ```~/.storj/cli/config.yaml``` with values from the
-captplanet config file located at ```~/.storj/capt/config.yaml```
+CLI config file located at ```~/.uplink/cli/config.yaml``` with values from the
+`captplanet` config file located at ```~/.uplink/capt/config.yaml```
 
-#### Test out some Storj CLI commands!
+### Test out some Uplink CLI commands!
 
-1) Create a bucket: ```$ storj mb s3://bucket-name```
-2) Upload an object: ```$ storj cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
-3) List objects in a bucket: ```$ storj ls s3://bucket-name/ ```
-4) Download an object: ```$ storj cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
-6) Delete an object: ```$ storj rm s3://bucket-name/your-large-file.mp4```
-
+1) Create a bucket: ```$ uplink mb s3://bucket-name```
+2) Upload an object: ```$ uplink cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
+3) List objects in a bucket: ```$ uplink ls s3://bucket-name/ ```
+4) Download an object: ```$ uplink cp s3://bucket-name/your-large-file.mp4 ~/Desktop/your-large-file.mp4```
+6) Delete an object: ```$ uplink rm s3://bucket-name/your-large-file.mp4```
 
 # Start Using Storj via the AWS S3 CLI
 
-#### Configure AWS CLI
+### Configure AWS CLI
 
 Download and install the AWS S3 CLI: https://docs.aws.amazon.com/cli/latest/userguide/installing.html
 
@@ -109,7 +121,7 @@ Default region name [None]: us-east-1
 Default output format [None]:
 ```
 
-#### Test out some AWS S3 CLI commands!
+### Test out some AWS S3 CLI commands!
 
 1) Create a bucket: ```$ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket-name```
 2) Upload an object: ```$ aws s3 --endpoint=http://localhost:7777/ cp ~/Desktop/your-large-file.mp4 s3://bucket-name```
