@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -97,7 +96,7 @@ func main() {
 			id := client.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action: pb.PayerBandwidthAllocation_PUT,
 			}
 		
@@ -160,7 +159,7 @@ func main() {
 			}
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action: pb.PayerBandwidthAllocation_GET,
 			}
 		
