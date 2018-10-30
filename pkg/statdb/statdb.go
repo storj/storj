@@ -5,7 +5,7 @@ package statdb
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 	"strings"
 
 	"go.uber.org/zap"
@@ -134,9 +134,8 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
 	minUptime := getReq.MinStats.UptimeRatio
 
-	queryStr := getQueryString(nodeIds, minAuditCount, minAuditSuccess, minUptime)
+	rows, err := s.findValidNodesQuery(nodeIds, minAuditCount, minAuditSuccess, minUptime)
 
-	rows, err := s.DB.Query(queryStr)
 	if err != nil {
 		return nil, err
 	}
@@ -169,23 +168,22 @@ func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRe
 	}, nil
 }
 
-func getQueryString(nodeIds [][]byte, auditCount int64, auditSuccess, uptime float64) string {
-	idStr := "("
+func (s *Server) findValidNodesQuery(nodeIds [][]byte, auditCount int64, auditSuccess, uptime float64) (*sql.Rows, error) {
+	args := make([]interface{}, len(nodeIds))
 	for i, id := range nodeIds {
-		idStr += fmt.Sprintf(`"%s"`, string(id))
-		if i+1 < len(nodeIds) {
-			idStr += ","
-		}
+		args[i] = string(id)
 	}
-	idStr += ")"
-	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
-		FROM nodes
-		WHERE nodes.id in %s
-		AND nodes.total_audit_count >= %d
-		AND nodes.audit_success_ratio >= %f
-		AND nodes.uptime_ratio >= %f`, idStr, auditCount, auditSuccess, uptime)
+	args = append(args, auditCount, auditSuccess, uptime)
 
-	return queryStr
+	rows, err := s.DB.Query(`SELECT nodes.id, nodes.total_audit_count, 
+		nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
+		FROM nodes
+		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+		AND nodes.total_audit_count >= ?
+		AND nodes.audit_success_ratio >= ?
+		AND nodes.uptime_ratio >= ?`, args...)
+
+	return rows, err
 }
 
 // Update a single storagenode's stats in the db
