@@ -21,8 +21,7 @@ retrieve those files!
 
 - [Contributing](#contributing-to-storj)
 - [Installation](#installation)
-- [Using via Storj CLI](#start-using-storj-via-the-uplink-cli)
-- [Using via AWS S3 CLI](#start-using-storj-via-the-aws-s3-cli)
+- [Start using Storj](#start-using-storj)
 - [License](#license)
 - [Support](#support)
 
