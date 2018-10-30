@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
+	"github.com/stretchr/testify/assert"
 
 	dbx "storj.io/storj/pkg/agreementreceiver/dbx"
 	"storj.io/storj/pkg/pb"
@@ -27,28 +28,16 @@ const (
 	dbname   = "calhounio_demo"
 )
 
-func getDBPath() string {
+func getPSQLInfo() string {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 	return psqlInfo
 }
 
-func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
-	statdb, err = NewServer("postgres", path, zap.NewNop())
-	if err != nil {
-		return &Server{}, &dbx.DB{}, err
-	}
-	db, err = dbx.Open("postgres", path)
-	if err != nil {
-		return &Server{}, &dbx.DB{}, err
-	}
-	return statdb, db, err
-}
-
 func TestCreateExists(t *testing.T) {
-	dbPath := getDBPath()
-	s, _, err := getServerAndDB(dbPath)
+	psqlInfo := getPSQLInfo()
+	s, err := NewServer("postgres", psqlInfo, zap.NewNop())
 	assert.NoError(t, err)
 
 	signature := []byte("iamthedummysignatureoftypebyteslice")
