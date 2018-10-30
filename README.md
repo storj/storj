@@ -6,8 +6,7 @@
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
-Storj is building a decentralized cloud storage network. 
-[Check out our white paper for more info!](https://storj.io/white-paper)
+Storj is building a decentralized cloud storage network.
 
 ----
 
@@ -30,14 +29,6 @@ All of our code for Storj v3 is open source. Have a code change you think would 
 
 Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team.
 
-### Issue tracking and roadmap
-
-See the breakdown of what we're building by checking out the following resources:
-
- * [White paper](https://storj.io/white-paper)
- * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
- * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
-
 ### Install required packages
 
 To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
@@ -49,8 +40,7 @@ We support Linux, Mac, and Windows operating systems. Other operating systems su
 
 ### Download and compile Storj
 
-> **Aside about GOPATH**:  If you don't have a GOPATH set, you can ignore this 
-> aside. Go 1.11 supports a new feature called Go modules,
+> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
 > and Storj has adopted Go module support. If you've used previous Go versions,
 > Go modules no longer require a GOPATH environment variable. Go by default
 > falls back to the old behavior if you check out code inside of the directory
