@@ -2,7 +2,6 @@ package testplanet_test
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -49,7 +48,7 @@ func TestBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(message)
+	t.Log(message)
 }
 
 func BenchmarkCreate(b *testing.B) {
