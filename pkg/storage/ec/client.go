@@ -50,7 +50,7 @@ func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client
 		return nil, err
 	}
 
-	return client.NewPSClient(conn, 0, dialer.identity.Key)
+	return client.NewPSClient(conn, node.GetID(), 0, dialer.identity.Key)
 }
 
 type ecClient struct {

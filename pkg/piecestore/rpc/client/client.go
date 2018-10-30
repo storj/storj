@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
@@ -29,10 +30,10 @@ var ClientError = errs.Class("PSClient error")
 var (
 	defaultBandwidthMsgSize = flag.Int(
 		"piecestore.rpc.client.default_bandwidth_msg_size", 32*1024,
-		"default bandwidth message size in kilobytes")
+		"default bandwidth message size in bytes")
 	maxBandwidthMsgSize = flag.Int(
 		"piecestore.rpc.client.max_bandwidth_msg_size", 64*1024,
-		"max bandwidth message size in kilobytes")
+		"max bandwidth message size in bytes")
 )
 
 // PSClient is an interface describing the functions for interacting with piecestore nodes
@@ -47,14 +48,15 @@ type PSClient interface {
 
 // Client -- Struct Info needed for protobuf api calls
 type Client struct {
-	route            pb.PieceStoreRoutesClient
-	conn             *grpc.ClientConn
-	prikey           crypto.PrivateKey
-	bandwidthMsgSize int
+	route            pb.PieceStoreRoutesClient // Client for interacting with Storage Node
+	conn             *grpc.ClientConn		   // Connection to Storage Node
+	prikey           crypto.PrivateKey         // Uplink private key
+	bandwidthMsgSize int                       // max bandwidth message size in bytes
+	nodeID *node.ID							   // Storage node being connected to
 }
 
 // NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
+func NewPSClient(conn *grpc.ClientConn, nodeID *node.ID, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -68,11 +70,12 @@ func NewPSClient(conn *grpc.ClientConn, bandwidthMsgSize int, prikey crypto.Priv
 		route:            pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
+		nodeID: nodeID,
 	}, nil
 }
 
 // NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Client, error) {
+func NewCustomRoute(route pb.PieceStoreRoutesClient, nodeID *node.ID, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Client, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -85,6 +88,7 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, bandwidthMsgSize int, prike
 		route:            route,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
+		nodeID: nodeID,
 	}, nil
 }
 

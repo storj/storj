@@ -17,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -49,7 +50,9 @@ func main() {
 	}
 	defer printError(conn.Close)
 
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
+	nodeID := node.IDFromString("test-node-id-1234567")
+
+	psClient, err := client.NewPSClient(conn, nodeID, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
