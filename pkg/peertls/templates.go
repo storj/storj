@@ -5,6 +5,7 @@ package peertls
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 )
 
 // CATemplate returns x509.Certificate template for certificate authority
@@ -20,6 +21,7 @@ func CATemplate() (*x509.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
+		Subject:               pkix.Name{Organization: []string{"Storj"}},
 	}
 
 	return template, nil
@@ -38,6 +40,7 @@ func LeafTemplate() (*x509.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
+		Subject:               pkix.Name{Organization: []string{"Storj"}},
 	}
 
 	return template, nil

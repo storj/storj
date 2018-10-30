@@ -5,6 +5,7 @@ package statdb
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
@@ -117,6 +118,74 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 	return &pb.GetResponse{
 		Stats: nodeStats,
 	}, nil
+}
+
+// FindValidNodes finds a subset of storagenodes that meet reputation requirements
+func (s *Server) FindValidNodes(ctx context.Context, getReq *pb.FindValidNodesRequest) (resp *pb.FindValidNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering statdb FindValidNodes")
+
+	passedIds := [][]byte{}
+	passedMap := make(map[string]bool)
+	failedIds := [][]byte{}
+
+	nodeIds := getReq.NodeIds
+	minAuditCount := getReq.MinStats.AuditCount
+	minAuditSuccess := getReq.MinStats.AuditSuccessRatio
+	minUptime := getReq.MinStats.UptimeRatio
+
+	queryStr := getQueryString(nodeIds, minAuditCount, minAuditSuccess, minUptime)
+
+	rows, err := s.DB.Query(queryStr)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = rows.Close()
+		if err != nil {
+			s.logger.Error(err.Error())
+		}
+	}()
+
+	for rows.Next() {
+		node := &dbx.Node{}
+		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeRatio, &node.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		passedIds = append(passedIds, []byte(node.Id))
+		passedMap[node.Id] = true
+	}
+
+	for _, id := range nodeIds {
+		if !passedMap[string(id)] {
+			failedIds = append(failedIds, id)
+		}
+	}
+
+	return &pb.FindValidNodesResponse{
+		PassedIds: passedIds,
+		FailedIds: failedIds,
+	}, nil
+}
+
+func getQueryString(nodeIds [][]byte, auditCount int64, auditSuccess, uptime float64) string {
+	idStr := "("
+	for i, id := range nodeIds {
+		idStr += fmt.Sprintf(`"%s"`, string(id))
+		if i+1 < len(nodeIds) {
+			idStr += ","
+		}
+	}
+	idStr += ")"
+	queryStr := fmt.Sprintf(`SELECT nodes.id, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_ratio, nodes.created_at
+		FROM nodes
+		WHERE nodes.id in %s
+		AND nodes.total_audit_count >= %d
+		AND nodes.audit_success_ratio >= %f
+		AND nodes.uptime_ratio >= %f`, idStr, auditCount, auditSuccess, uptime)
+
+	return queryStr
 }
 
 // Update a single storagenode's stats in the db

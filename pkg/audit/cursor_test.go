@@ -18,11 +18,12 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/teststore"
 )
@@ -60,7 +61,7 @@ func (pbd *pointerDBWrapper) Delete(ctx context.Context, in *pb.DeleteRequest, o
 
 func TestAuditSegment(t *testing.T) {
 	type pathCount struct {
-		path  paths.Path
+		path  storj.Path
 		count int
 	}
 
@@ -69,47 +70,47 @@ func TestAuditSegment(t *testing.T) {
 	// list api call, default is  0 == 1000 listing
 	tests := []struct {
 		bm   string
-		path paths.Path
+		path storj.Path
 	}{
 		{
 			bm:   "success-1",
-			path: paths.New("folder1/file1"),
+			path: "folder1/file1",
 		},
 		{
 			bm:   "success-2",
-			path: paths.New("foodFolder1/file1/file2"),
+			path: "foodFolder1/file1/file2",
 		},
 		{
 			bm:   "success-3",
-			path: paths.New("foodFolder1/file1/file2/foodFolder2/file3"),
+			path: "foodFolder1/file1/file2/foodFolder2/file3",
 		},
 		{
 			bm:   "success-4",
-			path: paths.New("projectFolder/project1.txt/"),
+			path: "projectFolder/project1.txt/",
 		},
 		{
 			bm:   "success-5",
-			path: paths.New("newProjectFolder/project2.txt"),
+			path: "newProjectFolder/project2.txt",
 		},
 		{
 			bm:   "success-6",
-			path: paths.New("Pictures/image1.png"),
+			path: "Pictures/image1.png",
 		},
 		{
 			bm:   "success-7",
-			path: paths.New("Pictures/Nature/mountains.png"),
+			path: "Pictures/Nature/mountains.png",
 		},
 		{
 			bm:   "success-8",
-			path: paths.New("Pictures/City/streets.png"),
+			path: "Pictures/City/streets.png",
 		},
 		{
 			bm:   "success-9",
-			path: paths.New("Pictures/Animals/Dogs/dogs.png"),
+			path: "Pictures/Animals/Dogs/dogs.png",
 		},
 		{
 			bm:   "success-10",
-			path: paths.New("Nada/ビデオ/😶"),
+			path: "Nada/ビデオ/😶",
 		},
 	}
 
@@ -131,7 +132,8 @@ func TestAuditSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 
-	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, nil))
+	identity := &provider.FullIdentity{ID: ""}
+	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
 
 	// create a pdb client and instance of audit
@@ -147,7 +149,7 @@ func TestAuditSegment(t *testing.T) {
 				putRequest := makePutRequest(tt.path)
 
 				// create putreq. object
-				req := &pb.PutRequest{Path: tt.path.String(), Pointer: putRequest.Pointer}
+				req := &pb.PutRequest{Path: tt.path, Pointer: putRequest.Pointer}
 
 				// put pointer into db
 				_, err := pdbw.Put(ctx, req)
@@ -180,7 +182,7 @@ func TestAuditSegment(t *testing.T) {
 
 	// test to see how random paths are
 	t.Run("probabilisticTest", func(t *testing.T) {
-		list, _, err := pointers.List(ctx, nil, nil, nil, true, 10, meta.None)
+		list, _, err := pointers.List(ctx, "", "", "", true, 10, meta.None)
 		if err != nil {
 			t.Error(ErrNoList)
 		}
@@ -237,14 +239,14 @@ func TestAuditSegment(t *testing.T) {
 	})
 }
 
-func makePutRequest(path paths.Path) pb.PutRequest {
+func makePutRequest(path storj.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
 		NodeId:   "testId",
 	})
 	pr := pb.PutRequest{
-		Path: path.String(),
+		Path: path,
 		Pointer: &pb.Pointer{
 			Type: pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{

@@ -8,6 +8,7 @@ package pointerdb;
 
 import "google/protobuf/timestamp.proto";
 import "overlay.proto";
+import "piecestore.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {
@@ -34,17 +35,6 @@ message RedundancyScheme {
   int32 success_threshold = 5; // amount of pieces we need to store to call it a success
 
   int32 erasure_share_size = 6;
-}
-
-message EncryptionScheme {
-  enum EncryptionType {
-    AESGCM = 0;
-    SECRETBOX = 1;
-    // only allow authenticated encryption schemes
-  }
-  EncryptionType type = 1;
-  bytes encrypted_encryption_key = 2;
-  bytes encrypted_starting_nonce = 3;
 }
 
 message RemotePiece {
@@ -107,6 +97,7 @@ message PutResponse {
 message GetResponse {
   Pointer pointer = 1;
   repeated overlay.Node nodes = 2;
+  piecestoreroutes.PayerBandwidthAllocation pba = 3;
 }
 
 // ListResponse is a response message for the List rpc call

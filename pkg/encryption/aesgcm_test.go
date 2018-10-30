@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"io/ioutil"
 	"testing"
+
+	"storj.io/storj/pkg/storj"
 )
 
 func TestAesGcm(t *testing.T) {
-	var key Key
-	copy(key[:], randData(KeySize))
+	var key storj.Key
+	copy(key[:], randData(storj.KeySize))
 	var firstNonce AESGCMNonce
 	copy(firstNonce[:], randData(AESGCMNonceSize))
 	encrypter, err := NewAESGCMEncrypter(&key, &firstNonce, 4*1024)

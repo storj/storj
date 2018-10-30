@@ -17,9 +17,9 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/grpcauth"
-	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
@@ -32,6 +32,7 @@ type PointerDB struct {
 	grpcClient      pb.PointerDBClient
 	signatureHeader *metadata.MD
 	peer            *peer.Peer
+	pba             *pb.PayerBandwidthAllocation
 }
 
 // New Used as a public function
@@ -44,21 +45,20 @@ var _ Client = (*PointerDB)(nil)
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     p.Path
+	Path     storj.Path
 	Pointer  *pb.Pointer
 	IsPrefix bool
 }
 
 // Client services offerred for the interface
 type Client interface {
-	Put(ctx context.Context, path p.Path, pointer *pb.Pointer) error
-	Get(ctx context.Context, path p.Path) (*pb.Pointer, error)
-	List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-		recursive bool, limit int, metaFlags uint32) (
-		items []ListItem, more bool, err error)
-	Delete(ctx context.Context, path p.Path) error
+	Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) error
+	Get(ctx context.Context, path storj.Path) (*pb.Pointer, error)
+	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Delete(ctx context.Context, path storj.Path) error
 
 	SignedMessage() (*pb.SignedMessage, error)
+	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
 }
 
 // NewClient initializes a new pointerdb client
@@ -93,19 +93,19 @@ func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBC
 }
 
 // Put is the interface to make a PUT request, needs Pointer and APIKey
-func (pdb *PointerDB) Put(ctx context.Context, path p.Path, pointer *pb.Pointer) (err error) {
+func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path.String(), Pointer: pointer})
+	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer})
 
 	return err
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path.String()})
+	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
@@ -113,19 +113,19 @@ func (pdb *PointerDB) Get(ctx context.Context, path p.Path) (pointer *pb.Pointer
 		return nil, Error.Wrap(err)
 	}
 
+	pdb.pba = res.GetPba()
+
 	return res.GetPointer(), nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey
-func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.Path,
-	recursive bool, limit int, metaFlags uint32) (
-	items []ListItem, more bool, err error) {
+func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
-		Prefix:     prefix.String(),
-		StartAfter: startAfter.String(),
-		EndBefore:  endBefore.String(),
+		Prefix:     prefix,
+		StartAfter: startAfter,
+		EndBefore:  endBefore,
 		Recursive:  recursive,
 		Limit:      int32(limit),
 		MetaFlags:  metaFlags,
@@ -138,7 +138,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 	items = make([]ListItem, len(list))
 	for i, itm := range list {
 		items[i] = ListItem{
-			Path:     p.New(itm.GetPath()),
+			Path:     itm.GetPath(),
 			Pointer:  itm.GetPointer(),
 			IsPrefix: itm.IsPrefix,
 		}
@@ -148,10 +148,10 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore p.
 }
 
 // Delete is the interface to make a Delete request, needs Path and APIKey
-func (pdb *PointerDB) Delete(ctx context.Context, path p.Path) (err error) {
+func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path.String()})
+	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path})
 
 	return err
 }
@@ -174,4 +174,9 @@ func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
 	}
 
 	return auth.NewSignedMessage(decodedSignature, identity)
+}
+
+// PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
+func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
+	return pdb.pba
 }

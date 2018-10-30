@@ -30,6 +30,7 @@ type Config struct {
 	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
 	EncKey              string `default:"highlydistributedridiculouslyresilient" help:"your root encryption key"`
 	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
+	GenerateMinioCerts  bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 }
 
 var (
@@ -58,6 +59,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !setupCfg.Overwrite && err == nil {
 		fmt.Println("A captplanet configuration already exists. Rerun with --overwrite")
 		return nil
+	} else if setupCfg.Overwrite && err == nil {
+		fmt.Println("overwriting existing captplanet config")
+		err = os.RemoveAll(setupCfg.BasePath)
+		if err != nil {
+			return err
+		}
 	}
 
 	hcPath := filepath.Join(setupCfg.BasePath, "satellite")
@@ -107,6 +114,19 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	err = provider.SetupIdentity(process.Ctx(cmd), setupCfg.ULCA, setupCfg.ULIdentity)
 	if err != nil {
 		return err
+	}
+
+	if setupCfg.GenerateMinioCerts {
+		minioCertsPath := filepath.Join(uplinkPath, "minio", "certs")
+		if err := os.MkdirAll(minioCertsPath, 0744); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.ULIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.ULIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
+			return err
+		}
 	}
 
 	startingPort := setupCfg.StartingPort

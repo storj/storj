@@ -15,7 +15,6 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/objects"
 )
 
@@ -49,7 +48,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 			UserDefined: metadata,
 		}
 
-		result, err := objectStore.Put(ctx, paths.New(object), upload.Stream, serMetaInfo, expTime)
+		result, err := objectStore.Put(ctx, object, upload.Stream, serMetaInfo, expTime)
 		uploads.RemoveByID(upload.ID)
 
 		if err != nil {

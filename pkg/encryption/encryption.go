@@ -4,139 +4,114 @@
 package encryption
 
 import (
-	"github.com/zeebo/errs"
+	"crypto/hmac"
+	"crypto/sha512"
+
+	"storj.io/storj/pkg/storj"
 )
 
-// Cipher is a type used to define the type of encryption to use
-type Cipher byte
+// AESGCMNonceSize is the size of an AES-GCM nonce
+const AESGCMNonceSize = 12
 
-// Constant definitions for no encryption (0), AESGCM (1), and SecretBox (2)
-const (
-	None = Cipher(iota)
-	AESGCM
-	SecretBox
-)
+// AESGCMNonce represents the nonce used by the AES-GCM protocol
+type AESGCMNonce [AESGCMNonceSize]byte
 
-// Constant definitions for key and nonce sizes
-const (
-	KeySize         = 32
-	NonceSize       = 24
-	AESGCMNonceSize = 12
-)
-
-// Key represents the largest key used by any encryption protocol
-type Key [KeySize]byte
-
-// Bytes returns the key as a byte array pointer
-func (k *Key) Bytes() *[KeySize]byte {
-	return (*[KeySize]byte)(k)
-}
-
-// Encrypt encrypts the current key with the given key and nonce
-func (k *Key) Encrypt(cipher Cipher, key *Key, nonce *Nonce) (EncryptedPrivateKey, error) {
-	return cipher.Encrypt(k[:], key, nonce)
-}
-
-// Nonce represents the largest nonce used by any encryption protocol
-type Nonce [NonceSize]byte
-
-// Bytes returns the nonce as a byte array pointer
-func (nonce *Nonce) Bytes() *[NonceSize]byte {
-	return (*[NonceSize]byte)(nonce)
-}
-
-// Increment increments the nonce with the given amount
-func (nonce *Nonce) Increment(amount int64) (truncated bool, err error) {
-	return incrementBytes(nonce[:], amount)
-}
-
-// AESGCMNonce returns the nonce as a AES-GCM nonce
-func (nonce *Nonce) AESGCMNonce() *AESGCMNonce {
+// ToAESGCMNonce returns the nonce as a AES-GCM nonce
+func ToAESGCMNonce(nonce *storj.Nonce) *AESGCMNonce {
 	aes := new(AESGCMNonce)
 	copy((*aes)[:], nonce[:AESGCMNonceSize])
 	return aes
 }
 
-// AESGCMNonce represents the nonce used by the AES-GCM protocol
-type AESGCMNonce [AESGCMNonceSize]byte
-
-// Bytes returns the nonce as a byte array pointer
-func (nonce *AESGCMNonce) Bytes() *[AESGCMNonceSize]byte {
-	return (*[AESGCMNonceSize]byte)(nonce)
+// Increment increments the nonce with the given amount
+func Increment(nonce *storj.Nonce, amount int64) (truncated bool, err error) {
+	return incrementBytes(nonce[:], amount)
 }
 
-// EncryptedPrivateKey is a private key that has been encrypted
-type EncryptedPrivateKey []byte
+// Encrypt encrypts data with the given cipher, key and nonce
+func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
+	switch cipher {
+	case storj.Unencrypted:
+		return data, nil
+	case storj.AESGCM:
+		return EncryptAESGCM(data, key, ToAESGCMNonce(nonce))
+	case storj.SecretBox:
+		return EncryptSecretBox(data, key, nonce)
+	default:
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
+	}
+}
 
-// Decrypt decrypts the current key with the given key and nonce
-func (k EncryptedPrivateKey) Decrypt(cipher Cipher, key *Key, nonce *Nonce) (*Key, error) {
-	plainData, err := cipher.Decrypt(k, key, nonce)
+// Decrypt decrypts cipherData with the given cipher, key and nonce
+func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
+	switch cipher {
+	case storj.Unencrypted:
+		return cipherData, nil
+	case storj.AESGCM:
+		return DecryptAESGCM(cipherData, key, ToAESGCMNonce(nonce))
+	case storj.SecretBox:
+		return DecryptSecretBox(cipherData, key, nonce)
+	default:
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
+	}
+}
+
+// NewEncrypter creates a Transformer using the given cipher, key and nonce to encrypt data passing through it
+func NewEncrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
+	switch cipher {
+	case storj.Unencrypted:
+		return &NoopTransformer{}, nil
+	case storj.AESGCM:
+		return NewAESGCMEncrypter(key, ToAESGCMNonce(startingNonce), encryptedBlockSize)
+	case storj.SecretBox:
+		return NewSecretboxEncrypter(key, startingNonce, encryptedBlockSize)
+	default:
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
+	}
+}
+
+// NewDecrypter creates a Transformer using the given cipher, key and nonce to decrypt data passing through it
+func NewDecrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
+	switch cipher {
+	case storj.Unencrypted:
+		return &NoopTransformer{}, nil
+	case storj.AESGCM:
+		return NewAESGCMDecrypter(key, ToAESGCMNonce(startingNonce), encryptedBlockSize)
+	case storj.SecretBox:
+		return NewSecretboxDecrypter(key, startingNonce, encryptedBlockSize)
+	default:
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
+	}
+}
+
+// EncryptKey encrypts keyToEncrypt with the given cipher, key and nonce
+func EncryptKey(keyToEncrypt *storj.Key, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (storj.EncryptedPrivateKey, error) {
+	return Encrypt(keyToEncrypt[:], cipher, key, nonce)
+}
+
+// DecryptKey decrypts keyToDecrypt with the given cipher, key and nonce
+func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (*storj.Key, error) {
+	plainData, err := Decrypt(keyToDecrypt, cipher, key, nonce)
 	if err != nil {
 		return nil, err
 	}
 
-	var decryptedKey Key
+	var decryptedKey storj.Key
 	copy(decryptedKey[:], plainData)
 
 	return &decryptedKey, nil
 }
 
-// Encrypt encrypts byte data with a key and nonce. The cipher data is returned
-// The type of encryption to use can be modified with encType
-func (cipher Cipher) Encrypt(data []byte, key *Key, nonce *Nonce) (cipherData []byte, err error) {
-	switch cipher {
-	case None:
-		return data, nil
-	case AESGCM:
-		return EncryptAESGCM(data, key, nonce.AESGCMNonce())
-	case SecretBox:
-		return EncryptSecretBox(data, key, nonce)
-	default:
-		return nil, errs.New("Invalid encryption type")
+// DeriveKey derives new key from the given key and message using HMAC-SHA512
+func DeriveKey(key *storj.Key, message string) (*storj.Key, error) {
+	mac := hmac.New(sha512.New, key[:])
+	_, err := mac.Write([]byte(message))
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
-}
 
-// Decrypt decrypts byte data with a key and nonce. The plain data is returned
-// The type of encryption to use can be modified with encType
-func (cipher Cipher) Decrypt(cipherData []byte, key *Key, nonce *Nonce) (data []byte, err error) {
-	switch cipher {
-	case None:
-		return cipherData, nil
-	case AESGCM:
-		return DecryptAESGCM(cipherData, key, nonce.AESGCMNonce())
-	case SecretBox:
-		return DecryptSecretBox(cipherData, key, nonce)
-	default:
-		return nil, errs.New("Invalid encryption type")
-	}
-}
+	derived := new(storj.Key)
+	copy(derived[:], mac.Sum(nil))
 
-// NewEncrypter creates transform stream using a key and a nonce to encrypt data passing through it
-// The type of encryption to use can be modified with encType
-func (cipher Cipher) NewEncrypter(key *Key, startingNonce *Nonce, encBlockSize int) (Transformer, error) {
-	switch cipher {
-	case None:
-		return &NoopTransformer{}, nil
-	case AESGCM:
-		return NewAESGCMEncrypter(key, startingNonce.AESGCMNonce(), encBlockSize)
-	case SecretBox:
-		return NewSecretboxEncrypter(key, startingNonce, encBlockSize)
-	default:
-		return nil, errs.New("Invalid encryption type")
-	}
-}
-
-// NewDecrypter creates transform stream using a key and a nonce to decrypt data passing through it
-// The type of encryption to use can be modified with encType
-func (cipher Cipher) NewDecrypter(key *Key, startingNonce *Nonce, encBlockSize int) (Transformer, error) {
-	switch cipher {
-	case None:
-		return &NoopTransformer{}, nil
-	case AESGCM:
-		return NewAESGCMDecrypter(key, startingNonce.AESGCMNonce(), encBlockSize)
-	case SecretBox:
-		return NewSecretboxDecrypter(key, startingNonce, encBlockSize)
-	default:
-		return nil, errs.New("Invalid encryption type")
-	}
+	return derived, nil
 }

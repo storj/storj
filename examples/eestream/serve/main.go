@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -46,15 +47,14 @@ func main() {
 
 // Main is the exported CLI executable function
 func Main() error {
-	encKey := encryption.Key(sha256.Sum256([]byte(*key)))
+	encKey := storj.Key(sha256.Sum256([]byte(*key)))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
 		return err
 	}
 	es := eestream.NewRSScheme(fc, *erasureShareSize)
-	var firstNonce encryption.Nonce
-	cipher := encryption.AESGCM
-	decrypter, err := cipher.NewDecrypter(&encKey, &firstNonce, es.StripeSize())
+	var firstNonce storj.Nonce
+	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}
