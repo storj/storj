@@ -15,4 +15,7 @@ read one (
   select bwagreement 
   where  bwagreement.signature = ?
 )
+read limitoffset (
+	select bwagreement
+)
 
