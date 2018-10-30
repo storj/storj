@@ -32,6 +32,7 @@ const (
 
 // PeerIdentity represents another peer on the network.
 type PeerIdentity struct {
+	RestChain []*x509.Certificate
 	// CA represents the peer's self-signed CA
 	CA *x509.Certificate
 	// Leaf represents the leaf they're currently using. The leaf should be
@@ -44,6 +45,7 @@ type PeerIdentity struct {
 // FullIdentity represents you on the network. In addition to a PeerIdentity,
 // a FullIdentity also has a Key, which a PeerIdentity doesn't have.
 type FullIdentity struct {
+	RestChain []*x509.Certificate
 	// CA represents the peer's self-signed CA. The ID is taken from this cert.
 	CA *x509.Certificate
 	// Leaf represents the leaf they're currently using. The leaf should be
@@ -121,6 +123,7 @@ func FullIdentityFromPEM(chainPEM, keyPEM, CAWhitelistPEM []byte) (*FullIdentity
 	}
 
 	return &FullIdentity{
+		RestChain:       ch[2:],
 		CA:              ch[1],
 		Leaf:            ch[0],
 		Key:             k,
@@ -143,16 +146,17 @@ func ParseCertChain(chain [][]byte) ([]*x509.Certificate, error) {
 }
 
 // PeerIdentityFromCerts loads a PeerIdentity from a pair of leaf and ca x509 certificates
-func PeerIdentityFromCerts(leaf, ca *x509.Certificate) (*PeerIdentity, error) {
+func PeerIdentityFromCerts(leaf, ca *x509.Certificate, rest []*x509.Certificate) (*PeerIdentity, error) {
 	i, err := idFromKey(ca.PublicKey.(crypto.PublicKey))
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerIdentity{
-		CA:   ca,
-		ID:   i,
-		Leaf: leaf,
+		RestChain: rest,
+		CA:        ca,
+		ID:        i,
+		Leaf:      leaf,
 	}, nil
 }
 
@@ -163,7 +167,7 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	if len(c) < 2 {
 		return nil, Error.New("invalid certificate chain")
 	}
-	pi, err := PeerIdentityFromCerts(c[0], c[1])
+	pi, err := PeerIdentityFromCerts(c[0], c[1], c[2:])
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +241,9 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 	}
 	defer utils.LogClose(k)
 
-	if err = peertls.WriteChain(c, fi.Leaf, fi.CA); err != nil {
+	chain := []*x509.Certificate{fi.Leaf, fi.CA}
+	chain = append(chain, fi.RestChain...)
+	if err = peertls.WriteChain(c, chain...); err != nil {
 		return err
 	}
 	if err = peertls.WriteKey(k, fi.Key); err != nil {
@@ -273,10 +279,19 @@ func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerIn
 	return s.Run(ctx)
 }
 
+func (fi *FullIdentity) RestChainRaw() [][]byte {
+	var chain [][]byte
+	for _, cert := range fi.RestChain {
+		chain = append(chain, cert.Raw)
+	}
+	return chain
+}
+
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
 func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	ch = append(ch, fi.RestChainRaw()...)
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
@@ -303,6 +318,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
+	ch = append(ch, fi.RestChainRaw()...)
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err

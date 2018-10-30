@@ -300,7 +300,10 @@ func TestDelete(t *testing.T) {
 
 func TestSignedMessage(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

@@ -59,7 +59,10 @@ func TestLookup(t *testing.T) {
 		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
 		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewCA(ctx, provider.NewCAOptions{
+			Difficulty:  12,
+			Concurrency: 4,
+		})
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -151,7 +154,10 @@ func NewNodeID(t *testing.T) string {
 }
 
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

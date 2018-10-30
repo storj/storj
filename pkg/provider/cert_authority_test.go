@@ -13,7 +13,10 @@ import (
 func TestNewCA(t *testing.T) {
 	expectedDifficulty := uint16(4)
 
-	ca, err := NewCA(context.Background(), expectedDifficulty, 5)
+	ca, err := NewCA(context.Background(), NewCAOptions{
+		Difficulty:  expectedDifficulty,
+		Concurrency: 5,
+	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ca)
 
@@ -28,7 +31,10 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		}
 	}
 
-	ca, err := NewCA(context.Background(), 12, 5)
+	ca, err := NewCA(context.Background(), NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 5,
+	})
 	check(err, ca)
 	fi, err := ca.NewIdentity()
 	check(err, fi)
@@ -44,7 +50,10 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 
 func NewCABenchmark(b *testing.B, difficulty uint16, concurrency uint) {
 	for i := 0; i < b.N; i++ {
-		_, _ = NewCA(context.Background(), difficulty, concurrency)
+		_, _ = NewCA(context.Background(), NewCAOptions{
+			Difficulty:  difficulty,
+			Concurrency: concurrency,
+		})
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/pem"
 	"io"
 
@@ -26,6 +27,9 @@ const (
 )
 
 var (
+	// AuthoritySignatureExtID is the asn1 object ID for a pkix extension holding a signature of the leaf cert, signed by some CA (e.g. the root cert)
+	// This extension allows for an additional signature per certificate
+	AuthoritySignatureExtID = asn1.ObjectIdentifier{2, 999, 1}
 	// ErrNotExist is used when a file or directory doesn't exist
 	ErrNotExist = errs.Class("file or directory not found error")
 	// ErrGenerate is used when an error occurred during cert/key generation
@@ -45,6 +49,8 @@ var (
 	ErrVerifyCertificateChain = errs.Class("certificate chain signature verification failed")
 	// ErrVerifyCAWhitelist is used when the leaf of a peer certificate isn't signed by any CA in the whitelist
 	ErrVerifyCAWhitelist = errs.Class("certificate isn't signed by any CA in the whitelist")
+	// ErrSign is used when something goes wrong while generating a signature
+	ErrSign = errs.Class("unable to generate signature")
 )
 
 // PeerCertVerificationFunc is the signature for a `*tls.Config{}`'s
@@ -117,21 +123,43 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 	return verifyChainSignatures(parsedChains[0])
 }
 
-// VerifyCAWhitelist verifies that the peer identity's leaf was signed by any one of the
-// (certificate authority) certificates in the provided whitelist
+// VerifyCAWhitelist verifies that the peer identity's CA and leaf-extension was signed
+// by any one of the (certificate authority) certificates in the provided whitelist
 func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 	if cas == nil {
 		return nil
 	}
 
 	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-		var err error
+		var (
+			leaf = parsedChains[0][0]
+			err  error
+		)
+
+		// Leaf extension must contain leaf signature, signed by a CA in the whitelist.
+		// That *same* CA must also have signed the leaf's parent cert (regular cert chain signature, not extension).
 		for _, ca := range cas {
-			err = verifyCertSignature(ca, parsedChains[0][0])
+			err = verifyCertSignature(ca, parsedChains[0][1])
 			if err == nil {
-				return nil
+				var extSigVerified bool
+				for _, ext := range leaf.Extensions {
+					if ext.Id.Equal(AuthoritySignatureExtID) {
+						err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
+						if err != nil {
+							return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
+						}
+						extSigVerified = true
+						break
+					}
+				}
+
+				if extSigVerified {
+					return nil
+				}
+				break
 			}
 		}
+
 		return ErrVerifyCAWhitelist.Wrap(err)
 	}
 }
