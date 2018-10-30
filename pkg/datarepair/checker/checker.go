@@ -130,11 +130,10 @@ func (c *checker) Run(ctx context.Context) (err error) {
 	for {
 		select {
 		case <-c.ticker.C: // wait for the next interval to happen
-			break
 		case <-ctx.Done(): // or the checker is canceled via context
 			return ctx.Err()
 		}
-		
+
 		err = c.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			zap.L().Error("Checker failed", zap.Error(err))
