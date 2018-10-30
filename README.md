@@ -49,8 +49,7 @@ We support Linux, Mac, and Windows operating systems. Other operating systems su
 
 ### Download and compile Storj
 
-> **Aside about GOPATH**:  If you don't have a GOPATH set, you can ignore this 
-> aside. Go 1.11 supports a new feature called Go modules,
+> **Aside about GOPATH**: Go 1.11 supports a new feature called Go modules,
 > and Storj has adopted Go module support. If you've used previous Go versions,
 > Go modules no longer require a GOPATH environment variable. Go by default
 > falls back to the old behavior if you check out code inside of the directory
