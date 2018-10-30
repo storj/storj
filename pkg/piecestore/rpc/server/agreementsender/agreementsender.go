@@ -5,11 +5,11 @@ package agreementsender
 
 import (
 	"flag"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -50,7 +50,7 @@ func Initialize(DB *psdb.DB, identity *provider.FullIdentity) (*AgreementSender,
 
 // Run the afreement sender with a context to cehck for cancel
 func (as *AgreementSender) Run(ctx context.Context) error {
-	log.Println("AgreementSender is starting up")
+	zap.S().Info("AgreementSender is starting up")
 
 	type agreementGroup struct {
 		satellite  string
@@ -65,7 +65,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 		for range ticker.C {
 			agreementGroups, err := as.DB.GetBandwidthAllocations()
 			if err != nil {
-				log.Println(err)
+				zap.S().Error(err)
 				continue
 			}
 
@@ -82,39 +82,38 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-				log.Printf("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
+				zap.S().Info("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
 				if err != nil {
-					log.Println(err)
+					zap.S().Error(err)
 					return
 				}
 
 				// Create client from satellite ip
 				identOpt, err := as.identity.DialOption()
 				if err != nil {
-					log.Println(err)
+					zap.S().Error(err)
 					return
 				}
 
-				var conn *grpc.ClientConn
-				conn, err = grpc.Dial(satellite.GetAddress().String(), identOpt)
+				conn, err := grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
-					log.Println(err)
+					zap.S().Error(err)
 					return
 				}
 
 				client := pb.NewBandwidthClient(conn)
 				stream, err := client.BandwidthAgreements(ctx)
 				if err != nil {
-					log.Println(err)
+					zap.S().Error(err)
 					return
 				}
 
 				defer func() {
 					if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
-						log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
+						zap.S().Error("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
 					}
 				}()
 
@@ -127,13 +126,13 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 
 					// Send agreement to satellite
 					if err = stream.Send(msg); err != nil {
-						log.Println(err)
+						zap.S().Error(err)
 						return
 					}
 
 					// Delete from PSDB by signature
 					if err = as.DB.DeleteBandwidthAllocationBySignature(agreement.Signature); err != nil {
-						log.Println(err)
+						zap.S().Error(err)
 						return
 					}
 				}
