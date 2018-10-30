@@ -6,13 +6,11 @@ package mock_dht
 
 import (
 	context "context"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
-
+	reflect "reflect"
 	dht "storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/pb"
+	pb "storj.io/storj/pkg/pb"
+	time "time"
 )
 
 // MockDHT is a mock of DHT interface

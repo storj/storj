@@ -11,11 +11,13 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
@@ -93,6 +95,8 @@ type storjFs struct {
 }
 
 func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
+	zap.S().Infof("GetAttr: %v", name)
+
 	if name == "" {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
@@ -126,6 +130,8 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
+	zap.S().Infof("OpenDir: %v", name)
+
 	entries, err := sf.listFiles(sf.ctx, name, sf.store)
 	if err != nil {
 		return nil, fuse.EIO
@@ -149,7 +155,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 	startAfter := ""
 
 	for {
-		items, more, err := store.List(ctx, name, startAfter, "", false, 0, meta.Modified)
+		items, more, err := store.List(ctx, name, startAfter, "", false, 0, meta.None)
 		if err != nil {
 			return nil, err
 		}
@@ -159,6 +165,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 
 			mode := fuse.S_IFREG
 			if object.IsPrefix {
+				path = filepath.Clean(path)
 				mode = fuse.S_IFDIR
 			}
 			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
