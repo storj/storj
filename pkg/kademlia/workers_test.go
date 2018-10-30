@@ -204,11 +204,16 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 
 type mockNodeServer struct {
 	queryCalled int32
+	pingCalled  int32
 	returnValue []*pb.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
 	return &pb.QueryResponse{Response: mn.returnValue}, nil
+}
 
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	atomic.AddInt32(&mn.pingCalled, 1)
+	return &pb.PingResponse{}, nil
 }

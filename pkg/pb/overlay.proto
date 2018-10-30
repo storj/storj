@@ -25,6 +25,7 @@ service Overlay {
 
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
+    rpc Ping(PingRequest) returns (PingResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -115,6 +116,9 @@ message QueryResponse {
 
     repeated overlay.Node response = 2;
 }
+
+message PingRequest {};
+message PingResponse {};
 
 message Restriction {
     enum Operator {

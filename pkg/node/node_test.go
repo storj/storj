@@ -74,8 +74,6 @@ func TestLookup(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	t.Skip("flaky")
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -105,7 +103,6 @@ func TestPing(t *testing.T) {
 		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
 		assert.NoError(t, err)
 		// start gRPC server
-
 		ctx.Go(func() error { return msrv.Serve(lis) })
 		defer msrv.Stop()
 
@@ -134,11 +131,17 @@ func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.Fu
 
 type mockNodeServer struct {
 	queryCalled int
+	pingCalled  int
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	mn.queryCalled++
 	return &pb.QueryResponse{}, nil
+}
+
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	mn.pingCalled++
+	return &pb.PingResponse{}, nil
 }
 
 // NewNodeID returns the string representation of a dht node ID
