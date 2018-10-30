@@ -122,13 +122,10 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		pieceID := client.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
-		signedMessage, err := s.pdb.SignedMessage()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
+		authorization := s.pdb.SignedMessage()
 		pba := s.pdb.PayerBandwidthAllocation()
 		// puts file to ecclient
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, signedMessage)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -217,12 +214,9 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 			return nil, Meta{}, err
 		}
 
-		signedMessage, err := s.pdb.SignedMessage()
-		if err != nil {
-			return nil, Meta{}, Error.Wrap(err)
-		}
+		authorization := s.pdb.SignedMessage()
 		pba := s.pdb.PayerBandwidthAllocation()
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, signedMessage)
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -259,12 +253,9 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			return Error.Wrap(err)
 		}
 
-		signedMessage, err := s.pdb.SignedMessage()
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		authorization := s.pdb.SignedMessage()
 		// ecclient sends delete request
-		err = s.ec.Delete(ctx, nodes, pid, signedMessage)
+		err = s.ec.Delete(ctx, nodes, pid, authorization)
 		if err != nil {
 			return Error.Wrap(err)
 		}

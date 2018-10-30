@@ -49,8 +49,7 @@ func TestSignedMessageVerifier(t *testing.T) {
 	signature, err := GenerateSignature(identity.ID.Bytes(), identity)
 	assert.NoError(t, err)
 
-	peerIdentity := &provider.PeerIdentity{ID: identity.ID, Leaf: identity.Leaf}
-	signedMessage, err := NewSignedMessage(signature, peerIdentity)
+	signedMessage, err := NewSignedMessage(signature, identity)
 	assert.NoError(t, err)
 
 	for _, tt := range []struct {
