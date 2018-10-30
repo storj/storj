@@ -6,8 +6,8 @@
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
-Storj is building a decentralized cloud storage network and is launching in
-early 2019.
+Storj is building a decentralized cloud storage network. 
+[Check out our white paper for more info!](https://storj.io/white-paper)
 
 ----
 
@@ -30,6 +30,14 @@ All of our code for Storj v3 is open source. Have a code change you think would 
 
 Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team.
 
+### Issue tracking and roadmap
+
+See the breakdown of what we're building by checking out the following resources:
+
+ * [White paper](https://storj.io/white-paper)
+ * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
+ * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
+
 ### Install required packages
 
 To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
@@ -50,10 +58,10 @@ We support Linux, Mac, and Windows operating systems. Other operating systems su
 > `unset GOPATH` entirely, or set `GO111MODULE=on` before continuing with these
 > instructions.
 
-First, clone this repository.
+First, fork our repo and clone your copy of our repository.
 
 ```bash
-git clone git@github.com:storj/storj storj
+git clone git@github.com:<your-username>/storj storj
 cd storj
 ```
 
@@ -63,7 +71,9 @@ Then, let's install Storj.
 go install -v ./cmd/...
 ```
 
-You can run all of the unit tests:
+### Make changes and test
+
+Make the changes you want to see! Once you're done, you can run all of the unit tests:
 
 ```bash
 go test -v ./...
@@ -72,6 +82,17 @@ go test -v ./...
 You can also execute only a single test package if you like. For example:
 `go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
 tests.
+
+### Push up a pull request
+
+Use Git to push your changes to your fork:
+
+```bash
+git commit -a -m 'my changes!'
+git push origin master
+```
+
+Use Github to open a pull request!
 
 # Start using Storj
 
