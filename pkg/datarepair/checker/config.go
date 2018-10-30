@@ -18,7 +18,7 @@ import (
 
 // Config contains configurable values for repairer
 type Config struct {
-	QueueAddress string        `help:"data repair queue address" default:"redis://localhost:6379?db=5&password=123"`
+	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
 }
 
