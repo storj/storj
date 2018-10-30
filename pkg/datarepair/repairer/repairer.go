@@ -49,6 +49,7 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 		case <-ctx.Done(): // or the repairer is canceled via context
 			return ctx.Err()
 		}
+		
 		seg, err := r.queue.Dequeue()
 		if err != nil {
 			// TODO: only log when err != ErrQueueEmpty

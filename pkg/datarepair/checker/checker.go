@@ -134,6 +134,7 @@ func (c *checker) Run(ctx context.Context) (err error) {
 		case <-ctx.Done(): // or the checker is canceled via context
 			return ctx.Err()
 		}
+		
 		err = c.IdentifyInjuredSegments(ctx)
 		if err != nil {
 			zap.L().Error("Checker failed", zap.Error(err))
