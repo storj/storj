@@ -124,8 +124,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
+		pba := s.pdb.PayerBandwidthAllocation()
 		// puts file to ecclient
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, signedMessage)
+		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, signedMessage)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -218,7 +219,8 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
-		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), signedMessage)
+		pba := s.pdb.PayerBandwidthAllocation()
+		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, signedMessage)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
