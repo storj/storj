@@ -28,7 +28,7 @@ type Client interface {
 	Create(ctx context.Context, nodeID []byte) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
 	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-		minAuditSuccess, minUptime float64) (passedIDs, failedIDs [][]byte, err error)
+		minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error)
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
@@ -98,7 +98,7 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
 func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-	minAuditSuccess, minUptime float64) (passedIDs, failedIDs [][]byte, err error) {
+	minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	findValidNodesReq := &pb.FindValidNodesRequest{
@@ -113,10 +113,10 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 
 	res, err := sdb.grpcClient.FindValidNodes(ctx, findValidNodesReq)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return res.PassedIds, res.FailedIds, nil
+	return res.PassedIds, nil
 }
 
 // Update is used for updating a node's stats in the stats db
