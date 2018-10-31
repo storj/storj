@@ -137,11 +137,17 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 
 		if index != stream.info.SegmentCount {
 			segmentPath := streams.GetSegmentPath(stream.encryptedPath, index+1)
-			_, segmentMeta, err := stream.db.segments.Get(ctx, segmentPath)
+
+			_, meta, err := stream.db.segments.Get(ctx, segmentPath)
 			if err != nil {
 				return nil, false, err
 			}
 
+			segmentMeta := pb.SegmentMeta{}
+			err = proto.Unmarshal(meta.Data, &segmentMeta)
+			if err != nil {
+				return nil, false, err
+			}
 			encryptedKey, encryptedKeyNonce := streams.GetEncryptedKeyAndNonce(&segmentMeta)
 
 			segment.Size = stream.info.FixedSegmentSize
