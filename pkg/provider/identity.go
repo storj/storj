@@ -79,7 +79,7 @@ type IdentityConfig struct {
 	KeyPath             string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
 	VerifyAuthExtSig    bool   `help:"if true, client leafs must contain a valid \"authority signature extension\" (NB: authority signature extensions are verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)" default:"false"`
-	Address string `help:"address to listen on" default:":7777"`
+	Address             string `help:"address to listen on" default:":7777"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and
@@ -258,8 +258,8 @@ func (ic IdentityConfig) Save(fi *FullIdentity) error {
 
 // Run will run the given responsibilities with the configured identity.
 func (ic IdentityConfig) Run(ctx context.Context, interceptor grpc.UnaryServerInterceptor,
-	responsibilities ...Responsibility) (
-	err error) {
+		responsibilities ...Responsibility) (
+		err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pi, err := ic.Load()
