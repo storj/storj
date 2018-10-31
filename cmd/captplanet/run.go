@@ -105,6 +105,16 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}(i, storagenode)
 	}
 
+	// start mini redis
+	m := miniredis.NewMiniRedis()
+	m.RequireAuth("abc123")
+
+	if err = m.StartAddr(":6378"); err != nil {
+		errch <- err
+	} else {
+		defer m.Close()
+	}
+
 	// start satellite
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
@@ -119,27 +129,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			o,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 		)
 	}()
-
-	// start Repair
-	m := miniredis.NewMiniRedis()
-	m.RequireAuth("abc123")
-
-	if err = m.StartAddr(":6378"); err != nil {
-		errch <- err
-	} else {
-		defer m.Close()
-
-		go func() {
-			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
-		}()
-
-		go func() {
-			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
-		}()
-
-	}
 
 	// start s3 uplink
 	go func() {
