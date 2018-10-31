@@ -95,8 +95,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
+				i, storagenode,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
 			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
 				runCfg.StorageNodes[i].Kademlia,
