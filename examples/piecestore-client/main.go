@@ -96,6 +96,7 @@ func main() {
 			id := client.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
+        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action: pb.PayerBandwidthAllocation_PUT,
 			}
 		
@@ -158,6 +159,7 @@ func main() {
 			}
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
+        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
 				Action: pb.PayerBandwidthAllocation_GET,
 			}
 		
