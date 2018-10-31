@@ -79,17 +79,14 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 		lastSegmentMeta, streamInfo, streamMeta,
 	)
 
-	lastEncryptedKey, lastEncryptedKeyNonce := streams.GetEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
-
 	return readonlyStream{
 		db:            db,
 		info:          info,
 		encryptedPath: encryptedPath,
 		streamKey:     streamKey,
-
-		lastSegmentSize:       lastSegmentMeta.Size,
-		lastEncryptedKey:      lastEncryptedKey,
-		lastEncryptedKeyNonce: *lastEncryptedKeyNonce,
+		
+		lastSegment: streamMeta,
+		lastSegmentSize: streamInfo.LastSegmentSize,
 	}, nil
 }
 
@@ -100,9 +97,8 @@ type readonlyStream struct {
 	encryptedPath storj.Path
 	streamKey     *storj.Key // lazySegmentReader derivedKey
 
-	lastSegmentSize       int64
-	lastEncryptedKey      storj.EncryptedPrivateKey
-	lastEncryptedKeyNonce storj.Nonce
+	lastSegment   pb.StreamMeta
+	lastSegmentSize int64
 }
 
 func (stream *readonlyStream) Info() storj.Object { return stream.info }
@@ -114,6 +110,46 @@ func (stream *readonlyStream) SegmentsAt(ctx context.Context, byteOffset int64, 
 
 	index := byteOffset / stream.info.FixedSegmentSize
 	return stream.Segments(ctx, index, limit)
+}
+
+func (stream *readonlyStream) segment(ctx context.Context, index int64) (storj.Segment, err error) {
+	segment := storj.Segment{
+		Index: index,
+	}
+
+	isLastSegment := segment.Index + 1 == stream.info.SegmentCount
+	if !isLastSegment {
+		segmentPath := streams.GetSegmentPath(stream.encryptedPath, index+1)
+		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
+		if err != nil {
+			return segment, err
+		}
+
+		segmentMeta := pb.SegmentMeta{}
+		err = proto.Unmarshal(meta.Data, &segmentMeta)
+		if err != nil {
+			return segment, err
+		}
+		encryptedKey, encryptedKeyNonce := streams.GetEncryptedKeyAndNonce(&segmentMeta)
+
+		segment.Size = stream.info.FixedSegmentSize
+		segment.EncryptedKeyNonce = *encryptedKeyNonce
+		segment.EncryptedKey = encryptedKey
+	} else {
+		lastEncryptedKey, lastEncryptedKeyNonce := streams.GetEncryptedKeyAndNonce(stream.lastSegment.LastSegmentMeta)
+
+		segment.Size = stream.lastSegmentSize
+		segment.EncryptedKeyNonce = stream.lastEncryptedKeyNonce
+		segment.EncryptedKey = stream.lastEncryptedKey
+	}
+
+	var nonce storj.Nonce
+	_, err = encryption.Increment(&nonce, index+1)
+	if err != nil {
+		return segment, err
+	}
+
+	return segment, nil
 }
 
 func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit int64) (infos []storj.Segment, more bool, err error) {
@@ -130,41 +166,10 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 	infos = make([]storj.Segment, 0, limit)
 	for ; index < stream.info.SegmentCount && limit > 0; index++ {
 		limit--
-
-		segment := storj.Segment{
-			Index: index,
-		}
-
-		if index != stream.info.SegmentCount {
-			segmentPath := streams.GetSegmentPath(stream.encryptedPath, index+1)
-
-			_, meta, err := stream.db.segments.Get(ctx, segmentPath)
-			if err != nil {
-				return nil, false, err
-			}
-
-			segmentMeta := pb.SegmentMeta{}
-			err = proto.Unmarshal(meta.Data, &segmentMeta)
-			if err != nil {
-				return nil, false, err
-			}
-			encryptedKey, encryptedKeyNonce := streams.GetEncryptedKeyAndNonce(&segmentMeta)
-
-			segment.Size = stream.info.FixedSegmentSize
-			segment.EncryptedKeyNonce = *encryptedKeyNonce
-			segment.EncryptedKey = encryptedKey
-		} else {
-			segment.Size = stream.lastSegmentSize
-			segment.EncryptedKeyNonce = stream.lastEncryptedKeyNonce
-			segment.EncryptedKey = stream.lastEncryptedKey
-		}
-
-		var nonce storj.Nonce
-		_, err := encryption.Increment(&nonce, index+1)
+		segment, err := stream.segment(ctx, index)
 		if err != nil {
 			return nil, false, err
 		}
-
 		infos = append(infos, segment)
 	}
 
