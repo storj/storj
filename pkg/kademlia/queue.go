@@ -11,28 +11,28 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-//XorQueue is a priority queue where the priority is key XOR distance
+// XorQueue is a priority queue where the priority is key XOR distance
 type XorQueue struct {
 	maxLen int
 	items  items
 }
 
-//NewXorQueue returns a items with priority based on XOR from targetBytes
+// NewXorQueue returns a items with priority based on XOR from targetBytes
 func NewXorQueue(size int) *XorQueue {
 	return &XorQueue{items: make(items, 0, size), maxLen: size}
 }
 
-//Insert adds Nodes onto the queue
+// Insert adds Nodes onto the queue
 func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	targetBytes := new(big.Int).SetBytes(target.Bytes())
-	//insert new nodes
+	// insert new nodes
 	for _, node := range nodes {
 		heap.Push(&x.items, &item{
 			value:    node,
 			priority: new(big.Int).Xor(targetBytes, new(big.Int).SetBytes([]byte(node.GetId()))),
 		})
 	}
-	//resize down if we grew too big
+	// resize down if we grew too big
 	if x.items.Len() > x.maxLen {
 		olditems := x.items
 		x.items = items{}
@@ -48,7 +48,7 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 func (x *XorQueue) UniqueInsert(target dht.NodeID, nodes []*pb.Node) {
 	var (
 		toInsert []*pb.Node
-		itemIDs = make(map[string]struct{})
+		itemIDs  = make(map[string]struct{})
 	)
 	for _, item := range x.items {
 		itemIDs[item.value.GetId()] = struct{}{}
@@ -67,7 +67,7 @@ func (x *XorQueue) UniqueInsert(target dht.NodeID, nodes []*pb.Node) {
 	}
 }
 
-//Closest removes the closest priority node from the queue
+// Closest removes the closest priority node from the queue
 func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	if x.Len() == 0 {
 		return nil, big.Int{}
@@ -76,7 +76,7 @@ func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	return item.value, *item.priority
 }
 
-//Len returns the number of items in the queue
+// Len returns the number of items in the queue
 func (x *XorQueue) Len() int {
 	return x.items.Len()
 }

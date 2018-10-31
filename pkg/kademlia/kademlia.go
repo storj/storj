@@ -32,8 +32,8 @@ var (
 	// NodeNotFound is returned when a lookup can not produce the requested node
 	NodeNotFound = NodeErr.New("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
-	defaultTransport   = pb.NodeTransport_TCP_TLS_GRPC
-	defaultRetries     = 3
+	defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
+	defaultRetries   = 3
 )
 
 type discoveryOptions struct {

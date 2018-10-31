@@ -20,8 +20,8 @@ type peerDiscovery struct {
 	target dht.NodeID
 	opts   discoveryOptions
 
-	cond  sync.Cond
-	queue *XorQueue
+	cond      sync.Cond
+	queue     *XorQueue
 	contacted map[string]int
 }
 
@@ -34,8 +34,8 @@ func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, o
 		target: target,
 		opts:   opts,
 
-		cond:  sync.Cond{L: &sync.Mutex{}},
-		queue: queue,
+		cond:      sync.Cond{L: &sync.Mutex{}},
+		queue:     queue,
 		contacted: map[string]int{},
 	}
 }
