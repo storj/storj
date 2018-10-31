@@ -80,7 +80,7 @@ func TestNewKademlia(t *testing.T) {
 
 }
 
-func TestLookup(t *testing.T) {
+func TestPeerDiscovery(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	addr := lis.Addr().String()
 
@@ -100,8 +100,8 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		// create two new unique identities
-		id := node.ID(fid.ID)
-		id2 := node.ID(fid2.ID)
+		id := fid.ID
+		id2 := fid2.ID
 		assert.NotEqual(t, id, id2)
 
 		kid := dht.NodeID(fid.ID)
@@ -116,7 +116,7 @@ func TestLookup(t *testing.T) {
 
 	cases := []struct {
 		target      dht.NodeID
-		opts        lookupOpts
+		opts        discoveryOptions
 		expected    *pb.Node
 		expectedErr error
 	}{
@@ -128,7 +128,7 @@ func TestLookup(t *testing.T) {
 			mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
 			return &nid
 		}(),
-			opts:        lookupOpts{concurrency: 5},
+			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
 			expected:    &pb.Node{},
 			expectedErr: nil,
 		},
@@ -138,7 +138,7 @@ func TestLookup(t *testing.T) {
 			n := node.ID(id.ID)
 			return &n
 		}(),
-			opts:        lookupOpts{concurrency: 5},
+			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
 			expected:    nil,
 			expectedErr: nil,
 		},

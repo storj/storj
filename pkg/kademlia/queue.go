@@ -44,6 +44,29 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	}
 }
 
+// UniqueInsert adds Nodes to the queue only if a node with a given id isn't already in the queue
+func (x *XorQueue) UniqueInsert(target dht.NodeID, nodes []*pb.Node) {
+	var (
+		toInsert []*pb.Node
+		itemIDs = make(map[string]struct{})
+	)
+	for _, item := range x.items {
+		itemIDs[item.value.GetId()] = struct{}{}
+	}
+
+	for _, node := range nodes {
+		if _, ok := itemIDs[node.GetId()]; ok {
+			continue
+		}
+
+		toInsert = append(toInsert, node)
+	}
+
+	if len(toInsert) > 0 {
+		x.Insert(target, toInsert)
+	}
+}
+
 //Closest removes the closest priority node from the queue
 func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	if x.Len() == 0 {

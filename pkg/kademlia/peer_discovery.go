@@ -10,39 +10,35 @@ import (
 	"storj.io/storj/pkg/pb"
 	"sync"
 	"math/big"
-	"log"
+	"go.uber.org/zap"
 )
 
-type concurrentLookup struct {
+type peerDiscovery struct {
 	client node.Client
 	target dht.NodeID
-	opts   lookupOpts
+	opts   discoveryOptions
 
-	cond  *sync.Cond
+	cond  sync.Cond
 	queue *XorQueue
-
-	mu        *sync.Mutex
 	contacted map[string]int
 }
 
-func newConcurrentLookup(nodes []*pb.Node, client node.Client, target dht.NodeID, opts lookupOpts) *concurrentLookup {
+func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, opts discoveryOptions) *peerDiscovery {
 	queue := NewXorQueue(opts.concurrency)
 	queue.Insert(target, nodes)
 
-	return &concurrentLookup{
+	return &peerDiscovery{
 		client: client,
 		target: target,
 		opts:   opts,
 
-		cond:  &sync.Cond{L: &sync.Mutex{}},
+		cond:  sync.Cond{L: &sync.Mutex{}},
 		queue: queue,
-
-		mu:        &sync.Mutex{},
 		contacted: map[string]int{},
 	}
 }
 
-func (lookup *concurrentLookup) Run(ctx context.Context) error {
+func (lookup *peerDiscovery) Run(ctx context.Context) error {
 	wg := sync.WaitGroup{}
 
 	// protected by `lookup.cond.L`
@@ -82,38 +78,29 @@ func (lookup *concurrentLookup) Run(ctx context.Context) error {
 					// no work, wait until some other routine inserts into the queue
 					lookup.cond.Wait()
 				}
-				lookup.cond.L.Unlock()
 
 				nextId := next.GetId()
-				lookup.mu.Lock()
 				lookup.contacted[nextId]++
 				tries := lookup.contacted[nextId]
-				lookup.mu.Unlock()
+				lookup.cond.L.Unlock()
 
-				var uncontacted []*pb.Node
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
 				if err != nil {
 					if tries < lookup.opts.retries {
-						uncontacted = append(uncontacted, next)
+						neighbors = append(neighbors, next)
 					} else {
-						log.Printf("Error occurred during lookup for %s on %s :: error = %s", lookup.target.String(), next.GetId(), err.Error())
-					}
-				}
-
-				for _, neighbor := range neighbors {
-					lookup.mu.Lock()
-					contacted := lookup.contacted[neighbor.GetId()] > 0
-					lookup.mu.Unlock()
-
-					if !contacted {
-						uncontacted = append(uncontacted, neighbor)
+						zap.S().Errorf("Error occurred during lookup for %s on %s :: error = %s", lookup.target.String(), next.GetId(), err.Error())
 					}
 				}
 
 				lookup.cond.L.Lock()
-				if len(uncontacted) > 0 {
-					lookup.queue.Insert(lookup.target, uncontacted)
+				var toContact []*pb.Node
+				for _, neighbor := range neighbors {
+					if lookup.contacted[neighbor.GetId()] == 0 {
+						toContact = append(toContact, neighbor)
+					}
 				}
+				lookup.queue.UniqueInsert(lookup.target, toContact)
 
 				working--
 				allDone = isDone(ctx) || working == 0 && lookup.queue.Len() == 0

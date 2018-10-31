@@ -33,11 +33,10 @@ var (
 	NodeNotFound = NodeErr.New("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
 	defaultTransport   = pb.NodeTransport_TCP_TLS_GRPC
-	defaultConcurrency = 5
 	defaultRetries     = 3
 )
 
-type lookupOpts struct {
+type discoveryOptions struct {
 	concurrency int
 	retries     int
 	bootstrap   bool
@@ -169,12 +168,12 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 		return BootstrapErr.New("no bootstrap nodes provided")
 	}
 
-	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), lookupOpts{
-		concurrency: defaultConcurrency, retries: defaultRetries, bootstrap: true,
+	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: true,
 	})
 }
 
-func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpts) error {
+func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discoveryOptions) error {
 	kb := k.routingTable.K()
 	// look in routing table for targetID
 	nodes, err := k.routingTable.FindNear(target, kb)
@@ -182,7 +181,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 		return err
 	}
 
-	lookup := newConcurrentLookup(nodes, k.nodeClient, target, opts)
+	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
 	err = lookup.Run(ctx)
 	if err != nil {
 		zap.L().Warn("lookup failed", zap.Error(err))
