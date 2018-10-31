@@ -42,7 +42,7 @@ func TestCreateExists(t *testing.T) {
 	assert.EqualValues(t, 0, stats.AuditSuccessRatio)
 	assert.EqualValues(t, 0, stats.UptimeRatio)
 
-	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(string(nodeID)))
+	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID))
 	assert.NoError(t, err)
 
 	assert.EqualValues(t, nodeID, nodeInfo.Id, nodeID)
@@ -167,17 +167,10 @@ func TestFindValidNodes(t *testing.T) {
 	assert.NoError(t, err)
 
 	passed := resp.PassedIds
-	failed := resp.FailedIds
 
 	assert.Contains(t, passed, []byte("id2"))
 	assert.Contains(t, passed, []byte("id7"))
 	assert.Len(t, passed, 2)
-
-	assert.Contains(t, failed, []byte("id1"))
-	assert.Contains(t, failed, []byte("id3"))
-	assert.Contains(t, failed, []byte("id4"))
-	assert.Contains(t, failed, []byte("id5"))
-	assert.Len(t, failed, 4)
 }
 
 func TestUpdateExists(t *testing.T) {
@@ -391,7 +384,7 @@ func createNode(ctx context.Context, db *dbx.DB, nodeID []byte,
 	uptimeSuccessCount, totalUptimeCount int64, uptimeRatio float64) error {
 	_, err := db.Create_Node(
 		ctx,
-		dbx.Node_Id(string(nodeID)),
+		dbx.Node_Id(nodeID),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
 		dbx.Node_TotalAuditCount(totalAuditCount),
 		dbx.Node_AuditSuccessRatio(auditRatio),

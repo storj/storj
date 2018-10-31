@@ -267,7 +267,7 @@ func newsqlite3(db *DB) *sqlite3DB {
 
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE nodes (
-	id TEXT NOT NULL,
+	id BLOB NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,
 	audit_success_ratio REAL NOT NULL,
@@ -341,7 +341,7 @@ nextval:
 }
 
 type Node struct {
-	Id                 string
+	Id                 []byte
 	AuditSuccessCount  int64
 	TotalAuditCount    int64
 	AuditSuccessRatio  float64
@@ -365,10 +365,10 @@ type Node_Update_Fields struct {
 
 type Node_Id_Field struct {
 	_set   bool
-	_value string
+	_value []byte
 }
 
-func Node_Id(v string) Node_Id_Field {
+func Node_Id(v []byte) Node_Id_Field {
 	return Node_Id_Field{_set: true, _value: v}
 }
 
