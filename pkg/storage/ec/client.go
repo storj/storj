@@ -157,8 +157,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	pieceID client.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(nodes) != es.TotalCount() {
-		return nil, Error.New("number of nodes (%v) do not match total count (%v) of erasure scheme", len(nodes), es.TotalCount())
+	if len(nodes) < es.RequiredCount() {
+		return nil, Error.New("number of nodes (%v) do not match minimum required count (%v) of erasure scheme", len(nodes), es.RequiredCount())
 	}
 
 	paddedSize := calcPadded(size, es.StripeSize())
