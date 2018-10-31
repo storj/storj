@@ -80,7 +80,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-				zap.S().Info("Sending Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
+				zap.S().Info("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
