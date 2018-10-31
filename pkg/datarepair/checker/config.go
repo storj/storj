@@ -40,5 +40,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	return check.Run(ctx)
+
+	// TODO(coyle): we need to figure out how to propogate the error up to cancel the service
+	go func() {
+		if err := check.Run(ctx); err != nil {
+			zap.L().Error("Error running checker", zap.Error(err))
+		}
+	}()
+
+	return server.Run(ctx)
 }

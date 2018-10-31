@@ -128,9 +128,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			o,
-			// TODO(coyle): determine why checker and repairer are broken
-			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 		)
 	}()
 

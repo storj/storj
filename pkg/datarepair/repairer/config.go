@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
 	q "storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/storage/redis"
@@ -29,5 +30,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	queue := q.NewQueue(client)
 
 	repairer := newRepairer(queue, c.Interval, c.MaxRepair)
-	return repairer.Run(ctx)
+
+	// TODO(coyle): we need to figure out how to propogate the error up to cancel the service
+	go func() {
+		if err := repairer.Run(ctx); err != nil {
+			zap.L().Error("Error running repairer", zap.Error(err))
+		}
+	}()
+
+	return server.Run(ctx)
 }
