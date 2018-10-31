@@ -3,17 +3,6 @@
 
 package kvmetainfo
 
-/*
-func bucketPath(bucket string) paths.Path {
-	return paths.New(bucket)
-}
-
-func objectPath(bucket string, path storj.Path) paths.Path {
-	return paths.New(path).Prepend(bucket)
-}
-
-*/
-
 // TODO: known issue:
 //   this is incorrect since there's no good way to get such a path
 //   since the exact previous key is
