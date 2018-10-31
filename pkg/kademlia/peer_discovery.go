@@ -81,9 +81,9 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					lookup.cond.Wait()
 				}
 
-				nextId := next.GetId()
-				lookup.contacted[nextId]++
-				tries := lookup.contacted[nextId]
+				nextID := next.GetId()
+				lookup.contacted[nextID]++
+				tries := lookup.contacted[nextID]
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
