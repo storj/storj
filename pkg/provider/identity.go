@@ -58,6 +58,9 @@ type FullIdentity struct {
 	// PeerCAWhitelist is a whitelist of CA certs which, if present, restricts which peers this identity will verify as valid;
 	// peer certs must be signed by a CA in this list to pass peer certificate verification.
 	PeerCAWhitelist []*x509.Certificate
+	// VerfyAuthExtSig if true, client leafs which handshake with this identity must contain a valid "authority signature extension"
+	// (NB: authority signature extensions are verified against certs in the `PeerCAWhitelist`; i.e. if true, a whitelist must be provided)
+	VerifyAuthExtSig bool
 }
 
 // IdentitySetupConfig allows you to run a set of Responsibilities with the given
@@ -75,7 +78,9 @@ type IdentityConfig struct {
 	CertPath            string `help:"path to the certificate chain for this identity" default:"$CONFDIR/identity.cert"`
 	KeyPath             string `help:"path to the private key for this identity" default:"$CONFDIR/identity.key"`
 	PeerCAWhitelistPath string `help:"path to the CA cert whitelist (peer identities must be signed by one these to be verified)"`
-	Address             string `help:"address to listen on" default:":7777"`
+	VerifyAuthExtSig    bool   `help:"if true, client leafs must contain a valid \"authority signature extension\"
+(NB: authority signature extensions are verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)" default:"false"`
+	Address string `help:"address to listen on" default:":7777"`
 }
 
 // FullIdentityFromPEM loads a FullIdentity from a certificate chain and

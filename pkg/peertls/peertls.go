@@ -125,7 +125,7 @@ func VerifyPeerCertChains(_ [][]byte, parsedChains [][]*x509.Certificate) error 
 
 // VerifyCAWhitelist verifies that the peer identity's CA and leaf-extension was signed
 // by any one of the (certificate authority) certificates in the provided whitelist
-func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
+func VerifyCAWhitelist(cas []*x509.Certificate, verifyExtension bool) PeerCertVerificationFunc {
 	if cas == nil {
 		return nil
 	}
@@ -141,20 +141,22 @@ func VerifyCAWhitelist(cas []*x509.Certificate) PeerCertVerificationFunc {
 		for _, ca := range cas {
 			err = verifyCertSignature(ca, parsedChains[0][1])
 			if err == nil {
-				var extSigVerified bool
-				for _, ext := range leaf.Extensions {
-					if ext.Id.Equal(AuthoritySignatureExtID) {
-						err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
-						if err != nil {
-							return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
+				if verifyExtension {
+					var extSigVerified bool
+					for _, ext := range leaf.Extensions {
+						if ext.Id.Equal(AuthoritySignatureExtID) {
+							err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
+							if err != nil {
+								return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
+							}
+							extSigVerified = true
+							break
 						}
-						extSigVerified = true
-						break
 					}
-				}
 
-				if extSigVerified {
-					return nil
+					if extSigVerified {
+						return nil
+					}
 				}
 				break
 			}
