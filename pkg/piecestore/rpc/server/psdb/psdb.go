@@ -248,7 +248,9 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if closeErr := rows.Close(); closeErr != nil {
+			zap.S().Errorf("failed to close rows when selecting from bandwidth_agreements: %+v", closeErr)
+		}
 	}()
 
 	agreements := [][]byte{}
@@ -272,7 +274,9 @@ func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if closeErr := rows.Close(); closeErr != nil {
+			zap.S().Errorf("failed to close rows when selecting from bandwidth_agreements: %+v", closeErr)
+		}
 	}()
 
 	agreements := make(map[string][]*Agreement)
