@@ -333,10 +333,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return Error.Wrap(err)
 	}
 
-	signedMessage, err := s.pdb.SignedMessage()
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	signedMessage := s.pdb.SignedMessage()
 	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes

@@ -116,7 +116,7 @@ func TestServiceGet(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.NoError(t, err, errTag)
 			assert.True(t, proto.Equal(pr, resp.Pointer), errTag)
-			
+
 			assert.NotNil(t, resp.GetAuthorization())
 			assert.NotNil(t, resp.GetPba())
 		}
