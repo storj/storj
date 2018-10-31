@@ -118,6 +118,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			o,
+			runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 		)
 	}()
 
@@ -129,15 +131,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		errch <- err
 	} else {
 		defer m.Close()
-
-		go func() {
-			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
-		}()
-
-		go func() {
-			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
-		}()
-
 	}
 
 	// start s3 uplink
