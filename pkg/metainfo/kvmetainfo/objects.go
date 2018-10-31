@@ -174,7 +174,7 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 	}
 
 	more = index+limit >= stream.info.SegmentCount
-	return nil, more, errors.New("not implemented")
+	return infos, more, nil
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
