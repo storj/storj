@@ -5,12 +5,14 @@ package kademlia
 
 import (
 	"context"
+	"math/big"
+	"sync"
+
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
-	"sync"
-	"math/big"
-	"go.uber.org/zap"
 )
 
 type peerDiscovery struct {
@@ -46,7 +48,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 	allDone := false
 
 	wg.Add(lookup.opts.concurrency)
-	for i := 0; i < lookup.opts.concurrency; i += 1 {
+	for i := 0; i < lookup.opts.concurrency; i++ {
 		go func() {
 			defer wg.Done()
 			for {
