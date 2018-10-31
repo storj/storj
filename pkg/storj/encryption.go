@@ -5,7 +5,8 @@ package storj
 
 // EncryptionScheme is the scheme and parameters used for encryption
 type EncryptionScheme struct {
-	Cipher Cipher
+	Cipher    Cipher
+	BlockSize int32
 }
 
 // Cipher specifies an encryption algorithm
