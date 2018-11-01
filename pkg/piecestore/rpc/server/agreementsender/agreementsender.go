@@ -5,18 +5,10 @@ package agreementsender
 
 import (
 	"flag"
-<<<<<<< HEAD
-	"log"
-	"sync"
-	"time"
-
-	"github.com/zeebo/errs"
-=======
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
->>>>>>> 2a8b681c4d59ed0bb1aa96b8fd4c522ae77280e7
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
