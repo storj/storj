@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
