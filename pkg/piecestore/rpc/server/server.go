@@ -6,6 +6,8 @@ package server
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/hmac"
+	"crypto/sha512"
 	"errors"
 	"log"
 	"os"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gtank/cryptopasta"
+	"github.com/mr-tron/base58/base58"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -137,6 +140,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
+
 	if usedBandwidth > allocatedBandwidth {
 		zap.S().Warnf("Exceed the allowed Bandwidth setting")
 	} else {
@@ -148,7 +152,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
@@ -156,7 +159,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
 		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// the available diskspace is less than remaining allocated space,
@@ -164,11 +166,28 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
-	signatureVerifier := auth.NewSignedMessageVerifier()
-	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth, verifier: signatureVerifier}, nil
+	return &Server{
+		DataDir:          dataDir,
+		DB:               db,
+		pkey:             pkey,
+		totalAllocated:   allocatedDiskSpace,
+		totalBwAllocated: allocatedBandwidth,
+		verifier:         auth.NewSignedMessageVerifier(),
+	}, nil
+}
+
+// New creates a Server with custom db
+func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+	return &Server{
+		DataDir:          dataDir,
+		DB:               db,
+		pkey:             pkey,
+		totalAllocated:   config.AllocatedDiskSpace,
+		totalBwAllocated: config.AllocatedBandwidth,
+		verifier:         auth.NewSignedMessageVerifier(),
+	}
 }
 
 // Stop the piececstore node
@@ -180,12 +199,22 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
 	log.Printf("Getting Meta for %s...", in.GetId())
 
-	path, err := pstore.PathByID(in.GetId(), s.DataDir)
+	authorization := in.GetAuthorization()
+	if err := s.verifier(authorization); err != nil {
+		return nil, err
+	}
+
+	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
 	if err != nil {
 		return nil, err
 	}
 
-	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", in.GetId())
+	path, err := pstore.PathByID(id, s.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	match, err := regexp.MatchString("^[A-Za-z0-9]{20,64}$", id)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +229,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	// Read database to calculate expiration
-	ttl, err := s.DB.GetTTLByID(in.GetId())
+	ttl, err := s.DB.GetTTLByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +264,11 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	if err := s.deleteByID(in.GetId()); err != nil {
+	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
+	if err != nil {
+		return nil, err
+	}
+	if err := s.deleteByID(id); err != nil {
 		return nil, err
 	}
 
@@ -279,4 +312,22 @@ func getBeginningOfMonth() time.Time {
 	t := time.Now()
 	y, m, _ := t.Date()
 	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
+}
+
+func getNamespacedPieceID(pieceID, namespace []byte) (string, error) {
+	if namespace == nil {
+		return string(pieceID), nil
+	}
+
+	mac := hmac.New(sha512.New, namespace)
+	_, err := mac.Write(pieceID)
+	if err != nil {
+		return "", err
+	}
+	h := mac.Sum(nil)
+	return base58.Encode(h), nil
+}
+
+func getNamespace(signedMessage *pb.SignedMessage) []byte {
+	return signedMessage.GetData()
 }

@@ -95,13 +95,24 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
+				i, storagenode,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
 			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
 				runCfg.StorageNodes[i].Kademlia,
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
+	}
+
+	// start mini redis
+	m := miniredis.NewMiniRedis()
+	m.RequireAuth("abc123")
+
+	if err = m.StartAddr(":6378"); err != nil {
+		errch <- err
+	} else {
+		defer m.Close()
 	}
 
 	// start satellite
@@ -118,27 +129,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			o,
+			// TODO(coyle): re-enable the checker and repairer after we determine why it is panicing
+			// runCfg.Satellite.Checker,
+			// runCfg.Satellite.Repairer,
 		)
 	}()
-
-	// start Repair
-	m := miniredis.NewMiniRedis()
-	m.RequireAuth("abc123")
-
-	if err = m.StartAddr(":6378"); err != nil {
-		errch <- err
-	} else {
-		defer m.Close()
-
-		go func() {
-			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
-		}()
-
-		go func() {
-			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
-		}()
-
-	}
 
 	// start s3 uplink
 	go func() {

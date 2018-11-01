@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"storj.io/storj/internal/pkg/readcloser"
+	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
 

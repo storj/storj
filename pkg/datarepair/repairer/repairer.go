@@ -5,90 +5,79 @@ package repairer
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
-	q "storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/utils"
 )
 
 // Repairer is the interface for the data repair queue
 type Repairer interface {
-	Repair(seg *pb.InjuredSegment) error
-	Run() error
-	Stop() error
+	Repair(ctx context.Context, seg *pb.InjuredSegment) error
+	Run(ctx context.Context) error
 }
 
 // repairer holds important values for data repair
 type repairer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
-	queue      q.RepairQueue
-	errs       []error
-	mu         sync.Mutex
-	cond       sync.Cond
-	maxRepair  int
-	inProgress int
-	interval   time.Duration
+	queue   queue.RepairQueue
+	limiter *sync2.Limiter
+	ticker  *time.Ticker
 }
 
-// Run the repairer loop
-func (r *repairer) Run() (err error) {
-	zap.S().Info("Repairer is starting up")
+func newRepairer(queue queue.RepairQueue, interval time.Duration, concurrency int) *repairer {
+	return &repairer{
+		queue:   queue,
+		limiter: sync2.NewLimiter(concurrency),
+		ticker:  time.NewTicker(interval),
+	}
+}
 
-	c := make(chan *pb.InjuredSegment)
+// Run runs the repairer service
+func (r *repairer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	ticker := time.NewTicker(r.interval)
-	defer ticker.Stop()
-	go func() {
-		for range ticker.C {
-			for r.inProgress >= r.maxRepair {
-				r.cond.Wait()
-			}
-
-			// GetNext should lock until there is an actual next item in the queue
-			seg, err := r.queue.Dequeue()
-			if err != nil {
-				r.errs = append(r.errs, err)
-				r.cancel()
-			}
-			c <- &seg
-		}
-	}()
+	// wait for all repairs to complete
+	defer r.limiter.Wait()
 
 	for {
+		err := r.process(ctx)
+		if err != nil {
+			zap.L().Error("process", zap.Error(err))
+		}
+
 		select {
-		case <-r.ctx.Done():
-			return utils.CombineErrors(r.errs...)
-		case seg := <-c:
-			go func() {
-				err := r.Repair(seg)
-				if err != nil {
-					r.errs = append(r.errs, err)
-					r.cancel()
-				}
-			}()
+		case <-r.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the repairer is canceled via context
+			return ctx.Err()
 		}
 	}
 }
 
-// Repair starts repair of the segment
-func (r *repairer) Repair(seg *pb.InjuredSegment) (err error) {
-	defer mon.Task()(&r.ctx)(&err)
-	r.inProgress++
-	fmt.Println(seg)
+// process picks an item from repair queue and spawns a repairer
+func (r *repairer) process(ctx context.Context) error {
+	seg, err := r.queue.Dequeue()
+	if err != nil {
+		// TODO: only log when err != ErrQueueEmpty
+		return err
+	}
 
-	r.inProgress--
-	r.cond.Signal()
-	return err
+	r.limiter.Go(ctx, func() {
+		err := r.Repair(ctx, &seg)
+		if err != nil {
+			zap.L().Error("Repair failed", zap.Error(err))
+		}
+	})
+
+	return nil
 }
 
-// Stop the repairer loop
-func (r *repairer) Stop() (err error) {
-	r.cancel()
-	return nil
+// Repair starts repair of the segment
+func (r *repairer) Repair(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO:
+	zap.L().Debug("Repairing", zap.Any("segment", seg))
+	return err
 }

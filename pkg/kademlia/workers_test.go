@@ -38,8 +38,8 @@ func TestGetWork(t *testing.T) {
 			worker: func() *worker {
 				w := newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nil, node.IDFromString("foo"), 5)
 				w.maxResponse = 0
-				w.pq.Pop()
-				assert.Len(t, w.pq, 0)
+				w.pq.Closest()
+				assert.Equal(t, w.pq.Len(), 0)
 				return w
 			}(),
 			expected: nil,
@@ -158,25 +158,24 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: "a", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0001"}}, nc, node.IDFromString("1100"), 2)
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "h"}}, nc, node.IDFromString("a"), 2)
 			}(),
 			expectedQueueLength: 2,
-			expected:            []*pb.Node{&pb.Node{Id: "0100"}, &pb.Node{Id: "1001"}},
-			input:               []*pb.Node{&pb.Node{Id: "1001"}, &pb.Node{Id: "0100"}},
+			expected:            []*pb.Node{&pb.Node{Id: "g"}, &pb.Node{Id: "f"}},
+			input:               []*pb.Node{&pb.Node{Id: "f"}, &pb.Node{Id: "g"}},
 			expectedErr:         nil,
 		},
 	}
 
 	for _, v := range cases {
 		v.worker.update(v.input)
-
-		assert.Len(t, v.worker.pq, v.expectedQueueLength)
-
+		assert.Equal(t, v.expectedQueueLength, v.worker.pq.Len())
 		i := 0
 		for v.worker.pq.Len() > 0 {
-			assert.Equal(t, v.expected[i], v.worker.pq.Pop().(*Item).value)
+			node, _ := v.worker.pq.Closest()
+			assert.Equal(t, v.expected[i], node)
 			i++
 		}
 	}
@@ -205,11 +204,16 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 
 type mockNodeServer struct {
 	queryCalled int32
+	pingCalled  int32
 	returnValue []*pb.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
 	return &pb.QueryResponse{Response: mn.returnValue}, nil
+}
 
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	atomic.AddInt32(&mn.pingCalled, 1)
+	return &pb.PingResponse{}, nil
 }

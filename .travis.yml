@@ -1,7 +1,7 @@
 language: go
 
-go:
-  - 1.11.x
+go: 1.11.x
+go_import_path: "storj.io/storj"
 
 git:
   depth: 1
@@ -10,31 +10,74 @@ cache:
   directories:
     - /home/travis/cache
 
-services:
-  - redis
-
 before_script:
   # Add an IPv6 config - see the corresponding Travis issue
   # https://github.com/travis-ci/travis-ci/issues/8361
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
-    fi
+      psql -c 'create database pointerdb' -U postgres;
+    fi;
 
 before_install:
   - source scripts/setup-gopath.sh
-  - source scripts/install-awscli.sh
+matrix:
+  allow_failures:
+    - os: windows # allow failures on windows because it's slow
+  include:
+    ### tests ###
+    - env:
+        - MODE=tests
+        - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
+      services:
+        - redis
+        - postgresql
+      install:
+        - pushd ~
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mattn/goveralls
+        - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get github.com/mfridman/tparse
+        - popd
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
+    
+    ### run linters ###
+    - env: MODE=lint
+      install:
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
+      script:
+        - ./scripts/check-for-header.sh
+        - golangci-lint run
+    
+    ### captplanet tests ###
+    - env: MODE=integration
+      services:
+        - redis
+      install:
+        - source scripts/install-awscli.sh
+        - go install storj.io/storj/cmd/captplanet
+      script:
+        - make test-captplanet
+    
+    ### windows tests ###
+    - env: MODE=windows-tests
+      os: windows
+      services:
+        - redis
+      cache:
+        directories:
+          - "%HOME%/cache"
+      before_install:
+        - powershell -executionpolicy bypass -File scripts/setup-gopath.ps1
+      install:
+        - go get github.com/mattn/goveralls
+        - go install -race ./...
+      script:
+        - go test -race -cover -coverprofile=.coverprofile ./...
+        - goveralls -coverprofile=.coverprofile -service=travis-ci
 
-install:
-  - pushd ~
-  - GOBIN=${GOPATH}/bin GOPATH=~/gotools go get -v github.com/mattn/goveralls
-  - popd
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
-  - go install -v ./...
+  fast_finish: true
 
-script:
-  - ./scripts/check-for-header.sh
-  - golangci-lint run
-  - go test -race -v -cover -coverprofile=.coverprofile ./...
-  - goveralls -coverprofile=.coverprofile -service=travis-ci
-  - make test-captplanet
+addons:
+  postgresql: "9.5"

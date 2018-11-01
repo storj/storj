@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -20,7 +19,9 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
 )
 
 // NodeErr is the class for all errors pertaining to node operations
@@ -51,7 +52,7 @@ type Kademlia struct {
 }
 
 // NewKademlia returns a newly configured Kademlia instance
-func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, kadconfig KadConfig) (*Kademlia, error) {
+func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identity *provider.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: address}}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -59,18 +60,26 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 			return nil, err
 		}
 	}
+
 	bucketIdentifier := id.String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-	rt, err := NewRoutingTable(&self, &RoutingOptions{
-		kpath:        filepath.Join(path, fmt.Sprintf("kbucket_%s.db", bucketIdentifier)),
-		npath:        filepath.Join(path, fmt.Sprintf("nbucket_%s.db", bucketIdentifier)),
-		idLength:     kadconfig.DefaultIDLength,
-		bucketSize:   kadconfig.DefaultBucketSize,
-		rcBucketSize: kadconfig.DefaultReplacementCacheSize,
-	})
+	dbpath := filepath.Join(path, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+
+	dbs, err := boltdb.NewShared(dbpath, KademliaBucket, NodeBucket)
+	if err != nil {
+		return nil, BootstrapErr.Wrap(err)
+	}
+	kdb, ndb := dbs[0], dbs[1]
+
+	rt, err := NewRoutingTable(self, kdb, ndb)
 	if err != nil {
 		return nil, BootstrapErr.Wrap(err)
 	}
 
+	return NewKademliaWithRoutingTable(self, bootstrapNodes, identity, alpha, rt)
+}
+
+// NewKademliaWithRoutingTable returns a newly configured Kademlia instance
+func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
 	for _, v := range bootstrapNodes {
 		ok, err := rt.addNode(&v)
 		if err != nil {
@@ -82,10 +91,10 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 	}
 
 	k := &Kademlia{
-		alpha:          kadconfig.Alpha,
+		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
-		address:        address,
+		address:        self.Address.Address,
 		identity:       identity,
 	}
 
@@ -101,8 +110,10 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 // Disconnect safely closes connections to the Kademlia network
 func (k *Kademlia) Disconnect() error {
-	// TODO(coyle)
-	return errors.New("TODO Disconnect")
+	return utils.CombineErrors(
+		k.nodeClient.Disconnect(),
+		k.routingTable.Close(),
+	)
 }
 
 // GetNodes returns all nodes from a starting node up to a maximum limit
@@ -178,8 +189,16 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts lookupOpt
 
 // Ping checks that the provided node is still accessible on the network
 func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
-	// TODO(coyle)
-	return pb.Node{}, nil
+	ok, err := k.nodeClient.Ping(ctx, node)
+	if err != nil {
+		return pb.Node{}, NodeErr.Wrap(err)
+	}
+
+	if !ok {
+		return pb.Node{}, NodeErr.New("Failed pinging node")
+	}
+
+	return node, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

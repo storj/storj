@@ -12,13 +12,19 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/postgreskv"
 	"storj.io/storj/storage/storelogger"
 )
 
+// CtxKeyPointerdb Used as pointerdb key
+type CtxKeyPointerdb int
+
 const (
-	// PointerBucket is the string representing the bucket used for `PointerEntries`
-	PointerBucket = "pointers"
+	// BoltPointerBucket is the string representing the bucket used for `PointerEntries` in BoltDB
+	BoltPointerBucket                 = "pointers"
+	ctxKey            CtxKeyPointerdb = iota
 )
 
 // Config is a configuration struct that is everything you need to start a
@@ -30,25 +36,42 @@ type Config struct {
 	Overlay              bool   `default:"false" help:"toggle flag if overlay is enabled"`
 }
 
+func newKeyValueStore(dbURLString string) (db storage.KeyValueStore, err error) {
+	dburl, err := utils.ParseURL(dbURLString)
+	if err != nil {
+		return nil, err
+	}
+	if dburl.Scheme == "bolt" {
+		db, err = boltdb.New(dburl.Path, BoltPointerBucket)
+	} else if dburl.Scheme == "postgresql" || dburl.Scheme == "postgres" {
+		db, err = postgreskv.New(dbURLString)
+	} else {
+		err = Error.New("unsupported db scheme: %s", dburl.Scheme)
+	}
+	return db, err
+}
+
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	dburl, err := utils.ParseURL(c.DatabaseURL)
+	db, err := newKeyValueStore(c.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	if dburl.Scheme != "bolt" {
-		return Error.New("unsupported db scheme: %s", dburl.Scheme)
-	}
-
-	bdb, err := boltdb.New(dburl.Path, PointerBucket)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = bdb.Close() }()
+	defer func() { _ = db.Close() }()
 
 	cache := overlay.LoadFromContext(ctx)
-	bdblogged := storelogger.New(zap.L(), bdb)
-	pb.RegisterPointerDBServer(server.GRPC(), NewServer(bdblogged, cache, zap.L(), c, server.Identity()))
-
+	dblogged := storelogger.New(zap.L(), db)
+	s := NewServer(dblogged, cache, zap.L(), c, server.Identity())
+	pb.RegisterPointerDBServer(server.GRPC(), s)
+	// add the server to the context
+	ctx = context.WithValue(ctx, ctxKey, s)
 	return server.Run(ctx)
+}
+
+// LoadFromContext gives access to the pointerdb server from the context, or returns nil
+func LoadFromContext(ctx context.Context) *Server {
+	if v, ok := ctx.Value(ctxKey).(*Server); ok {
+		return v
+	}
+	return nil
 }

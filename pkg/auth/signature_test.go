@@ -31,7 +31,7 @@ func TestGenerateSignature(t *testing.T) {
 		{identity.ID.Bytes(), true},
 		{[]byte("non verifiable data"), false},
 	} {
-		signature, err := GenerateSignature(identity)
+		signature, err := GenerateSignature(identity.ID.Bytes(), identity)
 		assert.NoError(t, err)
 
 		verified := cryptopasta.Verify(tt.data, signature, k)
@@ -46,7 +46,7 @@ func TestSignedMessageVerifier(t *testing.T) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	signature, err := GenerateSignature(identity)
+	signature, err := GenerateSignature(identity.ID.Bytes(), identity)
 	assert.NoError(t, err)
 
 	peerIdentity := &provider.PeerIdentity{ID: identity.ID, Leaf: identity.Leaf}
