@@ -31,7 +31,8 @@ type Metainfo interface {
 	// CreateObject creates an uploading object and returns an interface for uploading Object information
 	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates an interface for modifying an existing object
-	ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
+	// ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
+
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
 
@@ -44,6 +45,9 @@ type CreateObject struct {
 	Metadata    []byte
 	ContentType string
 	Expires     time.Time
+
+	RedundancyScheme
+	EncryptionScheme
 }
 
 // Object converts the CreateObject to an object with unitialized values
@@ -54,6 +58,15 @@ func (create CreateObject) Object(bucket string, path Path) Object {
 		Metadata:    create.Metadata,
 		ContentType: create.ContentType,
 		Expires:     create.Expires,
+		Stream: Stream{
+			Size:             -1,  // unknown
+			Checksum:         nil, // unknown
+			SegmentCount:     -1,  // unknown
+			FixedSegmentSize: -1,  // unknown
+
+			RedundancyScheme: create.RedundancyScheme,
+			EncryptionScheme: create.EncryptionScheme,
+		},
 	}
 }
 
@@ -181,25 +194,25 @@ type ReadOnlyStream interface {
 // MutableObject is an interface for manipulating creating/deleting object stream
 type MutableObject interface {
 	// Info gets the current information about the object
-	Info() (Object, error)
+	Info(ctx context.Context) (Object, error)
 
 	// CreateStream creates a new stream for the object
 	CreateStream() (MutableStream, error)
 	// ContinueStream starts to continue a partially uploaded stream.
-	// ContinueStream() (MutableStream, error)
+	ContinueStream() (MutableStream, error)
 	// DeleteStream deletes any information about this objects stream
-	DeleteStream() error
+	DeleteStream(ctx context.Context) error
 
 	// Commit commits the changes to the database
-	Commit() error
+	Commit(ctx context.Context) error
 }
 
 // MutableStream is an interface for manipulating stream information
 type MutableStream interface {
-	ReadOnlyStream
+	// TODO: methods for finding partially uploaded segments
 
 	// AddSegments adds segments to the stream.
-	AddSegments(segments ...Segment) error
+	AddSegments(ctx context.Context, segments ...Segment) error
 	// UpdateSegments updates information about segments.
-	UpdateSegments(segments ...Segment) error
+	UpdateSegments(ctx context.Context, segments ...Segment) error
 }

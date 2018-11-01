@@ -27,69 +27,25 @@ type Objects struct {
 	rootKey *storj.Key
 }
 
+const (
+	locationCommitted = "l/"
+	locationPending   = "m/"
+)
+
 // NewObjects creates Objects
 func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store) *Objects {
 	return &Objects{}
 }
 
-type object struct {
-	fullpath        string
-	encryptedPath   string
-	lastSegmentMeta segments.Meta
-	streamInfo      pb.StreamInfo
-	streamMeta      pb.StreamMeta
-}
-
-func (db *Objects) getStreamInfo(ctx context.Context, bucket string, path storj.Path) (object, storj.Object, error) {
-	fullpath := bucket + "/" + path
-
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+encryptedPath)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamInfo := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfoData, &streamInfo)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
-	if err != nil {
-		return object{}, storj.Object{}, err
-	}
-
-	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
-
-	return object{
-		fullpath:        fullpath,
-		encryptedPath:   encryptedPath,
-		lastSegmentMeta: lastSegmentMeta,
-		streamInfo:      streamInfo,
-		streamMeta:      streamMeta,
-	}, info, nil
-}
-
 // GetObject returns information about an object
 func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
-	_, info, err := db.getStreamInfo(ctx, bucket, path)
+	_, info, err := db.getStreamInfo(ctx, locationCommitted, bucket, path)
 	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
 func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
-	meta, info, err := db.getStreamInfo(ctx, bucket, path)
+	meta, info, err := db.getStreamInfo(ctx, locationCommitted, bucket, path)
 
 	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
 	if err != nil {
@@ -109,12 +65,36 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
 func (db *Objects) CreateObject(ctx context.Context, bucket string, path storj.Path, info *storj.CreateObject) (storj.MutableObject, error) {
+	if info == nil {
+		// TODO: get bucket defaults
+	}
+
+	err := db.setStreamInfo(ctx, locationPending, bucket, path, info.Object(bucket, path))
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, errors.New("not implemented")
 }
 
-// ModifyObject creates an interface for modifying an existing object
-func (db *Objects) ModifyObject(ctx context.Context, bucket string, path storj.Path, info storj.Object) (storj.MutableObject, error) {
-	return nil, errors.New("not implemented")
+// ContinueObject continues a pending object
+func (db *Objects) ContinueObject(ctx context.Context, bucket string, path storj.Path, info storj.Object) (storj.MutableObject, error) {
+	meta, info, err := db.getStreamInfo(ctx, locationPending, bucket, path)
+	if err != nil {
+		return nil, err
+	}
+
+	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &mutableObject{
+		db:            db,
+		info:          info,
+		encryptedPath: meta.encryptedPath,
+		streamKey:     streamKey,
+	}, nil
 }
 
 // DeleteObject deletes an object from database
@@ -159,6 +139,100 @@ func (db *Objects) ListObjects(ctx context.Context, bucket string, options storj
 	}
 
 	return list, nil
+}
+
+type object struct {
+	fullpath        string
+	encryptedPath   string
+	lastSegmentMeta segments.Meta
+	streamInfo      pb.StreamInfo
+	streamMeta      pb.StreamMeta
+}
+
+func (db *Objects) getStreamInfo(ctx context.Context, location string, bucket string, path storj.Path) (object, storj.Object, error) {
+	fullpath := bucket + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	_, lastSegmentMeta, err := db.segments.Get(ctx, location+encryptedPath)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	streamInfo := pb.StreamInfo{}
+	err = proto.Unmarshal(streamInfoData, &streamInfo)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
+
+	return object{
+		fullpath:        fullpath,
+		encryptedPath:   encryptedPath,
+		lastSegmentMeta: lastSegmentMeta,
+		streamInfo:      streamInfo,
+		streamMeta:      streamMeta,
+	}, info, nil
+}
+
+func (db *Objects) deleteStreamInfo(ctx context.Context, location string, bucket string, path storj.Path) error {
+	fullpath := bucket + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	if err != nil {
+		return err
+	}
+
+	return db.segments.Delete(ctx, location+encryptedPath)
+}
+
+func (db *Objects) setStreamInfo(ctx context.Context, location string, bucket string, path storj.Path, obj storj.Object) error {
+	fullpath := bucket + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	if err != nil {
+		return err
+	}
+
+	_, lastSegmentMeta, err := db.segments.Get(ctx, location+encryptedPath)
+	if err != nil {
+		return err
+	}
+
+	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	if err != nil {
+		return err
+	}
+
+	streamInfo := pb.StreamInfo{}
+	err = proto.Unmarshal(streamInfoData, &streamInfo)
+	if err != nil {
+		return err
+	}
+
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
+	if err != nil {
+		return err
+	}
+
+	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
+	return nil
 }
 
 func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.Meta) storj.Object {
