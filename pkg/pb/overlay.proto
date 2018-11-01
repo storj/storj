@@ -59,6 +59,8 @@ message FindStorageNodesRequest {
     int64 objectSize = 1;
     google.protobuf.Duration contractLength = 2;
     OverlayOptions opts = 3;
+    bytes start = 4;
+    int64 maxNodes = 5;
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network
