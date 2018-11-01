@@ -44,7 +44,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		logger.Error("Failed to create certificate authority: ", zap.Error(err))
 		os.Exit(1)
