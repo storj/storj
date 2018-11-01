@@ -91,6 +91,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
+
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
