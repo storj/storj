@@ -70,10 +70,7 @@ func (db *Objects) getStreamInfo(ctx context.Context, bucket string, path storj.
 		return object{}, storj.Object{}, err
 	}
 
-	info := objectStreamFromMeta(
-		bucket, path, false,
-		lastSegmentMeta, streamInfo, streamMeta,
-	)
+	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
 
 	return object{
 		fullpath:        fullpath,
@@ -185,16 +182,12 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 	}
 }
 
-func objectStreamFromMeta(
-	bucket string, path storj.Path, isPrefix bool,
-	lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta,
-) storj.Object {
-
+func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) storj.Object {
 	return storj.Object{
 		Version:  0, // TODO: add to info
 		Bucket:   bucket,
 		Path:     path,
-		IsPrefix: isPrefix,
+		IsPrefix: false,
 
 		Metadata: nil, // TODO:
 
