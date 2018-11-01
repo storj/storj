@@ -95,7 +95,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 			nodeMap[n.Id] = n
 		}
 
-		goodNodes, _, err := o.sdb.FindValidNodes(ctx, ids, minAuditCount, minAuditSuccess, minUptime)
+		goodNodes, err := o.sdb.FindValidNodes(ctx, ids, minAuditCount, minAuditSuccess, minUptime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
