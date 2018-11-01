@@ -103,12 +103,27 @@ func TestChoose(t *testing.T) {
 			})
 		}
 
+		sdbPort := ":7777"
+		lisStatdb, err := net.Listen("tcp", "127.0.0.1"+sdbPort)
+		assert.NoError(t, err)
+		statSrv, _, db, err := getStatdbServer()
+		assert.NoError(t, err)
+		go func() { assert.NoError(t, statSrv.Serve(lisStatdb)) }()
+		defer statSrv.Stop()
+		sdbclient, err := getStatdbClient(sdbPort)
+		assert.NoError(t, err)
+
+		for _, node := range v.allNodes {
+			err = createSdbNode(db, []byte(node.Id), 20, 1, 1)
+			assert.NoError(t, err)
+		}
+
 		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
 
-		srv := NewMockServer(listItems, func() grpc.ServerOption {
+		srv := NewMockServer(listItems, sdbclient, func() grpc.ServerOption {
 			opt, err := identity.ServerOption()
 			assert.NoError(t, err)
 			return opt
