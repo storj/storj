@@ -18,8 +18,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-const defaultSegmentLimit = 8 // TODO
-
 // Objects implements storj.Metainfo bucket handling
 type Objects struct {
 	objects  objects.Store
@@ -36,12 +34,41 @@ func NewObjects(objects objects.Store, streams streams.Store, segments segments.
 
 // GetObject returns information about an object
 func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
-	meta, err := db.objects.Meta(ctx, bucket+"/"+path)
+	fullpath := bucket + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
 	if err != nil {
 		return storj.Object{}, err
 	}
 
-	return objectFromMeta(bucket, path, false, meta), nil
+	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+encryptedPath)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	streamInfo := pb.StreamInfo{}
+	err = proto.Unmarshal(streamInfoData, &streamInfo)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	streamMeta := pb.StreamMeta{}
+	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
+	if err != nil {
+		return storj.Object{}, err
+	}
+
+	info := objectStreamFromMeta(
+		bucket, path, false,
+		lastSegmentMeta, streamInfo, streamMeta,
+	)
+
+	return info, nil
 }
 
 // GetObjectStream returns interface for reading the object stream
@@ -53,12 +80,18 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 		return nil, err
 	}
 
-	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+fullpath)
+	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+encryptedPath)
 	if err != nil {
 		return nil, err
 	}
 
-	streamInfo, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
+	if err != nil {
+		return nil, err
+	}
+
+	streamInfo := pb.StreamInfo{}
+	err = proto.Unmarshal(streamInfoData, &streamInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -69,112 +102,25 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 		return nil, err
 	}
 
-	streamKey, err := encryption.DeriveContentKey(fullpath, db.rootKey)
-	if err != nil {
-		return nil, err
-	}
-
 	info := objectStreamFromMeta(
 		bucket, path, false,
 		lastSegmentMeta, streamInfo, streamMeta,
 	)
 
-	return readonlyStream{
+	streamKey, err := encryption.DeriveContentKey(fullpath, db.rootKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &readonlyStream{
 		db:            db,
 		info:          info,
 		encryptedPath: encryptedPath,
 		streamKey:     streamKey,
-		
-		lastSegment: streamMeta,
+
+		lastSegment:     streamMeta,
 		lastSegmentSize: streamInfo.LastSegmentSize,
 	}, nil
-}
-
-type readonlyStream struct {
-	db *Objects
-
-	info          storj.Object
-	encryptedPath storj.Path
-	streamKey     *storj.Key // lazySegmentReader derivedKey
-
-	lastSegment   pb.StreamMeta
-	lastSegmentSize int64
-}
-
-func (stream *readonlyStream) Info() storj.Object { return stream.info }
-
-func (stream *readonlyStream) SegmentsAt(ctx context.Context, byteOffset int64, limit int64) (infos []storj.Segment, more bool, err error) {
-	if stream.info.FixedSegmentSize <= 0 {
-		return nil, false, errors.New("not implemented")
-	}
-
-	index := byteOffset / stream.info.FixedSegmentSize
-	return stream.Segments(ctx, index, limit)
-}
-
-func (stream *readonlyStream) segment(ctx context.Context, index int64) (storj.Segment, err error) {
-	segment := storj.Segment{
-		Index: index,
-	}
-
-	isLastSegment := segment.Index + 1 == stream.info.SegmentCount
-	if !isLastSegment {
-		segmentPath := streams.GetSegmentPath(stream.encryptedPath, index+1)
-		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
-		if err != nil {
-			return segment, err
-		}
-
-		segmentMeta := pb.SegmentMeta{}
-		err = proto.Unmarshal(meta.Data, &segmentMeta)
-		if err != nil {
-			return segment, err
-		}
-		encryptedKey, encryptedKeyNonce := streams.GetEncryptedKeyAndNonce(&segmentMeta)
-
-		segment.Size = stream.info.FixedSegmentSize
-		segment.EncryptedKeyNonce = *encryptedKeyNonce
-		segment.EncryptedKey = encryptedKey
-	} else {
-		lastEncryptedKey, lastEncryptedKeyNonce := streams.GetEncryptedKeyAndNonce(stream.lastSegment.LastSegmentMeta)
-
-		segment.Size = stream.lastSegmentSize
-		segment.EncryptedKeyNonce = stream.lastEncryptedKeyNonce
-		segment.EncryptedKey = stream.lastEncryptedKey
-	}
-
-	var nonce storj.Nonce
-	_, err = encryption.Increment(&nonce, index+1)
-	if err != nil {
-		return segment, err
-	}
-
-	return segment, nil
-}
-
-func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit int64) (infos []storj.Segment, more bool, err error) {
-	if index < 0 {
-		return nil, false, errors.New("invalid argument")
-	}
-	if limit <= 0 {
-		limit = defaultSegmentLimit
-	}
-	if index >= stream.info.SegmentCount {
-		return nil, false, nil
-	}
-
-	infos = make([]storj.Segment, 0, limit)
-	for ; index < stream.info.SegmentCount && limit > 0; index++ {
-		limit--
-		segment, err := stream.segment(ctx, index)
-		if err != nil {
-			return nil, false, err
-		}
-		infos = append(infos, segment)
-	}
-
-	more = index+limit >= stream.info.SegmentCount
-	return infos, more, nil
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
