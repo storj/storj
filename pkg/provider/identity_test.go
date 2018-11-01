@@ -246,7 +246,7 @@ func TestVerifyPeer(t *testing.T) {
 		}
 	}
 
-	ca, err := provider.NewTestCA(context.Background())
+	ca, err := NewTestCA(context.Background())
 	check(err)
 	fi, err := ca.NewIdentity()
 	check(err)
