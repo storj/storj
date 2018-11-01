@@ -88,7 +88,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	limit := 0
 	interval := time.Second
 	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
-	err := checker.IdentifyInjuredSegments(ctx)
+	err := checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
 	//check if the expected segments were added to the queue
@@ -202,7 +202,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
 		checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
-		err = checker.IdentifyInjuredSegments(ctx)
+		err = checker.identifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
 		//check if the expected segments were added to the queue

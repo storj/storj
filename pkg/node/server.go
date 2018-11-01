@@ -63,5 +63,6 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 
 // Ping provides an easy way to verify a node is online and accepting requests
 func (s *Server) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	//TODO
 	return &pb.PingResponse{}, nil
 }

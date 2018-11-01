@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// Config contains configurable values for repairer
+// Config contains configurable values for checker
 type Config struct {
 	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
