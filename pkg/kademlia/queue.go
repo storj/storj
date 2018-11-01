@@ -47,6 +47,7 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	x.insert(target, unique)
 }
 
+// Reinsert adds a Nodes onto the queue if it's been added >= limit times previously
 func (x *XorQueue) Reinsert(target dht.NodeID, node *pb.Node, limit int) bool {
 	x.mu.Lock()
 	defer x.mu.Unlock()

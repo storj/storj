@@ -19,10 +19,11 @@ type peerDiscovery struct {
 	target dht.NodeID
 	opts   discoveryOptions
 
-	cond      sync.Cond
-	queue     *XorQueue
+	cond  sync.Cond
+	queue *XorQueue
 }
 
+// ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, opts discoveryOptions) *peerDiscovery {
