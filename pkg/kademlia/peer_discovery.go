@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -24,6 +24,8 @@ type peerDiscovery struct {
 	queue     *XorQueue
 	contacted map[string]int
 }
+
+var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
 func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, opts discoveryOptions) *peerDiscovery {
 	queue := NewXorQueue(opts.concurrency)
@@ -68,8 +70,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					next, priority = lookup.queue.Closest()
 					if !lookup.opts.bootstrap && priority.Cmp(&big.Int{}) == 0 {
 						allDone = true
-						lookup.cond.L.Unlock()
-						return // closest node is the target and is already in routing table (i.e. no lookup required)
+						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
 
 					if next != nil {
@@ -80,32 +81,26 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 					// no work, wait until some other routine inserts into the queue
 					lookup.cond.Wait()
 				}
-
-				nextID := next.GetId()
-				lookup.contacted[nextID]++
-				tries := lookup.contacted[nextID]
 				lookup.cond.L.Unlock()
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
 				if err != nil {
-					if tries < lookup.opts.retries {
-						neighbors = append(neighbors, next)
-					} else {
-						zap.S().Errorf("Error occurred during lookup for %s on %s :: error = %s", lookup.target.String(), next.GetId(), err.Error())
-					}
+						ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
+						if !ok {
+							zap.S().Errorf(
+								"Error occurred during lookup of %s :: %s :: error = %s",
+								lookup.target.String(),
+								ErrMaxRetries.New("%s", next.GetId()),
+								err.Error(),
+							)
+						}
 				}
+
+				lookup.queue.Insert(lookup.target, neighbors)
 
 				lookup.cond.L.Lock()
-				var toContact []*pb.Node
-				for _, neighbor := range neighbors {
-					if lookup.contacted[neighbor.GetId()] == 0 {
-						toContact = append(toContact, neighbor)
-					}
-				}
-				lookup.queue.UniqueInsert(lookup.target, toContact)
-
 				working--
-				allDone = isDone(ctx) || working == 0 && lookup.queue.Len() == 0
+				allDone = allDone || isDone(ctx) || working == 0 && lookup.queue.Len() == 0
 				lookup.cond.L.Unlock()
 				lookup.cond.Broadcast()
 			}

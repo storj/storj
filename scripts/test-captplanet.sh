@@ -70,6 +70,7 @@ else
 fi
 
 kill -9 $CAPT_PID
+exit 0
 
 captplanet setup --listen-host ::1 --overwrite
 captplanet run &
