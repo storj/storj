@@ -92,10 +92,7 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
-					Difficulty:  12,
-					Concurrency: 4,
-				})
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -141,10 +138,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test nil nodes",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
-					Difficulty:  12,
-					Concurrency: 4,
-				})
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -160,10 +154,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test combined less than k",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
-					Difficulty:  12,
-					Concurrency: 4,
-				})
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -191,10 +182,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
-	ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil
 	}

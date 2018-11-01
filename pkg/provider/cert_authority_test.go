@@ -31,10 +31,7 @@ func TestFullCertificateAuthority_NewIdentity(t *testing.T) {
 		}
 	}
 
-	ca, err := NewCA(context.Background(), NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 5,
-	})
+	ca, err := NewTestCA(context.Background())
 	check(err, ca)
 	fi, err := ca.NewIdentity()
 	check(err, fi)

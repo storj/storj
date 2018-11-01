@@ -16,10 +16,7 @@ import (
 
 func TestGenerateSignature(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
@@ -44,10 +41,7 @@ func TestGenerateSignature(t *testing.T) {
 
 func TestSignedMessageVerifier(t *testing.T) {
 	ctx := context.Background()
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

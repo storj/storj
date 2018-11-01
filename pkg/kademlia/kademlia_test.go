@@ -64,10 +64,7 @@ func TestNewKademlia(t *testing.T) {
 	for i, v := range cases {
 		dir := filepath.Join(rootdir, strconv.Itoa(i))
 
-		ca, err := provider.NewCA(context.Background(), provider.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := provider.NewTestCA(context.Background())
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)

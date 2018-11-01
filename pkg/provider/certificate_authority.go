@@ -266,3 +266,10 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 		ID:        ca.ID,
 	}, nil
 }
+
+func NewTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
+	return NewCA(ctx, NewCAOptions{
+		Difficulty: 12,
+		Concurrency: 4,
+	})
+}

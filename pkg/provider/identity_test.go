@@ -246,10 +246,7 @@ func TestVerifyPeer(t *testing.T) {
 		}
 	}
 
-	ca, err := NewCA(context.Background(), NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(context.Background())
 	check(err)
 	fi, err := ca.NewIdentity()
 	check(err)

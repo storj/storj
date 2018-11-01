@@ -140,27 +140,21 @@ func VerifyCAWhitelist(cas []*x509.Certificate, verifyExtension bool) PeerCertVe
 		// That *same* CA must also have signed the leaf's parent cert (regular cert chain signature, not extension).
 		for _, ca := range cas {
 			err = verifyCertSignature(ca, parsedChains[0][1])
-			if err != nil {
-				continue
-			}
-			if !verifyExtension {
-				break
-			}
-
-			var extSigVerified bool
-			for _, ext := range leaf.Extensions {
-				if ext.Id.Equal(AuthoritySignatureExtID) {
-					err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
-					if err != nil {
-						return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
-					}
-					extSigVerified = true
+			if err == nil {
+				if !verifyExtension {
 					break
 				}
-			}
 
-			if extSigVerified {
-				return nil
+				for _, ext := range leaf.Extensions {
+					if ext.Id.Equal(AuthoritySignatureExtID) {
+						err = verifySignature(ext.Value, leaf.RawTBSCertificate, leaf.PublicKey)
+						if err != nil {
+							return ErrVerifyCAWhitelist.New("authority signature extension verification error: %s", err.Error())
+						}
+						return nil
+					}
+				}
+				break
 			}
 		}
 

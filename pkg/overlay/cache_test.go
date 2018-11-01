@@ -68,10 +68,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	intro, err := kademlia.GetIntroNode(net.JoinHostPort(ip, pm))
 	assert.NoError(t, err)
 
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

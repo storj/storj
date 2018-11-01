@@ -28,10 +28,7 @@ var argError = errs.Class("argError")
 func main() {
 	cobra.EnableCommandSorting = false
 
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}

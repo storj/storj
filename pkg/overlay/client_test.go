@@ -42,10 +42,7 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -104,10 +101,7 @@ func TestChoose(t *testing.T) {
 			})
 		}
 
-		ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -157,10 +151,7 @@ func TestLookup(t *testing.T) {
 		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -196,10 +187,7 @@ func TestBulkLookup(t *testing.T) {
 		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-			Difficulty:  12,
-			Concurrency: 4,
-		})
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -231,10 +219,7 @@ func TestBulkLookupV2(t *testing.T) {
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
@@ -306,10 +291,7 @@ func TestBulkLookupV2(t *testing.T) {
 }
 
 func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, error) {
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -335,10 +317,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 }
 
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
-	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
-		Difficulty:  12,
-		Concurrency: 4,
-	})
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
