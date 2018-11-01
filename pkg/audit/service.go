@@ -61,8 +61,7 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 	}, nil
 }
 
-// Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
-// a random stripe within a segment
+// Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -82,6 +81,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 }
 
+// process picks a random stripe and verifies correctness
 func (service *Service) process(ctx context.Context) error {
 	stripe, err := service.Cursor.NextStripe(ctx)
 	if err != nil {

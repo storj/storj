@@ -35,7 +35,7 @@ func newRepairer(queue q.RepairQueue, interval time.Duration, concurrency int) *
 	}
 }
 
-// Run the repairer loop
+// Run runs the repairer service
 func (r *repairer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -56,6 +56,7 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 	}
 }
 
+// process picks an item from repair queue and spawns a repairer
 func (r *repairer) process(ctx context.Context) error {
 	seg, err := r.queue.Dequeue()
 	if err != nil {
