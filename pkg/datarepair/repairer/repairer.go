@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	q "storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -22,12 +22,12 @@ type Repairer interface {
 
 // repairer holds important values for data repair
 type repairer struct {
-	queue   q.RepairQueue
+	queue   queue.RepairQueue
 	limiter *sync2.Limiter
 	ticker  *time.Ticker
 }
 
-func newRepairer(queue q.RepairQueue, interval time.Duration, concurrency int) *repairer {
+func newRepairer(queue queue.RepairQueue, interval time.Duration, concurrency int) *repairer {
 	return &repairer{
 		queue:   queue,
 		limiter: sync2.NewLimiter(concurrency),
