@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/utils"
 )
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -21,7 +20,7 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	errs     []error
+	Interval time.Duration
 }
 
 // Config contains configurable values for audit service
@@ -37,15 +36,15 @@ type Config struct {
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	service, err := NewService(ctx, c.StatDBPort, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
+	service, err := NewService(ctx, c.StatDBPort, c.Interval, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
 	if err != nil {
 		return err
 	}
-	return service.Run(ctx, c.Interval)
+	return service.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	id provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, id)
@@ -57,54 +56,45 @@ func NewService(ctx context.Context, statDBPort string, maxRetries int, pointers
 	return &Service{Cursor: cursor,
 		Verifier: verifier,
 		Reporter: reporter,
+		Interval: interval,
 		errs:     []error{},
 	}, nil
 }
 
 // Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
 // a random stripe within a segment
-func (service *Service) Run(ctx context.Context, interval time.Duration) (err error) {
+func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	zap.S().Info("Audit cron is starting up")
-	ticker := time.NewTicker(interval)
+
+	ticker := time.NewTicker(service.Interval)
 	defer ticker.Stop()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				stripe, err := service.Cursor.NextStripe(ctx)
-				if err != nil {
-					service.errs = append(service.errs, err)
-					cancel()
-				}
-
-				authorization, err := service.Cursor.pointers.SignedMessage()
-				if err != nil {
-					service.errs = append(service.errs, err)
-					cancel()
-				}
-
-				verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
-				if err != nil {
-					service.errs = append(service.errs, err)
-					cancel()
-				}
-				err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-				// TODO: if Error.Has(err) then log the error because it means not all node stats updated
-				if err != nil {
-					service.errs = append(service.errs, err)
-					cancel()
-				}
-			case <-ctx.Done():
-				return
-			}
+	for {
+		stripe, err := service.Cursor.NextStripe(ctx)
+		if err != nil {
+			return err
 		}
-	}()
 
-	return utils.CombineErrors(service.errs...)
+		authorization, err := service.Cursor.pointers.SignedMessage()
+		if err != nil {
+			return err
+		}
+
+		verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+		if err != nil {
+			return err
+		}
+		err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+		// TODO: if Error.Has(err) then log the error because it means not all node stats updated
+		if err != nil {
+			return err
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

@@ -43,12 +43,6 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 	defer r.limiter.Wait()
 
 	for {
-		select {
-		case <-r.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the repairer is canceled via context
-			return ctx.Err()
-		}
-
 		seg, err := r.queue.Dequeue()
 		if err != nil {
 			// TODO: only log when err != ErrQueueEmpty
@@ -62,6 +56,12 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 				zap.L().Error("Repair failed", zap.Error(err))
 			}
 		})
+
+		select {
+		case <-r.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the repairer is canceled via context
+			return ctx.Err()
+		}
 	}
 }
 

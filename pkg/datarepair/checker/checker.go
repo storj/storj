@@ -46,6 +46,24 @@ func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay p
 	}
 }
 
+// Run the checker loop
+func (c *checker) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		err = c.IdentifyInjuredSegments(ctx)
+		if err != nil {
+			zap.L().Error("Checker failed", zap.Error(err))
+		}
+
+		select {
+		case <-c.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the checker is canceled via context
+			return ctx.Err()
+		}
+	}
+}
+
 // IdentifyInjuredSegments checks for missing pieces off of the pointerdb and overlay cache
 func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -121,22 +139,4 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 		nodes = append(nodes, n)
 	}
 	return nodes
-}
-
-// Run the checker loop
-func (c *checker) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for {
-		select {
-		case <-c.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the checker is canceled via context
-			return ctx.Err()
-		}
-
-		err = c.IdentifyInjuredSegments(ctx)
-		if err != nil {
-			zap.L().Error("Checker failed", zap.Error(err))
-		}
-	}
 }
