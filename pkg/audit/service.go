@@ -20,7 +20,7 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
-	Interval time.Duration
+	ticker   *time.Ticker
 }
 
 // Config contains configurable values for audit service
@@ -53,11 +53,11 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 		return nil, err
 	}
 
-	return &Service{Cursor: cursor,
+	return &Service{
+		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-		Interval: interval,
-		errs:     []error{},
+		ticker:   time.NewTicker(interval),
 	}, nil
 }
 
@@ -67,9 +67,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	zap.S().Info("Audit cron is starting up")
-
-	ticker := time.NewTicker(service.Interval)
-	defer ticker.Stop()
 
 	for {
 		stripe, err := service.Cursor.NextStripe(ctx)
@@ -93,7 +90,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 
 		select {
-		case <-ticker.C:
+		case <-service.ticker.C:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
