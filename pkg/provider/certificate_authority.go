@@ -131,15 +131,6 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
 
-	// ec, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)
-	// if !ok {
-	// 	return nil, peertls.ErrUnsupportedKey.New("certificate public key type not supported: %T", k)
-	// }
-
-	// if !reflect.DeepEqual(k.PublicKey, *ec) {
-	// 	return nil, errs.New("certificate public key and loaded public key don't match")
-	// }
-
 	return &FullCertificateAuthority{
 		RestChain: p.RestChain,
 		Cert:      p.Cert,
