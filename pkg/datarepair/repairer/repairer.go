@@ -70,6 +70,8 @@ func (r *repairer) process(ctx context.Context) error {
 			zap.L().Error("Repair failed", zap.Error(err))
 		}
 	})
+
+	return nil
 }
 
 // Repair starts repair of the segment
