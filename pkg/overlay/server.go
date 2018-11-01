@@ -61,7 +61,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	if maxNodes <= 0 {
 		maxNodes = opts.GetAmount()
 	}
-	
+
 	excluded := opts.GetExcludedNodes()
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
