@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"math/big"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -22,7 +21,6 @@ type peerDiscovery struct {
 
 	cond      sync.Cond
 	queue     *XorQueue
-	contacted map[string]int
 }
 
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
@@ -38,7 +36,6 @@ func newPeerDiscovery(nodes []*pb.Node, client node.Client, target dht.NodeID, o
 
 		cond:      sync.Cond{L: &sync.Mutex{}},
 		queue:     queue,
-		contacted: map[string]int{},
 	}
 }
 
@@ -56,7 +53,6 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 			for {
 				var (
 					next     *pb.Node
-					priority big.Int
 				)
 
 				lookup.cond.L.Lock()
@@ -67,8 +63,8 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 						return
 					}
 
-					next, priority = lookup.queue.Closest()
-					if !lookup.opts.bootstrap && priority.Cmp(&big.Int{}) == 0 {
+					next, _ = lookup.queue.Closest()
+					if !lookup.opts.bootstrap && next.GetId() == lookup.target.String() {
 						allDone = true
 						break // closest node is the target and is already in routing table (i.e. no lookup required)
 					}
