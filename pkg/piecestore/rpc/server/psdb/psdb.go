@@ -281,7 +281,7 @@ func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
 
 	agreements := make(map[string][]*Agreement)
 	for rows.Next() {
-		var agreement *Agreement
+		agreement := &Agreement{}
 		var satellite string
 		err := rows.Scan(&satellite, &agreement.Agreement, &agreement.Signature)
 		if err != nil {
