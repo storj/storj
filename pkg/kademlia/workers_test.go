@@ -92,7 +92,7 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), 12, 4)
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -138,7 +138,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test nil nodes",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), 12, 4)
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "test combined less than k",
 			worker: func() *worker {
-				ca, err := provider.NewCA(context.Background(), 12, 4)
+				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
@@ -182,7 +182,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
-	ca, err := provider.NewCA(context.Background(), 12, 4)
+	ca, err := provider.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil
 	}
@@ -204,11 +204,16 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 
 type mockNodeServer struct {
 	queryCalled int32
+	pingCalled  int32
 	returnValue []*pb.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
 	return &pb.QueryResponse{Response: mn.returnValue}, nil
+}
 
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	atomic.AddInt32(&mn.pingCalled, 1)
+	return &pb.PingResponse{}, nil
 }

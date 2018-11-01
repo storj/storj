@@ -18,26 +18,35 @@ service PieceStoreRoutes {
   rpc Stats(StatsReq) returns (StatSummary) {}
 }
 
-message PayerBandwidthAllocation {
-  message Data {
-    bytes payer = 1;
-    bytes renter = 2;
-    int64 max_size = 3;
-    int64 expiration_unix_sec = 4;
-    string serial_number = 5;
+message PayerBandwidthAllocation { // Payer refers to satellite
+
+  enum Action {
+    PUT = 0;
+    GET = 1;
   }
-  bytes signature = 1;
-  bytes data = 2; // Serialization of above Data Struct
+
+  message Data {
+    bytes satellite_id = 1;        // Satellite Identity
+    bytes uplink_id = 2;           // Uplink Identity
+    int64 max_size = 3;            // Max amount of data the satellite will pay for in bytes
+    int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
+    string serial_number = 5;      // Unique serial number
+    Action action = 6;             // GET or PUT
+  }
+
+  bytes signature = 1; // Seralized Data signed by Satellite
+  bytes data = 2;      // Serialization of above Data Struct
 }
 
-message RenterBandwidthAllocation {
+message RenterBandwidthAllocation { // Renter refers to uplink
   message Data {
-    PayerBandwidthAllocation payer_allocation = 1;
-    int64 total = 2;
+    PayerBandwidthAllocation payer_allocation = 1; // Bandwidth Allocation from Satellite
+    int64 total = 2;                               // Total Bytes Stored
+    bytes storage_node_id = 3;                     // Storage Node Identity
   }
 
-  bytes signature = 1;
-  bytes data = 2; // Serialization of above Data Struct
+  bytes signature = 1; // Seralized Data signed by Uplink
+  bytes data = 2;      // Serialization of above Data Struct
 }
 
 message PieceStore {

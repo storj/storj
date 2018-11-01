@@ -195,7 +195,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -274,7 +274,7 @@ TestLoop:
 			}
 		}
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
-		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil)
+		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
 			assert.NoError(t, err, errTag)

@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
@@ -20,8 +21,7 @@ import (
 // Checker is the interface for the data repair queue
 type Checker interface {
 	IdentifyInjuredSegments(ctx context.Context) (err error)
-	Run() error
-	Stop() error
+	Run(ctx context.Context) error
 }
 
 // Checker contains the information needed to do checks for missing pieces
@@ -31,16 +31,36 @@ type checker struct {
 	overlay     pb.OverlayServer
 	limit       int
 	logger      *zap.Logger
+	ticker      *time.Ticker
 }
 
 // NewChecker creates a new instance of checker
-func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger) *checker {
+func newChecker(pointerdb *pointerdb.Server, repairQueue *queue.Queue, overlay pb.OverlayServer, limit int, logger *zap.Logger, interval time.Duration) *checker {
 	return &checker{
 		pointerdb:   pointerdb,
 		repairQueue: repairQueue,
 		overlay:     overlay,
 		limit:       limit,
 		logger:      logger,
+		ticker:      time.NewTicker(interval),
+	}
+}
+
+// Run the checker loop
+func (c *checker) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		err = c.IdentifyInjuredSegments(ctx)
+		if err != nil {
+			zap.L().Error("Checker failed", zap.Error(err))
+		}
+
+		select {
+		case <-c.ticker.C: // wait for the next interval to happen
+		case <-ctx.Done(): // or the checker is canceled via context
+			return ctx.Err()
+		}
 	}
 }
 
@@ -52,10 +72,11 @@ func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	err = c.pointerdb.Iterate(ctx, &pb.IterateRequest{Recurse: true},
 		func(it storage.Iterator) error {
 			var item storage.ListItem
-			if c.limit <= 0 || c.limit > storage.LookupLimit {
-				c.limit = storage.LookupLimit
+			lim := c.limit
+			if lim <= 0 || lim > storage.LookupLimit {
+				lim = storage.LookupLimit
 			}
-			for ; c.limit > 0 && it.Next(&item); c.limit-- {
+			for ; lim > 0 && it.Next(&item); lim-- {
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
@@ -118,14 +139,4 @@ func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
 		nodes = append(nodes, n)
 	}
 	return nodes
-}
-
-// Run
-func (c *checker) Run() error {
-	return nil
-}
-
-// Stop
-func (c *checker) Stop() error {
-	return nil
 }
