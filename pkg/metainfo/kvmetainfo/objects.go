@@ -32,35 +32,42 @@ func NewObjects(objects objects.Store, streams streams.Store, segments segments.
 	return &Objects{}
 }
 
-// GetObject returns information about an object
-func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
+type object struct {
+	fullpath        string
+	encryptedPath   string
+	lastSegmentMeta segments.Meta
+	streamInfo      pb.StreamInfo
+	streamMeta      pb.StreamMeta
+}
+
+func (db *Objects) getStreamInfo(ctx context.Context, bucket string, path storj.Path) (object, storj.Object, error) {
 	fullpath := bucket + "/" + path
 
 	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
 	if err != nil {
-		return storj.Object{}, err
+		return object{}, storj.Object{}, err
 	}
 
 	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+encryptedPath)
 	if err != nil {
-		return storj.Object{}, err
+		return object{}, storj.Object{}, err
 	}
 
 	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
 	if err != nil {
-		return storj.Object{}, err
+		return object{}, storj.Object{}, err
 	}
 
 	streamInfo := pb.StreamInfo{}
 	err = proto.Unmarshal(streamInfoData, &streamInfo)
 	if err != nil {
-		return storj.Object{}, err
+		return object{}, storj.Object{}, err
 	}
 
 	streamMeta := pb.StreamMeta{}
 	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
 	if err != nil {
-		return storj.Object{}, err
+		return object{}, storj.Object{}, err
 	}
 
 	info := objectStreamFromMeta(
@@ -68,46 +75,26 @@ func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path
 		lastSegmentMeta, streamInfo, streamMeta,
 	)
 
-	return info, nil
+	return object{
+		fullpath:        fullpath,
+		encryptedPath:   encryptedPath,
+		lastSegmentMeta: lastSegmentMeta,
+		streamInfo:      streamInfo,
+		streamMeta:      streamMeta,
+	}, info, nil
+}
+
+// GetObject returns information about an object
+func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
+	_, info, err := db.getStreamInfo(ctx, bucket, path)
+	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
 func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
-	fullpath := bucket + "/" + path
+	meta, info, err := db.getStreamInfo(ctx, bucket, path)
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
-	if err != nil {
-		return nil, err
-	}
-
-	_, lastSegmentMeta, err := db.segments.Get(ctx, "l/"+encryptedPath)
-	if err != nil {
-		return nil, err
-	}
-
-	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
-	if err != nil {
-		return nil, err
-	}
-
-	streamInfo := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfoData, &streamInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(lastSegmentMeta.Data, &streamMeta)
-	if err != nil {
-		return nil, err
-	}
-
-	info := objectStreamFromMeta(
-		bucket, path, false,
-		lastSegmentMeta, streamInfo, streamMeta,
-	)
-
-	streamKey, err := encryption.DeriveContentKey(fullpath, db.rootKey)
+	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +102,11 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 	return &readonlyStream{
 		db:            db,
 		info:          info,
-		encryptedPath: encryptedPath,
+		encryptedPath: meta.encryptedPath,
 		streamKey:     streamKey,
 
-		lastSegment:     streamMeta,
-		lastSegmentSize: streamInfo.LastSegmentSize,
+		lastSegment:     meta.streamMeta,
+		lastSegmentSize: meta.streamInfo.LastSegmentSize,
 	}, nil
 }
 
