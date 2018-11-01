@@ -114,13 +114,13 @@ type mutableObject struct {
 	path          storj.Path
 	encryptedPath string
 
-	addedSegments map[int]struct{} // TODO: this should be based on remote key value store
-	streamKey     *storj.Key // lazySegmentReader derivedKey
+	addedSegments map[int64]storj.Segment // TODO: this should be based on remote key value store
+	streamKey     *storj.Key              // lazySegmentReader derivedKey
 }
 
 func newMutableObject() *mutableObject {
 	return &mutableObject{
-		addedSegments: map[int]struct{}
+		addedSegments: map[int64]storj.Segment{},
 	}
 }
 
@@ -128,8 +128,17 @@ func (object *mutableObject) Info() (storj.Object, error) {
 	return object.info, nil
 }
 
-func (object *mutableObject) CreateStream() storj.MutableStream   { return &mutableStream{object} }
-func (object *mutableObject) ContinueStream() storj.MutableStream { return &mutableStream{object} }
+func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
+	return &mutableStream{object}, nil
+}
+
+func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableStream, error) {
+	return &mutableStream{object}, nil
+}
+
+func (object *mutableObject) DeleteStream(ctx context.Context) (storj.MutableStream, error) {
+	return nil, errors.New("unimplemented")
+}
 
 func (object *mutableObject) Commit(ctx context.Context) error {
 	// TODO: this should happen atomically on the server
@@ -140,7 +149,6 @@ func (object *mutableObject) Commit(ctx context.Context) error {
 	}
 
 	// TODO: count the actual number of segments
-
 	err = object.db.deleteStreamInfo(ctx, locationPending, object.bucket, object.path)
 	if err != nil {
 		return err

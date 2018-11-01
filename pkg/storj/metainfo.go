@@ -197,9 +197,9 @@ type MutableObject interface {
 	Info(ctx context.Context) (Object, error)
 
 	// CreateStream creates a new stream for the object
-	CreateStream() (MutableStream, error)
+	CreateStream(ctx context.Context) (MutableStream, error)
 	// ContinueStream starts to continue a partially uploaded stream.
-	ContinueStream() (MutableStream, error)
+	ContinueStream(ctx context.Context) (MutableStream, error)
 	// DeleteStream deletes any information about this objects stream
 	DeleteStream(ctx context.Context) error
 

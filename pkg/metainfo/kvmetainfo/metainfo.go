@@ -27,7 +27,7 @@ type DB struct {
 	*Objects
 }
 
-// TODO:
+// TODO: ensure this only needs pointerdb for implementation
 
 // New creates a new metainfo database
 func New(buckets buckets.Store, objects objects.Store, streams streams.Store, segments segments.Store) *DB {
