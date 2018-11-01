@@ -26,10 +26,10 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
-	"storj.io/storj/pkg/provider"
 )
 
 var ctx = context.Background()
@@ -115,6 +115,9 @@ func TestPiece(t *testing.T) {
 					//TODO (windows): ignoring for windows due to different underlying error
 					return
 				}
+
+				fmt.Printf("#### expected: %+v\n #### actual: %+v\n", tt.err, err)
+
 				assert.Equal(tt.err, err.Error())
 				return
 			}
@@ -373,7 +376,7 @@ func TestStore(t *testing.T) {
 			}()
 
 			// check db to make sure agreement and signature were stored correctly
-			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
+			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
 			assert.NoError(err)
 
 			defer func() { assert.NoError(rows.Close()) }()
@@ -535,24 +538,22 @@ func NewTestServer(t *testing.T) *TestServer {
 		}
 	}
 
-	caS, err := provider.NewTestCA(context.Background())
-	check(err)
-	fiS, err := caS.NewIdentity()
-	check(err)
-	so, err := fiS.ServerOption()
+	serverID, err := node.NewFullIdentity(context.Background(), 12, 4)
 	check(err)
 
-	caC, err := provider.NewTestCA(context.Background())
+	so, err := serverID.ServerOption(serverID.ID.String())
 	check(err)
-	fiC, err := caC.NewIdentity()
+
+	nodeID, err := node.NewFullIdentity(context.Background(), 12, 4)
 	check(err)
-	co, err := fiC.DialOption()
+
+	co, err := nodeID.DialOption(nodeID.ID.String())
 	check(err)
 
 	s, cleanup := newTestServerStruct(t)
 	grpcs := grpc.NewServer(so)
 
-	k, ok := fiC.Key.(*ecdsa.PrivateKey)
+	k, ok := nodeID.Key.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
 	ts := &TestServer{s: s, scleanup: cleanup, grpcs: grpcs, k: k}
 	addr := ts.start()

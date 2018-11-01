@@ -63,7 +63,7 @@ type Client interface {
 
 // NewClient initializes a new pointerdb client
 func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
-	dialOpt, err := identity.DialOption()
+	dialOpt, err := identity.DialOption(identity.ID.String())
 	if err != nil {
 		return nil, err
 	}

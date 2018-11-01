@@ -107,7 +107,7 @@ func TestChoose(t *testing.T) {
 		assert.NoError(t, err)
 
 		srv := NewMockServer(listItems, func() grpc.ServerOption {
-			opt, err := identity.ServerOption()
+			opt, err := identity.ServerOption(identity.ID.String())
 			assert.NoError(t, err)
 			return opt
 		}())
@@ -299,7 +299,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 	if err != nil {
 		return nil, nil, err
 	}
-	identOpt, err := identity.ServerOption()
+	identOpt, err := identity.ServerOption(identity.ID.String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -325,7 +325,7 @@ func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error
 	if err != nil {
 		return nil, nil, err
 	}
-	identOpt, err := identity.ServerOption()
+	identOpt, err := identity.ServerOption(identity.ID.String())
 	if err != nil {
 		return nil, nil, err
 	}

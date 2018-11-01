@@ -38,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	identOpt, err := identity.DialOption()
+	identOpt, err := identity.DialOption(identity.ID.String())
 	if err != nil {
 		log.Fatal(err)
 	}

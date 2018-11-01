@@ -30,6 +30,11 @@ const (
 	IdentityLength = uint16(256 / 8) // 256 bits
 )
 
+var (
+	// ErrVerifyIdentity is the error class for ID verification against certificates
+	ErrVerifyIdentity = errs.Class("node identity does not match certificate identity")
+)
+
 // PeerIdentity represents another peer on the network.
 type PeerIdentity struct {
 	RestChain []*x509.Certificate
@@ -179,6 +184,23 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	return pi, nil
 }
 
+// VerifyPeerIdentity returns a PeerCertVerificationFunc that will check the node ID against
+// the certificate ID to verify they are valid
+func VerifyPeerIdentity(id string) peertls.PeerCertVerificationFunc {
+	return func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+		peer, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
+		if err != nil {
+			fmt.Printf("err peer identity from certs: %+v\n", err)
+			return ErrVerifyIdentity.Wrap(err)
+		}
+		if id != peer.ID.String() {
+			fmt.Printf("### ERR VERIFY IDENTITY: \n Self ID:  %+v\n Peer ID: %+v\n", id, peer.ID.String())
+			return ErrVerifyIdentity.New("")
+		}
+		return nil
+	}
+}
+
 // PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
@@ -292,7 +314,7 @@ func (fi *FullIdentity) RestChainRaw() [][]byte {
 
 // ServerOption returns a grpc `ServerOption` for incoming connections
 // to the node with this full identity
-func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
+func (fi *FullIdentity) ServerOption(id string, pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
 	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
@@ -301,7 +323,10 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 	}
 
 	pcvFuncs = append(
-		[]peertls.PeerCertVerificationFunc{peertls.VerifyPeerCertChains},
+		[]peertls.PeerCertVerificationFunc{
+			peertls.VerifyPeerCertChains,
+			VerifyPeerIdentity(id),
+		},
 		pcvFuncs...,
 	)
 	tlsConfig := &tls.Config{
@@ -318,7 +343,7 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
-func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
+func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
@@ -332,16 +357,14 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
-			func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
-				return nil
-			},
-			// TODO(coyle): Check that the ID of the node we are dialing is the owner of the certificate.
+			VerifyPeerIdentity(id),
 		),
 	}
 
 	return grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)), nil
 }
 
+// TODO: (dylan) we should probably start to standardize this around dht.NodeID type
 type nodeID string
 
 func (n nodeID) String() string { return string(n) }

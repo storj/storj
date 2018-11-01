@@ -190,7 +190,7 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 	if err != nil {
 		return nil, nil
 	}
-	identOpt, err := identity.ServerOption()
+	identOpt, err := identity.ServerOption(identity.ID.String())
 	if err != nil {
 		return nil, nil
 	}

@@ -29,8 +29,8 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node) (conn *grpc.Cli
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
-	// TODO(coyle): pass ID
-	dialOpt, err := o.identity.DialOption()
+
+	dialOpt, err := o.identity.DialOption(node.Id)
 	if err != nil {
 		return nil, err
 	}

@@ -45,7 +45,8 @@ type Options struct {
 
 // NewOverlayClient returns a new intialized Overlay Client
 func NewOverlayClient(identity *provider.FullIdentity, address string) (*Overlay, error) {
-	dialOpt, err := identity.DialOption()
+	node := identity.ID.String()
+	dialOpt, err := identity.DialOption(node)
 	if err != nil {
 		return nil, err
 	}

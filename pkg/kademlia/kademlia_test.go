@@ -190,7 +190,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
-	identOpt, err := fid.ServerOption()
+	identOpt, err := fid.ServerOption(fid.ID.String())
 	assert.NoError(t, err)
 
 	grpcServer := grpc.NewServer(identOpt)

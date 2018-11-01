@@ -213,7 +213,7 @@ func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error)
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
 func (k *Kademlia) ListenAndServe() error {
-	identOpt, err := k.identity.ServerOption()
+	identOpt, err := k.identity.ServerOption(k.identity.ID.String())
 	if err != nil {
 		return err
 	}

@@ -117,7 +117,7 @@ func TestPing(t *testing.T) {
 }
 
 func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.FullIdentity) (*grpc.Server, pb.NodesServer, error) {
-	identOpt, err := identity.ServerOption()
+	identOpt, err := identity.ServerOption(identity.ID.String())
 	if err != nil {
 		return nil, nil, err
 	}

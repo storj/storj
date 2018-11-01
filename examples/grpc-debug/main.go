@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	dialOption, err := identity.DialOption()
+	dialOption, err := identity.DialOption(identity.ID.String())
 	if err != nil {
 		panic(err)
 	}
