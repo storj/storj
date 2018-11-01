@@ -53,7 +53,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 			defer wg.Done()
 			for {
 				var (
-					next     *pb.Node
+					next *pb.Node
 				)
 
 				lookup.cond.L.Lock()
@@ -82,15 +82,15 @@ func (lookup *peerDiscovery) Run(ctx context.Context) error {
 
 				neighbors, err := lookup.client.Lookup(ctx, *next, pb.Node{Id: lookup.target.String()})
 				if err != nil {
-						ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
-						if !ok {
-							zap.S().Errorf(
-								"Error occurred during lookup of %s :: %s :: error = %s",
-								lookup.target.String(),
-								ErrMaxRetries.New("%s", next.GetId()),
-								err.Error(),
-							)
-						}
+					ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
+					if !ok {
+						zap.S().Errorf(
+							"Error occurred during lookup of %s :: %s :: error = %s",
+							lookup.target.String(),
+							ErrMaxRetries.New("%s", next.GetId()),
+							err.Error(),
+						)
+					}
 				}
 
 				lookup.queue.Insert(lookup.target, neighbors)
