@@ -57,7 +57,7 @@ func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.L
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	opts := req.GetOpts()
-	maxNodes := req.MaxNodes
+	maxNodes := req.GetMaxNodes()
 	if maxNodes <= 0 {
 		maxNodes = opts.GetAmount()
 	}
@@ -71,7 +71,7 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, req.Start, maxNodes, restrictedBandwidth, restrictedSpace, excluded)
+		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
