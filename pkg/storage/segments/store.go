@@ -6,7 +6,6 @@ package segments
 import (
 	"context"
 	"io"
-	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -218,30 +217,19 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 			return nil, Meta{}, err
 		}
 
-		// get the total non nil nodes
-		totalNonNilNodes := 0
-		for _, v := range nodes {
-			if v != nil {
-				totalNonNilNodes++
-			}
-		}
-
 		// calculate how many minimum nodes needed based on t = k + (n-o)k/o
-		t := es.RequiredCount() + ((es.TotalCount()-totalNonNilNodes)*es.RequiredCount())/totalNonNilNodes
+		rs := pr.GetRemote().GetRedundancy()
+		needed := rs.GetMinReq() + ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
 
-		minNumOfNodes := 0
 		for i, v := range nodes {
 			if v != nil {
-				minNumOfNodes++
-				if minNumOfNodes >= t {
-					minNumOfNodes = i
+				needed--
+				if needed <= 0 {
+					nodes = nodes[:i+1]
 					break
 				}
 			}
 		}
-
-		nodes = nodes[:minNumOfNodes]
-		log.Println("Minimum specific num of nodes =", len(nodes))
 
 		signedMessage, err := s.pdb.SignedMessage()
 		if err != nil {

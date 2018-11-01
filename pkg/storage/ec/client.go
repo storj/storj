@@ -157,7 +157,8 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	pieceID client.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(nodes) < es.RequiredCount() {
+	validNodeCount := validCount(nodes)
+	if validNodeCount < es.RequiredCount() {
 		return nil, Error.New("number of nodes (%v) do not match minimum required count (%v) of erasure scheme", len(nodes), es.RequiredCount())
 	}
 
@@ -329,4 +330,14 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 		lr.ranger = ranger
 	}
 	return lr.ranger.Range(ctx, offset, length)
+}
+
+func validCount(nodes []*pb.Node) int {
+	total := 0
+	for _, node := range nodes {
+		if node != nil {
+			total++
+		}
+	}
+	return total
 }
