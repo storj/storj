@@ -129,8 +129,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			o,
-			runCfg.Satellite.Checker,
-			runCfg.Satellite.Repairer,
+			// TODO(coyle): re-enable the checker and repairer after we determine why it is panicing
+			// runCfg.Satellite.Checker,
+			// runCfg.Satellite.Repairer,
 		)
 	}()
 
