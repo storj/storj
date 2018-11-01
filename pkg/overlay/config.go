@@ -105,19 +105,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	ca, err := provider.NewCA(ctx, 12, 14)
-	if err != nil {
-		return err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return err
-	}
 	apiKey, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		return Error.New("invalid API credentials")
 	}
-	statdb, err := sdbclient.NewClient(identity, c.StatDBPort, apiKey)
+	statdb, err := sdbclient.NewClient(server.Identity(), c.StatDBPort, apiKey)
 	if err != nil {
 		return err
 	}
