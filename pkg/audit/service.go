@@ -69,24 +69,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	zap.S().Info("Audit cron is starting up")
 
 	for {
-		stripe, err := service.Cursor.NextStripe(ctx)
+		err := service.process(ctx)
 		if err != nil {
-			return err
-		}
-
-		authorization, err := service.Cursor.pointers.SignedMessage()
-		if err != nil {
-			return err
-		}
-
-		verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
-		if err != nil {
-			return err
-		}
-		err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-		// TODO: if Error.Has(err) then log the error because it means not all node stats updated
-		if err != nil {
-			return err
+			zap.L().Error("process", zap.Error(err))
 		}
 
 		select {
@@ -95,4 +80,29 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 	}
+}
+
+func (service *Service) process(ctx context.Context) error {
+	stripe, err := service.Cursor.NextStripe(ctx)
+	if err != nil {
+		return err
+	}
+
+	authorization, err := service.Cursor.pointers.SignedMessage()
+	if err != nil {
+		return err
+	}
+
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	if err != nil {
+		return err
+	}
+
+	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

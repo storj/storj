@@ -43,19 +43,10 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 	defer r.limiter.Wait()
 
 	for {
-		seg, err := r.queue.Dequeue()
+		err := r.process(ctx)
 		if err != nil {
-			// TODO: only log when err != ErrQueueEmpty
-			zap.L().Error("dequeue", zap.Error(err))
-			continue
+			zap.L().Error("process", zap.Error(err))
 		}
-
-		r.limiter.Go(ctx, func() {
-			err := r.Repair(ctx, &seg)
-			if err != nil {
-				zap.L().Error("Repair failed", zap.Error(err))
-			}
-		})
 
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
@@ -63,6 +54,21 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 	}
+}
+
+func (r *repairer) process(ctx context.Context) error {
+	seg, err := r.queue.Dequeue()
+	if err != nil {
+		// TODO: only log when err != ErrQueueEmpty
+		return err
+	}
+
+	r.limiter.Go(ctx, func() {
+		err := r.Repair(ctx, &seg)
+		if err != nil {
+			zap.L().Error("Repair failed", zap.Error(err))
+		}
+	})
 }
 
 // Repair starts repair of the segment
