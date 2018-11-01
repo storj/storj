@@ -33,8 +33,13 @@ const (
 )
 
 // NewObjects creates Objects
-func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store) *Objects {
-	return &Objects{}
+func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key) *Objects {
+	return &Objects{
+		objects:  objects,
+		streams:  streams,
+		segments: segments,
+		rootKey:  rootKey,
+	}
 }
 
 // GetObject returns information about an object

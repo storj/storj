@@ -40,7 +40,7 @@ func New(buckets buckets.Store, objects objects.Store, streams streams.Store, se
 func (db *DB) Limits() (storj.MetainfoLimits, error) {
 	return storj.MetainfoLimits{
 		ListLimit:                storage.LookupLimit,
-		MinimumRemoteSegmentSize: memory.KB, // TODO: is this needed here?
-		MaximumInlineSegmentSize: memory.MB,
+		MinimumRemoteSegmentSize: int64(memory.KB), // TODO: is this needed here?
+		MaximumInlineSegmentSize: int64(memory.MB),
 	}, nil
 }
