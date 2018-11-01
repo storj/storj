@@ -14,6 +14,7 @@ func TestBasic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() {
 		t.Log("Shutdown")
 		err = planet.Shutdown()
@@ -25,20 +26,18 @@ func TestBasic(t *testing.T) {
 	t.Log("Start")
 	planet.Start(context.Background())
 
-	for i := 0; i < planet.SatelliteCount(); i++ {
-		t.Log("SATELLITE", planet.Satellite(i).ID(), planet.Satellite(i).Addr())
+	for _, satellite := range planet.Satellites {
+		t.Log("SATELLITE", satellite.ID(), satellite.Addr())
 	}
-
-	for i := 0; i < planet.StorageNodeCount(); i++ {
-		t.Log("STORAGE", planet.StorageNode(i).ID(), planet.StorageNode(i).Addr())
+	for _, storageNode := range planet.StorageNodes {
+		t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
 	}
-
-	for i := 0; i < planet.UplinkCount(); i++ {
-		t.Log("UPLINK", planet.Uplink(i).ID(), planet.Uplink(i).Addr())
+	for _, uplink := range planet.Uplinks {
+		t.Log("UPLINK", uplink.ID(), uplink.Addr())
 	}
 
 	// Example of using pointer db
-	client, err := planet.Uplink(0).DialPointerDB(planet.Satellite(0), "apikey")
+	client, err := planet.Uplinks[0].DialPointerDB(planet.Satellites[0], "apikey")
 	if err != nil {
 		t.Fatal(err)
 	}
