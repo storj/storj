@@ -3,6 +3,7 @@ set -ueo pipefail
 go install -v storj.io/storj/cmd/captplanet
 
 captplanet setup --overwrite
+sed -i 's/interval:.*/interval: 3s/g' $HOME/.storj/capt/config.yaml
 
 # run captplanet for 5 seconds to reproduce kademlia problems. See V3-526
 captplanet run &
@@ -32,6 +33,9 @@ aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 aws configure set default.s3.multipart_threshold 1TB
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/small-upload-testfile s3://bucket/small-testfile
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/big-upload-testfile s3://bucket/big-testfile
+
+# Wait 5 seconds to trigger any error related to one of the different intervals
+sleep 5
 
 aws configure set default.s3.multipart_threshold 4KB
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/multipart-upload-testfile s3://bucket/multipart-testfile
@@ -72,6 +76,7 @@ fi
 kill -9 $CAPT_PID
 
 captplanet setup --listen-host ::1 --overwrite
+sed -i 's/interval:.*/interval: 3s/g' $HOME/.storj/capt/config.yaml
 captplanet run &
 CAPT_PID=$!
 
