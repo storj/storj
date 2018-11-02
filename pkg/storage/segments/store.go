@@ -217,6 +217,20 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 			return nil, Meta{}, err
 		}
 
+		// calculate how many minimum nodes needed based on t = k + (n-o)k/o
+		rs := pr.GetRemote().GetRedundancy()
+		needed := rs.GetMinReq() + ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
+
+		for i, v := range nodes {
+			if v != nil {
+				needed--
+				if needed <= 0 {
+					nodes = nodes[:i+1]
+					break
+				}
+			}
+		}
+
 		signedMessage, err := s.pdb.SignedMessage()
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
