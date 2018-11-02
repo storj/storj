@@ -37,7 +37,7 @@ case $1 in
 		if [ $# -gt 2 ]; then
 			comment ${label} >> ${whitelist}
 			cat ${cert_path} >> ${whitelist}
-		echo "appended to whitelist at $whitelist"
+			echo "appended to whitelist at $whitelist"
 		fi
 	;;
 	*)
