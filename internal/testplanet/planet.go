@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information
 
-// testplanet implements the full network wiring for testing
+// Package testplanet implements the full network wiring for testing
 package testplanet
 
 import (
@@ -41,7 +41,7 @@ type Planet struct {
 	identities *Identities
 }
 
-// New creates a new full sytem with the given number of nodes.
+// New creates a new full system with the given number of nodes.
 func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
 		identities: pregeneratedIdentities.Clone(),
