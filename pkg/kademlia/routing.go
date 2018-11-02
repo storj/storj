@@ -134,11 +134,11 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 		return []*pb.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 
-	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	if len(sortedIDs) >= limit {
-		sortedIDs = sortedIDs[:limit]
+	sortByXOR(nodeIDs, id.Bytes())
+	if len(nodeIDs) >= limit {
+		nodeIDs = nodeIDs[:limit]
 	}
-	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}

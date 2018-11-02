@@ -6,7 +6,7 @@ package kademlia
 import (
 	"bytes"
 	"encoding/binary"
-	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -192,35 +192,39 @@ func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	return nil, RoutingErr.New("could not find k bucket")
 }
 
-// sortByXOR: helper, quick sorts node IDs by xor from the reference Node, smallest xor to largest
-func sortByXOR(nodeIDs storage.Keys, referenceNode storage.Key) storage.Keys {
-	if len(nodeIDs) < 2 {
-		return nodeIDs
-	}
-	left, right := 0, len(nodeIDs)-1
-	pivot := rand.Int() % len(nodeIDs)
-	nodeIDs[pivot], nodeIDs[right] = nodeIDs[right], nodeIDs[pivot]
-	for i := range nodeIDs {
-		xorI := xorTwoIds(nodeIDs[i], referenceNode)
-		xorR := xorTwoIds(nodeIDs[right], referenceNode)
-		if bytes.Compare(xorI, xorR) < 0 {
-			nodeIDs[left], nodeIDs[i] = nodeIDs[i], nodeIDs[left]
-			left++
+func compareByXor(left, right, reference storage.Key) int {
+	n := len(reference)
+	left = left[:n]
+	right = right[:n]
+	reference = reference[:n]
+
+	for i, r := range reference {
+		a, b := left[i]^r, right[i]^r
+		if a != b {
+			if a < b {
+				return -1
+			} else {
+				return 1
+			}
 		}
 	}
-	nodeIDs[left], nodeIDs[right] = nodeIDs[right], nodeIDs[left]
-	sortByXOR(nodeIDs[:left], referenceNode)
-	sortByXOR(nodeIDs[left+1:], referenceNode)
-	return nodeIDs
+
+	return 0
+}
+
+func sortByXOR(nodeIDs storage.Keys, ref storage.Key) {
+	sort.Slice(nodeIDs, func(i, k int) bool {
+		return compareByXor(nodeIDs[i], nodeIDs[k], ref) < 0
+	})
 }
 
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
 func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
-	sortedNodes := sortByXOR(nodeIDs, []byte(rt.self.Id))
-	if len(sortedNodes) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
-		return sortedNodes[len(sortedNodes)-1], nil
+	sortByXOR(nodeIDs, []byte(rt.self.Id))
+	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
+		return nodeIDs[len(nodeIDs)-1], nil
 	}
-	return sortedNodes[rt.bucketSize], nil
+	return nodeIDs[rt.bucketSize], nil
 }
 
 // xorTwoIds: helper, finds the xor distance between two byte slices
