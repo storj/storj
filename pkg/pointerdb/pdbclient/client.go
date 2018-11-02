@@ -32,6 +32,7 @@ type PointerDB struct {
 	grpcClient      pb.PointerDBClient
 	signatureHeader *metadata.MD
 	peer            *peer.Peer
+	pba             *pb.PayerBandwidthAllocation
 }
 
 // New Used as a public function
@@ -57,6 +58,7 @@ type Client interface {
 	Delete(ctx context.Context, path storj.Path) error
 
 	SignedMessage() (*pb.SignedMessage, error)
+	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
 }
 
 // NewClient initializes a new pointerdb client
@@ -110,6 +112,8 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		}
 		return nil, Error.Wrap(err)
 	}
+
+	pdb.pba = res.GetPba()
 
 	return res.GetPointer(), nil
 }
@@ -170,4 +174,9 @@ func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
 	}
 
 	return auth.NewSignedMessage(decodedSignature, identity)
+}
+
+// PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
+func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
+	return pdb.pba
 }

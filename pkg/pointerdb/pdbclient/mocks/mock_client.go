@@ -74,6 +74,18 @@ func (mr *MockClientMockRecorder) List(arg0, arg1, arg2, arg3, arg4, arg5, arg6 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockClient)(nil).List), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
+// PayerBandwidthAllocation mocks base method
+func (m *MockClient) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
+	ret := m.ctrl.Call(m, "PayerBandwidthAllocation")
+	ret0, _ := ret[0].(*pb.PayerBandwidthAllocation)
+	return ret0
+}
+
+// PayerBandwidthAllocation indicates an expected call of PayerBandwidthAllocation
+func (mr *MockClientMockRecorder) PayerBandwidthAllocation() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PayerBandwidthAllocation", reflect.TypeOf((*MockClient)(nil).PayerBandwidthAllocation))
+}
+
 // Put mocks base method
 func (m *MockClient) Put(arg0 context.Context, arg1 string, arg2 *pb.Pointer) error {
 	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2)

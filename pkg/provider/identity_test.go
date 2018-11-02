@@ -43,7 +43,7 @@ func TestPeerIdentityFromCertChain(t *testing.T) {
 	l, err := peertls.NewCert(lT, caT, &lp.PublicKey, k)
 	assert.NoError(t, err)
 
-	pi, err := PeerIdentityFromCerts(l, c)
+	pi, err := PeerIdentityFromCerts(l, c, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, c, pi.CA)
 	assert.Equal(t, l, pi.Leaf)
@@ -246,7 +246,7 @@ func TestVerifyPeer(t *testing.T) {
 		}
 	}
 
-	ca, err := NewCA(context.Background(), 12, 4)
+	ca, err := NewTestCA(context.Background())
 	check(err)
 	fi, err := ca.NewIdentity()
 	check(err)

@@ -15,7 +15,7 @@ import (
 var ctx = context.Background()
 
 func TestDialNode(t *testing.T) {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

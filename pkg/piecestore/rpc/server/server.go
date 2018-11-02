@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
+	as "storj.io/storj/pkg/piecestore/rpc/server/agreementsender"
 	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 )
@@ -49,12 +50,25 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	s, err := Initialize(ctx, c, server.Identity().Key)
 	if err != nil {
 		return err
 	}
 
 	pb.RegisterPieceStoreRoutesServer(server.GRPC(), s)
+
+	// Run the agreement sender process
+	asProcess, err := as.Initialize(s.DB, server.Identity())
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := asProcess.Run(ctx); err != nil {
+			cancel()
+		}
+	}()
 
 	defer func() {
 		log.Fatal(s.Stop(ctx))
@@ -126,6 +140,7 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if err != nil {
 		return nil, ServerError.Wrap(err)
 	}
+
 	if usedBandwidth > allocatedBandwidth {
 		zap.S().Warnf("Exceed the allowed Bandwidth setting")
 	} else {
@@ -137,7 +152,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if (totalUsed == 0x00) && (freeDiskSpace < allocatedDiskSpace) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
@@ -145,7 +159,6 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	// before restarting
 	if totalUsed >= allocatedDiskSpace {
 		zap.S().Warnf("Used more space then allocated, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
 	// the available diskspace is less than remaining allocated space,
@@ -153,11 +166,28 @@ func Initialize(ctx context.Context, config Config, pkey crypto.PrivateKey) (*Se
 	if freeDiskSpace < (allocatedDiskSpace - totalUsed) {
 		allocatedDiskSpace = freeDiskSpace
 		zap.S().Warnf("Disk space is less than requested allocated space, allocating = %d Bytes", allocatedDiskSpace)
-		return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth}, nil
 	}
 
-	signatureVerifier := auth.NewSignedMessageVerifier()
-	return &Server{DataDir: dataDir, DB: db, pkey: pkey, totalAllocated: allocatedDiskSpace, totalBwAllocated: allocatedBandwidth, verifier: signatureVerifier}, nil
+	return &Server{
+		DataDir:          dataDir,
+		DB:               db,
+		pkey:             pkey,
+		totalAllocated:   allocatedDiskSpace,
+		totalBwAllocated: allocatedBandwidth,
+		verifier:         auth.NewSignedMessageVerifier(),
+	}, nil
+}
+
+// New creates a Server with custom db
+func New(dataDir string, db *psdb.DB, config Config, pkey crypto.PrivateKey) *Server {
+	return &Server{
+		DataDir:          dataDir,
+		DB:               db,
+		pkey:             pkey,
+		totalAllocated:   config.AllocatedDiskSpace,
+		totalBwAllocated: config.AllocatedBandwidth,
+		verifier:         auth.NewSignedMessageVerifier(),
+	}
 }
 
 // Stop the piececstore node

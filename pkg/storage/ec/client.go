@@ -14,6 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -27,9 +28,9 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID client.PieceID, data io.Reader, expiration time.Time, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
+		pieceID client.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
 	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-		pieceID client.PieceID, size int64, authorization *pb.SignedMessage) (ranger.Ranger, error)
+		pieceID client.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
 	Delete(ctx context.Context, nodes []*pb.Node, pieceID client.PieceID, authorization *pb.SignedMessage) error
 }
 
@@ -42,15 +43,15 @@ type defaultDialer struct {
 	identity  *provider.FullIdentity
 }
 
-func (dialer *defaultDialer) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
+func (dialer *defaultDialer) dial(ctx context.Context, storageNode *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	conn, err := dialer.transport.DialNode(ctx, node)
+	conn, err := dialer.transport.DialNode(ctx, storageNode)
 	if err != nil {
 		return nil, err
 	}
 
-	return client.NewPSClient(conn, 0, dialer.identity.Key)
+	return client.NewPSClient(conn, node.IDFromString(storageNode.GetId()), 0, dialer.identity.Key)
 }
 
 type ecClient struct {
@@ -65,7 +66,7 @@ func NewClient(identity *provider.FullIdentity, transport transport.Client, mbm 
 }
 
 func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID client.PieceID, data io.Reader, expiration time.Time, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+	pieceID client.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != rs.TotalCount() {
@@ -109,7 +110,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 				infos <- info{i: i, err: err}
 				return
 			}
-			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, &pb.PayerBandwidthAllocation{}, authorization)
+			err = ps.Put(ctx, derivedPieceID, readers[i], expiration, pba, authorization)
 			// normally the bellow call should be deferred, but doing so fails
 			// randomly the unit tests
 			utils.LogClose(ps)
@@ -153,7 +154,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 }
 
 func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
-	pieceID client.PieceID, size int64, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
+	pieceID client.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != es.TotalCount() {
@@ -190,7 +191,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 				node:          n,
 				id:            derivedPieceID,
 				size:          pieceSize,
-				pba:           &pb.PayerBandwidthAllocation{},
+				pba:           pba,
 				authorization: authorization,
 			}
 

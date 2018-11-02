@@ -45,7 +45,10 @@ type Provider struct {
 func NewProvider(identity *FullIdentity, lis net.Listener, interceptor grpc.UnaryServerInterceptor,
 	responsibilities ...Responsibility) (*Provider, error) {
 	// NB: talk to anyone with an identity
-	ident, err := identity.ServerOption(peertls.VerifyCAWhitelist(identity.PeerCAWhitelist))
+	ident, err := identity.ServerOption(peertls.VerifyCAWhitelist(
+		identity.PeerCAWhitelist,
+		identity.VerifyAuthExtSig,
+	))
 	if err != nil {
 		return nil, err
 	}

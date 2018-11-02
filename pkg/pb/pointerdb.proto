@@ -8,6 +8,7 @@ package pointerdb;
 
 import "google/protobuf/timestamp.proto";
 import "overlay.proto";
+import "piecestore.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
 service PointerDB {
@@ -96,6 +97,7 @@ message PutResponse {
 message GetResponse {
   Pointer pointer = 1;
   repeated overlay.Node nodes = 2;
+  piecestoreroutes.PayerBandwidthAllocation pba = 3;
 }
 
 // ListResponse is a response message for the List rpc call
