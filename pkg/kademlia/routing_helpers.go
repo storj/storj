@@ -192,8 +192,15 @@ func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 	return nil, RoutingErr.New("could not find k bucket")
 }
 
+// compareByXor compares left, right xorred by reference
 func compareByXor(left, right, reference storage.Key) int {
 	n := len(reference)
+	if n > len(left) {
+		n = len(left)
+	}
+	if n > len(right) {
+		n = len(right)
+	}
 	left = left[:n]
 	right = right[:n]
 	reference = reference[:n]
