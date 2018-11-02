@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
-	q "storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -22,12 +22,12 @@ type Repairer interface {
 
 // repairer holds important values for data repair
 type repairer struct {
-	queue   q.RepairQueue
+	queue   queue.RepairQueue
 	limiter *sync2.Limiter
 	ticker  *time.Ticker
 }
 
-func newRepairer(queue q.RepairQueue, interval time.Duration, concurrency int) *repairer {
+func newRepairer(queue queue.RepairQueue, interval time.Duration, concurrency int) *repairer {
 	return &repairer{
 		queue:   queue,
 		limiter: sync2.NewLimiter(concurrency),
@@ -35,7 +35,7 @@ func newRepairer(queue q.RepairQueue, interval time.Duration, concurrency int) *
 	}
 }
 
-// Run the repairer loop
+// Run runs the repairer service
 func (r *repairer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -43,26 +43,35 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 	defer r.limiter.Wait()
 
 	for {
+		err := r.process(ctx)
+		if err != nil {
+			zap.L().Error("process", zap.Error(err))
+		}
+
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the repairer is canceled via context
 			return ctx.Err()
 		}
-
-		seg, err := r.queue.Dequeue()
-		if err != nil {
-			// TODO: only log when err != ErrQueueEmpty
-			zap.L().Error("dequeue", zap.Error(err))
-			continue
-		}
-
-		r.limiter.Go(ctx, func() {
-			err := r.Repair(ctx, &seg)
-			if err != nil {
-				zap.L().Error("Repair failed", zap.Error(err))
-			}
-		})
 	}
+}
+
+// process picks an item from repair queue and spawns a repairer
+func (r *repairer) process(ctx context.Context) error {
+	seg, err := r.queue.Dequeue()
+	if err != nil {
+		// TODO: only log when err != ErrQueueEmpty
+		return err
+	}
+
+	r.limiter.Go(ctx, func() {
+		err := r.Repair(ctx, &seg)
+		if err != nil {
+			zap.L().Error("Repair failed", zap.Error(err))
+		}
+	})
+
+	return nil
 }
 
 // Repair starts repair of the segment

@@ -373,7 +373,7 @@ func TestStore(t *testing.T) {
 			}()
 
 			// check db to make sure agreement and signature were stored correctly
-			rows, err := db.Query(`SELECT * FROM bandwidth_agreements`)
+			rows, err := db.Query(`SELECT agreement, signature FROM bandwidth_agreements`)
 			assert.NoError(err)
 
 			defer func() { assert.NoError(rows.Close()) }()
@@ -535,14 +535,14 @@ func NewTestServer(t *testing.T) *TestServer {
 		}
 	}
 
-	caS, err := provider.NewCA(context.Background(), 12, 4)
+	caS, err := provider.NewTestCA(context.Background())
 	check(err)
 	fiS, err := caS.NewIdentity()
 	check(err)
 	so, err := fiS.ServerOption()
 	check(err)
 
-	caC, err := provider.NewCA(context.Background(), 12, 4)
+	caC, err := provider.NewTestCA(context.Background())
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)

@@ -136,10 +136,14 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(total int64) []byte {
+	bandwidthAllocation := func(satelliteID string, total int64) []byte {
 		return serialize(t, &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{},
-			Total:           total,
+			PayerAllocation: &pb.PayerBandwidthAllocation{
+				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
+					SatelliteId: []byte(satelliteID),
+				}),
+			},
+			Total: total,
 		})
 	}
 
@@ -147,19 +151,19 @@ func TestHappyPath(t *testing.T) {
 	allocationTests := []*pb.RenterBandwidthAllocation{
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(0),
+			Data:      bandwidthAllocation("AB", 0),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(10),
+			Data:      bandwidthAllocation("AB", 10),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(98),
+			Data:      bandwidthAllocation("AB", 98),
 		},
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(3),
+			Data:      bandwidthAllocation("AB", 3),
 		},
 	}
 
@@ -189,6 +193,35 @@ func TestHappyPath(t *testing.T) {
 					if !found {
 						t.Fatal("did not find added bandwidth allocation")
 					}
+				}
+			})
+		}
+	})
+
+	t.Run("Get all Bandwidth Allocations", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+
+				agreementGroups, err := db.GetBandwidthAllocations()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				found := false
+				for _, agreements := range agreementGroups {
+					for _, agreement := range agreements {
+						for _, test := range allocationTests {
+							if bytes.Equal(agreement.Agreement, test.Data) {
+								found = true
+								break
+							}
+						}
+					}
+				}
+
+				if !found {
+					t.Fatal("did not find added bandwidth allocation")
 				}
 			})
 		}
