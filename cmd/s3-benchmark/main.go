@@ -63,6 +63,8 @@ func main() {
 		client, err = NewMinio(conf)
 	case "aws-cli":
 		client, err = NewAWSCLI(conf)
+	case "uplink":
+		client, err = NewUplink(conf)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -365,7 +367,6 @@ type Client interface {
 	ListBuckets() ([]string, error)
 
 	Upload(bucket, objectName string, data []byte) error
-	UploadMultipart(bucket, objectName string, data []byte, multipartThreshold int) error
 	Download(bucket, objectName string, buffer []byte) ([]byte, error)
 	Delete(bucket, objectName string) error
 	ListObjects(bucket, prefix string) ([]string, error)
