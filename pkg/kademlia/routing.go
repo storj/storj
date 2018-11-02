@@ -10,14 +10,12 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -47,8 +45,8 @@ type RoutingTable struct {
 func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
-		kadBucketDB:      storelogger.New(zap.L(), kdb),
-		nodeBucketDB:     storelogger.New(zap.L(), ndb),
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
