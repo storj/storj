@@ -203,9 +203,8 @@ func compareByXor(left, right, reference storage.Key) int {
 		if a != b {
 			if a < b {
 				return -1
-			} else {
-				return 1
 			}
+			return 1
 		}
 	}
 
