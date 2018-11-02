@@ -107,10 +107,14 @@ func TestFindStorageNodes(t *testing.T) {
 	assert.NotNil(t, r)
 	assert.Len(t, r.Nodes, 2)
 
-	for _, node := range r.Nodes {
-		// TODO(moby) []byte(node.Id) where node.Id = fid.ID.String() probably not the same as fid.ID.Bytes()
-		// TODO(moby) check that none of the returned nodes share the same address
-		assert.Contains(t, goodNodeIds, []byte(node.Id))
+	addrs := make(map[string]bool)
+	for _, n := range r.Nodes {
+		nodeAddr := n.Address.GetAddress()	
+		assert.EqualValues(t, addrs[nodeAddr], false)
+		addrs[nodeAddr] = true
+
+		nid := node.ID(n.Id)
+		assert.Contains(t, goodNodeIds, nid.Bytes())
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
@@ -87,12 +88,18 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 			break
 		}
 
-		ids := make([][]byte, len(nodes))
-		idsStr := make([]string, len(nodes))
-		for i, n := range nodes {
-			ids[i] = []byte(n.Id)
-			idsStr[i] = n.Id
-			nodeMap[n.Id] = n
+		ids := [][]byte{}
+		usedAddrs := make(map[string]bool)
+		for _, n := range nodes {
+			id := node.ID(n.Id)
+			addr := n.Address.GetAddress()
+			excluded = append(excluded, id.String()) // exclude all nodes on next iteration
+
+			if !usedAddrs[addr] {
+				ids = append(ids, id.Bytes())
+				nodeMap[id.String()] = n
+				usedAddrs[addr] = true
+			}
 		}
 
 		goodNodes, err := o.sdb.FindValidNodes(ctx, ids, minAuditCount, minAuditSuccess, minUptime)
@@ -101,7 +108,6 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 		}
 
 		resultIds = append(resultIds, goodNodes...)
-		excluded = append(excluded, idsStr...) // exclude every node (good or bad) from next round
 
 		if len(resultIds) >= int(maxNodes) || start == nil {
 			break
@@ -110,7 +116,8 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 
 	resultNodes := []*pb.Node{}
 	for _, id := range resultIds {
-		resultNodes = append(resultNodes, nodeMap[string(id)])
+		nid := node.ID(id)
+		resultNodes = append(resultNodes, nodeMap[nid.String()])
 	}
 
 	if len(resultNodes) < int(maxNodes) {
