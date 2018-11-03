@@ -42,7 +42,6 @@ var (
 	node1 = &pb.Node{Id: "node-1"}
 	node2 = &pb.Node{Id: "node-2"}
 	node3 = &pb.Node{Id: "node-3"}
-	ctx   = context.Background()
 )
 
 func TestNewECClient(t *testing.T) {
