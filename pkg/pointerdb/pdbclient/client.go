@@ -60,6 +60,8 @@ type Client interface {
 
 	SignedMessage() (*pb.SignedMessage, error)
 	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
+
+	// Disconnect() error // TODO: implement
 }
 
 // NewClient initializes a new pointerdb client
