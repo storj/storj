@@ -87,7 +87,12 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 			},
 			node.Identity)
 		pb.RegisterPointerDBServer(node.Provider.GRPC(), server)
-		node.Dependencies = append(node.Dependencies, server)
+		
+		node.Dependencies = append(node.Dependencies, 
+			closerFunc(func() error {
+				// TODO: implement
+				return nil
+			}))
 	}
 
 	// init storage nodes
@@ -106,7 +111,11 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 		}, node.Identity.Key)
 
 		pb.RegisterPieceStoreRoutesServer(node.Provider.GRPC(), server)
-		node.Dependencies = append(node.Dependencies, server)
+		
+		node.Dependencies = append(node.Dependencies, 
+			closerFunc(func() error {
+				return server.Stop(context.Background())
+			}))
 	}
 
 	// init Uplinks
