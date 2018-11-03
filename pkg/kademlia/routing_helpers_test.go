@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -313,12 +314,35 @@ func TestSortByXOR(t *testing.T) {
 	assert.NoError(t, err)
 	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
 	assert.Equal(t, expectedNodes, nodes)
-	sortedNodes := sortByXOR(nodes, node1)
+	sortByXOR(nodes, node1)
 	expectedSorted := storage.Keys{node1, node3, node4, node2, node5}
-	assert.Equal(t, expectedSorted, sortedNodes)
+	assert.Equal(t, expectedSorted, nodes)
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedNodes, nodes)
+}
+
+func BenchmarkSortByXOR(b *testing.B) {
+	nodes := []storage.Key{}
+
+	newNodeID := func() storage.Key {
+		id := make(storage.Key, 32)
+		rand.Read(id[:])
+		return id
+	}
+
+	for k := 0; k < 1000; k++ {
+		nodes = append(nodes, newNodeID())
+	}
+
+	b.ResetTimer()
+	for m := 0; m < b.N; m++ {
+		rand.Shuffle(len(nodes), func(i, k int) {
+			nodes[i], nodes[k] = nodes[k], nodes[i]
+		})
+
+		sortByXOR(nodes, newNodeID())
+	}
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {

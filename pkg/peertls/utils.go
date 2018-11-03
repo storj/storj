@@ -23,7 +23,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-type ecdsaSignature struct {
+// ECDSASignature holds the `r` and `s` values in an ecdsa signature
+// (see https://golang.org/pkg/crypto/ecdsa)
+type ECDSASignature struct {
 	R, S *big.Int
 }
 
@@ -73,28 +75,31 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 }
 
 func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
-	pubKey, ok := parentCert.PublicKey.(*ecdsa.PublicKey)
+	return verifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
+}
+
+func verifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
+	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
-		return ErrUnsupportedKey.New("%T", parentCert.PublicKey)
+		return ErrUnsupportedKey.New("%T", key)
 	}
 
-	signature := new(ecdsaSignature)
+	signature := new(ECDSASignature)
 
-	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
+	if _, err := asn1.Unmarshal(signedData, signature); err != nil {
 		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 
 	h := crypto.SHA256.New()
-	_, err := h.Write(childCert.RawTBSCertificate)
+	_, err := h.Write(data)
 	if err != nil {
 		return ErrVerifySignature.Wrap(err)
 	}
 	digest := h.Sum(nil)
 
-	if !ecdsa.Verify(pubKey, digest, signature.R, signature.S) {
+	if !ecdsa.Verify(key, digest, signature.R, signature.S) {
 		return ErrVerifySignature.New("signature is not valid")
 	}
-
 	return nil
 }
 

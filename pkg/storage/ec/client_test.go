@@ -235,7 +235,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*pb.Node{}, 0, []error{}, "ecclient error: " +
-			fmt.Sprintf("number of nodes (0) do not match total count (%v) of erasure scheme", n)},
+			fmt.Sprintf("number of nodes (0) do not match minimum required count (%v) of erasure scheme", k)},
 		{[]*pb.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},

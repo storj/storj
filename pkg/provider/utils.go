@@ -7,7 +7,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
 	"os"
@@ -56,7 +59,7 @@ func decodePEM(PEMBytes []byte) ([][]byte, error) {
 	return DERBytes, nil
 }
 
-func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificateAuthority, eC chan error) {
+func newCAWorker(ctx context.Context, difficulty uint16, parentCert *x509.Certificate, parentKey crypto.PrivateKey, caC chan FullCertificateAuthority, eC chan error) {
 	var (
 		k   crypto.PrivateKey
 		i   nodeID
@@ -96,12 +99,7 @@ func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificat
 		return
 	}
 
-	p, ok := k.(*ecdsa.PrivateKey)
-	if !ok {
-		eC <- peertls.ErrUnsupportedKey.New("%T", k)
-		return
-	}
-	c, err := peertls.NewCert(ct, nil, &p.PublicKey, k)
+	c, err := newCACert(k, parentKey, ct, parentCert)
 	if err != nil {
 		eC <- err
 		return
@@ -112,7 +110,57 @@ func newCAWorker(ctx context.Context, difficulty uint16, caC chan FullCertificat
 		Key:  k,
 		ID:   i,
 	}
+	if parentCert != nil {
+		ca.RestChain = []*x509.Certificate{parentCert}
+	}
 	caC <- ca
+}
+
+func newCACert(key, parentKey crypto.PrivateKey, template, parentCert *x509.Certificate) (*x509.Certificate, error) {
+	p, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, peertls.ErrUnsupportedKey.New("%T", key)
+	}
+
+	var signingKey crypto.PrivateKey
+	if parentKey != nil {
+		signingKey = parentKey
+	} else {
+		signingKey = key
+	}
+
+	cert, err := peertls.NewCert(template, parentCert, &p.PublicKey, signingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if parentKey != nil {
+		p, ok := parentKey.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, peertls.ErrUnsupportedKey.New("%T", key)
+		}
+
+		hash := crypto.SHA256.New()
+		_, err := hash.Write(cert.RawTBSCertificate)
+		if err != nil {
+			return nil, peertls.ErrSign.Wrap(err)
+		}
+		r, s, err := ecdsa.Sign(rand.Reader, p, hash.Sum(nil))
+		if err != nil {
+			return nil, peertls.ErrSign.Wrap(err)
+		}
+
+		signature, err := asn1.Marshal(peertls.ECDSASignature{R: r, S: s})
+		if err != nil {
+			return nil, peertls.ErrSign.Wrap(err)
+		}
+
+		cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
+			Id:    peertls.AuthoritySignatureExtID,
+			Value: signature,
+		})
+	}
+	return cert, nil
 }
 
 func idFromKey(k crypto.PublicKey) (nodeID, error) {
