@@ -6,14 +6,16 @@ package mock_ecclient
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
+	time "time"
+
+	gomock "github.com/golang/mock/gomock"
+
 	eestream "storj.io/storj/pkg/eestream"
 	pb "storj.io/storj/pkg/pb"
 	client "storj.io/storj/pkg/piecestore/rpc/client"
 	ranger "storj.io/storj/pkg/ranger"
-	time "time"
 )
 
 // MockClient is a mock of Client interface

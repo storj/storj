@@ -18,8 +18,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
@@ -44,35 +44,6 @@ var (
 	node3 = &pb.Node{Id: "node-3"}
 	ctx   = context.Background()
 )
-
-type mockTransport struct {
-	clients map[*pb.Node]psclient.Client
-}
-
-func (mt *mockTransport) DialNode(ctx context.Context, _node *pb.Node) (psclient.Client, error) {
-	c := mt.clients[_node]
-	if c == nil {
-		return nil, ErrDialFailed
-	}
-	return c, nil
-}
-
-func (mt *mockTransport) DialAddress(ctx context.Context, addr string) (psclient.Client, error) {
-	return nil, errs.New("mock transport does not implement `DailAddress`")
-}
-
-func (mt *mockTransport) Identity() *provider.FullIdentity {
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		panic(err)
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		panic(err)
-	}
-
-	return identity
-}
 
 func TestNewECClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -151,7 +122,7 @@ TestLoop:
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if n == nil || tt.badInput {
 				continue
@@ -170,14 +141,14 @@ TestLoop:
 					}),
 				ps.EXPECT().Close().Return(nil),
 			)
-			m[n] = ps
+			clients[n] = ps
 		}
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
-		ec := ecClient{transport: &mockTransport{clients: m}, maxBuffMem: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), maxBuffMem: tt.mbm}
 
 		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
@@ -194,6 +165,17 @@ TestLoop:
 				}
 			}
 		}
+	}
+}
+
+func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
+	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+		c, ok := clients[n]
+		if !ok {
+			return nil, ErrDialFailed
+		}
+
+		return c, nil
 	}
 }
 
@@ -245,7 +227,7 @@ TestLoop:
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] == ErrOpFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
@@ -254,10 +236,10 @@ TestLoop:
 				}
 				ps := NewMockPSClient(ctrl)
 				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any(), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
-				m[n] = ps
+				clients[n] = ps
 			}
 		}
-		ec := ecClient{d: &mockTransport{clients: m}, maxBuffMem: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), maxBuffMem: tt.mbm}
 		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
@@ -304,7 +286,7 @@ TestLoop:
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if n != nil && errs[n] != ErrDialFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
@@ -316,11 +298,11 @@ TestLoop:
 					ps.EXPECT().Delete(gomock.Any(), derivedID, gomock.Any()).Return(errs[n]),
 					ps.EXPECT().Close().Return(nil),
 				)
-				m[n] = ps
+				clients[n] = ps
 			}
 		}
 
-		ec := ecClient{d: &mockTransport{clients: m}}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 		err := ec.Delete(ctx, tt.nodes, id, nil)
 
 		if tt.errString != "" {

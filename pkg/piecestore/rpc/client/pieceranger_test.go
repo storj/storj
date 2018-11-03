@@ -77,7 +77,7 @@ func TestPieceRanger(t *testing.T) {
 
 		_node := &pb.Node{
 			Address: &pb.NodeAddress{
-				Address: "",
+				Address:   "",
 				Transport: 0,
 			},
 			Id: "test-node-id-1234567",
@@ -155,7 +155,7 @@ func TestPieceRangerSize(t *testing.T) {
 
 		_node := &pb.Node{
 			Address: &pb.NodeAddress{
-				Address: "",
+				Address:   "",
 				Transport: 0,
 			},
 			Id: "test-node-id-1234567",

@@ -30,7 +30,6 @@ type Client interface {
 // Transport interface structure
 type Transport struct {
 	identity *provider.FullIdentity
-	conn     *grpc.ClientConn
 }
 
 // NewClient returns a newly instantiated Transport Client
