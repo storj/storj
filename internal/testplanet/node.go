@@ -4,8 +4,8 @@
 package testplanet
 
 import (
-	"net"
 	"io"
+	"net"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -50,7 +50,7 @@ func (node *Node) Shutdown() error {
 	if node.Kademlia != nil {
 		errs = append(errs, node.Kademlia.Disconnect())
 	}
-	
+
 	for _, dep := range node.Dependencies {
 		err := dep.Close()
 		if err != nil {
