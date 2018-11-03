@@ -32,11 +32,11 @@ type Planet struct {
 
 	nodeInfos []pb.Node
 	nodeLinks []string
+	nodes     []*Node
 
-	nodes        []*Node
-	Satellites   []*Node // DO NOT MODIFY
-	StorageNodes []*Node // DO NOT MODIFY
-	Uplinks      []*Node // DO NOT MODIFY
+	Satellites   []*Node
+	StorageNodes []*Node
+	Uplinks      []*Node
 
 	identities *Identities
 }
