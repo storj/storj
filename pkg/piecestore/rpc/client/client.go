@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package client
+package psclient
 
 import (
 	"bufio"
@@ -17,15 +17,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/transport"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 )
 
 // ClientError is any error returned by the client
-var ClientError = errs.Class("PSClient error")
+var ClientError = errs.Class("piecestore client error")
 
 var (
 	defaultBandwidthMsgSize = flag.Int(
@@ -36,8 +36,8 @@ var (
 		"max bandwidth message size in bytes")
 )
 
-// PSClient is an interface describing the functions for interacting with piecestore nodes
-type PSClient interface {
+// Client is an interface describing the functions for interacting with piecestore nodes
+type Client interface {
 	Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error)
 	Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error
 	Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
@@ -46,17 +46,22 @@ type PSClient interface {
 	io.Closer
 }
 
-// Client -- Struct Info needed for protobuf api calls
-type Client struct {
-	route            pb.PieceStoreRoutesClient // Client for interacting with Storage Node
-	conn             *grpc.ClientConn          // Connection to Storage Node
+// Piecestore -- Struct Info needed for protobuf api calls
+type Piecestore struct {
+	closeFunc        func() error              // function that closes the transport connection
+	client           pb.PieceStoreRoutesClient // Piecestore for interacting with Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID           *node.ID                  // Storage node being connected to
+	nodeID           *node.ID                    // Storage node being connected to
 }
 
-// NewPSClient initilizes a PSClient
-func NewPSClient(conn *grpc.ClientConn, nodeID *node.ID, bandwidthMsgSize int, prikey crypto.PrivateKey) (PSClient, error) {
+// NewPSClient initilizes a piecestore client
+func NewPSClient(ctx context.Context, tc transport.Client, _node *pb.Node, bandwidthMsgSize int) (Client, error) {
+	conn, err := tc.DialNode(ctx, _node)
+	if err != nil {
+		return nil, err
+	}
+
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -65,17 +70,17 @@ func NewPSClient(conn *grpc.ClientConn, nodeID *node.ID, bandwidthMsgSize int, p
 		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
-	return &Client{
-		conn:             conn,
-		route:            pb.NewPieceStoreRoutesClient(conn),
+	return &Piecestore{
+		closeFunc:        conn.Close,
+		client:           pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
-		prikey:           prikey,
-		nodeID:           nodeID,
+		prikey:           tc.Identity().Key,
+		nodeID:           node.IDFromString(_node.GetId()),
 	}, nil
 }
 
-// NewCustomRoute creates new Client with custom route interface
-func NewCustomRoute(route pb.PieceStoreRoutesClient, nodeID *node.ID, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Client, error) {
+// NewCustomRoute creates new Piecestore with custom client interface
+func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Piecestore, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -84,27 +89,33 @@ func NewCustomRoute(route pb.PieceStoreRoutesClient, nodeID *node.ID, bandwidthM
 		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
-	return &Client{
-		route:            route,
+	return &Piecestore{
+		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID:           nodeID,
+		nodeID:           node.IDFromString(_node.GetId()),
 	}, nil
 }
 
 // Close closes the connection with piecestore
-func (client *Client) Close() error {
-	return client.conn.Close()
+func (ps *Piecestore) Close() error {
+	if ps.closeFunc == nil {
+		// TODO@bryanchrswhite/aleitner: 	This will happen if someone uses `NewCustomRoute`.
+		// 																What is the expected behavior?
+		return nil
+	}
+
+	return ps.closeFunc()
 }
 
 // Meta requests info about a piece by Id
-func (client *Client) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
-	return client.route.Piece(ctx, &pb.PieceId{Id: id.String()})
+func (ps *Piecestore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
+	return ps.client.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
 // Put uploads a Piece to a piece store Server
-func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
-	stream, err := client.route.Store(ctx)
+func (ps *Piecestore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
+	stream, err := ps.client.Store(ctx)
 	if err != nil {
 		return err
 	}
@@ -121,7 +132,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 		return fmt.Errorf("%v.Send() = %v", stream, err)
 	}
 
-	writer := &StreamWriter{signer: client, stream: stream, pba: ba}
+	writer := &StreamWriter{signer: ps, stream: stream, pba: ba}
 
 	defer func() {
 		if err := writer.Close(); err != nil && err != io.EOF {
@@ -135,7 +146,7 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 	if err == io.ErrUnexpectedEOF {
 		_ = writer.Close()
 		zap.S().Infof("Node cut from upload due to slow connection. Deleting piece %s...", id)
-		deleteErr := client.Delete(ctx, id, authorization)
+		deleteErr := ps.Delete(ctx, id, authorization)
 		if deleteErr != nil {
 			return deleteErr
 		}
@@ -148,18 +159,18 @@ func (client *Client) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (client *Client) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
-	stream, err := client.route.Retrieve(ctx)
+func (ps *Piecestore) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
+	stream, err := ps.client.Retrieve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return PieceRangerSize(client, stream, id, size, ba, authorization), nil
+	return PieceRangerSize(ps, stream, id, size, ba, authorization), nil
 }
 
 // Delete a Piece from a piece store Server
-func (client *Client) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
-	reply, err := client.route.Delete(ctx, &pb.PieceDelete{Id: id.String(), Authorization: authorization})
+func (ps *Piecestore) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
+	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), Authorization: authorization})
 	if err != nil {
 		return err
 	}
@@ -168,16 +179,16 @@ func (client *Client) Delete(ctx context.Context, id PieceID, authorization *pb.
 }
 
 // Stats will retrieve stats about a piece storage node
-func (client *Client) Stats(ctx context.Context) (*pb.StatSummary, error) {
-	return client.route.Stats(ctx, &pb.StatsReq{})
+func (ps *Piecestore) Stats(ctx context.Context) (*pb.StatSummary, error) {
+	return ps.client.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key
-func (client *Client) sign(msg []byte) (signature []byte, err error) {
-	if client.prikey == nil {
+func (ps *Piecestore) sign(msg []byte) (signature []byte, err error) {
+	if ps.prikey == nil {
 		return nil, ClientError.New("Failed to sign msg: Private Key not Set")
 	}
 
 	// use c.pkey to sign msg
-	return cryptopasta.Sign(msg, client.prikey.(*ecdsa.PrivateKey))
+	return cryptopasta.Sign(msg, ps.prikey.(*ecdsa.PrivateKey))
 }

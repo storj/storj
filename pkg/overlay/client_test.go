@@ -51,7 +51,9 @@ func TestNewOverlayClient(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 	}
 }
@@ -119,7 +121,9 @@ func TestChoose(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		newNodes, err := oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
 		assert.NoError(t, err)
@@ -160,7 +164,9 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		_, err = oc.Lookup(ctx, v.nodeID)
 		assert.NoError(t, err)
@@ -196,7 +202,9 @@ func TestBulkLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		_, err = oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
@@ -228,7 +236,9 @@ func TestBulkLookupV2(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotNil(t, oc)
-	assert.NotEmpty(t, oc.client)
+	overlay, ok := oc.(*Overlay)
+	assert.True(t, ok)
+	assert.NotEmpty(t, overlay.client)
 	n1 := &pb.Node{Id: "n1"}
 	n2 := &pb.Node{Id: "n2"}
 	n3 := &pb.Node{Id: "n3"}

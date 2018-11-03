@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package client
+package psclient
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 // StreamWriter creates a StreamWriter for writing data to the piece store server
 type StreamWriter struct {
 	stream       pb.PieceStoreRoutes_StoreClient
-	signer       *Client // We need this for signing
+	signer       *Piecestore // We need this for signing
 	totalWritten int64
 	pba          *pb.PayerBandwidthAllocation
 }
@@ -73,7 +73,7 @@ func (s *StreamWriter) Close() error {
 // StreamReader is a struct for reading piece download stream from server
 type StreamReader struct {
 	pendingAllocs *sync2.Throttle
-	client        *Client
+	client        *Piecestore
 	stream        pb.PieceStoreRoutes_RetrieveClient
 	src           *utils.ReaderSource
 	downloaded    int64
@@ -82,7 +82,7 @@ type StreamReader struct {
 }
 
 // NewStreamReader creates a StreamReader for reading data from the piece store server
-func NewStreamReader(client *Client, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
+func NewStreamReader(client *Piecestore, stream pb.PieceStoreRoutes_RetrieveClient, pba *pb.PayerBandwidthAllocation, size int64) *StreamReader {
 	sr := &StreamReader{
 		pendingAllocs: sync2.NewThrottle(),
 		client:        client,

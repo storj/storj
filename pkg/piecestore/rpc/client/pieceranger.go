@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package client
+package psclient
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 var Error = errs.Class("pieceRanger error")
 
 type pieceRanger struct {
-	c             *Client
+	c             *Piecestore
 	id            PieceID
 	size          int64
 	stream        pb.PieceStoreRoutes_RetrieveClient
@@ -28,7 +28,7 @@ type pieceRanger struct {
 }
 
 // PieceRanger PieceRanger returns a Ranger from a PieceID.
-func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
+func PieceRanger(ctx context.Context, c *Piecestore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
 	piece, err := c.Meta(ctx, id)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func PieceRanger(ctx context.Context, c *Client, stream pb.PieceStoreRoutes_Retr
 // PieceRangerSize creates a PieceRanger with known size.
 // Use it if you know the piece size. This will safe the extra request for
 // retrieving the piece size from the piece storage.
-func PieceRangerSize(c *Client, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) ranger.Ranger {
+func PieceRangerSize(c *Piecestore, stream pb.PieceStoreRoutes_RetrieveClient, id PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) ranger.Ranger {
 	return &pieceRanger{c: c, id: id, size: size, stream: stream, pba: pba, authorization: authorization}
 }
 

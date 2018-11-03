@@ -13,7 +13,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -29,7 +30,7 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	grpcClient      pb.PointerDBClient
+	client          pb.PointerDBClient
 	signatureHeader *metadata.MD
 	peer            *peer.Peer
 	pba             *pb.PayerBandwidthAllocation
@@ -37,7 +38,7 @@ type PointerDB struct {
 
 // New Used as a public function
 func New(gcclient pb.PointerDBClient) (pdbc *PointerDB) {
-	return &PointerDB{grpcClient: gcclient}
+	return &PointerDB{client: gcclient}
 }
 
 // a compiler trick to make sure *Overlay implements Client
@@ -63,40 +64,34 @@ type Client interface {
 
 // NewClient initializes a new pointerdb client
 func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
-	dialOpt, err := identity.DialOption()
-	if err != nil {
-		return nil, err
-	}
-
 	signatureHeader := &metadata.MD{}
-	peer := &peer.Peer{}
-	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey, grpc.Header(signatureHeader), grpc.Peer(peer))
-	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector))
-
+	_peer := &peer.Peer{}
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey, grpc.Header(signatureHeader), grpc.Peer(_peer))
+	tc := transport.NewClient(identity)
+	conn, err := tc.DialAddress(
+		context.Background(),
+		address,
+		grpc.WithUnaryInterceptor(apiKeyInjector),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return &PointerDB{grpcClient: c, signatureHeader: signatureHeader, peer: peer}, nil
+
+	return &PointerDB{
+		client:          pb.NewPointerDBClient(conn),
+		signatureHeader: signatureHeader,
+		peer:            _peer,
+	}, nil
 }
 
 // a compiler trick to make sure *PointerDB implements Client
 var _ Client = (*PointerDB)(nil)
 
-// ClientConnection makes a server connection
-func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.PointerDBClient, error) {
-	conn, err := grpc.Dial(serverAddr, opts...)
-
-	if err != nil {
-		return nil, err
-	}
-	return pb.NewPointerDBClient(conn), nil
-}
-
 // Put is the interface to make a PUT request, needs Pointer and APIKey
 func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer})
+	_, err = pdb.client.Put(ctx, &pb.PutRequest{Path: path, Pointer: pointer})
 
 	return err
 }
@@ -105,7 +100,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.Get(ctx, &pb.GetRequest{Path: path})
+	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
@@ -122,7 +117,7 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := pdb.grpcClient.List(ctx, &pb.ListRequest{
+	res, err := pdb.client.List(ctx, &pb.ListRequest{
 		Prefix:     prefix,
 		StartAfter: startAfter,
 		EndBefore:  endBefore,
@@ -151,7 +146,7 @@ func (pdb *PointerDB) List(ctx context.Context, prefix, startAfter, endBefore st
 func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = pdb.grpcClient.Delete(ctx, &pb.DeleteRequest{Path: path})
+	_, err = pdb.client.Delete(ctx, &pb.DeleteRequest{Path: path})
 
 	return err
 }

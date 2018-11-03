@@ -119,7 +119,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		pieceID := client.NewPieceID()
+		pieceID := psclient.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
 		signedMessage, err := s.pdb.SignedMessage()
@@ -160,7 +160,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceID, readerSize int64,
+func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.PieceID, readerSize int64,
 	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
@@ -206,7 +206,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.GetPieceId())
+		pid := psclient.PieceID(seg.GetPieceId())
 		nodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
@@ -267,7 +267,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.PieceId)
+		pid := psclient.PieceID(seg.PieceId)
 		nodes, err := s.lookupNodes(ctx, seg)
 		if err != nil {
 			return Error.Wrap(err)
@@ -299,11 +299,11 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("Cannot repair inline segment %s", client.PieceID(pr.GetInlineSegment()))
+		return Error.New("Cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
 
 	seg := pr.GetRemote()
-	pid := client.PieceID(seg.GetPieceId())
+	pid := psclient.PieceID(seg.GetPieceId())
 
 	// Get the list of remote pieces from the pointer
 	originalNodes, err := s.lookupNodes(ctx, seg)
