@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"fmt"
+	"strings"
 
 	"github.com/zeebo/errs"
 )
@@ -27,7 +27,7 @@ func NewUplink(conf Config) (Client, error) {
 
 func (client *Uplink) cmd(subargs ...string) *exec.Cmd {
 	args := []string{
-		"--enc-key abc123",
+		"--enc-key", "abc123",
 	}
 
 	args = append(args, subargs...)
@@ -59,13 +59,13 @@ func (client *Uplink) RemoveBucket(bucket string) error {
 // ListBuckets lists all buckets
 func (client *Uplink) ListBuckets() ([]string, error) {
 	cmd := client.cmd("ls")
-	_, err := cmd.Output()
+	data, err := cmd.Output()
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
 
-	// TODO: return something usefull
-	return nil, nil
+	names := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	return names, nil
 }
 
 // Upload uploads object data to the specified path
@@ -113,8 +113,7 @@ func (client *Uplink) ListObjects(bucket, prefix string) ([]string, error) {
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
-	fmt.Printf("%v, %v\n", data, err)
 
-	// TODO: return something usefull
-	return nil, nil
+	names := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	return names, nil
 }
