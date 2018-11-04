@@ -105,6 +105,7 @@ require (
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/hanwen/go-fuse v0.0.0-20181011180456-b760b55765be
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jedib0t/go-pretty v4.0.0+incompatible
 	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
