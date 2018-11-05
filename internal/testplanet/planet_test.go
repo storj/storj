@@ -45,11 +45,7 @@ func TestBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	message, err := client.SignedMessage()
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	message := client.SignedMessage()
 	t.Log(message)
 }
 
