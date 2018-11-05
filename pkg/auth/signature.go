@@ -31,7 +31,7 @@ func GenerateSignature(data []byte, identity *provider.FullIdentity) ([]byte, er
 }
 
 // NewSignedMessage creates instance of signed message
-func NewSignedMessage(signature []byte, identity *provider.PeerIdentity) (*pb.SignedMessage, error) {
+func NewSignedMessage(signature []byte, identity *provider.FullIdentity) (*pb.SignedMessage, error) {
 	k, ok := identity.Leaf.PublicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, peertls.ErrUnsupportedKey.New("%T", identity.Leaf.PublicKey)

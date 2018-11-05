@@ -96,16 +96,16 @@ func main() {
 			id := client.NewPieceID()
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
-				Action: pb.PayerBandwidthAllocation_PUT,
+        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				Action:         pb.PayerBandwidthAllocation_PUT,
 				CreatedUnixSec: time.Now().Unix(),
 			}
-		
+
 			serializedAllocation, err := proto.Marshal(allocationData)
 			if err != nil {
 				return err
 			}
-		
+
 			pba := &pb.PayerBandwidthAllocation{
 				Data: serializedAllocation,
 			}
@@ -160,16 +160,16 @@ func main() {
 			}
 
 			allocationData := &pb.PayerBandwidthAllocation_Data{
-        		SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
-				Action: pb.PayerBandwidthAllocation_GET,
+        SatelliteId:    []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				Action:         pb.PayerBandwidthAllocation_GET,
 				CreatedUnixSec: time.Now().Unix(),
 			}
-		
+
 			serializedAllocation, err := proto.Marshal(allocationData)
 			if err != nil {
 				return err
 			}
-		
+
 			pba := &pb.PayerBandwidthAllocation{
 				Data: serializedAllocation,
 			}
