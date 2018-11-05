@@ -22,13 +22,24 @@ type Uplink struct {
 
 // NewUplink creates new Client
 func NewUplink(conf Config) (Client, error) {
-	return &Uplink{conf}, nil
+	client := &Uplink{conf}
+
+	cmd := client.cmd("setup",
+		"--overwrite",
+		"--api-key="+client.conf.ApiKey,
+		"--enc-key="+client.conf.EncryptionKey,
+		"--satellite-addr="+client.conf.SatelliteAddr)
+
+	_, err := cmd.Output()
+	if err != nil {
+		return nil, UplinkError.Wrap(fullExitError(err))
+	}
+
+	return client, nil
 }
 
 func (client *Uplink) cmd(subargs ...string) *exec.Cmd {
-	args := []string{
-		"--enc-key", "abc123",
-	}
+	args := []string{}
 
 	args = append(args, subargs...)
 

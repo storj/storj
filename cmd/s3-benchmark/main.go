@@ -23,11 +23,14 @@ func main() {
 	var conf Config
 
 	flag.StringVar(&conf.Endpoint, "endpoint", "127.0.0.1:7777", "endpoint address")
+	flag.StringVar(&conf.SatelliteAddr, "satelliteaddr", "127.0.0.1:7778", "satellite address")
 	flag.StringVar(&conf.AccessKey, "accesskey", "insecure-dev-access-key", "access key")
 	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
+	flag.StringVar(&conf.ApiKey, "apikey", "abc123", "api key")
+	flag.StringVar(&conf.EncryptionKey, "encryptionkey", "abc123", "encryption key")
 	flag.BoolVar(&conf.NoSSL, "no-ssl", false, "disable ssl")
 
-	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws-cli)")
+	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws-cli, uplink)")
 
 	location := flag.String("location", "", "bucket location")
 	count := flag.Int("count", 50, "benchmark count")
@@ -354,10 +357,13 @@ func ListBenchmark(client Client, bucket string, listsize int, count int, durati
 
 // Config is the setup for a particular client
 type Config struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	NoSSL     bool
+	Endpoint	string
+	SatelliteAddr	string
+	AccessKey	string
+	SecretKey	string
+	ApiKey		string
+	EncryptionKey	string
+	NoSSL		bool
 }
 
 // Client is the common interface for different implementations
