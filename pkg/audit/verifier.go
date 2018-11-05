@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
@@ -83,6 +84,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 	allocationData := &pb.PayerBandwidthAllocation_Data{
 		Action: pb.PayerBandwidthAllocation_GET,
+		CreatedUnixSec: time.Now().Unix(),
 	}
 
 	serializedAllocation, err := proto.Marshal(allocationData)

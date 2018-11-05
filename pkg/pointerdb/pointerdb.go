@@ -4,6 +4,7 @@
 package pointerdb
 
 import (
+	"time"
 	"context"
 	"encoding/base64"
 
@@ -318,6 +319,7 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 	pbad := &pb.PayerBandwidthAllocation_Data{
 		SatelliteId: payer,
 		UplinkId:    peerIdentity.ID.Bytes(),
+		CreatedUnixSec: time.Now().Unix(),
 		// TODO: Action: pb.PayerBandwidthAllocation_GET, // Action should be a GET or a PUT
 	}
 
