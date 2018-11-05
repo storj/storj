@@ -204,7 +204,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.GetPieceId())
 
-		// TODO(michal) can be removed when overlay will be enabled for pointerdb
+		// fall back if nodes are not available
 		if nodes == nil {
 			nodes, err = s.lookupNodes(ctx, seg)
 			if err != nil {
@@ -266,7 +266,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
 
-		// TODO(michal) can be removed when overlay will be enabled for pointerdb
+		// fall back if nodes are not available
 		if nodes == nil {
 			nodes, err = s.lookupNodes(ctx, seg)
 			if err != nil {
@@ -303,7 +303,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	seg := pr.GetRemote()
 	pid := client.PieceID(seg.GetPieceId())
 
-	// TODO(michal) can be removed when overlay will be enabled for pointerdb
+	// fall back if nodes are not available
 	if originalNodes == nil {
 		// Get the list of remote pieces from the pointer
 		originalNodes, err = s.lookupNodes(ctx, seg)
