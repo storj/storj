@@ -103,12 +103,14 @@ require (
 require (
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
+	github.com/google/uuid v1.0.0
 	github.com/hanwen/go-fuse v0.0.0-20181011180456-b760b55765be
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
 	github.com/mitchellh/mapstructure v1.1.1 // indirect
+	github.com/pkg/errors v0.8.0
 
 	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
