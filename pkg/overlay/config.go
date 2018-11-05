@@ -53,6 +53,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("programmer error: kademlia responsibility unstarted")
 	}
 
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return Error.New("invalid API credentials")
+	}
+	statdb, err := sdbclient.NewClient(server.Identity(), c.StatDBPort, apiKey)
+	if err != nil {
+		return err
+	}
+
 	dburl, err := utils.ParseURL(c.DatabaseURL)
 	if err != nil {
 		return Error.Wrap(err)
@@ -61,7 +70,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	var cache *Cache
 	switch dburl.Scheme {
 	case "bolt":
-		cache, err = NewBoltOverlayCache(dburl.Path, kad)
+		cache, err = NewBoltOverlayCache(dburl.Path, kad, statdb)
 		if err != nil {
 			return err
 		}
@@ -71,7 +80,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return Error.New("invalid db: %s", err)
 		}
-		cache, err = NewRedisOverlayCache(dburl.Host, GetUserPassword(dburl), db, kad)
+		cache, err = NewRedisOverlayCache(dburl.Host, GetUserPassword(dburl), db, kad, statdb)
 		if err != nil {
 			return err
 		}
@@ -105,19 +114,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	apiKey, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		return Error.New("invalid API credentials")
-	}
-	statdb, err := sdbclient.NewClient(server.Identity(), c.StatDBPort, apiKey)
-	if err != nil {
-		return err
-	}
-
 	srv := &Server{
 		dht:   kad,
 		cache: cache,
-		sdb: statdb,
+		statdb: statdb,
 		// TODO(jt): do something else
 		logger:  zap.L(),
 		metrics: monkit.Default,

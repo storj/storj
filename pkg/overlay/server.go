@@ -29,7 +29,7 @@ type Server struct {
 	cache   *Cache
 	logger  *zap.Logger
 	metrics *monkit.Registry
-	sdb sdbclient.Client
+	statdb sdbclient.Client
 }
 
 // Lookup finds the address of a node in our overlay network

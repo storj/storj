@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -30,31 +31,38 @@ var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	DB  storage.KeyValueStore
-	DHT dht.DHT
+	DB     storage.KeyValueStore
+	DHT    dht.DHT
+	statdb sdbclient.Client
 }
 
 // NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
-func NewRedisOverlayCache(address, password string, dbindex int, dht dht.DHT) (*Cache, error) {
+func NewRedisOverlayCache(address, password string, dbindex int,
+	dht dht.DHT, statdb sdbclient.Client) (*Cache, error) {
 	db, err := redis.NewClient(address, password, dbindex)
 	if err != nil {
 		return nil, err
 	}
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht, statdb), nil
 }
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
+func NewBoltOverlayCache(dbPath string, dht dht.DHT, statdb sdbclient.Client) (*Cache, error) {
 	db, err := boltdb.New(dbPath, OverlayBucket)
 	if err != nil {
 		return nil, err
 	}
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
+
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht, statdb), nil
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{DB: db, DHT: dht}
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, statdb sdbclient.Client) *Cache {
+	return &Cache{
+		DB:     db,
+		DHT:    dht,
+		statdb: statdb,
+	}
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -105,7 +113,13 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
 func (o *Cache) Put(nodeID string, value pb.Node) error {
-	data, err := proto.Marshal(&value)
+	// TODO(moby) why is there no ctx?
+	n, err := o.getNodeRep(context.Background(), &value)
+	if err != nil {
+		return err
+	}
+
+	data, err := proto.Marshal(n)
 	if err != nil {
 		return err
 	}
@@ -124,12 +138,19 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 			zap.L().Info("Node find failed", zap.String("nodeID", v.Id))
 			continue
 		}
-		n, err := proto.Marshal(&found)
+
+		n, err := o.getNodeRep(ctx, &found)
+		if err != nil {
+			return err
+		}
+
+		data, err := proto.Marshal(n)
 		if err != nil {
 			zap.L().Error("Node marshall failed", zap.String("nodeID", v.Id))
 			continue
 		}
-		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
+
+		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), data); err != nil {
 			zap.L().Error("Node cache put failed", zap.String("nodeID", v.Id))
 			continue
 		}
@@ -138,8 +159,6 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 }
 
 // Refresh updates the cache db with the current DHT.
-// We currently do not penalize nodes that are unresponsive,
-// but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
 	log.Print("starting cache refresh")
 	r, err := randomID()
@@ -152,12 +171,13 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 	for _, n := range near {
-		pinged, err := o.DHT.Ping(ctx, *n)
+		pinged, err := o.pingNode(ctx, n)
 		if err != nil {
 			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
 			continue
 		}
-		data, err := proto.Marshal(&pinged)
+
+		data, err := proto.Marshal(pinged)
 		if err != nil {
 			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
 			continue
@@ -174,12 +194,12 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 	for _, n := range nodes {
-		pinged, err := o.DHT.Ping(ctx, *n)
+		pinged, err := o.pingNode(ctx, n)
 		if err != nil {
 			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
 			continue
 		}
-		data, err := proto.Marshal(&pinged)
+		data, err := proto.Marshal(pinged)
 		if err != nil {
 			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
 			continue
@@ -204,4 +224,43 @@ func randomID() ([]byte, error) {
 	result := make([]byte, 64)
 	_, err := rand.Read(result)
 	return result, err
+}
+
+// getNodeRep gets a node's stats from statdb and returns a node with reputation attached
+func (o *Cache) getNodeRep(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	stats, err := o.statdb.Get(ctx, node.IDFromString(n.Id).Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	n.Reputation.UptimeRatio = stats.UptimeRatio
+	n.Reputation.AuditSuccessRatio = stats.AuditSuccessRatio
+	n.Reputation.AuditCount = stats.AuditCount
+	return n, err
+}
+
+// pingNode pings a node, updates its uptime stats in statdb,
+// and returns the node with reputation attached
+func (o *Cache) pingNode(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	id := node.ID(n.Id)
+
+	pinged, err := o.DHT.Ping(ctx, *n)
+	if err != nil {
+		_, err := o.statdb.UpdateUptime(ctx, id.Bytes(), false)
+		if err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	stats, err := o.statdb.UpdateUptime(ctx, id.Bytes(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	pinged.Reputation.UptimeRatio = stats.UptimeRatio
+	pinged.Reputation.AuditSuccessRatio = stats.AuditSuccessRatio
+	pinged.Reputation.AuditCount = stats.AuditCount
+
+	return &pinged, nil
 }
