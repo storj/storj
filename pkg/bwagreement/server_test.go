@@ -17,10 +17,29 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	dbx "storj.io/storj/pkg/agreementreceiver/dbx"
+	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
+
+var (
+	ctx = context.Background()
+)
+
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = "your-password"
+	dbname   = "pointerdb"
+)
+
+func getPSQLInfo() string {
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+	return psqlInfo
+}
 
 func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
@@ -33,7 +52,6 @@ func TestBandwidthAgreements(t *testing.T) {
 		Signature: signature,
 		Data:      data,
 	}
-	fmt.Println(msg)
 
 	/* emulate sending the bwagreement stream from piecestore node */
 	stream, err := TS.c.BandwidthAgreements(ctx)
@@ -41,21 +59,15 @@ func TestBandwidthAgreements(t *testing.T) {
 	err = stream.Send(msg)
 	assert.NoError(t, err)
 
-	_, closeErr := stream.CloseAndRecv()
-	if closeErr != nil {
-		log.Printf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
-		return
-	}
+	_, _ = stream.CloseAndRecv()
 
 	/* read back from the postgres db in bwagreement table */
 	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-	fmt.Println(retData)
 	assert.EqualValues(t, retData.Data, data)
 	assert.NoError(t, err)
 
 	/* delete the entry what you just wrote */
 	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-	fmt.Println(delBool)
 	assert.True(t, delBool)
 	assert.NoError(t, err)
 }

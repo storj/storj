@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	dbx "storj.io/storj/pkg/agreementreceiver/dbx"
+	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -56,7 +56,6 @@ func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwid
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("created an signature/data entry in the db")
 
 	return bwagreement, nil
 }
@@ -66,13 +65,13 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	s.logger.Debug("Received the bw agreement msg from piecenode ")
 	ch := make(chan *pb.RenterBandwidthAllocation, 1)
 	errch := make(chan error, 1)
 	go func() {
 		for {
 			msg, err := stream.Recv()
 			if err != nil {
+				s.logger.Error("Grpc Receive Error", zap.Error(err))
 				errch <- err
 				return
 			}
@@ -85,13 +84,12 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 		case err := <-errch:
 			return err
 		case <-ctx.Done():
-			s.logger.Debug("ctx<-Done()")
 			return nil
 		case agreement := <-ch:
 			go func() {
-				s.logger.Debug("about to create a postgres entry")
 				_, err = s.Create(ctx, agreement)
 				if err != nil {
+					s.logger.Error("DB entry creation Error", zap.Error(err))
 					errch <- err
 				}
 			}()
