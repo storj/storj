@@ -357,13 +357,13 @@ func ListBenchmark(client Client, bucket string, listsize int, count int, durati
 
 // Config is the setup for a particular client
 type Config struct {
-	Endpoint	string
-	SatelliteAddr	string
-	AccessKey	string
-	SecretKey	string
-	APIKey		string
-	EncryptionKey	string
-	NoSSL		bool
+	Endpoint      string
+	SatelliteAddr string
+	AccessKey     string
+	SecretKey     string
+	APIKey        string
+	EncryptionKey string
+	NoSSL         bool
 }
 
 // Client is the common interface for different implementations
