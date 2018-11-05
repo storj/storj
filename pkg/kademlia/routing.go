@@ -10,14 +10,12 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -47,8 +45,8 @@ type RoutingTable struct {
 func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
-		kadBucketDB:      storelogger.New(zap.L(), kdb),
-		nodeBucketDB:     storelogger.New(zap.L(), ndb),
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
@@ -134,11 +132,11 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 		return []*pb.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 
-	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	if len(sortedIDs) >= limit {
-		sortedIDs = sortedIDs[:limit]
+	sortByXOR(nodeIDs, id.Bytes())
+	if len(nodeIDs) >= limit {
+		nodeIDs = nodeIDs[:limit]
 	}
-	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}
