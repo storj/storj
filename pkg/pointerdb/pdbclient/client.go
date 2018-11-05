@@ -5,17 +5,12 @@ package pdbclient
 
 import (
 	"context"
-	"encoding/base64"
-	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -29,9 +24,9 @@ var (
 
 // PointerDB creates a grpcClient
 type PointerDB struct {
-	grpcClient      pb.PointerDBClient
-	signatureHeader *metadata.MD
-	peer            *peer.Peer
+	grpcClient    pb.PointerDBClient
+	pba           *pb.PayerBandwidthAllocation
+	authorization *pb.SignedMessage
 }
 
 // New Used as a public function
@@ -56,7 +51,10 @@ type Client interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
-	SignedMessage() (*pb.SignedMessage, error)
+	SignedMessage() *pb.SignedMessage
+	PayerBandwidthAllocation() *pb.PayerBandwidthAllocation
+
+	// Disconnect() error // TODO: implement
 }
 
 // NewClient initializes a new pointerdb client
@@ -66,15 +64,13 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 		return nil, err
 	}
 
-	signatureHeader := &metadata.MD{}
-	peer := &peer.Peer{}
-	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey, grpc.Header(signatureHeader), grpc.Peer(peer))
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
 	c, err := clientConnection(address, dialOpt, grpc.WithUnaryInterceptor(apiKeyInjector))
 
 	if err != nil {
 		return nil, err
 	}
-	return &PointerDB{grpcClient: c, signatureHeader: signatureHeader, peer: peer}, nil
+	return &PointerDB{grpcClient: c}, nil
 }
 
 // a compiler trick to make sure *PointerDB implements Client
@@ -110,6 +106,9 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 		}
 		return nil, Error.Wrap(err)
 	}
+
+	pdb.pba = res.GetPba()
+	pdb.authorization = res.GetAuthorization()
 
 	return res.GetPointer(), nil
 }
@@ -153,21 +152,11 @@ func (pdb *PointerDB) Delete(ctx context.Context, path storj.Path) (err error) {
 }
 
 // SignedMessage gets signed message from last request
-func (pdb *PointerDB) SignedMessage() (*pb.SignedMessage, error) {
-	signature := pdb.signatureHeader.Get("signature")
-	if signature == nil {
-		return nil, nil
-	}
+func (pdb *PointerDB) SignedMessage() *pb.SignedMessage {
+	return pdb.authorization
+}
 
-	base64 := base64.StdEncoding
-	decodedSignature, err := base64.DecodeString(strings.Join(signature, ""))
-	if err != nil {
-		return nil, err
-	}
-	identity, err := provider.PeerIdentityFromPeer(pdb.peer)
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewSignedMessage(decodedSignature, identity)
+// PayerBandwidthAllocation gets payer bandwidth allocation message from last get request
+func (pdb *PointerDB) PayerBandwidthAllocation() *pb.PayerBandwidthAllocation {
+	return pdb.pba
 }

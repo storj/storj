@@ -5,6 +5,7 @@ package psdb
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/net/context"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -23,7 +23,7 @@ var ctx = context.Background()
 
 const concurrency = 10
 
-func openTest(t testing.TB) (*DB, func()) {
+func newDB(t testing.TB) (*DB, func()) {
 	tmpdir, err := ioutil.TempDir("", "storj-psdb")
 	if err != nil {
 		t.Fatal(err)
@@ -48,8 +48,18 @@ func openTest(t testing.TB) (*DB, func()) {
 	}
 }
 
+func TestNewInmemory(t *testing.T) {
+	db, err := OpenInMemory(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHappyPath(t *testing.T) {
-	db, cleanup := openTest(t)
+	db, cleanup := newDB(t)
 	defer cleanup()
 
 	type TTL struct {
@@ -126,10 +136,14 @@ func TestHappyPath(t *testing.T) {
 		}
 	})
 
-	bandwidthAllocation := func(total int64) []byte {
+	bandwidthAllocation := func(satelliteID string, total int64) []byte {
 		return serialize(t, &pb.RenterBandwidthAllocation_Data{
-			PayerAllocation: &pb.PayerBandwidthAllocation{},
-			Total:           total,
+			PayerAllocation: &pb.PayerBandwidthAllocation{
+				Data: serialize(t, &pb.PayerBandwidthAllocation_Data{
+					SatelliteId: []byte(satelliteID),
+				}),
+			},
+			Total: total,
 		})
 	}
 
@@ -137,19 +151,19 @@ func TestHappyPath(t *testing.T) {
 	allocationTests := []*pb.RenterBandwidthAllocation{
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(0),
+			Data:      bandwidthAllocation("AB", 0),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(10),
+			Data:      bandwidthAllocation("AB", 10),
 		},
 		{
 			Signature: []byte("signed by sigma"),
-			Data:      bandwidthAllocation(98),
+			Data:      bandwidthAllocation("AB", 98),
 		},
 		{
 			Signature: []byte("signed by test"),
-			Data:      bandwidthAllocation(3),
+			Data:      bandwidthAllocation("AB", 3),
 		},
 	}
 
@@ -183,10 +197,39 @@ func TestHappyPath(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("Get all Bandwidth Allocations", func(t *testing.T) {
+		for P := 0; P < concurrency; P++ {
+			t.Run("#"+strconv.Itoa(P), func(t *testing.T) {
+				t.Parallel()
+
+				agreementGroups, err := db.GetBandwidthAllocations()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				found := false
+				for _, agreements := range agreementGroups {
+					for _, agreement := range agreements {
+						for _, test := range allocationTests {
+							if bytes.Equal(agreement.Agreement, test.Data) {
+								found = true
+								break
+							}
+						}
+					}
+				}
+
+				if !found {
+					t.Fatal("did not find added bandwidth allocation")
+				}
+			})
+		}
+	})
 }
 
 func TestBandwidthUsage(t *testing.T) {
-	db, cleanup := openTest(t)
+	db, cleanup := newDB(t)
 	defer cleanup()
 
 	type BWUSAGE struct {
@@ -250,7 +293,7 @@ func TestBandwidthUsage(t *testing.T) {
 }
 
 func BenchmarkWriteBandwidthAllocation(b *testing.B) {
-	db, cleanup := openTest(b)
+	db, cleanup := newDB(b)
 	defer cleanup()
 
 	const WritesPerLoop = 10

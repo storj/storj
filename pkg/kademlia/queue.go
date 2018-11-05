@@ -6,33 +6,73 @@ package kademlia
 import (
 	"container/heap"
 	"math/big"
+	"sync"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 )
 
-//XorQueue is a priority queue where the priority is key XOR distance
+// XorQueue is a priority queue where the priority is key XOR distance
 type XorQueue struct {
 	maxLen int
-	items  items
+
+	mu    sync.Mutex
+	added map[string]int
+	items items
 }
 
-//NewXorQueue returns a items with priority based on XOR from targetBytes
+// NewXorQueue returns a items with priority based on XOR from targetBytes
 func NewXorQueue(size int) *XorQueue {
-	return &XorQueue{items: make(items, 0, size), maxLen: size}
+	return &XorQueue{
+		items:  make(items, 0, size),
+		added:  make(map[string]int),
+		maxLen: size,
+	}
 }
 
-//Insert adds Node onto the queue
+// Insert adds Nodes onto the queue
 func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	unique := nodes[:0]
+	for _, node := range nodes {
+		nodeID := node.GetId()
+		if _, added := x.added[nodeID]; !added {
+			x.added[nodeID]++
+			unique = append(unique, node)
+		}
+	}
+
+	x.insert(target, unique)
+}
+
+// Reinsert adds a Nodes onto the queue if it's been added >= limit times previously
+func (x *XorQueue) Reinsert(target dht.NodeID, node *pb.Node, limit int) bool {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	nodeID := node.GetId()
+	if x.added[nodeID] >= limit {
+		return false
+	}
+	x.added[nodeID]++
+
+	x.insert(target, []*pb.Node{node})
+	return true
+}
+
+// insert must hold lock while adding
+func (x *XorQueue) insert(target dht.NodeID, nodes []*pb.Node) {
 	targetBytes := new(big.Int).SetBytes(target.Bytes())
-	//insert new nodes
+	// insert new nodes
 	for _, node := range nodes {
 		heap.Push(&x.items, &item{
 			value:    node,
 			priority: new(big.Int).Xor(targetBytes, new(big.Int).SetBytes([]byte(node.GetId()))),
 		})
 	}
-	//resize down if we grew too big
+	// resize down if we grew too big
 	if x.items.Len() > x.maxLen {
 		olditems := x.items
 		x.items = items{}
@@ -44,8 +84,11 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 	}
 }
 
-//Closest removed the closest priority node from the queue
+// Closest removes the closest priority node from the queue
 func (x *XorQueue) Closest() (*pb.Node, big.Int) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
 	if x.Len() == 0 {
 		return nil, big.Int{}
 	}
@@ -53,7 +96,7 @@ func (x *XorQueue) Closest() (*pb.Node, big.Int) {
 	return item.value, *item.priority
 }
 
-//Len returns the number of items in the queue
+// Len returns the number of items in the queue
 func (x *XorQueue) Len() int {
 	return x.items.Len()
 }

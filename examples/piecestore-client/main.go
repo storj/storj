@@ -13,10 +13,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
@@ -28,7 +30,7 @@ var argError = errs.Class("argError")
 func main() {
 	cobra.EnableCommandSorting = false
 
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,7 +51,9 @@ func main() {
 	}
 	defer printError(conn.Close)
 
-	psClient, err := client.NewPSClient(conn, 1024*32, identity.Key.(*ecdsa.PrivateKey))
+	nodeID := node.IDFromString("test-node-id-1234567")
+
+	psClient, err := client.NewPSClient(conn, nodeID, 1024*32, identity.Key.(*ecdsa.PrivateKey))
 	if err != nil {
 		log.Fatalf("could not initialize PSClient: %s", err)
 	}
@@ -91,7 +95,21 @@ func main() {
 
 			id := client.NewPieceID()
 
-			if err := psClient.Put(context.Background(), id, dataSection, ttl, &pb.PayerBandwidthAllocation{}, nil); err != nil {
+			allocationData := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				Action:      pb.PayerBandwidthAllocation_PUT,
+			}
+
+			serializedAllocation, err := proto.Marshal(allocationData)
+			if err != nil {
+				return err
+			}
+
+			pba := &pb.PayerBandwidthAllocation{
+				Data: serializedAllocation,
+			}
+
+			if err := psClient.Put(context.Background(), id, dataSection, ttl, pba, nil); err != nil {
 				fmt.Printf("Failed to Store data of id: %s\n", id)
 				return err
 			}
@@ -140,7 +158,21 @@ func main() {
 				return err
 			}
 
-			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, &pb.PayerBandwidthAllocation{}, nil)
+			allocationData := &pb.PayerBandwidthAllocation_Data{
+				SatelliteId: []byte("OhHeyThisIsAnUnrealFakeSatellite"),
+				Action:      pb.PayerBandwidthAllocation_GET,
+			}
+
+			serializedAllocation, err := proto.Marshal(allocationData)
+			if err != nil {
+				return err
+			}
+
+			pba := &pb.PayerBandwidthAllocation{
+				Data: serializedAllocation,
+			}
+
+			rr, err := psClient.Get(ctx, client.PieceID(id), pieceInfo.Size, pba, nil)
 			if err != nil {
 				fmt.Printf("Failed to retrieve file of id: %s\n", id)
 				errRemove := os.Remove(outputDir)

@@ -93,8 +93,12 @@ func (ctx *Context) Cleanup() {
 
 // deleteTemporary tries to delete temporary directory
 func (ctx *Context) deleteTemporary() {
+	if ctx.directory == "" {
+		return
+	}
 	err := os.RemoveAll(ctx.directory)
 	if err != nil {
 		ctx.test.Fatal(err)
 	}
+	ctx.directory = ""
 }

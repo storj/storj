@@ -195,7 +195,7 @@ TestLoop:
 		r := io.LimitReader(rand.Reader, int64(size))
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
 
-		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil)
+		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
 		if tt.errString != "" {
 			assert.EqualError(t, err, tt.errString, errTag)
@@ -235,7 +235,7 @@ TestLoop:
 		errString string
 	}{
 		{[]*pb.Node{}, 0, []error{}, "ecclient error: " +
-			fmt.Sprintf("number of nodes (0) do not match total count (%v) of erasure scheme", n)},
+			fmt.Sprintf("number of nodes (0) do not match minimum required count (%v) of erasure scheme", k)},
 		{[]*pb.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
@@ -274,7 +274,7 @@ TestLoop:
 			}
 		}
 		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
-		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil)
+		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
 			assert.NoError(t, err, errTag)

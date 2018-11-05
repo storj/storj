@@ -4,4 +4,4 @@
 package statdb
 
 //go:generate dbx.v1 golang -d sqlite3 statdb.dbx .
-//go:generate dbx.v1 schema -d sqlite3 statdb.dbx .
+//go:generate dbx.v1 schema -d postgres statdb.dbx .

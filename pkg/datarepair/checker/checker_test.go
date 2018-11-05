@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +86,8 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	//fill a overlay cache
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
-	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+	interval := time.Second
+	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
 	err := checker.IdentifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
@@ -128,7 +130,8 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 	}
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
-	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+	interval := time.Second
+	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOffline, offline)
@@ -197,7 +200,8 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	limit := 0
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger)
+		interval := time.Second
+		checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
 		err = checker.IdentifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 

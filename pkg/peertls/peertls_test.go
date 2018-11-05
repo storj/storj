@@ -154,15 +154,19 @@ func TestVerifyCAWhitelist(t *testing.T) {
 	lt, err := LeafTemplate()
 	assert.NoError(t, err)
 
-	lp, ok := k.(*ecdsa.PrivateKey)
+	lk, err := NewKey()
+	assert.NoError(t, err)
+
+	lp, ok := lk.(*ecdsa.PrivateKey)
 	assert.True(t, ok)
+
 	l, err := NewCert(lt, ct, &lp.PublicKey, k)
 	assert.NoError(t, err)
 
-	err = VerifyPeerFunc(VerifyCAWhitelist(nil))([][]byte{l.Raw, c.Raw}, nil)
+	err = VerifyPeerFunc(VerifyCAWhitelist(nil, false))([][]byte{l.Raw, c.Raw}, nil)
 	assert.NoError(t, err)
 
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c}))([][]byte{l.Raw, c.Raw}, nil)
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c}, false))([][]byte{l.Raw, c.Raw}, nil)
 	assert.NoError(t, err)
 
 	zk, err := NewKey()
@@ -176,13 +180,48 @@ func TestVerifyCAWhitelist(t *testing.T) {
 	z, err := NewCert(zt, nil, &zp.PublicKey, zk)
 	assert.NoError(t, err)
 
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z}))([][]byte{l.Raw, c.Raw}, nil)
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z}, false))([][]byte{l.Raw, c.Raw}, nil)
 	assert.True(t, ErrVerifyCAWhitelist.Has(err))
 	assert.True(t, ErrVerifySignature.Has(err))
 
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z, c}))([][]byte{l.Raw, c.Raw}, nil)
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z, c}, false))([][]byte{l.Raw, c.Raw}, nil)
 	assert.NoError(t, err)
 
-	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c, z}))([][]byte{l.Raw, c.Raw}, nil)
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c, z}, false))([][]byte{l.Raw, c.Raw}, nil)
+	assert.NoError(t, err)
+
+	xt, err := LeafTemplate()
+	assert.NoError(t, err)
+
+	xk, err := NewKey()
+	assert.NoError(t, err)
+
+	xp, ok := xk.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+
+	x, err := NewCert(xt, zt, &xp.PublicKey, zk)
+	assert.NoError(t, err)
+
+	yt, err := LeafTemplate()
+	assert.NoError(t, err)
+
+	yk, err := NewKey()
+	assert.NoError(t, err)
+
+	yp, ok := yk.(*ecdsa.PrivateKey)
+	assert.True(t, ok)
+	y, err := NewCert(yt, xt, &yp.PublicKey, xk)
+	assert.NoError(t, err)
+
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z, c}, false))([][]byte{z.Raw, x.Raw, y.Raw}, nil)
+	assert.NoError(t, err)
+
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c, z}, false))([][]byte{z.Raw, x.Raw, y.Raw}, nil)
+	assert.NoError(t, err)
+
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{z, c}, true))([][]byte{z.Raw, x.Raw, y.Raw}, nil)
+	assert.NoError(t, err)
+
+	err = VerifyPeerFunc(VerifyCAWhitelist([]*x509.Certificate{c, z}, true))([][]byte{z.Raw, x.Raw, y.Raw}, nil)
 	assert.NoError(t, err)
 }

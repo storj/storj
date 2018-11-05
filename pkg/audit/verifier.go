@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -17,7 +18,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/rpc/client"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/pkg/statdb/proto"
+	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
@@ -57,13 +58,13 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
-func (d *defaultDownloader) dial(ctx context.Context, node *pb.Node) (ps client.PSClient, err error) {
+func (d *defaultDownloader) dial(ctx context.Context, storageNode *pb.Node) (ps client.PSClient, err error) {
 	defer mon.Task()(&ctx)(&err)
-	c, err := d.transport.DialNode(ctx, node)
+	c, err := d.transport.DialNode(ctx, storageNode)
 	if err != nil {
 		return nil, err
 	}
-	return client.NewPSClient(c, 0, d.identity.Key)
+	return client.NewPSClient(c, node.IDFromString(storageNode.GetId()), 0, d.identity.Key)
 }
 
 // getShare use piece store clients to download shares from a given node
@@ -81,7 +82,20 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, &pb.PayerBandwidthAllocation{}, authorization)
+	allocationData := &pb.PayerBandwidthAllocation_Data{
+		Action: pb.PayerBandwidthAllocation_GET,
+	}
+
+	serializedAllocation, err := proto.Marshal(allocationData)
+	if err != nil {
+		return s, err
+	}
+
+	pba := &pb.PayerBandwidthAllocation{
+		Data: serializedAllocation,
+	}
+
+	rr, err := ps.Get(ctx, derivedPieceID, pieceSize, pba, authorization)
 	if err != nil {
 		return s, err
 	}
@@ -194,7 +208,7 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []*proto.Node, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []*sdbproto.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex, authorization)
@@ -246,7 +260,7 @@ func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offline
 }
 
 // setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
-func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*proto.Node) {
+func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*sdbproto.Node) {
 	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
 	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
 	successStatusNodes := setSuccessStatus(ctx, successNodes)

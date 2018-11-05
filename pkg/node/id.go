@@ -14,7 +14,10 @@ type ID string
 
 // NewFullIdentity creates a new ID for nodes with difficulty and concurrency params
 func NewFullIdentity(ctx context.Context, difficulty uint16, concurrency uint) (*provider.FullIdentity, error) {
-	ca, err := provider.NewCA(ctx, difficulty, concurrency)
+	ca, err := provider.NewCA(ctx, provider.NewCAOptions{
+		Difficulty:  difficulty,
+		Concurrency: concurrency,
+	})
 	if err != nil {
 		return nil, err
 	}

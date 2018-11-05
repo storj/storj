@@ -59,7 +59,7 @@ func TestLookup(t *testing.T) {
 		mdht.EXPECT().GetRoutingTable(gomock.Any()).Return(mrt, nil)
 		mrt.EXPECT().ConnectionSuccess(gomock.Any()).Return(nil)
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -103,7 +103,6 @@ func TestPing(t *testing.T) {
 		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
 		assert.NoError(t, err)
 		// start gRPC server
-
 		ctx.Go(func() error { return msrv.Serve(lis) })
 		defer msrv.Stop()
 
@@ -132,11 +131,17 @@ func newTestServer(ctx context.Context, ns pb.NodesServer, identity *provider.Fu
 
 type mockNodeServer struct {
 	queryCalled int
+	pingCalled  int
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	mn.queryCalled++
 	return &pb.QueryResponse{}, nil
+}
+
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	mn.pingCalled++
+	return &pb.PingResponse{}, nil
 }
 
 // NewNodeID returns the string representation of a dht node ID
@@ -149,7 +154,7 @@ func NewNodeID(t *testing.T) string {
 }
 
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)

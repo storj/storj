@@ -20,6 +20,7 @@ type Service struct {
 	Cursor   *Cursor
 	Verifier *Verifier
 	Reporter reporter
+	ticker   *time.Ticker
 }
 
 // Config contains configurable values for audit service
@@ -32,16 +33,15 @@ type Config struct {
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	identity := server.Identity()
-	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
+	service, err := NewService(ctx, c.StatDBPort, c.Interval, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
 	if err != nil {
 		return err
 	}
-	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
-	if err != nil {
-		return err
-	}
-	transport := transport.NewClient(identity)
+	return service.Run(ctx)
+}
+
+// NewService instantiates a Service with access to a Cursor and Verifier
+func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
 	cursor := NewCursor(pointers)
 
 	verifier := NewVerifier(transport, overlay, *identity)
@@ -50,61 +50,53 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 
-	service := NewService(cursor, verifier, reporter)
-
-	go func() {
-		err := service.Run(ctx, c.Interval)
-		zap.S().Errorf("audit service failed to run: %s", err)
-	}()
-
-	return server.Run(ctx)
-}
-
-// NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(cursor *Cursor, verifier *Verifier, reporter *Reporter) (service *Service) {
 	return &Service{
 		Cursor:   cursor,
 		Verifier: verifier,
 		Reporter: reporter,
-	}
+		ticker:   time.NewTicker(interval),
+	}, nil
 }
 
-// Run calls Cursor and Verifier to continuously request random pointers, then verify data correctness at
-// a random stripe within a segment
-func (service *Service) Run(ctx context.Context, interval time.Duration) (err error) {
+// Run runs auditing service
+func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	zap.S().Info("Audit cron is starting up")
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	for {
-		select {
-		case <-ticker.C:
-			stripe, err := service.Cursor.NextStripe(ctx)
-			if err != nil {
-				zap.S().Errorf("failed to get stripe: %s", err)
-				continue
-			}
-			if stripe == nil {
-				continue
-			}
+		err := service.process(ctx)
+		if err != nil {
+			zap.L().Error("process", zap.Error(err))
+		}
 
-			verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, stripe.Authorization)
-			if err != nil {
-				zap.S().Errorf("failed to verify stripe: %s", err)
-				continue
-			}
-			err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-			if err != nil {
-				zap.S().Errorf("failed to record audit results: %s", err)
-				continue
-			}
+		select {
+		case <-service.ticker.C:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
+}
+
+// process picks a random stripe and verifies correctness
+func (service *Service) process(ctx context.Context) error {
+	stripe, err := service.Cursor.NextStripe(ctx)
+	if err != nil {
+		return err
+  }
+	if stripe == nil {
+    return Error.New("stripe was nil")
+	}
+
+	authorization := service.Cursor.pointers.SignedMessage()
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	if err != nil {
+		return err
+	}
+
+	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
