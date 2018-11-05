@@ -79,11 +79,22 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 			return nil, Error.Wrap(err)
 		}
 
-		if len(nodes) <= 0 {
+		resultNodes := []*pb.Node{}
+		usedAddrs := make(map[string]bool)
+		for _, n := range nodes {
+			addr := n.Address.GetAddress()
+			excluded = append(excluded, n.Id) // exclude all nodes on next iteration
+			if !usedAddrs[addr] {
+				resultNodes = append(resultNodes, n)
+				usedAddrs[addr] = true
+			}
+		}
+
+		if len(resultNodes) <= 0 {
 			break
 		}
 
-		result = append(result, nodes...)
+		result = append(result, resultNodes...)
 
 		if len(result) >= int(maxNodes) || start == nil {
 			break
