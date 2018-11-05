@@ -132,10 +132,12 @@ func (object *mutableObject) Info(ctx context.Context) (storj.Object, error) {
 }
 
 func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
+	// TODO: check that we haven't uploaded anything
 	return &mutableStream{object}, nil
 }
 
 func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableStream, error) {
+	// TODO: check that we have an existing stream
 	return &mutableStream{object}, nil
 }
 
@@ -144,9 +146,8 @@ func (object *mutableObject) DeleteStream(ctx context.Context) error {
 }
 
 func (object *mutableObject) Commit(ctx context.Context) error {
-	// TODO: this should happen atomically on the server
-
-	_, finalInfo, err := object.db.getStreamInfo(ctx, locationPending, object.bucket, object.path)
+	// TODO: this should happen atomically on the pointer server
+	_, finalInfo, err := object.db.getInfo(ctx, locationPending, object.bucket, object.path)
 	if err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func (object *mutableObject) Commit(ctx context.Context) error {
 		return err
 	}
 
-	err = object.db.setStreamInfo(ctx, locationCommitted, object.bucket, object.path, finalInfo)
+	err = object.db.setInfo(ctx, locationCommitted, object.bucket, object.path, finalInfo)
 	return err
 }
 
@@ -239,10 +240,10 @@ func (stream *mutableStream) Segments(ctx context.Context, index int64, limit in
 	return infos, more, nil
 }
 
-func (object *mutableObject) AddSegments(ctx context.Context, segments ...storj.Segment) error {
+func (object *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) error {
 	return nil
 }
 
-func (object *mutableObject) UpdateSegments(ctx context.Context, segments ...storj.Segment) error {
+func (object *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) error {
 	return nil
 }

@@ -243,11 +243,60 @@ func (db *Objects) deleteStreamInfo(ctx context.Context, location string, bucket
 func (db *Objects) setInfo(ctx context.Context, location string, bucket string, path storj.Path, obj storj.Object) error {
 	fullpath := bucket + "/" + path
 
+	derivedKey, err := encryption.DeriveContentKey(fullpath, db.rootKey)
+	if err != nil {
+		return err
+	}
+
 	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
 	if err != nil {
 		return err
 	}
 
+	streamInfoData, err := proto.Marshal(&pb.StreamInfo{
+		NumberOfSegments: obj.Stream.SegmentCount - 1,
+		SegmentsSize:     obj.Stream.FixedSegmentSize,
+		LastSegmentSize:  -1,  // TODO: add to stream for now
+		Metadata:         nil, // TODO
+	})
+
+	encryptedInfo, err := encryption.Encrypt(streamInfoData, obj.Stream.EncryptionScheme.Cipher)
+	/*
+		return storj.Object{
+			Version:  0, // TODO: add to info
+			Bucket:   bucket,
+			Path:     path,
+			IsPrefix: false,
+
+			Metadata: nil, // TODO:
+
+			// ContentType: object.ContentType,
+			Created:  lastSegment.Modified,   // TODO: use correct field
+			Modified: lastSegment.Modified,   // TODO: use correct field
+			Expires:  lastSegment.Expiration, // TODO: use correct field
+
+			Stream: storj.Stream{
+				Size: stream.SegmentsSize*(stream.NumberOfSegments-1) + stream.LastSegmentSize,
+				// Checksum: []byte(object.Checksum),
+
+				SegmentCount:     stream.NumberOfSegments + 1,
+				FixedSegmentSize: stream.SegmentsSize,
+
+				RedundancyScheme: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      0, // TODO:
+					RequiredShares: 0, // TODO:
+					RepairShares:   0, // TODO:
+					OptimalShares:  0, // TODO:
+					TotalShares:    0, // TODO:
+				},
+				EncryptionScheme: storj.EncryptionScheme{
+					Cipher:    storj.Cipher(streamMeta.EncryptionType),
+					BlockSize: int32(streamMeta.EncryptionBlockSize),
+				},
+			},
+		}
+	*/
 	_, lastSegmentMeta, err := db.segments.Get(ctx, location+encryptedPath)
 	if err != nil {
 		return err
