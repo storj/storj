@@ -93,10 +93,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	authorization, err := cursor.pointers.SignedMessage()
-	if err != nil {
-		return nil, err
-	}
+	authorization := cursor.pointers.SignedMessage()
 
 	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
 }

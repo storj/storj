@@ -33,7 +33,17 @@ type Config struct {
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	service, err := NewService(ctx, c.StatDBPort, c.Interval, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
+	identity := server.Identity()
+	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
+	if err != nil {
+		return err
+	}
+	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
+	if err != nil {
+		return err
+	}
+	transport := transport.NewClient(identity)
+	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity)
 	if err != nil {
 		return err
 	}
@@ -42,12 +52,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+	identity provider.FullIdentity) (service *Service, err error) {
 	cursor := NewCursor(pointers)
-
-	verifier := NewVerifier(transport, overlay, *identity)
-	reporter, err := NewReporter(ctx, c.SatelliteAddr, c.MaxRetriesStatDB, []byte(c.APIKey), identity)
+	verifier := NewVerifier(transport, overlay, identity)
+	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	return &Service{
@@ -82,9 +92,9 @@ func (service *Service) process(ctx context.Context) error {
 	stripe, err := service.Cursor.NextStripe(ctx)
 	if err != nil {
 		return err
-  }
+	}
 	if stripe == nil {
-    return Error.New("stripe was nil")
+		return Error.New("stripe was nil")
 	}
 
 	authorization := service.Cursor.pointers.SignedMessage()

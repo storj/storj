@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/provider"
 	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
