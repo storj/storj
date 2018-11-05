@@ -81,9 +81,9 @@ message OverlayOptions {
 
 // NodeRep is the reputation characteristics of a node
 message NodeRep {
-    double minUptime = 1;
-    double minAuditSuccess = 2;
-    int64 minAuditCount = 3;
+    double uptimeRatio = 1;
+    double auditSuccessRatio = 2;
+    int64 auditCount = 3;
 }
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
@@ -98,6 +98,7 @@ message Node {
     NodeAddress address = 2;
     NodeType type = 3;
     NodeRestrictions restrictions = 4;
+    NodeRep reputation = 5;
 }
 
 // NodeType is an enum of possible node types

@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
@@ -69,17 +68,13 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 	restrictions := opts.GetRestrictions()
 	restrictedBandwidth := restrictions.GetFreeBandwidth()
 	restrictedSpace := restrictions.GetFreeDisk()
-	reputation := opts.GetMinReputation()
-	minUptime := reputation.GetMinUptime()
-	minAuditSuccess := reputation.GetMinAuditSuccess()
-	minAuditCount := reputation.GetMinAuditCount()
+	minRep := opts.GetMinReputation()
 
 	var start storage.Key
-	nodeMap := map[string]*pb.Node{}
-	resultIds := [][]byte{}
+	result := []*pb.Node{}
 	for {
 		var nodes []*pb.Node
-		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, excluded)
+		nodes, start, err = o.populate(ctx, req.GetStart(), maxNodes, restrictedBandwidth, restrictedSpace, minRep, excluded)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -88,48 +83,24 @@ func (o *Server) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesR
 			break
 		}
 
-		ids := [][]byte{}
-		usedAddrs := make(map[string]bool)
-		for _, n := range nodes {
-			id := node.ID(n.Id)
-			addr := n.Address.GetAddress()
-			excluded = append(excluded, id.String()) // exclude all nodes on next iteration
+		result = append(result, nodes...)
 
-			if !usedAddrs[addr] {
-				ids = append(ids, id.Bytes())
-				nodeMap[id.String()] = n
-				usedAddrs[addr] = true
-			}
-		}
-
-		goodNodes, err := o.sdb.FindValidNodes(ctx, ids, minAuditCount, minAuditSuccess, minUptime)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		resultIds = append(resultIds, goodNodes...)
-
-		if len(resultIds) >= int(maxNodes) || start == nil {
+		if len(result) >= int(maxNodes) || start == nil {
 			break
 		}
+
 	}
 
-	resultNodes := []*pb.Node{}
-	for _, id := range resultIds {
-		nid := node.ID(id)
-		resultNodes = append(resultNodes, nodeMap[nid.String()])
+	if len(result) < int(maxNodes) {
+		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(result)))
 	}
 
-	if len(resultNodes) < int(maxNodes) {
-		return nil, status.Errorf(codes.ResourceExhausted, fmt.Sprintf("requested %d nodes, only %d nodes matched the criteria requested", maxNodes, len(resultNodes)))
-	}
-
-	if len(resultNodes) > int(maxNodes) {
-		resultNodes = resultNodes[:maxNodes]
+	if len(result) > int(maxNodes) {
+		result = result[:maxNodes]
 	}
 
 	return &pb.FindStorageNodesResponse{
-		Nodes: resultNodes,
+		Nodes: result,
 	}, nil
 }
 
@@ -153,7 +124,9 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, restrictedBandwidth, restrictedSpace int64, excluded []string) ([]*pb.Node, storage.Key, error) {
+func (o *Server) populate(ctx context.Context, starting storage.Key, 
+	maxNodes, restrictedBandwidth, restrictedSpace int64, 
+	minReputation *pb.NodeRep, excluded []string) ([]*pb.Node, storage.Key, error) {
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(starting, limit)
 	if err != nil {
@@ -175,9 +148,13 @@ func (o *Server) populate(ctx context.Context, starting storage.Key, maxNodes, r
 
 	for _, v := range nodes {
 		rest := v.GetRestrictions()
+		rep := v.GetReputation()
 
 		if rest.GetFreeBandwidth() < restrictedBandwidth ||
 			rest.GetFreeDisk() < restrictedSpace ||
+			rep.GetUptimeRatio() < minReputation.GetUptimeRatio() ||
+			rep.GetAuditSuccessRatio() < minReputation.GetAuditSuccessRatio() ||
+			rep.GetAuditCount() < minReputation.GetAuditCount() ||
 			contains(excluded, v.Id) {
 			continue
 		}
