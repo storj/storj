@@ -242,14 +242,14 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 		pointerType             pb.Pointer_DataType
 		size                    int64
 		metadata                []byte
-		lostPieces              []int
+		lostPieces              []int32
 		newNodes                []*pb.Node
 		data                    string
 		strsize, offset, length int64
 		substr                  string
 		meta                    Meta
 	}{
-		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata"), []int{}, []*pb.Node{{Id: "1"}, {Id: "2"}}, "abcdefghijkl", 12, 1, 4, "bcde", Meta{}},
+		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata"), []int32{}, []*pb.Node{{Id: "1"}, {Id: "2"}}, "abcdefghijkl", 12, 1, 4, "bcde", Meta{}},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)

@@ -50,7 +50,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Repair(ctx context.Context, path storj.Path, lostPieces []int) (err error)
+	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -280,7 +280,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces []int) (err error) {
+func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	//Read the segment's pointer's info from the PointerDB
@@ -316,7 +316,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 		//remove all lost pieces from the list to have only healthy pieces
 		for i := range lostPieces {
-			if j == lostPieces[i] {
+			if j == int(lostPieces[i]) {
 				totalNilNodes++
 			}
 		}
