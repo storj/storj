@@ -27,14 +27,7 @@ type Config struct {
 	QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
-	storeConfig
-}
-
-type storeConfig struct {
-	OverlayAddr   string `help:"the database connection string to use" default:"127.0.0.1:7778"`
-	PointerDBAddr string `help:"the database connection string to use" default:"127.0.0.1:7778"`
-	APIKey        string `default:"abc123" help:"the api key to use for the satellite"`
-	MaxInlineSize int    `help:"max inline segment size in bytes" default:"4096"`
+	miniogw.ClientConfig
 	miniogw.RSConfig
 }
 

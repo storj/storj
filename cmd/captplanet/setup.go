@@ -132,9 +132,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	startingPort := setupCfg.StartingPort
 
 	overrides := map[string]interface{}{
-		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
-		"satellite.identity.cert-path":     setupCfg.HCIdentity.CertPath,
-		"satellite.identity.key-path":      setupCfg.HCIdentity.KeyPath,
+		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
+		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
 		"satellite.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.todo-listen-addr": joinHostPort(
@@ -145,8 +144,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "satellite", "overlay.db"),
-		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
-		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
+		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
+		"satellite.repairer.overlay-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"satellite.repairer.pointer-db-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"satellite.repairer.api-key": setupCfg.APIKey,
+		"uplink.cert-path":           setupCfg.ULIdentity.CertPath,
+		"uplink.key-path":            setupCfg.ULIdentity.KeyPath,
 		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
 		"uplink.overlay-addr": joinHostPort(
