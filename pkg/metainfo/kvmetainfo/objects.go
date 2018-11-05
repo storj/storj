@@ -29,7 +29,6 @@ type Objects struct {
 
 const (
 	locationCommitted = "l/"
-	locationPending   = "m/"
 )
 
 // NewObjects creates Objects
@@ -51,6 +50,9 @@ func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path
 // GetObjectStream returns interface for reading the object stream
 func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
 	meta, info, err := db.getInfo(ctx, locationCommitted, bucket, path)
+	if err != nil {
+		return nil, err
+	}
 
 	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
 	if err != nil {
@@ -227,7 +229,7 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 			},
 			EncryptionScheme: storj.EncryptionScheme{
 				Cipher:    storj.Cipher(streamMeta.EncryptionType),
-				BlockSize: int32(streamMeta.EncryptionBlockSize),
+				BlockSize: streamMeta.EncryptionBlockSize,
 			},
 			LastSegment: storj.LastSegment{
 				Size:              stream.LastSegmentSize,

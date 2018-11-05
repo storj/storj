@@ -10,7 +10,7 @@ import (
 
 // Metainfo represents a database for storing meta-info about objects
 type Metainfo interface {
-	// MetainfoLimits returns limits for this metainfo database
+	// Limits returns limits for this metainfo database
 	Limits() (MetainfoLimits, error)
 
 	// CreateBucket creates a new bucket with the specified information

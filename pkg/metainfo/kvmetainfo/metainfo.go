@@ -33,6 +33,7 @@ func New(client psclient.Client, rootKey *storj.Key) *DB {
 }
 */
 
+// Limits returns limits for this metainfo database
 func (db *DB) Limits() (storj.MetainfoLimits, error) {
 	return storj.MetainfoLimits{
 		ListLimit:                storage.LookupLimit,
