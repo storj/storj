@@ -65,8 +65,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
-	pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 

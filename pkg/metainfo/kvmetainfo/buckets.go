@@ -6,13 +6,9 @@ package kvmetainfo
 import (
 	"context"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
 )
-
-var errClass = errs.Class("kvmetainfo")
 
 // Buckets implements storj.Metainfo bucket handling
 type Buckets struct {
