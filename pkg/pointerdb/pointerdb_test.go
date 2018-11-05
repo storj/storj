@@ -90,9 +90,6 @@ func TestServiceGet(t *testing.T) {
 		ctx = auth.WithAPIKey(ctx, tt.apiKey)
 		ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: info})
 
-		// TODO(michal) workaround avoid problems with lack of grpc context
-		identity.ID = ""
-
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
@@ -119,6 +116,9 @@ func TestServiceGet(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.NoError(t, err, errTag)
 			assert.True(t, proto.Equal(pr, resp.Pointer), errTag)
+
+			assert.NotNil(t, resp.GetAuthorization())
+			assert.NotNil(t, resp.GetPba())
 		}
 	}
 }

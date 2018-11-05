@@ -88,11 +88,7 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 
-	authorization, err := service.Cursor.pointers.SignedMessage()
-	if err != nil {
-		return err
-	}
-
+	authorization := service.Cursor.pointers.SignedMessage()
 	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
 	if err != nil {
 		return err
