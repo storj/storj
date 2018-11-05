@@ -5,7 +5,6 @@ package repairer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/vivint/infectious"
