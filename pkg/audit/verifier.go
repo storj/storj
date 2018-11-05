@@ -145,11 +145,11 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node, authorization)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, authorization)
 		if err != nil {
 			s = share{
 				Error:       err,
-				PieceNumber: i,
+				PieceNumber: int(pieces[i].PieceNum),
 				Data:        nil,
 			}
 		}
