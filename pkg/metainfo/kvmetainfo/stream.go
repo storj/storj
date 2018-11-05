@@ -116,6 +116,9 @@ type mutableObject struct {
 
 	addedSegments map[int64]storj.Segment // TODO: this should be based on remote key value store
 	streamKey     *storj.Key              // lazySegmentReader derivedKey
+
+	lastSegment     pb.StreamMeta
+	lastSegmentSize int64
 }
 
 func newMutableObject() *mutableObject {
@@ -124,7 +127,7 @@ func newMutableObject() *mutableObject {
 	}
 }
 
-func (object *mutableObject) Info() (storj.Object, error) {
+func (object *mutableObject) Info(ctx context.Context) (storj.Object, error) {
 	return object.info, nil
 }
 
@@ -136,8 +139,8 @@ func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableS
 	return &mutableStream{object}, nil
 }
 
-func (object *mutableObject) DeleteStream(ctx context.Context) (storj.MutableStream, error) {
-	return nil, errors.New("unimplemented")
+func (object *mutableObject) DeleteStream(ctx context.Context) error {
+	return errors.New("unimplemented")
 }
 
 func (object *mutableObject) Commit(ctx context.Context) error {

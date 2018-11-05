@@ -7,10 +7,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/objects"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -27,15 +23,15 @@ type DB struct {
 	*Objects
 }
 
-// TODO: ensure this only needs pointerdb for implementation
-
+/*
 // New creates a new metainfo database
-func New(buckets buckets.Store, objects objects.Store, streams streams.Store, segments segments.Store) *DB {
+func New(client psclient.Client, rootKey *storj.Key) *DB {
 	return &DB{
-		Buckets: NewBuckets(buckets),
-		Objects: NewObjects(objects, streams, segments),
+		// Buckets: NewBuckets(buckets),
+		// Objects: NewObjects(objects, streams, segments),
 	}
 }
+*/
 
 func (db *DB) Limits() (storj.MetainfoLimits, error) {
 	return storj.MetainfoLimits{

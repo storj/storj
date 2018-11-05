@@ -30,9 +30,10 @@ type Metainfo interface {
 
 	// CreateObject creates an uploading object and returns an interface for uploading Object information
 	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
+	// ContinueObject creates an interface for updating a pending object
+	ContinueObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// ModifyObject creates an interface for modifying an existing object
-	// ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
-
+	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
 
