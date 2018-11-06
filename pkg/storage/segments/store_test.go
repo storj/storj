@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/pkg/eestream"
 	mock_eestream "storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
@@ -72,7 +71,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		calls := []*gomock.Call{
 			mockPDB.EXPECT().Get(
 				gomock.Any(), gomock.Any(),
-			).Return(tt.returnPointer, nil),
+			).Return(tt.returnPointer, nil, nil),
 		}
 		gomock.InOrder(calls...)
 
@@ -219,7 +218,7 @@ func TestSegmentStoreGetInline(t *testing.T) {
 				ExpirationDate: someTime,
 				Size:           tt.size,
 				Metadata:       tt.metadata,
-			}, nil),
+			}, nil, nil),
 		}
 		gomock.InOrder(calls...)
 
@@ -282,7 +281,7 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 				ExpirationDate: someTime,
 				Size:           tt.size,
 				Metadata:       tt.metadata,
-			}, nil),
+			}, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockOC.EXPECT().Choose(gomock.Any(), gomock.Any()).Return(tt.newNodes, nil),
 			mockPDB.EXPECT().SignedMessage(),
@@ -355,7 +354,7 @@ func TestSegmentStoreGetRemote(t *testing.T) {
 				ExpirationDate: someTime,
 				Size:           tt.size,
 				Metadata:       tt.metadata,
-			}, nil),
+			}, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockPDB.EXPECT().SignedMessage(),
 			mockPDB.EXPECT().PayerBandwidthAllocation(),
@@ -409,7 +408,7 @@ func TestSegmentStoreDeleteInline(t *testing.T) {
 				ExpirationDate: someTime,
 				Size:           tt.size,
 				Metadata:       tt.metadata,
-			}, nil),
+			}, nil, nil),
 			mockPDB.EXPECT().Delete(
 				gomock.Any(), gomock.Any(),
 			),
@@ -469,7 +468,7 @@ func TestSegmentStoreDeleteRemote(t *testing.T) {
 				ExpirationDate: someTime,
 				Size:           tt.size,
 				Metadata:       tt.metadata,
-			}, nil),
+			}, nil, nil),
 			mockOC.EXPECT().BulkLookup(gomock.Any(), gomock.Any()),
 			mockPDB.EXPECT().SignedMessage(),
 			mockEC.EXPECT().Delete(

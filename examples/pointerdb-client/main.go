@@ -83,7 +83,7 @@ func main() {
 	}
 
 	// Example Get
-	getRes, err := client.Get(ctx, path)
+	getRes, _, err := client.Get(ctx, path)
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
