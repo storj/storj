@@ -26,16 +26,8 @@ import (
 )
 
 func TestFindStorageNodes(t *testing.T) {
-	lisOverlay, err := net.Listen("tcp", "127.0.0.1:0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	sdbPort := ":7777"
-	lisStatdb, err := net.Listen("tcp", "127.0.0.1"+sdbPort)
-	assert.NoError(t, err)
-
-	statSrv, _, db, err := getStatdbServer()
-	assert.NoError(t, err)
-	go func() { assert.NoError(t, statSrv.Serve(lisStatdb)) }()
-	defer statSrv.Stop()
 
 	minRep := &pb.NodeRep{
 		UptimeRatio: 0.95,
@@ -65,13 +57,20 @@ func TestFindStorageNodes(t *testing.T) {
 	} {
 		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
+
+		nodeRes := &pb.NodeRestrictions{
+			FreeDisk: tt.freeDisk,
+		}
+		nodeRep := &pb.NodeRep{
+			AuditSuccessRatio: tt.auditRatio,
+			UptimeRatio: tt.uptimeRatio,
+			AuditCount: tt.totalAuditCount,
+		}
+		
 		mockServerNodeList = append(mockServerNodeList, storage.ListItem{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, tt.addr), // TODO(moby) add bandwidth/disk
+			Value: newNodeStorageValue(t, tt.addr, nodeRes, nodeRep),
 		})
-
-		err = createSdbNode(db, fid.ID.Bytes(), tt.totalAuditCount, tt.auditRatio, tt.uptimeRatio)
-		assert.NoError(t, err)
 
 		if tt.freeDisk >= restrictions.FreeDisk &&
 			tt.totalAuditCount >= minRep.AuditCount &&
@@ -81,16 +80,14 @@ func TestFindStorageNodes(t *testing.T) {
 		}
 	}
 
-	sdbclient, err := getStatdbClient(sdbPort)
-	assert.NoError(t, err)
 
-	srv := NewMockServer(mockServerNodeList, sdbclient)
+	srv := NewMockServer(mockServerNodeList, nil)
 	assert.NotNil(t, srv)
 
-	go func() { assert.NoError(t, srv.Serve(lisOverlay)) }()
+	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
-	address := lisOverlay.Addr().String()
+	address := lis.Addr().String()
 	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
@@ -103,6 +100,7 @@ func TestFindStorageNodes(t *testing.T) {
 			},
 		},
 	)
+	
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	assert.Len(t, r.Nodes, 2)
@@ -129,7 +127,7 @@ func TestOverlayLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090", nil, nil),
 		},
 	}, nil)
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -156,7 +154,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
+			Value: newNodeStorageValue(t, "127.0.0.1:9090", nil, nil),
 		},
 	}, nil)
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -175,8 +173,16 @@ func TestOverlayBulkLookup(t *testing.T) {
 }
 
 // newNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
-func newNodeStorageValue(t *testing.T, address string) storage.Value {
-	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
+func newNodeStorageValue(t *testing.T, address string, restrictions *pb.NodeRestrictions, reputation *pb.NodeRep) storage.Value {
+	na := &pb.Node{
+		Id: "", 
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC, 
+			Address: address,
+		},
+		Reputation: reputation,
+		Restrictions: restrictions,
+	}
 	d, err := proto.Marshal(na)
 	assert.NoError(t, err)
 	return d
