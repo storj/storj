@@ -197,11 +197,11 @@ func (s *Server) Stop(ctx context.Context) (err error) {
 
 // Piece -- Send meta data about a stored by by Id
 func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, error) {
-	log.Printf("Getting Meta for %s...", in.GetId())
+	zap.S().Infof("Getting Meta for %s...", in.GetId())
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
@@ -220,7 +220,7 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 	}
 
 	if !match {
-		return nil, ServerError.New("Invalid ID")
+		return nil, ServerError.New("invalid ID")
 	}
 
 	fileInfo, err := os.Stat(path)
@@ -234,13 +234,13 @@ func (s *Server) Piece(ctx context.Context, in *pb.PieceId) (*pb.PieceSummary, e
 		return nil, err
 	}
 
-	log.Printf("Successfully retrieved meta for %s.", in.GetId())
+	zap.S().Infof("Successfully retrieved meta for %s.", in.GetId())
 	return &pb.PieceSummary{Id: in.GetId(), Size: fileInfo.Size(), ExpirationUnixSec: ttl}, nil
 }
 
 // Stats will return statistics about the Server
 func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, error) {
-	log.Printf("Getting Stats...\n")
+	zap.S().Infof("Getting Stats...\n")
 
 	totalUsed, err := s.DB.SumTTLSizes()
 	if err != nil {
@@ -257,11 +257,11 @@ func (s *Server) Stats(ctx context.Context, in *pb.StatsReq) (*pb.StatSummary, e
 
 // Delete -- Delete data by Id from piecestore
 func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDeleteSummary, error) {
-	log.Printf("Deleting %s...", in.GetId())
+	zap.S().Infof("Deleting %s...", in.GetId())
 
 	authorization := in.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
-		return nil, err
+		return nil, ServerError.Wrap(err)
 	}
 
 	id, err := getNamespacedPieceID([]byte(in.GetId()), getNamespace(authorization))
@@ -272,7 +272,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.PieceDelete) (*pb.PieceDelet
 		return nil, err
 	}
 
-	log.Printf("Successfully deleted %s.", in.GetId())
+	zap.S().Infof("Successfully deleted %s.", in.GetId())
 	return &pb.PieceDeleteSummary{Message: OK}, nil
 }
 
@@ -285,7 +285,7 @@ func (s *Server) deleteByID(id string) error {
 		return err
 	}
 
-	log.Printf("Deleted data of id (%s) from piecestore\n", id)
+	zap.S().Infof("Deleted data of id (%s)\n", id)
 
 	return nil
 }
@@ -303,7 +303,7 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	}
 
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
-		return ServerError.New("Failed to verify Signature")
+		return ServerError.New("failed to verify Signature")
 	}
 	return nil
 }

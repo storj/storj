@@ -5,9 +5,9 @@ package psclient
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -65,7 +65,7 @@ func (s *StreamWriter) Close() error {
 		return err
 	}
 
-	log.Printf("Route summary: %v", reply)
+	zap.S().Infof("Stream close and recv summary: %v", reply)
 
 	return nil
 }
