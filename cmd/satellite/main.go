@@ -4,18 +4,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"text/tabwriter"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	// "storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -36,6 +43,11 @@ var (
 		Use:   "setup",
 		Short: "Create config files",
 		RunE:  cmdSetup,
+	}
+	diagCmd = &cobra.Command{
+		Use:   "diag",
+		Short: "Diagnostic Tool support",
+		RunE:  cmdDiag,
 	}
 
 	runCfg struct {
@@ -58,15 +70,21 @@ var (
 		Identity  provider.IdentitySetupConfig
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
+	diagCfg struct {
+		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+	}
 
 	defaultConfDir = "$HOME/.storj/satellite"
+	defaultDiagDir = "postgres://postgres@localhost/pointerdb?sslmode=disable"
 )
 
 func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -128,6 +146,88 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), o)
+}
+
+func cmdDiag(cmd *cobra.Command, args []string) (err error) {
+	// open the psql db
+	dbpath := diagCfg.BasePath
+	s, err := bwagreement.NewServer("postgres", dbpath, zap.NewNop())
+	if err != nil {
+		fmt.Println("Storagenode database couldnt open:", dbpath)
+		return err
+	}
+	//get all bandwidth aggrements entries already ordered
+	rows, err := s.GetBandwidthAllocations(context.Background())
+	if err != nil {
+		fmt.Println("reading bandwidth table error")
+		return err
+	}
+
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+
+	// Agreement is a struct that contains a bandwidth agreement and the associated signature
+	type UplinkAttributes struct {
+		TotalBytes        int64
+		PutActionCount    int64
+		GetActionCount    int64
+		TotalTransactions int64
+		// additional attributes add here ...
+	}
+
+	uplinkID := make(map[string]UplinkAttributes)
+	uplinkAtt := UplinkAttributes{}
+	var currUplinkID, lastUplinkID string
+
+	for _, row := range rows {
+		// deserializing rbad you get payerbwallocation, total & storage node id
+		rbad := &pb.RenterBandwidthAllocation_Data{}
+		if err := proto.Unmarshal(row.Data, rbad); err != nil {
+			return err
+		}
+		total := rbad.GetTotal()
+
+		// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
+		pbad := &pb.PayerBandwidthAllocation_Data{}
+		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
+			return err
+		}
+		currUplinkID = fmt.Sprintf("%s", pbad.GetUplinkId())
+		action := pbad.GetAction()
+
+		if strings.Compare(currUplinkID, lastUplinkID) != 0 {
+			// make an entry
+			uplinkAtt.TotalBytes = total
+			if action == pb.PayerBandwidthAllocation_PUT {
+				uplinkAtt.PutActionCount++
+			} else {
+				uplinkAtt.GetActionCount++
+				fmt.Println(uplinkAtt.GetActionCount)
+			}
+			uplinkAtt.TotalTransactions++
+			uplinkID[currUplinkID] = uplinkAtt
+			lastUplinkID = currUplinkID
+		} else {
+			//update the already existing entry
+			for satIDKey, satIDVal := range uplinkID {
+				if strings.Compare(satIDKey, currUplinkID) == 0 {
+					satIDVal.TotalBytes = satIDVal.TotalBytes + total
+					if action == pb.PayerBandwidthAllocation_PUT {
+						satIDVal.PutActionCount++
+					} else {
+						satIDVal.GetActionCount++
+					}
+					satIDVal.TotalTransactions++
+					uplinkID[satIDKey] = satIDVal
+				}
+			}
+		}
+	}
+	fmt.Fprintln(w, currUplinkID, "\t", uplinkID[currUplinkID].TotalBytes, "\t", uplinkID[currUplinkID].TotalTransactions, "\t", uplinkID[currUplinkID].PutActionCount, "\t", uplinkID[currUplinkID].GetActionCount, "\t")
+
+	err = w.Flush()
+	return err
 }
 
 func main() {
