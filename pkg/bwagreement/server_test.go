@@ -10,15 +10,20 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/jedib0t/go-pretty/table"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/stretchr/testify/assert"
-
-	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -36,8 +41,8 @@ const (
 
 func getPSQLInfo() string {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+		"dbname=%s sslmode=disable",
+		host, port, user, dbname)
 	return psqlInfo
 }
 
@@ -45,31 +50,50 @@ func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
 	defer TS.Stop()
 
-	signature := []byte("iamthedummysignatureoftypebyteslice")
+	signature := []byte("iamthedummcxvignatureoftypebyteslice")
 	data := []byte("iamthedummydataoftypebyteslice")
 
-	msg := &pb.RenterBandwidthAllocation{
-		Signature: signature,
-		Data:      data,
-	}
+	bwAgreements, err := readSampleDataFromPsdb()
+	assert.NoError(t, err)
 
 	/* emulate sending the bwagreement stream from piecestore node */
 	stream, err := TS.c.BandwidthAgreements(ctx)
 	assert.NoError(t, err)
-	err = stream.Send(msg)
-	assert.NoError(t, err)
 
+	for _, v := range bwAgreements {
+		for i, j := range v {
+			rbad := &pb.RenterBandwidthAllocation_Data{}
+			if err := proto.Unmarshal(j.Agreement, rbad); err != nil {
+				assert.Error(t, err)
+			}
+			signature = rbad.GetPayerAllocation().GetSignature()
+			fmt.Println("signature=", fmt.Sprintf("%s", signature))
+			data = rbad.GetPayerAllocation().GetData()
+			fmt.Println("data=", fmt.Sprintf("%s", data))
+
+			msg := &pb.RenterBandwidthAllocation{
+				Signature: signature,
+				Data:      j.Agreement,
+			}
+
+			err = stream.Send(msg)
+			assert.NoError(t, err)
+			fmt.Println("I=", i)
+
+			time.Sleep(20 * time.Millisecond)
+
+			// /* read back from the postgres db in bwagreement table */
+			// retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+			// assert.EqualValues(t, retData.Data, data)
+			// assert.NoError(t, err)
+
+			// /* delete the entry what you just wrote */
+			// delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+			// assert.True(t, delBool)
+			// assert.NoError(t, err)
+		}
+	}
 	_, _ = stream.CloseAndRecv()
-
-	/* read back from the postgres db in bwagreement table */
-	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-	assert.EqualValues(t, retData.Data, data)
-	assert.NoError(t, err)
-
-	/* delete the entry what you just wrote */
-	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-	assert.True(t, delBool)
-	assert.NoError(t, err)
 }
 
 type TestServer struct {
@@ -114,7 +138,8 @@ func NewTestServer(t *testing.T) *TestServer {
 }
 
 func newTestServerStruct(t *testing.T) *Server {
-	psqlInfo := getPSQLInfo()
+	//psqlInfo := getPSQLInfo()
+	psqlInfo := "postgres://postgres@localhost/pointerdb?sslmode=disable"
 	s, err := NewServer("postgres", psqlInfo, zap.NewNop())
 	assert.NoError(t, err)
 	return s
@@ -151,4 +176,92 @@ func (TS *TestServer) Stop() {
 		panic(err)
 	}
 	TS.grpcs.Stop()
+}
+
+// call this function to copy signature and data into postgres db
+func readSampleDataFromPsdb() (map[string][]*psdb.Agreement, error) {
+	// open the sql db
+	dbpath := filepath.Join("/Users/kishore/.storj/capt/f37/data", "piecestore.db")
+	db, err := psdb.Open(context.Background(), "", dbpath)
+	if err != nil {
+		fmt.Println("Storagenode database couldnt open:", dbpath)
+		return nil, err
+	}
+	bwAgreements, err := db.GetBandwidthAllocations()
+	if err != nil {
+		return nil, err
+	}
+
+	//return bwAgreements, err
+	// Agreement is a struct that contains a bandwidth agreement and the associated signature
+	type SatAttributes struct {
+		TotalBytes        int64
+		PutActionCount    int64
+		GetActionCount    int64
+		TotalTransactions int64
+		// additional attributes add here ...
+	}
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"SatelliteID", "Total", "UplinkID", "Put Action", "Get Action"})
+
+	// attributes per satelliteid
+	satelliteID := make(map[string]SatAttributes)
+	satAtt := SatAttributes{}
+	var currSatID, lastSatID string
+
+	for _, v := range bwAgreements {
+		for _, j := range v {
+			// deserializing rbad you get payerbwallocation, total & storage node id
+			rbad := &pb.RenterBandwidthAllocation_Data{}
+			if err := proto.Unmarshal(j.Agreement, rbad); err != nil {
+				return nil, err
+			}
+			total := rbad.GetTotal()
+
+			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
+			pbad := &pb.PayerBandwidthAllocation_Data{}
+			fmt.Println("signature=", fmt.Sprintf("%s", rbad.GetPayerAllocation().GetSignature()))
+			fmt.Println("data=", fmt.Sprintf("%s", rbad.GetPayerAllocation().GetData()))
+			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
+				return nil, err
+			}
+			currSatID = fmt.Sprintf("%s", pbad.GetSatelliteId())
+			action := pbad.GetAction()
+
+			if strings.Compare(currSatID, lastSatID) != 0 {
+				// make an entry
+				satAtt.TotalBytes = total
+				if action == pb.PayerBandwidthAllocation_PUT {
+					satAtt.PutActionCount++
+				} else {
+					satAtt.GetActionCount++
+					fmt.Println(satAtt.GetActionCount)
+				}
+				satAtt.TotalTransactions++
+				satelliteID[currSatID] = satAtt
+				lastSatID = currSatID
+			} else {
+				//update the already existing entry
+				for satIDKey, satIDVal := range satelliteID {
+					if strings.Compare(satIDKey, currSatID) == 0 {
+						satIDVal.TotalBytes = satIDVal.TotalBytes + total
+						if action == pb.PayerBandwidthAllocation_PUT {
+							satIDVal.PutActionCount++
+						} else {
+							satIDVal.GetActionCount++
+						}
+						satIDVal.TotalTransactions++
+						satelliteID[satIDKey] = satIDVal
+					}
+				}
+			}
+		}
+		t.AppendRow([]interface{}{currSatID, satelliteID[currSatID].TotalBytes, satelliteID[currSatID].TotalTransactions, satelliteID[currSatID].PutActionCount, satelliteID[currSatID].GetActionCount})
+	}
+
+	t.SetStyle(table.StyleLight)
+	t.Render()
+	return bwAgreements, err
 }

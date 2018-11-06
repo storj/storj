@@ -18,4 +18,6 @@ read one (
 read limitoffset (
 	select bwagreement
 )
-
+read all (
+	select bwagreement
+)
