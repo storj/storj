@@ -18,7 +18,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	pb "storj.io/storj/pkg/pb"
-	client "storj.io/storj/pkg/piecestore/rpc/client"
+	client "storj.io/storj/pkg/piecestore/psclient"
 	ranger "storj.io/storj/pkg/ranger"
 )
 

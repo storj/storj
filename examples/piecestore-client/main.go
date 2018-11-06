@@ -15,11 +15,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 )
 
 var ctx = context.Background()
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// Set up connection with rpc server
-	_node := &pb.Node{
+	n := &pb.Node{
 		Address: &pb.NodeAddress{
 			Address:   ":7777",
 			Transport: 0,
@@ -46,7 +46,7 @@ func main() {
 		Id: "test-node-id-1234567",
 	}
 	tc := transport.NewClient(identity)
-	psClient, err := psclient.NewPSClient(ctx, tc, _node, 1024*32)
+	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
 	if err != nil {
 		log.Fatalf("could not initialize Client: %s", err)
 	}

@@ -75,14 +75,14 @@ func TestPieceRanger(t *testing.T) {
 
 		ctx := context.Background()
 
-		_node := &pb.Node{
+		target := &pb.Node{
 			Address: &pb.NodeAddress{
 				Address:   "",
 				Transport: 0,
 			},
 			Id: "test-node-id-1234567",
 		}
-		c, err := NewCustomRoute(route, _node, 32*1024, priv)
+		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
 		if assert.NoError(t, err, errTag) {

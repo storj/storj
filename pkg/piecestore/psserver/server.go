@@ -27,8 +27,8 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	pstore "storj.io/storj/pkg/piecestore"
-	as "storj.io/storj/pkg/piecestore/rpc/server/agreementsender"
-	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	as "storj.io/storj/pkg/piecestore/servereementsender"
+	"storj.io/storj/pkg/piecestore/serverb"
 	"storj.io/storj/pkg/provider"
 )
 

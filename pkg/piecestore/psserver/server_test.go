@@ -28,7 +28,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	pstore "storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/piecestore/serverb"
 	"storj.io/storj/pkg/provider"
 )
 

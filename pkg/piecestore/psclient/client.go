@@ -46,18 +46,18 @@ type Client interface {
 	io.Closer
 }
 
-// Piecestore -- Struct Info needed for protobuf api calls
-type Piecestore struct {
+// PieceStore -- Struct Info needed for protobuf api calls
+type PieceStore struct {
 	closeFunc        func() error              // function that closes the transport connection
-	client           pb.PieceStoreRoutesClient // Piecestore for interacting with Storage Node
+	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
 	nodeID           *node.ID                  // Storage node being connected to
 }
 
 // NewPSClient initilizes a piecestore client
-func NewPSClient(ctx context.Context, tc transport.Client, _node *pb.Node, bandwidthMsgSize int) (Client, error) {
-	conn, err := tc.DialNode(ctx, _node)
+func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidthMsgSize int) (Client, error) {
+	conn, err := tc.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
 	}
@@ -70,17 +70,17 @@ func NewPSClient(ctx context.Context, tc transport.Client, _node *pb.Node, bandw
 		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
-	return &Piecestore{
+	return &PieceStore{
 		closeFunc:        conn.Close,
 		client:           pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           tc.Identity().Key,
-		nodeID:           node.IDFromString(_node.GetId()),
+		nodeID:           node.IDFromString(n.GetId()),
 	}, nil
 }
 
-// NewCustomRoute creates new Piecestore with custom client interface
-func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*Piecestore, error) {
+// NewCustomRoute creates new PieceStore with custom client interface
+func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -89,7 +89,7 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthM
 		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
 
-	return &Piecestore{
+	return &PieceStore{
 		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
@@ -98,7 +98,7 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthM
 }
 
 // Close closes the connection with piecestore
-func (ps *Piecestore) Close() error {
+func (ps *PieceStore) Close() error {
 	if ps.closeFunc == nil {
 		// TODO@bryanchrswhite/aleitner: 	This will happen if someone uses `NewCustomRoute`.
 		// 																What is the expected behavior?
@@ -109,12 +109,12 @@ func (ps *Piecestore) Close() error {
 }
 
 // Meta requests info about a piece by Id
-func (ps *Piecestore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
+func (ps *PieceStore) Meta(ctx context.Context, id PieceID) (*pb.PieceSummary, error) {
 	return ps.client.Piece(ctx, &pb.PieceId{Id: id.String()})
 }
 
 // Put uploads a Piece to a piece store Server
-func (ps *Piecestore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
+func (ps *PieceStore) Put(ctx context.Context, id PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) error {
 	stream, err := ps.client.Store(ctx)
 	if err != nil {
 		return err
@@ -159,7 +159,7 @@ func (ps *Piecestore) Put(ctx context.Context, id PieceID, data io.Reader, ttl t
 }
 
 // Get begins downloading a Piece from a piece store Server
-func (ps *Piecestore) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
+func (ps *PieceStore) Get(ctx context.Context, id PieceID, size int64, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error) {
 	stream, err := ps.client.Retrieve(ctx)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (ps *Piecestore) Get(ctx context.Context, id PieceID, size int64, ba *pb.Pa
 }
 
 // Delete a Piece from a piece store Server
-func (ps *Piecestore) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
+func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.SignedMessage) error {
 	reply, err := ps.client.Delete(ctx, &pb.PieceDelete{Id: id.String(), Authorization: authorization})
 	if err != nil {
 		return err
@@ -179,12 +179,12 @@ func (ps *Piecestore) Delete(ctx context.Context, id PieceID, authorization *pb.
 }
 
 // Stats will retrieve stats about a piece storage node
-func (ps *Piecestore) Stats(ctx context.Context) (*pb.StatSummary, error) {
+func (ps *PieceStore) Stats(ctx context.Context) (*pb.StatSummary, error) {
 	return ps.client.Stats(ctx, &pb.StatsReq{})
 }
 
 // sign a message using the clients private key
-func (ps *Piecestore) sign(msg []byte) (signature []byte, err error) {
+func (ps *PieceStore) sign(msg []byte) (signature []byte, err error) {
 	if ps.prikey == nil {
 		return nil, ClientError.New("Failed to sign msg: Private Key not Set")
 	}

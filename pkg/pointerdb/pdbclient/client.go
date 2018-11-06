@@ -60,8 +60,6 @@ type Client interface {
 
 // NewClient initializes a new pointerdb client
 func NewClient(identity *provider.FullIdentity, address string, APIKey string) (*PointerDB, error) {
-	signatureHeader := &metadata.MD{}
-	_peer := &peer.Peer{}
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
 	tc := transport.NewClient(identity)
 	conn, err := tc.DialAddress(
@@ -73,10 +71,7 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey string) (
 		return nil, err
 	}
 
-	return &PointerDB{
-		client:          pb.NewPointerDBClient(conn),
-		signatureHeader: signatureHeader,
-	}, nil
+	return &PointerDB{client: pb.NewPointerDBClient(conn)}, nil
 }
 
 // a compiler trick to make sure *PointerDB implements Client

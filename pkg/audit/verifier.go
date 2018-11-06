@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
 	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
@@ -59,15 +59,15 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, _node *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ps, err := psclient.NewPSClient(ctx, d.transport, _node, 0)
+	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
 		return s, err
 	}
 
-	nodeID := node.IDFromString(_node.GetId())
+	nodeID := node.IDFromString(fromNode.GetId())
 	derivedPieceID, err := id.Derive(nodeID.Bytes())
 	if err != nil {
 		return s, err
