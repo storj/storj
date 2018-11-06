@@ -132,7 +132,7 @@ func TestAuditSegment(t *testing.T) {
 
 	defer cleanup()
 
-	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil)
+	cache, err := overlay.NewRedisOverlayCache(redisAddr, "", 1, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)

@@ -86,7 +86,8 @@ func (node *Node) initOverlay(planet *Planet) error {
 	}
 
 	node.Kademlia = kad
-	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia)
+	// TODO(moby) pass sdbclient
+	node.Overlay = overlay.NewOverlayCache(teststore.New(), node.Kademlia, nil)
 
 	return nil
 }
