@@ -11,7 +11,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -41,7 +40,7 @@ func TestFindStorageNodes(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(address, grpc.WithInsecure())
+	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
 	r, err := c.FindStorageNodes(context.Background(), &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
@@ -69,7 +68,7 @@ func TestOverlayLookup(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(address, grpc.WithInsecure())
+	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
 	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeID: fid.ID.String()})
@@ -96,7 +95,7 @@ func TestOverlayBulkLookup(t *testing.T) {
 	defer srv.Stop()
 
 	address := lis.Addr().String()
-	c, err := NewClient(address, grpc.WithInsecure())
+	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
 	req1 := &pb.LookupRequest{NodeID: fid.ID.String()}
@@ -113,4 +112,12 @@ func newNodeStorageValue(t *testing.T, address string) storage.Value {
 	d, err := proto.Marshal(na)
 	assert.NoError(t, err)
 	return d
+}
+
+func NewTestClient(address string) (pb.OverlayClient, error) {
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return pb.NewOverlayClient(conn), nil
 }

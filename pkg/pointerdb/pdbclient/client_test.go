@@ -39,10 +39,10 @@ func TestNewPointerDBClient(t *testing.T) {
 	defer ctrl.Finish()
 
 	gc := NewMockPointerDBClient(ctrl)
-	pdb := PointerDB{grpcClient: gc}
+	pdb := PointerDB{client: gc}
 
 	assert.NotNil(t, pdb)
-	assert.NotNil(t, pdb.grpcClient)
+	assert.NotNil(t, pdb.client)
 }
 
 func makePointer(path storj.Path) pb.PutRequest {
@@ -97,7 +97,7 @@ func TestPut(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		// here we don't care what type of context we pass
 		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
@@ -149,7 +149,7 @@ func TestGet(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
@@ -228,7 +228,7 @@ func TestList(t *testing.T) {
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
@@ -277,7 +277,7 @@ func TestDelete(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 

@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -117,7 +117,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		pieceID := client.NewPieceID()
+		pieceID := psclient.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
 		authorization := s.pdb.SignedMessage()
@@ -155,7 +155,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
 		if nodes[i] == nil {
@@ -199,7 +199,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.GetPieceId())
+		pid := psclient.PieceID(seg.GetPieceId())
 
 		// fall back if nodes are not available
 		if nodes == nil {
@@ -261,7 +261,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.PieceId)
+		pid := psclient.PieceID(seg.PieceId)
 
 		// fall back if nodes are not available
 		if nodes == nil {
@@ -294,11 +294,11 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("Cannot repair inline segment %s", client.PieceID(pr.GetInlineSegment()))
+		return Error.New("Cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
 
 	seg := pr.GetRemote()
-	pid := client.PieceID(seg.GetPieceId())
+	pid := psclient.PieceID(seg.GetPieceId())
 
 	// fall back if nodes are not available
 	if originalNodes == nil {

@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package psserver
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 

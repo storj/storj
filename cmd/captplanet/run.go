@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
-	psserver "storj.io/storj/pkg/piecestore/rpc/server"
+	psserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"

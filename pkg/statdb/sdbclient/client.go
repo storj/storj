@@ -6,8 +6,8 @@ package sdbclient
 import (
 	"context"
 
-	"google.golang.org/grpc"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
@@ -19,8 +19,8 @@ var (
 
 // StatDB creates a grpcClient
 type StatDB struct {
-	grpcClient pb.StatDBClient
-	APIKey     []byte
+	client pb.StatDBClient
+	APIKey []byte
 }
 
 // Client services offerred for the interface
@@ -36,34 +36,21 @@ type Client interface {
 }
 
 // NewClient initializes a new statdb client
-func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (*StatDB, error) {
-	dialOpt, err := identity.DialOption()
+func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (Client, error) {
+	tc := transport.NewClient(identity)
+	conn, err := tc.DialAddress(context.Background(), address)
 	if err != nil {
 		return nil, err
 	}
-	c, err := clientConnection(address, dialOpt)
 
-	if err != nil {
-		return nil, err
-	}
 	return &StatDB{
-		grpcClient: c,
-		APIKey:     APIKey,
+		client: pb.NewStatDBClient(conn),
+		APIKey: APIKey,
 	}, nil
 }
 
 // a compiler trick to make sure *StatDB implements Client
 var _ Client = (*StatDB)(nil)
-
-// ClientConnection makes a server connection
-func clientConnection(serverAddr string, opts ...grpc.DialOption) (pb.StatDBClient, error) {
-	conn, err := grpc.Dial(serverAddr, opts...)
-
-	if err != nil {
-		return nil, err
-	}
-	return pb.NewStatDBClient(conn), nil
-}
 
 // Create is used for creating a new entry in the stats db
 func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
@@ -78,7 +65,7 @@ func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 		Node:   &node,
 		APIKey: sdb.APIKey,
 	}
-	_, err = sdb.grpcClient.Create(ctx, createReq)
+	_, err = sdb.client.Create(ctx, createReq)
 
 	return err
 }
@@ -91,7 +78,7 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 		NodeId: nodeID,
 		APIKey: sdb.APIKey,
 	}
-	res, err := sdb.grpcClient.Get(ctx, getReq)
+	res, err := sdb.client.Get(ctx, getReq)
 
 	return res.Stats, err
 }
@@ -111,7 +98,7 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 		APIKey: sdb.APIKey,
 	}
 
-	res, err := sdb.grpcClient.FindValidNodes(ctx, findValidNodesReq)
+	res, err := sdb.client.FindValidNodes(ctx, findValidNodesReq)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +125,7 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp
 		APIKey: sdb.APIKey,
 	}
 
-	res, err := sdb.grpcClient.Update(ctx, updateReq)
+	res, err := sdb.client.Update(ctx, updateReq)
 
 	return res.Stats, err
 }
@@ -152,7 +139,7 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 		APIKey:   sdb.APIKey,
 	}
 
-	res, err := sdb.grpcClient.UpdateBatch(ctx, updateBatchReq)
+	res, err := sdb.client.UpdateBatch(ctx, updateBatchReq)
 
 	return res.StatsList, res.FailedNodes, err
 }
@@ -166,7 +153,7 @@ func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (s
 		APIKey: sdb.APIKey,
 	}
 
-	res, err := sdb.grpcClient.CreateEntryIfNotExists(ctx, createReq)
+	res, err := sdb.client.CreateEntryIfNotExists(ctx, createReq)
 
 	return res.Stats, err
 }

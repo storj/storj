@@ -160,7 +160,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"2018092201_initial-tables.down.sql": _2018092201_initialTablesDownSql,
-	"2018092201_initial-tables.up.sql": _2018092201_initialTablesUpSql,
+	"2018092201_initial-tables.up.sql":   _2018092201_initialTablesUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -202,9 +202,10 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"2018092201_initial-tables.down.sql": &bintree{_2018092201_initialTablesDownSql, map[string]*bintree{}},
-	"2018092201_initial-tables.up.sql": &bintree{_2018092201_initialTablesUpSql, map[string]*bintree{}},
+	"2018092201_initial-tables.up.sql":   &bintree{_2018092201_initialTablesUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
@@ -253,4 +254,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

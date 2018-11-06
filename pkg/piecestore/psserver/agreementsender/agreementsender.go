@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
 )
