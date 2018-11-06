@@ -38,9 +38,9 @@ func TestFindStorageNodes(t *testing.T) {
 	defer statSrv.Stop()
 
 	minRep := &pb.NodeRep{
-		MinUptime: 0.95,
-		MinAuditSuccess: 0.95,
-		MinAuditCount: 10,
+		UptimeRatio: 0.95,
+		AuditSuccessRatio: 0.95,
+		AuditCount: 10,
 	}
 	restrictions := &pb.NodeRestrictions{
 		FreeDisk: 10,
@@ -74,9 +74,9 @@ func TestFindStorageNodes(t *testing.T) {
 		assert.NoError(t, err)
 
 		if tt.freeDisk >= restrictions.FreeDisk &&
-			tt.totalAuditCount >= minRep.MinAuditCount &&
-			tt.auditRatio >= minRep.MinAuditSuccess &&
-			tt.uptimeRatio >= minRep.MinUptime {
+			tt.totalAuditCount >= minRep.AuditCount &&
+			tt.auditRatio >= minRep.AuditSuccessRatio &&
+			tt.uptimeRatio >= minRep.UptimeRatio {
 			goodNodeIds = append(goodNodeIds, fid.ID.Bytes())
 		}
 	}

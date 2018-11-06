@@ -33,7 +33,7 @@ func NewMockServer(items []storage.ListItem, sdbclient sdbclient.Client, opts ..
 	s := Server{
 		dht:     k,
 		cache:   c,
-		sdb: sdbclient,
+		statdb: sdbclient,
 		logger:  zap.NewNop(),
 		metrics: registry,
 	}

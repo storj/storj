@@ -476,7 +476,7 @@ func TestRedisPut(t *testing.T) {
 			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(ctx, c.key, c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
 			v, err := db.Get([]byte(c.key))
@@ -524,7 +524,7 @@ func TestBoltPut(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(ctx, c.key, c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
 			v, err := db.Get([]byte(c.key))
@@ -595,7 +595,7 @@ func TestMockPut(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(ctx, c.key, c.value)
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedTimesCalled, db.CallCount.Put)
 
@@ -648,7 +648,7 @@ func TestNewRedisOverlayCache(t *testing.T) {
 			testName: "NewRedisOverlayCache valid",
 			address:  redisAddr,
 			testFunc: func(address string) {
-				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+				cache, err := NewRedisOverlayCache(address, "", 1, nil, nil)
 
 				assert.NoError(t, err)
 				assert.NotNil(t, cache)
@@ -658,7 +658,7 @@ func TestNewRedisOverlayCache(t *testing.T) {
 			testName: "NewRedisOverlayCache fail",
 			address:  "",
 			testFunc: func(address string) {
-				cache, err := NewRedisOverlayCache(address, "", 1, nil)
+				cache, err := NewRedisOverlayCache(address, "", 1, nil, nil)
 
 				assert.Error(t, err)
 				assert.Nil(t, cache)

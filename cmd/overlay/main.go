@@ -90,7 +90,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 
 	for i, a := range nodes {
 		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-		err := c.Put(i, pb.Node{
+		err := c.Put(process.Ctx(cmd), i, pb.Node{
 			Id: i,
 			Address: &pb.NodeAddress{
 				Transport: 0,

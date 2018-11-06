@@ -259,7 +259,7 @@ func TestBulkLookupV2(t *testing.T) {
 	n3 := &pb.Node{Id: "n3"}
 	nodes := []*pb.Node{n1, n2, n3}
 	for _, n := range nodes {
-		assert.NoError(t, s.cache.Put(n.Id, *n))
+		assert.NoError(t, s.cache.Put(ctx, n.Id, *n))
 	}
 
 	cases := []struct {
@@ -330,7 +330,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	cache, err := NewRedisOverlayCache(redisAddr, "", 1, nil)
+	cache, err := NewRedisOverlayCache(redisAddr, "", 1, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -112,9 +112,8 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID string, value pb.Node) error {
-	// TODO(moby) why is there no ctx?
-	n, err := o.getNodeRep(context.Background(), &value)
+func (o *Cache) Put(ctx context.Context, nodeID string, value pb.Node) error {
+	n, err := o.getNodeRep(ctx, &value)
 	if err != nil {
 		return err
 	}
