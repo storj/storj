@@ -13,7 +13,6 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/node"
@@ -73,7 +72,7 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -193,7 +192,7 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, nodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -201,9 +200,13 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.GetPieceId())
-		nodes, err := s.lookupNodes(ctx, seg)
-		if err != nil {
-			return nil, Meta{}, Error.Wrap(err)
+
+		// fall back if nodes are not available
+		if nodes == nil {
+			nodes, err = s.lookupNodes(ctx, seg)
+			if err != nil {
+				return nil, Meta{}, Error.Wrap(err)
+			}
 		}
 
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
@@ -251,7 +254,7 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, nodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -259,9 +262,13 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
 		pid := client.PieceID(seg.PieceId)
-		nodes, err := s.lookupNodes(ctx, seg)
-		if err != nil {
-			return Error.Wrap(err)
+
+		// fall back if nodes are not available
+		if nodes == nil {
+			nodes, err = s.lookupNodes(ctx, seg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -281,7 +288,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	defer mon.Task()(&ctx)(&err)
 
 	//Read the segment's pointer's info from the PointerDB
-	pr, err := s.pdb.Get(ctx, path)
+	pr, originalNodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -293,10 +300,13 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	seg := pr.GetRemote()
 	pid := client.PieceID(seg.GetPieceId())
 
-	// Get the list of remote pieces from the pointer
-	originalNodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return Error.Wrap(err)
+	// fall back if nodes are not available
+	if originalNodes == nil {
+		// Get the list of remote pieces from the pointer
+		originalNodes, err = s.lookupNodes(ctx, seg)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	// get the nodes list that needs to be excluded

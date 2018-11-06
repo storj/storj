@@ -144,7 +144,7 @@ func TestGet(t *testing.T) {
 		err = proto.Unmarshal(byteData, ptr)
 		assert.NoError(t, err)
 
-		getResponse := pb.GetResponse{Pointer: ptr}
+		getResponse := pb.GetResponse{Pointer: ptr, Nodes: []*pb.Node{}}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
@@ -153,13 +153,15 @@ func TestGet(t *testing.T) {
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
-		pointer, err := pdb.Get(ctx, tt.path)
+		pointer, nodes, err := pdb.Get(ctx, tt.path)
 
 		if err != nil {
 			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)
 			assert.Nil(t, pointer)
+			assert.Nil(t, nodes)
 		} else {
 			assert.NotNil(t, pointer)
+			assert.NotNil(t, nodes)
 			assert.NoError(t, err, errTag)
 		}
 	}
