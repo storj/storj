@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/jedib0t/go-pretty/table"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
@@ -138,9 +138,9 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 	//get all bandwidth aggrements entries already ordered
 	bwAgreements, err := db.GetBandwidthAllocations()
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"SatelliteID", "Total", "UplinkID", "Put Action", "Get Action"})
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
 
 	// attributes per satelliteid
 	satelliteID := make(map[string]SatAttributes)
@@ -192,11 +192,10 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 				}
 			}
 		}
-		t.AppendRow([]interface{}{currSatID, satelliteID[currSatID].TotalBytes, satelliteID[currSatID].TotalTransactions, satelliteID[currSatID].PutActionCount, satelliteID[currSatID].GetActionCount})
+		fmt.Fprintln(w, currSatID, "\t", satelliteID[currSatID].TotalBytes, "\t", satelliteID[currSatID].TotalTransactions, "\t", satelliteID[currSatID].PutActionCount, "\t", satelliteID[currSatID].GetActionCount, "\t")
 	}
 
-	t.SetStyle(table.StyleLight)
-	t.Render()
+	err = w.Flush()
 	return err
 }
 
