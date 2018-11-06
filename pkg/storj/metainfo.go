@@ -28,17 +28,19 @@ type Metainfo interface {
 	// GetObjectStream returns interface for reading the object stream
 	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
 
-	// CreateObject creates an uploading object and returns an interface for uploading Object information
+	// CreateObject creates a mutable object for uploading stream info
 	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
-	// ContinueObject creates an interface for updating a pending object
-	ContinueObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
-	// ModifyObject creates an interface for modifying an existing object
+	// ModifyObject creates a mutable object for updating a partially uploaded object
 	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
-
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+
+	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
+	ModifyPendingObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	// ListPendingObjects lists pending objects in bucket based on the ListOptions
+	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
 
 // CreateObject has optional parameters that can be set

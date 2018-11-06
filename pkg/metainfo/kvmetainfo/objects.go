@@ -28,7 +28,7 @@ type Objects struct {
 }
 
 const (
-	locationCommitted = "l/"
+	committedPrefix = "l/"
 )
 
 // NewObjects creates Objects
@@ -43,13 +43,13 @@ func NewObjects(objects objects.Store, streams streams.Store, segments segments.
 
 // GetObject returns information about an object
 func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
-	_, info, err := db.getInfo(ctx, locationCommitted, bucket, path)
+	_, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
 func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
-	meta, info, err := db.getInfo(ctx, locationCommitted, bucket, path)
+	meta, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	if err != nil {
 		return nil, err
 	}
@@ -72,12 +72,7 @@ func (db *Objects) CreateObject(ctx context.Context, bucket string, path storj.P
 	return nil, errors.New("not implemented")
 }
 
-// ContinueObject continues a pending object
-func (db *Objects) ContinueObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
-	return nil, errors.New("not implemented")
-}
-
-// ModifyObject continues a pending object
+// ModifyObject modifies a committed object
 func (db *Objects) ModifyObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
 	return nil, errors.New("not implemented")
 }
@@ -85,6 +80,16 @@ func (db *Objects) ModifyObject(ctx context.Context, bucket string, path storj.P
 // DeleteObject deletes an object from database
 func (db *Objects) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
 	return db.objects.Delete(ctx, bucket+"/"+path)
+}
+
+// ModifyPendingObject creates an interface for updating a partially uploaded object
+func (db *Objects) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+	return nil, errors.New("not implemented")
+}
+
+// ListPendingObjects lists pending objects in bucket based on the ListOptions
+func (db *Objects) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+	return storj.ObjectList{}, errors.New("not implemented")
 }
 
 // ListObjects lists objects in bucket based on the ListOptions
@@ -134,7 +139,7 @@ type object struct {
 	streamMeta      pb.StreamMeta
 }
 
-func (db *Objects) getInfo(ctx context.Context, location string, bucket string, path storj.Path) (object, storj.Object, error) {
+func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
 	fullpath := bucket + "/" + path
 
 	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
@@ -142,7 +147,7 @@ func (db *Objects) getInfo(ctx context.Context, location string, bucket string, 
 		return object{}, storj.Object{}, err
 	}
 
-	_, lastSegmentMeta, err := db.segments.Get(ctx, location+encryptedPath)
+	_, lastSegmentMeta, err := db.segments.Get(ctx, prefix+encryptedPath)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -185,9 +190,9 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 		Metadata: nil,
 
 		ContentType: meta.ContentType,
-		// Created:     meta.Created,
-		Modified: meta.Modified,
-		Expires:  meta.Expiration,
+		Created:     meta.Modified, // TODO: use correct field
+		Modified:    meta.Modified, // TODO: use correct field
+		Expires:     meta.Expiration,
 
 		Stream: storj.Stream{
 			Size:     meta.Size,
@@ -200,7 +205,7 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 	return storj.Object{
-		Version:  0, // TODO: add to info
+		Version:  0, // TODO:
 		Bucket:   bucket,
 		Path:     path,
 		IsPrefix: false,
@@ -216,7 +221,7 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 			Size: stream.SegmentsSize*(stream.NumberOfSegments-1) + stream.LastSegmentSize,
 			// Checksum: []byte(object.Checksum),
 
-			SegmentCount:     stream.NumberOfSegments + 1,
+			SegmentCount:     stream.NumberOfSegments,
 			FixedSegmentSize: stream.SegmentsSize,
 
 			RedundancyScheme: storj.RedundancyScheme{
