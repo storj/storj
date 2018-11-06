@@ -45,6 +45,16 @@ type Stream struct {
 	RedundancyScheme
 	// EncryptionScheme specifies encryption strategy used for this stream
 	EncryptionScheme
+
+	LastSegment LastSegment // TODO: remove
+}
+
+// LastSegment contains info about last segment
+// TODO: remove
+type LastSegment struct {
+	Size              int64
+	EncryptedKeyNonce Nonce
+	EncryptedKey      EncryptedPrivateKey
 }
 
 // Segment is full segment information

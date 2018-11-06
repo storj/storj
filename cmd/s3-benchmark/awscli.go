@@ -24,16 +24,16 @@ type AWSCLI struct {
 
 // NewAWSCLI creates new Client
 func NewAWSCLI(conf Config) (Client, error) {
-	if !strings.HasPrefix(conf.Endpoint, "https://") &&
-		!strings.HasPrefix(conf.Endpoint, "http://") {
-		conf.Endpoint = "http://" + conf.Endpoint
+	if !strings.HasPrefix(conf.S3Gateway, "https://") &&
+		!strings.HasPrefix(conf.S3Gateway, "http://") {
+		conf.S3Gateway = "http://" + conf.S3Gateway
 	}
 	return &AWSCLI{conf}, nil
 }
 
 func (client *AWSCLI) cmd(subargs ...string) *exec.Cmd {
 	args := []string{
-		"--endpoint", client.conf.Endpoint,
+		"--endpoint", client.conf.S3Gateway,
 	}
 
 	if client.conf.NoSSL {
