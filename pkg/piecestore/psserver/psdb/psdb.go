@@ -20,7 +20,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 

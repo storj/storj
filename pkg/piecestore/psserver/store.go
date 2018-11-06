@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/utils"
 )
 
