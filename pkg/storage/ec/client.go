@@ -38,16 +38,16 @@ type psClientHelper func(context.Context, *pb.Node) (psclient.Client, error)
 
 type ecClient struct {
 	transport       transport.Client
-	maxBuffMem      int
+	memoryLimit     int
 	newPSClientFunc psClientFunc
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(identity *provider.FullIdentity, mbm int) Client {
+func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
 	tc := transport.NewClient(identity)
 	return &ecClient{
 		transport:       tc,
-		maxBuffMem:      mbm,
+		memoryLimit:     memoryLimit,
 		newPSClientFunc: psclient.NewPSClient,
 	}
 }
@@ -68,7 +68,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.maxBuffMem)
+	readers, err := eestream.EncodeReader(ctx, padded, rs, ec.memoryLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.maxBuffMem)
+	rr, err = eestream.Decode(rrs, es, ec.memoryLimit)
 	if err != nil {
 		return nil, err
 	}

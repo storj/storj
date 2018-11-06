@@ -58,7 +58,7 @@ func TestNewECClient(t *testing.T) {
 	ecc, ok := ec.(*ecClient)
 	assert.True(t, ok)
 	assert.NotNil(t, ecc.transport)
-	assert.Equal(t, mbm, ecc.maxBuffMem)
+	assert.Equal(t, mbm, ecc.memoryLimit)
 
 	assert.NotNil(t, ecc.transport.Identity())
 	assert.Equal(t, ecc.transport.Identity(), identity)
@@ -147,7 +147,7 @@ TestLoop:
 			continue
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
-		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), maxBuffMem: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
 
 		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
@@ -238,7 +238,7 @@ TestLoop:
 				clients[n] = ps
 			}
 		}
-		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), maxBuffMem: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
 		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)

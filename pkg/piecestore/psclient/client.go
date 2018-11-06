@@ -80,7 +80,7 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 }
 
 // NewCustomRoute creates new PieceStore with custom client interface
-func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
+func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
@@ -93,15 +93,13 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, _node *pb.Node, bandwidthM
 		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID:           node.IDFromString(_node.GetId()),
+		nodeID:           node.IDFromString(target.GetId()),
 	}, nil
 }
 
 // Close closes the connection with piecestore
 func (ps *PieceStore) Close() error {
 	if ps.closeFunc == nil {
-		// TODO@bryanchrswhite/aleitner: 	This will happen if someone uses `NewCustomRoute`.
-		// 																What is the expected behavior?
 		return nil
 	}
 
