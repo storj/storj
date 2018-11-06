@@ -21,7 +21,7 @@ build() {
 	shift
 	echo "building temp binaries:"
 	for cmd in $@; do
-		echo -n "	buliding $cmd..."
+		echo -n "	building $cmd..."
 		dots_on
 		local path=${tmp_dir}/${cmd}
 		declare -g ${cmd}=${path}
