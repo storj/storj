@@ -159,7 +159,7 @@ func makeCopies(ctx context.Context, originals []share) (copies []infectious.Sha
 			continue
 		}
 		copies = append(copies, infectious.Share{
-			Data:   append([]byte(nil), original.Data...),
+			Data:   append([]byte{}, original.Data...),
 			Number: original.PieceNumber})
 	}
 	return copies, nil
