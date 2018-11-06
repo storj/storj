@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/proto"
@@ -127,8 +127,15 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	//get all bandwidth aggrements entries already ordered
+	bwAgreements, err := db.GetBandwidthAllocations()
+	if err != nil {
+		fmt.Println("stroage node 'bandwidth_agreements' table read error:", dbpath)
+		return err
+	}
+
 	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	type SatAttributes struct {
+	type SatelliteSummary struct {
 		TotalBytes        int64
 		PutActionCount    int64
 		GetActionCount    int64
@@ -136,65 +143,57 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		// additional attributes add here ...
 	}
 
-	//get all bandwidth aggrements entries already ordered
-	bwAgreements, err := db.GetBandwidthAllocations()
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
-
 	// attributes per satelliteid
-	satelliteID := make(map[string]SatAttributes)
-	satAtt := SatAttributes{}
-	var currSatID, lastSatID string
+	summaries := make(map[string]*SatelliteSummary)
+	satelliteIDs := []string{}
 
-	for _, v := range bwAgreements {
-		for _, j := range v {
+	for _, rbaVal := range bwAgreements {
+		for _, rbaDataVal := range rbaVal {
 			// deserializing rbad you get payerbwallocation, total & storage node id
 			rbad := &pb.RenterBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(j.Agreement, rbad); err != nil {
+			if err := proto.Unmarshal(rbaDataVal.Agreement, rbad); err != nil {
 				return err
 			}
-			total := rbad.GetTotal()
 
 			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
 			pbad := &pb.PayerBandwidthAllocation_Data{}
 			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
 				return err
 			}
-			currSatID = fmt.Sprintf("%s", pbad.GetSatelliteId())
-			action := pbad.GetAction()
 
-			if strings.Compare(currSatID, lastSatID) != 0 {
-				// make an entry
-				satAtt.TotalBytes = total
-				if action == pb.PayerBandwidthAllocation_PUT {
-					satAtt.PutActionCount++
-				} else {
-					satAtt.GetActionCount++
-					fmt.Println(satAtt.GetActionCount)
-				}
-				satAtt.TotalTransactions++
-				satelliteID[currSatID] = satAtt
-				lastSatID = currSatID
-			} else {
-				//update the already existing entry
-				for satIDKey, satIDVal := range satelliteID {
-					if strings.Compare(satIDKey, currSatID) == 0 {
-						satIDVal.TotalBytes = satIDVal.TotalBytes + total
-						if action == pb.PayerBandwidthAllocation_PUT {
-							satIDVal.PutActionCount++
-						} else {
-							satIDVal.GetActionCount++
-						}
-						satIDVal.TotalTransactions++
-						satelliteID[satIDKey] = satIDVal
-					}
-				}
+			satelliteID := string(pbad.GetSatelliteId())
+			summary, ok := summaries[satelliteID]
+			if !ok {
+				summaries[satelliteID] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, satelliteID)
+				summary = summaries[satelliteID]
 			}
+
+			// fill the summary info
+			summary.TotalBytes += rbad.GetTotal()
+			summary.TotalTransactions++
+			if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+				summary.PutActionCount++
+			} else {
+				summary.GetActionCount++
+			}
+
 		}
-		fmt.Fprintln(w, currSatID, "\t", satelliteID[currSatID].TotalBytes, "\t", satelliteID[currSatID].TotalTransactions, "\t", satelliteID[currSatID].PutActionCount, "\t", satelliteID[currSatID].GetActionCount, "\t")
 	}
 
+	// initialize the table header (fields)
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+
+	// populate the row fields
+	sort.Strings(satelliteIDs)
+	for _, satelliteID := range satelliteIDs {
+		summary := summaries[satelliteID]
+		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	}
+
+	// display the data
 	err = w.Flush()
 	return err
 }
