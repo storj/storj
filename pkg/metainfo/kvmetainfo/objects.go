@@ -28,6 +28,7 @@ type Objects struct {
 }
 
 const (
+	// commitedPrefix is prefix where completed object info is stored
 	committedPrefix = "l/"
 )
 
