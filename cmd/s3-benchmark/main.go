@@ -22,8 +22,8 @@ import (
 func main() {
 	var conf Config
 
-	flag.StringVar(&conf.Endpoint, "endpoint", "127.0.0.1:7777", "endpoint address")
-	flag.StringVar(&conf.SatelliteAddr, "satelliteaddr", "127.0.0.1:7778", "satellite address")
+	flag.StringVar(&conf.S3Gateway, "s3-gateway", "127.0.0.1:7777", "s3 gateway address")
+	flag.StringVar(&conf.Satellite, "satellite", "127.0.0.1:7778", "satellite address")
 	flag.StringVar(&conf.AccessKey, "accesskey", "insecure-dev-access-key", "access key")
 	flag.StringVar(&conf.SecretKey, "secretkey", "insecure-dev-secret-key", "secret key")
 	flag.StringVar(&conf.APIKey, "apikey", "abc123", "api key")
@@ -357,8 +357,8 @@ func ListBenchmark(client Client, bucket string, listsize int, count int, durati
 
 // Config is the setup for a particular client
 type Config struct {
-	Endpoint      string
-	SatelliteAddr string
+	S3Gateway     string
+	Satellite     string
 	AccessKey     string
 	SecretKey     string
 	APIKey        string

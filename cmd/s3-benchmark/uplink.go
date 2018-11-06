@@ -28,7 +28,7 @@ func NewUplink(conf Config) (Client, error) {
 		"--overwrite",
 		"--api-key", client.conf.APIKey,
 		"--enc-key", client.conf.EncryptionKey,
-		"--satellite-addr", client.conf.SatelliteAddr)
+		"--satellite-addr", client.conf.Satellite)
 
 	_, err := cmd.Output()
 	if err != nil {
