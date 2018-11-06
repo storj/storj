@@ -1,0 +1,22 @@
+declare type RegisterData = {
+	firstName: string,
+	firstNameError: string,
+	lastName: string,
+	lastNameError: string,
+	email: string,
+	emailError: string,
+	password: string,
+	passwordError: string,
+	repeatedPassword: string,
+	repeatedPasswordError: string,
+	companyName: string,
+	companyAddress: string,
+	country: string,
+	city: string,
+	state: string,
+	postalCode: string,
+	isTermsAccepted: boolean,
+	optionalAreaShown: boolean,
+	optionalArea: string,
+	optionalAreaActive: string
+}

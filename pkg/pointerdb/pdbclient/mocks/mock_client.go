@@ -99,11 +99,10 @@ func (mr *MockClientMockRecorder) Put(arg0, arg1, arg2 interface{}) *gomock.Call
 }
 
 // SignedMessage mocks base method
-func (m *MockClient) SignedMessage() (*pb.SignedMessage, error) {
+func (m *MockClient) SignedMessage() *pb.SignedMessage {
 	ret := m.ctrl.Call(m, "SignedMessage")
 	ret0, _ := ret[0].(*pb.SignedMessage)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // SignedMessage indicates an expected call of SignedMessage

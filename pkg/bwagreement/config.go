@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package agreementreceiver
+package bwagreement
 
 import (
 	"context"
@@ -20,13 +20,14 @@ var (
 // Config is a configuration struct that is everything you need to start an
 // agreement receiver responsibility
 type Config struct {
-	DatabaseURL string `help:"the database connection string to use" default:"$CONFDIR/agreements.db"`
+	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/agreements.db"`
+	DatabaseDriver string `help:"the database driver to use" default:"postgres"`
 }
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	ns, err := NewServer(c.DatabaseURL, server.Identity(), zap.L())
+	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L())
 	if err != nil {
 		return err
 	}
