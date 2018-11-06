@@ -77,6 +77,7 @@ func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwid
 func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	defer s.locked()()
 
 	ch := make(chan *pb.RenterBandwidthAllocation, 1)
 	errch := make(chan error, 1)
@@ -99,23 +100,20 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 		case <-ctx.Done():
 			return nil
 		case agreement := <-ch:
-			go func() {
-				defer s.locked()()
-				_, err = s.Create(ctx, agreement)
-				if err != nil {
-					s.logger.Error("DB entry creation Error", zap.Error(err))
-					errch <- err
-				}
-			}()
+			_, err = s.Create(ctx, agreement)
+			if err != nil {
+				s.logger.Error("DB entry creation Error", zap.Error(err))
+				return err
+			}
 		}
 	}
 
 }
 
 // GetBandwidthAllocations all bandwidth agreements and sorts by satellite
-func (s *Server) GetBandwidthAllocations(ctx context.Context) ([]*dbx.Bwagreement, error) {
+func (s *Server) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.Bwagreement, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer s.locked()()
-
-	rows, err := s.DB.All_Bwagreement(ctx)
+	rows, err = s.DB.All_Bwagreement(ctx)
 	return rows, err
 }

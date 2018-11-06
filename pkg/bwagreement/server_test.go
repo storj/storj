@@ -7,21 +7,19 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"fmt"
+	"flag"
 	"log"
 	"net"
-	"path/filepath"
+	"os"
 	"testing"
-	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/stretchr/testify/assert"
+
 	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -33,47 +31,31 @@ func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
 	defer TS.Stop()
 
-	var signature []byte
-	var data []byte
+	signature := []byte("iamthedummysignatureoftypebyteslice")
+	data := []byte("iamthedummydataoftypebyteslice")
 
-	bwAgreements, err := readSampleDataFromPsdb()
-	assert.NoError(t, err)
+	msg := &pb.RenterBandwidthAllocation{
+		Signature: signature,
+		Data:      data,
+	}
 
 	/* emulate sending the bwagreement stream from piecestore node */
 	stream, err := TS.c.BandwidthAgreements(ctx)
 	assert.NoError(t, err)
+	err = stream.Send(msg)
+	assert.NoError(t, err)
 
-	for _, v := range bwAgreements {
-		for _, j := range v {
-			rbad := &pb.RenterBandwidthAllocation_Data{}
-			if err := proto.Unmarshal(j.Agreement, rbad); err != nil {
-				assert.Error(t, err)
-			}
-			signature = rbad.GetPayerAllocation().GetSignature()
-			data = j.Agreement
-
-			msg := &pb.RenterBandwidthAllocation{
-				Signature: signature,
-				Data:      j.Agreement,
-			}
-
-			err = stream.Send(msg)
-			assert.NoError(t, err)
-
-			time.Sleep(1 * time.Millisecond)
-
-			/* read back from the postgres db in bwagreement table */
-			retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-			assert.EqualValues(t, retData.Data, data)
-			assert.NoError(t, err)
-
-			/* delete the entry what you just wrote */
-			delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
-			assert.True(t, delBool)
-			assert.NoError(t, err)
-		}
-	}
 	_, _ = stream.CloseAndRecv()
+
+	/* read back from the postgres db in bwagreement table */
+	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+	assert.EqualValues(t, retData.Data, data)
+	assert.NoError(t, err)
+
+	/* delete the entry what you just wrote */
+	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+	assert.True(t, delBool)
+	assert.NoError(t, err)
 }
 
 type TestServer struct {
@@ -117,9 +99,22 @@ func NewTestServer(t *testing.T) *TestServer {
 	return ts
 }
 
+const (
+	// this connstring is expected to work under the storj-test docker-compose instance
+	defaultPostgresConn = "postgres://pointerdb:pg-secret-pass@test-postgres-pointerdb/pointerdb?sslmode=disable"
+)
+
+var (
+	// for travis build support
+	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRESKV_TEST"), "PostgreSQL test database connection string")
+)
+
 func newTestServerStruct(t *testing.T) *Server {
-	psqlInfo := "postgres://postgres@localhost/pointerdb?sslmode=disable"
-	s, err := NewServer("postgres", psqlInfo, zap.NewNop())
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	s, err := NewServer("postgres", *testPostgres, zap.NewNop())
 	assert.NoError(t, err)
 	return s
 }
@@ -155,23 +150,4 @@ func (TS *TestServer) Stop() {
 		panic(err)
 	}
 	TS.grpcs.Stop()
-}
-
-// call this function to copy signature and data into postgres db
-func readSampleDataFromPsdb() (map[string][]*psdb.Agreement, error) {
-	// open the sql db
-	dbpath := filepath.Join("/Users/kishore/.storj/capt/f37/data", "piecestore.db")
-
-	db, err := psdb.Open(context.Background(), "", dbpath)
-	if err != nil {
-		fmt.Println("Storagenode database couldnt open:", dbpath)
-		return nil, err
-	}
-
-	bwAgreements, err := db.GetBandwidthAllocations()
-	if err != nil {
-		return nil, err
-	}
-
-	return bwAgreements, err
 }

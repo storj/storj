@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/proto"
@@ -156,19 +156,15 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		fmt.Println("Storagenode database couldnt open:", dbpath)
 		return err
 	}
-	//get all bandwidth aggrements entries already ordered
-	rows, err := s.GetBandwidthAllocations(context.Background())
+	//get all bandwidth aggrements rows already ordered
+	baRows, err := s.GetBandwidthAllocations(context.Background())
 	if err != nil {
-		fmt.Println("reading bandwidth table error")
+		fmt.Printf("error reading satellite database %v: %v\n", dbpath, err)
 		return err
 	}
 
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
-
 	// Agreement is a struct that contains a bandwidth agreement and the associated signature
-	type UplinkAttributes struct {
+	type UplinkSummary struct {
 		TotalBytes        int64
 		PutActionCount    int64
 		GetActionCount    int64
@@ -176,56 +172,54 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		// additional attributes add here ...
 	}
 
-	uplinkID := make(map[string]UplinkAttributes)
-	uplinkAtt := UplinkAttributes{}
-	var currUplinkID, lastUplinkID string
+	// attributes per uplinkid
+	summaries := make(map[string]*UplinkSummary)
+	uplinkIDs := []string{}
 
-	for _, row := range rows {
+	for _, baRow := range baRows {
 		// deserializing rbad you get payerbwallocation, total & storage node id
 		rbad := &pb.RenterBandwidthAllocation_Data{}
-		if err := proto.Unmarshal(row.Data, rbad); err != nil {
+		if err := proto.Unmarshal(baRow.Data, rbad); err != nil {
 			return err
 		}
-		total := rbad.GetTotal()
 
 		// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
 		pbad := &pb.PayerBandwidthAllocation_Data{}
 		if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
 			return err
 		}
-		currUplinkID = fmt.Sprintf("%s", pbad.GetUplinkId())
-		action := pbad.GetAction()
 
-		if strings.Compare(currUplinkID, lastUplinkID) != 0 {
-			// make an entry
-			uplinkAtt.TotalBytes = total
-			if action == pb.PayerBandwidthAllocation_PUT {
-				uplinkAtt.PutActionCount++
-			} else {
-				uplinkAtt.GetActionCount++
-				fmt.Println(uplinkAtt.GetActionCount)
-			}
-			uplinkAtt.TotalTransactions++
-			uplinkID[currUplinkID] = uplinkAtt
-			lastUplinkID = currUplinkID
+		uplinkID := string(pbad.GetUplinkId())
+		summary, ok := summaries[uplinkID]
+		if !ok {
+			summaries[uplinkID] = &UplinkSummary{}
+			uplinkIDs = append(uplinkIDs, uplinkID)
+			summary = summaries[uplinkID]
+		}
+
+		// fill the summary info
+		summary.TotalBytes += rbad.GetTotal()
+		summary.TotalTransactions++
+		if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+			summary.PutActionCount++
 		} else {
-			//update the already existing entry
-			for satIDKey, satIDVal := range uplinkID {
-				if strings.Compare(satIDKey, currUplinkID) == 0 {
-					satIDVal.TotalBytes = satIDVal.TotalBytes + total
-					if action == pb.PayerBandwidthAllocation_PUT {
-						satIDVal.PutActionCount++
-					} else {
-						satIDVal.GetActionCount++
-					}
-					satIDVal.TotalTransactions++
-					uplinkID[satIDKey] = satIDVal
-				}
-			}
+			summary.GetActionCount++
 		}
 	}
-	fmt.Fprintln(w, currUplinkID, "\t", uplinkID[currUplinkID].TotalBytes, "\t", uplinkID[currUplinkID].TotalTransactions, "\t", uplinkID[currUplinkID].PutActionCount, "\t", uplinkID[currUplinkID].GetActionCount, "\t")
 
+	// initialize the table header (fields)
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+
+	// populate the row fields
+	sort.Strings(uplinkIDs)
+	for _, uplinkID := range uplinkIDs {
+		summary := summaries[uplinkID]
+		fmt.Fprint(w, uplinkID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	}
+
+	// display the data
 	err = w.Flush()
 	return err
 }
