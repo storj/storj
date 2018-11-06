@@ -22,7 +22,7 @@ type Minio struct {
 
 // NewMinio creates new Client
 func NewMinio(conf Config) (Client, error) {
-	api, err := minio.New(conf.Endpoint, conf.AccessKey, conf.SecretKey, !conf.NoSSL)
+	api, err := minio.New(conf.S3Gateway, conf.AccessKey, conf.SecretKey, !conf.NoSSL)
 	if err != nil {
 		return nil, MinioError.Wrap(err)
 	}

@@ -39,10 +39,10 @@ func TestNewPointerDBClient(t *testing.T) {
 	defer ctrl.Finish()
 
 	gc := NewMockPointerDBClient(ctrl)
-	pdb := PointerDB{grpcClient: gc}
+	pdb := PointerDB{client: gc}
 
 	assert.NotNil(t, pdb)
-	assert.NotNil(t, pdb.grpcClient)
+	assert.NotNil(t, pdb.client)
 }
 
 func makePointer(path storj.Path) pb.PutRequest {
@@ -97,7 +97,7 @@ func TestPut(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		// here we don't care what type of context we pass
 		gc.EXPECT().Put(gomock.Any(), &putRequest).Return(nil, tt.err)
@@ -144,22 +144,24 @@ func TestGet(t *testing.T) {
 		err = proto.Unmarshal(byteData, ptr)
 		assert.NoError(t, err)
 
-		getResponse := pb.GetResponse{Pointer: ptr}
+		getResponse := pb.GetResponse{Pointer: ptr, Nodes: []*pb.Node{}}
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().Get(gomock.Any(), &getRequest).Return(&getResponse, tt.err)
 
-		pointer, err := pdb.Get(ctx, tt.path)
+		pointer, nodes, err := pdb.Get(ctx, tt.path)
 
 		if err != nil {
 			assert.True(t, strings.Contains(err.Error(), tt.errString), errTag)
 			assert.Nil(t, pointer)
+			assert.Nil(t, nodes)
 		} else {
 			assert.NotNil(t, pointer)
+			assert.NotNil(t, nodes)
 			assert.NoError(t, err, errTag)
 		}
 	}
@@ -226,7 +228,7 @@ func TestList(t *testing.T) {
 		listResponse := pb.ListResponse{Items: tt.items, More: tt.more}
 
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().List(gomock.Any(), &listRequest).Return(&listResponse, tt.err)
 
@@ -275,7 +277,7 @@ func TestDelete(t *testing.T) {
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 		gc := NewMockPointerDBClient(ctrl)
-		pdb := PointerDB{grpcClient: gc}
+		pdb := PointerDB{client: gc}
 
 		gc.EXPECT().Delete(gomock.Any(), &deleteRequest).Return(nil, tt.err)
 

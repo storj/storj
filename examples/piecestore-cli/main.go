@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	pstore "storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore"
 	"storj.io/storj/pkg/process"
 )
 

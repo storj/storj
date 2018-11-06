@@ -21,7 +21,7 @@ import (
 type Node struct {
 	Info      pb.Node
 	Identity  *provider.FullIdentity
-	Transport *transport.Transport
+	Transport transport.Client
 	Listener  net.Listener
 	Provider  *provider.Provider
 	Kademlia  *kademlia.Kademlia

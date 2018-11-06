@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/pb"
+	segment "storj.io/storj/pkg/storage/segments"
 )
 
 // Repairer is the interface for the data repair queue
@@ -23,13 +24,15 @@ type Repairer interface {
 // repairer holds important values for data repair
 type repairer struct {
 	queue   queue.RepairQueue
+	store   segment.Store
 	limiter *sync2.Limiter
 	ticker  *time.Ticker
 }
 
-func newRepairer(queue queue.RepairQueue, interval time.Duration, concurrency int) *repairer {
+func newRepairer(queue queue.RepairQueue, ss segment.Store, interval time.Duration, concurrency int) *repairer {
 	return &repairer{
 		queue:   queue,
+		store:   ss,
 		limiter: sync2.NewLimiter(concurrency),
 		ticker:  time.NewTicker(interval),
 	}
@@ -65,19 +68,11 @@ func (r *repairer) process(ctx context.Context) error {
 	}
 
 	r.limiter.Go(ctx, func() {
-		err := r.Repair(ctx, &seg)
+		err := r.store.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
 		}
 	})
 
 	return nil
-}
-
-// Repair starts repair of the segment
-func (r *repairer) Repair(ctx context.Context, seg *pb.InjuredSegment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO:
-	zap.L().Debug("Repairing", zap.Any("segment", seg))
-	return err
 }

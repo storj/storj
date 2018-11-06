@@ -73,7 +73,8 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	pointer, err := cursor.pointers.Get(ctx, path)
+	// get pointer info
+	pointer, _, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
 	}

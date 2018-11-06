@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package psserver
 
 import (
 	"bytes"
@@ -27,8 +27,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
-	pstore "storj.io/storj/pkg/piecestore"
-	"storj.io/storj/pkg/piecestore/rpc/server/psdb"
+	"storj.io/storj/pkg/piecestore"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
 )
 

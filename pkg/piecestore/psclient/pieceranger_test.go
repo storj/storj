@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package client
+package psclient
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -76,7 +75,14 @@ func TestPieceRanger(t *testing.T) {
 
 		ctx := context.Background()
 
-		c, err := NewCustomRoute(route, node.IDFromString("test-node-id-1234567"), 32*1024, priv)
+		target := &pb.Node{
+			Address: &pb.NodeAddress{
+				Address:   "",
+				Transport: 0,
+			},
+			Id: "test-node-id-1234567",
+		}
+		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
 		rr, err := PieceRanger(ctx, c, stream, pid, &pb.PayerBandwidthAllocation{}, nil)
 		if assert.NoError(t, err, errTag) {
@@ -147,7 +153,14 @@ func TestPieceRangerSize(t *testing.T) {
 
 		ctx := context.Background()
 
-		c, err := NewCustomRoute(route, node.IDFromString("test-node-id-1234567"), 32*1024, priv)
+		target := &pb.Node{
+			Address: &pb.NodeAddress{
+				Address:   "",
+				Transport: 0,
+			},
+			Id: "test-node-id-1234567",
+		}
+		c, err := NewCustomRoute(route, target, 32*1024, priv)
 		assert.NoError(t, err)
 		rr := PieceRangerSize(c, stream, pid, tt.size, &pb.PayerBandwidthAllocation{}, nil)
 		assert.Equal(t, tt.size, rr.Size(), errTag)

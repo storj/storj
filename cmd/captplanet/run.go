@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
-	psserver "storj.io/storj/pkg/piecestore/rpc/server"
+	psserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
@@ -135,9 +135,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			o,
-			// TODO(coyle): re-enable the checker and repairer after we determine why it is panicing
+			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,
-			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.Repairer,
 		)
 	}()
 

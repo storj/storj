@@ -10,7 +10,7 @@ import (
 
 // Metainfo represents a database for storing meta-info about objects
 type Metainfo interface {
-	// MetainfoLimits returns limits for this metainfo database
+	// Limits returns limits for this metainfo database
 	Limits() (MetainfoLimits, error)
 
 	// CreateBucket creates a new bucket with the specified information
@@ -28,15 +28,19 @@ type Metainfo interface {
 	// GetObjectStream returns interface for reading the object stream
 	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
 
-	// CreateObject creates an uploading object and returns an interface for uploading Object information
+	// CreateObject creates a mutable object for uploading stream info
 	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
-	// ModifyObject creates an interface for modifying an existing object
-	ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
+	// ModifyObject creates a mutable object for updating a partially uploaded object
+	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
-
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+
+	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
+	ModifyPendingObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	// ListPendingObjects lists pending objects in bucket based on the ListOptions
+	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
 
 // CreateObject has optional parameters that can be set
@@ -44,6 +48,9 @@ type CreateObject struct {
 	Metadata    []byte
 	ContentType string
 	Expires     time.Time
+
+	RedundancyScheme
+	EncryptionScheme
 }
 
 // Object converts the CreateObject to an object with unitialized values
@@ -54,6 +61,15 @@ func (create CreateObject) Object(bucket string, path Path) Object {
 		Metadata:    create.Metadata,
 		ContentType: create.ContentType,
 		Expires:     create.Expires,
+		Stream: Stream{
+			Size:             -1,  // unknown
+			Checksum:         nil, // unknown
+			SegmentCount:     -1,  // unknown
+			FixedSegmentSize: -1,  // unknown
+
+			RedundancyScheme: create.RedundancyScheme,
+			EncryptionScheme: create.EncryptionScheme,
+		},
 	}
 }
 
@@ -181,25 +197,25 @@ type ReadOnlyStream interface {
 // MutableObject is an interface for manipulating creating/deleting object stream
 type MutableObject interface {
 	// Info gets the current information about the object
-	Info() (Object, error)
+	Info(ctx context.Context) (Object, error)
 
 	// CreateStream creates a new stream for the object
-	CreateStream() (MutableStream, error)
+	CreateStream(ctx context.Context) (MutableStream, error)
 	// ContinueStream starts to continue a partially uploaded stream.
-	// ContinueStream() (MutableStream, error)
+	ContinueStream(ctx context.Context) (MutableStream, error)
 	// DeleteStream deletes any information about this objects stream
-	DeleteStream() error
+	DeleteStream(ctx context.Context) error
 
 	// Commit commits the changes to the database
-	Commit() error
+	Commit(ctx context.Context) error
 }
 
 // MutableStream is an interface for manipulating stream information
 type MutableStream interface {
-	ReadOnlyStream
+	// TODO: methods for finding partially uploaded segments
 
 	// AddSegments adds segments to the stream.
-	AddSegments(segments ...Segment) error
+	AddSegments(ctx context.Context, segments ...Segment) error
 	// UpdateSegments updates information about segments.
-	UpdateSegments(segments ...Segment) error
+	UpdateSegments(ctx context.Context, segments ...Segment) error
 }

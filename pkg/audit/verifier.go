@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
 	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
@@ -58,26 +58,18 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 	return &Verifier{downloader: newDefaultDownloader(transport, overlay, id)}
 }
 
-func (d *defaultDownloader) dial(ctx context.Context, storageNode *pb.Node) (ps client.PSClient, err error) {
-	defer mon.Task()(&ctx)(&err)
-	c, err := d.transport.DialNode(ctx, storageNode)
-	if err != nil {
-		return nil, err
-	}
-	return client.NewPSClient(c, node.IDFromString(storageNode.GetId()), 0, d.identity.Key)
-}
-
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id client.PieceID, pieceSize int64, node *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ps, err := d.dial(ctx, node)
+	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
 	if err != nil {
 		return s, err
 	}
 
-	derivedPieceID, err := id.Derive([]byte(node.GetId()))
+	nodeID := node.IDFromString(fromNode.GetId())
+	derivedPieceID, err := id.Derive(nodeID.Bytes())
 	if err != nil {
 		return s, err
 	}
@@ -138,7 +130,7 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	}
 
 	shareSize := int(pointer.Remote.Redundancy.GetErasureShareSize())
-	pieceID := client.PieceID(pointer.Remote.GetPieceId())
+	pieceID := psclient.PieceID(pointer.Remote.GetPieceId())
 
 	// this downloads shares from nodes at the given stripe index
 	for i, node := range nodes {

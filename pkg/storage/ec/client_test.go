@@ -21,9 +21,10 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/transport"
 )
 
 const (
@@ -43,71 +44,24 @@ var (
 	node3 = &pb.Node{Id: "node-3"}
 )
 
-type mockDialer struct {
-	m map[*pb.Node]client.PSClient
-}
-
-func (d *mockDialer) dial(ctx context.Context, node *pb.Node) (
-	ps client.PSClient, err error) {
-	ps = d.m[node]
-	if ps == nil {
-		return nil, ErrDialFailed
-	}
-	return d.m[node], nil
-}
-
 func TestNewECClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	transport := NewMockClient(ctrl)
 	mbm := 1234
 
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	identity := &provider.FullIdentity{Key: privKey}
-	ec := NewClient(identity, transport, mbm)
+	ec := NewClient(identity, mbm)
 	assert.NotNil(t, ec)
 
 	ecc, ok := ec.(*ecClient)
 	assert.True(t, ok)
-	assert.NotNil(t, ecc.d)
-	assert.Equal(t, mbm, ecc.mbm)
+	assert.NotNil(t, ecc.transport)
+	assert.Equal(t, mbm, ecc.memoryLimit)
 
-	dd, ok := ecc.d.(*defaultDialer)
-	assert.True(t, ok)
-	assert.NotNil(t, dd.transport)
-	assert.Equal(t, dd.transport, transport)
-}
-
-func TestDefaultDialer(t *testing.T) {
-	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	identity := &provider.FullIdentity{Key: privKey}
-
-	for i, tt := range []struct {
-		err       error
-		errString string
-	}{
-		{nil, ""},
-		{ErrDialFailed, dialFailed},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-
-		transport := NewMockClient(ctrl)
-		transport.EXPECT().DialNode(gomock.Any(), node0).Return(nil, tt.err)
-
-		dd := defaultDialer{transport: transport, identity: identity}
-		_, err := dd.dial(ctx, node0)
-
-		if tt.errString != "" {
-			assert.EqualError(t, err, tt.errString, errTag)
-		} else {
-			assert.NoError(t, err, errTag)
-		}
-	}
+	assert.NotNil(t, ecc.transport.Identity())
+	assert.Equal(t, ecc.transport.Identity(), identity)
 }
 
 func TestPut(t *testing.T) {
@@ -159,7 +113,7 @@ TestLoop:
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := client.NewPieceID()
+		id := psclient.NewPieceID()
 		ttl := time.Now()
 
 		errs := make(map[*pb.Node]error, len(tt.nodes))
@@ -167,7 +121,7 @@ TestLoop:
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if n == nil || tt.badInput {
 				continue
@@ -179,21 +133,21 @@ TestLoop:
 			ps := NewMockPSClient(ctrl)
 			gomock.InOrder(
 				ps.EXPECT().Put(gomock.Any(), derivedID, gomock.Any(), ttl, gomock.Any(), gomock.Any()).Return(errs[n]).
-					Do(func(ctx context.Context, id client.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) {
+					Do(func(ctx context.Context, id psclient.PieceID, data io.Reader, ttl time.Time, ba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) {
 						// simulate that the mocked piece store client is reading the data
 						_, err := io.Copy(ioutil.Discard, data)
 						assert.NoError(t, err, errTag)
 					}),
 				ps.EXPECT().Close().Return(nil),
 			)
-			m[n] = ps
+			clients[n] = ps
 		}
 		rs, err := eestream.NewRedundancyStrategy(es, tt.min, 0)
 		if !assert.NoError(t, err, errTag) {
 			continue
 		}
 		r := io.LimitReader(rand.Reader, int64(size))
-		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
 
 		successfulNodes, err := ec.Put(ctx, tt.nodes, rs, id, r, ttl, nil, nil)
 
@@ -210,6 +164,17 @@ TestLoop:
 				}
 			}
 		}
+	}
+}
+
+func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
+	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+		c, ok := clients[n]
+		if !ok {
+			return nil, ErrDialFailed
+		}
+
+		return c, nil
 	}
 }
 
@@ -254,14 +219,14 @@ TestLoop:
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := client.NewPieceID()
+		id := psclient.NewPieceID()
 
 		errs := make(map[*pb.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] == ErrOpFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
@@ -270,10 +235,10 @@ TestLoop:
 				}
 				ps := NewMockPSClient(ctrl)
 				ps.EXPECT().Get(gomock.Any(), derivedID, int64(size/k), gomock.Any(), gomock.Any()).Return(ranger.ByteRanger(nil), errs[n])
-				m[n] = ps
+				clients[n] = ps
 			}
 		}
-		ec := ecClient{d: &mockDialer{m: m}, mbm: tt.mbm}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients), memoryLimit: tt.mbm}
 		rr, err := ec.Get(ctx, tt.nodes, es, id, int64(size), nil, nil)
 		if err == nil {
 			_, err := rr.Range(ctx, 0, 0)
@@ -313,14 +278,14 @@ TestLoop:
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
-		id := client.NewPieceID()
+		id := psclient.NewPieceID()
 
 		errs := make(map[*pb.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		m := make(map[*pb.Node]client.PSClient, len(tt.nodes))
+		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if n != nil && errs[n] != ErrDialFailed {
 				derivedID, err := id.Derive([]byte(n.GetId()))
@@ -332,11 +297,11 @@ TestLoop:
 					ps.EXPECT().Delete(gomock.Any(), derivedID, gomock.Any()).Return(errs[n]),
 					ps.EXPECT().Close().Return(nil),
 				)
-				m[n] = ps
+				clients[n] = ps
 			}
 		}
 
-		ec := ecClient{d: &mockDialer{m: m}}
+		ec := ecClient{newPSClientFunc: mockNewPSClient(clients)}
 		err := ec.Delete(ctx, tt.nodes, id, nil)
 
 		if tt.errString != "" {

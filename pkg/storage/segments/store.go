@@ -13,13 +13,12 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/piecestore/rpc/client"
+	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -50,7 +49,7 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Repair(ctx context.Context, path storj.Path, lostPieces []int) (err error)
+	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -65,8 +64,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
-	pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
 	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
 }
 
@@ -74,7 +72,7 @@ func NewSegmentStore(oc overlay.Client, ec ecclient.Client,
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, _, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -119,7 +117,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		pieceID := client.NewPieceID()
+		pieceID := psclient.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
 		authorization := s.pdb.SignedMessage()
@@ -157,8 +155,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceID, readerSize int64,
-	exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
 		if nodes[i] == nil {
@@ -192,21 +189,24 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID client.PieceI
 }
 
 // Get retrieves a segment using erasure code, overlay, and pointerdb clients
-func (s *segmentStore) Get(ctx context.Context, path storj.Path) (
-	rr ranger.Ranger, meta Meta, err error) {
+func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, nodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.GetPieceId())
-		nodes, err := s.lookupNodes(ctx, seg)
-		if err != nil {
-			return nil, Meta{}, Error.Wrap(err)
+		pid := psclient.PieceID(seg.GetPieceId())
+
+		// fall back if nodes are not available
+		if nodes == nil {
+			nodes, err = s.lookupNodes(ctx, seg)
+			if err != nil {
+				return nil, Meta{}, Error.Wrap(err)
+			}
 		}
 
 		es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
@@ -254,17 +254,21 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, err := s.pdb.Get(ctx, path)
+	pr, nodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
-		pid := client.PieceID(seg.PieceId)
-		nodes, err := s.lookupNodes(ctx, seg)
-		if err != nil {
-			return Error.Wrap(err)
+		pid := psclient.PieceID(seg.PieceId)
+
+		// fall back if nodes are not available
+		if nodes == nil {
+			nodes, err = s.lookupNodes(ctx, seg)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 
 		authorization := s.pdb.SignedMessage()
@@ -280,26 +284,29 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces []int) (err error) {
+func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	//Read the segment's pointer's info from the PointerDB
-	pr, err := s.pdb.Get(ctx, path)
+	pr, originalNodes, err := s.pdb.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("Cannot repair inline segment %s", client.PieceID(pr.GetInlineSegment()))
+		return Error.New("Cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
 
 	seg := pr.GetRemote()
-	pid := client.PieceID(seg.GetPieceId())
+	pid := psclient.PieceID(seg.GetPieceId())
 
-	// Get the list of remote pieces from the pointer
-	originalNodes, err := s.lookupNodes(ctx, seg)
-	if err != nil {
-		return Error.Wrap(err)
+	// fall back if nodes are not available
+	if originalNodes == nil {
+		// Get the list of remote pieces from the pointer
+		originalNodes, err = s.lookupNodes(ctx, seg)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	// get the nodes list that needs to be excluded
@@ -316,7 +323,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 		//remove all lost pieces from the list to have only healthy pieces
 		for i := range lostPieces {
-			if j == lostPieces[i] {
+			if j == int(lostPieces[i]) {
 				totalNilNodes++
 			}
 		}

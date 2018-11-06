@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
-	psserver "storj.io/storj/pkg/piecestore/rpc/server"
+	psserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
