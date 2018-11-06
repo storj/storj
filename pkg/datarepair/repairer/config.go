@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	segment "storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage/redis"
 )
 
@@ -61,8 +60,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIdentity) (ss segment.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	t := transport.NewClient(identity)
-
 	var oc overlay.Client
 	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
 	if err != nil {
@@ -74,7 +71,7 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
 		return nil, err
