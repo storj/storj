@@ -43,7 +43,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return err
 	}
 	transport := transport.NewClient(identity)
-	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity)
+	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
 	if err != nil {
 		return err
 	}
@@ -52,10 +52,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
-	identity provider.FullIdentity) (service *Service, err error) {
+	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, identity)
-	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
+	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
 	if err != nil {
 		return nil, err
 	}
