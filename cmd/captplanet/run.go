@@ -12,6 +12,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -39,6 +41,8 @@ type Satellite struct {
 	Overlay     overlay.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
+	Audit       audit.Config
+	StatDB      statdb.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -124,10 +128,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 
+		if runCfg.Satellite.Audit.SatelliteAddr == "" {
+			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
+		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
+			runCfg.Satellite.Audit,
+			runCfg.Satellite.StatDB,
 			o,
 			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,

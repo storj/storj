@@ -79,6 +79,9 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 		APIKey: sdb.APIKey,
 	}
 	res, err := sdb.client.Get(ctx, getReq)
+	if err != nil {
+		return nil, err
+	}
 
 	return res.Stats, err
 }
@@ -126,6 +129,9 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp
 	}
 
 	res, err := sdb.client.Update(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
 
 	return res.Stats, err
 }
@@ -140,6 +146,9 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 	}
 
 	res, err := sdb.client.UpdateBatch(ctx, updateBatchReq)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return res.StatsList, res.FailedNodes, err
 }
@@ -154,6 +163,9 @@ func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (s
 	}
 
 	res, err := sdb.client.CreateEntryIfNotExists(ctx, createReq)
+	if err != nil {
+		return nil, err
+	}
 
 	return res.Stats, err
 }
