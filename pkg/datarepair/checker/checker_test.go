@@ -106,7 +106,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	}
 }
 
-func TestOfflineAndOnlineNodes(t *testing.T) {
+func TestOfflineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
