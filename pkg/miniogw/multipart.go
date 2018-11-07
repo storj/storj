@@ -433,6 +433,10 @@ func (stream *MultipartStream) AddPart(partID int, data *hash.Reader) (*StreamPa
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
 
+	if partID < stream.nextID {
+		return nil, Error.New("Part %d already uploaded. Next part ID is %d.", partID, stream.nextID)
+	}
+
 	for _, p := range stream.parts {
 		if p.ID == partID {
 			// Replace the reader of this part with the new one.
