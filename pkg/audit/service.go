@@ -47,7 +47,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
-	return service.Run(ctx)
+	go func() {
+		err := service.Run(ctx)
+		zap.S().Error("audit service failed to run:", zap.Error(err))
+	}()
+	return server.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
