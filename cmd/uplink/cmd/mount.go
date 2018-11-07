@@ -236,7 +236,7 @@ func newStorjFile(ctx context.Context, name string, store objects.Store, created
 func (f *storjFile) GetAttr(attr *fuse.Attr) fuse.Status {
 	zap.S().Debug("GetAttr file:", f.name)
 
-	if f.created == true {
+	if f.created {
 		attr.Mode = fuse.S_IFREG | 0644
 		if f.size != 0 {
 			attr.Size = f.size
@@ -314,12 +314,16 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 			meta := objects.SerializableMeta{}
 			expTime := time.Time{}
 
-			defer reader.Close()
 			m, err := f.store.Put(f.ctx, f.name, reader, meta, expTime)
 			if err != nil {
 				zap.S().Errorf("error during writting: %v", err)
 			}
+
 			f.size = uint64(m.Size)
+
+			if err := f.reader.Close(); err != nil {
+				zap.S().Errorf("Failed to close reader: %s", err)
+			}
 
 			zap.S().Debug("Stops writting: ", f.name)
 		}()
@@ -344,7 +348,9 @@ func (f *storjFile) closeReader() {
 
 func (f *storjFile) closeWriter() {
 	if f.writer != nil {
-		f.writer.Close()
+		if err := f.writer.Close(); err != nil {
+			zap.S().Errorf("Failed to close writer: %s", err)
+		}
 		f.writer = nil
 	}
 }
