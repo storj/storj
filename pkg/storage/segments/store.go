@@ -317,15 +317,15 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	for j, v := range originalNodes {
 		if v != nil {
 			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+			// remove all lost pieces from the list to have only healthy pieces
+			for i := range lostPieces {
+				if j == int(lostPieces[i]) {
+					v = nil
+					totalNilNodes++
+				}
+			}
 		} else {
 			totalNilNodes++
-		}
-
-		//remove all lost pieces from the list to have only healthy pieces
-		for i := range lostPieces {
-			if j == int(lostPieces[i]) {
-				totalNilNodes++
-			}
 		}
 	}
 
