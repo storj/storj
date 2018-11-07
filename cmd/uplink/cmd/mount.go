@@ -93,22 +93,32 @@ type storjFs struct {
 	ctx         context.Context
 	store       objects.Store
 	createdFile string
+	nodeFs *pathfs.PathNodeFs
 	pathfs.FileSystem
 }
 
+func (sf *storjFs) OnMount(nodeFs *pathfs.PathNodeFs) {
+	sf.nodeFs = nodeFs
+}
+
 func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
-	zap.S().Debug("GetAttr:", name)
+	zap.S().Debug("GetAttr: ", name)
 
 	if name == "" {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
-
+	
 	if name == sf.createdFile {
 		sf.createdFile = ""
 		return &fuse.Attr{
 			Owner: *fuse.CurrentOwner(),
 			Mode:  fuse.S_IFREG | 0644,
 		}, fuse.OK
+	}
+
+	node := sf.nodeFs.Node(name)
+	if node != nil && node.IsDir(){
+		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
 	metadata, err := sf.store.Meta(sf.ctx, name)
@@ -140,7 +150,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 }
 
 func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
-	zap.S().Debug("OpenDir:", name)
+	zap.S().Debug("OpenDir: ", name)
 
 	entries, err := sf.listFiles(sf.ctx, name, sf.store)
 	if err != nil {
@@ -151,12 +161,12 @@ func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 }
 
 func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
-	zap.S().Debug("Open:", name)
+	zap.S().Debug("Open: ", name)
 	return newStorjFile(sf.ctx, name, sf.store, false), fuse.OK
 }
 
 func (sf *storjFs) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
-	zap.S().Infof("Debug:", name)
+	zap.S().Debug("Debug: ", name)
 
 	sf.createdFile = name
 	return newStorjFile(sf.ctx, name, sf.store, true), fuse.OK
@@ -234,7 +244,7 @@ func newStorjFile(ctx context.Context, name string, store objects.Store, created
 }
 
 func (f *storjFile) GetAttr(attr *fuse.Attr) fuse.Status {
-	zap.S().Debug("GetAttr file:", f.name)
+	zap.S().Debug("GetAttr file: ", f.name)
 
 	if f.created {
 		attr.Mode = fuse.S_IFREG | 0644
@@ -321,7 +331,7 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 
 			f.size = uint64(m.Size)
 
-			if err := f.reader.Close(); err != nil {
+			if err := reader.Close(); err != nil {
 				zap.S().Errorf("Failed to close reader: %s", err)
 			}
 
