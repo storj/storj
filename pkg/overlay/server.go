@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
-	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 // ServerError creates class of errors for stack traces
@@ -29,7 +28,6 @@ type Server struct {
 	cache   *Cache
 	logger  *zap.Logger
 	metrics *monkit.Registry
-	statdb sdbclient.Client
 }
 
 // Lookup finds the address of a node in our overlay network

@@ -11,12 +11,11 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
-	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage/teststore"
 )
 
 // NewMockServer provides a mock grpc server for testing
-func NewMockServer(items []storage.ListItem, sdbclient sdbclient.Client, opts ...grpc.ServerOption) *grpc.Server {
+func NewMockServer(items []storage.ListItem, opts ...grpc.ServerOption) *grpc.Server {
 	grpcServer := grpc.NewServer(opts...)
 
 	registry := monkit.Default
@@ -33,7 +32,6 @@ func NewMockServer(items []storage.ListItem, sdbclient sdbclient.Client, opts ..
 	s := Server{
 		dht:     k,
 		cache:   c,
-		statdb: sdbclient,
 		logger:  zap.NewNop(),
 		metrics: registry,
 	}
