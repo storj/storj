@@ -71,7 +71,7 @@ func (t *tally) identifyActiveNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 	self := rt.Local()
-	identity := &provider.FullIdentity{}
+	identity := &provider.FullIdentity{} //do i need anything in here?
 	client, err := node.NewNodeClient(identity, self, t.kademlia)
 	if err != nil {
 		return Error.Wrap(err)
