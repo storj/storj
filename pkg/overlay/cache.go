@@ -227,7 +227,7 @@ func randomID() ([]byte, error) {
 
 // getNodeRep gets a node's stats from statdb and returns a node with reputation attached
 func (o *Cache) getNodeRep(ctx context.Context, n *pb.Node) (*pb.Node, error) {
-	stats, err := o.statdb.Get(ctx, node.IDFromString(n.Id).Bytes())
+	stats, err := o.statdb.CreateEntryIfNotExists(ctx, node.IDFromString(n.Id).Bytes())
 	if err != nil {
 		return nil, err
 	}
