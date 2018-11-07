@@ -93,7 +93,7 @@ type storjFs struct {
 	ctx         context.Context
 	store       objects.Store
 	createdFile string
-	nodeFs *pathfs.PathNodeFs
+	nodeFs      *pathfs.PathNodeFs
 	pathfs.FileSystem
 }
 
@@ -107,7 +107,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	if name == "" {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
-	
+
 	if name == sf.createdFile {
 		sf.createdFile = ""
 		return &fuse.Attr{
@@ -117,7 +117,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}
 
 	node := sf.nodeFs.Node(name)
-	if node != nil && node.IsDir(){
+	if node != nil && node.IsDir() {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
