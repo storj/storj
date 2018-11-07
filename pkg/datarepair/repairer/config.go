@@ -45,7 +45,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	}
 
 	repairer := newRepairer(queue, ss, c.Interval, c.MaxRepair)
-	
+
 	ctx, cancel := context.WithCancel(ctx)
 
 	// TODO(coyle): we need to figure out how to propagate the error up to cancel the service
