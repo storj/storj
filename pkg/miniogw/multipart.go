@@ -42,7 +42,7 @@ func (s *storjObjects) NewMultipartUpload(ctx context.Context, bucket, object st
 		tempContType := metadata["content-type"]
 		delete(metadata, "content-type")
 
-		//metadata serialized
+		// metadata serialized
 		serMetaInfo := objects.SerializableMeta{
 			ContentType: tempContType,
 			UserDefined: metadata,
@@ -138,6 +138,8 @@ func (s *storjObjects) CompleteMultipartUpload(ctx context.Context, bucket, obje
 }
 
 func (s *storjObjects) ListObjectParts(ctx context.Context, bucket, object, uploadID string, partNumberMarker int, maxParts int) (result minio.ListPartsInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	uploads := s.storj.multipart
 	upload, err := uploads.Get(bucket, object, uploadID)
 	if err != nil {
@@ -433,7 +435,11 @@ func (stream *MultipartStream) AddPart(partID int, data *hash.Reader) (*StreamPa
 
 	for _, p := range stream.parts {
 		if p.ID == partID {
-			return nil, Error.New("Part %d already exists", partID)
+			// Replace the reader of this part with the new one.
+			// This could happen if the read timeout for this part has expired
+			// and the client tries to upload the part again.
+			p.Reader = data
+			return p, nil
 		}
 	}
 
