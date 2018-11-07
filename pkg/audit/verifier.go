@@ -124,6 +124,8 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	for _, p := range pieces {
 		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
+
+	// TODO(moby) nodes will not include offline nodes, so overlay should update uptime for these nodes
 	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
@@ -209,9 +211,9 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	}
 
 	var offlineNodes []string
-	for i, share := range shares {
+	for i := range shares {
 		if shares[i].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[share.PieceNumber].GetId())
+			offlineNodes = append(offlineNodes, nodes[i].GetId())
 		}
 	}
 
