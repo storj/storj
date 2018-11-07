@@ -89,6 +89,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
+	if pointer.GetSize() == 0 {
+		return nil, nil
+	}
+
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
