@@ -1,0 +1,20 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package kadcli;
+
+service KadCli {
+  // CountNodes returns the number of nodes in the cache and in the routing table
+  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+}
+
+message CountNodesResponse {
+  int64 kademlia = 1;
+  int64 overlay = 2;
+}
+
+message CountNodesRequest {
+}
