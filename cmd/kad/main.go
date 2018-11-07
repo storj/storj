@@ -69,7 +69,7 @@ func NewClient(cmd *cobra.Command, args []string) (*Client, error) {
 
 // ListBuckets lists all kademlia buckets
 func ListBuckets(cmd *cobra.Command, args []string) (err error) {
-	fmt.Print("Getting nodes")
+	fmt.Printf("Getting nodes \n")
 	ctx := context.Background()
 	cli, err := NewClient(cmd, args)
 	if err != nil {
