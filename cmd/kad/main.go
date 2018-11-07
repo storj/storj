@@ -21,7 +21,6 @@ var (
 		Use:   "kad",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
-
 	lsCmd = &cobra.Command{
 		Use:   "ls",
 		Short: "List all kad buckets",
