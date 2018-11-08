@@ -114,33 +114,38 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
 func (o *Cache) Put(nodeID string, value pb.Node) error {
-	data, err := proto.Marshal(&value)
+	_, err := proto.Marshal(&value)
 	if err != nil {
 		return err
 	}
-
-	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
+	return nil
+	// return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
+	// look in our routing table
+	// get every node we know about
+	// ask every node for every node they know about
+	// for each newly known node, ask those nodes for every node they know about
+	// continue until no new nodes are found
 	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting nodes from DHT: %v", err))
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
-		if err != nil {
-			zap.Error(ErrNodeNotFound)
-		}
+		// _, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
+		// if err != nil {
+		// zap.Error(ErrNodeNotFound)
+		// }
 
-		n, err := proto.Marshal(&found)
+		n, err := proto.Marshal(v)
 		if err != nil {
 			return err
 		}
 
-		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
+		if err := o.DB.Put(node.IDFromString(v.Id).Bytes(), n); err != nil {
 			return err
 		}
 	}

@@ -209,7 +209,15 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
 	// TODO(coyle)
-	return pb.Node{}, NodeErr.New("TODO FindNode")
+	err := k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
+	})
+	if err != nil {
+		return pb.Node{}, err
+	}
+
+	// k.routingTable.getNodesFromIDs()
+	return pb.Node{}, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
