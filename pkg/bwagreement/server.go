@@ -6,6 +6,7 @@ package bwagreement
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -17,9 +18,15 @@ import (
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
-	DB *dbx.DB
-	//identity *provider.FullIdentity
+	DB     *dbx.DB
+	mu     sync.Mutex
 	logger *zap.Logger
+}
+
+// Agreement is a struct that contains a bandwidth agreement and the associated signature
+type Agreement struct {
+	Agreement []byte
+	Signature []byte
 }
 
 // NewServer creates instance of Server
@@ -40,9 +47,15 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	}, nil
 }
 
+func (s *Server) locked() func() {
+	s.mu.Lock()
+	return s.mu.Unlock
+}
+
 // Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwidthAllocation) (bwagreement *dbx.Bwagreement, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	s.logger.Debug("entering statdb Create")
 
 	signature := createBwAgreement.GetSignature()
@@ -64,6 +77,7 @@ func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwid
 func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	defer s.locked()()
 
 	ch := make(chan *pb.RenterBandwidthAllocation, 1)
 	errch := make(chan error, 1)
@@ -86,14 +100,20 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 		case <-ctx.Done():
 			return nil
 		case agreement := <-ch:
-			go func() {
-				_, err = s.Create(ctx, agreement)
-				if err != nil {
-					s.logger.Error("DB entry creation Error", zap.Error(err))
-					errch <- err
-				}
-			}()
+			_, err = s.Create(ctx, agreement)
+			if err != nil {
+				s.logger.Error("DB entry creation Error", zap.Error(err))
+				return err
+			}
 		}
 	}
 
+}
+
+// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
+func (s *Server) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.Bwagreement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer s.locked()()
+	rows, err = s.DB.All_Bwagreement(ctx)
+	return rows, err
 }

@@ -647,6 +647,38 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
@@ -743,6 +775,15 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Bwagreement(ctx)
+}
+
 func (rx *Rx) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
 	bwagreement_data Bwagreement_Data_Field) (
@@ -786,6 +827,9 @@ func (rx *Rx) Limited_Bwagreement(ctx context.Context,
 }
 
 type Methods interface {
+	All_Bwagreement(ctx context.Context) (
+		rows []*Bwagreement, err error)
+
 	Create_Bwagreement(ctx context.Context,
 		bwagreement_signature Bwagreement_Signature_Field,
 		bwagreement_data Bwagreement_Data_Field) (

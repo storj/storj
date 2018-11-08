@@ -7,9 +7,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
-	"fmt"
+	"flag"
 	"log"
 	"net"
+	"os"
 	"testing"
 
 	"go.uber.org/zap"
@@ -25,21 +26,6 @@ import (
 var (
 	ctx = context.Background()
 )
-
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	password = "your-password"
-	dbname   = "pointerdb"
-)
-
-func getPSQLInfo() string {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-	return psqlInfo
-}
 
 func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
@@ -113,9 +99,22 @@ func NewTestServer(t *testing.T) *TestServer {
 	return ts
 }
 
+const (
+	// this connstring is expected to work under the storj-test docker-compose instance
+	defaultPostgresConn = "postgres://pointerdb:pg-secret-pass@test-postgres-pointerdb/pointerdb?sslmode=disable"
+)
+
+var (
+	// for travis build support
+	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRESKV_TEST"), "PostgreSQL test database connection string")
+)
+
 func newTestServerStruct(t *testing.T) *Server {
-	psqlInfo := getPSQLInfo()
-	s, err := NewServer("postgres", psqlInfo, zap.NewNop())
+	if *testPostgres == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	}
+
+	s, err := NewServer("postgres", *testPostgres, zap.NewNop())
 	assert.NoError(t, err)
 	return s
 }
