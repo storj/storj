@@ -67,6 +67,16 @@ type KeyValueStore interface {
 	Close() error
 }
 
+//Queue is an interface describing queue stores like redis
+type Queue interface {
+	//Enqueue add a FIFO element
+	Enqueue(Value) error
+	//Dequeue removes a FIFO element
+	Dequeue() (Value, error)
+	//Close closes the store
+	Close() error
+}
+
 // IterateOptions contains options for iterator
 type IterateOptions struct {
 	// Prefix ensure

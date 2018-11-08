@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -26,11 +25,11 @@ type Config struct {
 func (c Config) initialize(ctx context.Context) (Checker, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
-	client, err := redis.NewClientFrom(c.QueueAddress)
+	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	repairQueue := queue.NewQueue(client)
+	repairQueue := queue.NewQueue(redisQ)
 	return newChecker(pointerdb, repairQueue, overlay, 0, zap.L(), c.Interval), nil
 }
 
