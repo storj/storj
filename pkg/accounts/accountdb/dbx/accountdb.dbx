@@ -5,10 +5,10 @@ model user (
     unique email
 
     field id            text
-    field first_name    text (updatable)
-    field last_name     text (updatable)
-    field email         text (updatable)
-    field password_hash text (updatable)
+    field first_name    text   ( updatable )
+    field last_name     text   ( updatable )
+    field email         text   ( updatable )
+    field password_hash blob   ( updatable )
 
     field created_at timestamp ( autoinsert )
 )

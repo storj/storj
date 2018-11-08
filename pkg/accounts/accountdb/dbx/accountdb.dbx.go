@@ -271,7 +271,7 @@ func (obj *sqlite3DB) Schema() string {
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
 	email TEXT NOT NULL,
-	password_hash TEXT NOT NULL,
+	password_hash BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( email )
@@ -348,7 +348,7 @@ type User struct {
 	FirstName    string
 	LastName     string
 	Email        string
-	PasswordHash string
+	PasswordHash []byte
 	CreatedAt    time.Time
 }
 
@@ -435,10 +435,10 @@ func (User_Email_Field) _Column() string { return "email" }
 
 type User_PasswordHash_Field struct {
 	_set   bool
-	_value string
+	_value []byte
 }
 
-func User_PasswordHash(v string) User_PasswordHash_Field {
+func User_PasswordHash(v []byte) User_PasswordHash_Field {
 	return User_PasswordHash_Field{_set: true, _value: v}
 }
 
