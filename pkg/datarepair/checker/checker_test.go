@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/dht"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
+	"storj.io/storj/storage/testqueue"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -34,7 +34,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
-	repairQueue := queue.NewQueue(teststore.New())
+	repairQueue := queue.NewQueue(testqueue.New())
 
 	const N = 25
 	nodes := []*pb.Node{}
@@ -88,7 +88,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	limit := 0
 	interval := time.Second
 	checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
-	err := checker.IdentifyInjuredSegments(ctx)
+	err := checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
 
 	//check if the expected segments were added to the queue
@@ -106,11 +106,11 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	}
 }
 
-func TestOfflineAndOnlineNodes(t *testing.T) {
+func TestOfflineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
 
-	repairQueue := queue.NewQueue(teststore.New())
+	repairQueue := queue.NewQueue(testqueue.New())
 	const N = 50
 	nodes := []*pb.Node{}
 	nodeIDs := []dht.NodeID{}
@@ -144,7 +144,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
-	client, err := redis.NewClient(addr, "", 1)
+	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
 	repairQueue := queue.NewQueue(client)
 
@@ -202,7 +202,7 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
 		checker := newChecker(pointerdb, repairQueue, overlayServer, limit, logger, interval)
-		err = checker.IdentifyInjuredSegments(ctx)
+		err = checker.identifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
 		//check if the expected segments were added to the queue
