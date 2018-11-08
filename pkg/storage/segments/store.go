@@ -320,8 +320,8 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	for j, v := range originalNodes {
 		if v != nil {
 			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
-			
-			// If node index exists in lostPieces skip adding it to healthyNodes
+
+			// If node index exists in lostPieces, skip adding it to healthyNodes
 			for i := range lostPieces {
 				if j == int(lostPieces[i]) {
 					totalNilNodes++
@@ -346,7 +346,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	//make a repair nodes list just with new unique ids
 	repairNodesList := make([]*pb.Node, len(healthyNodes))
 	for j, vr := range healthyNodes {
-		// find the nil in the original node list
+		// find the nil in the node list
 		if vr == nil {
 			// replace the location with the newNode Node info
 			totalRepairCount--
@@ -383,7 +383,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return Error.Wrap(err)
 	}
 
-	// merge the successful nodes list into the originalNodes list
+	// merge the successful nodes list into the healthy nodes list
 	for i, v := range healthyNodes {
 		if v == nil {
 			// copy the successfuNode info
