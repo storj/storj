@@ -6,9 +6,9 @@ package psserver
 import (
 	"context"
 	"io"
-	"log"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
@@ -31,12 +31,12 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.Wrap(err)
 	}
 	if recv == nil {
-		return StoreError.New("Error receiving Piece metadata")
+		return StoreError.New("error receiving Piece metadata")
 	}
 
 	authorization := recv.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
-		return err
+		return ServerError.Wrap(err)
 	}
 
 	pd := recv.GetPiecedata()
@@ -44,10 +44,10 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 		return StoreError.New("PieceStore message is nil")
 	}
 
-	log.Printf("Storing %s...", pd.GetId())
+	zap.S().Infof("Storing %s...", pd.GetId())
 
 	if pd.GetId() == "" {
-		return StoreError.New("Piece ID not specified")
+		return StoreError.New("piece ID not specified")
 	}
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
@@ -67,7 +67,7 @@ func (s *Server) Store(reqStream pb.PieceStoreRoutes_StoreServer) (err error) {
 	if err = s.DB.AddBandwidthUsed(total); err != nil {
 		return StoreError.New("failed to write bandwidth info to database: %v", err)
 	}
-	log.Printf("Successfully stored %s.", pd.GetId())
+	zap.S().Infof("Successfully stored %s.", pd.GetId())
 
 	return reqStream.SendAndClose(&pb.PieceStoreSummary{Message: OK, TotalReceived: total})
 }
@@ -79,7 +79,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	defer func() {
 		if err != nil && err != io.EOF {
 			if deleteErr := s.deleteByID(id); deleteErr != nil {
-				log.Printf("Failed on deleteByID in Store: %s", deleteErr.Error())
+				zap.S().Errorf("Failed on deleteByID in Store: %s", deleteErr.Error())
 			}
 		}
 	}()
@@ -97,7 +97,7 @@ func (s *Server) storeData(ctx context.Context, stream pb.PieceStoreRoutes_Store
 	defer func() {
 		baWriteErr := s.DB.WriteBandwidthAllocToDB(reader.bandwidthAllocation)
 		if baWriteErr != nil {
-			log.Printf("WriteBandwidthAllocToDB Error: %s\n", baWriteErr.Error())
+			zap.S().Errorf("Error while writing Bandwidth Alloc to DB: %s\n", baWriteErr.Error())
 		}
 	}()
 

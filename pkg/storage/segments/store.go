@@ -294,7 +294,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("Cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
+		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
 
 	seg := pr.GetRemote()
