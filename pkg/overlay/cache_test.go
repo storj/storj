@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -80,14 +81,15 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	assert.NoError(t, err)
 	bootNode := rt.Local()
 
-	go func() {
-		err = boot.ListenAndServe()
-		assert.NoError(t, err)
-	}()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	ctx.Go(boot.ListenAndServe)
 	p++
 
 	err = boot.Bootstrap(context.Background())
 	assert.NoError(t, err)
+
 	for i := 0; i < testNetSize; i++ {
 		gg := strconv.Itoa(p)
 
@@ -99,10 +101,8 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 
 		p++
 		dhts = append(dhts, dht)
-		go func() {
-			err = dht.ListenAndServe()
-			assert.NoError(t, err)
-		}()
+
+		ctx.Go(dht.ListenAndServe)
 		err = dht.Bootstrap(context.Background())
 		assert.NoError(t, err)
 	}
