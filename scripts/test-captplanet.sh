@@ -46,6 +46,9 @@ aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/big-testfile $CMP_DIR/bi
 aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/multipart-testfile $CMP_DIR/multipart-download-testfile
 aws s3 --endpoint=http://localhost:7777/ rb s3://bucket --force
 
+# TODO: go run ../test/test-repair.go to insert entry into repair queue and trigger repair
+# Download and compare repaired file with original
+
 if cmp $TMP_DIR/small-upload-testfile $CMP_DIR/small-download-testfile
 then
   echo "Downloaded file matches uploaded file";
