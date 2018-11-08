@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// Config contains configurable values for repairer
+// Config contains configurable values for checker
 type Config struct {
 	QueueAddress string        `help:"data checker queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
 	Interval     time.Duration `help:"how frequently checker should audit segments" default:"30s"`
@@ -39,10 +39,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithCancel(ctx)
 
-	// TODO(coyle): we need to figure out how to propagate the error up to cancel the service
 	go func() {
 		if err := check.Run(ctx); err != nil {
+			defer cancel()
 			zap.L().Error("Error running checker", zap.Error(err))
 		}
 	}()
