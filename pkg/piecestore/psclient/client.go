@@ -172,7 +172,7 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 	if err != nil {
 		return err
 	}
-	log.Printf("Route summary : %v", reply)
+	log.Printf("Route summary: %v", reply)
 	return nil
 }
 
