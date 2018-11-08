@@ -75,8 +75,9 @@ func main() {
 		Path:       finalPath,
 		LostPieces: lostPieces,
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	//TODO check updated pointer data against original data
 }
