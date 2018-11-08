@@ -98,6 +98,7 @@ message GetResponse {
   Pointer pointer = 1;
   repeated overlay.Node nodes = 2;
   piecestoreroutes.PayerBandwidthAllocation pba = 3;
+  piecestoreroutes.SignedMessage authorization = 4;
 }
 
 // ListResponse is a response message for the List rpc call

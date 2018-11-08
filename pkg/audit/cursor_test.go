@@ -65,6 +65,11 @@ func TestAuditSegment(t *testing.T) {
 		count int
 	}
 
+	ca, err := provider.NewTestCA(ctx)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
 	// note: to simulate better,
 	// change limit in library to 5 in
 	// list api call, default is  0 == 1000 listing
@@ -132,7 +137,6 @@ func TestAuditSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 
-	identity := &provider.FullIdentity{ID: ""}
 	pdbw := newPointerDBWrapper(pointerdb.NewServer(db, cache, zap.NewNop(), c, identity))
 	pointers := pdbclient.New(pdbw)
 

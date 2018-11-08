@@ -1,0 +1,50 @@
+<template>
+  <div id="app">
+    <router-view/>
+  </div>
+</template>
+
+<style lang="scss">
+#app {
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-align: center;
+  color: #2c3e50;
+}
+#nav {
+  padding: 30px;
+  a {
+    font-weight: bold;
+    color: #2c3e50;
+    &.router-link-exact-active {
+      color: #42b983;
+    }
+  }
+}
+
+@font-face {
+  font-family: "montserrat_regular";
+  src: url("../static/fonts/montserrat_regular.ttf");
+}
+@font-face {
+  font-family: "montserrat_medium";
+  src: url("../static/fonts/montserrat_medium.ttf");
+}
+@font-face {
+  font-family: "montserrat_bold";
+  src: url("../static/fonts/montserrat_bold.ttf");
+}
+
+input,
+textarea {
+  font-family: inherit;
+  font-weight: 600;
+  border: 1px solid rgba(56, 75, 101, 0.4);
+}
+
+input:hover,
+textarea:hover {
+  border-color: #737791 !important;
+}
+</style>
