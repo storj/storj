@@ -6,11 +6,16 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
@@ -23,6 +28,7 @@ type Objects struct {
 	objects  objects.Store
 	streams  streams.Store
 	segments segments.Store
+	pointers pdbclient.Client
 
 	rootKey *storj.Key
 }
@@ -33,11 +39,12 @@ const (
 )
 
 // NewObjects creates Objects
-func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key) *Objects {
+func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, rootKey *storj.Key) *Objects {
 	return &Objects{
 		objects:  objects,
 		streams:  streams,
 		segments: segments,
+		pointers: pointers,
 		rootKey:  rootKey,
 	}
 }
@@ -148,9 +155,31 @@ func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, pa
 		return object{}, storj.Object{}, err
 	}
 
-	_, lastSegmentMeta, err := db.segments.Get(ctx, prefix+encryptedPath)
+	pointer, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
 	if err != nil {
 		return object{}, storj.Object{}, err
+	}
+
+	var redundancyScheme *pb.RedundancyScheme
+	if pointer.GetType() == pb.Pointer_REMOTE {
+		redundancyScheme = pointer.GetRemote().GetRedundancy()
+	} else {
+		// TODO: handle better
+		redundancyScheme = &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			MinReq:           -1,
+			Total:            -1,
+			RepairThreshold:  -1,
+			SuccessThreshold: -1,
+			ErasureShareSize: -1,
+		}
+	}
+
+	lastSegmentMeta := segments.Meta{
+		Modified:   convertTime(pointer.GetCreationDate()),
+		Expiration: convertTime(pointer.GetExpirationDate()),
+		Size:       pointer.GetSize(),
+		Data:       pointer.GetMetadata(),
 	}
 
 	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
@@ -170,7 +199,7 @@ func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, pa
 		return object{}, storj.Object{}, err
 	}
 
-	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
+	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 
 	return object{
 		fullpath:        fullpath,
@@ -202,7 +231,7 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 	}
 }
 
-func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) storj.Object {
+func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 	return storj.Object{
@@ -227,11 +256,11 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 
 			RedundancyScheme: storj.RedundancyScheme{
 				Algorithm:      storj.ReedSolomon,
-				ShareSize:      0, // TODO:
-				RequiredShares: 0, // TODO:
-				RepairShares:   0, // TODO:
-				OptimalShares:  0, // TODO:
-				TotalShares:    0, // TODO:
+				ShareSize:      int64(redundancyScheme.GetErasureShareSize()),
+				RequiredShares: int16(redundancyScheme.GetMinReq()),
+				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
+				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
+				TotalShares:    int16(redundancyScheme.GetTotal()),
 			},
 			EncryptionScheme: storj.EncryptionScheme{
 				Cipher:    storj.Cipher(streamMeta.EncryptionType),
@@ -244,4 +273,16 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 			},
 		},
 	}
+}
+
+// convertTime converts gRPC timestamp to Go time
+func convertTime(ts *timestamp.Timestamp) time.Time {
+	if ts == nil {
+		return time.Time{}
+	}
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
+	}
+	return t
 }

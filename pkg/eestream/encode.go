@@ -248,7 +248,7 @@ func (er *encodedReader) checkSlowChannel(num int) (closed bool) {
 	// check how many buffer channels are already empty
 	ec := 0
 	for i := range er.eps {
-		if !er.eps[i].closed && len(er.eps[i].ch) == 0 {
+		if i != num && !er.eps[i].closed && len(er.eps[i].ch) == 0 {
 			ec++
 		}
 	}
