@@ -4,51 +4,43 @@
 package satellitedb
 
 import (
-	"context"
-
 	"storj.io/storj/pkg/satellite"
 
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
-
-type database struct {
+// Database contains access to different satellite databases
+type Database struct {
 	db  *dbx.DB
-	ctx context.Context
-
-	userRepository satellite.Users
 }
 
-// NewDB - constructor for DB
-func NewDB(ctx context.Context) (satellite.DB, error) {
-
-	//TODO: place all string constants in better place
-	db, err := dbx.Open("sqlite3", "../db/accountdb.db3")
+// New - constructor for DB
+func New(driver, source string) (satellite.DB, error) {
+	db, err := dbx.Open(driver, source)
 
 	if err != nil {
 		return nil, err
 	}
 
-	database := &database{
+	database := &Database{
 		db:  db,
-		ctx: ctx,
 	}
 
 	return database, nil
 }
 
-// Getter for User repository
-func (d *database) User() satellite.Users {
-	if d.userRepository == nil {
-		d.userRepository = NewUserRepository(d.ctx, d.db)
-	}
-
-	return d.userRepository
+// Users is getter for Users repository
+func (db *Database) Users() satellite.Users {
+	return &users{db.db}
 }
 
-// Method for creating all tables for accountdb
-func (d *database) CreateTables() error {
-
-	_, err := d.db.Exec(d.db.Schema())
+// CreateTables is a method for creating all tables for satellitedb
+func (db *Database) CreateTables() error {
+	_, err := db.db.Exec(db.db.Schema())
 
 	return err
+}
+
+// Close is used to close db connection
+func (db *Database) Close() error {
+	return db.db.Close()
 }

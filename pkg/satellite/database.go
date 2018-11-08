@@ -3,9 +3,13 @@
 
 package satellite
 
-// DB used to manage db connections and context through different repositories
+// DB contains access to different satellite databases
 type DB interface {
-	User() Users
+	// Users is getter for Users repository
+	Users() Users
 
+	// CreateTables is a method for creating all tables for satellitedb
 	CreateTables() error
+	// Close is used to close db connection
+	Close() error
 }
