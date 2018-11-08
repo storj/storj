@@ -62,12 +62,12 @@ func TestRepository(t *testing.T) {
 		}
 
 		user := &satellite.User{
-			ID: *id,
-			FirstName: name,
-			LastName: lastName,
-			Email: email,
+			ID:           *id,
+			FirstName:    name,
+			LastName:     lastName,
+			Email:        email,
 			PasswordHash: []byte(passValid),
-			CreatedAt: time.Now(),
+			CreatedAt:    time.Now(),
 		}
 
 		err = repository.Insert(user)
@@ -85,12 +85,12 @@ func TestRepository(t *testing.T) {
 		}
 
 		user := &satellite.User{
-			ID: *id,
-			FirstName: name,
-			LastName: lastName,
-			Email: email,
+			ID:           *id,
+			FirstName:    name,
+			LastName:     lastName,
+			Email:        email,
 			PasswordHash: []byte(passValid),
-			CreatedAt: time.Now(),
+			CreatedAt:    time.Now(),
 		}
 
 		err = repository.Insert(user)
@@ -131,12 +131,12 @@ func TestRepository(t *testing.T) {
 		}
 
 		newUser := &satellite.User{
-			ID: oldUser.ID,
-			FirstName: newName,
-			LastName: newLastName,
-			Email: newEmail,
+			ID:           oldUser.ID,
+			FirstName:    newName,
+			LastName:     newLastName,
+			Email:        newEmail,
 			PasswordHash: []byte(newPass),
-			CreatedAt: oldUser.CreatedAt,
+			CreatedAt:    oldUser.CreatedAt,
 		}
 
 		err = repository.Update(newUser)
