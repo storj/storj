@@ -98,7 +98,7 @@ func (service *Service) process(ctx context.Context) error {
 		return err
 	}
 	if stripe == nil {
-		return Error.New("stripe was nil")
+		return nil
 	}
 
 	authorization := service.Cursor.pointers.SignedMessage()
