@@ -40,7 +40,7 @@ func writeFileToDir(name, dir string) error {
 		return err
 	}
 
-	// Close when finished	
+	// Close when finished
 	_, err = io.Copy(file, bytes.NewReader([]byte("butts")))
 	if err != nil {
 		_ = file.Close()
