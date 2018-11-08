@@ -32,6 +32,7 @@ message PayerBandwidthAllocation { // Payer refers to satellite
     int64 expiration_unix_sec = 4; // Unix timestamp for when data is no longer being paid for
     string serial_number = 5;      // Unique serial number
     Action action = 6;             // GET or PUT
+    int64 created_unix_sec = 7;    // Unix timestamp for when PayerbandwidthAllocation was created
   }
 
   bytes signature = 1; // Seralized Data signed by Satellite
