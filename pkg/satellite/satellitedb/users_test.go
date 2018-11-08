@@ -61,7 +61,14 @@ func TestRepository(t *testing.T) {
 			fmt.Println(err)
 		}
 
-		user := satellite.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
+		user := &satellite.User{
+			ID: *id,
+			FirstName: name,
+			LastName: lastName,
+			Email: email,
+			PasswordHash: []byte(passValid),
+			CreatedAt: time.Now(),
+		}
 
 		err = repository.Insert(user)
 
@@ -77,7 +84,14 @@ func TestRepository(t *testing.T) {
 			fmt.Println(err)
 		}
 
-		user := satellite.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
+		user := &satellite.User{
+			ID: *id,
+			FirstName: name,
+			LastName: lastName,
+			Email: email,
+			PasswordHash: []byte(passValid),
+			CreatedAt: time.Now(),
+		}
 
 		err = repository.Insert(user)
 
@@ -116,7 +130,14 @@ func TestRepository(t *testing.T) {
 			t.Fail()
 		}
 
-		newUser := satellite.NewUser(oldUser.ID, newName, newLastName, newEmail, []byte(newPass), oldUser.CreatedAt)
+		newUser := &satellite.User{
+			ID: oldUser.ID,
+			FirstName: newName,
+			LastName: newLastName,
+			Email: newEmail,
+			PasswordHash: []byte(newPass),
+			CreatedAt: oldUser.CreatedAt,
+		}
 
 		err = repository.Update(newUser)
 
