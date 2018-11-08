@@ -311,19 +311,23 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	// get the nodes list that needs to be excluded
 	var excludeNodeIDs []dht.NodeID
+	healthyNodes := make([]*pb.Node, len(originalNodes))
 
 	// count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
+
+	OUTER:
 	for j, v := range originalNodes {
 		if v != nil {
 			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
-			// remove all lost pieces from the list to have only healthy pieces
+			// if index of node is not in lostPieces, add it to healthyNodes at the same index
 			for i := range lostPieces {
 				if j == int(lostPieces[i]) {
-					v = nil
 					totalNilNodes++
+					continue OUTER
 				}
 			}
+			healthyNodes[j] = v
 		} else {
 			totalNilNodes++
 		}
@@ -339,8 +343,8 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	totalRepairCount := len(newNodes)
 
 	//make a repair nodes list just with new unique ids
-	repairNodesList := make([]*pb.Node, len(originalNodes))
-	for j, vr := range originalNodes {
+	repairNodesList := make([]*pb.Node, len(healthyNodes))
+	for j, vr := range healthyNodes {
 		// find the nil in the original node list
 		if vr == nil {
 			// replace the location with the newNode Node info
@@ -358,7 +362,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes
-	rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize(), pba, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -379,15 +383,15 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	// merge the successful nodes list into the originalNodes list
-	for i, v := range originalNodes {
+	for i, v := range healthyNodes {
 		if v == nil {
 			// copy the successfuNode info
-			originalNodes[i] = successfulNodes[i]
+			healthyNodes[i] = successfulNodes[i]
 		}
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := s.makeRemotePointer(originalNodes, pid, rr.Size(), exp, metadata)
+	pointer, err := s.makeRemotePointer(healthyNodes, pid, rr.Size(), exp, metadata)
 	if err != nil {
 		return err
 	}
