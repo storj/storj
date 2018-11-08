@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/satellite"
@@ -15,7 +16,7 @@ import (
 
 // implementation of User interface repository using spacemonkeygo/dbx orm
 type users struct {
-	db  *dbx.DB
+	db *dbx.DB
 }
 
 // Get is a method for querying user from the database by id
@@ -71,11 +72,11 @@ func (users *users) Update(ctx context.Context, user *satellite.User) error {
 	_, err := users.db.Update_User_By_Id(ctx,
 		dbx.User_Id(user.ID.String()),
 		dbx.User_Update_Fields{
-		FirstName:    dbx.User_FirstName(user.FirstName),
-		LastName:     dbx.User_LastName(user.LastName),
-		Email:        dbx.User_Email(user.Email),
-		PasswordHash: dbx.User_PasswordHash(user.PasswordHash),
-	})
+			FirstName:    dbx.User_FirstName(user.FirstName),
+			LastName:     dbx.User_LastName(user.LastName),
+			Email:        dbx.User_Email(user.Email),
+			PasswordHash: dbx.User_PasswordHash(user.PasswordHash),
+		})
 
 	return err
 }
