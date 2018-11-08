@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -101,6 +102,9 @@ func SetupIdentity(ctx context.Context, c CASetupConfig, i IdentitySetupConfig) 
 // Identity returns the provider's identity
 func (p *Provider) Identity() *FullIdentity { return p.identity }
 
+// Addr returns the providers listener address
+func (p *Provider) Addr() net.Addr { return p.lis.Addr() }
+
 // GRPC returns the provider's gRPC server for registration purposes
 func (p *Provider) GRPC() *grpc.Server { return p.grpc }
 
@@ -121,7 +125,7 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 		p.next = p.next[1:]
 		return next.Run(ctx, p)
 	}
-
+	fmt.Printf("\nGRPC starting\n")
 	return p.grpc.Serve(p.lis)
 }
 

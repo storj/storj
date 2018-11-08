@@ -6,9 +6,11 @@ package node
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -92,6 +94,10 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 		conn.grpc, conn.err = pool.tc.DialNode(ctx, n)
 		if conn.err != nil {
 			return
+		}
+
+		for conn.grpc.GetState() != connectivity.Ready {
+			time.Sleep(500 * time.Millisecond)
 		}
 
 		conn.client = pb.NewNodesClient(conn.grpc)

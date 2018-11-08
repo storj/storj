@@ -6,6 +6,7 @@ package kademlia
 import (
 	"context"
 	"flag"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -45,8 +46,8 @@ type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	// TODO(jt): remove this! kademlia should just use the grpc server
-	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
-	Alpha          int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+	// TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
+	Alpha int `help:"alpha is a system wide concurrency parameter." default:"5"`
 }
 
 // Run implements provider.Responsibility
@@ -64,7 +65,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
 	in.Id = server.Identity().ID.String()
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
+
+	addr := server.Addr().String()
+
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, addr, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
@@ -73,11 +77,21 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	mn := node.NewServer(kad)
 	pb.RegisterNodesServer(server.GRPC(), mn)
 
+	// go func() {
+	// 	if err := kad.ListenAndServe(); err != nil {
+	// 		fmt.Printf("Error Listening on Kademlia %v\n", err)
+	// 	}
+	// }()
+
 	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
 	// in a goroutine here
-	if err = kad.Bootstrap(ctx); err != nil {
-		return err
-	}
+	go func() {
+		if err = kad.Bootstrap(ctx); err != nil {
+			fmt.Printf("ERROR :: %v\n", err)
+		}
+	}()
+
+	// go kad.ListenAndServe()
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

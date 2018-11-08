@@ -73,27 +73,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(runCfg.StorageNodes)+2)
-	var storagenodes []string
-
-	// start the storagenodes
-	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		identity, err := runCfg.StorageNodes[i].Identity.Load()
-		if err != nil {
-			return err
-		}
-		address := runCfg.StorageNodes[i].Identity.Address
-		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
-		storagenodes = append(storagenodes, storagenode)
-		go func(i int, storagenode string) {
-			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
-				i, storagenode,
-				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
-				runCfg.StorageNodes[i].Kademlia,
-				runCfg.StorageNodes[i].Storage)
-		}(i, storagenode)
-	}
-
 	// start mini redis
 	m := miniredis.NewMiniRedis()
 	m.RequireAuth("abc123")
@@ -124,6 +103,29 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Repairer,
 		)
 	}()
+
+	time.Sleep(10 * time.Second)
+
+	var storagenodes []string
+
+	// start the storagenodes
+	for i := 0; i < 5; i++ {
+		identity, err := runCfg.StorageNodes[i].Identity.Load()
+		if err != nil {
+			return err
+		}
+		address := runCfg.StorageNodes[i].Identity.Address
+		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
+		storagenodes = append(storagenodes, storagenode)
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
+				i, storagenode,
+				runCfg.StorageNodes[i].Identity.Address)
+			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
+				runCfg.StorageNodes[i].Kademlia,
+				runCfg.StorageNodes[i].Storage)
+		}(i, storagenode)
+	}
 
 	// start s3 uplink
 	go func() {
