@@ -3,6 +3,9 @@
 model aggregate (
 	key node_id
 
+    field node_id    text
+    field start_time timestamp 
+    field interval 
     field created_at timestamp ( autoinsert )
 	field updated_at timestamp ( autoinsert, autoupdate )
 )
@@ -16,5 +19,10 @@ read one (
 )
 
 model granular (
+    key node_id
 
+    field node_id    text
+    field start_time timestamp 
+    field end_time  timestamp
+    data_total serial64
 )
