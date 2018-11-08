@@ -89,6 +89,10 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
+	if pointer.GetSize() == 0 {
+		return nil, nil
+	}
+
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
@@ -113,6 +117,12 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 
 func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int, err error) {
 	stripeSize := es.StripeSize()
+
+	// the last segment could be smaller than stripe size
+	if pointer.GetSize() < int64(stripeSize) {
+		return 0, nil
+	}
+
 	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
 	if err != nil {
 		return -1, err
