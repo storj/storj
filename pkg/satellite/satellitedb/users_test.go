@@ -1,31 +1,33 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package repositories
+package satellitedb
 
 import (
 	"context"
 	"fmt"
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stretchr/testify/assert"
-	"storj.io/storj/pkg/accounts/accountdb/dbo"
-	"storj.io/storj/pkg/accounts/accountdb/dbx"
 	"testing"
 	"time"
+
+	"storj.io/storj/pkg/satellite"
+
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/assert"
+	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
 
 func TestRepository(t *testing.T) {
 
 	//testing constants
 	const (
-		lastName = "lastName"
-		email = "email@ukr.net"
-		passValid = "123456"
-		name = "name"
-		newName = "newName"
+		lastName    = "lastName"
+		email       = "email@ukr.net"
+		passValid   = "123456"
+		name        = "name"
+		newName     = "newName"
 		newLastName = "newLastName"
-		newEmail = "newEmail@ukr.net"
-		newPass = "newPass"
+		newEmail    = "newEmail@ukr.net"
+		newPass     = "newPass"
 	)
 
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
@@ -59,7 +61,7 @@ func TestRepository(t *testing.T) {
 			fmt.Println(err)
 		}
 
-		user := dbo.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
+		user := satellite.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
 
 		err = repository.Insert(user)
 
@@ -75,7 +77,7 @@ func TestRepository(t *testing.T) {
 			fmt.Println(err)
 		}
 
-		user := dbo.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
+		user := satellite.NewUser(*id, name, lastName, email, []byte(passValid), time.Now())
 
 		err = repository.Insert(user)
 
@@ -114,7 +116,7 @@ func TestRepository(t *testing.T) {
 			t.Fail()
 		}
 
-		newUser := dbo.NewUser(oldUser.ID, newName, newLastName, newEmail, []byte(newPass), oldUser.CreatedAt)
+		newUser := satellite.NewUser(oldUser.ID, newName, newLastName, newEmail, []byte(newPass), oldUser.CreatedAt)
 
 		err = repository.Update(newUser)
 

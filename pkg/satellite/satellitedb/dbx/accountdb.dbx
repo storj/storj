@@ -1,4 +1,4 @@
-// dbx.v1 golang accountdb.dbx .
+// dbx.v1 golang satellitedb.dbx .
 
 model user (
     key id
