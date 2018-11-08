@@ -13,3 +13,12 @@ var (
 	Error = errs.Class("tally error")
 	mon   = monkit.Package()
 )
+
+// Interval is the datatype used in the aggregate accounting db
+type Interval int
+
+const (
+	d1  Interval = iota
+	d7  Interval = iota
+	d30 Interval = iota
+)
