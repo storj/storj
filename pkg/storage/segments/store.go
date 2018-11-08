@@ -320,7 +320,8 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	for j, v := range originalNodes {
 		if v != nil {
 			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
-			// if index of node is not in lostPieces, add it to healthyNodes at the same index
+			
+			// If node index exists in lostPieces skip adding it to healthyNodes
 			for i := range lostPieces {
 				if j == int(lostPieces[i]) {
 					totalNilNodes++
