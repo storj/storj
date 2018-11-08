@@ -4,10 +4,11 @@
 package satellite
 
 import (
-	"github.com/stretchr/testify/assert"
-	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
 
 func TestUserDboFromDbx(t *testing.T) {
@@ -37,4 +38,3 @@ func TestUserDboFromDbx(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
-
