@@ -5,8 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"strings"
 	"time"
 
 	"github.com/alicebob/miniredis"
@@ -20,7 +18,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	mock "storj.io/storj/pkg/overlay/mocks"
 	psserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -35,18 +32,14 @@ const (
 
 // Satellite is for configuring client
 type Satellite struct {
-	Identity    provider.IdentityConfig
-	Kademlia    kademlia.Config
-	PointerDB   pointerdb.Config
-	Overlay     overlay.Config
-	Checker     checker.Config
-	Repairer    repairer.Config
-	Audit       audit.Config
-	StatDB      statdb.Config
-	MockOverlay struct {
-		Enabled bool   `default:"true" help:"if false, use real overlay"`
-		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
-	}
+	Identity  provider.IdentityConfig
+	Kademlia  kademlia.Config
+	PointerDB pointerdb.Config
+	Overlay   overlay.Config
+	Checker   checker.Config
+	Repairer  repairer.Config
+	Audit     audit.Config
+	StatDB    statdb.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -89,14 +82,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 		address := runCfg.StorageNodes[i].Identity.Address
-		if runCfg.Satellite.MockOverlay.Enabled &&
-			runCfg.Satellite.MockOverlay.Host != "" {
-			_, port, err := net.SplitHostPort(address)
-			if err != nil {
-				return err
-			}
-			address = net.JoinHostPort(runCfg.Satellite.MockOverlay.Host, port)
-		}
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)
 		go func(i int, storagenode string) {
@@ -123,10 +108,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
 			runCfg.Satellite.Identity.Address)
-		var o provider.Responsibility = runCfg.Satellite.Overlay
-		if runCfg.Satellite.MockOverlay.Enabled {
-			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
-		}
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
 			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
@@ -137,7 +118,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
-			o,
+			runCfg.Satellite.Overlay,
 			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
