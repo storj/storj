@@ -546,7 +546,7 @@ func NewTestServer(t *testing.T) *TestServer {
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)
-	co, err := fiC.DialOption()
+	co, err := fiC.DialOption("")
 	check(err)
 
 	s, cleanup := newTestServerStruct(t)

@@ -318,7 +318,8 @@ func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFun
 
 // DialOption returns a grpc `DialOption` for making outgoing connections
 // to the node with this peer identity
-func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
+// id is an optional id of the node we are dialing
+func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 	// TODO(coyle): add ID
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
@@ -333,6 +334,20 @@ func (fi *FullIdentity) DialOption() (grpc.DialOption, error) {
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			peertls.VerifyPeerCertChains,
 			func(_ [][]byte, parsedChains [][]*x509.Certificate) error {
+				if id == "" {
+					return nil
+				}
+
+				peer, err := PeerIdentityFromCerts(parsedChains[0][0], parsedChains[0][1], parsedChains[0][2:])
+				if err != nil {
+					return err
+				}
+
+				if peer.ID.String() != id {
+
+					fmt.Printf("HELP!!! certID %s != requested nodeID %s\n", peer.ID.String(), id)
+				}
+
 				return nil
 			},
 			// TODO(coyle): Check that the ID of the node we are dialing is the owner of the certificate.
