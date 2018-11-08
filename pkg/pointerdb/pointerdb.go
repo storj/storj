@@ -4,9 +4,9 @@
 package pointerdb
 
 import (
-	"time"
 	"context"
 	"encoding/base64"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -317,8 +317,8 @@ func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBand
 		return nil, err
 	}
 	pbad := &pb.PayerBandwidthAllocation_Data{
-		SatelliteId: payer,
-		UplinkId:    peerIdentity.ID.Bytes(),
+		SatelliteId:    payer,
+		UplinkId:       peerIdentity.ID.Bytes(),
 		CreatedUnixSec: time.Now().Unix(),
 		// TODO: Action: pb.PayerBandwidthAllocation_GET, // Action should be a GET or a PUT
 	}
