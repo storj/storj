@@ -4,10 +4,11 @@
 package satellitedb
 
 import (
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 	"testing"
 	"time"
+
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 
 	"storj.io/storj/pkg/satellite"
 

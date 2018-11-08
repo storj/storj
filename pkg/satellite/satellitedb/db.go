@@ -8,9 +8,10 @@ import (
 
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
+
 // Database contains access to different satellite databases
 type Database struct {
-	db  *dbx.DB
+	db *dbx.DB
 }
 
 // New - constructor for DB
@@ -22,7 +23,7 @@ func New(driver, source string) (satellite.DB, error) {
 	}
 
 	database := &Database{
-		db:  db,
+		db: db,
 	}
 
 	return database, nil
