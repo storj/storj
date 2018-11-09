@@ -45,7 +45,7 @@ func CreateTable(db *sql.DB, identifier, schema string) error {
 	}
 
 	if schema != previousSchema {
-		err := Error.New("schema mismatch:\nold %v\nnew %v", previousSchema, newSchema)
+		err := Error.New("schema mismatch:\nold %v\nnew %v", previousSchema, schema)
 		return utils.CombineErrors(err, tx.Rollback())
 	}
 
