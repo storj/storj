@@ -93,7 +93,7 @@ func userFromDBX(user *dbx.User) (*satellite.User, error) {
 
 	id, err := bytesToUUID(user.Id)
 	if err != nil {
-		return nil, errs.New("Id in not valid UUID string")
+		return nil, err
 	}
 
 	u := &satellite.User{

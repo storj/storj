@@ -91,12 +91,12 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 
 	id, err := bytesToUUID(company.Id)
 	if err != nil {
-		return nil, errs.New("Id in not valid UUID string")
+		return nil, err
 	}
 
 	userID, err := bytesToUUID(company.UserId)
 	if err != nil {
-		return nil, errs.New("UserID in not valid UUID string")
+		return nil, err
 	}
 
 	comp := &satellite.Company{
