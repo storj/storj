@@ -48,6 +48,7 @@ matrix:
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
       script:
         - ./scripts/check-for-header.sh
+        - ./scripts/check-go-mod.sh
         - golangci-lint run
     
     ### captplanet tests ###
