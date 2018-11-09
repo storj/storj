@@ -31,49 +31,52 @@ var (
 // Client struct for each command to use and get access to the
 // cache and kademlia instances
 type Client struct {
-	kad    *kademlia.Kademlia
-	cache  *overlay.Cache
-	conn   *grpc.ClientConn
-	client pb.KadCliClient
+	kad      *kademlia.Kademlia
+	cache    *overlay.Cache
+	conn     *grpc.ClientConn
+	client   pb.KadCliClient
+	identity *provider.FullIdentity
+	APIKey   []byte
 }
 
 // NewClient returns a new *Client struct
-func NewClient(cmd *cobra.Command, args []string) (*Client, error) {
+func NewClient(address string) (*Client, error) {
 	ctx := context.Background()
-
 	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		log.Fatal(err)
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		log.Fatal(err)
+		return &Client{}, err
 	}
 
-	// Set up connection with rpc server
-	n := &pb.Node{
-		Address: &pb.NodeAddress{
-			Address:   ":7777", // default captplanet port
-			Transport: 0,
-		},
-		Id: "kadcli",
+	identity, err2 := ca.NewIdentity()
+	if err2 != nil {
+		log.Fatalf("Error creating identity: %+v\n", err)
+		return &Client{}, err
 	}
+
 	tc := transport.NewClient(identity)
-	conn, err := tc.DialNode(ctx, n)
+
+	// dial to the overlay instance, pass it to the protobuf client
+	conn, err := tc.DialAddress(ctx, address)
+	if err != nil {
+		log.Fatalf("Error creating connection: %+v\n", err)
+	}
+
 	client := pb.NewKadCliClient(conn)
 
 	return &Client{
-		conn:   conn,
-		client: client,
+		conn:     conn,
+		client:   client,
+		identity: identity,
 	}, nil
 }
 
 // ListBuckets lists all kademlia buckets
 func ListBuckets(cmd *cobra.Command, args []string) (err error) {
-	fmt.Printf("Getting nodes \n")
 	ctx := context.Background()
-	cli, err := NewClient(cmd, args)
+	cli, err := NewClient("127.0.0.1:7777")
 	if err != nil {
+		fmt.Printf("### ERROR ###: %+v\n", err)
 		return err
 	}
 
