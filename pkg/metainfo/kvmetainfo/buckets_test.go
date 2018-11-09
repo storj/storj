@@ -37,20 +37,23 @@ func TestBucketsBasic(t *testing.T) {
 
 		// Create new bucket
 		bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
-		assert.NoError(t, err)
-		assert.Equal(t, TestBucket, bucket.Name)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+		}
 
 		// Check that bucket list include the new bucket
 		bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-		assert.NoError(t, err)
-		assert.False(t, bucketList.More)
-		assert.Equal(t, 1, len(bucketList.Items))
-		assert.Equal(t, TestBucket, bucketList.Items[0].Name)
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 1, len(bucketList.Items))
+			assert.Equal(t, TestBucket, bucketList.Items[0].Name)
+		}
 
 		// Check that we can get the new bucket explicitly
 		bucket, err = buckets.GetBucket(ctx, TestBucket)
-		assert.NoError(t, err)
-		assert.Equal(t, TestBucket, bucket.Name)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+		}
 
 		// Delete the bucket
 		err = buckets.DeleteBucket(ctx, TestBucket)
@@ -58,9 +61,10 @@ func TestBucketsBasic(t *testing.T) {
 
 		// Check that the bucket list is empty
 		bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-		assert.NoError(t, err)
-		assert.False(t, bucketList.More)
-		assert.Equal(t, 0, len(bucketList.Items))
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 0, len(bucketList.Items))
+		}
 
 		// Check that the bucket cannot be get explicitly
 		bucket, err = buckets.GetBucket(ctx, TestBucket)
@@ -78,15 +82,17 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 
 		// (New API) Check that bucket list include the new bucket
 		bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-		assert.NoError(t, err)
-		assert.False(t, bucketList.More)
-		assert.Equal(t, 1, len(bucketList.Items))
-		assert.Equal(t, TestBucket, bucketList.Items[0].Name)
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 1, len(bucketList.Items))
+			assert.Equal(t, TestBucket, bucketList.Items[0].Name)
+		}
 
 		// (New API) Check that we can get the new bucket explicitly
 		bucket, err := buckets.GetBucket(ctx, TestBucket)
-		assert.NoError(t, err)
-		assert.Equal(t, TestBucket, bucket.Name)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+		}
 
 		// (Old API) Delete the bucket
 		err = bucketStore.Delete(ctx, TestBucket)
@@ -94,9 +100,10 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 
 		// (New API) Check that the bucket list is empty
 		bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-		assert.NoError(t, err)
-		assert.False(t, bucketList.More)
-		assert.Equal(t, 0, len(bucketList.Items))
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 0, len(bucketList.Items))
+		}
 
 		// (New API) Check that the bucket cannot be get explicitly
 		bucket, err = buckets.GetBucket(ctx, TestBucket)
@@ -110,15 +117,17 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 
 		// (New API) Create new bucket
 		bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
-		assert.NoError(t, err)
-		assert.Equal(t, TestBucket, bucket.Name)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+		}
 
 		// (Old API) Check that bucket list include the new bucket
 		items, more, err := bucketStore.List(ctx, "", "", 0)
-		assert.NoError(t, err)
-		assert.False(t, more)
-		assert.Equal(t, 1, len(items))
-		assert.Equal(t, TestBucket, items[0].Bucket)
+		if assert.NoError(t, err) {
+			assert.False(t, more)
+			assert.Equal(t, 1, len(items))
+			assert.Equal(t, TestBucket, items[0].Bucket)
+		}
 
 		// (Old API) Check that we can get the new bucket explicitly
 		_, err = bucketStore.Get(ctx, TestBucket)
@@ -130,9 +139,10 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 
 		// (Old API) Check that the bucket list is empty
 		items, more, err = bucketStore.List(ctx, "", "", 0)
-		assert.NoError(t, err)
-		assert.False(t, more)
-		assert.Equal(t, 0, len(items))
+		if assert.NoError(t, err) {
+			assert.False(t, more)
+			assert.Equal(t, 0, len(items))
+		}
 
 		// (Old API) Check that the bucket cannot be get explicitly
 		_, err = bucketStore.Get(ctx, TestBucket)
@@ -162,16 +172,17 @@ func TestListBucketsEmpty(t *testing.T) {
 		_, err := buckets.ListBuckets(ctx, storj.BucketListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
-		for _, direction := range []storj.ListDirection {
+		for _, direction := range []storj.ListDirection{
 			storj.Before,
 			storj.Backward,
 			storj.Forward,
 			storj.After,
 		} {
 			bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
-			assert.NoError(t, err)
-			assert.False(t, bucketList.More)
-			assert.Equal(t, 0, len(bucketList.Items))
+			if assert.NoError(t, err) {
+				assert.False(t, bucketList.More)
+				assert.Equal(t, 0, len(bucketList.Items))
+			}
 		}
 	})
 }
@@ -181,14 +192,18 @@ func runTest(t *testing.T, test func(context.Context, buckets.Store)) {
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(1, 4, 1)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(context.Background())
 
 	bucketStore, err := newBucketStore(planet)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	test(ctx, bucketStore)
 }
