@@ -133,8 +133,8 @@ func (o *Server) getNodes(ctx context.Context, keys storage.Keys) ([]*pb.Node, e
 
 }
 
-func (o *Server) populate(ctx context.Context, starting storage.Key, 
-	maxNodes, restrictedBandwidth, restrictedSpace int64, 
+func (o *Server) populate(ctx context.Context, starting storage.Key,
+	maxNodes, restrictedBandwidth, restrictedSpace int64,
 	minReputation *pb.NodeRep, excluded []string) ([]*pb.Node, storage.Key, error) {
 	limit := int(maxNodes * 2)
 	keys, err := o.cache.DB.List(starting, limit)

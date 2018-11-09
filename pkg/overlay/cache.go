@@ -233,11 +233,11 @@ func (o *Cache) getNodeRep(ctx context.Context, n *pb.Node) (*pb.Node, error) {
 	}
 
 	n.Reputation = &pb.NodeRep{
-		UptimeRatio: stats.UptimeRatio,
+		UptimeRatio:       stats.UptimeRatio,
 		AuditSuccessRatio: stats.AuditSuccessRatio,
-		AuditCount: stats.AuditCount,
+		AuditCount:        stats.AuditCount,
 	}
-	
+
 	return n, err
 }
 
@@ -261,9 +261,9 @@ func (o *Cache) pingNode(ctx context.Context, n *pb.Node) (*pb.Node, error) {
 	}
 
 	pinged.Reputation = &pb.NodeRep{
-		UptimeRatio: stats.UptimeRatio,
+		UptimeRatio:       stats.UptimeRatio,
 		AuditSuccessRatio: stats.AuditSuccessRatio,
-		AuditCount: stats.AuditCount,
+		AuditCount:        stats.AuditCount,
 	}
 
 	return &pinged, nil

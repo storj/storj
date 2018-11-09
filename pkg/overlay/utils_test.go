@@ -10,9 +10,9 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
-	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 // NewMockServer provides a mock grpc server for testing
@@ -24,8 +24,8 @@ func NewMockServer(items []storage.ListItem, opts ...grpc.ServerOption) *grpc.Se
 	k := kademlia.NewMockKademlia()
 
 	c := &Cache{
-		DB:  teststore.New(),
-		DHT: k,
+		DB:     teststore.New(),
+		DHT:    k,
 		statdb: sdbclient.NewMockClient(),
 	}
 

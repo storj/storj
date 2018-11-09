@@ -6,25 +6,27 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net/url"
 	"net"
+	"net/url"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	statpb "storj.io/storj/pkg/statdb/proto"
 )
 
 func TestRun(t *testing.T) {
 	config := Config{}
 	bctx := context.Background()
+	bctx = auth.WithAPIKey(bctx, []byte(""))
 	kad := &kademlia.Kademlia{}
 	var key kademlia.CtxKey
 
@@ -114,7 +116,7 @@ func getProvider(ctx context.Context) (*provider.Provider, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	
+
 	srv := grpc.NewServer()
 	err = registerStatDBServer(srv)
 	if err != nil {
