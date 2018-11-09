@@ -1,8 +1,6 @@
 module storj.io/storj
 
 require (
-	github.com/loov/leakcheck
-
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
 	github.com/StackExchange/wmi v0.0.0-20180725035823-b12b22c5341f // indirect
@@ -91,7 +89,7 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
-	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e
+	golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
@@ -107,6 +105,7 @@ require (
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/hanwen/go-fuse v0.0.0-20181011180456-b760b55765be
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/loov/leakcheck v0.0.3 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
