@@ -5,8 +5,8 @@ package kvmetainfo
 
 import (
 	"context"
-	"testing"
 	"flag"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
@@ -17,59 +17,60 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storage/buckets"
+	oldbuckets "storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	oldbuckets "storj.io/storj/pkg/storage/buckets"
 )
 
-const(
+const (
 	TestAPIKey = "test-api-key"
 	TestEncKey = "test-encryption-key"
 	TestBucket = "testbucket"
 )
 
 func TestBuckets(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	runTest(t, func(ctx context.Context, buckets *Buckets) {
+		bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, TestBucket, bucket.Name)
 
-	planet, err := testplanet.New(1, 4, 1)
-	assert.NoError(t, err)
+		bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		assert.NoError(t, err)
+		assert.False(t, bucketList.More)
+		assert.Equal(t, 1, len(bucketList.Items))
+		assert.Equal(t, TestBucket, bucketList.Items[0].Name)
 
-	defer ctx.Check(planet.Shutdown)
+		bucket, err = buckets.GetBucket(ctx, TestBucket)
+		assert.NoError(t, err)
+		assert.Equal(t, TestBucket, bucket.Name)
 
-	planet.Start(context.Background())
+		err = buckets.DeleteBucket(ctx, TestBucket)
+		assert.NoError(t, err)
 
-	bucketStore, err := newBucketStore(planet)
-	assert.NoError(t, err)
-
-	buckets := NewBuckets(bucketStore)
-	bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
-	assert.NoError(t, err)
-	assert.Equal(t, TestBucket, bucket.Name)
-
-	bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-	assert.NoError(t, err)
-	assert.False(t, bucketList.More)
-	assert.Equal(t, 1, len(bucketList.Items))
-	assert.Equal(t, TestBucket, bucketList.Items[0].Name)
-
-	bucket, err = buckets.GetBucket(ctx, TestBucket)
-	assert.NoError(t, err)
-	assert.Equal(t, TestBucket, bucket.Name)
-
-	err = buckets.DeleteBucket(ctx, TestBucket)
-	assert.NoError(t, err)
-
-	bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
-	assert.NoError(t, err)
-	assert.False(t, bucketList.More)
-	assert.Equal(t, 0, len(bucketList.Items))
+		bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		assert.NoError(t, err)
+		assert.False(t, bucketList.More)
+		assert.Equal(t, 0, len(bucketList.Items))
+	})
 }
 
 func TestNoBucketError(t *testing.T) {
+	runTest(t, func(ctx context.Context, buckets *Buckets) {
+		_, err := buckets.CreateBucket(ctx, "", nil)
+		assert.True(t, oldbuckets.NoBucketError.Has(err))
+
+		_, err = buckets.GetBucket(ctx, "")
+		assert.True(t, oldbuckets.NoBucketError.Has(err))
+
+		err = buckets.DeleteBucket(ctx, "")
+		assert.True(t, oldbuckets.NoBucketError.Has(err))
+	})
+}
+
+func runTest(t *testing.T, test func(context.Context, *Buckets)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -85,14 +86,7 @@ func TestNoBucketError(t *testing.T) {
 
 	buckets := NewBuckets(bucketStore)
 
-	_, err = buckets.CreateBucket(ctx, "", nil)
-	assert.True(t, oldbuckets.NoBucketError.Has(err))
-
-	_, err = buckets.GetBucket(ctx, "")
-	assert.True(t, oldbuckets.NoBucketError.Has(err))
-
-	err = buckets.DeleteBucket(ctx, "")
-	assert.True(t, oldbuckets.NoBucketError.Has(err))
+	test(ctx, buckets)
 }
 
 func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
