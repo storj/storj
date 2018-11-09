@@ -6,11 +6,11 @@ package sdbclient
 import (
 	"context"
 
-	"gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/transport"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/transport"
 )
 
 var (

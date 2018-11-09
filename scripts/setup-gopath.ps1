@@ -13,7 +13,7 @@ $env:GOSPACE_REPO="git@github.com:storj/storj.git"
 
 # setup gospace
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
-Invoke-WebRequest -Uri "https://github.com/storj/gospace/releases/download/v0.0.1/gospace_windows_amd64.exe" -OutFile "$xhome/bin/gospace.exe"
+Invoke-WebRequest -Uri "https://github.com/storj/gospace/releases/download/v0.0.5/gospace_windows_amd64.exe" -OutFile "$xhome/bin/gospace.exe"
 
 # find module dependency hash
 $modhash = gospace hash
