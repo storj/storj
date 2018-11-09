@@ -53,6 +53,8 @@ matrix:
         - golangci-lint run
         - cp go.mod.backup go.mod
         - gospace istidy
+        - go mod why -m labix.org/v2/mgo
+        - go mod why -m launchpad.net/gocheck
     
     ### captplanet tests ###
     - env: MODE=integration
