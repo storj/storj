@@ -231,7 +231,6 @@ func (k *Kademlia) ListenAndServe() error {
 	mn := node.NewServer(k)
 
 	pb.RegisterNodesServer(grpcServer, mn)
-	fmt.Printf("Kademlia node starting at %s\n", k.address)
 	lis, err := net.Listen("tcp", k.address)
 	if err != nil {
 		return err
