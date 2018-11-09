@@ -341,17 +341,31 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return err
 	}
 
+	if totalNilNodes != len(newNodes) {
+		return Error.New("Number of new nodes from overlay (%d) does not equal total nil nodes (%d)", len(newNodes), totalNilNodes)
+	}
+
 	totalRepairCount := len(newNodes)
 
 	//make a repair nodes list just with new unique ids
 	repairNodesList := make([]*pb.Node, len(healthyNodes))
 	for j, vr := range healthyNodes {
+		// check that totalRepairCount is non-negative
+		if totalRepairCount < 0 {
+			return Error.New("Total repair count (%d) less than zero", totalRepairCount)
+		}
+
 		// find the nil in the node list
 		if vr == nil {
 			// replace the location with the newNode Node info
 			totalRepairCount--
 			repairNodesList[j] = newNodes[totalRepairCount]
 		}
+	}
+
+	// check that all nil nodes have a replacement prepared
+	if totalRepairCount != 0 {
+		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
 	}
 
 	es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
