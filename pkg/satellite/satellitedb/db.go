@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/satellite"
 
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
@@ -36,9 +37,7 @@ func (db *Database) Users() satellite.Users {
 
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
-	_, err := db.db.Exec(db.db.Schema())
-
-	return err
+	return migrate.CreateTable(db.db.DB, "satellitedb", db.db.Schema())
 }
 
 // Close is used to close db connection
