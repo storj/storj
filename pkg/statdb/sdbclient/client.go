@@ -8,9 +8,9 @@ import (
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/transport"
 )
 
 var (
