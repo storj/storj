@@ -13,7 +13,10 @@ import (
 
 func TestCreateTable_Sqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
 	err = CreateTable(db, "example", "CREATE TABLE example_table (id text)")
@@ -42,8 +45,11 @@ func TestCreateTable_Postgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	db, err := sql.Open("postgres", ":memory:")
-	assert.NoError(t, err)
+	db, err := sql.Open("postgres", *testPostgres)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
 	err = CreateTable(db, "example", "CREATE TABLE example_table (id text)")
