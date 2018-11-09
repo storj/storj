@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -87,5 +88,5 @@ func init() {
 }
 
 func main() {
-	_ := rootCmd.Execute()
+	process.Exec(rootCmd)
 }
