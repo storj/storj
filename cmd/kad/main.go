@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
+<<<<<<< HEAD
 	"github.com/spf13/cobra"
+=======
+>>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -31,6 +34,7 @@ var (
 // Client struct for each command to use and get access to the
 // cache and kademlia instances
 type Client struct {
+<<<<<<< HEAD
 	kad      *kademlia.Kademlia
 	cache    *overlay.Cache
 	conn     *grpc.ClientConn
@@ -68,15 +72,58 @@ func NewClient(address string) (*Client, error) {
 		conn:     conn,
 		client:   client,
 		identity: identity,
+=======
+	kad    *kademlia.Kademlia
+	cache  *overlay.Cache
+	conn   *grpc.ClientConn
+	client pb.KadCliClient
+}
+
+// NewClient returns a new *Client struct
+func NewClient(cmd *cobra.Command, args []string) (*Client, error) {
+	ctx := context.Background()
+
+	ca, err := provider.NewTestCA(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Set up connection with rpc server
+	n := &pb.Node{
+		Address: &pb.NodeAddress{
+			Address:   ":7777", // default captplanet port
+			Transport: 0,
+		},
+		Id: "kadcli",
+	}
+	tc := transport.NewClient(identity)
+	conn, err := tc.DialNode(ctx, n)
+	client := pb.NewKadCliClient(conn)
+
+	return &Client{
+		conn:   conn,
+		client: client,
+>>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
 	}, nil
 }
 
 // ListBuckets lists all kademlia buckets
 func ListBuckets(cmd *cobra.Command, args []string) (err error) {
+<<<<<<< HEAD
 	ctx := context.Background()
 	cli, err := NewClient("127.0.0.1:7777")
 	if err != nil {
 		fmt.Printf("### ERROR ###: %+v\n", err)
+=======
+	fmt.Printf("Getting nodes \n")
+	ctx := context.Background()
+	cli, err := NewClient(cmd, args)
+	if err != nil {
+>>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
 		return err
 	}
 
