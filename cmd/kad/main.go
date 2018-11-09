@@ -21,6 +21,11 @@ var (
 		Short: "get node with `id`",
 		RunE:  GetNode,
 	}
+	listNodeCmd = &cobra.Command{
+		Use:   "list-nodes",
+		Short: "get all nodes in cache",
+		RunE:  ListNodes,
+	}
 )
 
 // Inspector gives access to kademlia and overlay cache
@@ -32,6 +37,9 @@ type Inspector struct {
 // NewInspector returns an Inspector client
 func NewInspector(address string) (*Inspector, error) {
 	id, err := node.NewFullIdentity(context.Background(), 12, 4)
+	if err != nil {
+		return &Inspector{}, nil
+	}
 	overlay, err := overlay.NewOverlayClient(id, address)
 	if err != nil {
 		return &Inspector{}, nil
