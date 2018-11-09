@@ -90,7 +90,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				// Create client from satellite ip
-				identOpt, err := as.identity.DialOption()
+				identOpt, err := as.identity.DialOption("")
 				if err != nil {
 					zap.S().Error(err)
 					return
