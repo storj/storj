@@ -16,13 +16,13 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/storage"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -152,6 +152,27 @@ func TestErrNoBucket(t *testing.T) {
 
 		err = buckets.DeleteBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
+	})
+}
+
+func TestListBucketsEmpty(t *testing.T) {
+	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
+		buckets := NewBuckets(bucketStore)
+
+		_, err := buckets.ListBuckets(ctx, storj.BucketListOptions{})
+		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
+
+		for _, direction := range []storj.ListDirection {
+			storj.Before,
+			storj.Backward,
+			storj.Forward,
+			storj.After,
+		} {
+			bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
+			assert.NoError(t, err)
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 0, len(bucketList.Items))
+		}
 	})
 }
 
