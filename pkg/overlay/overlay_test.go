@@ -69,7 +69,7 @@ func TestFindStorageNodes(t *testing.T) {
 		
 		mockServerNodeList = append(mockServerNodeList, storage.ListItem{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, tt.addr, nodeRes, nodeRep),
+			Value: newNodeStorageValue(t, fid.ID.String(), tt.addr, nodeRes, nodeRep),
 		})
 
 		if tt.freeDisk >= restrictions.FreeDisk &&
@@ -81,7 +81,7 @@ func TestFindStorageNodes(t *testing.T) {
 	}
 
 
-	srv := NewMockServer(mockServerNodeList, nil)
+	srv := NewMockServer(mockServerNodeList)
 	assert.NotNil(t, srv)
 
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
@@ -127,9 +127,9 @@ func TestOverlayLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, "127.0.0.1:9090", nil, nil),
+			Value: newNodeStorageValue(t, fid.ID.String(), "127.0.0.1:9090", nil, nil),
 		},
-	}, nil)
+	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
@@ -154,9 +154,9 @@ func TestOverlayBulkLookup(t *testing.T) {
 	srv := NewMockServer([]storage.ListItem{
 		{
 			Key:   storage.Key(fid.ID.String()),
-			Value: newNodeStorageValue(t, "127.0.0.1:9090", nil, nil),
+			Value: newNodeStorageValue(t, fid.ID.String(), "127.0.0.1:9090", nil, nil),
 		},
-	}, nil)
+	})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
@@ -173,9 +173,9 @@ func TestOverlayBulkLookup(t *testing.T) {
 }
 
 // newNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
-func newNodeStorageValue(t *testing.T, address string, restrictions *pb.NodeRestrictions, reputation *pb.NodeRep) storage.Value {
+func newNodeStorageValue(t *testing.T, id, address string, restrictions *pb.NodeRestrictions, reputation *pb.NodeRep) storage.Value {
 	na := &pb.Node{
-		Id: "", 
+		Id: id, 
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC, 
 			Address: address,

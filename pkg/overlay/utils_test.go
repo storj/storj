@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 // NewMockServer provides a mock grpc server for testing
@@ -25,6 +26,7 @@ func NewMockServer(items []storage.ListItem, opts ...grpc.ServerOption) *grpc.Se
 	c := &Cache{
 		DB:  teststore.New(),
 		DHT: k,
+		statdb: sdbclient.NewMockClient(),
 	}
 
 	_ = storage.PutAll(c.DB, items...)
