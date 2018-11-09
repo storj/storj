@@ -3,142 +3,87 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"os"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
+	"go.uber.org/zap"
 
-<<<<<<< HEAD
-	"github.com/spf13/cobra"
-=======
->>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/transport"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "kad",
+		Use:   "inspector",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
-	lsCmd = &cobra.Command{
-		Use:   "ls",
-		Short: "List all kad buckets",
-		RunE:  ListBuckets,
+	getNodeCmd = &cobra.Command{
+		Use:   "get",
+		Short: "get node with `id`",
+		RunE:  GetNode,
 	}
 )
 
-// Client struct for each command to use and get access to the
-// cache and kademlia instances
-type Client struct {
-<<<<<<< HEAD
-	kad      *kademlia.Kademlia
-	cache    *overlay.Cache
-	conn     *grpc.ClientConn
-	client   pb.KadCliClient
+// Inspector gives access to kademlia and overlay cache
+type Inspector struct {
+	overlay  overlay.Client
 	identity *provider.FullIdentity
-	APIKey   []byte
 }
 
-// NewClient returns a new *Client struct
-func NewClient(address string) (*Client, error) {
-	ctx := context.Background()
-	ca, err := provider.NewTestCA(ctx)
+func identity() (*provider.FullIdentity, error) {
+	ca, err := provider.NewTestCA(context.Background())
 	if err != nil {
-		log.Fatal(err)
-		return &Client{}, err
-	}
-
-	identity, err2 := ca.NewIdentity()
-	if err2 != nil {
-		log.Fatalf("Error creating identity: %+v\n", err)
-		return &Client{}, err
-	}
-
-	tc := transport.NewClient(identity)
-
-	// dial to the overlay instance, pass it to the protobuf client
-	conn, err := tc.DialAddress(ctx, address)
-	if err != nil {
-		log.Fatalf("Error creating connection: %+v\n", err)
-	}
-
-	client := pb.NewKadCliClient(conn)
-
-	return &Client{
-		conn:     conn,
-		client:   client,
-		identity: identity,
-=======
-	kad    *kademlia.Kademlia
-	cache  *overlay.Cache
-	conn   *grpc.ClientConn
-	client pb.KadCliClient
-}
-
-// NewClient returns a new *Client struct
-func NewClient(cmd *cobra.Command, args []string) (*Client, error) {
-	ctx := context.Background()
-
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		log.Fatal(err)
+		zap.S().Errorf("Failed to create certificate authority: ", zap.Error(err))
+		os.Exit(1)
 	}
 	identity, err := ca.NewIdentity()
 	if err != nil {
-		log.Fatal(err)
+		zap.S().Errorf("Failed to create full identity: ", zap.Error(err))
+		os.Exit(1)
+	}
+	return identity, nil
+}
+
+// overlay returns an overlay client
+func newOverlayClient(identity *provider.FullIdentity, address string) (overlay.Client, error) {
+	return overlay.NewOverlayClient(identity, address)
+}
+
+// NewInspector returns an Inspector client
+func NewInspector(address string) (*Inspector, error) {
+	id, err := identity()
+	overlay, err := newOverlayClient(id, address)
+	if err != nil {
+		return &Inspector{}, nil
 	}
 
-	// Set up connection with rpc server
-	n := &pb.Node{
-		Address: &pb.NodeAddress{
-			Address:   ":7777", // default captplanet port
-			Transport: 0,
-		},
-		Id: "kadcli",
-	}
-	tc := transport.NewClient(identity)
-	conn, err := tc.DialNode(ctx, n)
-	client := pb.NewKadCliClient(conn)
-
-	return &Client{
-		conn:   conn,
-		client: client,
->>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
+	return &Inspector{
+		overlay:  overlay,
+		identity: id,
 	}, nil
 }
 
-// ListBuckets lists all kademlia buckets
-func ListBuckets(cmd *cobra.Command, args []string) (err error) {
-<<<<<<< HEAD
-	ctx := context.Background()
-	cli, err := NewClient("127.0.0.1:7777")
+// GetNode returns a node with the requested ID or nothing at all
+func GetNode(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector("127.0.0.1:7778")
 	if err != nil {
-		fmt.Printf("### ERROR ###: %+v\n", err)
-=======
-	fmt.Printf("Getting nodes \n")
-	ctx := context.Background()
-	cli, err := NewClient(cmd, args)
-	if err != nil {
->>>>>>> de89ebc5ce4f861621815ae647c962e1a49e72bd
+		fmt.Printf("error dialing inspector: %+v\n", err)
 		return err
 	}
 
-	res, err := cli.client.CountNodes(ctx, &pb.CountNodesRequest{})
+	n := node.IDFromString("testnode")
+	found, err := i.overlay.Lookup(context.Background(), n)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Count Nodes: %+v\n", res)
-
-	return err
+	fmt.Printf("### FOUND: %+v\n", found)
+	return nil
 }
 
 func init() {
-	rootCmd.AddCommand(lsCmd)
+	rootCmd.AddCommand(getNodeCmd)
 }
 
 func main() {
