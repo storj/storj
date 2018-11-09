@@ -20,6 +20,7 @@ before_script:
     fi;
 
 before_install:
+  - cp go.mod go.mod.backup
   - source scripts/setup-gopath.sh
 matrix:
   allow_failures:
@@ -49,7 +50,6 @@ matrix:
         - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.12
       script:
         - ./scripts/check-for-header.sh
-        - cp go.mod go.mod.backup
         - golangci-lint run
         - cp go.mod.backup go.mod
         - gospace istidy
