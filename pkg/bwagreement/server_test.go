@@ -114,9 +114,11 @@ func newTestServerStruct(t *testing.T) *Server {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	s, err := NewServer("postgres", *testPostgres, zap.NewNop())
-	assert.NoError(t, err)
-	return s
+	server, err := NewServer("postgres", *testPostgres, zap.NewNop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return server
 }
 
 func (TS *TestServer) start() (addr string) {

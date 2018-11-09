@@ -5,13 +5,13 @@ package bwagreement
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/migrate"
 	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
 )
@@ -36,8 +36,8 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(db.Schema())
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	err = migrate.Create("bwagreement", db)
+	if err != nil {
 		return nil, err
 	}
 
