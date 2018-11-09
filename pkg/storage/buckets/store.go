@@ -52,7 +52,7 @@ func NewStore(obj objects.Store) Store {
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
 	if bucket == "" {
-		return nil, storj.NoBucketError.New("")
+		return nil, storj.ErrNoBucket.New("")
 	}
 
 	_, err := b.Get(ctx, bucket)
@@ -74,7 +74,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return Meta{}, storj.NoBucketError.New("")
+		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
 	objMeta, err := b.o.Meta(ctx, bucket)
@@ -89,7 +89,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return Meta{}, storj.NoBucketError.New("")
+		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
 	r := bytes.NewReader(nil)
@@ -106,7 +106,7 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return storj.NoBucketError.New("")
+		return storj.ErrNoBucket.New("")
 	}
 
 	return b.o.Delete(ctx, bucket)

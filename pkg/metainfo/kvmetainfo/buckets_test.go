@@ -140,18 +140,18 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 	})
 }
 
-func TestNoBucketError(t *testing.T) {
+func TestErrNoBucket(t *testing.T) {
 	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
 		buckets := NewBuckets(bucketStore)
 
 		_, err := buckets.CreateBucket(ctx, "", nil)
-		assert.True(t, storj.NoBucketError.Has(err))
+		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		_, err = buckets.GetBucket(ctx, "")
-		assert.True(t, storj.NoBucketError.Has(err))
+		assert.True(t, storj.ErrNoBucket.Has(err))
 
 		err = buckets.DeleteBucket(ctx, "")
-		assert.True(t, storj.NoBucketError.Has(err))
+		assert.True(t, storj.ErrNoBucket.Has(err))
 	})
 }
 

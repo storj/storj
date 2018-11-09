@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// NoBucketError is an error class for missing bucket name
-var NoBucketError = errs.Class("no bucket specified")
+// ErrNoBucket is an error class for using empty bucket name
+var ErrNoBucket = errs.Class("no bucket specified")
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
