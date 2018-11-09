@@ -4,9 +4,9 @@
 package main
 
 import (
+	"context"
 	"net/url"
 	"strconv"
-	"context"
 
 	"go.uber.org/zap"
 

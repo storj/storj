@@ -124,9 +124,12 @@ func getProvider(ctx context.Context) (*provider.Provider, string, error) {
 	}
 
 	go func() {
-		srv.Serve(lis)
+		_ = srv.Serve(lis)
+
 	}()
-	defer lis.Close()
+	defer func() {
+		_ = lis.Close()
+	}()
 	address := lis.Addr().String()
 
 	ca, err := provider.NewTestCA(ctx)
