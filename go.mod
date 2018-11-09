@@ -1,7 +1,7 @@
 module storj.io/storj
 
 require (
-	github.com/storj/xyz
+	github.com/loov/leakcheck
 
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Shopify/toxiproxy v2.1.3+incompatible // indirect
