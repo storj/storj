@@ -17,29 +17,30 @@ func CreateTable(db *sql.DB, identifier, schema string) error {
 		return err
 	}
 
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`)
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text)`)
 	if err != nil {
 		return utils.CombineErrors(err, tx.Rollback())
 	}
 
 	row := tx.QueryRow(`SELECT (schemaText) FROM table_schemas WHERE id = ?`, identifier)
+
+	var previousSchema string
+	err = row.Scan(&previousSchema)
+
 	// not created yet
-	if row == nil {
+	if err == sql.ErrNoRows {
 		_, err := tx.Exec(schema)
 		if err != nil {
 			return utils.CombineErrors(err, tx.Rollback())
 		}
 
-		_, err = tx.Exec(`INSERT table_schemas(id, schemaText) VALUES (?, ?)`, identifier, schema)
+		_, err = tx.Exec(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?)`, identifier, schema)
 		if err != nil {
 			return utils.CombineErrors(err, tx.Rollback())
 		}
 
 		return tx.Commit()
 	}
-
-	var previousSchema string
-	err = row.Scan(&previousSchema)
 	if err != nil {
 		return utils.CombineErrors(err, tx.Rollback())
 	}
