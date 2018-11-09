@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
+	"github.com/spf13/cobra"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -20,6 +21,7 @@ var (
 		Use:   "kad",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
+
 	lsCmd = &cobra.Command{
 		Use:   "ls",
 		Short: "List all kad buckets",
