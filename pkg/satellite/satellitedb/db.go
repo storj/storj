@@ -37,7 +37,7 @@ func (db *Database) Users() satellite.Users {
 
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
-	return migrate.CreateTable(db.db.DB, db.db.Rebind, "satellitedb", db.db.Schema())
+	return migrate.Create("satellitedb", db.db)
 }
 
 // Close is used to close db connection

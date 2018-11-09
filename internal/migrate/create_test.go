@@ -16,7 +16,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestCreateTable_Sqlite(t *testing.T) {
+func TestCreate_Sqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -24,19 +24,19 @@ func TestCreateTable_Sqlite(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = CreateTable(db, rebindSqlite, "example", "CREATE TABLE example_table (id text)")
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = CreateTable(db, rebindSqlite, "example", "CREATE TABLE example_table (id text)")
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = CreateTable(db, rebindSqlite, "example", "CREATE TABLE example_table (id text, version int)")
+	err = Create("example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = CreateTable(db, rebindSqlite, "conflict", "CREATE TABLE example_table (id text, version int)")
+	err = Create("conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
 	assert.Error(t, err)
 }
 
@@ -45,7 +45,7 @@ const defaultPostgresConn = "postgres://pointerdb:pg-secret-pass@test-postgres-p
 
 var testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRESKV_TEST"), "PostgreSQL test database connection string")
 
-func TestCreateTable_Postgres(t *testing.T) {
+func TestCreate_Postgres(t *testing.T) {
 	if *testPostgres == "" {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
@@ -57,25 +57,36 @@ func TestCreateTable_Postgres(t *testing.T) {
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	// should create table
-	err = CreateTable(db, rebindPostgres, "example", "CREATE TABLE example_table (id text)")
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// shouldn't create a new table
-	err = CreateTable(db, rebindPostgres, "example", "CREATE TABLE example_table (id text)")
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text)"})
 	assert.NoError(t, err)
 
 	// should fail, because schema changed
-	err = CreateTable(db, rebindPostgres, "example", "CREATE TABLE example_table (id text, version integer)")
+	err = Create("example", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = CreateTable(db, rebindPostgres, "conflict", "CREATE TABLE example_table (id text, version integer)")
+	err = Create("conflict", &postgresDB{db, "CREATE TABLE example_table (id text, version integer)"})
 	assert.Error(t, err)
 }
 
-func rebindSqlite(s string) string { return s }
+type sqliteDB struct {
+	*sql.DB
+	schema string
+}
 
-func rebindPostgres(sql string) string {
+func (db *sqliteDB) Rebind(s string) string { return s }
+func (db *sqliteDB) Schema() string         { return db.schema }
+
+type postgresDB struct {
+	*sql.DB
+	schema string
+}
+
+func (db *postgresDB) Rebind(sql string) string {
 	out := make([]byte, 0, len(sql)+10)
 
 	j := 1
@@ -93,3 +104,4 @@ func rebindPostgres(sql string) string {
 
 	return string(out)
 }
+func (db *postgresDB) Schema() string { return db.schema }

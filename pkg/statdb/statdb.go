@@ -36,7 +36,7 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	err = migrate.CreateTable(db.DB, db.Rebind, "statdb", db.Schema())
+	err = migrate.Create("statdb", db)
 	if err != nil {
 		return nil, err
 	}
