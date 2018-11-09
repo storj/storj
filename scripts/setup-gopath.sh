@@ -8,7 +8,7 @@ export GOSPACE_PKG=storj.io/storj
 export GOSPACE_REPO=git@github.com:storj/storj/git
 
 # setup gospace
-wget -O ~/bin/gospace https://github.com/storj/gospace/releases/download/v0.0.2/gospace_linux_amd64
+wget -O ~/bin/gospace https://github.com/storj/gospace/releases/download/v0.0.3/gospace_linux_amd64
 chmod +x ~/bin/gospace
 
 # find module dependency hash
