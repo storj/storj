@@ -83,8 +83,9 @@ func ListNodes(cmd *cobra.Command, args []string) (err error) {
 
 func init() {
 	rootCmd.AddCommand(getNodeCmd)
+	rootCmd.AddCommand(listNodeCmd)
 }
 
 func main() {
-	rootCmd.Execute()
+	_ := rootCmd.Execute()
 }
