@@ -344,13 +344,11 @@ func (fi *FullIdentity) DialOption(id string) (grpc.DialOption, error) {
 				}
 
 				if peer.ID.String() != id {
-
-					fmt.Printf("HELP!!! certID %s != requested nodeID %s\n", peer.ID.String(), id)
+					return Error.New("peer ID did not match requested ID")
 				}
 
 				return nil
 			},
-			// TODO(coyle): Check that the ID of the node we are dialing is the owner of the certificate.
 		),
 	}
 

@@ -77,12 +77,11 @@ func TestWorkerLookup(t *testing.T) {
 	mockDHT := mock_dht.NewMockDHT(ctrl)
 	mockRT := mock_dht.NewMockRoutingTable(ctrl)
 
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
-
-	srv, mock := newTestServer(nil)
-	go func() { _ = srv.Serve(lis) }()
+	srv, mock, identity, addr := startTestNodeServer()
 	defer srv.Stop()
+
+	id := identity.ID.String()
+
 	cases := []struct {
 		name     string
 		worker   *worker
@@ -92,17 +91,13 @@ func TestWorkerLookup(t *testing.T) {
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
-				ca, err := provider.NewTestCA(context.Background())
+				nc, err := node.NewNodeClient(identity, pb.Node{Id: id, Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}, mockDHT)
 				assert.NoError(t, err)
-				identity, err := ca.NewIdentity()
-				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}, mockDHT)
-				assert.NoError(t, err)
-				mock.returnValue = []*pb.Node{&pb.Node{Id: "foo"}}
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.IDFromString("foo"), 5)
+				mock.returnValue = []*pb.Node{&pb.Node{Id: id}}
+				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: id}}, nc, node.IDFromString(id), 5)
 			}(),
-			work:     &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: lis.Addr().String()}},
-			expected: []*pb.Node{&pb.Node{Id: "foo"}},
+			work:     &pb.Node{Id: id, Address: &pb.NodeAddress{Address: addr}},
+			expected: []*pb.Node{&pb.Node{Id: id}},
 		},
 	}
 
