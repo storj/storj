@@ -55,8 +55,7 @@ func (s *Server) locked() func() {
 // Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwidthAllocation) (bwagreement *dbx.Bwagreement, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	s.logger.Debug("entering statdb Create")
+	s.logger.Debug("entering bwagreement Create")
 
 	signature := createBwAgreement.GetSignature()
 	data := createBwAgreement.GetData()

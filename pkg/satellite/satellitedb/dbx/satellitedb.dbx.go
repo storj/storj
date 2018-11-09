@@ -267,7 +267,7 @@ func newsqlite3(db *DB) *sqlite3DB {
 
 func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE users (
-	id TEXT NOT NULL,
+	id BLOB NOT NULL,
 	first_name TEXT NOT NULL,
 	last_name TEXT NOT NULL,
 	email TEXT NOT NULL,
@@ -278,7 +278,14 @@ func (obj *sqlite3DB) Schema() string {
 );
 CREATE TABLE companies (
 	id BLOB NOT NULL,
-	userId TEXT NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	address TEXT NOT NULL,
+	country TEXT NOT NULL,
+	city TEXT NOT NULL,
+	state TEXT NOT NULL,
+	postal_code TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );`
 }
@@ -344,7 +351,7 @@ nextval:
 }
 
 type User struct {
-	Id           string
+	Id           []byte
 	FirstName    string
 	LastName     string
 	Email        string
@@ -363,10 +370,10 @@ type User_Update_Fields struct {
 
 type User_Id_Field struct {
 	_set   bool
-	_value string
+	_value []byte
 }
 
-func User_Id(v string) User_Id_Field {
+func User_Id(v []byte) User_Id_Field {
 	return User_Id_Field{_set: true, _value: v}
 }
 
@@ -470,14 +477,26 @@ func (f User_CreatedAt_Field) value() interface{} {
 func (User_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Company struct {
-	Id     []byte
-	UserId string
+	Id         []byte
+	UserId     []byte
+	Name       string
+	Address    string
+	Country    string
+	City       string
+	State      string
+	PostalCode string
+	CreatedAt  time.Time
 }
 
 func (Company) _Table() string { return "companies" }
 
 type Company_Update_Fields struct {
-	UserId Company_UserId_Field
+	Name       Company_Name_Field
+	Address    Company_Address_Field
+	Country    Company_Country_Field
+	City       Company_City_Field
+	State      Company_State_Field
+	PostalCode Company_PostalCode_Field
 }
 
 type Company_Id_Field struct {
@@ -500,10 +519,10 @@ func (Company_Id_Field) _Column() string { return "id" }
 
 type Company_UserId_Field struct {
 	_set   bool
-	_value string
+	_value []byte
 }
 
-func Company_UserId(v string) Company_UserId_Field {
+func Company_UserId(v []byte) Company_UserId_Field {
 	return Company_UserId_Field{_set: true, _value: v}
 }
 
@@ -514,7 +533,133 @@ func (f Company_UserId_Field) value() interface{} {
 	return f._value
 }
 
-func (Company_UserId_Field) _Column() string { return "userId" }
+func (Company_UserId_Field) _Column() string { return "user_id" }
+
+type Company_Name_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_Name(v string) Company_Name_Field {
+	return Company_Name_Field{_set: true, _value: v}
+}
+
+func (f Company_Name_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_Name_Field) _Column() string { return "name" }
+
+type Company_Address_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_Address(v string) Company_Address_Field {
+	return Company_Address_Field{_set: true, _value: v}
+}
+
+func (f Company_Address_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_Address_Field) _Column() string { return "address" }
+
+type Company_Country_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_Country(v string) Company_Country_Field {
+	return Company_Country_Field{_set: true, _value: v}
+}
+
+func (f Company_Country_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_Country_Field) _Column() string { return "country" }
+
+type Company_City_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_City(v string) Company_City_Field {
+	return Company_City_Field{_set: true, _value: v}
+}
+
+func (f Company_City_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_City_Field) _Column() string { return "city" }
+
+type Company_State_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_State(v string) Company_State_Field {
+	return Company_State_Field{_set: true, _value: v}
+}
+
+func (f Company_State_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_State_Field) _Column() string { return "state" }
+
+type Company_PostalCode_Field struct {
+	_set   bool
+	_value string
+}
+
+func Company_PostalCode(v string) Company_PostalCode_Field {
+	return Company_PostalCode_Field{_set: true, _value: v}
+}
+
+func (f Company_PostalCode_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_PostalCode_Field) _Column() string { return "postal_code" }
+
+type Company_CreatedAt_Field struct {
+	_set   bool
+	_value time.Time
+}
+
+func Company_CreatedAt(v time.Time) Company_CreatedAt_Field {
+	return Company_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Company_CreatedAt_Field) value() interface{} {
+	if !f._set {
+		return nil
+	}
+	return f._value
+}
+
+func (Company_CreatedAt_Field) _Column() string { return "created_at" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -717,6 +862,45 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_Company(ctx context.Context,
+	company_id Company_Id_Field,
+	company_user_id Company_UserId_Field,
+	company_name Company_Name_Field,
+	company_address Company_Address_Field,
+	company_country Company_Country_Field,
+	company_city Company_City_Field,
+	company_state Company_State_Field,
+	company_postal_code Company_PostalCode_Field) (
+	company *Company, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := company_id.value()
+	__user_id_val := company_user_id.value()
+	__name_val := company_name.value()
+	__address_val := company_address.value()
+	__country_val := company_country.value()
+	__city_val := company_city.value()
+	__state_val := company_state.value()
+	__postal_code_val := company_postal_code.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO companies ( id, user_id, name, address, country, city, state, postal_code, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __user_id_val, __name_val, __address_val, __country_val, __city_val, __state_val, __postal_code_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastCompany(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_User_By_Email_And_PasswordHash(ctx context.Context,
 	user_email User_Email_Field,
 	user_password_hash User_PasswordHash_Field) (
@@ -757,6 +941,70 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field) (
+	company *Company, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, company_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	company = &Company{}
+	err = __rows.Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("Company_By_UserId")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return company, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field) (
+	company *Company, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, company_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	company = &Company{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return company, nil
 
 }
 
@@ -825,6 +1073,81 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 	return user, nil
 }
 
+func (obj *sqlite3Impl) Update_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field,
+	update Company_Update_Fields) (
+	company *Company, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE companies SET "), __sets, __sqlbundle_Literal(" WHERE companies.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.Country._set {
+		__values = append(__values, update.Country.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("country = ?"))
+	}
+
+	if update.City._set {
+		__values = append(__values, update.City.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("city = ?"))
+	}
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if update.PostalCode._set {
+		__values = append(__values, update.PostalCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("postal_code = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, company_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	company = &Company{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE companies.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return company, nil
+}
+
 func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -833,6 +1156,32 @@ func (obj *sqlite3Impl) Delete_User_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM companies WHERE companies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, company_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -866,6 +1215,24 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user, nil
+
+}
+
+func (obj *sqlite3Impl) getLastCompany(ctx context.Context,
+	pk int64) (
+	company *Company, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT companies.id, companies.user_id, companies.name, companies.address, companies.country, companies.city, companies.state, companies.postal_code, companies.created_at FROM companies WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	company = &Company{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&company.Id, &company.UserId, &company.Name, &company.Address, &company.Country, &company.City, &company.State, &company.PostalCode, &company.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return company, nil
 
 }
 
@@ -954,6 +1321,24 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) Create_Company(ctx context.Context,
+	company_id Company_Id_Field,
+	company_user_id Company_UserId_Field,
+	company_name Company_Name_Field,
+	company_address Company_Address_Field,
+	company_country Company_Country_Field,
+	company_city Company_City_Field,
+	company_state Company_State_Field,
+	company_postal_code Company_PostalCode_Field) (
+	company *Company, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Company(ctx, company_id, company_user_id, company_name, company_address, company_country, company_city, company_state, company_postal_code)
+
+}
+
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_first_name User_FirstName_Field,
@@ -969,6 +1354,16 @@ func (rx *Rx) Create_User(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_Company_By_Id(ctx, company_id)
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -977,6 +1372,26 @@ func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Get_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field) (
+	company *Company, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Company_By_Id(ctx, company_id)
+}
+
+func (rx *Rx) Get_Company_By_UserId(ctx context.Context,
+	company_user_id Company_UserId_Field) (
+	company *Company, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Company_By_UserId(ctx, company_user_id)
 }
 
 func (rx *Rx) Get_User_By_Email_And_PasswordHash(ctx context.Context,
@@ -1000,6 +1415,17 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
+func (rx *Rx) Update_Company_By_Id(ctx context.Context,
+	company_id Company_Id_Field,
+	update Company_Update_Fields) (
+	company *Company, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Company_By_Id(ctx, company_id, update)
+}
+
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -1012,6 +1438,17 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	Create_Company(ctx context.Context,
+		company_id Company_Id_Field,
+		company_user_id Company_UserId_Field,
+		company_name Company_Name_Field,
+		company_address Company_Address_Field,
+		company_country Company_Country_Field,
+		company_city Company_City_Field,
+		company_state Company_State_Field,
+		company_postal_code Company_PostalCode_Field) (
+		company *Company, err error)
+
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_first_name User_FirstName_Field,
@@ -1020,9 +1457,21 @@ type Methods interface {
 		user_password_hash User_PasswordHash_Field) (
 		user *User, err error)
 
+	Delete_Company_By_Id(ctx context.Context,
+		company_id Company_Id_Field) (
+		deleted bool, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
+
+	Get_Company_By_Id(ctx context.Context,
+		company_id Company_Id_Field) (
+		company *Company, err error)
+
+	Get_Company_By_UserId(ctx context.Context,
+		company_user_id Company_UserId_Field) (
+		company *Company, err error)
 
 	Get_User_By_Email_And_PasswordHash(ctx context.Context,
 		user_email User_Email_Field,
@@ -1032,6 +1481,11 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Update_Company_By_Id(ctx context.Context,
+		company_id Company_Id_Field,
+		update Company_Update_Fields) (
+		company *Company, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

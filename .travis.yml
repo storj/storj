@@ -49,6 +49,7 @@ matrix:
       script:
         - ./scripts/check-for-header.sh
         - golangci-lint run
+        - gospace istidy
     
     ### captplanet tests ###
     - env: MODE=integration
