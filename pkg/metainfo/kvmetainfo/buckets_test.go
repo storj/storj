@@ -174,7 +174,10 @@ func runTest(t *testing.T, test func(context.Context, buckets.Store)) {
 
 func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
-	flag.Set("pointer-db.auth.api-key", TestAPIKey)
+	err := flag.Set("pointer-db.auth.api-key", TestAPIKey)
+	if err != nil {
+		return nil, err
+	}
 
 	oc, err := overlay.NewOverlayClient(planet.Uplinks[0].Identity, planet.Uplinks[0].Addr())
 	if err != nil {
