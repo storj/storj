@@ -81,10 +81,6 @@ func TestNewKademlia(t *testing.T) {
 }
 
 func TestPeerDiscovery(t *testing.T) {
-	// start three servers
-	// one bootstrap
-	// two
-
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	// make new identity
@@ -96,9 +92,7 @@ func TestPeerDiscovery(t *testing.T) {
 	defer targetServer.Stop()
 
 	bootstrapNodes := []pb.Node{pb.Node{Id: bootID.ID.String(), Address: &pb.NodeAddress{Address: bootAddress}}}
-	k, err := NewKademlia(dht.NodeID(testID.ID),
-		bootstrapNodes,
-		testAddress, testID, dir, defaultAlpha)
+	k, err := NewKademlia(dht.NodeID(testID.ID), bootstrapNodes, testAddress, testID, dir, defaultAlpha)
 	assert.NoError(t, err)
 
 	defer func() {
@@ -401,6 +395,9 @@ func mktempdir(t *testing.T, dir string) (string, func()) {
 
 func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentity, string) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, nil, nil, ""
+	}
 
 	ca, err := provider.NewTestCA(context.Background())
 	if err != nil {
@@ -418,7 +415,11 @@ func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentit
 	mn := &mockNodeServer{queryCalled: 0}
 
 	pb.RegisterNodesServer(grpcServer, mn)
-	go grpcServer.Serve(lis)
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			return
+		}
+	}()
 
 	return grpcServer, mn, identity, lis.Addr().String()
 }

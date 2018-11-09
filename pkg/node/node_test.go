@@ -144,15 +144,6 @@ func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 	return &pb.PingResponse{}, nil
 }
 
-// NewNodeID returns the string representation of a dht node ID
-func NewNodeID(t *testing.T) string {
-	fid, err := NewFullIdentity(ctx, 12, 4)
-	id := ID(fid.ID)
-	assert.NoError(t, err)
-
-	return id.String()
-}
-
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
 	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)

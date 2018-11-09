@@ -81,7 +81,6 @@ func TestWorkerLookup(t *testing.T) {
 	defer srv.Stop()
 
 	id := identity.ID.String()
-
 	cases := []struct {
 		name     string
 		worker   *worker
