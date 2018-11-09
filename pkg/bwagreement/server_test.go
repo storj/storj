@@ -12,7 +12,9 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -39,6 +41,10 @@ func TestBandwidthAgreements(t *testing.T) {
 		Data:      data,
 	}
 
+	s, err := cryptopasta.Sign(msg.Data, TS.k.(*ecdsa.PrivateKey))
+	assert.NoError(t, err)
+	msg.Signature = s
+
 	/* emulate sending the bwagreement stream from piecestore node */
 	stream, err := TS.c.BandwidthAgreements(ctx)
 	assert.NoError(t, err)
@@ -47,13 +53,16 @@ func TestBandwidthAgreements(t *testing.T) {
 
 	_, _ = stream.CloseAndRecv()
 
+	// give time to complete writing into the db
+	time.Sleep(100 * time.Millisecond)
+
 	/* read back from the postgres db in bwagreement table */
-	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(msg.GetSignature()))
 	assert.EqualValues(t, retData.Data, data)
 	assert.NoError(t, err)
 
 	/* delete the entry what you just wrote */
-	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(signature))
+	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(msg.GetSignature()))
 	assert.True(t, delBool)
 	assert.NoError(t, err)
 }
