@@ -8,6 +8,7 @@ import (
 	"storj.io/storj/pkg/utils"
 )
 
+// Error is the default migrate errs class
 var Error = errs.Class("migrate")
 
 // CreateTable with a previous schema check
