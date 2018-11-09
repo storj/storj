@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"time"
@@ -125,7 +124,7 @@ func (p *Provider) Run(ctx context.Context) (err error) {
 		p.next = p.next[1:]
 		return next.Run(ctx, p)
 	}
-	fmt.Printf("\nGRPC starting\n")
+
 	return p.grpc.Serve(p.lis)
 }
 

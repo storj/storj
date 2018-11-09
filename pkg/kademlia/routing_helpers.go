@@ -165,7 +165,6 @@ func (rt *RoutingTable) putNode(nodeKey storage.Key, nodeValue storage.Value) er
 func (rt *RoutingTable) createOrUpdateKBucket(bucketID storage.Key, now time.Time) error {
 	dateTime := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(dateTime, now.UnixNano())
-	fmt.Printf("bucketID==%v\n", bucketID)
 	err := rt.kadBucketDB.Put(bucketID, dateTime)
 	if err != nil {
 		return RoutingErr.New("could not add or update k bucket: %s", err)

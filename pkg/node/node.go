@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
@@ -20,16 +19,13 @@ type Node struct {
 
 // Lookup queries nodes looking for a particular node in the network
 func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	fmt.Printf("ATTEMPTING TO DIAL :: %s\n", to.GetAddress().Address)
 	c, err := n.pool.Dial(ctx, &to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	fmt.Printf("ATTEMPTING TO QUERY :: %s\n", to.GetAddress().Address)
 	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
 	if err != nil {
-		fmt.Printf("FAILED TO QUERY :: %s\n", to.GetAddress().Address)
 		return nil, NodeClientErr.Wrap(err)
 	}
 

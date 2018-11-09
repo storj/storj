@@ -62,13 +62,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	// TODO(jt): kademlia should register on server.GRPC() instead of listening
-	// itself
 	in.Id = server.Identity().ID.String()
 
-	addr := server.Addr().String()
-
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, addr, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
@@ -77,21 +73,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	mn := node.NewServer(kad)
 	pb.RegisterNodesServer(server.GRPC(), mn)
 
-	// go func() {
-	// 	if err := kad.ListenAndServe(); err != nil {
-	// 		fmt.Printf("Error Listening on Kademlia %v\n", err)
-	// 	}
-	// }()
-
-	// TODO(jt): Bootstrap should probably be blocking and we should kick it off
-	// in a goroutine here
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
 			fmt.Printf("ERROR :: %v\n", err)
 		}
 	}()
-
-	// go kad.ListenAndServe()
 
 	return server.Run(context.WithValue(ctx, ctxKeyKad, kad))
 }

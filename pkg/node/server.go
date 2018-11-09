@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 
 	"go.uber.org/zap"
 
@@ -29,7 +28,6 @@ func NewServer(dht dht.DHT) *Server {
 
 // Query is a node to node communication query
 func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
-	fmt.Printf("HERE|N|N\n\n")
 	if s.logger == nil {
 		s.logger = zap.L()
 	}

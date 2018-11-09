@@ -5,7 +5,6 @@ package boltdb
 
 import (
 	"bytes"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -114,7 +113,6 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
-	fmt.Printf("key = %v\tvalue = %v\n", key, value)
 	if len(key) == 0 {
 		return Error.New("invalid key")
 	}

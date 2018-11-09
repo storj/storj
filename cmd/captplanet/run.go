@@ -104,12 +104,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		)
 	}()
 
-	time.Sleep(10 * time.Second)
-
 	var storagenodes []string
 
 	// start the storagenodes
-	for i := 0; i < 5; i++ {
+	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		identity, err := runCfg.StorageNodes[i].Identity.Load()
 		if err != nil {
 			return err
