@@ -34,6 +34,11 @@ func (db *Database) Users() satellite.Users {
 	return &users{db.db}
 }
 
+// Companies is getter for Companies repository
+func (db *Database) Companies() satellite.Companies {
+	return &companies{db.db}
+}
+
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
 	_, err := db.db.Exec(db.db.Schema())
