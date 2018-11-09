@@ -20,7 +20,6 @@ before_script:
     fi;
 
 before_install:
-  - cp go.mod go.mod.backup
   - source scripts/setup-gopath.sh
 matrix:
   allow_failures:
@@ -45,16 +44,12 @@ matrix:
     
     ### run linters ###
     - env: MODE=lint
-      services:
       install:
-        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.12
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
       script:
         - ./scripts/check-for-header.sh
         - golangci-lint run
-        - cp go.mod.backup go.mod
         - gospace istidy
-        - GO111MODULE=on go mod why -m labix.org/v2/mgo
-        - GO111MODULE=on go mod why -m launchpad.net/gocheck
     
     ### captplanet tests ###
     - env: MODE=integration
