@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/pkg/inspector"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
@@ -40,6 +41,7 @@ type Satellite struct {
 	Kademlia    kademlia.Config
 	PointerDB   pointerdb.Config
 	Overlay     overlay.Config
+	Inspector   inspector.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
 	Audit       audit.Config
@@ -150,6 +152,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			// runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.Web,
+			runCfg.Satellite.Inspector,
 		)
 	}()
 

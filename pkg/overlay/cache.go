@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"log"
 
 	"github.com/gogo/protobuf/proto"
@@ -24,6 +25,12 @@ const (
 	// OverlayBucket is the string representing the bucket used for a bolt-backed overlay dht cache
 	OverlayBucket = "overlay"
 )
+
+// ErrNodeNotFound error standardization
+var ErrNodeNotFound = errs.New("Node not found")
+
+// ErrBucketNotFound returns if a bucket is unable to be found in the routing table
+var ErrBucketNotFound = errs.New("Bucket not found")
 
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
@@ -206,6 +213,44 @@ func (o *Cache) Refresh(ctx context.Context) error {
 // Walk iterates over each node in each bucket to traverse the network
 func (o *Cache) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
+	return nil
+}
+
+/*
+* Kademlia bucket interaction methods
+*	These methods allow external inspection of the kademlia service via gRPC
+ */
+
+// DumpBuckets returns a list of buckets in the current Kademlia instance
+func (o *Cache) DumpBuckets(ctx context.Context) error {
+	table, err := o.DHT.GetRoutingTable(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Got routing table: %+v\n", table)
+	buckets, err := table.GetBuckets()
+	if err != nil {
+		fmt.Printf("error getting buckets: %+v\n", err)
+		return err
+	}
+
+	fmt.Printf("GOT BUCKETS: %+v\n", buckets)
+	return nil
+}
+
+// GetBucket returns all the nodes in a given bucket
+func (o *Cache) GetBucket(ctx context.Context, id string) error {
+	table, err := o.DHT.GetRoutingTable(ctx)
+	if err != nil {
+		return err
+	}
+
+	bucket, ok := table.GetBucket(id)
+	if !ok {
+		return ErrBucketNotFound
+	}
+
+	fmt.Printf("GOT BUCKET: %+v\n", bucket)
 	return nil
 }
 

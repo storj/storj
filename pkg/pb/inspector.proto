@@ -4,11 +4,14 @@
 syntax = "proto3";
 option go_package = "pb";
 
-package kadcli;
+package inspector;
 
-service KadCli {
+service Inspector {
   // CountNodes returns the number of nodes in the cache and in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
+
+  // GetBuckets returns the k buckets from a Kademlia instance
+  rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
 }
 
 message CountNodesResponse {
@@ -17,4 +20,15 @@ message CountNodesResponse {
 }
 
 message CountNodesRequest {
+}
+
+message GetBucketsRequest {
+}
+
+message GetBucketsResponse {
+  repeated Bucket buckets = 1;
+}
+
+message Bucket {
+  string id = 1;
 }
