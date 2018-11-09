@@ -311,26 +311,26 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	// get the nodes list that needs to be excluded
 	var excludeNodeIDs []dht.NodeID
-	healthyNodes := make([]*pb.Node, len(originalNodes))
 
 	// count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
 
-	OUTER:
-	for j, v := range originalNodes {
-		if v != nil {
-			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+	healthyNodes := make([]*pb.Node, len(originalNodes))
 
-			// If node index exists in lostPieces, skip adding it to healthyNodes
-			for i := range lostPieces {
-				if j == int(lostPieces[i]) {
-					totalNilNodes++
-					continue OUTER
-				}
-			}
-			healthyNodes[j] = v
-		} else {
+	// populate healthyNodes with all nodes from originalNodes except those correlating to indices in lostPieces
+	for i, v := range originalNodes {
+		if v == nil {
 			totalNilNodes++
+			continue
+		}
+
+		excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+
+		// If node index exists in lostPieces, skip adding it to healthyNodes
+		if contains(lostPieces, i) {
+			totalNilNodes++
+		} else {
+			healthyNodes[i] = v
 		}
 	}
 
@@ -441,6 +441,16 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	}
 
 	return items, more, nil
+}
+
+// contains checks if n exists in list
+func contains(list []int32, n int) bool {
+	for i := range list {
+		if n == int(list[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 // convertMeta converts pointer to segment metadata
