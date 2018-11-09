@@ -9,18 +9,15 @@ import (
 	"time"
 
 	minio "github.com/minio/minio/cmd"
-	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
 var mon = monkit.Package()
-
-// NoBucketError is an error class for missing bucket name
-var NoBucketError = errs.Class("no bucket specified")
 
 // Store creates an interface for interacting with buckets
 type Store interface {
@@ -55,7 +52,7 @@ func NewStore(obj objects.Store) Store {
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
 	if bucket == "" {
-		return nil, NoBucketError.New("")
+		return nil, storj.NoBucketError.New("")
 	}
 
 	_, err := b.Get(ctx, bucket)
@@ -77,7 +74,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return Meta{}, NoBucketError.New("")
+		return Meta{}, storj.NoBucketError.New("")
 	}
 
 	objMeta, err := b.o.Meta(ctx, bucket)
@@ -92,7 +89,7 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return Meta{}, NoBucketError.New("")
+		return Meta{}, storj.NoBucketError.New("")
 	}
 
 	r := bytes.NewReader(nil)
@@ -109,7 +106,7 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
-		return NoBucketError.New("")
+		return storj.NoBucketError.New("")
 	}
 
 	return b.o.Delete(ctx, bucket)

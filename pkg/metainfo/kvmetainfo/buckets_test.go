@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storage/buckets"
-	oldbuckets "storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
@@ -60,13 +59,13 @@ func TestBuckets(t *testing.T) {
 func TestNoBucketError(t *testing.T) {
 	runTest(t, func(ctx context.Context, buckets *Buckets) {
 		_, err := buckets.CreateBucket(ctx, "", nil)
-		assert.True(t, oldbuckets.NoBucketError.Has(err))
+		assert.True(t, storj.NoBucketError.Has(err))
 
 		_, err = buckets.GetBucket(ctx, "")
-		assert.True(t, oldbuckets.NoBucketError.Has(err))
+		assert.True(t, storj.NoBucketError.Has(err))
 
 		err = buckets.DeleteBucket(ctx, "")
-		assert.True(t, oldbuckets.NoBucketError.Has(err))
+		assert.True(t, storj.NoBucketError.Has(err))
 	})
 }
 
