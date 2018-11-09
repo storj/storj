@@ -23,7 +23,7 @@ func CreateTable(db *sql.DB, identifier, schema string) error {
 		return Error.Wrap(utils.CombineErrors(err, tx.Rollback()))
 	}
 
-	row := tx.QueryRow(`SELECT (schemaText) FROM table_schemas WHERE id = ?`, identifier)
+	row := tx.QueryRow(`SELECT schemaText FROM table_schemas WHERE id = ?`, identifier)
 
 	var previousSchema string
 	err = row.Scan(&previousSchema)
