@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
@@ -31,29 +29,10 @@ type Inspector struct {
 	identity *provider.FullIdentity
 }
 
-func identity() (*provider.FullIdentity, error) {
-	ca, err := provider.NewTestCA(context.Background())
-	if err != nil {
-		zap.S().Errorf("Failed to create certificate authority: ", zap.Error(err))
-		os.Exit(1)
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		zap.S().Errorf("Failed to create full identity: ", zap.Error(err))
-		os.Exit(1)
-	}
-	return identity, nil
-}
-
-// overlay returns an overlay client
-func newOverlayClient(identity *provider.FullIdentity, address string) (overlay.Client, error) {
-	return overlay.NewOverlayClient(identity, address)
-}
-
 // NewInspector returns an Inspector client
 func NewInspector(address string) (*Inspector, error) {
-	id, err := identity()
-	overlay, err := newOverlayClient(id, address)
+	id, err := node.NewFullIdentity(context.Background(), 12, 4)
+	overlay, err := overlay.NewOverlayClient(id, address)
 	if err != nil {
 		return &Inspector{}, nil
 	}
@@ -79,6 +58,18 @@ func GetNode(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Printf("### FOUND: %+v\n", found)
+	return nil
+}
+
+// ListNodes returns the nodes in the cache
+func ListNodes(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector("127.0.0.1:7778")
+	if err != nil {
+		fmt.Printf("error dialing inspector: %+v\n", err)
+		return err
+	}
+
+	fmt.Printf("Inspector: %+v\n", i)
 	return nil
 }
 
