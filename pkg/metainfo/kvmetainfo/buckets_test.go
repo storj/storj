@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	oldbuckets "storj.io/storj/pkg/storage/buckets"
 )
 
 const(
@@ -35,9 +36,7 @@ func TestBuckets(t *testing.T) {
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.New(1, 4, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	defer ctx.Check(planet.Shutdown)
 
@@ -68,6 +67,32 @@ func TestBuckets(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, bucketList.More)
 	assert.Equal(t, 0, len(bucketList.Items))
+}
+
+func TestNoBucketError(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet, err := testplanet.New(1, 4, 1)
+	assert.NoError(t, err)
+
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(context.Background())
+
+	bucketStore, err := newBucketStore(planet)
+	assert.NoError(t, err)
+
+	buckets := NewBuckets(bucketStore)
+
+	_, err = buckets.CreateBucket(ctx, "", nil)
+	assert.True(t, oldbuckets.NoBucketError.Has(err))
+
+	_, err = buckets.GetBucket(ctx, "")
+	assert.True(t, oldbuckets.NoBucketError.Has(err))
+
+	err = buckets.DeleteBucket(ctx, "")
+	assert.True(t, oldbuckets.NoBucketError.Has(err))
 }
 
 func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
