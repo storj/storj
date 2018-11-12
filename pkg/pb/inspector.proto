@@ -12,6 +12,9 @@ service Inspector {
 
   // GetBuckets returns the k buckets from a Kademlia instance
   rpc GetBuckets(GetBucketsRequest) returns (GetBucketsResponse);
+
+  // GetBucket returns the details of a single k bucket from the kademlia instance
+  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
 }
 
 message CountNodesResponse {
@@ -27,6 +30,13 @@ message GetBucketsRequest {
 
 message GetBucketsResponse {
   repeated Bucket buckets = 1;
+}
+
+message GetBucketRequest {
+  string id = 1;
+}
+
+message GetBucketResponse {
 }
 
 message Bucket {

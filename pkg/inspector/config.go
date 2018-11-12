@@ -5,7 +5,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,7 +19,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Error is the main inspector error class for this package
-	Error = errs.Class("inspector error:")
+	Error = errs.Class("inspector server error:")
 )
 
 // Config is passed to CaptPlanet for bootup and configuration
@@ -31,8 +30,6 @@ type Config struct {
 // Run starts up the server and loads configs
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	fmt.Printf("### Inspector config: %+v\n", c)
 
 	kad := kademlia.LoadFromContext(ctx)
 	ol := overlay.LoadFromContext(ctx)

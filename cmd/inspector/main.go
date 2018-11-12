@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -14,7 +15,10 @@ import (
 )
 
 var (
-	rootCmd = &cobra.Command{
+	addr = "127.0.0.1:7778"
+	// ErrInspectorDial throws when there are errors dialing the inspector server
+	ErrInspectorDial = errs.Class("error dialing inspector server:")
+	rootCmd          = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
@@ -28,12 +32,18 @@ var (
 		Short: "get all nodes in cache",
 		RunE:  ListNodes,
 	}
+	countNodeCmd = &cobra.Command{
+		Use:   "count",
+		Short: "count nodes in kademlia and overlay",
+		RunE:  CountNodes,
+	}
 )
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
 	identity *provider.FullIdentity
 	client   pb.InspectorClient
+	ctx      context.Context
 }
 
 // NewInspector creates a new gRPC inspector server for access to kad
@@ -56,25 +66,13 @@ func NewInspector(address string) (*Inspector, error) {
 	return &Inspector{
 		identity: identity,
 		client:   c,
+		ctx:      ctx,
 	}, nil
 }
 
 // GetNode returns a node with the requested ID or nothing at all
 func GetNode(cmd *cobra.Command, args []string) (err error) {
-	// i, err := NewInspector("127.0.0.1:7778")
-	// if err != nil {
-	// 	fmt.Printf("error dialing inspector: %+v\n", err)
-	// 	return err
-	// }
-
-	// n := node.IDFromString("testnode")
 	fmt.Printf("Get Node not yet implemented")
-	// found, err := i.overlay.Lookup(context.Background(), n)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// fmt.Printf("### FOUND: %+v\n", found)
 	return nil
 }
 
@@ -82,17 +80,33 @@ func GetNode(cmd *cobra.Command, args []string) (err error) {
 func ListNodes(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector("127.0.0.1:7778")
 	if err != nil {
-		fmt.Printf("error dialing inspector: %+v\n", err)
-		return err
+		return ErrInspectorDial.New("")
 	}
 
 	fmt.Printf("Inspector: %+v\n", i)
 	return nil
 }
 
+// CountNodes returns the number of nodes in the cache and kademlia
+func CountNodes(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(addr)
+	if err != nil {
+		return ErrInspectorDial.New("")
+	}
+
+	count, err := i.client.CountNodes(i.ctx, &pb.CountNodesRequest{})
+	if err != nil {
+		errs.New("Could not retrieve node count:")
+	}
+
+	fmt.Printf("Kademlia: %+v\n Overlay: %+v\n", count.Kademlia, count.Overlay)
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(getNodeCmd)
 	rootCmd.AddCommand(listNodeCmd)
+	rootCmd.AddCommand(countNodeCmd)
 }
 
 func main() {

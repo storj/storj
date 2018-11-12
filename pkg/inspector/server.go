@@ -43,3 +43,8 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 		Buckets: buckets,
 	}, nil
 }
+
+func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
+	fmt.Printf("GetBucket request")
+	return &pb.GetBucketResponse{}, nil
+}
