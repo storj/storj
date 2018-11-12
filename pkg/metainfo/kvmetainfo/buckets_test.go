@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -358,7 +357,5 @@ func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
 		return nil, err
 	}
 
-	obj := objects.NewStore(stream)
-
-	return buckets.NewStore(obj), nil
+	return buckets.NewStore(stream, storj.Unencrypted), nil
 }
