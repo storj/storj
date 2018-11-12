@@ -72,6 +72,17 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 
 // GetBucket retrieves all of a given K buckets contents
 func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
-	fmt.Printf("GetBucket not implemented")
-	return &pb.GetBucketResponse{}, nil
+	rt, err := srv.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bucket, ok := rt.GetBucket(req.Id)
+	if !ok {
+		return &pb.GetBucketResponse{}, nil
+	}
+
+	return &pb.GetBucketResponse{
+		Id:    req.Id,
+		Nodes: bucket.Nodes(),
+	}, nil
 }
