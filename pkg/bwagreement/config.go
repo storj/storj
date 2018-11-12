@@ -20,14 +20,16 @@ var (
 // Config is a configuration struct that is everything you need to start an
 // agreement receiver responsibility
 type Config struct {
-	DatabaseURL    string `help:"the database connection string to use" default:"$CONFDIR/agreements.db"`
+	DatabaseURL    string `help:"the database connection string to use" default:"postgres://postgres@localhost/pointerdb?sslmode=disable"`
 	DatabaseDriver string `help:"the database driver to use" default:"postgres"`
 }
 
 // Run implements the provider.Responsibility interface
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L())
+	k := server.Identity().Leaf.PublicKey
+
+	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L(), k)
 	if err != nil {
 		return err
 	}
