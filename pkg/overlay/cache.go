@@ -168,7 +168,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		}
 		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			zap.L().Error("Node unmarshall failed", zap.String("nodeID", n.GetId()))
+			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
 			continue
 		}
 		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
