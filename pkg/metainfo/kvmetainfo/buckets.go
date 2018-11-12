@@ -21,7 +21,7 @@ func NewBuckets(store buckets.Store) *Buckets { return &Buckets{store} }
 // CreateBucket creates a new bucket with the specified information
 func (db *Buckets) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (storj.Bucket, error) {
 	if bucket == "" {
-		return storj.Bucket{}, buckets.NoBucketError.New("")
+		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
 	meta, err := db.store.Put(ctx, bucket)
@@ -35,7 +35,7 @@ func (db *Buckets) CreateBucket(ctx context.Context, bucket string, info *storj.
 // DeleteBucket deletes bucket
 func (db *Buckets) DeleteBucket(ctx context.Context, bucket string) error {
 	if bucket == "" {
-		return buckets.NoBucketError.New("")
+		return storj.ErrNoBucket.New("")
 	}
 
 	return db.store.Delete(ctx, bucket)
@@ -44,7 +44,7 @@ func (db *Buckets) DeleteBucket(ctx context.Context, bucket string) error {
 // GetBucket gets bucket information
 func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, error) {
 	if bucket == "" {
-		return storj.Bucket{}, buckets.NoBucketError.New("")
+		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
 	meta, err := db.store.Get(ctx, bucket)
@@ -73,6 +73,11 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		startAfter = options.Cursor
 	default:
 		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)
+	}
+
+	// TODO: remove this hack-fix of specifying the last key
+	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
+		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
 	}
 
 	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)
