@@ -1,7 +1,7 @@
 <template>
     <div class="inputContainer">
 		<div v-if="!isOptional" class="labelContainer">
-			<img v-if="error" src="../../static/images/register/ErrorInfo.svg"/>
+			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
 			<h3 class="hiAddLabel">{{additionalLabel}}</h3>
 			<h3 class="error" v-if="error">{{error}}</h3>

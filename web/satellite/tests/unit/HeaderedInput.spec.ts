@@ -1,5 +1,5 @@
 import { shallowMount, mount } from '@vue/test-utils';
-import HeaderedInput from '@/components/HeaderedInput.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
 describe('HeaderedInput.vue', () => {
 	

@@ -1,5 +1,5 @@
 import { shallowMount, mount } from '@vue/test-utils';
-import Button from "@/components/Button.vue";
+import Button from "@/components/common/Button.vue";
 import * as sinon from 'sinon';
 
 describe('Button.vue', () => {

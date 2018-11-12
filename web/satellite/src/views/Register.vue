@@ -112,9 +112,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/HeaderedInput.vue';
-import Checkbox from '@/components/Checkbox.vue';
-import Button from '@/components/Button.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import Button from '@/components/common/Button.vue';
 import { validateEmail } from "@/utils/validation"
 
 @Component (

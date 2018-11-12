@@ -3,7 +3,7 @@
         <div class="npPopup">
             <div class="npInfoPanelContainer">
                 <h2 class="npMainLabelText">Create New Project</h2>
-                <img src="../../static/images/dashboard/CreateNewProject.png" alt="">
+                <img src="../../../../static/images/dashboard/CreateNewProject.png" alt="">
             </div>
             <div class="npFormContainer">
                 <HeaderedInput 
@@ -47,9 +47,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from "./HeaderedInput.vue";
-import Checkbox from "./Checkbox.vue";
-import Button from "./Button.vue";
+import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import Checkbox from "@/components/common/Checkbox.vue";
+import Button from "@/components/common/Button.vue";
 
 @Component(
     { 

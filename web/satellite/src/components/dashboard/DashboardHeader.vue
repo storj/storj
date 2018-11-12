@@ -1,20 +1,20 @@
 <template>
     <div class="headerContainer">
-        <img class="hLogo" src="../../static/images/dashboard/Logo.png" alt="">
-        <ProjectSelectionDropdown class="hPSD"/>
+        <img class="hLogo" src="../../../static/images/dashboard/Logo.png" alt="">
+        <ProjectSelectionArea class="hPSD"/>
         <NewProjectArea class="hNewProjArea" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue";
-import NewProjectArea from "./NewProjectArea.vue";
+import ProjectSelectionArea from "./projectSelection/ProjectSelectionArea.vue";
+import NewProjectArea from "./newProject/NewProjectArea.vue";
 
 @Component(
     { 
 		components: {
-            ProjectSelectionDropdown,
+            ProjectSelectionArea,
             NewProjectArea
         }
     }

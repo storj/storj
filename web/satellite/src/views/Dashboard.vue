@@ -8,7 +8,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import DashboardHeader from "@/components/DashboardHeader.vue";
+import DashboardHeader from "@/components/dashboard/DashboardHeader.vue";
 
 @Component({
 	components: {
@@ -29,4 +29,3 @@ export default class Dashboard extends Vue {}
         z-index: 10;
     }
 </style>
-// TODO: refactor component and placement
