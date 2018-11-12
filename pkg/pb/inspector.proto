@@ -4,6 +4,9 @@
 syntax = "proto3";
 option go_package = "pb";
 
+import "google/protobuf/any.proto";
+import "overlay.proto";
+
 package inspector;
 
 service Inspector {
@@ -17,6 +20,7 @@ service Inspector {
   rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
 }
 
+// CountNodes
 message CountNodesResponse {
   int64 kademlia = 1;
   int64 overlay = 2;
@@ -25,20 +29,24 @@ message CountNodesResponse {
 message CountNodesRequest {
 }
 
+// GetBuckets
 message GetBucketsRequest {
 }
 
 message GetBucketsResponse {
-  repeated Bucket buckets = 1;
+  repeated google.protobuf.Any buckets = 3;
 }
 
+// GetBucket
 message GetBucketRequest {
   string id = 1;
 }
 
 message GetBucketResponse {
+  string id = 1;
+  repeated overlay.Node nodes = 2;
 }
 
 message Bucket {
-  string id = 1;
+  repeated overlay.Node nodes = 2; 
 }

@@ -37,6 +37,11 @@ var (
 		Short: "count nodes in kademlia and overlay",
 		RunE:  CountNodes,
 	}
+	getBucketsCmd = &cobra.Command{
+		Use:   "list-buckets",
+		Short: "get all buckets in overlay",
+		RunE:  GetBuckets,
+	}
 )
 
 // Inspector gives access to kademlia and overlay cache
@@ -103,10 +108,27 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// GetBuckets returns all buckets in the overlay cache's routing table
+func GetBuckets(cmd *cobra.Command, args []string) (err error) {
+	i, err := NewInspector(addr)
+	if err != nil {
+		return ErrInspectorDial.New("")
+	}
+
+	buckets, err := i.client.GetBuckets(i.ctx, &pb.GetBucketsRequest{})
+	if err != nil {
+		return errs.New("could not retrieve buckets")
+	}
+
+	fmt.Printf("Got Buckets: %+v\n", buckets)
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(getNodeCmd)
 	rootCmd.AddCommand(listNodeCmd)
 	rootCmd.AddCommand(countNodeCmd)
+	rootCmd.AddCommand(getBucketsCmd)
 }
 
 func main() {
