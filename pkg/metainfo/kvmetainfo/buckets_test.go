@@ -273,12 +273,14 @@ func TestListBuckets(t *testing.T) {
 			{cursor: "c", dir: storj.Before, limit: 2, more: true, result: []string{"b", "bb"}},
 			{cursor: "ca", dir: storj.Before, limit: 2, more: true, result: []string{"bb", "c"}},
 		} {
-			errTag := fmt.Sprintf("Test case #%d", i)
+			errTag := fmt.Sprintf("%d. %+v", i, tt)
+
 			bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{
 				Cursor:    tt.cursor,
 				Direction: tt.dir,
 				Limit:     tt.limit,
 			})
+
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, bucketList.More, errTag)
 				assert.Equal(t, tt.result, getBucketNames(bucketList), errTag)

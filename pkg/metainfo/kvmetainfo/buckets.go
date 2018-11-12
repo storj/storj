@@ -75,6 +75,11 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
+	// TODO: remove this hack-fix of specifying the last key
+	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
+		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
+	}
+
 	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)
 	if err != nil {
 		return storj.BucketList{}, err
