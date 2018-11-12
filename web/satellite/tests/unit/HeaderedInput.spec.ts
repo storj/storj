@@ -21,18 +21,20 @@ describe('HeaderedInput.vue', () => {
 		expect(wrapper.contains("input")).toBe(false);
 	});
 
-	it('renders correctly with size props', () => {
+	it('renders correctly with props', () => {
 		let label = "testLabel";
+		let additionalLabel = "addLabel";
 		let width = "30px";
 		let height = "20px";
 
     	const wrapper = shallowMount(HeaderedInput, {
-			propsData: { label, width, height }
+			propsData: { label, width, height, additionalLabel }
 		});
 
 		expect(wrapper.find("input").element.style.width).toMatch(width);
 		expect(wrapper.find("input").element.style.height).toMatch(height);
 		expect(wrapper.find(".labelContainer").text()).toMatch(label);
+		expect(wrapper.find(".hiAddLabel").text()).toMatch(additionalLabel);
 	});
 
 	it('renders correctly with isOptional props', () => {

@@ -29,3 +29,4 @@ export default class Dashboard extends Vue {}
         z-index: 10;
     }
 </style>
+// TODO: refactor component and placement

@@ -2,17 +2,20 @@
     <div class="headerContainer">
         <img class="hLogo" src="../../static/images/dashboard/Logo.png" alt="">
         <ProjectSelectionDropdown class="hPSD"/>
+        <NewProjectArea class="hNewProjArea" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import ProjectSelectionDropdown from "./ProjectSelectionDropdown.vue";
+import NewProjectArea from "./NewProjectArea.vue";
 
 @Component(
     { 
 		components: {
-            ProjectSelectionDropdown
+            ProjectSelectionDropdown,
+            NewProjectArea
         }
     }
 )
@@ -38,5 +41,8 @@ export default class DashboardHeader extends Vue {}
     }
     .hPSD {
         margin-left: 10vw;
+    }
+    .hNewProjArea {
+        // justify-self: flex-end;
     }
 </style>

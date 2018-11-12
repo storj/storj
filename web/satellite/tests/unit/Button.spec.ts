@@ -3,6 +3,25 @@ import Button from "@/components/Button.vue";
 import * as sinon from 'sinon';
 
 describe('Button.vue', () => {
+
+	it('renders correctly', () => {
+
+    	const wrapper = shallowMount(Button);
+
+		expect(wrapper).toMatchSnapshot();
+	});
+
+	it('renders correctly with isWhite prop', () => {
+
+    	const wrapper = shallowMount(Button, {
+			propsData: {
+				isWhite: true
+			}
+		});
+
+		expect(wrapper).toMatchSnapshot();
+	});
+	  
 	it('renders correctly with size and label props', () => {
 		let label = "testLabel";
 		let width = "30px";

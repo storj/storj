@@ -1,6 +1,6 @@
 <template>
-    <div class="container" :style="style" v-on:click="onPress">
-        <h1 class="label">{{label}}</h1>
+    <div v-bind:class="[isWhite ? 'container white' : 'container']" :style="style" v-on:click="onPress">
+        <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
     </div>
 </template>
 
@@ -21,6 +21,10 @@ import { Component, Vue } from 'vue-property-decorator';
             height: {
                 type: String,
                 default: 'inherit'
+            },
+            isWhite: {
+                type: Boolean,
+                default: false
             },
             onPress: {
                 type: Function,
@@ -50,7 +54,14 @@ export default class Button extends Vue {}
             font-family: 'montserrat_medium';
 			font-size: 16px;
 			line-height: 23px;
-            color: white;
+            color: #fff;
         }
+        .label.white{
+            color: #354049;
+        }
+    }
+    .container.white {
+        background-color: #fff;
+        border: 1px solid #AFB7C1;
     }
 </style>

@@ -3,6 +3,7 @@
 		<div v-if="!isOptional" class="labelContainer">
 			<img v-if="error" src="../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
+			<h3 class="hiAddLabel">{{additionalLabel}}</h3>
 			<h3 class="error" v-if="error">{{error}}</h3>
 		</div>
 		<div v-if="isOptional" class="optionalLabelContainer">
@@ -42,7 +43,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 		props: {
 			label: {
 				type: String,
-				default: "default"
+				default: ""
+			},
+			additionalLabel: {
+				type: String,
+				default: ""
 			},
 			error: {
 				type: String
@@ -124,6 +129,13 @@ textarea {
 }
 textarea {
 	padding-top: 20px;
+}
+.hiAddLabel {
+		margin-left: 5px;
+		font-family: 'montserrat_regular';
+		font-size: 16px;
+		line-height: 21px;
+		color: rgba(56, 75, 101, 0.4);
 }
 h3 {
 	font-family: 'montserrat_regular';
