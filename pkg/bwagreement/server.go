@@ -5,9 +5,11 @@ package bwagreement
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -25,6 +27,13 @@ const OK = "OK"
 
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
+	dbm    *DBManager
+	pkey   crypto.PublicKey
+	logger *zap.Logger
+}
+
+// DBManager is an implementation of the database access interface
+type DBManager struct {
 	DB     *dbx.DB
 	mu     sync.Mutex
 	logger *zap.Logger
@@ -36,8 +45,8 @@ type Agreement struct {
 	Signature []byte
 }
 
-// NewServer creates instance of Server
-func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
+// NewDBManager creates a new instance of a DatabaseManager
+func NewDBManager(driver, source string, logger *zap.Logger) (*DBManager, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, err
@@ -47,27 +56,40 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &Server{
+	return &DBManager{
 		DB:     db,
 		logger: logger,
 	}, nil
 }
 
-func (s *Server) locked() func() {
-	s.mu.Lock()
-	return s.mu.Unlock
+// NewServer creates instance of Server
+func NewServer(driver, source string, logger *zap.Logger, pkey crypto.PublicKey) (*Server, error) {
+	dbm, err := NewDBManager(driver, source, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Server{
+		dbm:    dbm,
+		logger: logger,
+		pkey:   pkey,
+	}, nil
+}
+
+func (dbm *DBManager) locked() func() {
+	dbm.mu.Lock()
+	return dbm.mu.Unlock
 }
 
 // Create a db entry for the provided storagenode
-func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwidthAllocation) (bwagreement *dbx.Bwagreement, err error) {
+func (dbm *DBManager) Create(ctx context.Context, createBwAgreement *pb.RenterBandwidthAllocation) (bwagreement *dbx.Bwagreement, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.logger.Debug("entering bwagreement Create")
+	dbm.logger.Debug("entering bwagreement Create")
 
 	signature := createBwAgreement.GetSignature()
 	data := createBwAgreement.GetData()
 
-	bwagreement, err = s.DB.Create_Bwagreement(
+	bwagreement, err = dbm.DB.Create_Bwagreement(
 		ctx,
 		dbx.Bwagreement_Signature(signature),
 		dbx.Bwagreement_Data(data),
@@ -79,11 +101,19 @@ func (s *Server) Create(ctx context.Context, createBwAgreement *pb.RenterBandwid
 	return bwagreement, nil
 }
 
+// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
+func (dbm *DBManager) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.Bwagreement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer dbm.locked()()
+	rows, err = dbm.DB.All_Bwagreement(ctx)
+	return rows, err
+}
+
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
 func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
-	defer s.locked()()
+	defer s.dbm.locked()()
 
 	ch := make(chan *pb.RenterBandwidthAllocation, 1)
 	errch := make(chan error, 1)
@@ -106,11 +136,10 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 		case <-ctx.Done():
 			return nil
 		case agreement := <-ch:
-			err = s.verifySignature(ctx, agreement)
-			if err != nil {
+			if err = s.verifySignature(ctx, agreement); err != nil {
 				return err
 			}
-			_, err = s.Create(ctx, agreement)
+			_, err = s.dbm.Create(ctx, agreement)
 			if err != nil {
 				s.logger.Error("DB entry creation Error", zap.Error(err))
 				return err
@@ -118,14 +147,6 @@ func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServ
 		}
 	}
 
-}
-
-// GetBandwidthAllocations all bandwidth agreements and sorts by satellite
-func (s *Server) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.Bwagreement, err error) {
-	defer mon.Task()(&ctx)(&err)
-	defer s.locked()()
-	rows, err = s.DB.All_Bwagreement(ctx)
-	return rows, err
 }
 
 func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
@@ -140,8 +161,25 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
 	}
 
+	// verify Renter's (uplink) signature
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
-		return BwAgreementError.New("Failed to verify Signature")
+		return BwAgreementError.New("Failed to verify Renter's Signature")
+	}
+
+	// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
+	pba := &pb.PayerBandwidthAllocation{}
+	if err := proto.Unmarshal(ba.GetData(), pba); err != nil {
+		return err
+	}
+
+	k, ok = s.pkey.(*ecdsa.PublicKey)
+	if !ok {
+		return peertls.ErrUnsupportedKey.New("%T", s.pkey)
+	}
+
+	// verify Payer's (satellite) signature
+	if ok := cryptopasta.Verify(pba.GetData(), pba.GetSignature(), k); !ok {
+		return BwAgreementError.New("Failed to verify Payer's Signature")
 	}
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
@@ -20,8 +19,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/provider"
 )
 
@@ -52,19 +51,6 @@ func TestBandwidthAgreements(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, _ = stream.CloseAndRecv()
-
-	// give time to complete writing into the db
-	time.Sleep(100 * time.Millisecond)
-
-	/* read back from the postgres db in bwagreement table */
-	retData, err := TS.s.DB.Get_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(msg.GetSignature()))
-	assert.EqualValues(t, retData.Data, data)
-	assert.NoError(t, err)
-
-	/* delete the entry what you just wrote */
-	delBool, err := TS.s.DB.Delete_Bwagreement_By_Signature(ctx, dbx.Bwagreement_Signature(msg.GetSignature()))
-	assert.True(t, delBool)
-	assert.NoError(t, err)
 }
 
 type TestServer struct {
@@ -123,7 +109,11 @@ func newTestServerStruct(t *testing.T) *Server {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
-	server, err := NewServer("postgres", *testPostgres, zap.NewNop())
+	k, err := peertls.NewKey()
+	assert.NoError(t, err)
+
+	p, _ := k.(*ecdsa.PrivateKey)
+	server, err := NewServer("postgres", *testPostgres, zap.NewNop(), &p.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
