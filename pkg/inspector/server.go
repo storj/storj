@@ -37,14 +37,41 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
-	fmt.Printf("GetBuckets method hit")
-	var buckets []*pb.Bucket
+	results := map[int][]*pb.Node{}
+	count := 0
+
+	rt, err := srv.dht.GetRoutingTable(ctx)
+	if err != nil {
+		return &pb.GetBucketsResponse{}, ServerError.New("")
+	}
+
+	buckets, err := rt.GetBuckets()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, b := range buckets {
+		fmt.Printf("Bucket: %+v\n", b)
+		for _, n := range b.Nodes() {
+			node := &pb.Node{
+				Id: n.Id,
+				Address: &pb.NodeAddress{
+					Address: n.Address.Address,
+				},
+			}
+			fmt.Printf("Node: %+v\n", node)
+			results[count] = append(results[count], node)
+		}
+		count++
+	}
+
 	return &pb.GetBucketsResponse{
-		Buckets: buckets,
+		Buckets: nil,
 	}, nil
 }
 
+// GetBucket retrieves all of a given K buckets contents
 func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {
-	fmt.Printf("GetBucket request")
+	fmt.Printf("GetBucket not implemented")
 	return &pb.GetBucketResponse{}, nil
 }
