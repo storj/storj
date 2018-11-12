@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -30,7 +31,8 @@ type Config struct {
 // Run starts up the server and loads configs
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	zap.S().Info("starting inspector server")
+
+	fmt.Printf("### Inspector config: %+v\n", c)
 
 	kad := kademlia.LoadFromContext(ctx)
 	ol := overlay.LoadFromContext(ctx)
