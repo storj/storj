@@ -25,9 +25,6 @@ const (
 	OverlayBucket = "overlay"
 )
 
-// ErrNodeNotFound error standardization
-var ErrNodeNotFound = errs.New("Node not found")
-
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
@@ -132,19 +129,19 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
+			zap.L().Info("Node find failed", zap.String("nodeID", v.Id))
+			continue
 		}
-
 		n, err := proto.Marshal(&found)
 		if err != nil {
-			return err
+			zap.L().Error("Node unmarshall failed", zap.String("nodeID", v.Id))
+			continue
 		}
-
 		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
-			return err
+			zap.L().Error("Node cache put failed", zap.String("nodeID", v.Id))
+			continue
 		}
 	}
-
 	return err
 }
 
@@ -163,21 +160,21 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	for _, n := range near {
 		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
-			return err
+			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
 		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			return err
+			zap.L().Error("Node unmarshall failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
 		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
 		if err != nil {
-			return err
+			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
 	}
 
@@ -186,27 +183,24 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	for _, n := range nodes {
 		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
-			return err
+			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
 		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			return err
+			zap.L().Error("Node unmarshall failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
 		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
 		if err != nil {
-			return err
+			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
 	}
-
-	return err
+	return nil
 }
 
 // Walk iterates over each node in each bucket to traverse the network
