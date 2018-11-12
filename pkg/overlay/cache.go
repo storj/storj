@@ -123,7 +123,7 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 func (o *Cache) Bootstrap(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
-		zap.Error(OverlayError.New("Error getting nodes from DHT: %v", err))
+		return OverlayError.New("Error getting nodes from DHT: %v", err)
 	}
 
 	for _, v := range nodes {
@@ -134,7 +134,7 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 		}
 		n, err := proto.Marshal(&found)
 		if err != nil {
-			zap.L().Error("Node unmarshall failed", zap.String("nodeID", v.Id))
+			zap.L().Error("Node marshall failed", zap.String("nodeID", v.Id))
 			continue
 		}
 		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
@@ -191,7 +191,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		}
 		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			zap.L().Error("Node unmarshall failed", zap.String("nodeID", n.GetId()))
+			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
 			continue
 		}
 		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
