@@ -42,6 +42,11 @@ var (
 		Short: "get all buckets in overlay",
 		RunE:  GetBuckets,
 	}
+	getBucketCmd = &cobra.Command{
+		Use:   "ls <bucket_id>",
+		Short: "get all nodes in bucket",
+		RunE:  GetBucket,
+	}
 )
 
 // Inspector gives access to kademlia and overlay cache
@@ -104,7 +109,7 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 		errs.New("Could not retrieve node count:")
 	}
 
-	fmt.Printf("Kademlia: %+v\n Overlay: %+v\n", count.Kademlia, count.Overlay)
+	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", count.Kademlia, count.Overlay)
 	return nil
 }
 
@@ -124,11 +129,37 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// GetBucket returns a bucket with given `id`
+func GetBucket(cmd *cobra.Command, args []string) (err error) {
+	if len(args) < 1 {
+		return errs.New("Must provide at least one bucket ID")
+	}
+
+	fmt.Printf("Looking up bucket %+v\n", args[0])
+
+	i, err := NewInspector(addr)
+	if err != nil {
+		return ErrInspectorDial.New("")
+	}
+
+	bucket, err := i.client.GetBucket(i.ctx, &pb.GetBucketRequest{
+		Id: args[0],
+	})
+
+	if err != nil {
+		return errs.New("could not get bucket")
+	}
+
+	fmt.Printf("Bucket ----------- \n %+v\n", bucket)
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(getNodeCmd)
 	rootCmd.AddCommand(listNodeCmd)
 	rootCmd.AddCommand(countNodeCmd)
 	rootCmd.AddCommand(getBucketsCmd)
+	rootCmd.AddCommand(getBucketCmd)
 }
 
 func main() {
