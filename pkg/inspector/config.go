@@ -5,7 +5,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,13 +24,13 @@ var (
 
 // Config is passed to CaptPlanet for bootup and configuration
 type Config struct {
+	Enabled bool `help:"enable or disable the inspector" default:"true"`
 }
 
 // Run starts up the server and loads configs
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	fmt.Printf("starting up inspector")
+	zap.S().Info("starting inspector server")
 
 	kad := kademlia.LoadFromContext(ctx)
 	ol := overlay.LoadFromContext(ctx)
@@ -42,8 +41,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		logger:  zap.L(),
 		metrics: monkit.Default,
 	}
-
-	fmt.Printf("got to srv %+v\n", srv)
 
 	pb.RegisterInspectorServer(server.GRPC(), srv)
 

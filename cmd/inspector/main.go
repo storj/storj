@@ -31,26 +31,46 @@ var (
 
 // Inspector gives access to kademlia and overlay cache
 type Inspector struct {
-	overlay  overlay.Client
+	overlay  *overlay.Client
+	kad      *kademlia.Kademlia
 	identity *provider.FullIdentity
+	client   *pb.InspectorClient
+}
+
+// NewInspector creates a new gRPC inspector server for access to kad
+// and the overlay cache
+func NewInspector(address string) (*Inspector, error) {
+	ctx := context.Background()
+	identity, err := node.NewFullIdentity(ctx, 12, 4)
+	if err != nil {
+		return &Inspector{}, err
+	}
+
+	tc := transport.NewClient(identity)
+	conn, err := tc.DialAddress(ctx, address)
+	if err != nil {
+		return &Inspector{}, err
+	}
+
+	return &Inspector{}, nil
 }
 
 // NewInspector returns an Inspector client
-func NewInspector(address string) (*Inspector, error) {
-	id, err := node.NewFullIdentity(context.Background(), 12, 4)
-	if err != nil {
-		return &Inspector{}, nil
-	}
-	overlay, err := overlay.NewOverlayClient(id, address)
-	if err != nil {
-		return &Inspector{}, nil
-	}
-
-	return &Inspector{
-		overlay:  overlay,
-		identity: id,
-	}, nil
-}
+// func NewInspector(address string) (*Inspector, error) {
+// 	id, err := node.NewFullIdentity(context.Background(), 12, 4)
+// 	if err != nil {
+// 		return &Inspector{}, nil
+// 	}
+// 	overlay, err := overlay.NewOverlayClient(id, address)
+// 	if err != nil {
+// 		return &Inspector{}, nil
+// 	}
+//
+// 	return &Inspector{
+// 		overlay:  overlay,
+// 		identity: id,
+// 	}, nil
+// }
 
 // GetNode returns a node with the requested ID or nothing at all
 func GetNode(cmd *cobra.Command, args []string) (err error) {
