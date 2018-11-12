@@ -225,7 +225,7 @@ func TestCompanyFromDbx(t *testing.T) {
 		assert.Nil(t, err)
 
 		dbxCompany := dbx.Company{
-			Id:     []byte(companyID.String()),
+			Id:     companyID[:],
 			UserId: []byte("qweqwe"),
 		}
 
