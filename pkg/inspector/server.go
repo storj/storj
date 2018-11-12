@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ type Server struct {
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
+	fmt.Printf("Count Nodes Method hit")
 	return &pb.CountNodesResponse{
 		Kademlia: 0,
 		Overlay:  0,
@@ -35,6 +37,7 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
+	fmt.Printf("GetBuckets method hit")
 	var buckets []*pb.Bucket
 	return &pb.GetBucketsResponse{
 		Buckets: buckets,
