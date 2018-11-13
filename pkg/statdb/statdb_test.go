@@ -20,6 +20,7 @@ var (
 	ctx = context.Background()
 )
 
+// todo(moby) test create with and without stats
 func TestCreateExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)

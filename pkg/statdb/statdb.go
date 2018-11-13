@@ -83,7 +83,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 		totalUptimeCount = stats.UptimeCount
 		uptimeSuccessCount = stats.UptimeSuccessCount
-		uptimeRatio := float64(uptimeSuccessCount) / float64(totalUptimeCount)
+		uptimeRatio = float64(uptimeSuccessCount) / float64(totalUptimeCount)
 
 		// TODO(moby) more specific errors that do not clutter this function
 		if auditSuccessRatio > 1 || auditSuccessRatio < 0 ||
