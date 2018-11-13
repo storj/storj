@@ -21,8 +21,7 @@ type companies struct {
 // Get is a method for querying company from the database by id
 func (companies *companies) Get(ctx context.Context, id uuid.UUID) (*satellite.Company, error) {
 
-	company, err := companies.db.Get_Company_By_Id(ctx, dbx.Company_Id([]byte(id.String())))
-
+	company, err := companies.db.Get_Company_By_Id(ctx, dbx.Company_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +32,7 @@ func (companies *companies) Get(ctx context.Context, id uuid.UUID) (*satellite.C
 // Get is a method for querying company from the database by user id
 func (companies *companies) GetByUserID(ctx context.Context, userID uuid.UUID) (*satellite.Company, error) {
 
-	company, err := companies.db.Get_Company_By_UserId(ctx, dbx.Company_UserId([]byte(userID.String())))
-
+	company, err := companies.db.Get_Company_By_UserId(ctx, dbx.Company_UserId(userID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +50,8 @@ func (companies *companies) Insert(ctx context.Context, company *satellite.Compa
 
 	createdCompany, err := companies.db.Create_Company(
 		ctx,
-		dbx.Company_Id([]byte(companyID.String())),
-		dbx.Company_UserId([]byte(company.UserID.String())),
+		dbx.Company_Id(companyID[:]),
+		dbx.Company_UserId(company.UserID[:]),
 		dbx.Company_Name(company.Name),
 		dbx.Company_Address(company.Address),
 		dbx.Company_Country(company.Country),
@@ -70,7 +68,7 @@ func (companies *companies) Insert(ctx context.Context, company *satellite.Compa
 
 // Delete is a method for deleting company by Id from the database.
 func (companies *companies) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := companies.db.Delete_Company_By_Id(ctx, dbx.Company_Id([]byte(id.String())))
+	_, err := companies.db.Delete_Company_By_Id(ctx, dbx.Company_Id(id[:]))
 
 	return err
 }
@@ -79,7 +77,7 @@ func (companies *companies) Delete(ctx context.Context, id uuid.UUID) error {
 func (companies *companies) Update(ctx context.Context, company *satellite.Company) error {
 	_, err := companies.db.Update_Company_By_Id(
 		ctx,
-		dbx.Company_Id([]byte(company.ID.String())),
+		dbx.Company_Id(company.ID[:]),
 		*getCompanyUpdateFields(company))
 
 	return err
@@ -91,19 +89,19 @@ func companyFromDBX(company *dbx.Company) (*satellite.Company, error) {
 		return nil, errs.New("company parameter is nil")
 	}
 
-	id, err := uuid.Parse(string(company.Id))
+	id, err := bytesToUUID(company.Id)
 	if err != nil {
-		return nil, errs.New("Id in not valid UUID string")
+		return nil, err
 	}
 
-	userID, err := uuid.Parse(string(company.UserId))
+	userID, err := bytesToUUID(company.UserId)
 	if err != nil {
-		return nil, errs.New("UserID in not valid UUID string")
+		return nil, err
 	}
 
 	comp := &satellite.Company{
-		ID:         *id,
-		UserID:     *userID,
+		ID:         id,
+		UserID:     userID,
 		Name:       company.Name,
 		Address:    company.Address,
 		Country:    company.Country,
