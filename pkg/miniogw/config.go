@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/objects"
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -40,7 +39,8 @@ type RSConfig struct {
 type EncryptionConfig struct {
 	EncKey       string `help:"root key for encrypting the data"`
 	EncBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
-	EncType      int    `help:"Type of encryption to use (1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathEncType  int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
@@ -161,9 +161,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	obj := objects.NewStore(stream)
-
-	return buckets.NewStore(obj), nil
+	return buckets.NewStore(stream, storj.Cipher(c.PathEncType)), nil
 }
 
 // NewGateway creates a new minio Gateway
