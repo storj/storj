@@ -124,6 +124,8 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 		return reply, err
 	}
 
+	reply.Status = pb.AgreementsSummary_OK
+
 	return reply, nil
 }
 

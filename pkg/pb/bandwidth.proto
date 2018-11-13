@@ -13,5 +13,10 @@ service Bandwidth {
 }
 
 message AgreementsSummary {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
 
+  Status status = 1;
 }

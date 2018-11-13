@@ -112,9 +112,9 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					}
 
 					// Send agreement to satellite
-					_, err = client.BandwidthAgreements(ctx, msg)
-					if err != nil {
-						zap.S().Error(err)
+					r, err := client.BandwidthAgreements(ctx, msg)
+					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
+						zap.S().Errorf("Failed to send agreement to satellite: %+v", err)
 						return
 					}
 
