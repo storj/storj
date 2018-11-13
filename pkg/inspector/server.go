@@ -51,9 +51,6 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 
 	for _, b := range buckets {
 		fmt.Printf("\nRanging over bucket: %+v\n", b)
-		// bucket := createBucketList(b)
-		// results = append(results, bucket)
-		// fmt.Printf("Results: %+v\n", results)
 	}
 
 	return &pb.GetBucketsResponse{
