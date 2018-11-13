@@ -53,7 +53,7 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.Di
 		return nil, err
 	}
 
-	dialCtx := context.WithTimeout(ctx, dialTimeout)
+	dialCtx, _ := context.WithTimeout(ctx, dialTimeout)
 	return grpc.DialContext(dialCtx, node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
@@ -66,7 +66,7 @@ func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grp
 		return nil, err
 	}
 
-	dialCtx := context.WithTimeout(ctx, dialTimeout)
+	dialCtx, _ := context.WithTimeout(ctx, dialTimeout)
 	return grpc.DialContext(dialCtx, address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
