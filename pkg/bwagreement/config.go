@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -28,6 +29,8 @@ type Config struct {
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	k := server.Identity().Leaf.PublicKey
+
+	zap.S().Debug("Starting Bandwidth Agreement Receiver...")
 
 	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L(), k)
 	if err != nil {

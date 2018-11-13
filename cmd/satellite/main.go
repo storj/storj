@@ -54,8 +54,6 @@ var (
 		Identity  provider.IdentityConfig
 		Kademlia  kademlia.Config
 		PointerDB pointerdb.Config
-		// Checker     checker.Config
-		// Repairer    repairer.Config
 		Overlay     overlay.Config
 		MockOverlay mockOverlay.Config
 		StatDB      statdb.Config

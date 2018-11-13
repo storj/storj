@@ -103,17 +103,6 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				client := pb.NewBandwidthClient(conn)
-				stream, err := client.BandwidthAgreements(ctx)
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
-				defer func() {
-					if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
-						zap.S().Errorf("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
-					}
-				}()
 
 				for _, agreement := range agreementGroup.agreements {
 
@@ -123,7 +112,8 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					}
 
 					// Send agreement to satellite
-					if err = stream.Send(msg); err != nil {
+					_, err = client.BandwidthAgreements(ctx, msg)
+					if err != nil {
 						zap.S().Error(err)
 						return
 					}

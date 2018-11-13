@@ -110,43 +110,21 @@ func (dbm *DBManager) GetBandwidthAllocations(ctx context.Context) (rows []*dbx.
 }
 
 // BandwidthAgreements receives and stores bandwidth agreements from storage nodes
-func (s *Server) BandwidthAgreements(stream pb.Bandwidth_BandwidthAgreementsServer) (err error) {
-	ctx := stream.Context()
+func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBandwidthAllocation) (reply *pb.AgreementsSummary, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer s.dbm.locked()()
 
-	ch := make(chan *pb.RenterBandwidthAllocation, 1)
-	errch := make(chan error, 1)
-	go func() {
-		for {
-			msg, err := stream.Recv()
-			if err != nil {
-				s.logger.Error("Grpc Receive Error", zap.Error(err))
-				errch <- err
-				return
-			}
-			ch <- msg
-		}
-	}()
-
-	for {
-		select {
-		case err := <-errch:
-			return err
-		case <-ctx.Done():
-			return nil
-		case agreement := <-ch:
-			if err = s.verifySignature(ctx, agreement); err != nil {
-				return err
-			}
-			_, err = s.dbm.Create(ctx, agreement)
-			if err != nil {
-				s.logger.Error("DB entry creation Error", zap.Error(err))
-				return err
-			}
-		}
+	if err = s.verifySignature(ctx, agreement); err != nil {
+		return reply, err
 	}
 
+	_, err = s.dbm.Create(ctx, agreement)
+	if err != nil {
+		s.logger.Error("DB entry creation Error", zap.Error(err))
+		return reply, err
+	}
+
+	return reply, nil
 }
 
 func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {

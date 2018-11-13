@@ -45,12 +45,8 @@ func TestBandwidthAgreements(t *testing.T) {
 	msg.Signature = s
 
 	/* emulate sending the bwagreement stream from piecestore node */
-	stream, err := TS.c.BandwidthAgreements(ctx)
+	_, err = TS.c.BandwidthAgreements(ctx, msg)
 	assert.NoError(t, err)
-	err = stream.Send(msg)
-	assert.NoError(t, err)
-
-	_, _ = stream.CloseAndRecv()
 }
 
 type TestServer struct {

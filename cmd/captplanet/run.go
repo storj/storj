@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -43,6 +44,7 @@ type Satellite struct {
 	Repairer    repairer.Config
 	Audit       audit.Config
 	StatDB      statdb.Config
+	BwAgreement bwagreement.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -141,6 +143,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
+			runCfg.Satellite.BwAgreement,
 		)
 	}()
 
