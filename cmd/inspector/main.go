@@ -108,8 +108,6 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Must provide at least one bucket ID")
 	}
 
-	fmt.Printf("Looking up bucket %+v\n", args[0])
-
 	i, err := NewInspector(addr)
 	if err != nil {
 		return ErrInspectorDial.New("")
