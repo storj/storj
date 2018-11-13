@@ -22,16 +22,6 @@ var (
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj Kademlia network",
 	}
-	getNodeCmd = &cobra.Command{
-		Use:   "get",
-		Short: "get node with `id`",
-		RunE:  GetNode,
-	}
-	listNodeCmd = &cobra.Command{
-		Use:   "list-nodes",
-		Short: "get all nodes in cache",
-		RunE:  ListNodes,
-	}
 	countNodeCmd = &cobra.Command{
 		Use:   "count",
 		Short: "count nodes in kademlia and overlay",
@@ -80,23 +70,6 @@ func NewInspector(address string) (*Inspector, error) {
 	}, nil
 }
 
-// GetNode returns a node with the requested ID or nothing at all
-func GetNode(cmd *cobra.Command, args []string) (err error) {
-	fmt.Printf("Get Node not yet implemented")
-	return nil
-}
-
-// ListNodes returns the nodes in the cache
-func ListNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector("127.0.0.1:7778")
-	if err != nil {
-		return ErrInspectorDial.New("")
-	}
-
-	fmt.Printf("Inspector: %+v\n", i)
-	return nil
-}
-
 // CountNodes returns the number of nodes in the cache and kademlia
 func CountNodes(cmd *cobra.Command, args []string) (err error) {
 	i, err := NewInspector(addr)
@@ -125,7 +98,7 @@ func GetBuckets(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("could not retrieve buckets")
 	}
 
-	fmt.Printf("Got Buckets: %+v\n", buckets)
+	fmt.Printf("Buckets ------------- \n %+v\n", buckets)
 	return nil
 }
 
@@ -155,8 +128,6 @@ func GetBucket(cmd *cobra.Command, args []string) (err error) {
 }
 
 func init() {
-	rootCmd.AddCommand(getNodeCmd)
-	rootCmd.AddCommand(listNodeCmd)
 	rootCmd.AddCommand(countNodeCmd)
 	rootCmd.AddCommand(getBucketsCmd)
 	rootCmd.AddCommand(getBucketCmd)
