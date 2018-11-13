@@ -34,7 +34,7 @@ message GetBucketsRequest {
 
 message GetBucketsResponse {
   int64 total = 1;
-  repeated BucketMap buckets = 2;
+  repeated BucketList buckets = 2;
 }
 
 // GetBucket
@@ -51,7 +51,6 @@ message Bucket {
   repeated overlay.Node nodes = 2; 
 }
 
-message BucketMap {
-  string id = 1;
-  repeated overlay.Node nodes = 2;
+message BucketList {
+  repeated overlay.Node nodes = 1;
 }
