@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
