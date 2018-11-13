@@ -6,6 +6,7 @@ package buckets
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"time"
 
 	minio "github.com/minio/minio/cmd"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -36,17 +38,22 @@ type ListItem struct {
 
 // BucketStore contains objects store
 type BucketStore struct {
-	o objects.Store
+	store      objects.Store
+	stream     streams.Store
+	pathCipher storj.Cipher
 }
 
 // Meta is the bucket metadata struct
 type Meta struct {
-	Created time.Time
+	Created            time.Time
+	PathEncryptionType storj.Cipher
 }
 
 // NewStore instantiates BucketStore
-func NewStore(obj objects.Store) Store {
-	return &BucketStore{o: obj}
+func NewStore(stream streams.Store, pathCipher storj.Cipher) Store {
+	// root object store for storing the buckets with unencrypted names
+	store := objects.NewStore(stream, storj.Unencrypted)
+	return &BucketStore{store: store, stream: stream, pathCipher: pathCipher}
 }
 
 // GetObjectStore returns an implementation of objects.Store
@@ -55,7 +62,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 		return nil, storj.ErrNoBucket.New("")
 	}
 
-	_, err := b.Get(ctx, bucket)
+	m, err := b.Get(ctx, bucket)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, minio.BucketNotFound{Bucket: bucket}
@@ -63,7 +70,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (object
 		return nil, err
 	}
 	prefixed := prefixedObjStore{
-		o:      b.o,
+		store:  objects.NewStore(b.stream, m.PathEncryptionType),
 		prefix: bucket,
 	}
 	return &prefixed, nil
@@ -77,11 +84,11 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
-	objMeta, err := b.o.Meta(ctx, bucket)
+	objMeta, err := b.store.Meta(ctx, bucket)
 	if err != nil {
 		return Meta{}, err
 	}
-	return convertMeta(objMeta), nil
+	return convertMeta(objMeta)
 }
 
 // Put calls objects store Put
@@ -93,12 +100,15 @@ func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err er
 	}
 
 	r := bytes.NewReader(nil)
+	userMeta := map[string]string{
+		"path-enc-type": strconv.Itoa(int(b.pathCipher)),
+	}
 	var exp time.Time
-	m, err := b.o.Put(ctx, bucket, r, objects.SerializableMeta{}, exp)
+	m, err := b.store.Put(ctx, bucket, r, objects.SerializableMeta{UserDefined: userMeta}, exp)
 	if err != nil {
 		return Meta{}, err
 	}
-	return convertMeta(m), nil
+	return convertMeta(m)
 }
 
 // Delete calls objects store Delete
@@ -109,14 +119,14 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 		return storj.ErrNoBucket.New("")
 	}
 
-	return b.o.Delete(ctx, bucket)
+	return b.store.Delete(ctx, bucket)
 }
 
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	objItems, more, err := b.o.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
+	objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
 	if err != nil {
 		return items, more, err
 	}
@@ -126,17 +136,37 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 		if itm.IsPrefix {
 			continue
 		}
+		m, err := convertMeta(itm.Meta)
+		if err != nil {
+			return items, more, err
+		}
 		items = append(items, ListItem{
 			Bucket: itm.Path,
-			Meta:   convertMeta(itm.Meta),
+			Meta:   m,
 		})
 	}
 	return items, more, nil
 }
 
 // convertMeta converts stream metadata to object metadata
-func convertMeta(m objects.Meta) Meta {
-	return Meta{
-		Created: m.Modified,
+func convertMeta(m objects.Meta) (Meta, error) {
+	var cipher storj.Cipher
+
+	pathEncType := m.UserDefined["path-enc-type"]
+
+	if pathEncType == "" {
+		// backward compatibility for old buckets
+		cipher = storj.AESGCM
+	} else {
+		pet, err := strconv.Atoi(pathEncType)
+		if err != nil {
+			return Meta{}, err
+		}
+		cipher = storj.Cipher(pet)
 	}
+
+	return Meta{
+		Created:            m.Modified,
+		PathEncryptionType: cipher,
+	}, nil
 }
