@@ -5,10 +5,10 @@ package transport
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -19,6 +19,8 @@ var (
 	//Error is the errs class of standard Transport Client errors
 	Error = errs.Class("transport error")
 )
+
+const dialTimeout = 5 * time.Second
 
 // Client defines the interface to an transport client.
 type Client interface {
@@ -50,7 +52,9 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.Di
 	if err != nil {
 		return nil, err
 	}
-	return grpc.Dial(node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
+
+	dialCtx := context.WithTimeout(ctx, dialTimeout)
+	return grpc.DialContext(dialCtx, node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
@@ -61,7 +65,9 @@ func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grp
 	if err != nil {
 		return nil, err
 	}
-	return grpc.Dial(address, append([]grpc.DialOption{dialOpt}, opts...)...)
+
+	dialCtx := context.WithTimeout(ctx, dialTimeout)
+	return grpc.DialContext(dialCtx, address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
 // Identity is a getter for the transport's identity
