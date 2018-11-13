@@ -56,7 +56,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
-// Create a db entry for the provided storagenode with 0 reputation
+// Create a db entry for the provided storagenode
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
@@ -66,10 +66,34 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		return nil, err
 	}
 
-	node := createReq.Node
+	var (
+		totalAuditCount int64
+		auditSuccessCount   int64
+		auditSuccessRatio        float64
+		totalUptimeCount int64
+		uptimeSuccessCount   int64
+		uptimeRatio        float64
+	)
+	
+	stats := createReq.Stats
+	if stats != nil {
+		totalAuditCount = stats.AuditCount
+		auditSuccessCount = stats.AuditSuccessCount
+		auditSuccessRatio = float64(auditSuccessCount) / float64(totalAuditCount)
 
-	auditSuccessCount, totalAuditCount, auditSuccessRatio := initRatioVars(node.UpdateAuditSuccess, node.AuditSuccess)
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio := initRatioVars(node.UpdateUptime, node.IsUp)
+		totalUptimeCount = stats.UptimeCount
+		uptimeSuccessCount = stats.UptimeSuccessCount
+		uptimeRatio := float64(uptimeSuccessCount) / float64(totalUptimeCount)
+
+		if auditSuccessRatio > 1 || auditSuccessRatio < 0 || 
+			uptimeRatio > 1 || uptimeRatio < 0 || 
+			totalAuditCount < 0 || auditSuccessCount < 0 ||
+			totalUptimeCount < 0 || uptimeSuccessCount < 0 {
+			return nil, Error.New("Invalid node stats")
+		}
+	}
+
+	node := createReq.Node
 
 	dbNode, err := s.DB.Create_Node(
 		ctx,
@@ -317,20 +341,6 @@ func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.Cre
 		Stats: getRes.Stats,
 	}
 	return createEntryIfNotExistsRes, nil
-}
-
-func initRatioVars(shouldUpdate, status bool) (int64, int64, float64) {
-	var (
-		successCount int64
-		totalCount   int64
-		ratio        float64
-	)
-
-	if shouldUpdate {
-		return updateRatioVars(status, successCount, totalCount)
-	}
-
-	return successCount, totalCount, ratio
 }
 
 func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {

@@ -26,6 +26,8 @@ type StatDB struct {
 // Client services offerred for the interface
 type Client interface {
 	Create(ctx context.Context, nodeID []byte) error
+	CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
+		uptimeCount, uptimeSuccessCount int64) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
 	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
 		minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error)
@@ -53,17 +55,39 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 // a compiler trick to make sure *StatDB implements Client
 var _ Client = (*StatDB)(nil)
 
-// Create is used for creating a new entry in the stats db
+// Create is used for creating a new entry in the stats db with default reputation
 func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
+		NodeId: nodeID,
 	}
 	createReq := &pb.CreateRequest{
 		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+	_, err = sdb.client.Create(ctx, createReq)
+
+	return err
+}
+
+// CreateWithStats is used for creating a new entry in the stats db with a specific reputation
+func (sdb *StatDB) CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
+	uptimeCount, uptimeSuccessCount int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := pb.Node{
+		NodeId: nodeID,
+	}
+	stats := pb.NodeStats{
+		AuditCount:         auditCount,
+		AuditSuccessCount:  auditSuccessCount,
+		UptimeCount:        uptimeCount,
+		UptimeSuccessCount: uptimeSuccessCount,
+	}
+	createReq := &pb.CreateRequest{
+		Node:   &node,
+		Stats:  &stats,
 		APIKey: sdb.APIKey,
 	}
 	_, err = sdb.client.Create(ctx, createReq)

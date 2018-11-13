@@ -20,8 +20,16 @@ func NewMockClient() Client {
 // a compiler trick to make sure *MockStatDB implements Client
 var _ Client = (*MockStatDB)(nil)
 
-// Create is used for creating a new entry in the stats db
+// Create is used for creating a new entry in the stats db with default reputation
 func (sdb *MockStatDB) Create(ctx context.Context, nodeID []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return nil
+}
+
+// CreateWithStats is used for creating a new entry in the stats db with a specific reputation
+func (sdb *MockStatDB) CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
+	uptimeCount, uptimeSuccessCount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return nil
