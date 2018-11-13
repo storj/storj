@@ -164,6 +164,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.enc-key":          setupCfg.EncKey,
 		"uplink.api-key":          setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
+
+		// Repairer
+		"piecestore.agreementsender.overlay_addr": overlayAddr,
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
