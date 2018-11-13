@@ -131,6 +131,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	startingPort := setupCfg.StartingPort
 
+	overlayAddr := joinHostPort(setupCfg.ListenHost, startingPort+1)
+
 	overrides := map[string]interface{}{
 		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
 		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
@@ -145,8 +147,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "satellite", "overlay.db"),
 		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
-		"satellite.repairer.overlay-addr": joinHostPort(
-			setupCfg.ListenHost, startingPort+1),
+		"satellite.repairer.overlay-addr":  overlayAddr,
 		"satellite.repairer.pointer-db-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.repairer.api-key": setupCfg.APIKey,
@@ -163,6 +164,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.enc-key":          setupCfg.EncKey,
 		"uplink.api-key":          setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
+
+		// Repairer
+		"piecestore.agreementsender.overlay_addr": overlayAddr,
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
