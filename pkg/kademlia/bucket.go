@@ -29,3 +29,8 @@ func (b *KBucket) Midpoint() string {
 func (b *KBucket) Nodes() []*pb.Node {
 	return b.nodes
 }
+
+// ID returns the ID of the bucket in question
+func (b *KBucket) ID() string {
+	return ""
+}

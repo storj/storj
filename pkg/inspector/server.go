@@ -2,7 +2,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -45,27 +44,30 @@ func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*
 	}
 
 	buckets, err := rt.GetBuckets()
+	number := len(buckets)
+
 	if err != nil {
 		return nil, err
 	}
 
-	for _, b := range buckets {
-		fmt.Printf("Bucket: %+v\n", b)
-		for _, n := range b.Nodes() {
-			node := &pb.Node{
-				Id: n.Id,
-				Address: &pb.NodeAddress{
-					Address: n.Address.Address,
-				},
-			}
-			fmt.Printf("Node: %+v\n", node)
-			results[count] = append(results[count], node)
-		}
-		count++
-	}
+	// 	for _, b := range buckets {
+	// 		for _, n := range b.Nodes() {
+	// 			node := &pb.Node{
+	// 				Id: n.Id,
+	// 				Address: &pb.NodeAddress{
+	// 					Address: n.Address.Address,
+	// 				},
+	// 			}
+	// 			fmt.Printf("Node: %+v\n", node)
+	// 			results[count] = append(results[count], node)
+	// 		}
+	// 		count++
+	// 	}
+	bucketMap := &pb.BucketMap{}
 
 	return &pb.GetBucketsResponse{
-		Buckets: nil,
+		Total:   int64(number),
+		Buckets: bucketMap,
 	}, nil
 }
 
