@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
+	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -153,9 +154,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// open the psql db
 	dbpath := diagCfg.BasePath
-	dbm, err := bwagreement.NewDBManager("postgres", dbpath, zap.NewNop())
+	var db *dbx.DB
+	db, err = dbx.Open("postgres", dbpath)
 	if err != nil {
-		return err
+		return fmt.Errorf("Can't connect to the database for bwagreement: %s", err)
+	}
+	// Pass the DB to a new bwagreement manager
+	dbm, err := bwagreement.NewDBManager(db, zap.NewNop())
+	if err != nil {
+		return fmt.Errorf("Can't connect to the database for bwagreement: %s", err)
 	}
 
 	//get all bandwidth aggrements rows already ordered

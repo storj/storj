@@ -46,13 +46,8 @@ type Agreement struct {
 }
 
 // NewDBManager creates a new instance of a DatabaseManager
-func NewDBManager(driver, source string, logger *zap.Logger) (*DBManager, error) {
-	db, err := dbx.Open(driver, source)
-	if err != nil {
-		return nil, err
-	}
-
-	err = migrate.Create("bwagreement", db)
+func NewDBManager(db *dbx.DB, logger *zap.Logger) (*DBManager, error) {
+	err := migrate.Create("bwagreement", db)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +58,10 @@ func NewDBManager(driver, source string, logger *zap.Logger) (*DBManager, error)
 }
 
 // NewServer creates instance of Server
-func NewServer(driver, source string, logger *zap.Logger, pkey crypto.PublicKey) (*Server, error) {
-	dbm, err := NewDBManager(driver, source, logger)
+func NewServer(db *dbx.DB, logger *zap.Logger, pkey crypto.PublicKey) (*Server, error) {
+	dbm, err := NewDBManager(db, logger)
 	if err != nil {
+		// Can't start the database manager.
 		return nil, err
 	}
 

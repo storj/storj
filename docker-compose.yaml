@@ -19,7 +19,7 @@ services:
     image: storjlabs/storagenode:${VERSION}
     environment:
     - SATELLITE_ADDR=satellite:7777
-    - STORJ_LOG_LEVEL=info
+    - STORJ_LOG_LEVEL=debug
     links:
     - satellite
   satellite:
@@ -29,11 +29,14 @@ services:
     - BOOTSTRAP_ADDR=localhost:8080
     - IDENTITY_ADDR=:7777
     - STORJ_MOCK_OVERLAY_NODES=INTENTIONALLY:LEFT:BLANK
-    - STORJ_LOG_LEVEL=info
+    - STORJ_LOG_LEVEL=debug
+    - STORJ_BW_AGREEMENT_DATABASE_URL=postgres://postgres:pg-secret-pass@postgres/pointerdb?sslmode=disable
     links:
     - redis
+    - postgres
     depends_on:
     - redis
+    - postgres
   redis:
     image: redis
   uplink:
@@ -42,6 +45,11 @@ services:
     environment:
     - API_KEY=abc123
     - SATELLITE_ADDR=satellite:7777
-    - STORJ_LOG_LEVEL=info
+    - STORJ_LOG_LEVEL=debug
     ports:
     - 7777:7777
+  postgres:
+    image: postgres
+    environment:
+    - POSTGRES_DB=pointerdb
+    - POSTGRES_PASSWORD=pg-secret-pass

@@ -189,8 +189,9 @@ func cleanup(cmd *cobra.Command) {
 
 		err = internalRun(cmd, args)
 		if err != nil {
+			// The program can't run. Throw an error and exit.
 			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
-			logger.Sugar().Debugf("%+v", err)
+			logger.Sugar().Errorf("%+v", err)
 			_ = logger.Sync()
 			os.Exit(1)
 		}
