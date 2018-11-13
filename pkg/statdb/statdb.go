@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -55,7 +56,7 @@ func (s *Server) validateAuth(APIKeyBytes []byte) error {
 	return nil
 }
 
-// Create a db entry for the provided storagenode
+// Create a db entry for the provided storagenode with 0 reputation
 func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp *pb.CreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Create")
@@ -87,6 +88,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            dbNode.Id,
+		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
@@ -113,6 +115,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            dbNode.Id,
+		AuditCount:        dbNode.TotalAuditCount,
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
@@ -285,27 +288,29 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
 	APIKeyBytes := createIfReq.APIKey
+	NoRows := errs.Class("no rows in result set")
+
 	getReq := &pb.GetRequest{
 		NodeId: createIfReq.Node.NodeId,
 		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)
-	if err != nil {
+	if err != nil && NoRows.Has(err) {
 		// TODO: figure out how to confirm error is type dbx.ErrorCode_NoRows
-		if strings.Contains(err.Error(), "no rows in result set") {
-			createReq := &pb.CreateRequest{
-				Node:   createIfReq.Node,
-				APIKey: APIKeyBytes,
-			}
-			res, err := s.Create(ctx, createReq)
-			if err != nil {
-				return nil, err
-			}
-			createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
-				Stats: res.Stats,
-			}
-			return createEntryIfNotExistsRes, nil
+		createReq := &pb.CreateRequest{
+			Node:   createIfReq.Node,
+			APIKey: APIKeyBytes,
 		}
+		res, err := s.Create(ctx, createReq)
+		if err != nil {
+			return nil, err
+		}
+		createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
+			Stats: res.Stats,
+		}
+		return createEntryIfNotExistsRes, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	createEntryIfNotExistsRes := &pb.CreateEntryIfNotExistsResponse{
