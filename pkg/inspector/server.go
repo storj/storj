@@ -28,7 +28,6 @@ type Server struct {
 
 // CountNodes returns the number of nodes in the cache and in kademlia
 func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
-	fmt.Printf("Count Nodes Method hit")
 	return &pb.CountNodesResponse{
 		Kademlia: 0,
 		Overlay:  0,
