@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -422,4 +423,41 @@ func startTestNodeServer() (*grpc.Server, *mockNodeServer, *provider.FullIdentit
 	}()
 
 	return grpcServer, mn, identity, lis.Addr().String()
+}
+
+func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
+	ca, err := provider.NewTestCA(context.Background())
+	if err != nil {
+		return nil, nil
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, nil
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, nil
+	}
+	grpcServer := grpc.NewServer(identOpt)
+	mn := &mockNodeServer{queryCalled: 0}
+
+	pb.RegisterNodesServer(grpcServer, mn)
+
+	return grpcServer, mn
+}
+
+type mockNodeServer struct {
+	queryCalled int32
+	pingCalled  int32
+	returnValue []*pb.Node
+}
+
+func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+	atomic.AddInt32(&mn.queryCalled, 1)
+	return &pb.QueryResponse{Response: mn.returnValue}, nil
+}
+
+func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	atomic.AddInt32(&mn.pingCalled, 1)
+	return &pb.PingResponse{}, nil
 }
