@@ -67,14 +67,14 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	}
 
 	var (
-		totalAuditCount int64
-		auditSuccessCount   int64
-		auditSuccessRatio        float64
-		totalUptimeCount int64
-		uptimeSuccessCount   int64
+		totalAuditCount    int64
+		auditSuccessCount  int64
+		auditSuccessRatio  float64
+		totalUptimeCount   int64
+		uptimeSuccessCount int64
 		uptimeRatio        float64
 	)
-	
+
 	stats := createReq.Stats
 	if stats != nil {
 		totalAuditCount = stats.AuditCount
@@ -85,8 +85,9 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		uptimeSuccessCount = stats.UptimeSuccessCount
 		uptimeRatio := float64(uptimeSuccessCount) / float64(totalUptimeCount)
 
-		if auditSuccessRatio > 1 || auditSuccessRatio < 0 || 
-			uptimeRatio > 1 || uptimeRatio < 0 || 
+		// TODO(moby) more specific errors that do not clutter this function
+		if auditSuccessRatio > 1 || auditSuccessRatio < 0 ||
+			uptimeRatio > 1 || uptimeRatio < 0 ||
 			totalAuditCount < 0 || auditSuccessCount < 0 ||
 			totalUptimeCount < 0 || uptimeSuccessCount < 0 {
 			return nil, Error.New("Invalid node stats")
