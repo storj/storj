@@ -95,7 +95,6 @@ export default class HeaderedInput extends Vue { }
 	flex-direction: column;
 	align-items: flex-start;
 	margin-top: 10px;
-	width: 35vw;
 }
 .labelContainer {
 	display: flex;

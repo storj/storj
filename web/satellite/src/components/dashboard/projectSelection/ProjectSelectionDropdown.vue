@@ -64,6 +64,7 @@ export default class ProjectSelectionDropdown extends Vue {}
         padding: 10px 0px 10px 0px;
         box-shadow: 0px 4px rgba(231, 232, 238, 0.6);
         background-color: #FFFFFF;
+        z-index: 800;
     }
     .psOverflowContainer {
         position: relative;

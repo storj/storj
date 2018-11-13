@@ -21,6 +21,17 @@ describe('Button.vue', () => {
 
 		expect(wrapper).toMatchSnapshot();
 	});
+
+	it('renders correctly with isDisabled prop', () => {
+
+    	const wrapper = shallowMount(Button, {
+			propsData: {
+				isDisabled: true
+			}
+		});
+
+		expect(wrapper).toMatchSnapshot();
+	});
 	  
 	it('renders correctly with size and label props', () => {
 		let label = "testLabel";
@@ -50,7 +61,8 @@ describe('Button.vue', () => {
 
 		const wrapper = mount(Button, {
 			propsData: {
-				onPress: onPressSpy
+				onPress: onPressSpy,
+				isDisabled: false
 			}
 		});
 

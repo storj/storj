@@ -282,6 +282,7 @@ export default class Register extends Vue {}
 	.formArea {
 		margin-top: 50px;
 		align-self: center;
+		width: 35vw;
 	}
 	.companyArea {
 		display: flex;

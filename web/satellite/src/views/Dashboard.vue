@@ -1,8 +1,12 @@
 <template>
     <div class="dashboardContainer">
-        <!-- Navigator here-->
+        <div class="dNavigationContainer">
+
+        </div>
         <DashboardHeader />
-        <!-- MainArea here-->
+        <div class="dMainAreaContainer">
+            <router-view />
+        </div>
     </div>
 </template>
 
@@ -27,5 +31,19 @@ export default class Dashboard extends Vue {}
 		top: 0;
         background-color: #F5F6FA;
         z-index: 10;
+    }
+    .dNavigationContainer {
+        position: fixed;
+        width: 20vw;
+		height: 100%;
+		left: 0;
+		top: 10vh;
+    }
+    .dMainAreaContainer {
+        position: fixed;
+        width: 80vw;
+		height: 100%;
+		left: 20vw;
+		top: 10vh;
     }
 </style>

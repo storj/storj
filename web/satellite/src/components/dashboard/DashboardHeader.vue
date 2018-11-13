@@ -2,6 +2,7 @@
     <div class="headerContainer">
         <img class="hLogo" src="../../../static/images/dashboard/Logo.png" alt="">
         <ProjectSelectionArea class="hPSD"/>
+        <AccountButton class="hAccButton" />
         <NewProjectArea class="hNewProjArea" />
     </div>
 </template>
@@ -10,12 +11,14 @@
 import { Component, Vue } from 'vue-property-decorator';
 import ProjectSelectionArea from "./projectSelection/ProjectSelectionArea.vue";
 import NewProjectArea from "./newProject/NewProjectArea.vue";
+import AccountButton from "./account/AccountButton.vue"
 
 @Component(
     { 
 		components: {
             ProjectSelectionArea,
-            NewProjectArea
+            NewProjectArea,
+            AccountButton
         }
     }
 )
@@ -42,7 +45,10 @@ export default class DashboardHeader extends Vue {}
     .hPSD {
         margin-left: 10vw;
     }
+    .hAccButton {
+        margin-left: 32vw;
+    }
     .hNewProjArea {
-        // justify-self: flex-end;
+        margin-left: 20px;
     }
 </style>

@@ -85,7 +85,7 @@ export default class NewProjectPopup extends Vue {}
         right: 0;
         bottom: 0;
         background-color: rgba(134, 134, 148, 0.4);
-        z-index: 100;
+        z-index: 900;
         display: flex;
         justify-content: center;
         align-items: center;

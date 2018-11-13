@@ -1,6 +1,10 @@
 <template>
-    <div v-bind:class="[isWhite ? 'container white' : 'container']" :style="style" v-on:click="onPress">
-        <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
+    <!-- if isDisabled check onPress in parent element -->
+    <div 
+        v-bind:class="containerClassName" 
+        :style="style" 
+        v-on:click="onPress"> 
+            <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
     </div>
 </template>
 
@@ -26,6 +30,10 @@ import { Component, Vue } from 'vue-property-decorator';
                 type: Boolean,
                 default: false
             },
+            isDisabled: {
+                type: Boolean,
+                default: false
+            },
             onPress: {
                 type: Function,
                 default: () => {}
@@ -34,6 +42,13 @@ import { Component, Vue } from 'vue-property-decorator';
         computed: {
             style: function () {
                 return { width: this.$props.width, height: this.$props.height }
+            },
+            containerClassName: function () {
+                if (this.$props.isDisabled) {
+                    return 'container disabled';
+                }
+
+                return this.$props.isWhite ? 'container white' : 'container';
             }
         }
     }
@@ -61,7 +76,13 @@ export default class Button extends Vue {}
         }
     }
     .container.white {
-        background-color: #fff;
+        background-color: transparent;
         border: 1px solid #AFB7C1;
+    }
+    .container.disabled {
+        background-color: #DADDE5;
+        .label.white {
+            color: #ACB0BC;
+        }
     }
 </style>
