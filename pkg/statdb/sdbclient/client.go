@@ -31,8 +31,9 @@ type Client interface {
 		minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error)
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
+	UpdateUptime(ctx context.Context, nodeID []byte, isUp bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
-	CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error)
 }
 
 // NewClient initializes a new statdb client
@@ -110,7 +111,8 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 }
 
 // Update is used for updating a node's stats in the stats db
-func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
+func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
+	auditSuccess, isUp bool, latencyList []int64,
 	updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -136,6 +138,28 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp
 	return res.Stats, err
 }
 
+// UpdateUptime is used for updating a node's uptime in statdb
+func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
+	isUp bool) (stats *pb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := pb.Node{
+		NodeId:             nodeID,
+		IsUp:               isUp,
+		UpdateAuditSuccess: false,
+		UpdateUptime:       true,
+		UpdateLatency:      false,
+	}
+	updateReq := &pb.UpdateRequest{
+		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+
+	res, err := sdb.client.Update(ctx, updateReq)
+
+	return res.Stats, err
+}
+
 // UpdateBatch is used for updating multiple nodes' stats in the stats db
 func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList []*pb.NodeStats, failedNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -154,9 +178,10 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 }
 
 // CreateEntryIfNotExists creates a db entry for a node if entry doesn't already exist
-func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error) {
+func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateEntryIfNotExistsRequest{
 		Node:   node,
 		APIKey: sdb.APIKey,
