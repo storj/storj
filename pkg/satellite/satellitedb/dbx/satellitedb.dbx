@@ -54,3 +54,29 @@ read one (
 create company ( )
 update company ( where company.id = ? )
 delete company ( where company.id = ? )
+
+model project (
+    key id
+
+    field id                   blob
+    field user_id              user.id   cascade
+
+    field name                 text ( updatable )
+    field description          text ( updatable )
+    field is_agreed_with_terms bool ( updatable )
+
+    field created_at           timestamp ( autoinsert )
+)
+
+read all ( select project)
+read one (
+    select project
+    where project.id = ?
+)
+read one (
+    select project
+    where project.user_id = ?
+)
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
