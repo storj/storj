@@ -8,10 +8,12 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
 type FileSource struct {
+	mtx     sync.Mutex
 	path    string
 	decoder *gob.Decoder
 }
@@ -21,6 +23,8 @@ func NewFileSource(path string) *FileSource {
 }
 
 func (f *FileSource) Next() ([]byte, time.Time, error) {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
 	if f.decoder == nil {
 		fh, err := os.Open(f.path)
 		if err != nil {
@@ -38,6 +42,7 @@ func (f *FileSource) Next() ([]byte, time.Time, error) {
 }
 
 type FileDest struct {
+	mtx     sync.Mutex
 	path    string
 	fh      io.Closer
 	encoder *gob.Encoder
@@ -48,6 +53,9 @@ func NewFileDest(path string) *FileDest {
 }
 
 func (f *FileDest) Packet(data []byte, ts time.Time) error {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+
 	if f.encoder == nil {
 		fh, err := os.Create(f.path)
 		if err != nil {

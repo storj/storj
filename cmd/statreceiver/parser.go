@@ -5,6 +5,7 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/zeebo/admission/admproto"
@@ -12,12 +13,19 @@ import (
 
 type Parser struct {
 	d       MetricDest
-	f       []PacketFilter
-	scratch [1024 * 10]byte
+	f       []*PacketFilter
+	scratch sync.Pool
 }
 
-func NewParser(d MetricDest, f ...PacketFilter) *Parser {
-	return &Parser{d: d, f: f}
+func NewParser(d MetricDest, f ...*PacketFilter) *Parser {
+	return &Parser{
+		d: d, f: f,
+		scratch: sync.Pool{
+			New: func() interface{} {
+				var x [10 * 1024]byte
+				return &x
+			},
+		}}
 }
 
 func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
@@ -25,7 +33,9 @@ func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 	if err != nil {
 		return err
 	}
-	r := admproto.NewReaderWith(p.scratch[:])
+	scratch := p.scratch.Get().(*[10 * 1024]byte)
+	defer p.scratch.Put(scratch)
+	r := admproto.NewReaderWith((*scratch)[:])
 	data, appb, instb, err := r.Begin(data)
 	if err != nil {
 		return err

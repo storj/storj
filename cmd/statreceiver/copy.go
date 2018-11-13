@@ -70,7 +70,7 @@ func NewPacketBuffer(p PacketDest, bufsize int) *PacketBuffer {
 
 func (p *PacketBuffer) Packet(data []byte, ts time.Time) error {
 	select {
-	case p.ch <- Packet{Data: append([]byte(nil), data...), TS: ts}:
+	case p.ch <- Packet{Data: data, TS: ts}:
 		return nil
 	default:
 		return fmt.Errorf("packet buffer overrun")
@@ -107,11 +107,36 @@ func (p *MetricBuffer) Metric(application, instance string, key []byte,
 	case p.ch <- Metric{
 		Application: application,
 		Instance:    instance,
-		Key:         append([]byte(nil), key...),
+		Key:         key,
 		Val:         val,
 		TS:          ts}:
 		return nil
 	default:
 		return fmt.Errorf("metric buffer overrun")
 	}
+}
+
+type PacketBufPrep struct {
+	d PacketDest
+}
+
+func NewPacketBufPrep(d PacketDest) *PacketBufPrep {
+	return &PacketBufPrep{d: d}
+}
+
+func (p *PacketBufPrep) Packet(data []byte, ts time.Time) error {
+	return p.Packet(append([]byte(nil), data...), ts)
+}
+
+type MetricBufPrep struct {
+	d MetricDest
+}
+
+func NewMetricBufPrep(d MetricDest) *MetricBufPrep {
+	return &MetricBufPrep{d: d}
+}
+
+func (p *MetricBufPrep) Metric(application, instance string, key []byte,
+	val float64, ts time.Time) error {
+	return p.d.Metric(application, instance, append([]byte(nil), key...), val, ts)
 }

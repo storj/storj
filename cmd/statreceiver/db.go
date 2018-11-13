@@ -6,6 +6,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -24,6 +25,7 @@ var (
 )
 
 type DBDest struct {
+	mtx             sync.Mutex
 	driver, address string
 	db              *sql.DB
 	tables          map[string]bool
@@ -41,13 +43,16 @@ func NewDBDest(driver, address string) *DBDest {
 
 func (db *DBDest) Metric(application, instance string, key []byte, val float64,
 	ts time.Time) error {
+	db.mtx.Lock()
 	if db.db == nil {
 		conn, err := sql.Open(db.driver, db.address)
 		if err != nil {
+			db.mtx.Unlock()
 			return err
 		}
 		db.db = conn
 	}
+	db.mtx.Unlock()
 	_, err := db.db.Exec(sqlupsert[db.driver], application+"."+string(key),
 		instance, val, ts.Unix())
 	return err

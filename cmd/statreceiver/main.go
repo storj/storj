@@ -51,22 +51,26 @@ func Main(cmd *cobra.Command, args []string) error {
 	}
 
 	s := luacfg.NewScope()
-	s.RegisterVal("deliver", MustDeliver)
+	s.RegisterVal("deliver", Deliver)
 	s.RegisterVal("filein", NewFileSource)
 	s.RegisterVal("fileout", NewFileDest)
-	s.RegisterVal("udp", NewUDPSource)
+	s.RegisterVal("udpin", NewUDPSource)
+	s.RegisterVal("udpout", NewUDPDest)
 	s.RegisterVal("parse", NewParser)
 	s.RegisterVal("print", NewPrinter)
 	s.RegisterVal("pcopy", NewPacketCopier)
 	s.RegisterVal("mcopy", NewMetricCopier)
 	s.RegisterVal("pbuf", NewPacketBuffer)
 	s.RegisterVal("mbuf", NewMetricBuffer)
+	s.RegisterVal("packetfilter", NewPacketFilter)
 	s.RegisterVal("appfilter", NewApplicationFilter)
 	s.RegisterVal("instfilter", NewInstanceFilter)
 	s.RegisterVal("keyfilter", NewKeyFilter)
 	s.RegisterVal("sanitize", NewSanitizer)
 	s.RegisterVal("graphite", NewGraphiteDest)
 	s.RegisterVal("db", NewDBDest)
+	s.RegisterVal("pbufprep", NewPacketBufPrep)
+	s.RegisterVal("mbufprep", NewMetricBufPrep)
 	err := s.Run(input)
 	if err != nil {
 		return err

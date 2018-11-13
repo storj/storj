@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func Deliver(s Source, p PacketDest) error {
+func Deliver(s Source, p PacketDest) {
 	go func() {
 		for {
 			data, ts, err := s.Next()
@@ -23,14 +23,6 @@ func Deliver(s Source, p PacketDest) error {
 			}
 		}
 	}()
-	return nil
-}
-
-func MustDeliver(s Source, d PacketDest) {
-	err := Deliver(s, d)
-	if err != nil {
-		panic(err)
-	}
 }
 
 type Source interface {
@@ -44,8 +36,4 @@ type PacketDest interface {
 type MetricDest interface {
 	Metric(application, instance string, key []byte, val float64, ts time.Time) (
 		err error)
-}
-
-type PacketFilter interface {
-	Filter(application, instance string) bool
 }

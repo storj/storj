@@ -6,11 +6,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
+	"sync"
 	"time"
 )
 
 type GraphiteDest struct {
+	mtx     sync.Mutex
 	address string
 	conn    net.Conn
 	buf     *bufio.Writer
@@ -18,11 +21,16 @@ type GraphiteDest struct {
 }
 
 func NewGraphiteDest(address string) *GraphiteDest {
-	return &GraphiteDest{address: address}
+	rv := &GraphiteDest{address: address}
+	go rv.flush()
+	return rv
 }
 
 func (d *GraphiteDest) Metric(application, instance string,
 	key []byte, val float64, ts time.Time) error {
+
+	d.mtx.Lock()
+	defer d.mtx.Unlock()
 
 	if d.conn == nil {
 		conn, err := net.Dial("tcp", d.address)
@@ -35,17 +43,20 @@ func (d *GraphiteDest) Metric(application, instance string,
 
 	_, err := fmt.Fprintf(d.buf, "%s.%s.%s %v %d\n", application, string(key),
 		instance, val, ts.Unix())
+	return err
+}
 
-	if err != nil {
-		return err
-	}
-
-	if time.Since(d.last) > 5*time.Second {
-		err = d.buf.Flush()
-		if err != nil {
-			return err
+func (d *GraphiteDest) flush() {
+	for {
+		time.Sleep(5 * time.Second)
+		d.mtx.Lock()
+		var err error
+		if d.buf != nil {
+			err = d.buf.Flush()
 		}
-		d.last = time.Now()
+		d.mtx.Unlock()
+		if err != nil {
+			log.Printf("failed flushing: %v", err)
+		}
 	}
-	return nil
 }
