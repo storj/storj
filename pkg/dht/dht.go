@@ -52,4 +52,5 @@ type Bucket interface {
 	Cache() []pb.Node
 	Midpoint() string
 	Nodes() []*pb.Node
+	ID() string
 }
