@@ -150,7 +150,8 @@ type object struct {
 func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
 	fullpath := bucket + "/" + path
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	// TODO: get path encryption cipher from bucket metadata
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, storj.AESGCM, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

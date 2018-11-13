@@ -48,8 +48,13 @@ func (users *users) GetByCredentials(ctx context.Context, password []byte, email
 // Insert is a method for inserting user into the database
 func (users *users) Insert(ctx context.Context, user *satellite.User) (*satellite.User, error) {
 
+	userID, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
-		dbx.User_Id(user.ID[:]),
+		dbx.User_Id(userID[:]),
 		dbx.User_FirstName(user.FirstName),
 		dbx.User_LastName(user.LastName),
 		dbx.User_Email(user.Email),

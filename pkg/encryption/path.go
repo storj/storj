@@ -12,15 +12,19 @@ import (
 )
 
 // EncryptPath encrypts path with the given key
-func EncryptPath(path storj.Path, key *storj.Key) (encrypted storj.Path, err error) {
+func EncryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypted storj.Path, err error) {
 	// do not encrypt empty paths
 	if len(path) == 0 {
 		return path, nil
 	}
 
+	if cipher == storj.Unencrypted {
+		return path, nil
+	}
+
 	comps := storj.SplitPath(path)
 	for i, comp := range comps {
-		comps[i], err = encryptPathComponent(comp, key)
+		comps[i], err = encryptPathComponent(comp, cipher, key)
 		if err != nil {
 			return "", err
 		}
@@ -33,10 +37,14 @@ func EncryptPath(path storj.Path, key *storj.Key) (encrypted storj.Path, err err
 }
 
 // DecryptPath decrypts path with the given key
-func DecryptPath(path storj.Path, key *storj.Key) (decrypted storj.Path, err error) {
+func DecryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (decrypted storj.Path, err error) {
+	if cipher == storj.Unencrypted {
+		return path, nil
+	}
+
 	comps := storj.SplitPath(path)
 	for i, comp := range comps {
-		comps[i], err = decryptPathComponent(comp, key)
+		comps[i], err = decryptPathComponent(comp, cipher, key)
 		if err != nil {
 			return "", err
 		}
@@ -93,7 +101,7 @@ func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, e
 	return derivedKey, nil
 }
 
-func encryptPathComponent(comp string, key *storj.Key) (string, error) {
+func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
 	// derive the key for the current path component
 	derivedKey, err := DeriveKey(key, "path:"+comp)
 	if err != nil {
@@ -107,20 +115,25 @@ func encryptPathComponent(comp string, key *storj.Key) (string, error) {
 		return "", Error.Wrap(err)
 	}
 
-	nonce := new(AESGCMNonce)
+	nonce := new(storj.Nonce)
 	copy(nonce[:], mac.Sum(nil))
 
 	// encrypt the path components with the parent's key and the derived nonce
-	cipherText, err := EncryptAESGCM([]byte(comp), key, nonce)
+	cipherText, err := Encrypt([]byte(comp), cipher, key, nonce)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
 
+	nonceSize := storj.NonceSize
+	if cipher == storj.AESGCM {
+		nonceSize = AESGCMNonceSize
+	}
+
 	// keep the nonce together with the cipher text
-	return base64.RawURLEncoding.EncodeToString(append(nonce[:], cipherText...)), nil
+	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
 }
 
-func decryptPathComponent(comp string, key *storj.Key) (string, error) {
+func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
 	if comp == "" {
 		return "", nil
 	}
@@ -130,11 +143,16 @@ func decryptPathComponent(comp string, key *storj.Key) (string, error) {
 		return "", Error.Wrap(err)
 	}
 
-	// extract the nonce from the cipher text
-	nonce := new(AESGCMNonce)
-	copy(nonce[:], data[:AESGCMNonceSize])
+	nonceSize := storj.NonceSize
+	if cipher == storj.AESGCM {
+		nonceSize = AESGCMNonceSize
+	}
 
-	decrypted, err := DecryptAESGCM(data[AESGCMNonceSize:], key, nonce)
+	// extract the nonce from the cipher text
+	nonce := new(storj.Nonce)
+	copy(nonce[:], data[:nonceSize])
+
+	decrypted, err := Decrypt(data[nonceSize:], cipher, key, nonce)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}

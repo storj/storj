@@ -9,6 +9,8 @@ type DB interface {
 	Users() Users
 	// Companies is getter for Companies repository
 	Companies() Companies
+	// Projects is getter for Projects repository
+	Projects() Projects
 
 	// CreateTables is a method for creating all tables for satellitedb
 	CreateTables() error
