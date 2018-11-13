@@ -45,7 +45,11 @@ metric_parser =
 destination = pcopy(
   fileout("dump.out"),
   metric_parser,
+
+  -- useful local debugging
   udpout("localhost:9001"),
+
+  -- rothko
   udpout("localhost:9002"))
 
 -- tie the source to the destination
