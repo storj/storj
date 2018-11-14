@@ -32,6 +32,8 @@ type tally struct {
 	limit     int
 	logger    *zap.Logger
 	ticker    *time.Ticker
+	//TODO:
+	//rawDB
 }
 
 func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
@@ -42,6 +44,8 @@ func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *k
 		limit:     limit,
 		logger:    logger,
 		ticker:    time.NewTicker(interval),
+		//TODO:
+		//rawDB
 	}
 }
 
