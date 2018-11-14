@@ -199,9 +199,9 @@ func TestCompanyRepository(t *testing.T) {
 func TestCompanyFromDbx(t *testing.T) {
 
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		user, err := companyFromDBX(nil)
+		company, err := companyFromDBX(nil)
 
-		assert.Nil(t, user)
+		assert.Nil(t, company)
 		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
@@ -211,9 +211,9 @@ func TestCompanyFromDbx(t *testing.T) {
 			Id: []byte("qweqwe"),
 		}
 
-		user, err := companyFromDBX(&dbxCompany)
+		company, err := companyFromDBX(&dbxCompany)
 
-		assert.Nil(t, user)
+		assert.Nil(t, company)
 		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
@@ -229,9 +229,9 @@ func TestCompanyFromDbx(t *testing.T) {
 			UserId: []byte("qweqwe"),
 		}
 
-		user, err := companyFromDBX(&dbxCompany)
+		company, err := companyFromDBX(&dbxCompany)
 
-		assert.Nil(t, user)
+		assert.Nil(t, company)
 		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})

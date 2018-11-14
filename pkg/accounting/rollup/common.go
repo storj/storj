@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package accounting
+package rollup
 
 import (
 	"github.com/zeebo/errs"
@@ -10,6 +10,6 @@ import (
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("tally error")
+	Error = errs.Class("rollup error")
 	mon   = monkit.Package()
 )

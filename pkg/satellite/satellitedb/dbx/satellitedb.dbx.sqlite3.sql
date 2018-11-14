@@ -22,3 +22,12 @@ CREATE TABLE companies (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE projects (
+	id BLOB NOT NULL,
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	is_agreed_with_terms INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);

@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
@@ -23,40 +22,19 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Objects implements storj.Metainfo bucket handling
-type Objects struct {
-	objects  objects.Store
-	streams  streams.Store
-	segments segments.Store
-	pointers pdbclient.Client
-
-	rootKey *storj.Key
-}
-
 const (
 	// commitedPrefix is prefix where completed object info is stored
 	committedPrefix = "l/"
 )
 
-// NewObjects creates Objects
-func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store, pointers pdbclient.Client, rootKey *storj.Key) *Objects {
-	return &Objects{
-		objects:  objects,
-		streams:  streams,
-		segments: segments,
-		pointers: pointers,
-		rootKey:  rootKey,
-	}
-}
-
 // GetObject returns information about an object
-func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
+func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
 	_, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
 	meta, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	if err != nil {
 		return nil, err
@@ -76,32 +54,42 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *Objects) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (storj.MutableObject, error) {
+func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (storj.MutableObject, error) {
 	return nil, errors.New("not implemented")
 }
 
 // ModifyObject modifies a committed object
-func (db *Objects) ModifyObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
 	return nil, errors.New("not implemented")
 }
 
 // DeleteObject deletes an object from database
-func (db *Objects) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
-	return db.objects.Delete(ctx, bucket+"/"+path)
+func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
+	objects, err := db.buckets.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+
+	return objects.Delete(ctx, path)
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
-func (db *Objects) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
 	return nil, errors.New("not implemented")
 }
 
 // ListPendingObjects lists pending objects in bucket based on the ListOptions
-func (db *Objects) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
 	return storj.ObjectList{}, errors.New("not implemented")
 }
 
 // ListObjects lists objects in bucket based on the ListOptions
-func (db *Objects) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+	objects, err := db.buckets.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return storj.ObjectList{}, err
+	}
+
 	var startAfter, endBefore string
 	switch options.Direction {
 	case storj.Before:
@@ -152,10 +140,15 @@ type object struct {
 	streamMeta      pb.StreamMeta
 }
 
-func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
+func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
+	bucketInfo, err := db.GetBucket(ctx, bucket)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
 	fullpath := bucket + "/" + path
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, bucketInfo.PathCipher, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

@@ -14,7 +14,7 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 
 	copy(id[:], data)
 	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid bytes array")
+		return uuid.UUID{}, errs.New("Invalid uuid")
 	}
 
 	return id, nil
