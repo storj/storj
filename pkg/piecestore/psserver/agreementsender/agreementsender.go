@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	// "storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -83,11 +83,11 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				zap.S().Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
-				// satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
-				// if err != nil {
-				// 	zap.S().Error(err)
-				// 	return
-				// }
+				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
+				if err != nil {
+					zap.S().Error(err)
+					return
+				}
 
 				// Create client from satellite ip
 				identOpt, err := as.identity.DialOption("")
@@ -96,8 +96,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					return
 				}
 
-				// conn, err := grpc.Dial(satellite.GetAddress().String(), identOpt)
-				conn, err := grpc.Dial("127.0.0.1:7778", identOpt)
+				conn, err := grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
 					zap.S().Error(err)
 					return
