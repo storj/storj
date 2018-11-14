@@ -15,13 +15,13 @@ import (
 	segment "storj.io/storj/pkg/storage/segments"
 )
 
-// Repairer is the interface for the data repairer
-type RepairerI interface {
+// Queue is the interface for the data repairer
+type Queue interface {
 	Repair(ctx context.Context, seg *pb.InjuredSegment) error
 	Run(ctx context.Context) error
 }
 
-// repairer holds important values for data repair
+// Repairer holds important values for data repair
 type Repairer struct {
 	Queue   queue.RepairQueue
 	Store   segment.Store
@@ -29,6 +29,7 @@ type Repairer struct {
 	Ticker  *time.Ticker
 }
 
+//NewRepairer creates an instance of RepairerQueue
 func NewRepairer(queue queue.RepairQueue, ss segment.Store, interval time.Duration, concurrency int) *Repairer {
 	return &Repairer{
 		Queue:   queue,

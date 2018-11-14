@@ -82,10 +82,9 @@ var (
 		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 	}
 	qdiagCfg struct {
-		BasePath     string        `default:"$CONFDIR" help:"base path for setup"`
-		QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
-		MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
-		Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+		BasePath  string        `default:"$CONFDIR" help:"base path for setup"`
+		MaxRepair int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+		Interval  time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
 	}
 
 	defaultConfDir = "$HOME/.storj/satellite"

@@ -47,7 +47,7 @@ func (client *Queue) Dequeue() (storage.Value, error) {
 	return storage.Value(out), nil
 }
 
-// Dequeue returns the next repair segement and removes it from the queue
+// Peekqueue returns all the entries in the queue without removing
 func (client *Queue) Peekqueue() ([]storage.Value, error) {
 	cmd := client.db.LRange(queueKey, 0, -1)
 	items, err := cmd.Result()

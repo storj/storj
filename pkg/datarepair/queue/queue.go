@@ -63,7 +63,9 @@ func (q *Queue) Peekqueue() ([]pb.InjuredSegment, error) {
 	segs := make([]pb.InjuredSegment, 0)
 	for _, v := range result {
 		seg := &pb.InjuredSegment{}
-		err = proto.Unmarshal(v, seg)
+		if err = proto.Unmarshal(v, seg); err != nil {
+			return nil, err
+		}
 		segs = append(segs, *seg)
 	}
 	return segs, nil
