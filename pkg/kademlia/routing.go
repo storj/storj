@@ -6,6 +6,7 @@ package kademlia
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"sync"
 	"time"
 
@@ -120,6 +121,16 @@ func (rt *RoutingTable) GetBuckets() (k []dht.Bucket, err error) {
 		bs = append(bs, &KBucket{nodes: unmarshaledNodes})
 	}
 	return bs, nil
+}
+
+// GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
+func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
+	kbuckets, err := rt.kadBucketDB.List(nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("got k buckets: %+v\n", kbuckets)
+	return kbuckets, nil
 }
 
 // FindNear returns the node corresponding to the provided nodeID

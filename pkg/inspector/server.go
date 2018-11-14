@@ -2,7 +2,6 @@ package inspector
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -36,43 +35,20 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
-	results := []*pb.BucketList{}
 	rt, err := srv.dht.GetRoutingTable(ctx)
 	if err != nil {
 		return &pb.GetBucketsResponse{}, ServerError.New("")
 	}
-
-	buckets, err := rt.GetBuckets()
-	number := len(buckets)
-
+	b, err := rt.GetBucketIds()
 	if err != nil {
 		return nil, err
 	}
-
-	for _, b := range buckets {
-		fmt.Printf("\nRanging over bucket: %+v\n", b)
-	}
-
+	bytes := b.ByteSlices()
 	return &pb.GetBucketsResponse{
-		Total:   int64(number),
-		Buckets: results,
+		Total: int64(len(b)),
+		Ids:   bytes,
 	}, nil
 }
-
-// func createBucketList(bucket dht.Bucket) *pb.BucketList {
-// 	var bl []*pb.BucketList
-// 	for _, n := range bucket {
-// 		node := &pb.Node{
-// 			Id: n.Id,
-// 			Address: &pb.NodeAddress{
-// 				Address: n.Address.Address,
-// 			},
-// 		}
-// 		// push to list
-// 		bl = append(bl, n)
-// 	}
-// 	return bl
-// }
 
 // GetBucket retrieves all of a given K buckets contents
 func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb.GetBucketResponse, error) {

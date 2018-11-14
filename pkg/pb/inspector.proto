@@ -34,7 +34,7 @@ message GetBucketsRequest {
 
 message GetBucketsResponse {
   int64 total = 1;
-  repeated BucketList buckets = 2;
+  repeated bytes ids = 2;
 }
 
 // GetBucket
