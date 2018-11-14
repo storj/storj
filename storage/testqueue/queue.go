@@ -41,6 +41,17 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 	return nil, storage.ErrEmptyQueue
 }
 
+//Peekqueue gets the next element without removing
+func (q *Queue) Peekqueue() ([]storage.Value, error) { //*list.Element {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	result := make([]storage.Value, 0)
+	for e := q.s.Front(); e != nil; e = e.Next() {
+		result = append(result, e.Value.(storage.Value))
+	}
+	return result, nil
+}
+
 //Close closes the queue
 func (q *Queue) Close() error {
 	return nil

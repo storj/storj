@@ -43,7 +43,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return Error.Wrap(err)
 	}
 
-	repairer := newRepairer(queue, ss, c.Interval, c.MaxRepair)
+	repairer := NewRepairer(queue, ss, c.Interval, c.MaxRepair)
 
 	ctx, cancel := context.WithCancel(ctx)
 

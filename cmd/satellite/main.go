@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -18,8 +19,9 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
-	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
@@ -28,6 +30,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -49,6 +52,11 @@ var (
 		Use:   "diag",
 		Short: "Diagnostic Tool support",
 		RunE:  cmdDiag,
+	}
+	qdiagCmd = &cobra.Command{
+		Use:   "qdiag",
+		Short: "Repair Queue Diagnostic Tool support",
+		RunE:  cmdQDiag,
 	}
 
 	runCfg struct {
@@ -73,6 +81,12 @@ var (
 	diagCfg struct {
 		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 	}
+	qdiagCfg struct {
+		BasePath     string        `default:"$CONFDIR" help:"base path for setup"`
+		QueueAddress string        `help:"data repair queue address" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
+		MaxRepair    int           `help:"maximum segments that can be repaired concurrently" default:"100"`
+		Interval     time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+	}
 
 	defaultConfDir = "$HOME/.storj/satellite"
 )
@@ -81,6 +95,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(diagCmd)
+	rootCmd.AddCommand(qdiagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
@@ -221,6 +236,37 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	for _, uplinkID := range uplinkIDs {
 		summary := summaries[uplinkID]
 		fmt.Fprint(w, uplinkID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	}
+
+	// display the data
+	err = w.Flush()
+	return err
+}
+
+func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
+	// open the psql db
+	dbpath := qdiagCfg.BasePath
+
+	redisQ, err := redis.NewQueueFrom(dbpath)
+	if err != nil {
+		return err
+	}
+
+	queue := queue.NewQueue(redisQ)
+	repairer := repairer.NewRepairer(queue, nil, qdiagCfg.Interval, qdiagCfg.MaxRepair)
+	list, err := repairer.Queue.Peekqueue()
+	if err != nil {
+		return err
+	}
+
+	// initialize the table header (fields)
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "Path\tLost Pieces\t")
+
+	// populate the row fields
+	for _, v := range list {
+		fmt.Fprint(w, v.GetPath(), "\t", v.GetLostPieces(), "\t")
 	}
 
 	// display the data

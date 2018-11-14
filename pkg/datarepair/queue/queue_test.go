@@ -54,6 +54,11 @@ func TestSequential(t *testing.T) {
 		assert.NoError(t, err)
 		addSegs = append(addSegs, seg)
 	}
+	list, err := q.Peekqueue()
+	assert.NoError(t, err)
+	for i := 0; i < N; i++ {
+		assert.True(t, proto.Equal(addSegs[i], &list[i]))
+	}
 	for i := 0; i < N; i++ {
 		dqSeg, err := q.Dequeue()
 		assert.NoError(t, err)

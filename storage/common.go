@@ -76,6 +76,8 @@ type Queue interface {
 	Enqueue(Value) error
 	//Dequeue removes a FIFO element, returning ErrEmptyQueue if empty
 	Dequeue() (Value, error)
+	// //Peekqueue returns the first element
+	Peekqueue() ([]Value, error)
 	//Close closes the store
 	Close() error
 }

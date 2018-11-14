@@ -46,3 +46,17 @@ func (client *Queue) Dequeue() (storage.Value, error) {
 	}
 	return storage.Value(out), nil
 }
+
+// Dequeue returns the next repair segement and removes it from the queue
+func (client *Queue) Peekqueue() ([]storage.Value, error) {
+	cmd := client.db.LRange(queueKey, 0, -1)
+	items, err := cmd.Result()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]storage.Value, 0)
+	for _, v := range items {
+		result = append(result, storage.Value([]byte(v)))
+	}
+	return result, err
+}

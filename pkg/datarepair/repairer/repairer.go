@@ -16,34 +16,34 @@ import (
 )
 
 // Repairer is the interface for the data repairer
-type Repairer interface {
+type RepairerI interface {
 	Repair(ctx context.Context, seg *pb.InjuredSegment) error
 	Run(ctx context.Context) error
 }
 
 // repairer holds important values for data repair
-type repairer struct {
-	queue   queue.RepairQueue
-	store   segment.Store
-	limiter *sync2.Limiter
-	ticker  *time.Ticker
+type Repairer struct {
+	Queue   queue.RepairQueue
+	Store   segment.Store
+	Limiter *sync2.Limiter
+	Ticker  *time.Ticker
 }
 
-func newRepairer(queue queue.RepairQueue, ss segment.Store, interval time.Duration, concurrency int) *repairer {
-	return &repairer{
-		queue:   queue,
-		store:   ss,
-		limiter: sync2.NewLimiter(concurrency),
-		ticker:  time.NewTicker(interval),
+func NewRepairer(queue queue.RepairQueue, ss segment.Store, interval time.Duration, concurrency int) *Repairer {
+	return &Repairer{
+		Queue:   queue,
+		Store:   ss,
+		Limiter: sync2.NewLimiter(concurrency),
+		Ticker:  time.NewTicker(interval),
 	}
 }
 
 // Run runs the repairer service
-func (r *repairer) Run(ctx context.Context) (err error) {
+func (r *Repairer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// wait for all repairs to complete
-	defer r.limiter.Wait()
+	defer r.Limiter.Wait()
 
 	for {
 		err := r.process(ctx)
@@ -52,7 +52,7 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 		}
 
 		select {
-		case <-r.ticker.C: // wait for the next interval to happen
+		case <-r.Ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the repairer is canceled via context
 			return ctx.Err()
 		}
@@ -60,15 +60,15 @@ func (r *repairer) Run(ctx context.Context) (err error) {
 }
 
 // process picks an item from repair queue and spawns a repairer
-func (r *repairer) process(ctx context.Context) error {
-	seg, err := r.queue.Dequeue()
+func (r *Repairer) process(ctx context.Context) error {
+	seg, err := r.Queue.Dequeue()
 	if err != nil {
 		// TODO: only log when err != ErrQueueEmpty
 		return err
 	}
 
-	r.limiter.Go(ctx, func() {
-		err := r.store.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+	r.Limiter.Go(ctx, func() {
+		err := r.Store.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
 		if err != nil {
 			zap.L().Error("Repair failed", zap.Error(err))
 		}
