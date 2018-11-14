@@ -29,6 +29,10 @@
                     @setData="setInputValue" />
             </div>
             <div class="aaSaveButtonArea">
+                <div class="termsArea">
+                    <Checkbox class="checkBox" @setData="setTermsAccepted"/>
+                    <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
+                </div>
                 <Button label="Save" width="14vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
             </div>
         </div>
@@ -130,6 +134,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
 
 @Component(
     { 
@@ -140,7 +145,8 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
         },
         components: {
             Button,
-            HeaderedInput
+            HeaderedInput,
+            Checkbox
         }
     }
 )
@@ -195,11 +201,39 @@ export default class AccountArea extends Vue {}
         width: 100%;
         display: flex;
         flex-direction: row;
-        // align-content: flex-end;
+        align-content: flex-end;
         justify-content: space-between;
     }
     .aaSaveButtonArea {
         margin-top: 5vh;
+        width: 100%;
         align-self: flex-end;
+        display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+        Button {
+            align-self: center;
+        }
     }
+    .termsArea {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+        align-items: center;
+        margin-top: -20px;
+        margin-right: 30vw;
+		.checkBox {
+			align-self: center;
+		};
+		h2 {
+			font-family: 'montserrat_regular';
+			font-size: 14px;
+			line-height: 20px;
+			margin-left: 10px;
+		};
+		a {
+			color: #2683FF;
+			font-family: 'montserrat_bold';
+		}
+	}
 </style>

@@ -1,8 +1,6 @@
 <template>
     <div class="dashboardContainer">
-        <div class="dNavigationContainer">
-
-        </div>
+        <NavigationArea />
         <DashboardHeader />
         <div class="dMainAreaContainer">
             <router-view />
@@ -13,9 +11,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import DashboardHeader from "@/components/dashboard/DashboardHeader.vue";
+import NavigationArea from "@/components/navigation/NavigationArea.vue";
+import NAVIGATION_ITEMS from "@/utils/constants/navigationLinks";
 
 @Component({
 	components: {
+        NavigationArea,
 		DashboardHeader
 	}
 })
@@ -31,13 +32,6 @@ export default class Dashboard extends Vue {}
 		top: 0;
         background-color: #F5F6FA;
         z-index: 10;
-    }
-    .dNavigationContainer {
-        position: fixed;
-        width: 20vw;
-		height: 100%;
-		left: 0;
-		top: 10vh;
     }
     .dMainAreaContainer {
         position: fixed;
