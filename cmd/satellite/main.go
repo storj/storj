@@ -156,7 +156,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Invalid Database URL: %+v", err)
 	}
 
-	dbm, err := bwagreement.NewDBManager(u.Scheme, u.Path, zap.NewNop())
+	dbm, err := bwagreement.NewDBManager(u.Scheme, u.Path)
 	if err != nil {
 		return err
 	}

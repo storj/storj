@@ -36,7 +36,6 @@ type Server struct {
 type DBManager struct {
 	DB     *dbx.DB
 	mu     sync.Mutex
-	logger *zap.Logger
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -46,7 +45,7 @@ type Agreement struct {
 }
 
 // NewDBManager creates a new instance of a DatabaseManager
-func NewDBManager(driver, source string, logger *zap.Logger) (*DBManager, error) {
+func NewDBManager(driver, source string) (*DBManager, error) {
 	db, err := dbx.Open(driver, source)
 	if err != nil {
 		return nil, err
@@ -58,13 +57,12 @@ func NewDBManager(driver, source string, logger *zap.Logger) (*DBManager, error)
 	}
 	return &DBManager{
 		DB:     db,
-		logger: logger,
 	}, nil
 }
 
 // NewServer creates instance of Server
 func NewServer(driver, source string, logger *zap.Logger, pkey crypto.PublicKey) (*Server, error) {
-	dbm, err := NewDBManager(driver, source, logger)
+	dbm, err := NewDBManager(driver, source)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +82,6 @@ func (dbm *DBManager) locked() func() {
 // Create a db entry for the provided storagenode
 func (dbm *DBManager) Create(ctx context.Context, createBwAgreement *pb.RenterBandwidthAllocation) (bwagreement *dbx.Bwagreement, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbm.logger.Debug("entering bwagreement Create")
 
 	signature := createBwAgreement.GetSignature()
 	data := createBwAgreement.GetData()
@@ -114,9 +111,12 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 	defer mon.Task()(&ctx)(&err)
 	defer s.dbm.locked()()
 
+	s.logger.Debug("Received Agreement...")
+
 	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_FAIL,
 	}
+	
 
 	if err = s.verifySignature(ctx, agreement); err != nil {
 		return reply, err
@@ -129,6 +129,8 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 	}
 
 	reply.Status = pb.AgreementsSummary_OK
+
+	s.logger.Debug("Stored Agreement...")
 
 	return reply, nil
 }
