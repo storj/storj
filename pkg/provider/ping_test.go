@@ -29,7 +29,7 @@ func TestPing(t *testing.T) {
 
 		serverAddress = listener.Addr().String()
 
-		ca, err := provider.NewCA(ctx, 14, 4)
+		ca, err := provider.NewTestCA(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func TestPing(t *testing.T) {
 	}
 
 	{ // Client connection
-		ca, err := provider.NewCA(ctx, 14, 4)
+		ca, err := provider.NewTestCA(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -331,7 +331,7 @@ func (fi *FullIdentity) RestChainRaw() [][]byte {
 func (fi *FullIdentity) ServerOption(pcvFuncs ...peertls.PeerCertVerificationFunc) (grpc.ServerOption, error) {
 	ch := [][]byte{fi.Leaf.Raw, fi.CA.Raw}
 	ch = append(ch, fi.RestChainRaw()...)
-	c, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
+	tlsCert, err := peertls.TLSCert(ch, fi.Leaf, fi.Key)
 	if err != nil {
 		return nil, err
 	}
