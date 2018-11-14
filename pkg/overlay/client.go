@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 )
 
 // Client is the interface that defines an overlay client.

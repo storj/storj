@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/satellite"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	segment "storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/storage/redis"
@@ -68,7 +68,7 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	pdb, err := pdbclient.NewClient(identity, c.PointerDBAddr, c.APIKey)
+	satellite, err := satellite.NewSatelliteClient(identity, c.PointerDBAddr, c.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -83,5 +83,5 @@ func (c Config) getSegmentStore(ctx context.Context, identity *provider.FullIden
 		return nil, err
 	}
 
-	return segment.NewSegmentStore(oc, ec, pdb, rs, c.MaxInlineSize), nil
+	return segment.NewSegmentStore(oc, ec, satellite, rs, c.MaxInlineSize), nil
 }

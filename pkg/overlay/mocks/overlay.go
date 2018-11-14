@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -83,6 +84,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 			}})
 	}
 
-	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
+	o := NewOverlay(nodes)
+	pb.RegisterOverlayServer(server.GRPC(), o)
+
+	ctx = overlay.WithServer(ctx, o)
 	return server.Run(ctx)
 }

@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 )
@@ -27,13 +27,13 @@ type Stripe struct {
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
-	pointers pdbclient.Client
+	pointers *satellite.SatelliteClient
 	lastPath storj.Path
 	mutex    sync.Mutex
 }
 
 // NewCursor creates a Cursor which iterates over pointer db
-func NewCursor(pointers pdbclient.Client) *Cursor {
+func NewCursor(pointers *satellite.SatelliteClient) *Cursor {
 	return &Cursor{pointers: pointers}
 }
 
@@ -42,7 +42,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()
 
-	var pointerItems []pdbclient.ListItem
+	var pointerItems []satellite.ListItem
 	var path storj.Path
 	var more bool
 
@@ -74,10 +74,11 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	}
 
 	// get pointer info
-	pointer, _, err := cursor.pointers.Get(ctx, path)
+	response, err := cursor.pointers.GetInfo(ctx, path)
 	if err != nil {
 		return nil, err
 	}
+	pointer := response.GetPointer()
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
 		return nil, nil
@@ -98,9 +99,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	authorization := cursor.pointers.SignedMessage()
-
-	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
+	return &Stripe{Index: index, Segment: pointer, Authorization: response.GetAuthorization()}, nil
 }
 
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
@@ -130,10 +129,10 @@ func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int,
 	return int(randomStripeIndex.Int64()), nil
 }
 
-func getRandomPointer(pointerItems []pdbclient.ListItem) (pointer pdbclient.ListItem, err error) {
+func getRandomPointer(pointerItems []satellite.ListItem) (pointer satellite.ListItem, err error) {
 	randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(pointerItems))))
 	if err != nil {
-		return pdbclient.ListItem{}, err
+		return satellite.ListItem{}, err
 	}
 	randomNumInt64 := randomNum.Int64()
 	pointerItem := pointerItems[randomNumInt64]

@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/statdb"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -45,6 +46,7 @@ type Satellite struct {
 	Audit       audit.Config
 	StatDB      statdb.Config
 	Web         satelliteweb.Config
+	Satellite   satellite.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -141,11 +143,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
-			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
+			o,
+			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Satellite,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
-			o,
 			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,

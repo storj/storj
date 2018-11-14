@@ -112,7 +112,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 	ctx = context.WithValue(ctx, ctxKeyOverlay, cache)
-	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)
+	ctx = WithServer(ctx, srv)
 	return server.Run(ctx)
 }
 
@@ -125,11 +125,15 @@ func LoadFromContext(ctx context.Context) *Cache {
 }
 
 // LoadServerFromContext gives access to the overlay server from the context, or returns nil
-func LoadServerFromContext(ctx context.Context) *Server {
-	if v, ok := ctx.Value(ctxKeyOverlayServer).(*Server); ok {
+func LoadServerFromContext(ctx context.Context) pb.OverlayServer {
+	if v, ok := ctx.Value(ctxKeyOverlayServer).(pb.OverlayServer); ok {
 		return v
 	}
 	return nil
+}
+
+func WithServer(ctx context.Context, server pb.OverlayServer) context.Context {
+	return context.WithValue(ctx, ctxKeyOverlayServer, server)
 }
 
 // GetUserPassword extracts password from scheme://user:password@hostname

@@ -5,7 +5,6 @@ package pointerdb
 
 import (
 	"context"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -136,25 +135,11 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, err
 	}
 
-	pba, err := s.getPayerBandwidthAllocation(ctx)
-	if err != nil {
-		s.logger.Error("err getting payer bandwidth allocation", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	authorization, err := s.getSignedMessage()
-	if err != nil {
-		s.logger.Error("err getting signed message", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
 	nodes := []*pb.Node{}
 
 	var r = &pb.GetResponse{
 		Pointer:       pointer,
 		Nodes:         nil,
-		Pba:           pba,
-		Authorization: authorization,
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -172,8 +157,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	r = &pb.GetResponse{
 		Pointer:       pointer,
 		Nodes:         nodes,
-		Pba:           pba,
-		Authorization: authorization,
 	}
 
 	return r, nil
@@ -292,39 +275,4 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 		Reverse: req.Reverse,
 	}
 	return s.DB.Iterate(opts, f)
-}
-
-func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
-	payer := s.identity.ID.Bytes()
-
-	// TODO(michal) should be replaced with renter id when available
-	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	pbad := &pb.PayerBandwidthAllocation_Data{
-		SatelliteId:    payer,
-		UplinkId:       peerIdentity.ID.Bytes(),
-		CreatedUnixSec: time.Now().Unix(),
-		// TODO: Action: pb.PayerBandwidthAllocation_GET, // Action should be a GET or a PUT
-	}
-
-	data, err := proto.Marshal(pbad)
-	if err != nil {
-		return nil, err
-	}
-	signature, err := auth.GenerateSignature(data, s.identity)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data}, nil
-}
-
-func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {
-	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
-	if err != nil {
-		return nil, err
-	}
-
-	return auth.NewSignedMessage(signature, s.identity)
 }

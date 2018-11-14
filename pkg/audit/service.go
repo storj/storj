@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/satellite"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -34,7 +34,7 @@ type Config struct {
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
 	identity := server.Identity()
-	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
+	pointers, err := satellite.NewSatelliteClient(identity, c.SatelliteAddr, c.APIKey)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
-func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
+func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers *satellite.SatelliteClient, transport transport.Client, overlay overlay.Client,
 	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 	cursor := NewCursor(pointers)
 	verifier := NewVerifier(transport, overlay, identity)
@@ -101,8 +101,7 @@ func (service *Service) process(ctx context.Context) error {
 		return nil
 	}
 
-	authorization := service.Cursor.pointers.SignedMessage()
-	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
+	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, stripe.Authorization)
 	if err != nil {
 		return err
 	}

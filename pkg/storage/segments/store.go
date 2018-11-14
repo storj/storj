@@ -13,14 +13,15 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
-	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/satellite"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
@@ -58,26 +59,26 @@ type Store interface {
 type segmentStore struct {
 	oc            overlay.Client
 	ec            ecclient.Client
-	pdb           pdbclient.Client
+	satellite     *satellite.SatelliteClient
 	rs            eestream.RedundancyStrategy
 	thresholdSize int
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(oc overlay.Client, ec ecclient.Client, pdb pdbclient.Client, rs eestream.RedundancyStrategy, t int) Store {
-	return &segmentStore{oc: oc, ec: ec, pdb: pdb, rs: rs, thresholdSize: t}
+func NewSegmentStore(oc overlay.Client, ec ecclient.Client, satellite *satellite.SatelliteClient, rs eestream.RedundancyStrategy, t int) Store {
+	return &segmentStore{oc: oc, ec: ec, satellite: satellite, rs: rs, thresholdSize: t}
 }
 
 // Meta retrieves the metadata of the segment
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, _, err := s.pdb.Get(ctx, path)
+	response, err := s.satellite.GetInfo(ctx, path)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(pr), nil
+	return convertMeta(response.GetPointer()), nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -113,17 +114,17 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	} else {
 		// uses overlay client to request a list of nodes
-		nodes, err := s.oc.Choose(ctx, overlay.Options{Amount: s.rs.TotalCount(), Space: 0, Excluded: nil})
+		response, err := s.satellite.PutInfo(ctx, int32(s.rs.TotalCount()), int64(0), nil)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 		pieceID := psclient.NewPieceID()
 		sizedReader := SizeReader(peekReader)
 
-		authorization := s.pdb.SignedMessage()
-		pba := s.pdb.PayerBandwidthAllocation()
+		authorization := response.GetAuthorization()
+		pba := response.GetPba()
 		// puts file to ecclient
-		successfulNodes, err := s.ec.Put(ctx, nodes, s.rs, pieceID, sizedReader, expiration, pba, authorization)
+		successfulNodes, err := s.ec.Put(ctx, response.GetNodes(), s.rs, pieceID, sizedReader, expiration, pba, authorization)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -141,7 +142,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 	}
 
 	// puts pointer to pointerDB
-	err = s.pdb.Put(ctx, path, pointer)
+	err = s.satellite.PutMeta(ctx, path, pointer)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -192,10 +193,13 @@ func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.Piec
 func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, err := s.pdb.Get(ctx, path)
+	response, err := s.satellite.GetInfo(ctx, path)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
+
+	pr := response.GetPointer()
+	nodes := response.GetNodes()
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
@@ -228,8 +232,8 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			}
 		}
 
-		authorization := s.pdb.SignedMessage()
-		pba := s.pdb.PayerBandwidthAllocation()
+		authorization := response.GetAuthorization()
+		pba := response.GetPba()
 		rr, err = s.ec.Get(ctx, nodes, es, pid, pr.GetSize(), pba, authorization)
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
@@ -254,10 +258,13 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pr, nodes, err := s.pdb.Get(ctx, path)
+	response, err := s.satellite.GetInfo(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	pr := response.GetPointer()
+	nodes := response.GetNodes()
 
 	if pr.GetType() == pb.Pointer_REMOTE {
 		seg := pr.GetRemote()
@@ -271,7 +278,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 			}
 		}
 
-		authorization := s.pdb.SignedMessage()
+		authorization := response.GetAuthorization()
 		// ecclient sends delete request
 		err = s.ec.Delete(ctx, nodes, pid, authorization)
 		if err != nil {
@@ -280,7 +287,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 	}
 
 	// deletes pointer from pointerdb
-	return s.pdb.Delete(ctx, path)
+	return s.satellite.DeleteMeta(ctx, path)
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
@@ -288,10 +295,12 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	defer mon.Task()(&ctx)(&err)
 
 	//Read the segment's pointer's info from the PointerDB
-	pr, originalNodes, err := s.pdb.Get(ctx, path)
+	response, err := s.satellite.GetInfo(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	pr := response.GetPointer()
+	originalNodes := response.GetNodes()
 
 	if pr.GetType() != pb.Pointer_REMOTE {
 		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
@@ -373,8 +382,8 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return Error.Wrap(err)
 	}
 
-	signedMessage := s.pdb.SignedMessage()
-	pba := s.pdb.PayerBandwidthAllocation()
+	signedMessage := response.GetAuthorization()
+	pba := response.GetPba()
 
 	// download the segment using the nodes just with healthy nodes
 	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSize(), pba, signedMessage)
@@ -412,7 +421,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	// update the segment info in the pointerDB
-	return s.pdb.Put(ctx, path, pointer)
+	return s.satellite.PutMeta(ctx, path, pointer)
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
@@ -440,7 +449,7 @@ func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (
 func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pdbItems, more, err := s.pdb.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
+	pdbItems, more, err := s.satellite.List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
