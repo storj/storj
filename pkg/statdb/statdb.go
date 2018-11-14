@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -313,15 +312,14 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
 	APIKeyBytes := createIfReq.APIKey
-	NoRows := errs.Class("no rows in result set")
 
 	getReq := &pb.GetRequest{
 		NodeId: createIfReq.Node.NodeId,
 		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)
-	if err != nil && NoRows.Has(err) {
-		// TODO: figure out how to confirm error is type dbx.ErrorCode_NoRows
+	// TODO: figure out better way to confirm error is type dbx.ErrorCode_NoRows
+	if err != nil && strings.Contains(err.Error(), "no rows in result set") {
 		createReq := &pb.CreateRequest{
 			Node:   createIfReq.Node,
 			APIKey: APIKeyBytes,
