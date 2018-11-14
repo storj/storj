@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package accounting
+package tally
 
 import (
 	"context"
@@ -15,12 +15,12 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
-// Config contains configurable values accounting
+// Config contains configurable values for tally
 type Config struct {
-	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	Interval time.Duration `help:"how frequently tally should run" default:"30s"`
 }
 
-// Initialize a Accounting tally struct
+// Initialize a tally struct
 func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
