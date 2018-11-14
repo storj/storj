@@ -28,8 +28,7 @@ func (sdb *MockStatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 }
 
 // CreateWithStats is used for creating a new entry in the stats db with a specific reputation
-func (sdb *MockStatDB) CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
-	uptimeCount, uptimeSuccessCount int64) (err error) {
+func (sdb *MockStatDB) CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return nil
@@ -48,8 +47,7 @@ func (sdb *MockStatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeSt
 }
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
-func (sdb *MockStatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-	minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error) {
+func (sdb *MockStatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minStats *pb.NodeStats) (passedIDs [][]byte, err error) {
 	return nil, nil
 }
 

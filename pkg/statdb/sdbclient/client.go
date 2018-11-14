@@ -26,13 +26,11 @@ type StatDB struct {
 // Client services offerred for the interface
 type Client interface {
 	Create(ctx context.Context, nodeID []byte) error
-	CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
-		uptimeCount, uptimeSuccessCount int64) error
+	CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
-	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-		minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error)
+	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minStats *pb.NodeStats) (passedIDs [][]byte, err error)
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
-		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
+		updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error)
 	UpdateUptime(ctx context.Context, nodeID []byte, isUp bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
 	CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error)
@@ -72,22 +70,16 @@ func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 }
 
 // CreateWithStats is used for creating a new entry in the stats db with a specific reputation
-func (sdb *StatDB) CreateWithStats(ctx context.Context, nodeID []byte, auditCount, auditSuccessCount,
-	uptimeCount, uptimeSuccessCount int64) (err error) {
+// stats must have AuditCount, AuditSuccessCount, UptimeCount, UptimeSuccessCount
+func (sdb *StatDB) CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node := pb.Node{
+	node := &pb.Node{
 		NodeId: nodeID,
 	}
-	stats := pb.NodeStats{
-		AuditCount:         auditCount,
-		AuditSuccessCount:  auditSuccessCount,
-		UptimeCount:        uptimeCount,
-		UptimeSuccessCount: uptimeSuccessCount,
-	}
 	createReq := &pb.CreateRequest{
-		Node:   &node,
-		Stats:  &stats,
+		Node:   node,
+		Stats:  stats,
 		APIKey: sdb.APIKey,
 	}
 	_, err = sdb.client.Create(ctx, createReq)
@@ -112,18 +104,15 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 }
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
-func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-	minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error) {
+// minStats must have AuditSuccessRatio, UptimeRatio, AuditCount
+func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte,
+	minStats *pb.NodeStats) (passedIDs [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	findValidNodesReq := &pb.FindValidNodesRequest{
-		NodeIds: nodeIDs,
-		MinStats: &pb.NodeStats{
-			AuditSuccessRatio: minAuditSuccess,
-			UptimeRatio:       minUptime,
-			AuditCount:        minAuditCount,
-		},
-		APIKey: sdb.APIKey,
+		NodeIds:  nodeIDs,
+		MinStats: minStats,
+		APIKey:   sdb.APIKey,
 	}
 
 	res, err := sdb.client.FindValidNodes(ctx, findValidNodesReq)
