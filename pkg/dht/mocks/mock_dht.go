@@ -13,6 +13,7 @@ import (
 
 	dht "storj.io/storj/pkg/dht"
 	pb "storj.io/storj/pkg/pb"
+	"storj.io/storj/storage"
 )
 
 // MockDHT is a mock of DHT interface
@@ -223,6 +224,10 @@ func (m *MockRoutingTable) GetBuckets() ([]dht.Bucket, error) {
 	ret0, _ := ret[0].([]dht.Bucket)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
+}
+
+func (m *MockRoutingTable) GetBucketIds() (storage.Keys, error) {
+	return nil, nil
 }
 
 // GetBuckets indicates an expected call of GetBuckets
