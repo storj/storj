@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pointerdb/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
@@ -35,8 +36,8 @@ func NewServer(driver, source string, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(db.Schema())
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	err = migrate.Create("statdb", db)
+	if err != nil {
 		return nil, err
 	}
 

@@ -18,10 +18,11 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	psserver "storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/satellite/satelliteweb"
 	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 )
@@ -40,6 +41,7 @@ type Satellite struct {
 	Repairer  repairer.Config
 	Audit     audit.Config
 	StatDB    statdb.Config
+  Web         satelliteweb.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -91,6 +93,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
 			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
 		}
+
+		if runCfg.Satellite.Web.SatelliteAddr == "" {
+			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
+		}
+
+		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
@@ -101,6 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			// TODO(coyle): re-enable the checker after we determine why it is panicing
 			// runCfg.Satellite.Checker,
 			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.Web,
 		)
 	}()
 

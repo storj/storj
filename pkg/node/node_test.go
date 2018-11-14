@@ -42,9 +42,9 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		v.to = pb.Node{Id: NewNodeID(t), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
-
 		id := newTestIdentity(t)
+		v.to = pb.Node{Id: id.ID.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
+
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
 		assert.NoError(t, err)
 
@@ -142,15 +142,6 @@ func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.
 func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
 	mn.pingCalled++
 	return &pb.PingResponse{}, nil
-}
-
-// NewNodeID returns the string representation of a dht node ID
-func NewNodeID(t *testing.T) string {
-	fid, err := NewFullIdentity(ctx, 12, 4)
-	id := ID(fid.ID)
-	assert.NoError(t, err)
-
-	return id.String()
 }
 
 func newTestIdentity(t *testing.T) *provider.FullIdentity {

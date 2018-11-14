@@ -13,9 +13,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
+
 	"go.uber.org/zap"
 
-	// "storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
@@ -61,6 +61,7 @@ var (
 		// RepairChecker checker.Config
 		// Repairer      repairer.Config
 		// Audit audit.Config
+		BwAgreement bwagreement.Config
 	}
 	setupCfg struct {
 		BasePath  string `default:"$CONFDIR" help:"base path for setup"`
@@ -94,6 +95,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.Overlay,
 		runCfg.StatDB,
 		// runCfg.Audit,
+		runCfg.BwAgreement,
 	)
 }
 
@@ -145,13 +147,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// open the psql db
 	dbpath := diagCfg.BasePath
-	s, err := bwagreement.NewServer("postgres", dbpath, zap.NewNop())
+	dbm, err := bwagreement.NewDBManager("postgres", dbpath, zap.NewNop())
 	if err != nil {
-		fmt.Println("Storagenode database couldnt open:", dbpath)
 		return err
 	}
+
 	//get all bandwidth aggrements rows already ordered
-	baRows, err := s.GetBandwidthAllocations(context.Background())
+	baRows, err := dbm.GetBandwidthAllocations(context.Background())
 	if err != nil {
 		fmt.Printf("error reading satellite database %v: %v\n", dbpath, err)
 		return err

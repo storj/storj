@@ -91,12 +91,12 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Meta(ctx, test.path)
+		meta, err := streamStore.Meta(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,7 +168,7 @@ func TestStreamStorePut(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Put(ctx, test.path, test.data, test.metadata, test.expiration)
+		meta, err := streamStore.Put(ctx, test.path, storj.AESGCM, test.data, test.metadata, test.expiration)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -268,7 +268,7 @@ func TestStreamStoreGet(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		ranger, meta, err := streamStore.Get(ctx, test.path)
+		ranger, meta, err := streamStore.Get(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,7 +317,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = streamStore.Delete(ctx, test.path)
+		err = streamStore.Delete(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -361,7 +361,7 @@ func TestStreamStoreList(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, test.recursive, test.limit, test.metaFlags)
+		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.AESGCM, test.recursive, test.limit, test.metaFlags)
 		if err != nil {
 			t.Fatal(err)
 		}

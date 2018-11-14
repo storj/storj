@@ -60,42 +60,44 @@
 						@setData="setCompanyName"
 						isOptional>
 					</HeaderedInput>
-					<transition name="fade">
-						<div id="optionalArena" v-bind:class="[optionalAreaShown ? optionalAreaActive : optionalArea]">
-							<HeaderedInput 
-								label="Company Address" 
-								placeholder ="Enter Company Address" 
-								isOptional 
-								isMultiline 
-								@setData="setCompanyAddress"
-								height="100px">
-							</HeaderedInput>
-							<HeaderedInput 
-								label="Country" 
-								placeholder ="Enter Country"
-								@setData="setCountry" 
-								isOptional>
-							</HeaderedInput>
-							<HeaderedInput 
-								label="City" 
-								placeholder ="Enter City" 
-								@setData="setCity"
-								isOptional >
-							</HeaderedInput>
-							<HeaderedInput 
-								label="State" 
-								placeholder ="Enter State"
-								@setData="setState" 
-								isOptional>
-							</HeaderedInput>
-							<HeaderedInput 
-								label="Postal Code" 
-								placeholder ="Enter Postal Code" 
-								@setData="setPostalCode"
-								isOptional>
-							</HeaderedInput>
-						</div>
-					</transition>
+					<!-- start of optional area -->
+						<transition name="fade">
+							<div id="optionalArena" v-bind:class="[optionalAreaShown ? optionalAreaActive : optionalArea]">
+								<HeaderedInput 
+									label="Company Address" 
+									placeholder ="Enter Company Address" 
+									isOptional 
+									isMultiline 
+									@setData="setCompanyAddress"
+									height="100px">
+								</HeaderedInput>
+								<HeaderedInput 
+									label="Country" 
+									placeholder ="Enter Country"
+									@setData="setCountry" 
+									isOptional>
+								</HeaderedInput>
+								<HeaderedInput 
+									label="City" 
+									placeholder ="Enter City" 
+									@setData="setCity"
+									isOptional >
+								</HeaderedInput>
+								<HeaderedInput 
+									label="State" 
+									placeholder ="Enter State"
+									@setData="setState" 
+									isOptional>
+								</HeaderedInput>
+								<HeaderedInput 
+									label="Postal Code" 
+									placeholder ="Enter Postal Code" 
+									@setData="setPostalCode"
+									isOptional>
+								</HeaderedInput>
+							</div>
+						</transition>
+					<!-- end of optional area -->
 					<div class="termsArea">
 						<Checkbox class="checkBox" @setData="setTermsAccepted"/>
 						<h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
@@ -112,9 +114,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/HeaderedInput.vue';
-import Checkbox from '@/components/Checkbox.vue';
-import Button from '@/components/Button.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import Button from '@/components/common/Button.vue';
 import { validateEmail } from "@/utils/validation"
 
 @Component (
@@ -233,7 +235,7 @@ export default class Register extends Vue {}
 </script>
 
 
-<style lang="scss">
+<style scoped lang="scss">
 	body {
 		padding: 0 !important;
 		margin: 0 !important;
@@ -274,13 +276,17 @@ export default class Register extends Vue {}
 		align-self: center;
 		width: 68%;
 		margin-top: 70px;
+		margin-bottom: 32px;
 		h1 {
+			color: #384B65;
 			margin-left: 24px;
 			font-family: 'montserrat_bold'
 		}
 	}
 	.formArea {
+		margin-top: 50px;
 		align-self: center;
+		width: 35vw;
 	}
 	.companyArea {
 		display: flex;
