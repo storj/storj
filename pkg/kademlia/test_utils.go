@@ -57,6 +57,6 @@ func (k *MockKademlia) Disconnect() error {
 }
 
 //SetNotify __
-func (k *MockKademlia) SetNotify(*func(*pb.Node) error) {
-	return
+func (k *MockKademlia) SetNotify(func(*pb.Node) error) {
+
 }
