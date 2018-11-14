@@ -21,18 +21,14 @@ var (
 )
 
 // todo(moby) test create with and without stats
-func TestCreateExists(t *testing.T) {
+func TestCreateDoesNotExist(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
 	nodeID := []byte("testnodeid")
-	node := &pb.Node{
-		NodeId:             nodeID,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
-	}
+	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateRequest{
 		Node:   node,
 		APIKey: apiKey,
@@ -51,7 +47,7 @@ func TestCreateExists(t *testing.T) {
 	assert.EqualValues(t, 0, nodeInfo.UptimeRatio)
 }
 
-func TestCreateDuplicate(t *testing.T) {
+func TestCreateExists(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
 	assert.NoError(t, err)
@@ -65,17 +61,47 @@ func TestCreateDuplicate(t *testing.T) {
 		uptimeSuccessCount, totalUptimeCount, uptimeRatio)
 	assert.NoError(t, err)
 
-	node := &pb.Node{
-		NodeId:             nodeID,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
-	}
+	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateRequest{
 		Node:   node,
 		APIKey: apiKey,
 	}
 	_, err = statdb.Create(ctx, createReq)
 	assert.Error(t, err)
+}
+func TestCreateWithStats(t *testing.T) {
+	dbPath := getDBPath()
+	statdb, db, err := getServerAndDB(dbPath)
+	assert.NoError(t, err)
+
+	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio := getRatio(8, 25)
+	apiKey := []byte("")
+	nodeID := []byte("testnodeid")
+	node := &pb.Node{NodeId: nodeID}
+	stats := &pb.NodeStats{
+		AuditCount:         totalAuditCount,
+		AuditSuccessCount:  auditSuccessCount,
+		UptimeCount:        totalUptimeCount,
+		UptimeSuccessCount: uptimeSuccessCount,
+	}
+	createReq := &pb.CreateRequest{
+		Node:   node,
+		Stats:  stats,
+		APIKey: apiKey,
+	}
+	resp, err := statdb.Create(ctx, createReq)
+	assert.NoError(t, err)
+	s := resp.Stats
+	assert.EqualValues(t, auditRatio, s.AuditSuccessRatio)
+	assert.EqualValues(t, uptimeRatio, s.UptimeRatio)
+
+	nodeInfo, err := db.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID))
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, nodeID, nodeInfo.Id, nodeID)
+	assert.EqualValues(t, auditRatio, nodeInfo.AuditSuccessRatio)
+	assert.EqualValues(t, uptimeRatio, nodeInfo.UptimeRatio)
 }
 
 func TestGetExists(t *testing.T) {
