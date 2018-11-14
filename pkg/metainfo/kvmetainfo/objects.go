@@ -113,7 +113,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
 	}
 
-	items, more, err := db.objects.List(ctx, bucket+"/"+options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
+	items, more, err := objects.List(ctx, options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}
