@@ -3,7 +3,5 @@
 
 package bwagreement
 
-//go:generate dbx.v1 golang -d postgres bwagreement.dbx .
-//go:generate dbx.v1 schema -d postgres bwagreement.dbx .
-//go:generate dbx.v1 golang -d sqlite3 bwagreement.dbx .
-//go:generate dbx.v1 schema -d sqlite3 bwagreement.dbx .
+//go:generate dbx.v1 golang -d postgres -d sqlite3  bwagreement.dbx .
+//go:generate dbx.v1 schema -d postgres -d sqlite3  bwagreement.dbx .
