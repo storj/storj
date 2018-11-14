@@ -114,12 +114,7 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
-	r, err := randomID()
-	if err != nil {
-		return err
-	}
-	rid := node.ID(r)
-	nodes, err := o.DHT.GetNodes(ctx, rid.String(), 1280)
+	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
 		return OverlayError.New("Error getting nodes from DHT: %v", err)
 	}
