@@ -41,7 +41,7 @@ type Satellite struct {
 	Repairer  repairer.Config
 	Audit     audit.Config
 	StatDB    statdb.Config
-  Web         satelliteweb.Config
+	Web       satelliteweb.Config
 }
 
 // StorageNode is for configuring storage nodes

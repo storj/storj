@@ -49,7 +49,6 @@ type Kademlia struct {
 	bootstrapNodes []pb.Node
 	address        string
 	nodeClient     node.Client
-	nodeServer     node.Server
 	identity       *provider.FullIdentity
 	notify         func(*pb.Node) error
 }
