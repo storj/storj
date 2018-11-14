@@ -41,12 +41,7 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		RequestString: query,
 	})
 
-	if result.HasErrors() {
-		err = json.NewEncoder(w).Encode(result.Errors)
-	} else {
-		err = json.NewEncoder(w).Encode(result)
-	}
-
+	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
 		gw.logger.Error(err)
 		return

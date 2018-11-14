@@ -33,7 +33,7 @@ func (gw *gateway) run() {
 	}
 
 	err := http.ListenAndServe(gw.config.Address, mux)
-	gw.logger.Errorf("Unexpected exit of satellite gateway server: ", err)
+	gw.logger.Errorf("unexpected exit of satellite gateway server: ", err)
 }
 
 func (gw *gateway) appHandler(w http.ResponseWriter, req *http.Request) {
