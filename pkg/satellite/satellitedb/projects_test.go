@@ -15,7 +15,6 @@ import (
 )
 
 func TestProjectsRepository(t *testing.T) {
-
 	//testing constants
 	const (
 		// for user
@@ -25,11 +24,11 @@ func TestProjectsRepository(t *testing.T) {
 		userName = "name"
 
 		// for project
-		name        = "Storj"
+		name        = "Project"
 		description = "some description"
 
 		// updated project values
-		newName        = "Dropbox"
+		newName        = "NewProject"
 		newDescription = "some new description"
 	)
 
@@ -54,26 +53,25 @@ func TestProjectsRepository(t *testing.T) {
 	users := db.Users()
 	projects := db.Projects()
 
-	var user *satellite.User
+	var owner *satellite.User
 
-	t.Run("Can't insert project without user", func(t *testing.T) {
-
+	t.Run("Can insert project without owner", func(t *testing.T) {
 		project := &satellite.Project{
+			OwnerID:           nil,
 			Name:              name,
 			Description:       description,
 			IsAgreedWithTerms: false,
 		}
 
-		createdCompany, err := projects.Insert(ctx, project)
+		createdProject, err := projects.Insert(ctx, project)
 
-		assert.Nil(t, createdCompany)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
+		assert.NotNil(t, createdProject)
+		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Insert project successfully", func(t *testing.T) {
-
-		user, err = users.Insert(ctx, &satellite.User{
+		owner, err = users.Insert(ctx, &satellite.User{
 			FirstName:    userName,
 			LastName:     lastName,
 			Email:        email,
@@ -81,10 +79,10 @@ func TestProjectsRepository(t *testing.T) {
 		})
 
 		assert.NoError(t, err)
-		assert.NotNil(t, user)
+		assert.NotNil(t, owner)
 
 		project := &satellite.Project{
-			UserID: user.ID,
+			OwnerID: &owner.ID,
 
 			Name:              name,
 			Description:       description,
@@ -99,38 +97,40 @@ func TestProjectsRepository(t *testing.T) {
 	})
 
 	t.Run("Get project success", func(t *testing.T) {
-		projectByUserID, err := projects.GetByUserID(ctx, user.ID)
+		projectsByOwnerID, err := projects.GetByOwnerID(ctx, owner.ID)
+
+		assert.Nil(t, err)
+		assert.NoError(t, err)
+		assert.Equal(t, len(projectsByOwnerID), 1)
+
+		assert.Equal(t, projectsByOwnerID[0].OwnerID, &owner.ID)
+		assert.Equal(t, projectsByOwnerID[0].Name, name)
+		assert.Equal(t, projectsByOwnerID[0].Description, description)
+		assert.Equal(t, projectsByOwnerID[0].IsAgreedWithTerms, false)
+
+		projectByID, err := projects.Get(ctx, projectsByOwnerID[0].ID)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		assert.Equal(t, projectByUserID.UserID, user.ID)
-		assert.Equal(t, projectByUserID.Name, name)
-		assert.Equal(t, projectByUserID.Description, description)
-		assert.Equal(t, projectByUserID.IsAgreedWithTerms, false)
-
-		projectByID, err := projects.Get(ctx, projectByUserID.ID)
-
-		assert.Nil(t, err)
-		assert.NoError(t, err)
-
-		assert.Equal(t, projectByID.ID, projectByUserID.ID)
-		assert.Equal(t, projectByID.UserID, user.ID)
+		assert.Equal(t, projectByID.ID, projectsByOwnerID[0].ID)
+		assert.Equal(t, projectByID.OwnerID, &owner.ID)
 		assert.Equal(t, projectByID.Name, name)
 		assert.Equal(t, projectByID.Description, description)
 		assert.Equal(t, projectByID.IsAgreedWithTerms, false)
 	})
 
 	t.Run("Update project success", func(t *testing.T) {
-		oldProject, err := projects.GetByUserID(ctx, user.ID)
+		oldProjects, err := projects.GetByOwnerID(ctx, owner.ID)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, oldProject)
+		assert.NotNil(t, oldProjects)
+		assert.Equal(t, len(oldProjects), 1)
 
-		// creating new company with updated values
+		// creating new project with updated values
 		newProject := &satellite.Project{
-			ID:                oldProject.ID,
-			UserID:            user.ID,
+			ID:                oldProjects[0].ID,
+			OwnerID:           &owner.ID,
 			Name:              newName,
 			Description:       newDescription,
 			IsAgreedWithTerms: true,
@@ -142,29 +142,29 @@ func TestProjectsRepository(t *testing.T) {
 		assert.NoError(t, err)
 
 		// fetching updated project from db
-		newProject, err = projects.Get(ctx, oldProject.ID)
+		newProject, err = projects.Get(ctx, oldProjects[0].ID)
 
 		assert.NoError(t, err)
 
-		assert.Equal(t, newProject.ID, oldProject.ID)
-		assert.Equal(t, newProject.UserID, user.ID)
+		assert.Equal(t, newProject.ID, oldProjects[0].ID)
+		assert.Equal(t, newProject.OwnerID, &owner.ID)
 		assert.Equal(t, newProject.Name, newName)
 		assert.Equal(t, newProject.Description, newDescription)
 		assert.Equal(t, newProject.IsAgreedWithTerms, true)
 	})
 
 	t.Run("Delete project success", func(t *testing.T) {
-		oldProject, err := projects.GetByUserID(ctx, user.ID)
+		oldProjects, err := projects.GetByOwnerID(ctx, owner.ID)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, oldProject)
+		assert.NotNil(t, oldProjects)
 
-		err = projects.Delete(ctx, oldProject.ID)
+		err = projects.Delete(ctx, oldProjects[0].ID)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		_, err = projects.Get(ctx, oldProject.ID)
+		_, err = projects.Get(ctx, oldProjects[0].ID)
 
 		assert.NotNil(t, err)
 		assert.Error(t, err)
@@ -175,10 +175,10 @@ func TestProjectsRepository(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.Equal(t, len(allProjects), 0)
+		assert.Equal(t, len(allProjects), 1)
 
 		newProject := &satellite.Project{
-			UserID:            user.ID,
+			OwnerID:           &owner.ID,
 			Description:       description,
 			Name:              name,
 			IsAgreedWithTerms: true,
@@ -193,10 +193,10 @@ func TestProjectsRepository(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.Equal(t, len(allProjects), 1)
+		assert.Equal(t, len(allProjects), 2)
 
 		newProject2 := &satellite.Project{
-			UserID:            user.ID,
+			OwnerID:           &owner.ID,
 			Description:       description,
 			Name:              name,
 			IsAgreedWithTerms: true,
@@ -211,16 +211,15 @@ func TestProjectsRepository(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
-		assert.Equal(t, len(allProjects), 2)
+		assert.Equal(t, len(allProjects), 3)
 	})
 }
 
 func TestProjectFromDbx(t *testing.T) {
-
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		user, err := projectFromDBX(nil)
+		project, err := projectFromDBX(nil)
 
-		assert.Nil(t, user)
+		assert.Nil(t, project)
 		assert.NotNil(t, err)
 		assert.Error(t, err)
 	})
@@ -237,15 +236,14 @@ func TestProjectFromDbx(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("can't create dbo from dbx model with invalid UserID", func(t *testing.T) {
-
+	t.Run("can't create dbo from dbx model with invalid OwnerID", func(t *testing.T) {
 		projectID, err := uuid.New()
 		assert.NoError(t, err)
 		assert.Nil(t, err)
 
 		dbxProject := dbx.Project{
-			Id:     projectID[:],
-			UserId: []byte("qweqwe"),
+			Id:      projectID[:],
+			OwnerId: []byte("qweqwe"),
 		}
 
 		project, err := projectFromDBX(&dbxProject)
