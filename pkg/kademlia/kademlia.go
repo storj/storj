@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -207,8 +206,8 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
-	// TODO(coyle)
-	return pb.Node{}, NodeErr.New("TODO FindNode")
+	//TODO(coyle)
+	return pb.Node{Id: ID.String()}, NodeErr.New("TODO FindNode")
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
