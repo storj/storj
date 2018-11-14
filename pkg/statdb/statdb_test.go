@@ -20,7 +20,6 @@ var (
 	ctx = context.Background()
 )
 
-// todo(moby) test create with and without stats
 func TestCreateDoesNotExist(t *testing.T) {
 	dbPath := getDBPath()
 	statdb, db, err := getServerAndDB(dbPath)
@@ -361,7 +360,6 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 	assert.NoError(t, err)
 
 	node1 := &pb.Node{NodeId: nodeID1}
-
 	createIfNotExistsReq1 := &pb.CreateEntryIfNotExistsRequest{
 		Node:   node1,
 		APIKey: apiKey,
@@ -376,7 +374,6 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 	assert.EqualValues(t, uptimeRatio1, nodeInfo1.UptimeRatio)
 
 	node2 := &pb.Node{NodeId: nodeID2}
-
 	createIfNotExistsReq2 := &pb.CreateEntryIfNotExistsRequest{
 		Node:   node2,
 		APIKey: apiKey,
