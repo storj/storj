@@ -114,7 +114,7 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 	defer mon.Task()(&ctx)(&err)
 	defer s.dbm.locked()()
 
-	reply = &pb.AgreementsSummary {
+	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_FAIL,
 	}
 

@@ -53,9 +53,9 @@ var (
 	}
 
 	runCfg struct {
-		Identity  provider.IdentityConfig
-		Kademlia  kademlia.Config
-		PointerDB pointerdb.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
 		Overlay     overlay.Config
 		MockOverlay mockOverlay.Config
 		StatDB      statdb.Config

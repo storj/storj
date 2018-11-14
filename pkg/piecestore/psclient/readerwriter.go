@@ -123,9 +123,9 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 			prikey, ok := sr.client.prikey.(*ecdsa.PrivateKey)
 			if !ok {
 				sr.pendingAllocs.Fail(errs.New("Invalid Private Key. Can't create RenterBandwidthAllocation"))
-				return 
+				return
 			}
-		
+
 			pubbytes, err := x509.MarshalPKIXPublicKey(&prikey.PublicKey)
 			if err != nil {
 				sr.pendingAllocs.Fail(errs.New("Can't Marshal Public Key for RenterBandwidthAllocation: %+v", err))
@@ -136,7 +136,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.nodeID.Bytes(),
-				PubKey: pubbytes,
+				PubKey:          pubbytes,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
