@@ -31,13 +31,14 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(bs buckets.Store) *Storj {
-	return &Storj{bs: bs, multipart: NewMultipartUploads()}
+func NewStorjGateway(bs buckets.Store, pathCipher storj.Cipher) *Storj {
+	return &Storj{bs: bs, pathCipher: pathCipher, multipart: NewMultipartUploads()}
 }
 
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
 	bs        buckets.Store
+	pathCipher storj.Cipher
 	multipart *MultipartUploads
 }
 
@@ -326,8 +327,7 @@ func (s *storjObjects) ListObjectsV2(ctx context.Context, bucket, prefix, contin
 	return result, err
 }
 
-func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
-	bucket string, location string) (err error) {
+func (s *storjObjects) MakeBucketWithLocation(ctx context.Context, bucket string, location string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: This current strategy of calling bs.Get
 	// to check if a bucket exists, then calling bs.Put
@@ -343,7 +343,7 @@ func (s *storjObjects) MakeBucketWithLocation(ctx context.Context,
 	if !storage.ErrKeyNotFound.Has(err) {
 		return err
 	}
-	_, err = s.storj.bs.Put(ctx, bucket)
+	_, err = s.storj.bs.Put(ctx, bucket, s.storj.pathCipher)
 	return err
 }
 

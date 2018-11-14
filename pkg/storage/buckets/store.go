@@ -12,6 +12,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/streams"
@@ -24,7 +25,7 @@ var mon = monkit.Package()
 // Store creates an interface for interacting with buckets
 type Store interface {
 	Get(ctx context.Context, bucket string) (meta Meta, err error)
-	Put(ctx context.Context, bucket string) (meta Meta, err error)
+	Put(ctx context.Context, bucket string, pathCipher storj.Cipher) (meta Meta, err error)
 	Delete(ctx context.Context, bucket string) (err error)
 	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
 	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
@@ -38,9 +39,8 @@ type ListItem struct {
 
 // BucketStore contains objects store
 type BucketStore struct {
-	store      objects.Store
-	stream     streams.Store
-	pathCipher storj.Cipher
+	store  objects.Store
+	stream streams.Store
 }
 
 // Meta is the bucket metadata struct
@@ -50,10 +50,10 @@ type Meta struct {
 }
 
 // NewStore instantiates BucketStore
-func NewStore(stream streams.Store, pathCipher storj.Cipher) Store {
+func NewStore(stream streams.Store) Store {
 	// root object store for storing the buckets with unencrypted names
 	store := objects.NewStore(stream, storj.Unencrypted)
-	return &BucketStore{store: store, stream: stream, pathCipher: pathCipher}
+	return &BucketStore{store: store, stream: stream}
 }
 
 // GetObjectStore returns an implementation of objects.Store
@@ -92,16 +92,20 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 }
 
 // Put calls objects store Put
-func (b *BucketStore) Put(ctx context.Context, bucket string) (meta Meta, err error) {
+func (b *BucketStore) Put(ctx context.Context, bucket string, pathCipher storj.Cipher) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if bucket == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
+	if pathCipher < storj.Unencrypted || pathCipher > storj.SecretBox {
+		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
+	}
+
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
-		"path-enc-type": strconv.Itoa(int(b.pathCipher)),
+		"path-enc-type": strconv.Itoa(int(pathCipher)),
 	}
 	var exp time.Time
 	m, err := b.store.Put(ctx, bucket, r, objects.SerializableMeta{UserDefined: userMeta}, exp)

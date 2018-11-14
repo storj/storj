@@ -14,8 +14,9 @@ var ErrNoBucket = errs.Class("no bucket specified")
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
-	Name    string
-	Created time.Time
+	Name       string
+	Created    time.Time
+	PathCipher Cipher
 }
 
 // Object contains information about a specific object
