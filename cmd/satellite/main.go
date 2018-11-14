@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"go.uber.org/zap"
 
@@ -70,11 +72,10 @@ var (
 		Overwrite bool `default:"false" help:"whether to overwrite pre-existing configuration files"`
 	}
 	diagCfg struct {
-		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 	}
 
 	defaultConfDir = "$HOME/.storj/satellite"
-	defaultDiagDir = "postgres://postgres@localhost/pointerdb?sslmode=disable"
 )
 
 func init() {
@@ -83,7 +84,7 @@ func init() {
 	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -150,8 +151,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	// open the psql db
-	dbpath := diagCfg.BasePath
-	dbm, err := bwagreement.NewDBManager("postgres", dbpath, zap.NewNop())
+	u, err := url.Parse(diagCfg.DatabaseURL)
+	if err != nil {
+		return errs.New("Invalid Database URL: %+v", err)
+	}
+
+	dbm, err := bwagreement.NewDBManager(u.Scheme, u.Path, zap.NewNop())
 	if err != nil {
 		return err
 	}
@@ -159,7 +164,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	//get all bandwidth aggrements rows already ordered
 	baRows, err := dbm.GetBandwidthAllocations(context.Background())
 	if err != nil {
-		fmt.Printf("error reading satellite database %v: %v\n", dbpath, err)
+		fmt.Printf("error reading satellite database %v: %v\n", u.Path, err)
 		return err
 	}
 
