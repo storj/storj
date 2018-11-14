@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +21,9 @@ import (
 )
 
 var (
-	mon = monkit.Package()
+	mon             = monkit.Package()
+	errAuditSuccess = errs.Class("statdb audit success error")
+	errUptime       = errs.Class("statdb uptime error")
 )
 
 // Server implements the statdb RPC service
@@ -78,18 +81,16 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	if stats != nil {
 		totalAuditCount = stats.AuditCount
 		auditSuccessCount = stats.AuditSuccessCount
-		auditSuccessRatio = float64(auditSuccessCount) / float64(totalAuditCount)
+		auditSuccessRatio, err = checkRatioVars(auditSuccessCount, totalAuditCount)
+		if err != nil {
+			return nil, errAuditSuccess.Wrap(err)
+		}
 
 		totalUptimeCount = stats.UptimeCount
 		uptimeSuccessCount = stats.UptimeSuccessCount
-		uptimeRatio = float64(uptimeSuccessCount) / float64(totalUptimeCount)
-
-		// TODO(moby) more specific errors that do not clutter this function
-		if auditSuccessRatio > 1 || auditSuccessRatio < 0 ||
-			uptimeRatio > 1 || uptimeRatio < 0 ||
-			totalAuditCount < 0 || auditSuccessCount < 0 ||
-			totalUptimeCount < 0 || uptimeSuccessCount < 0 {
-			return nil, Error.New("Invalid node stats")
+		uptimeRatio, err = checkRatioVars(uptimeSuccessCount, totalUptimeCount)
+		if err != nil {
+			return nil, errUptime.Wrap(err)
 		}
 	}
 
@@ -349,4 +350,19 @@ func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int
 	}
 	newRatio := float64(successCount) / float64(totalCount)
 	return successCount, totalCount, newRatio
+}
+
+func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
+	if successCount < 0 {
+		return 0, errs.New("success count less than 0")
+	}
+	if totalCount < 0 {
+		return 0, errs.New("total count less than 0")
+	}
+	if successCount > totalCount {
+		return 0, errs.New("success count greater than total count")
+	}
+
+	ratio = float64(successCount) / float64(totalCount)
+	return ratio, nil
 }
