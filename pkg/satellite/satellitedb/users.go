@@ -6,11 +6,10 @@ package satellitedb
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/satellite"
-
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
 )
 
