@@ -113,8 +113,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		)
 	}()
 
-	var storagenodes []string
-
 	// start the storagenodes
 	for i := 0; i < len(runCfg.StorageNodes); i++ {
 		identity, err := runCfg.StorageNodes[i].Identity.Load()
@@ -123,7 +121,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		address := runCfg.StorageNodes[i].Identity.Address
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
-		storagenodes = append(storagenodes, storagenode)
 		go func(i int, storagenode string) {
 			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
 				i, storagenode,
