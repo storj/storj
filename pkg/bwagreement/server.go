@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/x509"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -19,7 +20,6 @@ import (
 	dbx "storj.io/storj/pkg/bwagreement/dbx"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
-	"storj.io/storj/pkg/provider"
 )
 
 // OK - Success!
@@ -114,6 +114,10 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 	defer mon.Task()(&ctx)(&err)
 	defer s.dbm.locked()()
 
+	reply = &pb.AgreementsSummary {
+		Status: pb.AgreementsSummary_FAIL,
+	}
+
 	if err = s.verifySignature(ctx, agreement); err != nil {
 		return reply, err
 	}
@@ -131,25 +135,28 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 
 func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllocation) error {
 	// TODO(security): detect replay attacks
-	pi, err := provider.PeerIdentityFromContext(ctx)
+
+	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
+	rbad := &pb.RenterBandwidthAllocation_Data{}
+	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
+		return err
+	}
+
+	// Extract renter's public key from RenterBandwidthAllocation_Data
+	pubkey, err := x509.ParsePKIXPublicKey(rbad.GetPubKey())
 	if err != nil {
 		return err
 	}
 
-	k, ok := pi.Leaf.PublicKey.(*ecdsa.PublicKey)
+	// Typecast public key
+	k, ok := pubkey.(*ecdsa.PublicKey)
 	if !ok {
-		return peertls.ErrUnsupportedKey.New("%T", pi.Leaf.PublicKey)
+		return peertls.ErrUnsupportedKey.New("%T", pubkey)
 	}
 
 	// verify Renter's (uplink) signature
 	if ok := cryptopasta.Verify(ba.GetData(), ba.GetSignature(), k); !ok {
 		return BwAgreementError.New("Failed to verify Renter's Signature")
-	}
-
-	// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
-	pba := &pb.PayerBandwidthAllocation{}
-	if err := proto.Unmarshal(ba.GetData(), pba); err != nil {
-		return err
 	}
 
 	k, ok = s.pkey.(*ecdsa.PublicKey)
@@ -158,7 +165,7 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	}
 
 	// verify Payer's (satellite) signature
-	if ok := cryptopasta.Verify(pba.GetData(), pba.GetSignature(), k); !ok {
+	if ok := cryptopasta.Verify(rbad.GetPayerAllocation().GetData(), rbad.GetPayerAllocation().GetSignature(), k); !ok {
 		return BwAgreementError.New("Failed to verify Payer's Signature")
 	}
 	return nil

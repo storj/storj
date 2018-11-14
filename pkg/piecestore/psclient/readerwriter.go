@@ -4,9 +4,12 @@
 package psclient
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
@@ -24,11 +27,22 @@ type StreamWriter struct {
 
 // Write Piece data to a piece store server upload stream
 func (s *StreamWriter) Write(b []byte) (int, error) {
+	prikey, ok := s.signer.prikey.(*ecdsa.PrivateKey)
+	if !ok {
+		return 0, errs.New("Invalid Private Key. Can't create RenterBandwidthAllocation")
+	}
+
+	pubbytes, err := x509.MarshalPKIXPublicKey(&prikey.PublicKey)
+	if err != nil {
+		return 0, errs.New("Can't Marshal Public Key for RenterBandwidthAllocation: %+v", err)
+	}
+
 	updatedAllocation := s.totalWritten + int64(len(b))
 	allocationData := &pb.RenterBandwidthAllocation_Data{
 		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
 		StorageNodeId:   s.signer.nodeID.Bytes(),
+		PubKey:          pubbytes,
 	}
 
 	serializedAllocation, err := proto.Marshal(allocationData)
@@ -106,10 +120,23 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				allocate = size - sr.allocated
 			}
 
+			prikey, ok := sr.client.prikey.(*ecdsa.PrivateKey)
+			if !ok {
+				sr.pendingAllocs.Fail(errs.New("Invalid Private Key. Can't create RenterBandwidthAllocation"))
+				return 
+			}
+		
+			pubbytes, err := x509.MarshalPKIXPublicKey(&prikey.PublicKey)
+			if err != nil {
+				sr.pendingAllocs.Fail(errs.New("Can't Marshal Public Key for RenterBandwidthAllocation: %+v", err))
+				return
+			}
+
 			allocationData := &pb.RenterBandwidthAllocation_Data{
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.nodeID.Bytes(),
+				PubKey: pubbytes,
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
