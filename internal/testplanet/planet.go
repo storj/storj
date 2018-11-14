@@ -6,6 +6,7 @@ package testplanet
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -28,6 +29,7 @@ import (
 
 // Planet is a full storj system setup.
 type Planet struct {
+	logger    *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
 
 	nodeInfos []pb.Node
@@ -42,8 +44,9 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
+		logger: logger,
 		identities: pregeneratedIdentities.Clone(),
 	}
 
@@ -76,10 +79,10 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	}
 
 	// init Satellites
-	for _, node := range planet.Satellites {
+	for i, node := range planet.Satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
-			zap.NewNop(),
+			logger.Named(fmt.Sprintf("satellite-%d", i)),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
