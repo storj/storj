@@ -54,8 +54,7 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.Di
 		return nil, err
 	}
 
-	dialCtx, _ := context.WithTimeout(ctx, dialTimeout)
-	return grpc.DialContext(dialCtx, node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
+	return grpc.DialContext(dialCtx, node.GetAddress().Address, append([]grpc.DialOption{dialOpt, grpc.WithTimeout(dialTimeout)}, opts...)...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
@@ -68,7 +67,7 @@ func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grp
 	}
 
 	dialCtx, _ := context.WithTimeout(ctx, dialTimeout)
-	return grpc.DialContext(dialCtx, address, append([]grpc.DialOption{dialOpt}, opts...)...)
+	return grpc.DialContext(dialCtx, address, append([]grpc.DialOption{dialOpt, grpc.WithTimeout(dialTimeout)}, opts...)...)
 }
 
 // Identity is a getter for the transport's identity
