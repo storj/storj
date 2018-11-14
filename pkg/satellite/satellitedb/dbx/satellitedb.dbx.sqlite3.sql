@@ -24,7 +24,7 @@ CREATE TABLE companies (
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	is_agreed_with_terms INTEGER NOT NULL,
