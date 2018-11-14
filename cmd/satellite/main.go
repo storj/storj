@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"

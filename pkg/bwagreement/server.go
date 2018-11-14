@@ -34,8 +34,8 @@ type Server struct {
 
 // DBManager is an implementation of the database access interface
 type DBManager struct {
-	DB     *dbx.DB
-	mu     sync.Mutex
+	DB *dbx.DB
+	mu sync.Mutex
 }
 
 // Agreement is a struct that contains a bandwidth agreement and the associated signature
@@ -56,7 +56,7 @@ func NewDBManager(driver, source string) (*DBManager, error) {
 		return nil, err
 	}
 	return &DBManager{
-		DB:     db,
+		DB: db,
 	}, nil
 }
 
@@ -116,7 +116,6 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 	reply = &pb.AgreementsSummary{
 		Status: pb.AgreementsSummary_FAIL,
 	}
-	
 
 	if err = s.verifySignature(ctx, agreement); err != nil {
 		return reply, err
