@@ -1,16 +1,22 @@
 <template>
+<<<<<<< Updated upstream:web/satellite/src/components/common/Button.vue
     <!-- if isDisabled check onPress in parent element -->
     <div 
         v-bind:class="containerClassName" 
         :style="style" 
         v-on:click="onPress"> 
             <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
+=======
+    <div class="buttonContainer" :style="style" v-on:click="onPress">
+        <h1 class="label">{{label}}</h1>
+>>>>>>> Stashed changes:web/satellite/src/components/Button.vue
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// Custom button component with label
 @Component(
     { 
 		props: {
@@ -58,7 +64,7 @@ export default class Button extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .container {
+    .buttonContainer {
         display: flex;
         align-items: center;
         justify-content: center;

@@ -1,5 +1,6 @@
 <template>
     <div class="inputContainer">
+<<<<<<< Updated upstream:web/satellite/src/components/common/HeaderedInput.vue
 		<div v-if="!isOptional" class="labelContainer">
 			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
 			<h3 v-if="!error">{{label}}</h3>
@@ -19,6 +20,31 @@
 			v-model="value" 
 			v-bind:type="[isPassword ? passwordType : textType]"
 			:style="style"/>
+=======
+		<!--2 types of labels depends on isOptional -->
+			<div v-if="!isOptional" class="labelContainer">
+				<img v-if="error" src="../../static/images/register/ErrorInfo.svg"/>
+				<h3 v-if="!error">{{label}}</h3>
+				<h3 class="error" v-if="error">{{error}}</h3>
+			</div>
+			<div v-if="isOptional" class="optionalLabelContainer">
+				<h3>{{label}}</h3>
+				<h4>Optional</h4>
+			</div>
+		<!-- end of labels -->
+		
+		<!--2 types of inputs depends on isMultiline -->
+			<textarea v-if="isMultiline" :id="this.$props.label" :placeholder="this.$props.placeholder" v-model="value" :style="style" :rows="5" :cols="40" wrap="hard"/>
+			<input 
+				v-if="!isMultiline" 
+				@input="onInput" 
+				:id="this.$props.label" 
+				:placeholder="this.$props.placeholder"
+				v-model="value" 
+				v-bind:type="[isPassword ? passwordType : textType]"
+				:style="style"/>
+		<!-- end of inputs -->
+>>>>>>> Stashed changes:web/satellite/src/components/HeaderedInput.vue
     </div>
 </template>
 
@@ -36,6 +62,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 			}
 		},
 		methods: {
+			//emits data to parent component
 			onInput () {
 				this.$emit('setData', this.$data.value)
 			}
@@ -88,7 +115,6 @@ export default class HeaderedInput extends Vue { }
 
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .inputContainer {
 	display: flex;
