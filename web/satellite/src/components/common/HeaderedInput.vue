@@ -36,6 +36,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 			}
 		},
 		methods: {
+			//emits data to parent component
 			onInput () {
 				this.$emit('setData', this.$data.value)
 			}
@@ -88,7 +89,6 @@ export default class HeaderedInput extends Vue { }
 
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
 .inputContainer {
 	display: flex;

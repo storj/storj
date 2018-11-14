@@ -11,6 +11,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// Custom button component with label
 @Component(
     { 
 		props: {
@@ -58,7 +59,7 @@ export default class Button extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .container {
+    .buttonContainer {
         display: flex;
         align-items: center;
         justify-content: center;
