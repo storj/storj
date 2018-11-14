@@ -1,5 +1,5 @@
 import { shallowMount, mount } from '@vue/test-utils';
-import Checkbox from '@/components/Checkbox.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
 
 describe('Checkbox.vue', () => {
 	
