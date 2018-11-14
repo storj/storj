@@ -51,9 +51,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
             }
 		},
 		props: {
-			error: {
-				type: String
-			},
 			placeholder: {
 				type: String,
 				default: "default"
