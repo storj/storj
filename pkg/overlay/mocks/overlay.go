@@ -19,6 +19,13 @@ type Overlay struct {
 	nodes map[string]*pb.Node
 }
 
+// CtxKey used for assigning mock server
+type CtxKey int
+
+const (
+	ctxKeyOverlayServer CtxKey = iota
+)
+
 // NewOverlay returns a newly initialized mock overlal
 func NewOverlay(nodes []*pb.Node) *Overlay {
 	rv := &Overlay{nodes: map[string]*pb.Node{}}
@@ -82,7 +89,18 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) error {
 				Address:   addr,
 			}})
 	}
-
-	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))
+	srv := NewOverlay(nodes)
+	pb.RegisterOverlayServer(server.GRPC(), srv)
+	fmt.Println("HELLOOOOOO")
+	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)
 	return server.Run(ctx)
+}
+
+// LoadServerFromContext gives access to the overlay server from the context, or returns nil
+func LoadServerFromContext(ctx context.Context) *Overlay {
+	fmt.Print("LOAD SERVER!!!")
+	if v, ok := ctx.Value(ctxKeyOverlayServer).(*Overlay); ok {
+		return v
+	}
+	return nil
 }

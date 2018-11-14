@@ -17,6 +17,7 @@ import (
 
 // Repairer is the interface for the data repairer
 type Repairer interface {
+	//do we need this method? It doesn't look implemented
 	Repair(ctx context.Context, seg *pb.InjuredSegment) error
 	Run(ctx context.Context) error
 }

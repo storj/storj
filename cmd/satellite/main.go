@@ -29,7 +29,8 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/storage/redis"
+	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/datarepair/repairer"
 )
 
 var (
@@ -59,15 +60,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		MockOverlay mockOverlay.Config
-		StatDB      statdb.Config
-		// RepairQueue   queue.Config
-		// RepairChecker checker.Config
-		// Repairer      repairer.Config
+		Identity      provider.IdentityConfig
+		Kademlia      kademlia.Config
+		PointerDB     pointerdb.Config
+		Overlay       overlay.Config
+		MockOverlay   mockOverlay.Config
+		StatDB        statdb.Config
+		Checker       checker.Config
+		Repairer      repairer.Config
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
 	}

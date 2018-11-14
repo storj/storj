@@ -82,7 +82,14 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
-				pieces := pointer.Remote.RemotePieces
+				remote := pointer.GetRemote()
+				if remote == nil {
+					continue
+				}
+				pieces := remote.GetRemotePieces()
+				if pieces == nil {
+					continue
+				}
 				var nodeIDs []dht.NodeID
 				for _, p := range pieces {
 					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))
