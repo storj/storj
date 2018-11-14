@@ -4,38 +4,53 @@
 package kademlia
 
 import (
+	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/storelogger"
 	"storj.io/storj/storage/teststore"
 )
+
+// newTestRoutingTable returns a newly configured instance of a RoutingTable
+func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
+	rt := &RoutingTable{
+		self:             localNode,
+		kadBucketDB:      storelogger.New(zap.L(), teststore.New()),
+		nodeBucketDB:     storelogger.New(zap.L(), teststore.New()),
+		transport:        &defaultTransport,
+		mutex:            &sync.Mutex{},
+		replacementCache: make(map[string][]*pb.Node),
+		idLength:         16,
+		bucketSize:       6,
+		rcBucketSize:     2,
+	}
+	ok, err := rt.addNode(&localNode)
+	if !ok || err != nil {
+		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
+	}
+	return rt, nil
+}
 
 func createRoutingTable(t *testing.T, localNodeID []byte) (*RoutingTable, func()) {
 	if localNodeID == nil {
 		localNodeID = []byte("AA")
 	}
-	localNode := &pb.Node{Id: string(localNodeID)}
+	localNode := pb.Node{Id: string(localNodeID)}
 
-	options := &RoutingOptions{
-		idLength:     16,
-		bucketSize:   6,
-		rcBucketSize: 2,
-	}
-	rt, err := NewRoutingTable(localNode,
-		teststore.New(),
-		teststore.New(),
-		options,
-	)
-
+	rt, err := newTestRoutingTable(localNode)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return rt, func() {
 		err := rt.Close()
 		if err != nil {
@@ -299,12 +314,35 @@ func TestSortByXOR(t *testing.T) {
 	assert.NoError(t, err)
 	expectedNodes := storage.Keys{node1, node5, node2, node4, node3}
 	assert.Equal(t, expectedNodes, nodes)
-	sortedNodes := sortByXOR(nodes, node1)
+	sortByXOR(nodes, node1)
 	expectedSorted := storage.Keys{node1, node3, node4, node2, node5}
-	assert.Equal(t, expectedSorted, sortedNodes)
+	assert.Equal(t, expectedSorted, nodes)
 	nodes, err = rt.nodeBucketDB.List(nil, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedNodes, nodes)
+}
+
+func BenchmarkSortByXOR(b *testing.B) {
+	nodes := []storage.Key{}
+
+	newNodeID := func() storage.Key {
+		id := make(storage.Key, 32)
+		rand.Read(id[:])
+		return id
+	}
+
+	for k := 0; k < 1000; k++ {
+		nodes = append(nodes, newNodeID())
+	}
+
+	b.ResetTimer()
+	for m := 0; m < b.N; m++ {
+		rand.Shuffle(len(nodes), func(i, k int) {
+			nodes[i], nodes[k] = nodes[k], nodes[i]
+		})
+
+		sortByXOR(nodes, newNodeID())
+	}
 }
 
 func TestDetermineFurthestIDWithinK(t *testing.T) {

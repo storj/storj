@@ -4,15 +4,12 @@
 package kademlia
 
 import (
-	"container/heap"
 	"context"
 	"log"
-	"math/big"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -30,7 +27,7 @@ var (
 // worker pops work off a priority queue and does lookups on the work received
 type worker struct {
 	contacted      map[string]bool
-	pq             PriorityQueue
+	pq             *XorQueue
 	mu             *sync.Mutex
 	maxResponse    time.Duration
 	cancel         context.CancelFunc
@@ -41,24 +38,8 @@ type worker struct {
 }
 
 func newWorker(ctx context.Context, rt *RoutingTable, nodes []*pb.Node, nc node.Client, target dht.NodeID, k int) *worker {
-	t := new(big.Int).SetBytes(target.Bytes())
-
-	pq := func(nodes []*pb.Node) PriorityQueue {
-		pq := make(PriorityQueue, len(nodes))
-		for i, node := range nodes {
-			bnode := new(big.Int).SetBytes([]byte(node.GetId()))
-			pq[i] = &Item{
-				value:    node,
-				priority: new(big.Int).Xor(t, bnode),
-				index:    i,
-			}
-
-		}
-		heap.Init(&pq)
-
-		return pq
-	}(nodes)
-
+	pq := NewXorQueue(k)
+	pq.Insert(target, nodes)
 	return &worker{
 		contacted:      map[string]bool{},
 		pq:             pq,
@@ -123,7 +104,8 @@ func (w *worker) getWork(ctx context.Context, ch chan *pb.Node) {
 		}
 
 		w.workInProgress++
-		ch <- w.pq.Pop().(*Item).value
+		node, _ := w.pq.Closest()
+		ch <- node
 		w.mu.Unlock()
 	}
 
@@ -157,44 +139,17 @@ func (w *worker) lookup(ctx context.Context, node *pb.Node) []*pb.Node {
 }
 
 func (w *worker) update(nodes []*pb.Node) {
-	t := new(big.Int).SetBytes(w.find.Bytes())
-
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	uncontactedNodes := []*pb.Node{}
 	for _, v := range nodes {
 		// if we have already done a lookup on this node we don't want to do it again for this lookup loop
-		if w.contacted[v.GetId()] {
-			continue
-		}
-		heap.Push(&w.pq, &Item{
-			value:    v,
-			priority: new(big.Int).Xor(t, new(big.Int).SetBytes(w.find.Bytes())),
-		})
-	}
-
-	// reinitialize heap
-	heap.Init(&w.pq)
-
-	// only keep the k closest nodes
-	if len(w.pq) <= w.k {
-		w.workInProgress--
-		return
-	}
-
-	pq := PriorityQueue{}
-	for i := 0; i < w.k; i++ {
-		if len(w.pq) > 0 {
-			item := heap.Pop(&w.pq)
-			heap.Push(&pq, item)
+		if !w.contacted[v.GetId()] {
+			uncontactedNodes = append(uncontactedNodes, v)
 		}
 	}
-
-	// reinitialize heap
-	heap.Init(&pq)
-	// set w.pq to the new pq with the k closest nodes
-	w.pq = pq
-
+	w.pq.Insert(w.find, uncontactedNodes)
 	w.workInProgress--
 }
 

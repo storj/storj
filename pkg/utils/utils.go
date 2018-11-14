@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"storj.io/storj/pkg/dht"
+	"storj.io/storj/pkg/pb"
 )
 
 // GetBytes transforms an empty interface type into a byte slice
@@ -105,4 +108,24 @@ func discardNil(ch chan error) chan error {
 		close(r)
 	}()
 	return r
+}
+
+// NodeIDsToLookupRequests ...
+func NodeIDsToLookupRequests(nodeIDs []dht.NodeID) *pb.LookupRequests {
+	var rq []*pb.LookupRequest
+	for _, v := range nodeIDs {
+		r := &pb.LookupRequest{NodeID: v.String()}
+		rq = append(rq, r)
+	}
+	return &pb.LookupRequests{Lookuprequest: rq}
+}
+
+// LookupResponsesToNodes ...
+func LookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
+	var nodes []*pb.Node
+	for _, v := range responses.Lookupresponse {
+		n := v.Node
+		nodes = append(nodes, n)
+	}
+	return nodes
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -37,6 +36,7 @@ type CtxKey int
 
 const (
 	ctxKeyOverlay CtxKey = iota
+	ctxKeyOverlayServer
 )
 
 // Run implements the provider.Responsibility interface. Run assumes a
@@ -62,7 +62,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return err
 		}
-		zap.S().Info("Starting overlay cache with BoltDB")
+		zap.L().Info("Starting overlay cache with BoltDB")
 	case "redis":
 		db, err := strconv.Atoi(dburl.Query().Get("db"))
 		if err != nil {
@@ -72,7 +72,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		if err != nil {
 			return err
 		}
-		zap.S().Info("Starting overlay cache with Redis")
+		zap.L().Info("Starting overlay cache with Redis")
 	default:
 		return Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
@@ -94,7 +94,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 			case <-ticker.C:
 				err := cache.Refresh(ctx)
 				if err != nil {
-					zap.S().Error("Error with cache refresh: ", err)
+					zap.L().Error("Error with cache refresh: ", zap.Error(err))
 				}
 			case <-ctx.Done():
 				return
@@ -102,21 +102,31 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	pb.RegisterOverlayServer(server.GRPC(), &Server{
+	srv := &Server{
 		dht:   kad,
 		cache: cache,
 
 		// TODO(jt): do something else
 		logger:  zap.L(),
 		metrics: monkit.Default,
-	})
-
-	return server.Run(context.WithValue(ctx, ctxKeyOverlay, cache))
+	}
+	pb.RegisterOverlayServer(server.GRPC(), srv)
+	ctx = context.WithValue(ctx, ctxKeyOverlay, cache)
+	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)
+	return server.Run(ctx)
 }
 
 // LoadFromContext gives access to the cache from the context, or returns nil
 func LoadFromContext(ctx context.Context) *Cache {
 	if v, ok := ctx.Value(ctxKeyOverlay).(*Cache); ok {
+		return v
+	}
+	return nil
+}
+
+// LoadServerFromContext gives access to the overlay server from the context, or returns nil
+func LoadServerFromContext(ctx context.Context) *Server {
+	if v, ok := ctx.Value(ctxKeyOverlayServer).(*Server); ok {
 		return v
 	}
 	return nil

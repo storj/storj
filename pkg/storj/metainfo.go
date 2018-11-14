@@ -10,7 +10,7 @@ import (
 
 // Metainfo represents a database for storing meta-info about objects
 type Metainfo interface {
-	// MetainfoLimits returns limits for this metainfo database
+	// Limits returns limits for this metainfo database
 	Limits() (MetainfoLimits, error)
 
 	// CreateBucket creates a new bucket with the specified information
@@ -20,21 +20,27 @@ type Metainfo interface {
 	DeleteBucket(ctx context.Context, bucket string) error
 	// GetBucket gets bucket information
 	GetBucket(ctx context.Context, bucket string) (Bucket, error)
+	// ListBuckets lists buckets starting from first
+	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
 	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
 	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
 
-	// CreateObject creates an uploading object and returns an interface for uploading Object information
+	// CreateObject creates a mutable object for uploading stream info
 	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
-	// ModifyObject creates an interface for modifying an existing object
-	ModifyObject(ctx context.Context, bucket string, path Path, info Object) (MutableObject, error)
+	// ModifyObject creates a mutable object for updating a partially uploaded object
+	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
 	// DeleteObject deletes an object from database
 	DeleteObject(ctx context.Context, bucket string, path Path) error
-
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
+
+	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
+	ModifyPendingObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	// ListPendingObjects lists pending objects in bucket based on the ListOptions
+	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
 
 // CreateObject has optional parameters that can be set
@@ -42,6 +48,9 @@ type CreateObject struct {
 	Metadata    []byte
 	ContentType string
 	Expires     time.Time
+
+	RedundancyScheme
+	EncryptionScheme
 }
 
 // Object converts the CreateObject to an object with unitialized values
@@ -52,15 +61,39 @@ func (create CreateObject) Object(bucket string, path Path) Object {
 		Metadata:    create.Metadata,
 		ContentType: create.ContentType,
 		Expires:     create.Expires,
+		Stream: Stream{
+			Size:             -1,  // unknown
+			Checksum:         nil, // unknown
+			SegmentCount:     -1,  // unknown
+			FixedSegmentSize: -1,  // unknown
+
+			RedundancyScheme: create.RedundancyScheme,
+			EncryptionScheme: create.EncryptionScheme,
+		},
 	}
 }
+
+// ListDirection specifies listing direction
+type ListDirection int8
+
+const (
+	// Before lists backwards from cursor, without cursor
+	Before = ListDirection(-2)
+	// Backward lists backwards from cursor, including cursor
+	Backward = ListDirection(-1)
+	// Forward lists forwards from cursor, including cursor
+	Forward = ListDirection(1)
+	// After lists forwards from cursor, without cursor
+	After = ListDirection(2)
+)
 
 // ListOptions lists objects
 type ListOptions struct {
 	Prefix    Path
-	First     Path // First is relative to Prefix, full path is Prefix + First
+	Cursor    Path // Cursor is relative to Prefix, full path is Prefix + Cursor
 	Delimiter rune
 	Recursive bool
+	Direction ListDirection
 	Limit     int
 }
 
@@ -68,13 +101,74 @@ type ListOptions struct {
 type ObjectList struct {
 	Bucket string
 	Prefix Path
-
-	NextFirst Path // relative to Prefix, to get the full path use Prefix + NextFirst
-	More      bool
+	More   bool
 
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
+}
+
+// NextPage returns options for listing the next page
+func (opts ListOptions) NextPage(list ObjectList) ListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return ListOptions{}
+	}
+
+	switch opts.Direction {
+	case Before, Backward:
+		return ListOptions{
+			Prefix:    opts.Prefix,
+			Cursor:    list.Items[0].Path,
+			Direction: Before,
+			Limit:     opts.Limit,
+		}
+	case After, Forward:
+		return ListOptions{
+			Prefix:    opts.Prefix,
+			Cursor:    list.Items[len(list.Items)-1].Path,
+			Direction: After,
+			Limit:     opts.Limit,
+		}
+	}
+
+	return ListOptions{}
+}
+
+// BucketListOptions lists objects
+type BucketListOptions struct {
+	Cursor    string
+	Direction ListDirection
+	Limit     int
+}
+
+// BucketList is a list of buckets
+type BucketList struct {
+	More  bool
+	Items []Bucket
+}
+
+// NextPage returns options for listing the next page
+func (opts BucketListOptions) NextPage(list BucketList) BucketListOptions {
+	if !list.More || len(list.Items) == 0 {
+		return BucketListOptions{}
+	}
+
+	switch opts.Direction {
+	case Before, Backward:
+		return BucketListOptions{
+			Cursor:    list.Items[0].Name,
+			Direction: Before,
+			Limit:     opts.Limit,
+		}
+	case After, Forward:
+		return BucketListOptions{
+			Cursor:    list.Items[len(list.Items)-1].Name,
+			Direction: After,
+			Limit:     opts.Limit,
+		}
+	}
+
+	return BucketListOptions{}
 }
 
 // MetainfoLimits lists limits specified for the Metainfo database
@@ -103,25 +197,25 @@ type ReadOnlyStream interface {
 // MutableObject is an interface for manipulating creating/deleting object stream
 type MutableObject interface {
 	// Info gets the current information about the object
-	Info() (Object, error)
+	Info(ctx context.Context) (Object, error)
 
 	// CreateStream creates a new stream for the object
-	CreateStream() (MutableStream, error)
+	CreateStream(ctx context.Context) (MutableStream, error)
 	// ContinueStream starts to continue a partially uploaded stream.
-	// ContinueStream() (MutableStream, error)
+	ContinueStream(ctx context.Context) (MutableStream, error)
 	// DeleteStream deletes any information about this objects stream
-	DeleteStream() error
+	DeleteStream(ctx context.Context) error
 
 	// Commit commits the changes to the database
-	Commit() error
+	Commit(ctx context.Context) error
 }
 
 // MutableStream is an interface for manipulating stream information
 type MutableStream interface {
-	ReadOnlyStream
+	// TODO: methods for finding partially uploaded segments
 
 	// AddSegments adds segments to the stream.
-	AddSegments(segments ...Segment) error
+	AddSegments(ctx context.Context, segments ...Segment) error
 	// UpdateSegments updates information about segments.
-	UpdateSegments(segments ...Segment) error
+	UpdateSegments(ctx context.Context, segments ...Segment) error
 }

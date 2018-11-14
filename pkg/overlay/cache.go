@@ -11,7 +11,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -26,9 +25,6 @@ const (
 	OverlayBucket = "overlay"
 )
 
-// ErrNodeNotFound error standardization
-var ErrNodeNotFound = errs.New("Node not found")
-
 // OverlayError creates class of errors for stack traces
 var OverlayError = errs.Class("Overlay Error")
 
@@ -39,29 +35,30 @@ type Cache struct {
 }
 
 // NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
-func NewRedisOverlayCache(address, password string, db int, DHT dht.DHT) (*Cache, error) {
-	rc, err := redis.NewClient(address, password, db)
+func NewRedisOverlayCache(address, password string, dbindex int, dht dht.DHT) (*Cache, error) {
+	db, err := redis.NewClient(address, password, dbindex)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Cache{
-		DB:  rc,
-		DHT: DHT,
-	}, nil
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
 }
 
 // NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, DHT dht.DHT) (*Cache, error) {
-	bc, err := boltdb.New(dbPath, OverlayBucket)
+func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
+	db, err := boltdb.New(dbPath, OverlayBucket)
 	if err != nil {
 		return nil, err
 	}
 
+	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
+}
+
+// NewOverlayCache returns a new Cache
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
 	return &Cache{
-		DB:  storelogger.New(zap.L(), bc),
-		DHT: DHT,
-	}, nil
+		DB:  db,
+		DHT: dht,
+	}
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -126,25 +123,25 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 func (o *Cache) Bootstrap(ctx context.Context) error {
 	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
 	if err != nil {
-		zap.Error(OverlayError.New("Error getting nodes from DHT: %v", err))
+		return OverlayError.New("Error getting nodes from DHT: %v", err)
 	}
 
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
+			zap.L().Info("Node find failed", zap.String("nodeID", v.Id))
+			continue
 		}
-
 		n, err := proto.Marshal(&found)
 		if err != nil {
-			return err
+			zap.L().Error("Node marshall failed", zap.String("nodeID", v.Id))
+			continue
 		}
-
 		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
-			return err
+			zap.L().Error("Node cache put failed", zap.String("nodeID", v.Id))
+			continue
 		}
 	}
-
 	return err
 }
 
@@ -163,15 +160,21 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	for _, node := range near {
-		pinged, err := o.DHT.Ping(ctx, *node)
+	for _, n := range near {
+		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
-			return err
+			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			return err
+			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
+			continue
+		}
+		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
+		if err != nil {
+			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
 	}
 
@@ -180,21 +183,24 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	for _, node := range nodes {
-		pinged, err := o.DHT.Ping(ctx, *node)
+	for _, n := range nodes {
+		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
-			zap.Error(ErrNodeNotFound)
-			return err
+			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		data, err := proto.Marshal(&pinged)
 		if err != nil {
-			return err
+			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
+			continue
 		}
-
+		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
+		if err != nil {
+			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
+			continue
+		}
 	}
-
-	return err
+	return nil
 }
 
 // Walk iterates over each node in each bucket to traverse the network

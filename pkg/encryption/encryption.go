@@ -4,7 +4,8 @@
 package encryption
 
 import (
-	"github.com/zeebo/errs"
+	"crypto/hmac"
+	"crypto/sha512"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -29,6 +30,11 @@ func Increment(nonce *storj.Nonce, amount int64) (truncated bool, err error) {
 
 // Encrypt encrypts data with the given cipher, key and nonce
 func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
+	// Don't encrypt empty slice
+	if len(data) == 0 {
+		return []byte{}, nil
+	}
+
 	switch cipher {
 	case storj.Unencrypted:
 		return data, nil
@@ -37,12 +43,17 @@ func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonc
 	case storj.SecretBox:
 		return EncryptSecretBox(data, key, nonce)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
 // Decrypt decrypts cipherData with the given cipher, key and nonce
 func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
+	// Don't decrypt empty slice
+	if len(cipherData) == 0 {
+		return []byte{}, nil
+	}
+
 	switch cipher {
 	case storj.Unencrypted:
 		return cipherData, nil
@@ -51,7 +62,7 @@ func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *stor
 	case storj.SecretBox:
 		return DecryptSecretBox(cipherData, key, nonce)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -65,7 +76,7 @@ func NewEncrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonc
 	case storj.SecretBox:
 		return NewSecretboxEncrypter(key, startingNonce, encryptedBlockSize)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -79,7 +90,7 @@ func NewDecrypter(cipher storj.Cipher, key *storj.Key, startingNonce *storj.Nonc
 	case storj.SecretBox:
 		return NewSecretboxDecrypter(key, startingNonce, encryptedBlockSize)
 	default:
-		return nil, errs.New("Invalid encryption type")
+		return nil, ErrInvalidConfig.New("encryption type %d is not supported", cipher)
 	}
 }
 
@@ -99,4 +110,18 @@ func DecryptKey(keyToDecrypt storj.EncryptedPrivateKey, cipher storj.Cipher, key
 	copy(decryptedKey[:], plainData)
 
 	return &decryptedKey, nil
+}
+
+// DeriveKey derives new key from the given key and message using HMAC-SHA512
+func DeriveKey(key *storj.Key, message string) (*storj.Key, error) {
+	mac := hmac.New(sha512.New, key[:])
+	_, err := mac.Write([]byte(message))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	derived := new(storj.Key)
+	copy(derived[:], mac.Sum(nil))
+
+	return derived, nil
 }

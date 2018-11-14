@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	proto "github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	ranger "storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -91,12 +91,12 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Meta(ctx, paths.New(test.path))
+		meta, err := streamStore.Meta(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,7 +146,7 @@ func TestStreamStorePut(t *testing.T) {
 		mockSegmentStore.EXPECT().
 			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError).
-			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (paths.Path, []byte, error)) {
+			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (storj.Path, []byte, error)) {
 				for {
 					buf := make([]byte, 4)
 					_, err := data.Read(buf)
@@ -163,12 +163,12 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Put(ctx, paths.New(test.path), test.data, test.metadata, test.expiration)
+		meta, err := streamStore.Put(ctx, test.path, storj.AESGCM, test.data, test.metadata, test.expiration)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -263,12 +263,12 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		ranger, meta, err := streamStore.Get(ctx, paths.New(test.path))
+		ranger, meta, err := streamStore.Get(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -312,12 +312,12 @@ func TestStreamStoreDelete(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = streamStore.Delete(ctx, paths.New(test.path))
+		err = streamStore.Delete(ctx, test.path, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -356,12 +356,12 @@ func TestStreamStoreList(t *testing.T) {
 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segments, test.segmentMore, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, "key", 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		items, more, err := streamStore.List(ctx, paths.New(test.prefix), paths.New(test.startAfter), paths.New(test.endBefore), test.recursive, test.limit, test.metaFlags)
+		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.AESGCM, test.recursive, test.limit, test.metaFlags)
 		if err != nil {
 			t.Fatal(err)
 		}

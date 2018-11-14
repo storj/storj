@@ -25,6 +25,7 @@ service Overlay {
 
 service Nodes {
     rpc Query(QueryRequest) returns (QueryResponse);
+    rpc Ping(PingRequest) returns (PingResponse);
 }
 
 // LookupRequest is is request message for the lookup rpc call
@@ -58,6 +59,8 @@ message FindStorageNodesRequest {
     int64 objectSize = 1;
     google.protobuf.Duration contractLength = 2;
     OverlayOptions opts = 3;
+    bytes start = 4;
+    int64 maxNodes = 5;
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network
@@ -69,7 +72,7 @@ message NodeAddress {
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
     google.protobuf.Duration maxLatency = 1;
-    NodeRep minReputation = 2; // Not sure what NodeRep is yet.
+    NodeRep minReputation = 2;
     int64 minSpeedKbps = 3;
     int64 amount = 4;
     NodeRestrictions restrictions = 5;
@@ -77,7 +80,11 @@ message OverlayOptions {
 }
 
 // NodeRep is the reputation characteristics of a node
-message NodeRep {}
+message NodeRep {
+    float minUptime = 1;
+    float minAuditSuccess = 2;
+    int64 minAuditCount = 3;
+}
 
 //  NodeRestrictions contains all relevant data about a nodes ability to store data
 message NodeRestrictions {
@@ -111,6 +118,9 @@ message QueryResponse {
 
     repeated overlay.Node response = 2;
 }
+
+message PingRequest {};
+message PingResponse {};
 
 message Restriction {
     enum Operator {

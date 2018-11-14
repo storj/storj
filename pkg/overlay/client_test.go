@@ -42,7 +42,7 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 
 	for _, v := range cases {
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -51,7 +51,9 @@ func TestNewOverlayClient(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 	}
 }
@@ -101,7 +103,7 @@ func TestChoose(t *testing.T) {
 			})
 		}
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -119,7 +121,9 @@ func TestChoose(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		newNodes, err := oc.Choose(ctx, Options{Amount: v.limit, Space: v.space, Excluded: v.excluded})
 		assert.NoError(t, err)
@@ -151,7 +155,7 @@ func TestLookup(t *testing.T) {
 		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -160,7 +164,9 @@ func TestLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		_, err = oc.Lookup(ctx, v.nodeID)
 		assert.NoError(t, err)
@@ -187,7 +193,7 @@ func TestBulkLookup(t *testing.T) {
 		go func() { assert.NoError(t, srv.Serve(lis)) }()
 		defer srv.Stop()
 
-		ca, err := provider.NewCA(ctx, 12, 4)
+		ca, err := provider.NewTestCA(ctx)
 		assert.NoError(t, err)
 		identity, err := ca.NewIdentity()
 		assert.NoError(t, err)
@@ -196,7 +202,9 @@ func TestBulkLookup(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotNil(t, oc)
-		assert.NotEmpty(t, oc.client)
+		overlay, ok := oc.(*Overlay)
+		assert.True(t, ok)
+		assert.NotEmpty(t, overlay.client)
 
 		_, err = oc.BulkLookup(ctx, v.nodeIDs)
 		assert.NoError(t, err)
@@ -219,7 +227,7 @@ func TestBulkLookupV2(t *testing.T) {
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	assert.NoError(t, err)
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
@@ -228,7 +236,9 @@ func TestBulkLookupV2(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotNil(t, oc)
-	assert.NotEmpty(t, oc.client)
+	overlay, ok := oc.(*Overlay)
+	assert.True(t, ok)
+	assert.NotEmpty(t, overlay.client)
 	n1 := &pb.Node{Id: "n1"}
 	n2 := &pb.Node{Id: "n2"}
 	n3 := &pb.Node{Id: "n3"}
@@ -291,7 +301,7 @@ func TestBulkLookupV2(t *testing.T) {
 }
 
 func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, error) {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -317,7 +327,7 @@ func newServer(ctx context.Context, redisAddr string) (*grpc.Server, *Server, er
 }
 
 func newTestServer(ctx context.Context) (*grpc.Server, *mockOverlayServer, error) {
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -27,10 +27,10 @@ var (
 // PathByID creates datapath from id and dir
 func PathByID(id, dir string) (string, error) {
 	if len(id) < IDLength {
-		return "", ArgError.New("Invalid id length")
+		return "", ArgError.New("invalid id length")
 	}
 	if dir == "" {
-		return "", ArgError.New("No path provided")
+		return "", ArgError.New("no path provided")
 	}
 
 	folder1 := id[0:2]
@@ -78,7 +78,7 @@ func RetrieveReader(ctx context.Context, id string, offset int64, length int64, 
 
 	// If offset is greater than file size return
 	if offset >= fileInfo.Size() || offset < 0 {
-		return nil, ArgError.New("Invalid offset: %v", offset)
+		return nil, ArgError.New("invalid offset: %v", offset)
 	}
 
 	// If length less than 0 read the entire file

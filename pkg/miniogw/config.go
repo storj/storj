@@ -17,12 +17,10 @@ import (
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/buckets"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storage/ec"
 	segment "storj.io/storj/pkg/storage/segments"
-	streams "storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 // RSConfig is a configuration struct that keeps details about default
@@ -41,7 +39,8 @@ type RSConfig struct {
 type EncryptionConfig struct {
 	EncKey       string `help:"root key for encrypting the data"`
 	EncBlockSize int    `help:"size (in bytes) of encrypted blocks" default:"1024"`
-	EncType      int    `help:"Type of encryption to use (1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathEncType  int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // MinioConfig is a configuration struct that keeps details about starting
@@ -49,7 +48,7 @@ type EncryptionConfig struct {
 type MinioConfig struct {
 	AccessKey string `help:"Minio Access Key to use" default:"insecure-dev-access-key"`
 	SecretKey string `help:"Minio Secret Key to use" default:"insecure-dev-secret-key"`
-	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/miniogw"`
+	MinioDir  string `help:"Minio generic server config path" default:"$CONFDIR/minio"`
 }
 
 // ClientConfig is a configuration struct for the miniogw that controls how
@@ -126,8 +125,6 @@ func (c Config) action(ctx context.Context, cliCtx *cli.Context, identity *provi
 func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdentity) (bs buckets.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	t := transport.NewClient(identity)
-
 	var oc overlay.Client
 	oc, err = overlay.NewOverlayClient(identity, c.OverlayAddr)
 	if err != nil {
@@ -139,7 +136,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	ec := ecclient.NewClient(identity, t, c.MaxBufferMem)
+	ec := ecclient.NewClient(identity, c.MaxBufferMem)
 	fc, err := infectious.NewFEC(c.MinThreshold, c.MaxThreshold)
 	if err != nil {
 		return nil, err
@@ -155,13 +152,16 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, err
 	}
-	stream, err := streams.NewStreamStore(segments, c.SegmentSize, c.EncKey, c.EncBlockSize, storj.Cipher(c.EncType))
+
+	key := new(storj.Key)
+	copy(key[:], c.EncKey)
+
+	stream, err := streams.NewStreamStore(segments, c.SegmentSize, key, c.EncBlockSize, storj.Cipher(c.EncType))
 	if err != nil {
 		return nil, err
 	}
-	obj := objects.NewStore(stream)
 
-	return buckets.NewStore(obj), nil
+	return buckets.NewStore(stream), nil
 }
 
 // NewGateway creates a new minio Gateway
@@ -173,5 +173,5 @@ func (c Config) NewGateway(ctx context.Context, identity *provider.FullIdentity)
 		return nil, err
 	}
 
-	return NewStorjGateway(bs), nil
+	return NewStorjGateway(bs, storj.Cipher(c.PathEncType)), nil
 }

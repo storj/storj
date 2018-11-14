@@ -10,13 +10,12 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -31,7 +30,7 @@ var RoutingErr = errs.Class("routing table error")
 
 // RoutingTable implements the RoutingTable interface
 type RoutingTable struct {
-	self             *pb.Node
+	self             pb.Node
 	kadBucketDB      storage.KeyValueStore
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
@@ -42,27 +41,20 @@ type RoutingTable struct {
 	rcBucketSize     int // replacementCache bucket max length
 }
 
-//RoutingOptions for configuring RoutingTable
-type RoutingOptions struct {
-	idLength     int //TODO (JJ): add checks for > 0
-	bucketSize   int
-	rcBucketSize int
-}
-
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(localNode *pb.Node, kdb, ndb storage.KeyValueStore, options *RoutingOptions) (*RoutingTable, error) {
+func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
 		self:             localNode,
-		kadBucketDB:      storelogger.New(zap.L(), kdb),
-		nodeBucketDB:     storelogger.New(zap.L(), ndb),
+		kadBucketDB:      kdb,
+		nodeBucketDB:     ndb,
 		transport:        &defaultTransport,
 		mutex:            &sync.Mutex{},
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         options.idLength,
-		bucketSize:       options.bucketSize,
-		rcBucketSize:     options.rcBucketSize,
+		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
+		bucketSize:       *flagBucketSize,
+		rcBucketSize:     *flagReplacementCacheSize,
 	}
-	ok, err := rt.addNode(localNode)
+	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -79,7 +71,7 @@ func (rt *RoutingTable) Close() error {
 
 // Local returns the local nodes ID
 func (rt *RoutingTable) Local() pb.Node {
-	return *rt.self
+	return rt.self
 }
 
 // K returns the currently configured maximum of nodes to store in a bucket
@@ -140,11 +132,11 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 		return []*pb.Node{}, RoutingErr.New("could not get node ids %s", err)
 	}
 
-	sortedIDs := sortByXOR(nodeIDs, id.Bytes())
-	if len(sortedIDs) >= limit {
-		sortedIDs = sortedIDs[:limit]
+	sortByXOR(nodeIDs, id.Bytes())
+	if len(nodeIDs) >= limit {
+		nodeIDs = nodeIDs[:limit]
 	}
-	ids, serializedNodes, err := rt.getNodesFromIDs(sortedIDs)
+	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
 	if err != nil {
 		return []*pb.Node{}, RoutingErr.New("could not get nodes %s", err)
 	}

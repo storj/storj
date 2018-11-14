@@ -12,22 +12,23 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
 )
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index   int
-	Segment *pb.Pointer
+	Index         int
+	Segment       *pb.Pointer
+	Authorization *pb.SignedMessage
 }
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
 	pointers pdbclient.Client
-	lastPath *paths.Path
+	lastPath storj.Path
 	mutex    sync.Mutex
 }
 
@@ -42,39 +43,44 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	defer cursor.mutex.Unlock()
 
 	var pointerItems []pdbclient.ListItem
-	var path paths.Path
+	var path storj.Path
 	var more bool
 
-	if cursor.lastPath == nil {
-		pointerItems, more, err = cursor.pointers.List(ctx, nil, nil, nil, true, 0, meta.None)
+	if cursor.lastPath == "" {
+		pointerItems, more, err = cursor.pointers.List(ctx, "", "", "", true, 0, meta.None)
 	} else {
-		pointerItems, more, err = cursor.pointers.List(ctx, nil, *cursor.lastPath, nil, true, 0, meta.None)
+		pointerItems, more, err = cursor.pointers.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
 	}
-
 	if err != nil {
 		return nil, err
 	}
 
-	// get random pointer
+	if len(pointerItems) == 0 {
+		return nil, nil
+	}
+
 	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
 		return nil, err
 	}
 
-	// get path
 	path = pointerItem.Path
 
 	// keep track of last path listed
 	if !more {
-		cursor.lastPath = nil
+		cursor.lastPath = ""
 	} else {
-		cursor.lastPath = &pointerItems[len(pointerItems)-1].Path
+		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
 	// get pointer info
-	pointer, err := cursor.pointers.Get(ctx, path)
+	pointer, _, err := cursor.pointers.Get(ctx, path)
 	if err != nil {
 		return nil, err
+	}
+
+	if pointer.GetType() != pb.Pointer_REMOTE {
+		return nil, nil
 	}
 
 	// create the erasure scheme so we can get the stripe size
@@ -83,18 +89,25 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
-	//get random stripe
+	if pointer.GetSize() == 0 {
+		return nil, nil
+	}
+
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Stripe{Index: index, Segment: pointer}, nil
+	authorization := cursor.pointers.SignedMessage()
+
+	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
 }
 
-// create the erasure scheme
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
-	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
+	required := int(rs.GetMinReq())
+	total := int(rs.GetTotal())
+
+	fc, err := infectious.NewFEC(required, total)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +117,12 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 
 func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int, err error) {
 	stripeSize := es.StripeSize()
+
+	// the last segment could be smaller than stripe size
+	if pointer.GetSize() < int64(stripeSize) {
+		return 0, nil
+	}
+
 	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
 	if err != nil {
 		return -1, err

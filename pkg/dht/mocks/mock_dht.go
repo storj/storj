@@ -12,7 +12,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	dht "storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/pb"
+	pb "storj.io/storj/pkg/pb"
 )
 
 // MockDHT is a mock of DHT interface

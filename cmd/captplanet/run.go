@@ -12,6 +12,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
@@ -20,10 +21,11 @@ import (
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
 	mock "storj.io/storj/pkg/overlay/mocks"
-	psserver "storj.io/storj/pkg/piecestore/rpc/server"
+	psserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -39,6 +41,8 @@ type Satellite struct {
 	Overlay     overlay.Config
 	Checker     checker.Config
 	Repairer    repairer.Config
+	Audit       audit.Config
+	StatDB      statdb.Config
 	MockOverlay struct {
 		Enabled bool   `default:"true" help:"if false, use real overlay"`
 		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
@@ -95,13 +99,24 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
 		storagenodes = append(storagenodes, storagenode)
-		go func(i int, farmer string) {
-			_, _ = fmt.Printf("starting farmer %d %s (kad on %s)\n", i, farmer,
+		go func(i int, storagenode string) {
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
+				i, storagenode,
 				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
 			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
 				runCfg.StorageNodes[i].Kademlia,
 				runCfg.StorageNodes[i].Storage)
 		}(i, storagenode)
+	}
+
+	// start mini redis
+	m := miniredis.NewMiniRedis()
+	m.RequireAuth("abc123")
+
+	if err = m.StartAddr(":6378"); err != nil {
+		errch <- err
+	} else {
+		defer m.Close()
 	}
 
 	// start satellite
@@ -113,32 +128,21 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
 		}
 
+		if runCfg.Satellite.Audit.SatelliteAddr == "" {
+			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
+		}
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
 			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
+			runCfg.Satellite.Audit,
+			runCfg.Satellite.StatDB,
 			o,
+			// TODO(coyle): re-enable the checker after we determine why it is panicing
+			// runCfg.Satellite.Checker,
+			runCfg.Satellite.Repairer,
 		)
 	}()
-
-	// start Repair
-	m := miniredis.NewMiniRedis()
-	m.RequireAuth("abc123")
-
-	if err = m.StartAddr(":6378"); err != nil {
-		errch <- err
-	} else {
-		defer m.Close()
-
-		go func() {
-			errch <- runCfg.Satellite.Checker.Run(ctx, nil)
-		}()
-
-		go func() {
-			errch <- runCfg.Satellite.Repairer.Run(ctx, nil)
-		}()
-
-	}
 
 	// start s3 uplink
 	go func() {

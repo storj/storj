@@ -30,6 +30,7 @@ type Config struct {
 	APIKey              string `default:"abc123" help:"the api key to use for the satellite"`
 	EncKey              string `default:"highlydistributedridiculouslyresilient" help:"your root encryption key"`
 	Overwrite           bool   `help:"whether to overwrite pre-existing configuration files" default:"false"`
+	GenerateMinioCerts  bool   `default:"false" help:"generate sample TLS certs for Minio GW"`
 }
 
 var (
@@ -115,12 +116,26 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	if setupCfg.GenerateMinioCerts {
+		minioCertsPath := filepath.Join(uplinkPath, "minio", "certs")
+		if err := os.MkdirAll(minioCertsPath, 0744); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.ULIdentity.CertPath, filepath.Join(minioCertsPath, "public.crt")); err != nil {
+			return err
+		}
+		if err := os.Link(setupCfg.ULIdentity.KeyPath, filepath.Join(minioCertsPath, "private.key")); err != nil {
+			return err
+		}
+	}
+
 	startingPort := setupCfg.StartingPort
 
+	overlayAddr := joinHostPort(setupCfg.ListenHost, startingPort+1)
+
 	overrides := map[string]interface{}{
-		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
-		"satellite.identity.cert-path":     setupCfg.HCIdentity.CertPath,
-		"satellite.identity.key-path":      setupCfg.HCIdentity.KeyPath,
+		"satellite.identity.cert-path": setupCfg.HCIdentity.CertPath,
+		"satellite.identity.key-path":  setupCfg.HCIdentity.KeyPath,
 		"satellite.identity.address": joinHostPort(
 			setupCfg.ListenHost, startingPort+1),
 		"satellite.kademlia.todo-listen-addr": joinHostPort(
@@ -131,8 +146,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 			setupCfg.BasePath, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "satellite", "overlay.db"),
-		"uplink.cert-path": setupCfg.ULIdentity.CertPath,
-		"uplink.key-path":  setupCfg.ULIdentity.KeyPath,
+		"satellite.repairer.queue-address": "redis://127.0.0.1:6378?db=1&password=abc123",
+		"satellite.repairer.overlay-addr":  overlayAddr,
+		"satellite.repairer.pointer-db-addr": joinHostPort(
+			setupCfg.ListenHost, startingPort+1),
+		"satellite.repairer.api-key": setupCfg.APIKey,
+		"uplink.cert-path":           setupCfg.ULIdentity.CertPath,
+		"uplink.key-path":            setupCfg.ULIdentity.KeyPath,
 		"uplink.address": joinHostPort(
 			setupCfg.ListenHost, startingPort),
 		"uplink.overlay-addr": joinHostPort(
@@ -144,6 +164,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"uplink.enc-key":          setupCfg.EncKey,
 		"uplink.api-key":          setupCfg.APIKey,
 		"pointer-db.auth.api-key": setupCfg.APIKey,
+
+		// Repairer
+		"piecestore.agreementsender.overlay_addr": overlayAddr,
 	}
 
 	for i := 0; i < len(runCfg.StorageNodes); i++ {

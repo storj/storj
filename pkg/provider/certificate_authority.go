@@ -11,7 +11,6 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"os"
-	"reflect"
 
 	"github.com/zeebo/errs"
 
@@ -21,6 +20,7 @@ import (
 
 // PeerCertificateAuthority represents the CA which is used to validate peer identities
 type PeerCertificateAuthority struct {
+	RestChain []*x509.Certificate
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA public key.
@@ -29,6 +29,7 @@ type PeerCertificateAuthority struct {
 
 // FullCertificateAuthority represents the CA which is used to author and validate full identities
 type FullCertificateAuthority struct {
+	RestChain []*x509.Certificate
 	// Cert is the x509 certificate of the CA
 	Cert *x509.Certificate
 	// The ID is calculated from the CA public key.
@@ -39,12 +40,26 @@ type FullCertificateAuthority struct {
 
 // CASetupConfig is for creating a CA
 type CASetupConfig struct {
-	CertPath    string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
-	KeyPath     string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
-	Difficulty  uint64 `help:"minimum difficulty for identity generation" default:"12"`
-	Timeout     string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
-	Overwrite   bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
-	Concurrency uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
+	ParentCertPath string `help:"path to the parent authority's certificate chain"`
+	ParentKeyPath  string `help:"path to the parent authority's private key"`
+	CertPath       string `help:"path to the certificate chain for this identity" default:"$CONFDIR/ca.cert"`
+	KeyPath        string `help:"path to the private key for this identity" default:"$CONFDIR/ca.key"`
+	Difficulty     uint64 `help:"minimum difficulty for identity generation" default:"12"`
+	Timeout        string `help:"timeout for CA generation; golang duration string (0 no timeout)" default:"5m"`
+	Overwrite      bool   `help:"if true, existing CA certs AND keys will overwritten" default:"false"`
+	Concurrency    uint   `help:"number of concurrent workers for certificate authority generation" default:"4"`
+}
+
+// NewCAOptions is used to pass parameters to `NewCA`
+type NewCAOptions struct {
+	// Difficulty is the number of trailing zero-bits the nodeID must have
+	Difficulty uint16
+	// Concurrency is the number of go routines used to generate a CA of sufficient difficulty
+	Concurrency uint
+	// ParentCert, if provided will be prepended to the certificate chain
+	ParentCert *x509.Certificate
+	// ParentKey ()
+	ParentKey crypto.PrivateKey
 }
 
 // PeerCAConfig is for locating a CA certificate without a private key
@@ -65,7 +80,30 @@ func (caS CASetupConfig) Status() TLSFilesStatus {
 
 // Create generates and saves a CA using the config
 func (caS CASetupConfig) Create(ctx context.Context) (*FullCertificateAuthority, error) {
-	ca, err := NewCA(ctx, uint16(caS.Difficulty), caS.Concurrency)
+	var (
+		err    error
+		parent *FullCertificateAuthority
+	)
+	if caS.ParentCertPath != "" && caS.ParentKeyPath != "" {
+		parent, err = FullCAConfig{
+			CertPath: caS.ParentCertPath,
+			KeyPath:  caS.ParentKeyPath,
+		}.Load()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if parent == nil {
+		parent = &FullCertificateAuthority{}
+	}
+
+	ca, err := NewCA(ctx, NewCAOptions{
+		Difficulty:  uint16(caS.Difficulty),
+		Concurrency: caS.Concurrency,
+		ParentCert:  parent.Cert,
+		ParentKey:   parent.Key,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -93,19 +131,11 @@ func (fc FullCAConfig) Load() (*FullCertificateAuthority, error) {
 		return nil, errs.New("unable to parse EC private key: %v", err)
 	}
 
-	ec, ok := p.Cert.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, peertls.ErrUnsupportedKey.New("certificate public key type not supported: %T", k)
-	}
-
-	if !reflect.DeepEqual(k.PublicKey, *ec) {
-		return nil, errs.New("certificate public key and loaded")
-	}
-
 	return &FullCertificateAuthority{
-		Cert: p.Cert,
-		Key:  k,
-		ID:   p.ID,
+		RestChain: p.RestChain,
+		Cert:      p.Cert,
+		Key:       k,
+		ID:        p.ID,
 	}, nil
 }
 
@@ -138,28 +168,29 @@ func (pc PeerCAConfig) Load() (*PeerCertificateAuthority, error) {
 			pc.CertPath, err)
 	}
 
-	i, err := idFromKey(c[len(c)-1].PublicKey)
+	i, err := idFromKey(c[0].PublicKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &PeerCertificateAuthority{
-		Cert: c[0],
-		ID:   i,
+		RestChain: c[1:],
+		Cert:      c[0],
+		ID:        i,
 	}, nil
 }
 
 // NewCA creates a new full identity with the given difficulty
-func NewCA(ctx context.Context, difficulty uint16, concurrency uint) (*FullCertificateAuthority, error) {
-	if concurrency < 1 {
-		concurrency = 1
+func NewCA(ctx context.Context, opts NewCAOptions) (*FullCertificateAuthority, error) {
+	if opts.Concurrency < 1 {
+		opts.Concurrency = 1
 	}
 	ctx, cancel := context.WithCancel(ctx)
 
 	eC := make(chan error)
 	caC := make(chan FullCertificateAuthority, 1)
-	for i := 0; i < int(concurrency); i++ {
-		go newCAWorker(ctx, difficulty, caC, eC)
+	for i := 0; i < int(opts.Concurrency); i++ {
+		go newCAWorker(ctx, opts.Difficulty, opts.ParentCert, opts.ParentKey, caC, eC)
 	}
 
 	select {
@@ -186,7 +217,9 @@ func (fc FullCAConfig) Save(ca *FullCertificateAuthority) error {
 	}
 	defer utils.LogClose(k)
 
-	if err = peertls.WriteChain(c, ca.Cert); err != nil {
+	chain := []*x509.Certificate{ca.Cert}
+	chain = append(chain, ca.RestChain...)
+	if err = peertls.WriteChain(c, chain...); err != nil {
 		return err
 	}
 	if err = peertls.WriteKey(k, ca.Key); err != nil {
@@ -217,9 +250,18 @@ func (ca FullCertificateAuthority) NewIdentity() (*FullIdentity, error) {
 	}
 
 	return &FullIdentity{
-		CA:   ca.Cert,
-		Leaf: l,
-		Key:  k,
-		ID:   ca.ID,
+		RestChain: ca.RestChain,
+		CA:        ca.Cert,
+		Leaf:      l,
+		Key:       k,
+		ID:        ca.ID,
 	}, nil
+}
+
+// NewTestCA returns a ca with a default difficulty and concurrency for use in tests
+func NewTestCA(ctx context.Context) (*FullCertificateAuthority, error) {
+	return NewCA(ctx, NewCAOptions{
+		Difficulty:  12,
+		Concurrency: 4,
+	})
 }

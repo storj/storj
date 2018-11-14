@@ -2,7 +2,7 @@
 model node (
 	key id
 
-	field id text
+	field id blob
 	field audit_success_count int64 (updatable)
 	field total_audit_count int64 (updatable)
 	field audit_success_ratio float64 (updatable)

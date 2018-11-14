@@ -5,6 +5,8 @@ package pointerdb
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"testing"
@@ -15,11 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -62,6 +66,18 @@ func TestServicePut(t *testing.T) {
 }
 
 func TestServiceGet(t *testing.T) {
+	ctx := context.Background()
+	ca, err := provider.NewTestCA(ctx)
+	assert.NoError(t, err)
+	identity, err := ca.NewIdentity()
+	assert.NoError(t, err)
+
+	peerCertificates := make([]*x509.Certificate, 2)
+	peerCertificates[0] = identity.Leaf
+	peerCertificates[1] = identity.CA
+
+	info := credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: peerCertificates}}
+
 	for i, tt := range []struct {
 		apiKey    []byte
 		err       error
@@ -71,13 +87,13 @@ func TestServiceGet(t *testing.T) {
 		{[]byte("wrong key"), nil, status.Errorf(codes.Unauthenticated, "Invalid API credential").Error()},
 		{nil, errors.New("get error"), status.Errorf(codes.Internal, "internal error").Error()},
 	} {
-		ctx := context.Background()
 		ctx = auth.WithAPIKey(ctx, tt.apiKey)
+		ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: info})
 
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		db := teststore.New()
-		s := Server{DB: db, logger: zap.NewNop()}
+		s := Server{DB: db, logger: zap.NewNop(), identity: identity}
 
 		path := "a/b/c"
 
@@ -100,6 +116,9 @@ func TestServiceGet(t *testing.T) {
 			assert.NoError(t, err, errTag)
 			assert.NoError(t, err, errTag)
 			assert.True(t, proto.Equal(pr, resp.Pointer), errTag)
+
+			assert.NotNil(t, resp.GetAuthorization())
+			assert.NotNil(t, resp.GetPba())
 		}
 	}
 }
@@ -144,10 +163,6 @@ func TestServiceList(t *testing.T) {
 	db := teststore.New()
 	server := Server{DB: db, logger: zap.NewNop()}
 
-	key := func(s string) storage.Key {
-		return storage.Key(paths.New(s).Bytes())
-	}
-
 	pointer := &pb.Pointer{}
 	pointer.CreationDate = ptypes.TimestampNow()
 
@@ -158,13 +173,13 @@ func TestServiceList(t *testing.T) {
 	pointerValue := storage.Value(pointerBytes)
 
 	err = storage.PutAll(db, []storage.ListItem{
-		{Key: key("sample.😶"), Value: pointerValue},
-		{Key: key("müsic"), Value: pointerValue},
-		{Key: key("müsic/söng1.mp3"), Value: pointerValue},
-		{Key: key("müsic/söng2.mp3"), Value: pointerValue},
-		{Key: key("müsic/album/söng3.mp3"), Value: pointerValue},
-		{Key: key("müsic/söng4.mp3"), Value: pointerValue},
-		{Key: key("ビデオ/movie.mkv"), Value: pointerValue},
+		{Key: storage.Key("sample.😶"), Value: pointerValue},
+		{Key: storage.Key("müsic"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng1.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng2.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/album/söng3.mp3"), Value: pointerValue},
+		{Key: storage.Key("müsic/söng4.mp3"), Value: pointerValue},
+		{Key: storage.Key("ビデオ/movie.mkv"), Value: pointerValue},
 	}...)
 	if err != nil {
 		t.Fatal(err)

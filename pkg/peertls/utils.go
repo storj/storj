@@ -23,7 +23,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-type ecdsaSignature struct {
+// ECDSASignature holds the `r` and `s` values in an ecdsa signature
+// (see https://golang.org/pkg/crypto/ecdsa)
+type ECDSASignature struct {
 	R, S *big.Int
 }
 
@@ -44,7 +46,7 @@ func parseCerts(rawCerts [][]byte) ([]*x509.Certificate, error) {
 		var err error
 		certs[i], err = x509.ParseCertificate(c)
 		if err != nil {
-			return nil, ErrVerifyPeerCert.New("unable to parse certificate: %v", err)
+			return nil, ErrParseCerts.New("unable to parse certificate at index %d", i)
 		}
 	}
 	return certs, nil
@@ -54,53 +56,51 @@ func verifyChainSignatures(certs []*x509.Certificate) error {
 	for i, cert := range certs {
 		j := len(certs)
 		if i+1 < j {
-			isValid, err := verifyCertSignature(certs[i+1], cert)
+			err := verifyCertSignature(certs[i+1], cert)
 			if err != nil {
-				return ErrVerifyPeerCert.Wrap(err)
-			}
-
-			if !isValid {
-				return ErrVerifyPeerCert.New("certificate chain signature verification failed")
+				return ErrVerifyCertificateChain.Wrap(err)
 			}
 
 			continue
 		}
 
-		rootIsValid, err := verifyCertSignature(cert, cert)
+		err := verifyCertSignature(cert, cert)
 		if err != nil {
-			return ErrVerifyPeerCert.Wrap(err)
+			return ErrVerifyCertificateChain.Wrap(err)
 		}
 
-		if !rootIsValid {
-			return ErrVerifyPeerCert.New("certificate chain signature verification failed")
-		}
 	}
 
 	return nil
 }
 
-func verifyCertSignature(parentCert, childCert *x509.Certificate) (bool, error) {
-	pubKey, ok := parentCert.PublicKey.(*ecdsa.PublicKey)
+func verifyCertSignature(parentCert, childCert *x509.Certificate) error {
+	return verifySignature(childCert.Signature, childCert.RawTBSCertificate, parentCert.PublicKey)
+}
+
+func verifySignature(signedData []byte, data []byte, pubKey crypto.PublicKey) error {
+	key, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
-		return false, ErrUnsupportedKey.New("%T", parentCert.PublicKey)
+		return ErrUnsupportedKey.New("%T", key)
 	}
 
-	signature := new(ecdsaSignature)
+	signature := new(ECDSASignature)
 
-	if _, err := asn1.Unmarshal(childCert.Signature, signature); err != nil {
-		return false, ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
+	if _, err := asn1.Unmarshal(signedData, signature); err != nil {
+		return ErrVerifySignature.New("unable to unmarshal ecdsa signature: %v", err)
 	}
 
 	h := crypto.SHA256.New()
-	_, err := h.Write(childCert.RawTBSCertificate)
+	_, err := h.Write(data)
 	if err != nil {
-		return false, err
+		return ErrVerifySignature.Wrap(err)
 	}
 	digest := h.Sum(nil)
 
-	isValid := ecdsa.Verify(pubKey, digest, signature.R, signature.S)
-
-	return isValid, nil
+	if !ecdsa.Verify(key, digest, signature.R, signature.S) {
+		return ErrVerifySignature.New("signature is not valid")
+	}
+	return nil
 }
 
 func newSerialNumber() (*big.Int, error) {

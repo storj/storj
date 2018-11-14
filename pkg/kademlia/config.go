@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"flag"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -12,12 +13,23 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 )
 
 var (
 	// Error defines a Kademlia error
 	Error = errs.Class("kademlia error")
 	mon   = monkit.Package()
+)
+
+const (
+	defaultAlpha = 5
+)
+
+var (
+	// TODO: replace these with constants after tuning
+	flagBucketSize           = flag.Int("kademlia-bucket-size", 20, "Size of each Kademlia bucket")
+	flagReplacementCacheSize = flag.Int("kademlia-replacement-cache-size", 5, "Size of Kademlia replacement cache")
 )
 
 //CtxKey Used as kademlia key
@@ -33,20 +45,8 @@ type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
 	// TODO(jt): remove this! kademlia should just use the grpc server
-	TODOListenAddr              string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
-	Alpha                       int    `help:"alpha is a system wide concurrency parameter." default:"5"`
-	DefaultIDLength             int    `help:"Length of Kademlia Node ID's. This is tied to provider.FullIdentity." default:"256"`
-	DefaultBucketSize           int    `help:"Size of each Kademlia bucket." default:"20"`
-	DefaultReplacementCacheSize int    `help:"Size of Replacement Cache" default:"5"`
-}
-
-// KadConfig defines the parameters for Kademlia to operate and
-// exposes them to the Config struct for easier use.
-type KadConfig struct {
-	Alpha                       int
-	DefaultIDLength             int
-	DefaultBucketSize           int
-	DefaultReplacementCacheSize int
+	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
+	Alpha          int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 }
 
 // Run implements provider.Responsibility
@@ -54,14 +54,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	err error) {
 
 	defer mon.Task()(&ctx)(&err)
-
-	// Create a KadConfig from the root Config
-	kadconfig := KadConfig{
-		Alpha:                       c.Alpha,
-		DefaultIDLength:             c.DefaultIDLength,
-		DefaultBucketSize:           c.DefaultBucketSize,
-		DefaultReplacementCacheSize: c.DefaultReplacementCacheSize,
-	}
 
 	// TODO(coyle): I'm thinking we just remove  this function and grab from the config.
 	in, err := GetIntroNode(c.BootstrapAddr)
@@ -72,11 +64,11 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
 	in.Id = "foo"
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, kadconfig)
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = kad.Disconnect() }()
+	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
 	mn := node.NewServer(kad)
 	pb.RegisterNodesServer(server.GRPC(), mn)

@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	p "storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
@@ -37,7 +36,7 @@ func main() {
 	logger, _ := zap.NewDevelopment()
 	defer printError(logger.Sync)
 
-	ca, err := provider.NewCA(ctx, 12, 4)
+	ca, err := provider.NewTestCA(ctx)
 	if err != nil {
 		logger.Error("Failed to create certificate authority: ", zap.Error(err))
 		os.Exit(1)
@@ -59,7 +58,7 @@ func main() {
 	ctx := context.Background()
 
 	// Example parameters to pass into API calls
-	var path = p.New("fold1/fold2/fold3/file.txt")
+	var path = "fold1/fold2/fold3/file.txt"
 	pointer := &pb.Pointer{
 		Type:          pb.Pointer_INLINE,
 		InlineSegment: []byte("popcorn"),
@@ -75,7 +74,7 @@ func main() {
 	}
 
 	// Example Put2
-	err = client.Put(ctx, p.New("fold1/fold2"), pointer)
+	err = client.Put(ctx, "fold1/fold2", pointer)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("couldn't put pointer in db", zap.Error(err))
@@ -84,7 +83,7 @@ func main() {
 	}
 
 	// Example Get
-	getRes, err := client.Get(ctx, path)
+	getRes, _, err := client.Get(ctx, path)
 
 	if err != nil {
 		logger.Error("couldn't GET pointer from db", zap.Error(err))
@@ -95,15 +94,14 @@ func main() {
 	}
 
 	// Example List with pagination
-	prefix := p.New("fold1")
-	items, more, err := client.List(ctx, prefix, nil, nil, true, 1, meta.None)
+	items, more, err := client.List(ctx, "fold1", "", "", true, 1, meta.None)
 
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to list file paths", zap.Error(err))
 	} else {
 		var stringList []string
 		for _, item := range items {
-			stringList = append(stringList, item.Path.String())
+			stringList = append(stringList, item.Path)
 		}
 		logger.Debug("Success: listed paths: " + strings.Join(stringList, ", ") + "; more: " + fmt.Sprintf("%t", more))
 	}

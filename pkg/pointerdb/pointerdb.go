@@ -5,15 +5,13 @@ package pointerdb
 
 import (
 	"context"
-	"encoding/base64"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -58,21 +56,6 @@ func (s *Server) validateAuth(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
 	return nil
-}
-
-func (s *Server) appendSignature(ctx context.Context) error {
-	signature, err := auth.GenerateSignature(s.identity)
-	if err != nil {
-		return err
-	}
-
-	if signature == nil {
-		return nil
-	}
-
-	base64 := base64.StdEncoding
-	encodedSignature := base64.EncodeToString(signature)
-	return grpc.SetHeader(ctx, metadata.Pairs("signature", encodedSignature))
 }
 
 func (s *Server) validateSegment(req *pb.PutRequest) error {
@@ -137,10 +120,6 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, err
 	}
 
-	if err = s.appendSignature(ctx); err != nil {
-		return nil, err
-	}
-
 	pointerBytes, err := s.DB.Get([]byte(req.GetPath()))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
@@ -156,11 +135,26 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		s.logger.Error("Error unmarshaling pointer")
 		return nil, err
 	}
+
+	pba, err := s.getPayerBandwidthAllocation(ctx)
+	if err != nil {
+		s.logger.Error("err getting payer bandwidth allocation", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	authorization, err := s.getSignedMessage()
+	if err != nil {
+		s.logger.Error("err getting signed message", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
 	nodes := []*pb.Node{}
 
 	var r = &pb.GetResponse{
-		Pointer: pointer,
-		Nodes:   nil,
+		Pointer:       pointer,
+		Nodes:         nil,
+		Pba:           pba,
+		Authorization: authorization,
 	}
 
 	if !s.config.Overlay || pointer.Remote == nil {
@@ -176,8 +170,10 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	}
 
 	r = &pb.GetResponse{
-		Pointer: pointer,
-		Nodes:   nodes,
+		Pointer:       pointer,
+		Nodes:         nodes,
+		Pba:           pba,
+		Authorization: authorization,
 	}
 
 	return r, nil
@@ -296,4 +292,39 @@ func (s *Server) Iterate(ctx context.Context, req *pb.IterateRequest, f func(it 
 		Reverse: req.Reverse,
 	}
 	return s.DB.Iterate(opts, f)
+}
+
+func (s *Server) getPayerBandwidthAllocation(ctx context.Context) (*pb.PayerBandwidthAllocation, error) {
+	payer := s.identity.ID.Bytes()
+
+	// TODO(michal) should be replaced with renter id when available
+	peerIdentity, err := provider.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbad := &pb.PayerBandwidthAllocation_Data{
+		SatelliteId:    payer,
+		UplinkId:       peerIdentity.ID.Bytes(),
+		CreatedUnixSec: time.Now().Unix(),
+		// TODO: Action: pb.PayerBandwidthAllocation_GET, // Action should be a GET or a PUT
+	}
+
+	data, err := proto.Marshal(pbad)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := auth.GenerateSignature(data, s.identity)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PayerBandwidthAllocation{Signature: signature, Data: data}, nil
+}
+
+func (s *Server) getSignedMessage() (*pb.SignedMessage, error) {
+	signature, err := auth.GenerateSignature(s.identity.ID.Bytes(), s.identity)
+	if err != nil {
+		return nil, err
+	}
+
+	return auth.NewSignedMessage(signature, s.identity)
 }

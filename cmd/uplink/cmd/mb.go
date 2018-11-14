@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
@@ -18,7 +19,7 @@ func init() {
 		Use:   "mb",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
-	})
+	}, CLICmd)
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
@@ -53,7 +54,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	if !storage.ErrKeyNotFound.Has(err) {
 		return err
 	}
-	_, err = bs.Put(ctx, dst.Bucket())
+	_, err = bs.Put(ctx, dst.Bucket(), storj.Cipher(cfg.PathEncType))
 	if err != nil {
 		return err
 	}
