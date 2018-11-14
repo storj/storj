@@ -227,14 +227,11 @@ func (o *Cache) DumpBuckets(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Got routing table: %+v\n", table)
 	buckets, err := table.GetBuckets()
 	if err != nil {
-		fmt.Printf("error getting buckets: %+v\n", err)
 		return err
 	}
-
-	fmt.Printf("GOT BUCKETS: %+v\n", buckets)
+	zap.S().Info(fmt.Printf("Buckets: %+v\n", buckets))
 	return nil
 }
 
@@ -250,7 +247,8 @@ func (o *Cache) GetBucket(ctx context.Context, id string) error {
 		return ErrBucketNotFound
 	}
 
-	fmt.Printf("GOT BUCKET: %+v\n", bucket)
+	zap.S().Info(fmt.Printf("Bucket: %+v\n", bucket))
+
 	return nil
 }
 

@@ -6,7 +6,6 @@ package kademlia
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"sync"
 	"time"
 
@@ -129,7 +128,6 @@ func (rt *RoutingTable) GetBucketIds() (storage.Keys, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("got k buckets: %+v\n", kbuckets)
 	return kbuckets, nil
 }
 
