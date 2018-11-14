@@ -46,9 +46,8 @@ func (sdb *MockStatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, min
 }
 
 // Update is used for updating a node's stats in the stats db
-func (sdb *MockStatDB) Update(ctx context.Context, nodeID []byte,
-	auditSuccess, isUp bool, latencyList []int64,
-	updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error) {
+func (sdb *MockStatDB) Update(ctx context.Context, nodeID []byte, auditSuccess,
+	isUp bool, latencyList []int64) (stats *pb.NodeStats, err error) {
 	stats = &pb.NodeStats{
 		AuditSuccessRatio: 0,
 		UptimeRatio:       0,

@@ -29,8 +29,8 @@ type Client interface {
 	CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
 	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minStats *pb.NodeStats) (passedIDs [][]byte, err error)
-	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
-		updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error)
+	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool,
+		latencyList []int64) (stats *pb.NodeStats, err error)
 	UpdateUptime(ctx context.Context, nodeID []byte, isUp bool) (*pb.NodeStats, error)
 	UpdateAuditSuccess(ctx context.Context, nodeID []byte, passed bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
@@ -126,8 +126,7 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte,
 
 // Update is used for updating a node's stats in the stats db
 func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
-	auditSuccess, isUp bool, latencyList []int64,
-	updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error) {
+	auditSuccess, isUp bool, latencyList []int64) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
@@ -135,9 +134,9 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
 		AuditSuccess:       auditSuccess,
 		IsUp:               isUp,
 		LatencyList:        latencyList,
-		UpdateAuditSuccess: updateAuditSuccess,
-		UpdateUptime:       updateUptime,
-		UpdateLatency:      updateLatency,
+		UpdateAuditSuccess: true,
+		UpdateUptime:       true,
+		UpdateLatency:      true,
 	}
 	updateReq := &pb.UpdateRequest{
 		Node:   &node,
