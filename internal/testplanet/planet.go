@@ -6,11 +6,11 @@ package testplanet
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -46,7 +46,7 @@ type Planet struct {
 // New creates a new full system with the given number of nodes.
 func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
-		logger: logger,
+		logger:     logger,
 		identities: pregeneratedIdentities.Clone(),
 	}
 
@@ -56,17 +56,17 @@ func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) 
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes(satelliteCount)
+	planet.Satellites, err = planet.newNodes("satellite", satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newNodes(storageNodeCount)
+	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes(uplinkCount)
+	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -79,10 +79,10 @@ func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) 
 	}
 
 	// init Satellites
-	for i, node := range planet.Satellites {
+	for _, node := range planet.Satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
-			logger.Named(fmt.Sprintf("satellite-%d", i)),
+			node.Logger.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
@@ -159,7 +159,7 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newNode creates a new node.
-func (planet *Planet) newNode() (*Node, error) {
+func (planet *Planet) newNode(name string) (*Node, error) {
 	identity, err := planet.newIdentity()
 	if err != nil {
 		return nil, err
@@ -171,6 +171,7 @@ func (planet *Planet) newNode() (*Node, error) {
 	}
 
 	node := &Node{
+		Logger:   planet.logger.Named(name),
 		Identity: identity,
 		Listener: listener,
 	}
@@ -198,10 +199,10 @@ func (planet *Planet) newNode() (*Node, error) {
 }
 
 // newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(count int) ([]*Node, error) {
+func (planet *Planet) newNodes(prefix string, count int) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode()
+		node, err := planet.newNode(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}

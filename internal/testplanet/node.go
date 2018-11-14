@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -19,6 +21,7 @@ import (
 
 // Node is a general purpose
 type Node struct {
+	Logger    *zap.Logger
 	Info      pb.Node
 	Identity  *provider.FullIdentity
 	Transport transport.Client
