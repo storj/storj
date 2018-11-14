@@ -14,7 +14,6 @@ import (
 )
 
 func TestCompanyRepository(t *testing.T) {
-
 	//testing constants
 	const (
 		// for user
@@ -64,7 +63,6 @@ func TestCompanyRepository(t *testing.T) {
 	var user *satellite.User
 
 	t.Run("Can't insert company without user", func(t *testing.T) {
-
 		company := &satellite.Company{
 			Name:       companyName,
 			Address:    address,
@@ -82,7 +80,6 @@ func TestCompanyRepository(t *testing.T) {
 	})
 
 	t.Run("Insert company successfully", func(t *testing.T) {
-
 		user, err = users.Insert(ctx, &satellite.User{
 			FirstName:    userName,
 			LastName:     lastName,
@@ -197,7 +194,6 @@ func TestCompanyRepository(t *testing.T) {
 }
 
 func TestCompanyFromDbx(t *testing.T) {
-
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		company, err := companyFromDBX(nil)
 

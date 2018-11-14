@@ -11,9 +11,7 @@ import (
 )
 
 func TestBytesToUUID(t *testing.T) {
-
 	t.Run("Invalid input", func(t *testing.T) {
-
 		str := "not UUID string"
 		bytes := []byte(str)
 
@@ -24,7 +22,6 @@ func TestBytesToUUID(t *testing.T) {
 	})
 
 	t.Run("Valid input", func(t *testing.T) {
-
 		id, err := uuid.New()
 		assert.NoError(t, err)
 

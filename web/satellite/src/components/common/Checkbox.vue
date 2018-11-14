@@ -8,6 +8,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// Custom checkbox component
 @Component(
     { 
         data: () => {
@@ -16,6 +17,7 @@ import { Component, Vue } from 'vue-property-decorator';
 			}
 		},
 		methods: {
+            //emits data to parent component
 			onChange () {
 				this.$emit('setData', this.$data.checked)
 			}

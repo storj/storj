@@ -6,12 +6,11 @@ package buckets
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
-
+	reflect "reflect"
 	buckets "storj.io/storj/pkg/storage/buckets"
 	objects "storj.io/storj/pkg/storage/objects"
+	storj "storj.io/storj/pkg/storj"
 )
 
 // MockStore is a mock of Store interface
@@ -90,14 +89,14 @@ func (mr *MockStoreMockRecorder) List(arg0, arg1, arg2, arg3 interface{}) *gomoc
 }
 
 // Put mocks base method
-func (m *MockStore) Put(arg0 context.Context, arg1 string) (buckets.Meta, error) {
-	ret := m.ctrl.Call(m, "Put", arg0, arg1)
+func (m *MockStore) Put(arg0 context.Context, arg1 string, arg2 storj.Cipher) (buckets.Meta, error) {
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2)
 	ret0, _ := ret[0].(buckets.Meta)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Put indicates an expected call of Put
-func (mr *MockStoreMockRecorder) Put(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), arg0, arg1)
+func (mr *MockStoreMockRecorder) Put(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), arg0, arg1, arg2)
 }
