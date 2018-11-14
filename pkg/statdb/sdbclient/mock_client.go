@@ -22,22 +22,16 @@ var _ Client = (*MockStatDB)(nil)
 
 // Create is used for creating a new entry in the stats db with default reputation
 func (sdb *MockStatDB) Create(ctx context.Context, nodeID []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	return nil
 }
 
 // CreateWithStats is used for creating a new entry in the stats db with a specific reputation
 func (sdb *MockStatDB) CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	return nil
 }
 
 // Get is used for retrieving an entry from statdb or creating a new one if one does not exist
 func (sdb *MockStatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	stats = &pb.NodeStats{
 		AuditSuccessRatio: 0,
 		UptimeRatio:       0,
@@ -66,6 +60,17 @@ func (sdb *MockStatDB) Update(ctx context.Context, nodeID []byte,
 // UpdateUptime is used for updating a node's uptime in statdb
 func (sdb *MockStatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 	isUp bool) (stats *pb.NodeStats, err error) {
+	stats = &pb.NodeStats{
+		AuditSuccessRatio: 0,
+		UptimeRatio:       0,
+		AuditCount:        0,
+	}
+	return stats, nil
+}
+
+// UpdateAuditSuccess is used for updating a node's audit success in statdb
+func (sdb *MockStatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
+	passed bool) (stats *pb.NodeStats, err error) {
 	stats = &pb.NodeStats{
 		AuditSuccessRatio: 0,
 		UptimeRatio:       0,

@@ -32,6 +32,7 @@ type Client interface {
 	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
 		updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error)
 	UpdateUptime(ctx context.Context, nodeID []byte, isUp bool) (*pb.NodeStats, error)
+	UpdateAuditSuccess(ctx context.Context, nodeID []byte, passed bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
 	CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error)
 }
@@ -161,6 +162,28 @@ func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
 		IsUp:               isUp,
 		UpdateAuditSuccess: false,
 		UpdateUptime:       true,
+		UpdateLatency:      false,
+	}
+	updateReq := &pb.UpdateRequest{
+		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+
+	res, err := sdb.client.Update(ctx, updateReq)
+
+	return res.Stats, err
+}
+
+// UpdateAuditSuccess is used for updating a node's audit success in statdb
+func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
+	passed bool) (stats *pb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := pb.Node{
+		NodeId:             nodeID,
+		AuditSuccess:       passed,
+		UpdateAuditSuccess: true,
+		UpdateUptime:       false,
 		UpdateLatency:      false,
 	}
 	updateReq := &pb.UpdateRequest{
