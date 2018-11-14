@@ -18,12 +18,18 @@ type Rollup interface {
 type rollup struct {
 	logger *zap.Logger
 	ticker *time.Ticker
+	//TODO:
+	//rollupDB
+	//rawDB
 }
 
 func newRollup(logger *zap.Logger, interval time.Duration) *rollup {
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
+		//TODO:
+		//rollupDB
+		//rawDB
 	}
 }
 
