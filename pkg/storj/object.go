@@ -3,12 +3,20 @@
 
 package storj
 
-import "time"
+import (
+	"time"
+
+	"github.com/zeebo/errs"
+)
+
+// ErrNoBucket is an error class for using empty bucket name
+var ErrNoBucket = errs.Class("no bucket specified")
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
-	Name    string
-	Created time.Time
+	Name       string
+	Created    time.Time
+	PathCipher Cipher
 }
 
 // Object contains information about a specific object

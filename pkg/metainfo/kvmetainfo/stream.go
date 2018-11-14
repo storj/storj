@@ -17,7 +17,7 @@ import (
 var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
 
 type readonlyStream struct {
-	db *Objects
+	db *DB
 
 	info          storj.Object
 	encryptedPath storj.Path

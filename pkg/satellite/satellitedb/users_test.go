@@ -16,8 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRepository(t *testing.T) {
-
+func TestUserRepository(t *testing.T) {
 	//testing constants
 	const (
 		lastName    = "lastName"
@@ -33,6 +32,7 @@ func TestRepository(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	// creating in-memory db and opens connection
 	// to test with real db3 file use this connection string - "../db/accountdb.db3"
 	db, err := New("sqlite3", "file::memory:?mode=memory&cache=shared")
 	if err != nil {
@@ -40,6 +40,7 @@ func TestRepository(t *testing.T) {
 	}
 	defer ctx.Check(db.Close)
 
+	// creating tables
 	err = db.CreateTables()
 	if err != nil {
 		assert.NoError(t, err)
@@ -48,7 +49,6 @@ func TestRepository(t *testing.T) {
 	repository := db.Users()
 
 	t.Run("User insertion success", func(t *testing.T) {
-
 		id, err := uuid.New()
 
 		if err != nil {
@@ -64,22 +64,14 @@ func TestRepository(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		err = repository.Insert(ctx, user)
+		_, err = repository.Insert(ctx, user)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Can't insert user with same email twice", func(t *testing.T) {
-
-		id, err := uuid.New()
-
-		if err != nil {
-			assert.NoError(t, err)
-		}
-
 		user := &satellite.User{
-			ID:           *id,
 			FirstName:    name,
 			LastName:     lastName,
 			Email:        email,
@@ -87,7 +79,7 @@ func TestRepository(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		err = repository.Insert(ctx, user)
+		_, err = repository.Insert(ctx, user)
 
 		assert.NotNil(t, err)
 		assert.Error(t, err)
@@ -101,7 +93,7 @@ func TestRepository(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NoError(t, err)
 
-		userByID, err := repository.GetByCredentials(ctx, []byte(passValid), email)
+		userByID, err := repository.Get(ctx, userByCreds.ID)
 
 		assert.Equal(t, userByID.FirstName, name)
 		assert.Equal(t, userByID.LastName, lastName)
@@ -119,9 +111,7 @@ func TestRepository(t *testing.T) {
 	t.Run("Update user success", func(t *testing.T) {
 		oldUser, err := repository.GetByCredentials(ctx, []byte(passValid), email)
 
-		if err != nil {
-			assert.NoError(t, err)
-		}
+		assert.NoError(t, err)
 
 		newUser := &satellite.User{
 			ID:           oldUser.ID,
@@ -129,7 +119,6 @@ func TestRepository(t *testing.T) {
 			LastName:     newLastName,
 			Email:        newEmail,
 			PasswordHash: []byte(newPass),
-			CreatedAt:    oldUser.CreatedAt,
 		}
 
 		err = repository.Update(ctx, newUser)
@@ -139,9 +128,7 @@ func TestRepository(t *testing.T) {
 
 		newUser, err = repository.Get(ctx, oldUser.ID)
 
-		if err != nil {
-			assert.NoError(t, err)
-		}
+		assert.NoError(t, err)
 
 		assert.Equal(t, newUser.ID, oldUser.ID)
 		assert.Equal(t, newUser.FirstName, newName)
@@ -154,9 +141,7 @@ func TestRepository(t *testing.T) {
 	t.Run("Delete user success", func(t *testing.T) {
 		oldUser, err := repository.GetByCredentials(ctx, []byte(newPass), newEmail)
 
-		if err != nil {
-			assert.NoError(t, err)
-		}
+		assert.NoError(t, err)
 
 		err = repository.Delete(ctx, oldUser.ID)
 
@@ -170,8 +155,7 @@ func TestRepository(t *testing.T) {
 	})
 }
 
-func TestUserDboFromDbx(t *testing.T) {
-
+func TestUserFromDbx(t *testing.T) {
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		user, err := userFromDBX(nil)
 
@@ -180,9 +164,9 @@ func TestUserDboFromDbx(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("can't create dbo from dbx model with invalid Id", func(t *testing.T) {
+	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
 		dbxUser := dbx.User{
-			Id:           "qweqwe",
+			Id:           []byte("qweqwe"),
 			FirstName:    "FirstName",
 			LastName:     "LastName",
 			Email:        "email@ukr.net",

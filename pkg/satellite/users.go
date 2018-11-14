@@ -17,7 +17,7 @@ type Users interface {
 	// Get is a method for querying user from the database by id
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// Insert is a method for inserting user into the database
-	Insert(ctx context.Context, user *User) error
+	Insert(ctx context.Context, user *User) (*User, error)
 	// Delete is a method for deleting user by Id from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity
@@ -26,12 +26,12 @@ type Users interface {
 
 // User is a database object that describes User entity
 type User struct {
-	ID uuid.UUID
+	ID uuid.UUID `json:"id"`
 
-	FirstName    string
-	LastName     string
-	Email        string
-	PasswordHash []byte
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	Email        string `json:"email"`
+	PasswordHash []byte `json:"passwordHash"`
 
-	CreatedAt time.Time
+	CreatedAt time.Time `json:"createdAt"`
 }

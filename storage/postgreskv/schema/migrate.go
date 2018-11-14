@@ -8,11 +8,6 @@ package schema
 import (
 	"database/sql"
 
-	// this isn't strictly necessary to import, but we just need the go-bindata
-	// binary for the above generate, and go mod tidy wants to remove
-	// go-bindata because nothing else is importing it. better solutions?
-	_ "github.com/go-bindata/go-bindata"
-
 	"github.com/golang-migrate/migrate/v3"
 	"github.com/golang-migrate/migrate/v3/database/postgres"
 	"github.com/golang-migrate/migrate/v3/source/go_bindata"

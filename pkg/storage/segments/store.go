@@ -294,7 +294,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	if pr.GetType() != pb.Pointer_REMOTE {
-		return Error.New("Cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
+		return Error.New("cannot repair inline segment %s", psclient.PieceID(pr.GetInlineSegment()))
 	}
 
 	seg := pr.GetRemote()
@@ -314,18 +314,23 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	// count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
-	for j, v := range originalNodes {
-		if v != nil {
-			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
-		} else {
+
+	healthyNodes := make([]*pb.Node, len(originalNodes))
+
+	// populate healthyNodes with all nodes from originalNodes except those correlating to indices in lostPieces
+	for i, v := range originalNodes {
+		if v == nil {
 			totalNilNodes++
+			continue
 		}
 
-		//remove all lost pieces from the list to have only healthy pieces
-		for i := range lostPieces {
-			if j == int(lostPieces[i]) {
-				totalNilNodes++
-			}
+		excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+
+		// If node index exists in lostPieces, skip adding it to healthyNodes
+		if contains(lostPieces, i) {
+			totalNilNodes++
+		} else {
+			healthyNodes[i] = v
 		}
 	}
 
@@ -336,17 +341,31 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return err
 	}
 
+	if totalNilNodes != len(newNodes) {
+		return Error.New("Number of new nodes from overlay (%d) does not equal total nil nodes (%d)", len(newNodes), totalNilNodes)
+	}
+
 	totalRepairCount := len(newNodes)
 
 	//make a repair nodes list just with new unique ids
-	repairNodesList := make([]*pb.Node, len(originalNodes))
-	for j, vr := range originalNodes {
-		// find the nil in the original node list
+	repairNodesList := make([]*pb.Node, len(healthyNodes))
+	for j, vr := range healthyNodes {
+		// check that totalRepairCount is non-negative
+		if totalRepairCount < 0 {
+			return Error.New("Total repair count (%d) less than zero", totalRepairCount)
+		}
+
+		// find the nil in the node list
 		if vr == nil {
 			// replace the location with the newNode Node info
 			totalRepairCount--
 			repairNodesList[j] = newNodes[totalRepairCount]
 		}
+	}
+
+	// check that all nil nodes have a replacement prepared
+	if totalRepairCount != 0 {
+		return Error.New("Failed to replace all nil nodes (%d). (%d) new nodes not inserted", len(newNodes), totalRepairCount)
 	}
 
 	es, err := makeErasureScheme(pr.GetRemote().GetRedundancy())
@@ -358,7 +377,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	pba := s.pdb.PayerBandwidthAllocation()
 
 	// download the segment using the nodes just with healthy nodes
-	rr, err := s.ec.Get(ctx, originalNodes, es, pid, pr.GetSize(), pba, signedMessage)
+	rr, err := s.ec.Get(ctx, healthyNodes, es, pid, pr.GetSize(), pba, signedMessage)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -378,16 +397,16 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 		return Error.Wrap(err)
 	}
 
-	// merge the successful nodes list into the originalNodes list
-	for i, v := range originalNodes {
+	// merge the successful nodes list into the healthy nodes list
+	for i, v := range healthyNodes {
 		if v == nil {
 			// copy the successfuNode info
-			originalNodes[i] = successfulNodes[i]
+			healthyNodes[i] = successfulNodes[i]
 		}
 	}
 
 	metadata := pr.GetMetadata()
-	pointer, err := s.makeRemotePointer(originalNodes, pid, rr.Size(), exp, metadata)
+	pointer, err := s.makeRemotePointer(healthyNodes, pid, rr.Size(), exp, metadata)
 	if err != nil {
 		return err
 	}
@@ -436,6 +455,16 @@ func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore s
 	}
 
 	return items, more, nil
+}
+
+// contains checks if n exists in list
+func contains(list []int32, n int) bool {
+	for i := range list {
+		if n == int(list[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 // convertMeta converts pointer to segment metadata

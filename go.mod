@@ -19,7 +19,6 @@ require (
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fatih/structs v1.0.0 // indirect
-	github.com/go-bindata/go-bindata v1.0.0
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.1.1
 	github.com/golang-migrate/migrate/v3 v3.5.2
@@ -89,7 +88,7 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941
 	golang.org/x/net v0.0.0-20181003013248-f5e5bdd77824
-	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e
+	golang.org/x/sys v0.0.0-20181011152604-fa43e7bc11ba
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/grpc v1.15.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
@@ -103,7 +102,8 @@ require (
 require (
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
-	github.com/hanwen/go-fuse v0.0.0-20181011180456-b760b55765be
+	github.com/graphql-go/graphql v0.7.6
+	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 

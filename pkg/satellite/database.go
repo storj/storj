@@ -7,6 +7,10 @@ package satellite
 type DB interface {
 	// Users is getter for Users repository
 	Users() Users
+	// Companies is getter for Companies repository
+	Companies() Companies
+	// Projects is getter for Projects repository
+	Projects() Projects
 
 	// CreateTables is a method for creating all tables for satellitedb
 	CreateTables() error

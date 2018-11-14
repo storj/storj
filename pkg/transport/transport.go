@@ -44,14 +44,20 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.Di
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
-	return o.DialAddress(ctx, node.Address.Address, opts...)
+
+	// add ID of node we are wanting to connect to
+	dialOpt, err := o.identity.DialOption(node.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return grpc.Dial(node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
 func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := o.identity.DialOption()
+	dialOpt, err := o.identity.DialOption("")
 	if err != nil {
 		return nil, err
 	}

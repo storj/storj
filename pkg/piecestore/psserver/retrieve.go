@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -39,7 +40,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 
 	authorization := recv.GetAuthorization()
 	if err := s.verifier(authorization); err != nil {
-		return err
+		return ServerError.Wrap(err)
 	}
 
 	pd := recv.GetPieceData()
@@ -47,7 +48,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return RetrieveError.New("PieceStore message is nil")
 	}
 
-	log.Printf("Retrieving %s...", pd.GetId())
+	zap.S().Infof("Retrieving %s...", pd.GetId())
 
 	id, err := getNamespacedPieceID([]byte(pd.GetId()), getNamespace(authorization))
 	if err != nil {
@@ -80,7 +81,7 @@ func (s *Server) Retrieve(stream pb.PieceStoreRoutes_RetrieveServer) (err error)
 		return err
 	}
 
-	log.Printf("Successfully retrieved %s: Allocated: %v, Retrieved: %v\n", pd.GetId(), allocated, retrieved)
+	zap.S().Infof("Successfully retrieved %s: Allocated: %v, Retrieved: %v\n", pd.GetId(), allocated, retrieved)
 	return nil
 }
 

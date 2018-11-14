@@ -1,8 +1,38 @@
 import { shallowMount, mount } from '@vue/test-utils';
-import Button from "@/components/Button.vue";
+import Button from "@/components/common/Button.vue";
 import * as sinon from 'sinon';
 
 describe('Button.vue', () => {
+
+	it('renders correctly', () => {
+
+    	const wrapper = shallowMount(Button);
+
+		expect(wrapper).toMatchSnapshot();
+	});
+
+	it('renders correctly with isWhite prop', () => {
+
+    	const wrapper = shallowMount(Button, {
+			propsData: {
+				isWhite: true
+			}
+		});
+
+		expect(wrapper).toMatchSnapshot();
+	});
+
+	it('renders correctly with isDisabled prop', () => {
+
+    	const wrapper = shallowMount(Button, {
+			propsData: {
+				isDisabled: true
+			}
+		});
+
+		expect(wrapper).toMatchSnapshot();
+	});
+	  
 	it('renders correctly with size and label props', () => {
 		let label = "testLabel";
 		let width = "30px";
@@ -31,7 +61,8 @@ describe('Button.vue', () => {
 
 		const wrapper = mount(Button, {
 			propsData: {
-				onPress: onPressSpy
+				onPress: onPressSpy,
+				isDisabled: false
 			}
 		});
 
