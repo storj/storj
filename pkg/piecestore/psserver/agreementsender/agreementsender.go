@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -89,8 +90,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				transportClient := transport.NewClient(as.identity)
-
-				conn, err := transportClient.Dial(ctx, satellite)
+				conn, err := transportClient.DialNode(ctx, satellite)
 				if err != nil {
 					zap.S().Error(err)
 					return
