@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package accounting
+package tally
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// Tally is the service for adding up storage node data usage
+// Tally is the service for accounting for data stored on each storage node
 type Tally interface {
 	Run(ctx context.Context) error
 }
@@ -32,6 +32,8 @@ type tally struct {
 	limit     int
 	logger    *zap.Logger
 	ticker    *time.Ticker
+	//TODO:
+	//rawDB
 }
 
 func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
@@ -41,22 +43,25 @@ func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *k
 		kademlia:  kademlia,
 		limit:     limit,
 		logger:    logger,
+		ticker:    time.NewTicker(interval),
+		//TODO:
+		//rawDB
 	}
 }
 
-// Run the collector loop
+// Run the tally loop
 func (t *tally) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
 		err = t.identifyActiveNodes(ctx)
 		if err != nil {
-			zap.L().Error("Collector failed", zap.Error(err))
+			zap.L().Error("Tally failed", zap.Error(err))
 		}
 
 		select {
 		case <-t.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the collector is canceled via context
+		case <-ctx.Done(): // or the tally is canceled via context
 			return ctx.Err()
 		}
 	}

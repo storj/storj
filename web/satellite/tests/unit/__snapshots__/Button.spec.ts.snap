@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Button.vue renders correctly 1`] = `
+<div class="container" style="width: inherit; height: inherit;">
+  <h1 class="label">Default</h1>
+</div>
+`;
+
+exports[`Button.vue renders correctly with isDisabled prop 1`] = `
+<div class="container disabled" style="width: inherit; height: inherit;">
+  <h1 class="label">Default</h1>
+</div>
+`;
+
+exports[`Button.vue renders correctly with isWhite prop 1`] = `
+<div class="container white" style="width: inherit; height: inherit;">
+  <h1 class="label white">Default</h1>
+</div>
+`;

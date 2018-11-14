@@ -6,6 +6,10 @@ const ROUTES = {
     REGISTER: {
         path: '/register',
         name: 'Register'
+    },
+    DASHBOARD: {
+        path: '/dashboard',
+        name: 'Dashboard'
     }
 };
 

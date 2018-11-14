@@ -290,7 +290,7 @@ CREATE TABLE companies (
 );
 CREATE TABLE projects (
 	id BLOB NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	owner_id BLOB REFERENCES users( id ) ON DELETE SET NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	is_agreed_with_terms INTEGER NOT NULL,
@@ -672,7 +672,7 @@ func (Company_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Project struct {
 	Id                []byte
-	UserId            []byte
+	OwnerId           []byte
 	Name              string
 	Description       string
 	IsAgreedWithTerms bool
@@ -681,7 +681,12 @@ type Project struct {
 
 func (Project) _Table() string { return "projects" }
 
+type Project_Create_Fields struct {
+	OwnerId Project_OwnerId_Field
+}
+
 type Project_Update_Fields struct {
+	OwnerId           Project_OwnerId_Field
 	Name              Project_Name_Field
 	Description       Project_Description_Field
 	IsAgreedWithTerms Project_IsAgreedWithTerms_Field
@@ -705,23 +710,36 @@ func (f Project_Id_Field) value() interface{} {
 
 func (Project_Id_Field) _Column() string { return "id" }
 
-type Project_UserId_Field struct {
+type Project_OwnerId_Field struct {
 	_set   bool
 	_value []byte
 }
 
-func Project_UserId(v []byte) Project_UserId_Field {
-	return Project_UserId_Field{_set: true, _value: v}
+func Project_OwnerId(v []byte) Project_OwnerId_Field {
+	return Project_OwnerId_Field{_set: true, _value: v}
 }
 
-func (f Project_UserId_Field) value() interface{} {
+func Project_OwnerId_Raw(v []byte) Project_OwnerId_Field {
+	if v == nil {
+		return Project_OwnerId_Null()
+	}
+	return Project_OwnerId(v)
+}
+
+func Project_OwnerId_Null() Project_OwnerId_Field {
+	return Project_OwnerId_Field{_set: true}
+}
+
+func (f Project_OwnerId_Field) isnull() bool { return !f._set || f._value == nil }
+
+func (f Project_OwnerId_Field) value() interface{} {
 	if !f._set {
 		return nil
 	}
 	return f._value
 }
 
-func (Project_UserId_Field) _Column() string { return "user_id" }
+func (Project_OwnerId_Field) _Column() string { return "owner_id" }
 
 type Project_Name_Field struct {
 	_set   bool
@@ -1037,26 +1055,26 @@ func (obj *sqlite3Impl) Create_Company(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
-	project_user_id Project_UserId_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
-	project_is_agreed_with_terms Project_IsAgreedWithTerms_Field) (
+	project_is_agreed_with_terms Project_IsAgreedWithTerms_Field,
+	optional Project_Create_Fields) (
 	project *Project, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_id.value()
-	__user_id_val := project_user_id.value()
+	__owner_id_val := optional.OwnerId.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
 	__is_agreed_with_terms_val := project_is_agreed_with_terms.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, user_id, name, description, is_agreed_with_terms, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, owner_id, name, description, is_agreed_with_terms, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __user_id_val, __name_val, __description_val, __is_agreed_with_terms_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __owner_id_val, __name_val, __description_val, __is_agreed_with_terms_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __user_id_val, __name_val, __description_val, __is_agreed_with_terms_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __owner_id_val, __name_val, __description_val, __is_agreed_with_terms_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1178,7 +1196,7 @@ func (obj *sqlite3Impl) Get_Company_By_Id(ctx context.Context,
 func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.user_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -1194,7 +1212,7 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.UserId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -1211,7 +1229,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.user_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -1220,7 +1238,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.UserId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1228,14 +1246,21 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_Project_By_UserId(ctx context.Context,
-	project_user_id Project_UserId_Field) (
-	project *Project, err error) {
+func (obj *sqlite3Impl) All_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.user_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE projects.user_id = ? LIMIT 2")
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.owner_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values, project_user_id.value())
+	__values = append(__values)
+
+	if !project_owner_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_owner_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1246,28 +1271,18 @@ func (obj *sqlite3Impl) Get_Project_By_UserId(ctx context.Context,
 	}
 	defer __rows.Close()
 
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
+	for __rows.Next() {
+		project := &Project{}
+		err = __rows.Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
+		if err != nil {
 			return nil, obj.makeErr(err)
 		}
-		return nil, makeErr(sql.ErrNoRows)
+		rows = append(rows, project)
 	}
-
-	project = &Project{}
-	err = __rows.Scan(&project.Id, &project.UserId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("Project_By_UserId")
-	}
-
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
 	}
-
-	return project, nil
+	return rows, nil
 
 }
 
@@ -1423,6 +1438,11 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.OwnerId._set {
+		__values = append(__values, update.OwnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("owner_id = ?"))
+	}
+
 	if update.Name._set {
 		__values = append(__values, update.Name.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
@@ -1456,12 +1476,12 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.user_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.UserId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1589,13 +1609,13 @@ func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 	pk int64) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.user_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.owner_id, projects.name, projects.description, projects.is_agreed_with_terms, projects.created_at FROM projects WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.UserId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.OwnerId, &project.Name, &project.Description, &project.IsAgreedWithTerms, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1707,6 +1727,16 @@ func (rx *Rx) All_Project(ctx context.Context) (
 	return tx.All_Project(ctx)
 }
 
+func (rx *Rx) All_Project_By_OwnerId(ctx context.Context,
+	project_owner_id Project_OwnerId_Field) (
+	rows []*Project, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Project_By_OwnerId(ctx, project_owner_id)
+}
+
 func (rx *Rx) Create_Company(ctx context.Context,
 	company_id Company_Id_Field,
 	company_user_id Company_UserId_Field,
@@ -1727,16 +1757,16 @@ func (rx *Rx) Create_Company(ctx context.Context,
 
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
-	project_user_id Project_UserId_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
-	project_is_agreed_with_terms Project_IsAgreedWithTerms_Field) (
+	project_is_agreed_with_terms Project_IsAgreedWithTerms_Field,
+	optional Project_Create_Fields) (
 	project *Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_user_id, project_name, project_description, project_is_agreed_with_terms)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_is_agreed_with_terms, optional)
 
 }
 
@@ -1815,16 +1845,6 @@ func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	return tx.Get_Project_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_Project_By_UserId(ctx context.Context,
-	project_user_id Project_UserId_Field) (
-	project *Project, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Project_By_UserId(ctx, project_user_id)
-}
-
 func (rx *Rx) Get_User_By_Email_And_PasswordHash(ctx context.Context,
 	user_email User_Email_Field,
 	user_password_hash User_PasswordHash_Field) (
@@ -1883,6 +1903,10 @@ type Methods interface {
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
+	All_Project_By_OwnerId(ctx context.Context,
+		project_owner_id Project_OwnerId_Field) (
+		rows []*Project, err error)
+
 	Create_Company(ctx context.Context,
 		company_id Company_Id_Field,
 		company_user_id Company_UserId_Field,
@@ -1896,10 +1920,10 @@ type Methods interface {
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
-		project_user_id Project_UserId_Field,
 		project_name Project_Name_Field,
 		project_description Project_Description_Field,
-		project_is_agreed_with_terms Project_IsAgreedWithTerms_Field) (
+		project_is_agreed_with_terms Project_IsAgreedWithTerms_Field,
+		optional Project_Create_Fields) (
 		project *Project, err error)
 
 	Create_User(ctx context.Context,
@@ -1932,10 +1956,6 @@ type Methods interface {
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
-		project *Project, err error)
-
-	Get_Project_By_UserId(ctx context.Context,
-		project_user_id Project_UserId_Field) (
 		project *Project, err error)
 
 	Get_User_By_Email_And_PasswordHash(ctx context.Context,

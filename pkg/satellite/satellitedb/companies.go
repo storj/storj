@@ -20,7 +20,6 @@ type companies struct {
 
 // Get is a method for querying company from the database by id
 func (companies *companies) Get(ctx context.Context, id uuid.UUID) (*satellite.Company, error) {
-
 	company, err := companies.db.Get_Company_By_Id(ctx, dbx.Company_Id(id[:]))
 	if err != nil {
 		return nil, err
@@ -31,7 +30,6 @@ func (companies *companies) Get(ctx context.Context, id uuid.UUID) (*satellite.C
 
 // Get is a method for querying company from the database by user id
 func (companies *companies) GetByUserID(ctx context.Context, userID uuid.UUID) (*satellite.Company, error) {
-
 	company, err := companies.db.Get_Company_By_UserId(ctx, dbx.Company_UserId(userID[:]))
 	if err != nil {
 		return nil, err
@@ -42,7 +40,6 @@ func (companies *companies) GetByUserID(ctx context.Context, userID uuid.UUID) (
 
 // Insert is a method for inserting company into the database
 func (companies *companies) Insert(ctx context.Context, company *satellite.Company) (*satellite.Company, error) {
-
 	companyID, err := uuid.New()
 	if err != nil {
 		return nil, err

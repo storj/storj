@@ -26,12 +26,12 @@ type Users interface {
 
 // User is a database object that describes User entity
 type User struct {
-	ID uuid.UUID
+	ID uuid.UUID `json:"id"`
 
-	FirstName    string
-	LastName     string
-	Email        string
-	PasswordHash []byte
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	Email        string `json:"email"`
+	PasswordHash []byte `json:"passwordHash"`
 
-	CreatedAt time.Time
+	CreatedAt time.Time `json:"createdAt"`
 }
