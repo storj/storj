@@ -37,9 +37,9 @@ func NewStorjGateway(bs buckets.Store, pathCipher storj.Cipher) *Storj {
 
 //Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	bs        buckets.Store
+	bs         buckets.Store
 	pathCipher storj.Cipher
-	multipart *MultipartUploads
+	multipart  *MultipartUploads
 }
 
 // Name implements cmd.Gateway
