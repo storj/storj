@@ -79,7 +79,7 @@ func CountNodes(cmd *cobra.Command, args []string) (err error) {
 
 	count, err := i.client.CountNodes(i.ctx, &pb.CountNodesRequest{})
 	if err != nil {
-		errs.New("Could not retrieve node count:")
+		return errs.New("Could not retrieve node count:")
 	}
 
 	fmt.Printf("---------- \n - Kademlia: %+v\n - Overlay: %+v\n", count.Kademlia, count.Overlay)
