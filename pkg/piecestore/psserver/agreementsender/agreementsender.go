@@ -10,13 +10,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
 
@@ -89,8 +89,14 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					return
 				}
 
-				transportClient := transport.NewClient(as.identity)
-				conn, err := transportClient.DialNode(ctx, satellite)
+				// Create client from satellite ip
+				identOpt, err := as.identity.DialOption("")
+				if err != nil {
+					zap.S().Error(err)
+					return
+				}
+
+				conn, err := grpc.Dial(satellite.GetAddress().String(), identOpt)
 				if err != nil {
 					zap.S().Error(err)
 					return
