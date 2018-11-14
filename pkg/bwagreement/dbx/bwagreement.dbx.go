@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures
@@ -140,8 +140,8 @@ type DB struct {
 func Open(driver, source string) (db *DB, err error) {
 	var sql_db *sql.DB
 	switch driver {
-	case "postgres":
-		sql_db, err = openpostgres(source)
+	case "sqlite3":
+		sql_db, err = opensqlite3(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -164,8 +164,8 @@ func Open(driver, source string) (db *DB, err error) {
 	db.Hooks.Now = time.Now
 
 	switch driver {
-	case "postgres":
-		db.dbMethods = newpostgres(db)
+	case "sqlite3":
+		db.dbMethods = newsqlite3(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -228,21 +228,21 @@ func (tx *dialectTx) Rollback() (err error) {
 	return makeErr(tx.tx.Rollback())
 }
 
-type postgresImpl struct {
+type sqlite3Impl struct {
 	db      *DB
-	dialect __sqlbundle_postgres
+	dialect __sqlbundle_sqlite3
 	driver  driver
 }
 
-func (obj *postgresImpl) Rebind(s string) string {
+func (obj *sqlite3Impl) Rebind(s string) string {
 	return obj.dialect.Rebind(s)
 }
 
-func (obj *postgresImpl) logStmt(stmt string, args ...interface{}) {
-	postgresLogStmt(stmt, args...)
+func (obj *sqlite3Impl) logStmt(stmt string, args ...interface{}) {
+	sqlite3LogStmt(stmt, args...)
 }
 
-func (obj *postgresImpl) makeErr(err error) error {
+func (obj *sqlite3Impl) makeErr(err error) error {
 	constraint, ok := obj.isConstraintError(err)
 	if ok {
 		return constraintViolation(err, constraint)
@@ -250,46 +250,46 @@ func (obj *postgresImpl) makeErr(err error) error {
 	return makeErr(err)
 }
 
-type postgresDB struct {
+type sqlite3DB struct {
 	db *DB
-	*postgresImpl
+	*sqlite3Impl
 }
 
-func newpostgres(db *DB) *postgresDB {
-	return &postgresDB{
+func newsqlite3(db *DB) *sqlite3DB {
+	return &sqlite3DB{
 		db: db,
-		postgresImpl: &postgresImpl{
+		sqlite3Impl: &sqlite3Impl{
 			db:     db,
 			driver: db.DB,
 		},
 	}
 }
 
-func (obj *postgresDB) Schema() string {
+func (obj *sqlite3DB) Schema() string {
 	return `CREATE TABLE bwagreements (
-	signature bytea NOT NULL,
-	data bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
+	signature BLOB NOT NULL,
+	data BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( signature )
 );`
 }
 
-func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
-	return &postgresTx{
+func (obj *sqlite3DB) wrapTx(tx *sql.Tx) txMethods {
+	return &sqlite3Tx{
 		dialectTx: dialectTx{tx: tx},
-		postgresImpl: &postgresImpl{
+		sqlite3Impl: &sqlite3Impl{
 			db:     obj.db,
 			driver: tx,
 		},
 	}
 }
 
-type postgresTx struct {
+type sqlite3Tx struct {
 	dialectTx
-	*postgresImpl
+	*sqlite3Impl
 }
 
-func postgresLogStmt(stmt string, args ...interface{}) {
+func sqlite3LogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -567,7 +567,7 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
-func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
+func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
 	bwagreement_data Bwagreement_Data_Field) (
 	bwagreement *Bwagreement, err error) {
@@ -577,21 +577,24 @@ func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
 	__data_val := bwagreement_data.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.data, bwagreements.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
 
-	bwagreement = &Bwagreement{}
-	err = obj.driver.QueryRow(__stmt, __signature_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	__res, err := obj.driver.Exec(__stmt, __signature_val, __data_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return bwagreement, nil
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBwagreement(ctx, __pk)
 
 }
 
-func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
+func (obj *sqlite3Impl) Get_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	bwagreement *Bwagreement, err error) {
 
@@ -612,7 +615,7 @@ func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
+func (obj *sqlite3Impl) Limited_Bwagreement(ctx context.Context,
 	limit int, offset int64) (
 	rows []*Bwagreement, err error) {
 
@@ -647,7 +650,7 @@ func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
+func (obj *sqlite3Impl) All_Bwagreement(ctx context.Context) (
 	rows []*Bwagreement, err error) {
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
@@ -679,7 +682,7 @@ func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
+func (obj *sqlite3Impl) Delete_Bwagreement_By_Signature(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field) (
 	deleted bool, err error) {
 
@@ -705,17 +708,40 @@ func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
 
 }
 
-func (impl postgresImpl) isConstraintError(err error) (
+func (obj *sqlite3Impl) getLastBwagreement(ctx context.Context,
+	pk int64) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
-	if e, ok := err.(*pq.Error); ok {
-		if e.Code.Class() == "23" {
-			return e.Constraint, true
+	if e, ok := err.(sqlite3.Error); ok {
+		if e.Code == sqlite3.ErrConstraint {
+			msg := err.Error()
+			colon := strings.LastIndex(msg, ":")
+			if colon != -1 {
+				return strings.TrimSpace(msg[colon:]), true
+			}
+			return "", true
 		}
 	}
 	return "", false
 }
 
-func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
+func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
@@ -877,6 +903,31 @@ type dbMethods interface {
 	makeErr(err error) error
 }
 
-func openpostgres(source string) (*sql.DB, error) {
-	return sql.Open("postgres", source)
+var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())
+
+func init() {
+	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
+		ConnectHook: sqlite3SetupConn,
+	})
+}
+
+// SQLite3JournalMode controls the journal_mode pragma for all new connections.
+// Since it is read without a mutex, it must be changed to the value you want
+// before any Open calls.
+var SQLite3JournalMode = "WAL"
+
+func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
+	_, err = conn.Exec("PRAGMA foreign_keys = ON", nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	_, err = conn.Exec("PRAGMA journal_mode = "+SQLite3JournalMode, nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	return nil
+}
+
+func opensqlite3(source string) (*sql.DB, error) {
+	return sql.Open(sqlite3DriverName, source)
 }

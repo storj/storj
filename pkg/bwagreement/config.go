@@ -5,7 +5,9 @@ package bwagreement
 
 import (
 	"context"
+	"net/url"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -21,8 +23,7 @@ var (
 // Config is a configuration struct that is everything you need to start an
 // agreement receiver responsibility
 type Config struct {
-	DatabaseURL    string `help:"the database connection string to use" default:"postgres://postgres@localhost/pointerdb?sslmode=disable"`
-	DatabaseDriver string `help:"the database driver to use" default:"postgres"`
+	DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 }
 
 // Run implements the provider.Responsibility interface
@@ -32,9 +33,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	zap.S().Debug("Starting Bandwidth Agreement Receiver...")
 
-	ns, err := NewServer(c.DatabaseDriver, c.DatabaseURL, zap.L(), k)
+	u, err := url.Parse(c.DatabaseURL)
 	if err != nil {
-		return err
+		return errs.New("Invalid Database URL: %+v", err)
+	}
+
+	ns, err := NewServer(u.Scheme, u.Path, zap.L(), k)
+	if err != nil {
+		return errs.New("Error starting Bandwidth Agreement server on satellite: %+v", err)
 	}
 
 	pb.RegisterBandwidthServer(server.GRPC(), ns)
