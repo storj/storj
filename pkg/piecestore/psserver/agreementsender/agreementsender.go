@@ -22,7 +22,7 @@ import (
 
 var (
 	defaultCheckInterval = flag.Duration("piecestore.agreementsender.check_interval", time.Hour, "number of seconds to sleep between agreement checks")
-	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7777", "Overlay Address")
+	defaultOverlayAddr   = flag.String("piecestore.agreementsender.overlay_addr", "127.0.0.1:7778", "Overlay Address")
 
 	// ASError wraps errors returned from agreementsender package
 	ASError = errs.Class("agreement sender error")

@@ -139,7 +139,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		"satellite.kademlia.todo-listen-addr": joinHostPort(
 			setupCfg.ListenHost, startingPort+2),
 		"satellite.kademlia.bootstrap-addr": joinHostPort(
-			setupCfg.ListenHost, startingPort+4),
+			setupCfg.ListenHost, startingPort+1),
 		"satellite.pointer-db.database-url": "bolt://" + filepath.Join(
 			setupCfg.BasePath, "satellite", "pointerdb.db"),
 		"satellite.overlay.database-url": "bolt://" + filepath.Join(

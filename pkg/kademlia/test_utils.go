@@ -55,3 +55,7 @@ func (k *MockKademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, er
 func (k *MockKademlia) Disconnect() error {
 	return nil
 }
+
+//SetNotify __
+func (k *MockKademlia) SetNotify(*func(*pb.Node)) {
+}

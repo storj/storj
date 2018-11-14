@@ -70,7 +70,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	mn := node.NewServer(kad)
+	mn := node.NewServer(kad, &kad.notify)
 	pb.RegisterNodesServer(server.GRPC(), mn)
 
 	go func() {

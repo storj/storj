@@ -53,7 +53,15 @@ func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
 		return nil, err
 	}
 
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
+	oc := NewOverlayCache(storelogger.New(zap.L(), db), dht)
+
+	oc.DHT.SetNotify(
+		func(n *pb.Node) error {
+			return oc.Put(n.GetId(), *n)
+		})
+
+	return oc, nil
+
 }
 
 // NewOverlayCache returns a new Cache
@@ -114,12 +122,12 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
 func (o *Cache) Put(nodeID string, value pb.Node) error {
-	_, err := proto.Marshal(&value)
+	data, err := proto.Marshal(&value)
 	if err != nil {
 		return err
 	}
-	return nil
-	// return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
+
+	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache

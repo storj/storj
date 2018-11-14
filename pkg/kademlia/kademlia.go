@@ -51,6 +51,7 @@ type Kademlia struct {
 	nodeClient     node.Client
 	nodeServer     node.Server
 	identity       *provider.FullIdentity
+	notify         func(*pb.Node) error
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -98,6 +99,7 @@ func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identit
 		bootstrapNodes: bootstrapNodes,
 		address:        self.Address.Address,
 		identity:       identity,
+		notify:         func(*pb.Node) error { return nil },
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -152,6 +154,7 @@ func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restri
 	if err != nil {
 		return []*pb.Node{}, Error.Wrap(err)
 	}
+
 	return nodes, nil
 }
 
@@ -228,7 +231,8 @@ func (k *Kademlia) ListenAndServe() error {
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	mn := node.NewServer(k)
+	nilFunc := func(*pb.Node) error { return nil }
+	mn := node.NewServer(k, &nilFunc)
 
 	pb.RegisterNodesServer(grpcServer, mn)
 	lis, err := net.Listen("tcp", k.address)
@@ -241,6 +245,11 @@ func (k *Kademlia) ListenAndServe() error {
 	defer grpcServer.Stop()
 
 	return nil
+}
+
+// SetNotify adds a notify function to kademlia
+func (k *Kademlia) SetNotify(f func(*pb.Node) error) {
+	k.notify = f
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network

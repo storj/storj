@@ -119,6 +119,16 @@ func (mr *MockDHTMockRecorder) Ping(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDHT)(nil).Ping), arg0, arg1)
 }
 
+// SetNotify mocks base method
+func (m *MockDHT) SetNotify(arg0 func(*pb.Node) error) {
+	m.ctrl.Call(m, "SetNotify", arg0)
+}
+
+// SetNotify indicates an expected call of SetNotify
+func (mr *MockDHTMockRecorder) SetNotify(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNotify", reflect.TypeOf((*MockDHT)(nil).SetNotify), arg0)
+}
+
 // MockRoutingTable is a mock of RoutingTable interface
 type MockRoutingTable struct {
 	ctrl     *gomock.Controller
