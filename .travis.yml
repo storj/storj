@@ -39,7 +39,7 @@ matrix:
         - popd
         - go install -race ./...
       script:
-        - go run scripts/use-ports.go -from 0 -to 10000 &
+        - go run scripts/use-ports.go -from 1024 -to 10000 &
         - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
     
