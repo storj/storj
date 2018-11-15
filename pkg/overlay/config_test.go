@@ -15,10 +15,9 @@ func TestRun(t *testing.T) {
 	kad := &kademlia.Kademlia{}
 	var kadKey kademlia.CtxKey
 	ctxWithKad := context.WithValue(context.Background(), kadKey, kad)
-	var err error
 
 	// run with nil
-	err = Config{}.Run(context.Background(), nil)
+	err := Config{}.Run(context.Background(), nil)
 	assert.Error(t, err)
 	assert.Equal(t, "overlay error: programmer error: kademlia responsibility unstarted", err.Error())
 
