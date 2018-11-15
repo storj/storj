@@ -41,6 +41,8 @@ matrix:
       script:
         - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
+        - rm .coverprofile
+        - go run scripts/check-clean-directory.go
     
     ### run linters ###
     - env: MODE=lint
