@@ -18,9 +18,6 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
-// OK - Success!
-const OK = "OK"
-
 // Server is an implementation of the pb.BandwidthServer interface
 type Server struct {
 	dbm    *dbmanager.DBManager
@@ -59,7 +56,6 @@ func (s *Server) BandwidthAgreements(ctx context.Context, agreement *pb.RenterBa
 
 	_, err = s.dbm.Create(ctx, agreement)
 	if err != nil {
-		s.logger.Error("DB entry creation Error", zap.Error(err))
 		return reply, err
 	}
 
@@ -76,13 +72,13 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	//Deserealize RenterBandwidthAllocation.GetData() so we can get public key
 	rbad := &pb.RenterBandwidthAllocation_Data{}
 	if err := proto.Unmarshal(ba.GetData(), rbad); err != nil {
-		return err
+		return BwAgreementError.New("Failed to unmarshal RenterBandwidthAllocation: %+v", err)
 	}
 
 	// Extract renter's public key from RenterBandwidthAllocation_Data
 	pubkey, err := x509.ParsePKIXPublicKey(rbad.GetPubKey())
 	if err != nil {
-		return err
+		return BwAgreementError.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
 	}
 
 	// Typecast public key
