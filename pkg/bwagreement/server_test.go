@@ -96,12 +96,12 @@ func NewTestServer(t *testing.T) *TestServer {
 
 const (
 	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://pointerdb:pg-secret-pass@test-postgres-pointerdb/pointerdb?sslmode=disable"
+	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/storj?sslmode=disable"
 )
 
 var (
 	// for travis build support
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRESKV_TEST"), "PostgreSQL test database connection string")
+	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 func newTestServerStruct(t *testing.T) *Server {

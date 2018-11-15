@@ -16,7 +16,7 @@ before_script:
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
-      psql -c 'create database pointerdb' -U postgres;
+      psql -c 'create database storj-test' -U storj;
     fi;
 
 before_install:
@@ -28,7 +28,7 @@ matrix:
     ### tests ###
     - env:
         - MODE=tests
-        - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
+        - STORJ_POSTGRES_TEST=postgres://storj@localhost/storj-test?sslmode=disable
       services:
         - redis
         - postgresql

@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -20,7 +21,7 @@ var (
 // Config is a configuration struct that is everything you need to start an
 // agreement receiver responsibility
 type Config struct {
-	DatabaseURL    string `help:"the database connection string to use" default:"postgres://postgres@localhost/pointerdb?sslmode=disable"`
+	DatabaseURL    string `help:"the database connection string to use" default:"postgres://postgres@localhost/storj?sslmode=disable"`
 	DatabaseDriver string `help:"the database driver to use" default:"postgres"`
 }
 
