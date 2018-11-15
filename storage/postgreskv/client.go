@@ -50,7 +50,7 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 // PutPath sets the value for the provided key (in the given bucket).
 func (client *Client) PutPath(bucket, key storage.Key, value storage.Value) error {
 	if key.IsZero() {
-		return Error.New("invalid key")
+		return storage.ErrEmptyKey.New("")
 	}
 	q := `
 		INSERT INTO pathdata (bucket, fullpath, metadata)

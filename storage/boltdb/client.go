@@ -113,8 +113,8 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
-	if len(key) == 0 {
-		return Error.New("invalid key")
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
 	}
 	return client.update(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)

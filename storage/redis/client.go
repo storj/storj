@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
@@ -81,8 +82,8 @@ func (client *Client) Get(key storage.Key) (storage.Value, error) {
 
 // Put adds a value to the provided key in redis, returning an error on failure.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
-	if len(key) == 0 {
-		return Error.New("invalid key")
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
 	}
 	err := client.db.Set(key.String(), []byte(value), client.TTL).Err()
 	if err != nil {

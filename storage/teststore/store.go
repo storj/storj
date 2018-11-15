@@ -64,7 +64,7 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 	}
 
 	if key.IsZero() {
-		return storage.ErrEmptyKey
+		return storage.ErrEmptyKey.New("")
 	}
 
 	keyIndex, found := store.indexOf(key)
