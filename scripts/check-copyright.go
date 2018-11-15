@@ -38,7 +38,7 @@ func main() {
 			}
 		}()
 
-		var header [1024]byte
+		var header [256]byte
 		n, err := file.Read(header[:])
 		if err != nil && err != io.EOF {
 			fmt.Printf("failed to read %v: %v\n", path, err)
