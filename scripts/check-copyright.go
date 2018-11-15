@@ -14,7 +14,7 @@ import (
 func main() {
 	var failed int
 
-	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Println(err)
 			return nil
@@ -57,6 +57,9 @@ func main() {
 
 		return nil
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	if failed > 0 {
 		os.Exit(1)
