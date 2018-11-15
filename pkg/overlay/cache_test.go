@@ -203,12 +203,19 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), identity, "db", 5)
+	self := pb.Node{Id: bid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, port)}}
 
-	assert.NoError(t, err)
-	rt, err := boot.GetRoutingTable(context.Background())
-	assert.NoError(t, err)
-	bootNode := rt.Local()
+	routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	boot, err := kademlia.NewKademliaWithRoutingTable(self, []pb.Node{*intro}, identity, 5, routing)
+	if err != nil {
+		t.Fatal(utils.CombineErrors(err, routing.Close()))
+	}
+
+	bootNode := routing.Local()
 
 	go func() {
 		err = boot.ListenAndServe()
@@ -224,8 +231,17 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", 5)
-		assert.NoError(t, err)
+		self := pb.Node{Id: fid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, gg)}}
+
+		routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dht, err := kademlia.NewKademliaWithRoutingTable(self, []pb.Node{bootNode}, fid, 5, routing)
+		if err != nil {
+			t.Fatal(utils.CombineErrors(err, routing.Close()))
+		}
 
 		p++
 		dhts = append(dhts, dht)
