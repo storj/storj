@@ -2039,4 +2039,4 @@ func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
 
 func opensqlite3(source string) (*sql.DB, error) {
 	return sql.Open(sqlite3DriverName, source)
-}package go: finding github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
+}
