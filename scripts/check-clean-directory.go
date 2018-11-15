@@ -71,6 +71,7 @@ func main() {
 	}
 
 	if failed > 0 {
+		fmt.Println("If the above errors are not a mistake, then update scripts/check-clean-directory.go.")
 		os.Exit(1)
 	}
 }

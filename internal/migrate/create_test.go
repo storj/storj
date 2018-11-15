@@ -6,7 +6,6 @@ package migrate
 import (
 	"database/sql"
 	"flag"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
@@ -16,12 +15,6 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
-
-func TestFailure(t *testing.T) {
-	_ = ioutil.WriteFile("example.db", []byte{1, 2, 3}, 0644)
-	_ = ioutil.WriteFile("example.xyz", []byte{1, 2, 3}, 0644)
-	_ = ioutil.WriteFile("example", []byte{1, 2, 3}, 0644)
-}
 
 func TestCreate_Sqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
