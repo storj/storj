@@ -42,7 +42,7 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 		PayerAllocation: s.pba,
 		Total:           updatedAllocation,
 		StorageNodeId:   s.signer.nodeID.Bytes(),
-		PubKey:          pubbytes, 	// TODO: Take this out. It will be kept in a database on the satellite
+		PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 	}
 
 	serializedAllocation, err := proto.Marshal(allocationData)
@@ -136,7 +136,7 @@ func NewStreamReader(client *PieceStore, stream pb.PieceStoreRoutes_RetrieveClie
 				PayerAllocation: pba,
 				Total:           sr.allocated + allocate,
 				StorageNodeId:   sr.client.nodeID.Bytes(),
-				PubKey:          pubbytes, 	// TODO: Take this out. It will be kept in a database on the satellite
+				PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 			}
 
 			serializedAllocation, err := proto.Marshal(allocationData)
