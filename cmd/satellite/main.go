@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
+	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
@@ -154,7 +155,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Invalid Database URL: %+v", err)
 	}
 
-	dbm, err := bwagreement.NewDBManager(u.Scheme, u.Path)
+	dbm, err := dbmanager.NewDBManager(u.Scheme, u.Path)
 	if err != nil {
 		return err
 	}
