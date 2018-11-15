@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
@@ -44,9 +45,12 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
-	if log == nil {
+func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
 		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
 	}
 
 	planet := &Planet{

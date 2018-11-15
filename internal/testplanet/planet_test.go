@@ -8,14 +8,12 @@ import (
 	"strconv"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/internal/testplanet"
 )
 
 func TestBasic(t *testing.T) {
 	t.Log("New")
-	planet, err := testplanet.New(zaptest.NewLogger(t), 2, 4, 1)
+	planet, err := testplanet.New(t, 2, 4, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
