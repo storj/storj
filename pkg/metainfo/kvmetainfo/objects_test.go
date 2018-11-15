@@ -38,9 +38,8 @@ func TestGetObject(t *testing.T) {
 		_, err = db.GetObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		// TODO: Currently returns ErrKeyNotFound instead of ErrEmptyKey
-		// _, err = db.GetObject(ctx, bucket.Name, "")
-		// assert.True(t, storage.ErrEmptyKey.Has(err))
+		_, err = db.GetObject(ctx, bucket.Name, "")
+		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_, err = db.GetObject(ctx, "non-existing-bucket", "test-file")
 		// TODO: Should return storj.ErrBucketNotFound
@@ -82,9 +81,8 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		// TODO: Currently returns ErrKeyNotFound instead of ErrEmptyKey
-		// _, err = db.GetObjectStream(cstx, bucket.Name, "")
-		// assert.True(t, storage.ErrEmptyKey.Has(err))
+		_, err = db.GetObjectStream(ctx, bucket.Name, "")
+		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_, err = db.GetObjectStream(ctx, "non-existing-bucket", "test-file")
 		// TODO: Should return storj.ErrBucketNotFound
@@ -148,9 +146,8 @@ func TestDeleteObject(t *testing.T) {
 		err = db.DeleteObject(ctx, "", "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		// TODO: Currently returns ErrKeyNotFound instead of ErrEmptyKey
-		// err = db.DeleteObject(ctx, bucket.Name, "")
-		// assert.True(t, storage.ErrEmptyKey.Has(err))
+		err = db.DeleteObject(ctx, bucket.Name, "")
+		assert.True(t, storage.ErrEmptyKey.Has(err))
 
 		_ = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
 		// TODO: Currently returns minio.BucketNotFound, should return storj.ErrBucketNotFound

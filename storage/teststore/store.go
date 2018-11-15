@@ -92,6 +92,10 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 		return nil, errors.New("internal error")
 	}
 
+	if key.IsZero() {
+		return nil, storage.ErrEmptyKey.New("")
+	}
+
 	keyIndex, found := store.indexOf(key)
 	if !found {
 		return nil, storage.ErrKeyNotFound.New(key.String())
@@ -130,6 +134,10 @@ func (store *Client) Delete(key storage.Key) error {
 
 	if store.forcedError() {
 		return errInternal
+	}
+
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
 	}
 
 	keyIndex, found := store.indexOf(key)
