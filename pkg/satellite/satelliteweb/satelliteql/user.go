@@ -12,6 +12,7 @@ const (
 	fieldPassword  = "password"
 	fieldFirstName = "firstName"
 	fieldLastName  = "lastName"
+	fieldCreatedAt = "createdAt"
 )
 
 // graphqlUser creates instance of user *graphql.Object
@@ -30,6 +31,9 @@ func graphqlUser() *graphql.Object {
 			},
 			fieldLastName: &graphql.Field{
 				Type: graphql.String,
+			},
+			fieldCreatedAt: &graphql.Field{
+				Type: graphql.DateTime,
 			},
 		},
 	})

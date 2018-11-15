@@ -145,18 +145,20 @@ func TestStore(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	t.Skip()
-
 	ctx := context.Background()
-	dhts, bootstrap := bootstrapTestNetwork(t, "127.0.0.1", "0")
-	dht := newTestKademlia(t, "127.0.0.1", "0", dhts[rand.Intn(testNetSize)], bootstrap)
 
-	_cache := &Cache{
+	dhts, bootstrap := bootstrapTestNetwork(t, "127.0.0.1", "9999")
+	dht := newTestKademlia(t, "127.0.0.1", "9999", dhts[rand.Intn(testNetSize)], bootstrap)
+
+	cache := &Cache{
 		DB:  teststore.New(),
 		DHT: dht,
 	}
 
-	err := _cache.Refresh(ctx)
+	err := cache.Bootstrap(ctx)
+	assert.NoError(t, err)
+
+	err = cache.Refresh(ctx)
 	assert.NoError(t, err)
 }
 
@@ -182,6 +184,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
 	intro, err := kademlia.GetIntroNode(net.JoinHostPort(ip, pm))
+	intro.Id = "test"
 	assert.NoError(t, err)
 
 	ca, err := provider.NewTestCA(ctx)
@@ -196,8 +199,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	assert.NoError(t, err)
 	bootNode := rt.Local()
 
-	err = boot.ListenAndServe()
-	assert.NoError(t, err)
+	go func() {
+		err = boot.ListenAndServe()
+		assert.NoError(t, err)
+	}()
 	p++
 
 	err = boot.Bootstrap(context.Background())
@@ -213,8 +218,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 
 		p++
 		dhts = append(dhts, dht)
-		err = dht.ListenAndServe()
-		assert.NoError(t, err)
+		go func() {
+			err = dht.ListenAndServe()
+			assert.NoError(t, err)
+		}()
 		err = dht.Bootstrap(context.Background())
 		assert.NoError(t, err)
 	}
