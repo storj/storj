@@ -76,7 +76,7 @@ var (
 	}
 
 	defaultConfDir = "$HOME/.storj/satellite"
-	defaultDiagDir = "postgres://postgres@localhost/pointerdb?sslmode=disable"
+	defaultDiagDir = "postgres://postgres@localhost/storj?sslmode=disable"
 )
 
 func init() {
