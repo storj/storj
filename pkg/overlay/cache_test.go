@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -162,13 +163,23 @@ func TestRefresh(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
+func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, bootstrap pb.Node) *kademlia.Kademlia {
 	ctx := context.Background()
 	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
-	n := []pb.Node{b}
-	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), fid, "db", 5)
-	assert.NoError(t, err)
+	bootstrapNodes := []pb.Node{bootstrap}
+
+	self := pb.Node{Id: fid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, port)}}
+
+	routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kad, err := kademlia.NewKademliaWithRoutingTable(self, bootstrapNodes, fid, 5, routing)
+	if err != nil {
+		t.Fatal(utils.CombineErrors(err, routing.Close()))
+	}
 
 	return kad
 }
