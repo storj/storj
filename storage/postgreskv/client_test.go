@@ -21,7 +21,7 @@ import (
 
 const (
 	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/storj?sslmode=disable"
+	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 )
 
 var (
