@@ -27,7 +27,7 @@ func main() {
 	for port := *fromPort; port < *toPort; port++ {
 		listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 		if err != nil {
-			fmt.Printf("unable to lock %v: %v\n", err)
+			fmt.Printf("unable to lock %v: %v\n", port, err)
 			continue
 		}
 		listeners = append(listeners, listener)
