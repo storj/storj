@@ -13,10 +13,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gtank/cryptopasta"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/pkg/bwagreement/database-manager"
@@ -34,7 +35,10 @@ func TestBandwidthAgreements(t *testing.T) {
 	defer TS.Stop()
 
 	signature := []byte("iamthedummysignatureoftypebyteslice")
-	data := []byte("iamthedummydataoftypebyteslice")
+
+	data, _ := proto.Marshal(
+		&pb.RenterBandwidthAllocation_Data{},
+	)
 
 	msg := &pb.RenterBandwidthAllocation{
 		Signature: signature,
