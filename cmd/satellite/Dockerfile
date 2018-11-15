@@ -16,5 +16,5 @@ EXPOSE 7776/udp \
        8080
 WORKDIR /app
 COPY --from=build-env /app /app/satellite
-COPY cmd/satellite/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+COPY cmd/satellite/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

@@ -23,7 +23,7 @@ following:
 3. `docker-compose up -d storage-node`
    Create the first storage node.
 
-4. `scripts/fix-mock-overlay`
+4. `scripts/fix-mock-overlay.sh`
    Fix the mock-overlay flag for the satellite. This is needed until the overlay
    network is populated from kademlia correctly.
 

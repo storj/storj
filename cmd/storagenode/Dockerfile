@@ -11,5 +11,5 @@ EXPOSE 7776/udp \
        7777
 WORKDIR /app
 COPY --from=build-env /app /app/storagenode
-COPY cmd/storagenode/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+COPY cmd/storagenode/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
