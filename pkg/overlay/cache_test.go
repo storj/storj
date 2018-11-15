@@ -44,7 +44,7 @@ func nodeData(address string) storage.Value {
 	return storage.Value(data)
 }
 
-func testOverlay(t *testing.T, ctx context.Context, store storage.KeyValueStore) {
+func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	overlay := Cache{DB: store}
 
 	t.Run("Put", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestRedis(t *testing.T) {
 	}
 	defer ctx.Check(store.Close)
 
-	testOverlay(t, ctx, store)
+	testOverlay(ctx, t, store)
 }
 
 func TestBolt(t *testing.T) {
@@ -135,14 +135,14 @@ func TestBolt(t *testing.T) {
 	}
 	defer ctx.Check(client.Close)
 
-	testOverlay(t, ctx, client)
+	testOverlay(ctx, t, client)
 }
 
 func TestStore(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testOverlay(t, ctx, teststore.New())
+	testOverlay(ctx, t, teststore.New())
 }
 
 func TestRefresh(t *testing.T) {
