@@ -152,7 +152,7 @@ func TestDeleteObject(t *testing.T) {
 		// err = db.DeleteObject(ctx, bucket.Name, "")
 		// assert.True(t, storage.ErrEmptyKey.Has(err))
 
-		err = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
+		_ = db.DeleteObject(ctx, "non-existing-bucket", "test-file")
 		// TODO: Currently returns minio.BucketNotFound, should return storj.ErrBucketNotFound
 		// assert.True(t, storj.ErrBucketNotFound.Has(err))
 
