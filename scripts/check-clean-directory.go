@@ -17,6 +17,8 @@ func main() {
 
 	out, err := cmd.Output()
 	if err != nil {
+		fmt.Println("Checking left-over files failed.")
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
