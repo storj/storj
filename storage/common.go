@@ -17,7 +17,7 @@ const Delimiter = '/'
 var ErrKeyNotFound = errs.Class("key not found")
 
 // ErrEmptyKey is returned when an empty key is used in Put
-var ErrEmptyKey = errors.New("empty key")
+var ErrEmptyKey = errs.Class("empty key")
 
 // ErrEmptyQueue is returned when attempting to Dequeue from an empty queue
 var ErrEmptyQueue = errors.New("empty queue")
