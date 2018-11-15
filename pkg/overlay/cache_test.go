@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
@@ -33,15 +32,6 @@ const (
 
 func pbNode(address string) pb.Node {
 	return pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
-}
-
-func nodeData(address string) storage.Value {
-	node := pbNode(address)
-	data, err := proto.Marshal(&node)
-	if err != nil {
-		panic(err)
-	}
-	return storage.Value(data)
 }
 
 func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
