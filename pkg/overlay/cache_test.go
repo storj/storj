@@ -30,19 +30,15 @@ const (
 	testNetSize = 30
 )
 
-func pbNode(address string) pb.Node {
-	return pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
-}
-
 func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	overlay := Cache{DB: store}
 
 	t.Run("Put", func(t *testing.T) {
-		err := overlay.Put("valid1", pbNode("127.0.0.1:9001"))
+		err := overlay.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = overlay.Put("valid2", pbNode("127.0.0.1:9002"))
+		err = overlay.Put("valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
 		if err != nil {
 			t.Fatal(err)
 		}
