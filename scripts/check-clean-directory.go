@@ -17,6 +17,8 @@ var allowedFiles = []string{
 }
 
 var allowedExts = []string{
+	// necessary for testing
+	".coverprofile",
 	// go files
 	".go", ".proto", ".sum", ".mod", ".dbx", ".sql",
 	// scripts
