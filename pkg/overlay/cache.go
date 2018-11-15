@@ -49,16 +49,12 @@ func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
 }
 
 // NewOverlayCache returns a new Cache
 func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{
-		DB:  db,
-		DHT: dht,
-	}
+	return &Cache{DB: db, DHT: dht}
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -71,12 +67,10 @@ func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
 		// TODO: log? return an error?
 		return nil, nil
 	}
-
 	na := &pb.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
 	}
-
 	return na, nil
 }
 
@@ -115,7 +109,6 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 	if err != nil {
 		return err
 	}
-
 	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
@@ -125,7 +118,6 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	if err != nil {
 		return OverlayError.New("Error getting nodes from DHT: %v", err)
 	}
-
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
@@ -154,7 +146,6 @@ func (o *Cache) Refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	rid := node.ID(r)
 	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
@@ -177,7 +168,6 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			continue
 		}
 	}
-
 	// TODO: Kademlia hooks to do this automatically rather than at interval
 	nodes, err := o.DHT.GetNodes(ctx, "", 128)
 	if err != nil {
@@ -200,6 +190,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			continue
 		}
 	}
+
 	return nil
 }
 

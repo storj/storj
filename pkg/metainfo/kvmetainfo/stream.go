@@ -93,6 +93,6 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 		infos = append(infos, segment)
 	}
 
-	more = index+limit >= stream.info.SegmentCount
+	more = index < stream.info.SegmentCount
 	return infos, more, nil
 }
