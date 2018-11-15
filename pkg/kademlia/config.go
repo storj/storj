@@ -47,6 +47,10 @@ type Config struct {
 	// TODO(jt): remove this! kademlia should just use the grpc server
 	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
 	Alpha          int    `help:"alpha is a system wide concurrency parameter." default:"5"`
+
+	// TODO(michal) move it to place more related to storage node
+	FarmerEmail  string `help:"Farmer email address" default:""`
+	FarmerWallet string `help:"Farmer wallet adress" default:""`
 }
 
 // Run implements provider.Responsibility
@@ -61,10 +65,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
+	metadata := &pb.NodeMetadata{
+		Email:  c.FarmerEmail,
+		Wallet: c.FarmerWallet,
+	}
+
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
 	in.Id = "foo"
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
+	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, metadata, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}

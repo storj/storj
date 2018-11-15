@@ -49,7 +49,7 @@ func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kadem
 	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 	n := []pb.Node{b}
-	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), fid, "db", 5)
+	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), nil, fid, "db", 5)
 	assert.NoError(t, err)
 
 	return kad
@@ -73,7 +73,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), identity, "db", 5)
+	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), nil, identity, "db", 5)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -94,7 +94,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", 5)
+		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), nil, fid, "db", 5)
 		assert.NoError(t, err)
 
 		p++
@@ -614,7 +614,7 @@ func TestRefresh(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "1024")
 			ctx := context.Background()
-
+			
 			db := teststore.New()
 			if err := storage.PutAll(db, c.data...); err != nil {
 				t.Fatal(err)
