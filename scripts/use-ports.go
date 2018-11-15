@@ -24,15 +24,17 @@ func main() {
 	flag.Parse()
 
 	var listeners []net.Listener
+	var unableToStart []int
 	for port := *fromPort; port < *toPort; port++ {
 		listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 		if err != nil {
-			fmt.Printf("unable to lock %v: %v\n", port, err)
+			unableToStart = append(unableToStart, port)
 			continue
 		}
 		listeners = append(listeners, listener)
 	}
-	fmt.Printf("using ports %v to %v\n", *fromPort, *toPort)
+	fmt.Printf("use-ports: unable to start on %v\n", unableToStart)
+	fmt.Printf("use-ports: listening on ports %v to %v\n", *fromPort, *toPort)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGQUIT)
