@@ -45,6 +45,10 @@ type Planet struct {
 
 // New creates a new full system with the given number of nodes.
 func New(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	if log == nil {
+		log = zap.NewNop()
+	}
+
 	planet := &Planet{
 		log:        log,
 		identities: pregeneratedIdentities.Clone(),

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"testing"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testplanet"
@@ -58,7 +57,7 @@ func BenchmarkCreate(b *testing.B) {
 		b.Run(strconv.Itoa(count), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {
-				planet, err := testplanet.New(zap.NewNop(), 1, count, 1)
+				planet, err := testplanet.New(nil, 1, count, 1)
 				if err != nil {
 					b.Fatal(err)
 				}
