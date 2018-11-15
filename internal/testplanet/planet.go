@@ -29,7 +29,7 @@ import (
 
 // Planet is a full storj system setup.
 type Planet struct {
-	logger    *zap.Logger
+	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
 
 	nodeInfos []pb.Node
@@ -44,9 +44,9 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	planet := &Planet{
-		logger:     logger,
+		log:        log,
 		identities: pregeneratedIdentities.Clone(),
 	}
 
@@ -82,7 +82,7 @@ func New(logger *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) 
 	for _, node := range planet.Satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
-			node.Logger.Named("pdb"),
+			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
@@ -171,7 +171,7 @@ func (planet *Planet) newNode(name string) (*Node, error) {
 	}
 
 	node := &Node{
-		Logger:   planet.logger.Named(name),
+		Log:      planet.log.Named(name),
 		Identity: identity,
 		Listener: listener,
 	}

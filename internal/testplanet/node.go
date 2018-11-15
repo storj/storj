@@ -21,7 +21,7 @@ import (
 
 // Node is a general purpose
 type Node struct {
-	Logger    *zap.Logger
+	Log       *zap.Logger
 	Info      pb.Node
 	Identity  *provider.FullIdentity
 	Transport transport.Client
