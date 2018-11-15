@@ -10,8 +10,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
@@ -28,6 +30,7 @@ import (
 
 // Planet is a full storj system setup.
 type Planet struct {
+	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
 
 	nodeInfos []pb.Node
@@ -42,8 +45,16 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
+		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
+	}
+
 	planet := &Planet{
+		log:        log,
 		identities: pregeneratedIdentities.Clone(),
 	}
 
@@ -53,17 +64,17 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes(satelliteCount)
+	planet.Satellites, err = planet.newNodes("satellite", satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newNodes(storageNodeCount)
+	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes(uplinkCount)
+	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -79,7 +90,7 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	for _, node := range planet.Satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
-			zap.NewNop(),
+			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
@@ -156,7 +167,7 @@ func (planet *Planet) Shutdown() error {
 }
 
 // newNode creates a new node.
-func (planet *Planet) newNode() (*Node, error) {
+func (planet *Planet) newNode(name string) (*Node, error) {
 	identity, err := planet.newIdentity()
 	if err != nil {
 		return nil, err
@@ -168,6 +179,7 @@ func (planet *Planet) newNode() (*Node, error) {
 	}
 
 	node := &Node{
+		Log:      planet.log.Named(name),
 		Identity: identity,
 		Listener: listener,
 	}
@@ -195,10 +207,10 @@ func (planet *Planet) newNode() (*Node, error) {
 }
 
 // newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(count int) ([]*Node, error) {
+func (planet *Planet) newNodes(prefix string, count int) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode()
+		node, err := planet.newNode(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}

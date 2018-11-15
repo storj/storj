@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -66,6 +65,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	pm := strconv.Itoa(p)
 	assert.NoError(t, err)
 	intro, err := kademlia.GetIntroNode(net.JoinHostPort(ip, pm))
+	intro.Id = "test"
 	assert.NoError(t, err)
 
 	ca, err := provider.NewTestCA(ctx)
@@ -80,8 +80,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	assert.NoError(t, err)
 	bootNode := rt.Local()
 
-	err = boot.ListenAndServe()
-	assert.NoError(t, err)
+	go func() {
+		err = boot.ListenAndServe()
+		assert.NoError(t, err)
+	}()
 	p++
 
 	err = boot.Bootstrap(context.Background())
@@ -97,8 +99,10 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 
 		p++
 		dhts = append(dhts, dht)
-		err = dht.ListenAndServe()
-		assert.NoError(t, err)
+		go func() {
+			err = dht.ListenAndServe()
+			assert.NoError(t, err)
+		}()
 		err = dht.Bootstrap(context.Background())
 		assert.NoError(t, err)
 	}
@@ -606,10 +610,9 @@ func TestMockPut(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	t.Skip()
 	for _, c := range refreshCases {
 		t.Run(c.testID, func(t *testing.T) {
-			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "0")
+			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "1024")
 			ctx := context.Background()
 
 			db := teststore.New()
@@ -617,14 +620,14 @@ func TestRefresh(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			dht := newTestKademlia(t, "127.0.0.1", "0", dhts[rand.Intn(testNetSize)], b)
+			dht := newTestKademlia(t, "127.0.0.1", "1024", dhts[rand.Intn(testNetSize)], b)
 
-			_cache := &Cache{
-				DB:  db,
-				DHT: dht,
-			}
+			_cache := &Cache{DB: db, DHT: dht}
 
-			err := _cache.Refresh(ctx)
+			err := _cache.Bootstrap(ctx)
+			assert.Equal(t, err, c.expectedErr)
+
+			err = _cache.Refresh(ctx)
 			assert.Equal(t, err, c.expectedErr)
 		})
 	}

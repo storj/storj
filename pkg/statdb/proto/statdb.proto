@@ -37,13 +37,17 @@ message NodeStats {
   int64 latency_90 = 2; // 90th percentile measure of storagenode latency
   double audit_success_ratio = 3; // (auditSuccessCount / totalAuditCount)
   double uptime_ratio = 4; // (uptimeCount / totalUptimeCheckCount)
-  int64 audit_count = 5; // used for FindValidNodes
+  int64 audit_count = 5;
+  int64 audit_success_count = 6;
+  int64 uptime_count = 7;
+  int64 uptime_success_count = 8;
 }
 
 // CreateRequest is a request message for the Create rpc call
 message CreateRequest {
   Node node = 1;
-  bytes APIKey = 2;
+  NodeStats stats = 2;
+  bytes APIKey = 3;
 }
 
 // CreateResponse is a response message for the Create rpc call

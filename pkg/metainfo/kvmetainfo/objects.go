@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -65,12 +66,17 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 
 // DeleteObject deletes an object from database
 func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
-	objects, err := db.buckets.GetObjectStore(ctx, bucket)
+	store, err := db.buckets.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return err
 	}
 
-	return objects.Delete(ctx, path)
+	err = store.Delete(ctx, path)
+	if objects.NoPathError.Has(err) {
+		return storage.ErrEmptyKey.Wrap(err)
+	}
+
+	return err
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
@@ -144,6 +150,10 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
 		return object{}, storj.Object{}, err
+	}
+
+	if path == "" {
+		return object{}, storj.Object{}, storage.ErrEmptyKey.New("")
 	}
 
 	fullpath := bucket + "/" + path

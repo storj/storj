@@ -5,7 +5,6 @@ package testqueue
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 
 	"storj.io/storj/storage"
@@ -39,7 +38,7 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 		q.s.Remove(e)    // Dequeue
 		return e.Value.(storage.Value), nil
 	}
-	return nil, fmt.Errorf("queue empty")
+	return nil, storage.ErrEmptyQueue
 }
 
 //Close closes the queue

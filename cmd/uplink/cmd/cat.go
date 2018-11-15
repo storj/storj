@@ -47,5 +47,5 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return download(ctx, bs, src, dst)
+	return download(ctx, bs, src, dst, false)
 }

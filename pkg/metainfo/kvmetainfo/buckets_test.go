@@ -313,7 +313,7 @@ func runTest(t *testing.T, test func(context.Context, *DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(1, 4, 1)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if !assert.NoError(t, err) {
 		return
 	}
