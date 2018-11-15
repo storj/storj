@@ -100,11 +100,13 @@ require (
 
 // force specific versions for minio
 require (
+	bitbucket.org/pkg/inflect v0.0.0-20130829110746-8961c3750a47 // indirect
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/graphql-go/graphql v0.7.6
 	github.com/hanwen/go-fuse v0.0.0-20181027161220-c029b69a13a7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jawher/mow.cli v1.0.4 // indirect
 	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
@@ -113,6 +115,7 @@ require (
 	github.com/prometheus/client_golang v0.9.0-pre1.0.20180416233856-82f5ff156b29 // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad // indirect
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
+	gopkg.in/spacemonkeygo/dbx.v1 v1.0.0-20180404192254-65237a1ba5c6 // indirect
 )
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
