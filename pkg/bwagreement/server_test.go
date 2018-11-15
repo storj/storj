@@ -189,7 +189,7 @@ func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkK
 	data, _ := proto.Marshal(
 		&pb.RenterBandwidthAllocation_Data{
 			PayerAllocation: pba,
-			PubKey:          pubbytes,
+			PubKey:          pubbytes, // TODO: Take this out. It will be kept in a database on the satellite
 			StorageNodeId:   []byte("StorageNodeID"),
 			Total:           int64(666),
 		},

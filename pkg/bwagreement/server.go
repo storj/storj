@@ -76,6 +76,7 @@ func (s *Server) verifySignature(ctx context.Context, ba *pb.RenterBandwidthAllo
 	}
 
 	// Extract renter's public key from RenterBandwidthAllocation_Data
+	// TODO: Look this public key up in a database
 	pubkey, err := x509.ParsePKIXPublicKey(rbad.GetPubKey())
 	if err != nil {
 		return BwAgreementError.New("Failed to extract Public Key from RenterBandwidthAllocation: %+v", err)
