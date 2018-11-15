@@ -4,86 +4,36 @@ package overlay
 
 import (
 	"context"
-	"net/url"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/kademlia"
 )
 
 func TestRun(t *testing.T) {
-	config := Config{}
-	bctx := context.Background()
 	kad := &kademlia.Kademlia{}
-	var key kademlia.CtxKey
+	var kadKey kademlia.CtxKey
+	ctxWithKad := context.WithValue(context.Background(), kadKey, kad)
+	var err error
 
-	cases := []struct {
-		testName string
-		testFunc func(t *testing.T)
-	}{
-		{
-			testName: "Run with nil",
-			testFunc: func(t *testing.T) {
-				err := config.Run(bctx, nil)
+	// run with nil
+	err = Config{}.Run(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Equal(t, "overlay error: programmer error: kademlia responsibility unstarted", err.Error())
 
-				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "overlay error: programmer error: kademlia responsibility unstarted")
-			},
-		},
-		{
-			testName: "Run with nil, pass pointer to Kademlia in context",
-			testFunc: func(t *testing.T) {
-				ctx := context.WithValue(bctx, key, kad)
-				err := config.Run(ctx, nil)
+	// run with nil, pass pointer to Kademlia in context
+	err = Config{}.Run(ctxWithKad, nil)
+	assert.Error(t, err)
+	assert.Equal(t, "overlay error: database scheme not supported: ", err.Error())
 
-				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "overlay error: database scheme not supported: ")
-			},
-		},
-		{
-			testName: "db scheme redis conn fail",
-			testFunc: func(t *testing.T) {
-				ctx := context.WithValue(bctx, key, kad)
-				var config = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}
-				err := config.Run(ctx, nil)
+	// db scheme redis conn fail
+	err = Config{DatabaseURL: "redis://somedir/overlay.db/?db=1"}.Run(ctxWithKad, nil)
 
-				assert.Error(t, err)
-				assert.Equal(t, err.Error(), "redis error: ping failed: dial tcp: address somedir: missing port in address")
-			},
-		},
-		{
-			testName: "db scheme bolt conn fail",
-			testFunc: func(t *testing.T) {
-				ctx := context.WithValue(bctx, key, kad)
-				var config = Config{DatabaseURL: "bolt://somedir/overlay.db"}
-				err := config.Run(ctx, nil)
+	assert.Error(t, err)
+	assert.Equal(t, "redis error: ping failed: dial tcp: address somedir: missing port in address", err.Error())
 
-				assert.Error(t, err)
-				if !os.IsNotExist(errs.Unwrap(err)) {
-					t.Fatal(err.Error())
-				}
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.testName, c.testFunc)
-	}
-}
-
-func TestUrlPwd(t *testing.T) {
-	res := GetUserPassword(nil)
-
-	assert.Equal(t, res, "")
-
-	uinfo := url.UserPassword("testUser", "testPassword")
-
-	uri := url.URL{User: uinfo}
-
-	res = GetUserPassword(&uri)
-
-	assert.Equal(t, res, "testPassword")
+	// db scheme bolt conn fail
+	err = Config{DatabaseURL: "bolt://somedir/overlay.db"}.Run(ctxWithKad, nil)
+	assert.Error(t, err)
 }
