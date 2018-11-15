@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/provider"
@@ -105,11 +106,16 @@ func newTestServerStruct(t *testing.T) *Server {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
 	}
 
+	dbm, err := dbmanager.NewDBManager("postgres", *testPostgres)
+	if err != nil {
+		t.Fatalf("Failed to initialize dbmanager when creating test server: %+v", err)
+	}
+
 	k, err := peertls.NewKey()
 	assert.NoError(t, err)
 
 	p, _ := k.(*ecdsa.PrivateKey)
-	server, err := NewServer("postgres", *testPostgres, zap.NewNop(), &p.PublicKey)
+	server, err := NewServer(dbm, zap.NewNop(), &p.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}

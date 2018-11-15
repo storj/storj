@@ -17,6 +17,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/lib/pq"
+
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -140,6 +142,8 @@ type DB struct {
 func Open(driver, source string) (db *DB, err error) {
 	var sql_db *sql.DB
 	switch driver {
+	case "postgres":
+		sql_db, err = openpostgres(source)
 	case "sqlite3":
 		sql_db, err = opensqlite3(source)
 	default:
@@ -164,6 +168,8 @@ func Open(driver, source string) (db *DB, err error) {
 	db.Hooks.Now = time.Now
 
 	switch driver {
+	case "postgres":
+		db.dbMethods = newpostgres(db)
 	case "sqlite3":
 		db.dbMethods = newsqlite3(db)
 	default:
@@ -226,6 +232,75 @@ func (tx *dialectTx) Commit() (err error) {
 
 func (tx *dialectTx) Rollback() (err error) {
 	return makeErr(tx.tx.Rollback())
+}
+
+type postgresImpl struct {
+	db      *DB
+	dialect __sqlbundle_postgres
+	driver  driver
+}
+
+func (obj *postgresImpl) Rebind(s string) string {
+	return obj.dialect.Rebind(s)
+}
+
+func (obj *postgresImpl) logStmt(stmt string, args ...interface{}) {
+	postgresLogStmt(stmt, args...)
+}
+
+func (obj *postgresImpl) makeErr(err error) error {
+	constraint, ok := obj.isConstraintError(err)
+	if ok {
+		return constraintViolation(err, constraint)
+	}
+	return makeErr(err)
+}
+
+type postgresDB struct {
+	db *DB
+	*postgresImpl
+}
+
+func newpostgres(db *DB) *postgresDB {
+	return &postgresDB{
+		db: db,
+		postgresImpl: &postgresImpl{
+			db:     db,
+			driver: db.DB,
+		},
+	}
+}
+
+func (obj *postgresDB) Schema() string {
+	return `CREATE TABLE bwagreements (
+	signature bytea NOT NULL,
+	data bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( signature )
+);`
+}
+
+func (obj *postgresDB) wrapTx(tx *sql.Tx) txMethods {
+	return &postgresTx{
+		dialectTx: dialectTx{tx: tx},
+		postgresImpl: &postgresImpl{
+			db:     obj.db,
+			driver: tx,
+		},
+	}
+}
+
+type postgresTx struct {
+	dialectTx
+	*postgresImpl
+}
+
+func postgresLogStmt(stmt string, args ...interface{}) {
+	// TODO: render placeholders
+	if Logger != nil {
+		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
+		Logger(out)
+	}
 }
 
 type sqlite3Impl struct {
@@ -567,6 +642,172 @@ func (h *__sqlbundle_Hole) Render() string { return h.SQL.Render() }
 // end runtime support for building sql statements
 //
 
+func (obj *postgresImpl) Create_Bwagreement(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field,
+	bwagreement_data Bwagreement_Data_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__signature_val := bwagreement_signature.value()
+	__data_val := bwagreement_data.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bwagreements ( signature, data, created_at ) VALUES ( ?, ?, ? ) RETURNING bwagreements.signature, bwagreements.data, bwagreements.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __signature_val, __data_val, __created_at_val)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __signature_val, __data_val, __created_at_val).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *postgresImpl) Get_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	bwagreement *Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bwagreement = &Bwagreement{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bwagreement, nil
+
+}
+
+func (obj *postgresImpl) Limited_Bwagreement(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Bwagreement(ctx context.Context) (
+	rows []*Bwagreement, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bwagreements.signature, bwagreements.data, bwagreements.created_at FROM bwagreements")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		bwagreement := &Bwagreement{}
+		err = __rows.Scan(&bwagreement.Signature, &bwagreement.Data, &bwagreement.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, bwagreement)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Delete_Bwagreement_By_Signature(ctx context.Context,
+	bwagreement_signature Bwagreement_Signature_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bwagreements WHERE bwagreements.signature = ?")
+
+	var __values []interface{}
+	__values = append(__values, bwagreement_signature.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (impl postgresImpl) isConstraintError(err error) (
+	constraint string, ok bool) {
+	if e, ok := err.(*pq.Error); ok {
+		if e.Code.Class() == "23" {
+			return e.Constraint, true
+		}
+	}
+	return "", false
+}
+
+func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
+	var __res sql.Result
+	var __count int64
+	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Create_Bwagreement(ctx context.Context,
 	bwagreement_signature Bwagreement_Signature_Field,
 	bwagreement_data Bwagreement_Data_Field) (
@@ -901,6 +1142,10 @@ type dbMethods interface {
 
 	wrapTx(tx *sql.Tx) txMethods
 	makeErr(err error) error
+}
+
+func openpostgres(source string) (*sql.DB, error) {
+	return sql.Open("postgres", source)
 }
 
 var sqlite3DriverName = "sqlite3_" + fmt.Sprint(time.Now().UnixNano())

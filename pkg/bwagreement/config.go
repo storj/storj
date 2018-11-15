@@ -12,6 +12,7 @@ import (
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 )
@@ -38,7 +39,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 		return errs.New("Invalid Database URL: %+v", err)
 	}
 
-	ns, err := NewServer(u.Scheme, u.Path, zap.L(), k)
+	dbm, err := dbmanager.NewDBManager(u.Scheme, u.Path)
+	if err != nil {
+		return errs.New("Error starting initializing database for Bandwidth Agreement server on satellite: %+v", err)
+	}
+
+	ns, err := NewServer(dbm, zap.L(), k)
 	if err != nil {
 		return errs.New("Error starting Bandwidth Agreement server on satellite: %+v", err)
 	}
