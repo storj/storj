@@ -233,556 +233,317 @@ func TestListObjects(t *testing.T) {
 		}
 
 		for i, tt := range []struct {
-			cursor    string
-			dir       storj.ListDirection
-			limit     int
-			prefix    string
-			recursive bool
-			more      bool
-			result    []string
+			options storj.ListOptions
+			more    bool
+			result  []string
 		}{
 			{
-				dir:    storj.After,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.After,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "b",
-				dir:    storj.After,
-				result: []string{"b/", "bb", "c"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.After,
-				result: []string{},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.After,
-				result: []string{},
-			},
-			{
-				dir:    storj.After,
-				limit:  1,
-				more:   true,
-				result: []string{"a"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.After,
-				limit:  1,
-				more:   true,
-				result: []string{"a"},
-			},
-			{
-				cursor: "aa",
-				dir:    storj.After,
-				limit:  1,
-				more:   true,
-				result: []string{"b"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.After,
-				limit:  1,
-				result: []string{},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.After,
-				limit:  1,
-				result: []string{},
-			},
-			{
-				dir:    storj.After,
-				limit:  2,
-				more:   true,
-				result: []string{"a", "a/"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.After,
-				limit:  2,
-				more:   true,
-				result: []string{"a", "a/"},
-			},
-			{
-				cursor: "aa",
-				dir:    storj.After,
-				limit:  2,
-				more:   true,
-				result: []string{"b", "b/"},
-			},
-			{
-				cursor: "bb",
-				dir:    storj.After,
-				limit:  2,
-				result: []string{"c"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.After,
-				limit:  2,
-				result: []string{},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.After,
-				limit:  2,
-				result: []string{},
-			},
-			{
-				dir:       storj.After,
-				recursive: true,
-				result:    []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			},
-			{
-				dir:    storj.After,
-				prefix: "a",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				dir:    storj.After,
-				prefix: "a/",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				cursor: "xb",
-				dir:    storj.After,
-				prefix: "a/",
-				result: []string{"xbb", "xc"},
-			},
-			{
-				cursor:    "a/xbb",
-				dir:       storj.After,
-				limit:     5,
-				more:      true,
-				recursive: true,
-				result:    []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
-			},
-			{
-				cursor: "xaa",
-				dir:    storj.After,
-				limit:  2,
-				more:   true,
-				prefix: "a/",
-				result: []string{"xb", "xbb"},
-			},
-			{
-				dir:    storj.Forward,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Forward,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "b",
-				dir:    storj.Forward,
-				result: []string{"b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Forward,
-				result: []string{"c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Forward,
-				result: []string{},
-			},
-			{
-				dir:    storj.Forward,
-				limit:  1,
-				more:   true,
-				result: []string{"a"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Forward,
-				limit:  1,
-				more:   true,
-				result: []string{"a"},
-			},
-			{
-				cursor: "aa",
-				dir:    storj.Forward,
-				limit:  1,
-				more:   true,
-				result: []string{"aa"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Forward,
-				limit:  1,
-				result: []string{"c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Forward,
-				limit:  1,
-				result: []string{},
-			},
-			{
-				dir:    storj.Forward,
-				limit:  2,
-				more:   true,
-				result: []string{"a", "a/"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Forward,
-				limit:  2,
-				more:   true,
-				result: []string{"a", "a/"},
-			},
-			{
-				cursor: "aa",
-				dir:    storj.Forward,
-				limit:  2,
-				more:   true,
-				result: []string{"aa", "b"},
-			},
-			{
-				cursor: "bb",
-				dir:    storj.Forward,
-				limit:  2,
-				result: []string{"bb", "c"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Forward,
-				limit:  2,
-				result: []string{"c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Forward,
-				limit:  2,
-				result: []string{},
-			},
-			{
-				dir:       storj.Forward,
-				recursive: true,
-				result:    []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			},
-			{
-				dir:    storj.Forward,
-				prefix: "a",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				dir:    storj.Forward,
-				prefix: "a/",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				cursor: "xb",
-				dir:    storj.Forward,
-				prefix: "a/",
-				result: []string{"xb", "xbb", "xc"},
-			},
-			{
-				cursor:    "a/xbb",
-				dir:       storj.Forward,
-				limit:     5,
-				more:      true,
-				recursive: true,
-				result:    []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			},
-			{
-				cursor: "xaa",
-				dir:    storj.Forward,
-				limit:  2,
-				more:   true,
-				prefix: "a/",
-				result: []string{"xaa", "xb"},
-			},
-			{
-				dir:    storj.Backward,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Backward,
-				result: []string{},
-			},
-			{
-				cursor: "b",
-				dir:    storj.Backward,
-				result: []string{"a", "a/", "aa", "b"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Backward,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Backward,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				dir:    storj.Backward,
-				limit:  1,
-				more:   true,
-				result: []string{"c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Backward,
-				limit:  1,
-				result: []string{},
-			},
-			{
-				cursor: "aa",
-				dir:    storj.Backward,
-				limit:  1,
-				more:   true,
-				result: []string{"aa"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Backward,
-				limit:  1,
-				more:   true,
-				result: []string{"c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Backward,
-				limit:  1,
-				more:   true,
-				result: []string{"c"},
-			},
-			{
-				dir:    storj.Backward,
-				limit:  2,
-				more:   true,
-				result: []string{"bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Backward,
-				limit:  2,
-				result: []string{},
-			},
-			{
-				cursor: "a/",
-				dir:    storj.Backward,
-				limit:  2,
-				result: []string{"a"},
-			},
-			{
-				cursor: "bb",
-				dir:    storj.Backward,
-				limit:  2,
-				more:   true,
-				result: []string{"b/", "bb"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Backward,
-				limit:  2,
-				more:   true,
-				result: []string{"bb", "c"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Backward,
-				limit:  2,
-				more:   true,
-				result: []string{"bb", "c"},
-			},
-			{
-				dir:       storj.Backward,
-				recursive: true,
-				result:    []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			},
-			{
-				dir:    storj.Backward,
-				prefix: "a",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				dir:    storj.Backward,
-				prefix: "a/",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				cursor: "xb",
-				dir:    storj.Backward,
-				prefix: "a/",
-				result: []string{"xa", "xaa", "xb"},
-			},
-			{
-				cursor:    "b/yaa",
-				dir:       storj.Backward,
-				limit:     5,
-				more:      true,
-				recursive: true,
-				result:    []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
-			},
-			{
-				cursor: "xbb",
-				dir:    storj.Backward,
-				limit:  2,
-				more:   true,
-				prefix: "a/",
-				result: []string{"xb", "xbb"},
-			},
-			{
-				dir:    storj.Before,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Before,
-				result: []string{},
-			},
-			{
-				cursor: "a",
-				dir:    storj.Before,
-				result: []string{},
-			},
-			{
-				cursor: "b",
-				dir:    storj.Before,
-				result: []string{"a", "a/", "aa"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Before,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Before,
-				result: []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			},
-			{
-				dir:    storj.Before,
-				limit:  1,
-				more:   true,
-				result: []string{"c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Before,
-				limit:  1,
-				result: []string{},
-			},
-			{
-				cursor: "a/",
-				dir:    storj.Before,
-				limit:  1,
-				result: []string{"a"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Before,
-				limit:  1,
-				more:   true,
-				result: []string{"bb"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Before,
-				limit:  1,
-				more:   true,
-				result: []string{"c"},
-			},
-			{
-				dir:    storj.Before,
-				limit:  2,
-				more:   true,
-				result: []string{"bb", "c"},
-			},
-			{
-				cursor: "`",
-				dir:    storj.Before,
-				limit:  2,
-				result: []string{},
-			},
-			{
-				cursor: "a/",
-				dir:    storj.Before,
-				limit:  2,
-				result: []string{"a"},
-			},
-			{
-				cursor: "bb",
-				dir:    storj.Before,
-				limit:  2,
-				more:   true,
-				result: []string{"b", "b/"},
-			},
-			{
-				cursor: "c",
-				dir:    storj.Before,
-				limit:  2,
-				more:   true,
-				result: []string{"b/", "bb"},
-			},
-			{
-				cursor: "ca",
-				dir:    storj.Before,
-				limit:  2,
-				more:   true,
-				result: []string{"bb", "c"},
-			},
-			{
-				dir:       storj.Before,
-				recursive: true,
-				result:    []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			},
-			{
-				dir:    storj.Before,
-				prefix: "a",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				dir:    storj.Before,
-				prefix: "a/",
-				result: []string{"xa", "xaa", "xb", "xbb", "xc"},
-			},
-			{
-				cursor: "xb",
-				dir:    storj.Before,
-				prefix: "a/",
-				result: []string{"xa", "xaa"},
-			},
-			{
-				cursor:    "b/yaa",
-				dir:       storj.Before,
-				limit:     5,
-				more:      true,
-				recursive: true,
-				result:    []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			},
-			{
-				cursor: "xbb",
-				dir:    storj.Before,
-				limit:  2,
-				more:   true,
-				prefix: "a/",
-				result: []string{"xaa", "xb"},
+				options: options("", "", storj.After, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "`", storj.After, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "b", storj.After, 0),
+				result:  []string{"b/", "bb", "c"},
+			}, {
+				options: options("", "c", storj.After, 0),
+				result:  []string{},
+			}, {
+				options: options("", "ca", storj.After, 0),
+				result:  []string{},
+			}, {
+				options: options("", "", storj.After, 1),
+				more:    true,
+				result:  []string{"a"},
+			}, {
+				options: options("", "`", storj.After, 1),
+				more:    true,
+				result:  []string{"a"},
+			}, {
+				options: options("", "aa", storj.After, 1),
+				more:    true,
+				result:  []string{"b"},
+			}, {
+				options: options("", "c", storj.After, 1),
+				result:  []string{},
+			}, {
+				options: options("", "ca", storj.After, 1),
+				result:  []string{},
+			}, {
+				options: options("", "", storj.After, 2),
+				more:    true,
+				result:  []string{"a", "a/"},
+			}, {
+				options: options("", "1", storj.After, 2),
+				more:    true,
+				result:  []string{"a", "a/"},
+			}, {
+				options: options("", "aa", storj.After, 2),
+				more:    true,
+				result:  []string{"b", "b/"},
+			}, {
+				options: options("", "bb", storj.After, 2),
+				result:  []string{"c"},
+			}, {
+				options: options("", "c", storj.After, 2),
+				result:  []string{},
+			}, {
+				options: options("", "ca", storj.After, 2),
+				result:  []string{},
+			}, {
+				options: optionsRecursive("", "", storj.After, 0),
+				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			}, {
+				options: options("a", "", storj.After, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "", storj.After, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "xb", storj.After, 0),
+				result:  []string{"xbb", "xc"},
+			}, {
+				options: optionsRecursive("", "a/xbb", storj.After, 5),
+				more:    true,
+				result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
+			}, {
+				options: options("a/", "xaa", storj.After, 2),
+				more:    true,
+				result:  []string{"xb", "xbb"},
+			}, {
+				options: options("", "", storj.Forward, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "`", storj.Forward, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "b", storj.Forward, 0),
+				result:  []string{"b", "b/", "bb", "c"},
+			}, {
+				options: options("", "c", storj.Forward, 0),
+				result:  []string{"c"},
+			}, {
+				options: options("", "ca", storj.Forward, 0),
+				result:  []string{},
+			}, {
+				options: options("", "", storj.Forward, 1),
+				more:    true,
+				result:  []string{"a"},
+			}, {
+				options: options("", "`", storj.Forward, 1),
+				more:    true,
+				result:  []string{"a"},
+			}, {
+				options: options("", "aa", storj.Forward, 1),
+				more:    true,
+				result:  []string{"aa"},
+			}, {
+				options: options("", "c", storj.Forward, 1),
+				result:  []string{"c"},
+			}, {
+				options: options("", "ca", storj.Forward, 1),
+				result:  []string{},
+			}, {
+				options: options("", "", storj.Forward, 2),
+				more:    true,
+				result:  []string{"a", "a/"},
+			}, {
+				options: options("", "`", storj.Forward, 2),
+				more:    true,
+				result:  []string{"a", "a/"},
+			}, {
+				options: options("", "aa", storj.Forward, 2),
+				more:    true,
+				result:  []string{"aa", "b"},
+			}, {
+				options: options("", "bb", storj.Forward, 2),
+				result:  []string{"bb", "c"},
+			}, {
+				options: options("", "c", storj.Forward, 2),
+				result:  []string{"c"},
+			}, {
+				options: options("", "ca", storj.Forward, 2),
+				result:  []string{},
+			}, {
+				options: optionsRecursive("", "", storj.Forward, 0),
+				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			}, {
+				options: options("a", "", storj.Forward, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "", storj.Forward, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "xb", storj.Forward, 0),
+				result:  []string{"xb", "xbb", "xc"},
+			}, {
+				options: optionsRecursive("", "a/xbb", storj.Forward, 5),
+				more:    true,
+				result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
+			}, {
+				options: options("a/", "xaa", storj.Forward, 2),
+				more:    true,
+				result:  []string{"xaa", "xb"},
+			}, {
+				options: options("", "", storj.Backward, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "1", storj.Backward, 0),
+				result:  []string{},
+			}, {
+				options: options("", "b", storj.Backward, 0),
+				result:  []string{"a", "a/", "aa", "b"},
+			}, {
+				options: options("", "c", storj.Backward, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "ca", storj.Backward, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "", storj.Backward, 1),
+				more:    true,
+				result:  []string{"c"},
+			}, {
+				options: options("", "1", storj.Backward, 1),
+				result:  []string{},
+			}, {
+				options: options("", "aa", storj.Backward, 1),
+				more:    true,
+				result:  []string{"aa"},
+			}, {
+				options: options("", "c", storj.Backward, 1),
+				more:    true,
+				result:  []string{"c"},
+			}, {
+				options: options("", "ca", storj.Backward, 1),
+				more:    true,
+				result:  []string{"c"},
+			}, {
+				options: options("", "", storj.Backward, 2),
+				more:    true,
+				result:  []string{"bb", "c"},
+			}, {
+				options: options("", "`", storj.Backward, 2),
+				result:  []string{},
+			}, {
+				options: options("", "a/", storj.Backward, 2),
+				result:  []string{"a"},
+			}, {
+				options: options("", "bb", storj.Backward, 2),
+				more:    true,
+				result:  []string{"b/", "bb"},
+			}, {
+				options: options("", "c", storj.Backward, 2),
+				more:    true,
+				result:  []string{"bb", "c"},
+			}, {
+				options: options("", "ca", storj.Backward, 2),
+				more:    true,
+				result:  []string{"bb", "c"},
+			}, {
+				options: optionsRecursive("", "", storj.Backward, 0),
+				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			}, {
+				options: options("a", "", storj.Backward, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "", storj.Backward, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "xb", storj.Backward, 0),
+				result:  []string{"xa", "xaa", "xb"},
+			}, {
+				options: optionsRecursive("", "b/yaa", storj.Backward, 5),
+				more:    true,
+				result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
+			}, {
+				options: options("a/", "xbb", storj.Backward, 2),
+				more:    true,
+				result:  []string{"xb", "xbb"},
+			}, {
+				options: options("", "", storj.Before, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "`", storj.Before, 0),
+				result:  []string{},
+			}, {
+				options: options("", "a", storj.Before, 0),
+				result:  []string{},
+			}, {
+				options: options("", "b", storj.Before, 0),
+				result:  []string{"a", "a/", "aa"},
+			}, {
+				options: options("", "c", storj.Before, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb"},
+			}, {
+				options: options("", "ca", storj.Before, 0),
+				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			}, {
+				options: options("", "", storj.Before, 1),
+				more:    true,
+				result:  []string{"c"},
+			}, {
+				options: options("", "`", storj.Before, 1),
+				result:  []string{},
+			}, {
+				options: options("", "a/", storj.Before, 1),
+				result:  []string{"a"},
+			}, {
+				options: options("", "c", storj.Before, 1),
+				more:    true,
+				result:  []string{"bb"},
+			}, {
+				options: options("", "ca", storj.Before, 1),
+				more:    true,
+				result:  []string{"c"},
+			}, {
+				options: options("", "", storj.Before, 2),
+				more:    true,
+				result:  []string{"bb", "c"},
+			}, {
+				options: options("", "`", storj.Before, 2),
+				result:  []string{},
+			}, {
+				options: options("", "a/", storj.Before, 2),
+				result:  []string{"a"},
+			}, {
+				options: options("", "bb", storj.Before, 2),
+				more:    true,
+				result:  []string{"b", "b/"},
+			}, {
+				options: options("", "c", storj.Before, 2),
+				more:    true,
+				result:  []string{"b/", "bb"},
+			}, {
+				options: options("", "ca", storj.Before, 2),
+				more:    true,
+				result:  []string{"bb", "c"},
+			}, {
+				options: optionsRecursive("", "", storj.Before, 0),
+				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			}, {
+				options: options("a", "", storj.Before, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "", storj.Before, 0),
+				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			}, {
+				options: options("a/", "xb", storj.Before, 0),
+				result:  []string{"xa", "xaa"},
+			}, {
+				options: optionsRecursive("", "b/yaa", storj.Before, 5),
+				more:    true,
+				result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
+			}, {
+				options: options("a/", "xbb", storj.Before, 2),
+				more:    true,
+				result:  []string{"xaa", "xb"},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			list, err := db.ListObjects(ctx, bucket.Name, storj.ListOptions{
-				Cursor:    tt.cursor,
-				Direction: tt.dir,
-				Limit:     tt.limit,
-				Prefix:    tt.prefix,
-				Recursive: tt.recursive,
-			})
+			list, err := db.ListObjects(ctx, bucket.Name, tt.options)
 
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, list.More, errTag)
@@ -790,6 +551,25 @@ func TestListObjects(t *testing.T) {
 			}
 		}
 	})
+}
+
+func options(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
+	return storj.ListOptions{
+		Prefix:    prefix,
+		Cursor:    cursor,
+		Direction: direction,
+		Limit:     limit,
+	}
+}
+
+func optionsRecursive(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
+	return storj.ListOptions{
+		Prefix:    prefix,
+		Cursor:    cursor,
+		Direction: direction,
+		Limit:     limit,
+		Recursive: true,
+	}
 }
 
 func getObjectPaths(list storj.ObjectList) []string {
