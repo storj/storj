@@ -7,18 +7,21 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/x509"
 	"flag"
 	"log"
 	"net"
 	"os"
 	"testing"
-
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gtank/cryptopasta"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeebo/errs"
+
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/pb"
@@ -34,23 +37,14 @@ func TestBandwidthAgreements(t *testing.T) {
 	TS := NewTestServer(t)
 	defer TS.Stop()
 
-	signature := []byte("iamthedummysignatureoftypebyteslice")
-
-	data, _ := proto.Marshal(
-		&pb.RenterBandwidthAllocation_Data{},
-	)
-
-	msg := &pb.RenterBandwidthAllocation{
-		Signature: signature,
-		Data:      data,
-	}
-
-	s, err := cryptopasta.Sign(msg.Data, TS.k.(*ecdsa.PrivateKey))
+	pba, err := generatePayerBandwidthAllocation(pb.PayerBandwidthAllocation_GET, TS.k)
 	assert.NoError(t, err)
-	msg.Signature = s
+
+	rba, err := generateRenterBandwidthAllocation(pba, TS.k)
+	assert.NoError(t, err)
 
 	/* emulate sending the bwagreement stream from piecestore node */
-	_, err = TS.c.BandwidthAgreements(ctx, msg)
+	_, err = TS.c.BandwidthAgreements(ctx, rba)
 	assert.NoError(t, err)
 }
 
@@ -150,6 +144,72 @@ func connect(addr string, o ...grpc.DialOption) (pb.BandwidthClient, *grpc.Clien
 	c := pb.NewBandwidthClient(conn)
 
 	return c, conn
+}
+
+func generatePayerBandwidthAllocation(action pb.PayerBandwidthAllocation_Action, satelliteKey crypto.PrivateKey) (*pb.PayerBandwidthAllocation, error) {
+	satelliteKeyEcdsa, ok := satelliteKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errs.New("Satellite Private Key is not a valid *ecdsa.PrivateKey")
+	}
+
+	// Generate PayerBandwidthAllocation_Data
+	data, _ := proto.Marshal(
+		&pb.PayerBandwidthAllocation_Data{
+			SatelliteId: []byte("SatelliteID"),
+			UplinkId:  []byte("UplinkID"),
+			ExpirationUnixSec: time.Now().Add(time.Hour * 24 * 10).Unix(),
+			SerialNumber: "SerialNumber",
+			Action: action,
+			CreatedUnixSec: time.Now().Unix(),
+		},
+	)
+
+	// Sign the PayerBandwidthAllocation_Data with the "Satellite" Private Key
+	s, err := cryptopasta.Sign(data, satelliteKeyEcdsa)
+	if err != nil {
+		return nil, errs.New("Failed to sign PayerBandwidthAllocation_Data with satellite Private Key: %+v", err)
+	}
+
+	// Combine Signature and Data for PayerBandwidthAllocation
+	return &pb.PayerBandwidthAllocation{
+		Data: data,
+		Signature: s,
+	}, nil
+}
+
+func generateRenterBandwidthAllocation(pba *pb.PayerBandwidthAllocation, uplinkKey crypto.PrivateKey) (*pb.RenterBandwidthAllocation, error) {
+		// get "Uplink" Public Key
+		uplinkKeyEcdsa, ok := uplinkKey.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, errs.New("Uplink Private Key is not a valid *ecdsa.PrivateKey")
+		}
+	
+		pubbytes, err := x509.MarshalPKIXPublicKey(&uplinkKeyEcdsa.PublicKey)
+		if err != nil {
+			return nil, errs.New("Could not generate byte array from Uplink Public key: %+v", err)
+		}
+	
+		// Generate RenterBandwidthAllocation_Data
+		data, _ := proto.Marshal(
+			&pb.RenterBandwidthAllocation_Data{
+				PayerAllocation: pba,
+				PubKey: pubbytes,
+				StorageNodeId: []byte("StorageNodeID"),
+				Total: int64(666),
+			},
+		)
+	
+		// Sign the PayerBandwidthAllocation_Data with the "Uplink" Private Key
+		s, err := cryptopasta.Sign(data, uplinkKeyEcdsa)
+		if err != nil {
+			return nil, errs.New("Failed to sign RenterBandwidthAllocation_Data with uplink Private Key: %+v", err)
+		}
+	
+		// Combine Signature and Data for RenterBandwidthAllocation
+		return &pb.RenterBandwidthAllocation{
+			Signature: s,
+			Data:      data,
+		}, nil
 }
 
 func (TS *TestServer) Stop() {
