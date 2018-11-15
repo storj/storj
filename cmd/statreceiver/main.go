@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/luacfg"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/utils"
 )
 
 // Config is the set of configuration values we care about
@@ -48,32 +49,37 @@ func Main(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		defer fh.Close()
+		defer utils.LogClose(fh)
 		input = fh
 	}
 
 	s := luacfg.NewScope()
-	s.RegisterVal("deliver", Deliver)
-	s.RegisterVal("filein", NewFileSource)
-	s.RegisterVal("fileout", NewFileDest)
-	s.RegisterVal("udpin", NewUDPSource)
-	s.RegisterVal("udpout", NewUDPDest)
-	s.RegisterVal("parse", NewParser)
-	s.RegisterVal("print", NewPrinter)
-	s.RegisterVal("pcopy", NewPacketCopier)
-	s.RegisterVal("mcopy", NewMetricCopier)
-	s.RegisterVal("pbuf", NewPacketBuffer)
-	s.RegisterVal("mbuf", NewMetricBuffer)
-	s.RegisterVal("packetfilter", NewPacketFilter)
-	s.RegisterVal("appfilter", NewApplicationFilter)
-	s.RegisterVal("instfilter", NewInstanceFilter)
-	s.RegisterVal("keyfilter", NewKeyFilter)
-	s.RegisterVal("sanitize", NewSanitizer)
-	s.RegisterVal("graphite", NewGraphiteDest)
-	s.RegisterVal("db", NewDBDest)
-	s.RegisterVal("pbufprep", NewPacketBufPrep)
-	s.RegisterVal("mbufprep", NewMetricBufPrep)
-	err := s.Run(input)
+	err := utils.CombineErrors(
+		s.RegisterVal("deliver", Deliver),
+		s.RegisterVal("filein", NewFileSource),
+		s.RegisterVal("fileout", NewFileDest),
+		s.RegisterVal("udpin", NewUDPSource),
+		s.RegisterVal("udpout", NewUDPDest),
+		s.RegisterVal("parse", NewParser),
+		s.RegisterVal("print", NewPrinter),
+		s.RegisterVal("pcopy", NewPacketCopier),
+		s.RegisterVal("mcopy", NewMetricCopier),
+		s.RegisterVal("pbuf", NewPacketBuffer),
+		s.RegisterVal("mbuf", NewMetricBuffer),
+		s.RegisterVal("packetfilter", NewPacketFilter),
+		s.RegisterVal("appfilter", NewApplicationFilter),
+		s.RegisterVal("instfilter", NewInstanceFilter),
+		s.RegisterVal("keyfilter", NewKeyFilter),
+		s.RegisterVal("sanitize", NewSanitizer),
+		s.RegisterVal("graphite", NewGraphiteDest),
+		s.RegisterVal("db", NewDBDest),
+		s.RegisterVal("pbufprep", NewPacketBufPrep),
+		s.RegisterVal("mbufprep", NewMetricBufPrep),
+	)
+	if err != nil {
+		return err
+	}
+	err = s.Run(input)
 	if err != nil {
 		return err
 	}
