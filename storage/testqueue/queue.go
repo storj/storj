@@ -41,13 +41,20 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 	return nil, storage.ErrEmptyQueue
 }
 
-//Peekqueue gets the next element without removing
-func (q *Queue) Peekqueue() ([]storage.Value, error) { //*list.Element {
+//Peekqueue gets upto 'limit' entries from the list queue
+func (q *Queue) Peekqueue(limit int) ([]storage.Value, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	if limit < 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
 	result := make([]storage.Value, 0)
 	for e := q.s.Front(); e != nil; e = e.Next() {
 		result = append(result, e.Value.(storage.Value))
+		limit--
+		if limit <= 0 {
+			break
+		}
 	}
 	return result, nil
 }

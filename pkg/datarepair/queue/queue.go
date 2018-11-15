@@ -13,7 +13,7 @@ import (
 type RepairQueue interface {
 	Enqueue(qi *pb.InjuredSegment) error
 	Dequeue() (pb.InjuredSegment, error)
-	Peekqueue() ([]pb.InjuredSegment, error)
+	Peekqueue(limit int) ([]pb.InjuredSegment, error)
 }
 
 // Queue implements the RepairQueue interface
@@ -54,9 +54,12 @@ func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 	return *seg, nil
 }
 
-// Peekqueue returns all the entries in the repair queue
-func (q *Queue) Peekqueue() ([]pb.InjuredSegment, error) {
-	result, err := q.db.Peekqueue()
+// Peekqueue returns upto 'limit' of the entries from the repair queue
+func (q *Queue) Peekqueue(limit int) ([]pb.InjuredSegment, error) {
+	if limit < 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+	result, err := q.db.Peekqueue(limit)
 	if err != nil {
 		return []pb.InjuredSegment{}, Error.New("error peeking into repair queue %s", err)
 	}

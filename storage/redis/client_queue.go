@@ -47,9 +47,9 @@ func (client *Queue) Dequeue() (storage.Value, error) {
 	return storage.Value(out), nil
 }
 
-// Peekqueue returns all the entries in the queue without removing
-func (client *Queue) Peekqueue() ([]storage.Value, error) {
-	cmd := client.db.LRange(queueKey, 0, -1)
+// Peekqueue returns upto 1000 entries in the queue without removing
+func (client *Queue) Peekqueue(limit int) ([]storage.Value, error) {
+	cmd := client.db.LRange(queueKey, 0, int64(limit))
 	items, err := cmd.Result()
 	if err != nil {
 		return nil, err

@@ -22,7 +22,7 @@ func testBasic(t *testing.T, q storage.Queue) {
 	assert.NoError(t, err)
 	err = q.Enqueue(storage.Value([]byte{0, 0, 0, 0, 255, 255, 255, 255}))
 	assert.NoError(t, err)
-	list, err := q.Peekqueue()
+	list, err := q.Peekqueue(100)
 	assert.NotNil(t, list)
 	assert.NoError(t, err)
 	out, err := q.Dequeue()

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"text/tabwriter"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -19,9 +18,9 @@ import (
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/bwagreement"
+	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
@@ -82,9 +81,8 @@ var (
 		DatabaseURL string `help:"the database connection string to use" default:"sqlite3://$CONFDIR/bw.db"`
 	}
 	qdiagCfg struct {
-		BasePath  string        `default:"$CONFDIR" help:"base path for setup"`
-		MaxRepair int           `help:"maximum segments that can be repaired concurrently" default:"100"`
-		Interval  time.Duration `help:"how frequently checker should audit segments" default:"3600s"`
+		DatabaseURL string `help:"the database connection string to use" default:"redis://127.0.0.1:6378?db=1&password=abc123"`
+		QListLimit  int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 
 	defaultConfDir = "$HOME/.storj/satellite"
@@ -98,6 +96,7 @@ func init() {
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, cfgstruct.ConfDir(defaultConfDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -238,13 +237,12 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// display the data
-	err = w.Flush()
-	return err
+	return w.Flush()
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
-	// open the psql db
-	dbpath := qdiagCfg.BasePath
+	// open the redis db
+	dbpath := qdiagCfg.DatabaseURL
 
 	redisQ, err := redis.NewQueueFrom(dbpath)
 	if err != nil {
@@ -252,8 +250,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	queue := queue.NewQueue(redisQ)
-	repairer := repairer.NewRepairer(queue, nil, qdiagCfg.Interval, qdiagCfg.MaxRepair)
-	list, err := repairer.Queue.Peekqueue()
+	list, err := queue.Peekqueue(qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}
@@ -269,8 +266,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// display the data
-	err = w.Flush()
-	return err
+	return w.Flush()
 }
 
 func main() {
