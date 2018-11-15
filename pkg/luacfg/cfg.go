@@ -13,21 +13,27 @@ import (
 	luar "github.com/jtolds/go-luar"
 )
 
+// Scope represents a collection of values registered in a Lua namespace.
 type Scope struct {
 	mtx           sync.Mutex
 	registrations map[string]func(*lua.State) error
 }
 
+// NewScope creates an empty Scope.
 func NewScope() *Scope {
 	return &Scope{
 		registrations: map[string]func(*lua.State) error{},
 	}
 }
 
+// RegisterType allows you to add a Lua function that creates new
+// values of the given type to the scope.
 func (s *Scope) RegisterType(name string, example interface{}) error {
 	return s.register(name, example, luar.PushType)
 }
 
+// RegisterVal adds the Go value 'value', including Go functions, to the Lua
+// scope.
 func (s *Scope) RegisterVal(name string, value interface{}) error {
 	return s.register(name, value, luar.PushValue)
 }
@@ -50,6 +56,7 @@ func (s *Scope) register(name string, val interface{},
 	return nil
 }
 
+// Run runs the Lua source represented by in
 func (s *Scope) Run(in io.Reader) error {
 	l := lua.NewState()
 	luar.SetOptions(l, luar.Options{AllowUnexportedAccess: true})

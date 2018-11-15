@@ -12,20 +12,23 @@ import (
 	"time"
 )
 
+// GraphiteDest is a MetricDest that sends data with the Graphite TCP wire
+// protocol
 type GraphiteDest struct {
 	mtx     sync.Mutex
 	address string
 	conn    net.Conn
 	buf     *bufio.Writer
-	last    time.Time
 }
 
+// NewGraphiteDest creates a GraphiteDest with TCP address address
 func NewGraphiteDest(address string) *GraphiteDest {
 	rv := &GraphiteDest{address: address}
 	go rv.flush()
 	return rv
 }
 
+// Metric implements MetricDest
 func (d *GraphiteDest) Metric(application, instance string,
 	key []byte, val float64, ts time.Time) error {
 

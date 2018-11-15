@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
+// Config is the set of configuration values we care about
 var Config struct {
 	Input string `default:"" help:"path to configuration file"`
 }
@@ -34,6 +35,7 @@ func main() {
 	process.Exec(cmd)
 }
 
+// Main is the real main method
 func Main(cmd *cobra.Command, args []string) error {
 	var input io.Reader
 	switch Config.Input {

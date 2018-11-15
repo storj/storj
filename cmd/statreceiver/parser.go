@@ -11,12 +11,15 @@ import (
 	"github.com/zeebo/admission/admproto"
 )
 
+// Parser is a PacketDest that sends data to a MetricDest
 type Parser struct {
 	d       MetricDest
 	f       []*PacketFilter
 	scratch sync.Pool
 }
 
+// NewParser creates a Parser. It sends metrics to d, provided they pass all
+// of the provided PacketFilters
 func NewParser(d MetricDest, f ...*PacketFilter) *Parser {
 	return &Parser{
 		d: d, f: f,
@@ -28,6 +31,7 @@ func NewParser(d MetricDest, f ...*PacketFilter) *Parser {
 		}}
 }
 
+// Packet implements PacketDest
 func (p *Parser) Packet(data []byte, ts time.Time) (err error) {
 	data, err = admproto.CheckChecksum(data)
 	if err != nil {

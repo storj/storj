@@ -24,13 +24,15 @@ var (
 	}
 )
 
+// DBDest is a database metric destination. It stores the latest value given
+// a metric key and application per instance.
 type DBDest struct {
 	mtx             sync.Mutex
 	driver, address string
 	db              *sql.DB
-	tables          map[string]bool
 }
 
+// NewDBDest creates a DBDest
 func NewDBDest(driver, address string) *DBDest {
 	if _, found := sqlupsert[driver]; !found {
 		panic(fmt.Sprintf("driver %s not supported", driver))
@@ -41,6 +43,7 @@ func NewDBDest(driver, address string) *DBDest {
 	}
 }
 
+// Metric implements the MetricDest interface
 func (db *DBDest) Metric(application, instance string, key []byte, val float64,
 	ts time.Time) error {
 	db.mtx.Lock()

@@ -10,12 +10,16 @@ import (
 	"unicode"
 )
 
+// Sanitizer is a MetricDest that replaces nonalphanumeric characters with
+// underscores.
 type Sanitizer struct {
 	m MetricDest
 }
 
+// NewSanitizer creates a Sanitizer that sends sanitized metrics to m.
 func NewSanitizer(m MetricDest) *Sanitizer { return &Sanitizer{m: m} }
 
+// Metric implements MetricDest
 func (s *Sanitizer) Metric(application, instance string, key []byte,
 	val float64, ts time.Time) error {
 	return s.m.Metric(sanitize(application), sanitize(instance), sanitizeb(key),

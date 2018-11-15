@@ -9,14 +9,17 @@ import (
 	"time"
 )
 
+// Printer is a MetricDest that writes to stdout
 type Printer struct {
 	mtx sync.Mutex
 }
 
+// NewPrinter creates a Printer
 func NewPrinter() *Printer {
 	return &Printer{}
 }
 
+// Metric implements MetricDest
 func (p *Printer) Metric(application, instance string, key []byte, val float64,
 	ts time.Time) error {
 	p.mtx.Lock()

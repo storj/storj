@@ -12,16 +12,19 @@ import (
 	"time"
 )
 
+// FileSource reads packets from a file
 type FileSource struct {
 	mtx     sync.Mutex
 	path    string
 	decoder *gob.Decoder
 }
 
+// NewFileSource creates a FileSource
 func NewFileSource(path string) *FileSource {
 	return &FileSource{path: path}
 }
 
+// Next implements the Source interface
 func (f *FileSource) Next() ([]byte, time.Time, error) {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
@@ -41,6 +44,8 @@ func (f *FileSource) Next() ([]byte, time.Time, error) {
 	return p.Data, p.TS, nil
 }
 
+// FileDest sends packets to a file for later processing. FileDest preserves
+// the timestamps.
 type FileDest struct {
 	mtx     sync.Mutex
 	path    string
@@ -48,10 +53,12 @@ type FileDest struct {
 	encoder *gob.Encoder
 }
 
+// NewFileDest creates a FileDest
 func NewFileDest(path string) *FileDest {
 	return &FileDest{path: path}
 }
 
+// Packet implements PacketDest
 func (f *FileDest) Packet(data []byte, ts time.Time) error {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
