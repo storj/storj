@@ -1,3 +1,6 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 import (
@@ -13,8 +16,8 @@ import (
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/statdb/sdbclient"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 func main() {
@@ -125,9 +128,9 @@ func main() {
 			}
 
 			stats := &pb.NodeStats{
-				AuditCount: auditCount,
-				AuditSuccessCount: auditSuccessCount,
-				UptimeCount: uptimeCount,
+				AuditCount:         auditCount,
+				AuditSuccessCount:  auditSuccessCount,
+				UptimeCount:        uptimeCount,
 				UptimeSuccessCount: uptimeSuccessCount,
 			}
 			err = client.CreateWithStats(ctx, nodeID.Bytes(), stats)
@@ -190,9 +193,9 @@ func main() {
 				}
 
 				stats := &pb.NodeStats{
-					AuditCount: auditCount,
-					AuditSuccessCount: auditSuccessCount,
-					UptimeCount: uptimeCount,
+					AuditCount:         auditCount,
+					AuditSuccessCount:  auditSuccessCount,
+					UptimeCount:        uptimeCount,
 					UptimeSuccessCount: uptimeSuccessCount,
 				}
 				err = client.CreateWithStats(ctx, nodeID.Bytes(), stats)
@@ -217,7 +220,11 @@ func main() {
 
 	var rootCmd = &cobra.Command{Use: "sdbinspect"}
 	rootCmd.AddCommand(cmdGetStats, cmdGetCSVStats, cmdCreateStats, cmdCreateCSVStats)
-	rootCmd.Execute()
+	err := rootCmd.Execute()
+	if err != nil {
+		fmt.Println("Error", err)
+		os.Exit(1)
+	}
 }
 
 func getSdbClient(ctx context.Context, port, apiKey string) (sdbclient.Client, error) {
