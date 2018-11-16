@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -16,12 +17,12 @@ import (
 
 // Overlay is a mocked overlay implementation
 type Overlay struct {
-	nodes map[string]*pb.Node
+	nodes map[storj.NodeID]storj.Node
 }
 
 // NewOverlay returns a newly initialized mock overlal
-func NewOverlay(nodes []*pb.Node) *Overlay {
-	rv := &Overlay{nodes: map[string]*pb.Node{}}
+func NewOverlay(nodes []storj.Node) *Overlay {
+	rv := &Overlay{nodes: map[storj.NodeID]storj.Node{}}
 	for _, node := range nodes {
 		rv.nodes[node.Id] = node
 	}
@@ -31,7 +32,7 @@ func NewOverlay(nodes []*pb.Node) *Overlay {
 
 // FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
-	nodes := make([]*pb.Node, 0, len(mo.nodes))
+	nodes := make([]storj.Node, 0, len(mo.nodes))
 	for _, node := range mo.nodes {
 		nodes = append(nodes, node)
 	}
@@ -39,13 +40,17 @@ func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNode
 		return nil, errs.New("not enough farmers exist")
 	}
 	nodes = nodes[:req.Opts.GetAmount()]
-	return &pb.FindStorageNodesResponse{Nodes: nodes}, nil
+	return &pb.FindStorageNodesResponse{Nodes: storj.ProtoNodes(nodes)}, nil
 }
 
 // Lookup finds a single storage node based on the request
 func (mo *Overlay) Lookup(ctx context.Context, req *pb.LookupRequest) (
 	*pb.LookupResponse, error) {
-	return &pb.LookupResponse{Node: mo.nodes[req.NodeID]}, nil
+	nodeID, err := storj.NodeIDFromBytes(req.NodeId)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LookupResponse{Node: mo.nodes[nodeID].Node}, nil
 }
 
 //BulkLookup finds multiple storage nodes based on the requests
@@ -54,8 +59,12 @@ func (mo *Overlay) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (
 	var responses []*pb.LookupResponse
 	for _, r := range reqs.Lookuprequest {
 		// NOTE (Dylan): tests did not catch missing node case, need updating
-		n := mo.nodes[r.NodeID]
-		resp := &pb.LookupResponse{Node: n}
+		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
+		if err != nil {
+			return nil, err
+		}
+		n := mo.nodes[nodeID]
+		resp := &pb.LookupResponse{Node: n.Node}
 		responses = append(responses, resp)
 	}
 	return &pb.LookupResponses{Lookupresponse: responses}, nil
@@ -68,19 +77,28 @@ type Config struct {
 
 // Run runs server with mock overlay
 func (c Config) Run(ctx context.Context, server *provider.Provider) error {
-	var nodes []*pb.Node
+	var nodes []storj.Node
 	for _, nodestr := range strings.Split(c.Nodes, ",") {
 		parts := strings.SplitN(nodestr, ":", 2)
 		if len(parts) != 2 {
 			return fmt.Errorf("malformed node config: %#v", nodestr)
 		}
-		id, addr := parts[0], parts[1]
-		nodes = append(nodes, &pb.Node{
-			Id: id,
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   addr,
-			}})
+
+		nidString, addr := parts[0], parts[1]
+		nodeID, err := storj.NodeIDFromString(nidString)
+		if err != nil {
+			return err
+		}
+
+		nodes = append(nodes, storj.NewNodeWithID(
+			nodeID,
+			&pb.Node{
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   addr,
+				},
+			},
+		))
 	}
 
 	pb.RegisterOverlayServer(server.GRPC(), NewOverlay(nodes))

@@ -12,8 +12,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/eestream"
-	mock_eestream "storj.io/storj/pkg/eestream/mocks"
+	"storj.io/storj/pkg/eestream/mocks"
 	mock_overlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	pdb "storj.io/storj/pkg/pointerdb/pdbclient"
@@ -110,8 +111,8 @@ func TestSegmentStorePutRemote(t *testing.T) {
 			mockES.EXPECT().TotalCount().Return(1),
 			mockOC.EXPECT().Choose(
 				gomock.Any(), gomock.Any(),
-			).Return([]*pb.Node{
-				{Id: "im-a-node"},
+			).Return([]storj.Node{
+				storj.NewNodeWithID(teststorj.NodeIDFromString("im-a-node"), &pb.Node{}),
 			}, nil),
 			mockPDB.EXPECT().SignedMessage(),
 			mockPDB.EXPECT().PayerBandwidthAllocation(),
@@ -242,13 +243,30 @@ func TestSegmentStoreRepairRemote(t *testing.T) {
 		size                    int64
 		metadata                []byte
 		lostPieces              []int32
-		newNodes                []*pb.Node
+		newNodes                []storj.Node
 		data                    string
 		strsize, offset, length int64
 		substr                  string
 		meta                    Meta
 	}{
-		{"path/1/2/3", 10, pb.Pointer_REMOTE, int64(3), []byte("metadata"), []int32{}, []*pb.Node{{Id: "1"}, {Id: "2"}}, "abcdefghijkl", 12, 1, 4, "bcde", Meta{}},
+		{
+			pathInput:     "path/1/2/3",
+			thresholdSize: 10,
+			pointerType:   pb.Pointer_REMOTE,
+			size:          int64(3),
+			metadata:      []byte("metadata"),
+			lostPieces:    []int32{},
+			newNodes:      []storj.Node{
+				storj.NewNodeWithID(teststorj.NodeIDFromString("1"), &pb.Node{}),
+				storj.NewNodeWithID(teststorj.NodeIDFromString("2"), &pb.Node{}),
+			},
+			data:          "abcdefghijkl",
+			strsize:       12,
+			offset:        1,
+			length:        4,
+			substr:        "bcde",
+			meta:          Meta{},
+		},
 	} {
 		mockOC := mock_overlay.NewMockClient(ctrl)
 		mockEC := mock_ecclient.NewMockClient(ctrl)

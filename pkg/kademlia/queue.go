@@ -8,8 +8,7 @@ import (
 	"math/big"
 	"sync"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // XorQueue is a priority queue where the priority is key XOR distance
@@ -17,7 +16,7 @@ type XorQueue struct {
 	maxLen int
 
 	mu    sync.Mutex
-	added map[string]int
+	added map[storj.NodeID]int
 	items items
 }
 
@@ -25,19 +24,19 @@ type XorQueue struct {
 func NewXorQueue(size int) *XorQueue {
 	return &XorQueue{
 		items:  make(items, 0, size),
-		added:  make(map[string]int),
+		added:  make(map[storj.NodeID]int),
 		maxLen: size,
 	}
 }
 
 // Insert adds Nodes onto the queue
-func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
+func (x *XorQueue) Insert(target storj.NodeID, nodes []storj.Node) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
 	unique := nodes[:0]
 	for _, node := range nodes {
-		nodeID := node.GetId()
+		nodeID := node.Id
 		if _, added := x.added[nodeID]; !added {
 			x.added[nodeID]++
 			unique = append(unique, node)
@@ -48,28 +47,30 @@ func (x *XorQueue) Insert(target dht.NodeID, nodes []*pb.Node) {
 }
 
 // Reinsert adds a Nodes onto the queue if it's been added >= limit times previously
-func (x *XorQueue) Reinsert(target dht.NodeID, node *pb.Node, limit int) bool {
+func (x *XorQueue) Reinsert(target storj.NodeID, node storj.Node, limit int) bool {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
-	nodeID := node.GetId()
+	nodeID := node.Id
 	if x.added[nodeID] >= limit {
 		return false
 	}
 	x.added[nodeID]++
 
-	x.insert(target, []*pb.Node{node})
+	x.insert(target, []storj.Node{node})
 	return true
 }
 
 // insert must hold lock while adding
-func (x *XorQueue) insert(target dht.NodeID, nodes []*pb.Node) {
+func (x *XorQueue) insert(target storj.NodeID, nodes []storj.Node) {
 	targetBytes := new(big.Int).SetBytes(target.Bytes())
 	// insert new nodes
 	for _, node := range nodes {
 		heap.Push(&x.items, &item{
 			value:    node,
-			priority: new(big.Int).Xor(targetBytes, new(big.Int).SetBytes([]byte(node.GetId()))),
+			// TODO(bryanchriswhite): should we convert `node.GetId()` to a `storj.NodeID`?
+			//	(node.GetId() may not be the correct length)
+			priority: new(big.Int).Xor(targetBytes, new(big.Int).SetBytes(node.Id.Bytes())),
 		})
 	}
 	// resize down if we grew too big
@@ -85,12 +86,12 @@ func (x *XorQueue) insert(target dht.NodeID, nodes []*pb.Node) {
 }
 
 // Closest removes the closest priority node from the queue
-func (x *XorQueue) Closest() (*pb.Node, big.Int) {
+func (x *XorQueue) Closest() (storj.Node, big.Int) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
 	if x.Len() == 0 {
-		return nil, big.Int{}
+		return storj.Node{}, big.Int{}
 	}
 	item := *(heap.Pop(&x.items).(*item))
 	return item.value, *item.priority
@@ -103,7 +104,7 @@ func (x *XorQueue) Len() int {
 
 // An item is something we manage in a priority queue.
 type item struct {
-	value    *pb.Node // The value of the item; arbitrary.
+	value    storj.Node // The value of the item; arbitrary.
 	priority *big.Int // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.

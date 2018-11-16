@@ -4,11 +4,11 @@
 package kademlia
 
 import (
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
-func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node *pb.Node) {
+func (rt *RoutingTable) addToReplacementCache(kadBucketID storage.Key, node storj.Node) {
 	bucketID := string(kadBucketID)
 	nodes := rt.replacementCache[bucketID]
 	nodes = append(nodes, node)

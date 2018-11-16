@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"bytes"
 	"context"
 	"math/rand"
 	"net"
@@ -16,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
@@ -35,8 +38,8 @@ var (
 )
 
 type dbClient int
-type responses map[dbClient]*pb.Node
-type responsesB map[dbClient][]*pb.Node
+type responses map[dbClient]storj.Node
+type responsesB map[dbClient][]storj.Node
 type errors map[dbClient]*errs.Class
 
 const (
@@ -46,17 +49,26 @@ const (
 	testNetSize = 30
 )
 
-func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b pb.Node) *kademlia.Kademlia {
+var (
+	fooID = teststorj.NodeIDFromString("foo")
+	barID = teststorj.NodeIDFromString("bar")
+	errorID = teststorj.NodeIDFromString("error")
+	key1ID = teststorj.NodeIDFromString("key1")
+	key2ID = teststorj.NodeIDFromString("key2")
+	key3ID = teststorj.NodeIDFromString("key3")
+)
+
+func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, b storj.Node) *kademlia.Kademlia {
 	fid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
-	n := []pb.Node{b}
+	n := []storj.Node{b}
 	kad, err := kademlia.NewKademlia(fid.ID, n, net.JoinHostPort(ip, port), fid, "db", 5)
 	assert.NoError(t, err)
 
 	return kad
 }
 
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
+func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, storj.Node) {
 	bid, err := node.NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
@@ -73,7 +85,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 	identity, err := ca.NewIdentity()
 	assert.NoError(t, err)
 
-	boot, err := kademlia.NewKademlia(bid.ID, []pb.Node{*intro}, net.JoinHostPort(ip, pm), identity, "db", 5)
+	boot, err := kademlia.NewKademlia(bid.ID, []storj.Node{intro}, net.JoinHostPort(ip, pm), identity, "db", 5)
 
 	assert.NoError(t, err)
 	rt, err := boot.GetRoutingTable(context.Background())
@@ -92,7 +104,7 @@ func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
 		fid, err := node.NewFullIdentity(ctx, 12, 4)
 		assert.NoError(t, err)
 
-		dht, err := kademlia.NewKademlia(fid.ID, []pb.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", 5)
+		dht, err := kademlia.NewKademlia(fid.ID, []storj.Node{bootNode}, net.JoinHostPort(ip, gg), fid, "db", 5)
 		assert.NoError(t, err)
 
 		p++
@@ -110,7 +122,7 @@ var (
 	getCases = []struct {
 		testID              string
 		expectedTimesCalled int
-		key                 string
+		nodeID              storj.NodeID
 		expectedResponses   responses
 		expectedErrors      errors
 		data                []storage.ListItem
@@ -118,9 +130,9 @@ var (
 		{
 			testID:              "valid Get",
 			expectedTimesCalled: 1,
-			key:                 "foo",
+			nodeID:              fooID,
 			expectedResponses: func() responses {
-				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
+				na := storj.NewNodeWithID(fooID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
 				return responses{
 					mock:   na,
 					bolt:   na,
@@ -133,10 +145,10 @@ var (
 				_redis: nil,
 			},
 			data: []storage.ListItem{{
-				Key: storage.Key("foo"),
+				Key: storage.Key(fooID.Bytes()),
 				Value: func() storage.Value {
-					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-					d, err := proto.Marshal(na)
+					na := storj.NewNodeWithID(fooID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+					d, err := proto.Marshal(na.Node)
 					if err != nil {
 						panic(err)
 					}
@@ -146,11 +158,11 @@ var (
 		}, {
 			testID:              "forced get error",
 			expectedTimesCalled: 1,
-			key:                 "error",
+			nodeID:              errorID,
 			expectedResponses: func() responses {
-				na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
+				na := storj.NewNodeWithID(errorID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
 				return responses{
-					mock:   nil,
+					mock:   storj.Node{},
 					bolt:   na,
 					_redis: na,
 				}
@@ -161,10 +173,10 @@ var (
 				_redis: nil,
 			},
 			data: []storage.ListItem{{
-				Key: storage.Key("error"),
+				Key: storage.Key(errorID.Bytes()),
 				Value: func() storage.Value {
-					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-					d, err := proto.Marshal(na)
+					na := storj.NewNodeWithID(errorID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+					d, err := proto.Marshal(na.Node)
 					if err != nil {
 						panic(err)
 					}
@@ -175,11 +187,11 @@ var (
 		{
 			testID:              "get missing key",
 			expectedTimesCalled: 1,
-			key:                 "bar",
+			nodeID:              barID,
 			expectedResponses: responses{
-				mock:   nil,
-				bolt:   nil,
-				_redis: nil,
+				mock:   storj.Node{},
+				bolt:   storj.Node{},
+				_redis: storj.Node{},
 			},
 			expectedErrors: errors{
 				mock:   &storage.ErrKeyNotFound,
@@ -187,7 +199,7 @@ var (
 				_redis: &storage.ErrKeyNotFound,
 			},
 			data: []storage.ListItem{{
-				Key: storage.Key("foo"),
+				Key: storage.Key(fooID.Bytes()),
 				Value: func() storage.Value {
 					na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
 					d, err := proto.Marshal(na)
@@ -202,17 +214,17 @@ var (
 	getAllCases = []struct {
 		testID              string
 		expectedTimesCalled int
-		keys                []string
+		nodeIDs             storj.NodeIDList
 		expectedResponses   responsesB
 		expectedErrors      errors
 		data                []storage.ListItem
 	}{
 		{testID: "valid GetAll",
 			expectedTimesCalled: 1,
-			keys:                []string{"key1"},
+			nodeIDs:             storj.NodeIDList{key1ID},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-				ns := []*pb.Node{n1}
+				n1 := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+				ns := []storj.Node{n1}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -226,10 +238,10 @@ var (
 			},
 			data: []storage.ListItem{
 				{
-					Key: storage.Key("key1"),
+					Key: storage.Key(key1ID.Bytes()),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-						d, err := proto.Marshal(na)
+						na := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+						d, err := proto.Marshal(na.Node)
 						if err != nil {
 							panic(err)
 						}
@@ -240,11 +252,11 @@ var (
 		},
 		{testID: "valid GetAll",
 			expectedTimesCalled: 1,
-			keys:                []string{"key1", "key2"},
+			nodeIDs:             storj.NodeIDList{key1ID, key2ID},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-				n2 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}}
-				ns := []*pb.Node{n1, n2}
+				n1 := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+				n2 := storj.NewNodeWithID(key2ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}})
+				ns := []storj.Node{n1, n2}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -258,20 +270,20 @@ var (
 			},
 			data: []storage.ListItem{
 				{
-					Key: storage.Key("key1"),
+					Key: storage.Key(key1ID.Bytes()),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-						d, err := proto.Marshal(na)
+						na := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+						d, err := proto.Marshal(na.Node)
 						if err != nil {
 							panic(err)
 						}
 						return d
 					}(),
 				}, {
-					Key: storage.Key("key2"),
+					Key: storage.Key(key2ID.Bytes()),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}}
-						d, err := proto.Marshal(na)
+						na := storj.NewNodeWithID(key2ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9998"}})
+						d, err := proto.Marshal(na.Node)
 						if err != nil {
 							panic(err)
 						}
@@ -282,10 +294,10 @@ var (
 		},
 		{testID: "mix of valid and nil nodes returned",
 			expectedTimesCalled: 1,
-			keys:                []string{"key1", "key3"},
+			nodeIDs:             storj.NodeIDList{key1ID, key3ID},
 			expectedResponses: func() responsesB {
-				n1 := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-				ns := []*pb.Node{n1, nil}
+				n1 := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+				ns := []storj.Node{n1, {Node: nil}}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -299,10 +311,10 @@ var (
 			},
 			data: []storage.ListItem{
 				{
-					Key: storage.Key("key1"),
+					Key: storage.Key(key1ID.Bytes()),
 					Value: func() storage.Value {
-						na := &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}}
-						d, err := proto.Marshal(na)
+						na := storj.NewNodeWithID(key1ID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}})
+						d, err := proto.Marshal(na.Node)
 						if err != nil {
 							panic(err)
 						}
@@ -313,9 +325,9 @@ var (
 		},
 		{testID: "empty string keys",
 			expectedTimesCalled: 1,
-			keys:                []string{"", ""},
+			nodeIDs:             storj.NodeIDList{storj.EmptyNodeID, storj.EmptyNodeID},
 			expectedResponses: func() responsesB {
-				ns := []*pb.Node{nil, nil}
+				ns := []storj.Node{emptyNode, emptyNode}
 				return responsesB{
 					mock:   ns,
 					bolt:   ns,
@@ -328,36 +340,28 @@ var (
 				_redis: nil,
 			},
 		},
-		{testID: "empty keys",
-			expectedTimesCalled: 0,
-			keys:                []string{},
-			expectedResponses: func() responsesB {
-				return responsesB{
-					mock:   nil,
-					bolt:   nil,
-					_redis: nil,
-				}
-			}(),
-			expectedErrors: errors{
-				mock:   &OverlayError,
-				bolt:   &OverlayError,
-				_redis: &OverlayError,
-			},
-		},
 	}
 	putCases = []struct {
 		testID              string
 		expectedTimesCalled int
-		key                 string
-		value               pb.Node
+		nodeID              storj.NodeID
+		value               storj.Node
 		expectedErrors      errors
 		data                []storage.ListItem
 	}{
 		{
 			testID:              "valid Put",
 			expectedTimesCalled: 1,
-			key:                 "foo",
-			value:               pb.Node{Id: "foo", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9999"}},
+			nodeID:              fooID,
+			value: storj.NewNodeWithID(
+				fooID,
+				&pb.Node{
+					Address: &pb.NodeAddress{
+						Transport: pb.NodeTransport_TCP_TLS_GRPC,
+						Address:   "127.0.0.1:9999",
+					},
+				},
+			),
 			expectedErrors: errors{
 				mock:   nil,
 				bolt:   nil,
@@ -426,7 +430,7 @@ func TestRedisGet(t *testing.T) {
 			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
-			resp, err := oc.Get(ctx, c.key)
+			resp, err := oc.Get(ctx, c.nodeID)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 			assert.Equal(t, c.expectedResponses[_redis], resp)
 		})
@@ -444,7 +448,7 @@ func TestRedisGetAll(t *testing.T) {
 			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
-			resp, err := oc.GetAll(ctx, c.keys)
+			resp, err := oc.GetAll(ctx, c.nodeIDs)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 			assert.Equal(t, c.expectedResponses[_redis], resp)
 		})
@@ -472,15 +476,16 @@ func TestRedisPut(t *testing.T) {
 			db := redisTestClient(t, redisAddr, c.data)
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
-			v, err := db.Get([]byte(c.key))
+			v, err := db.Get(c.nodeID.Bytes())
 			assert.NoError(t, err)
 
 			na := &pb.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.True(t, proto.Equal(na, &c.value))
+			assert.True(t, proto.Equal(na, c.value.Node))
+			assert.True(t, bytes.Compare(c.nodeID.Bytes(), na.Id) == 0)
 		})
 	}
 }
@@ -493,7 +498,7 @@ func TestBoltGet(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			resp, err := oc.Get(ctx, c.key)
+			resp, err := oc.Get(ctx, c.nodeID)
 			assertErrClass(t, c.expectedErrors[bolt], err)
 			assert.Equal(t, c.expectedResponses[bolt], resp)
 		})
@@ -506,7 +511,8 @@ func TestBoltGetAll(t *testing.T) {
 			db, cleanup := boltTestClient(t, c.data)
 			defer cleanup()
 			oc := Cache{DB: db}
-			resp, err := oc.GetAll(ctx, c.keys)
+
+			resp, err := oc.GetAll(ctx, c.nodeIDs)
 			assertErrClass(t, c.expectedErrors[bolt], err)
 			assert.Equal(t, c.expectedResponses[bolt], resp)
 		})
@@ -520,15 +526,16 @@ func TestBoltPut(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(c.value)
 			assertErrClass(t, c.expectedErrors[_redis], err)
 
-			v, err := db.Get([]byte(c.key))
+			v, err := db.Get(c.nodeID.Bytes())
 			assert.NoError(t, err)
 			na := &pb.Node{}
 
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.True(t, proto.Equal(na, &c.value))
+			assert.True(t, proto.Equal(na, c.value.Node))
+			assert.True(t, bytes.Compare(c.nodeID.Bytes(), na.Id) == 0)
 		})
 	}
 }
@@ -543,13 +550,13 @@ func TestMockGet(t *testing.T) {
 			}
 			oc := Cache{DB: db}
 
-			if c.key == "error" {
+			if c.nodeID == errorID {
 				db.ForceError = 1
 			}
 			assert.Equal(t, 0, db.CallCount.Get)
 
-			resp, err := oc.Get(ctx, c.key)
-			if c.key == "error" {
+			resp, err := oc.Get(ctx, c.nodeID)
+			if c.nodeID == errorID {
 				assert.Error(t, err)
 			} else {
 				assertErrClass(t, c.expectedErrors[mock], err)
@@ -572,7 +579,7 @@ func TestMockGetAll(t *testing.T) {
 
 			assert.Equal(t, 0, db.CallCount.GetAll)
 
-			resp, err := oc.GetAll(ctx, c.keys)
+			resp, err := oc.GetAll(ctx, c.nodeIDs)
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedResponses[mock], resp)
 			assert.Equal(t, c.expectedTimesCalled, db.CallCount.GetAll)
@@ -591,16 +598,17 @@ func TestMockPut(t *testing.T) {
 
 			oc := Cache{DB: db}
 
-			err := oc.Put(c.key, c.value)
+			err := oc.Put(c.value)
 			assertErrClass(t, c.expectedErrors[mock], err)
 			assert.Equal(t, c.expectedTimesCalled, db.CallCount.Put)
 
-			v, err := db.Get(storage.Key(c.key))
+			v, err := db.Get(c.nodeID.Bytes())
 			assert.NoError(t, err)
 
 			na := &pb.Node{}
 			assert.NoError(t, proto.Unmarshal(v, na))
-			assert.True(t, proto.Equal(na, &c.value))
+			assert.True(t, proto.Equal(na, c.value.Node))
+			assert.True(t, bytes.Compare(c.nodeID.Bytes(), na.Id) == 0)
 		})
 	}
 }

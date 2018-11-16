@@ -3,8 +3,10 @@
 
 package pb
 
+//go:generate protoc --go_out=plugins=grpc:. node.proto
 //go:generate protoc --go_out=plugins=grpc:. meta.proto
 //go:generate protoc --go_out=plugins=grpc:. overlay.proto
 //go:generate protoc --go_out=plugins=grpc:. pointerdb.proto
 //go:generate protoc --go_out=plugins=grpc:. piecestore.proto
 //go:generate protoc --go_out=plugins=grpc:. bandwidth.proto
+//go:generate protoc --go_out=plugins=grpc:. statdb.proto

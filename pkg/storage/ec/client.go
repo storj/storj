@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -26,15 +27,15 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-		pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error)
-	Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
+	Put(ctx context.Context, nodes []storj.Node, rs eestream.RedundancyStrategy,
+		pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []storj.Node, err error)
+	Get(ctx context.Context, nodes []storj.Node, es eestream.ErasureScheme,
 		pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (ranger.Ranger, error)
-	Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
+	Delete(ctx context.Context, nodes []storj.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) error
 }
 
-type psClientFunc func(context.Context, transport.Client, *pb.Node, int) (psclient.Client, error)
-type psClientHelper func(context.Context, *pb.Node) (psclient.Client, error)
+type psClientFunc func(context.Context, transport.Client, storj.Node, int) (psclient.Client, error)
+type psClientHelper func(context.Context, storj.Node) (psclient.Client, error)
 
 type ecClient struct {
 	transport       transport.Client
@@ -52,12 +53,12 @@ func NewClient(identity *provider.FullIdentity, memoryLimit int) Client {
 	}
 }
 
-func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (psclient.Client, error) {
+func (ec *ecClient) newPSClient(ctx context.Context, n storj.Node) (psclient.Client, error) {
 	return ec.newPSClientFunc(ctx, ec.transport, n, 0)
 }
 
-func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.RedundancyStrategy,
-	pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []*pb.Node, err error) {
+func (ec *ecClient) Put(ctx context.Context, nodes []storj.Node, rs eestream.RedundancyStrategy,
+	pieceID psclient.PieceID, data io.Reader, expiration time.Time, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (successfulNodes []storj.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodes) != rs.TotalCount() {
@@ -81,13 +82,13 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 
 	for i, n := range nodes {
 
-		go func(i int, n *pb.Node) {
-			if n == nil {
+		go func(i int, n storj.Node) {
+			if n.Id == nil || n.Id == storj.EmptyNodeID {
 				_, err := io.Copy(ioutil.Discard, readers[i])
 				infos <- info{i: i, err: err}
 				return
 			}
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
@@ -115,7 +116,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 		}(i, n)
 	}
 
-	successfulNodes = make([]*pb.Node, len(nodes))
+	successfulNodes = make([]storj.Node, len(nodes))
 	var successfulCount int
 	for range nodes {
 		info := <-infos
@@ -144,7 +145,7 @@ func (ec *ecClient) Put(ctx context.Context, nodes []*pb.Node, rs eestream.Redun
 	return successfulNodes, nil
 }
 
-func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.ErasureScheme,
+func (ec *ecClient) Get(ctx context.Context, nodes []storj.Node, es eestream.ErasureScheme,
 	pieceID psclient.PieceID, size int64, pba *pb.PayerBandwidthAllocation, authorization *pb.SignedMessage) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -165,13 +166,13 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	ch := make(chan rangerInfo, len(nodes))
 
 	for i, n := range nodes {
-		if n == nil {
+		if n.Id == nil || n.Id == storj.EmptyNodeID {
 			ch <- rangerInfo{i: i, rr: nil, err: nil}
 			continue
 		}
 
-		go func(i int, n *pb.Node) {
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+		go func(i int, n storj.Node) {
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				ch <- rangerInfo{i: i, rr: nil, err: err}
@@ -206,19 +207,19 @@ func (ec *ecClient) Get(ctx context.Context, nodes []*pb.Node, es eestream.Erasu
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, nodes []*pb.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, nodes []storj.Node, pieceID psclient.PieceID, authorization *pb.SignedMessage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errs := make(chan error, len(nodes))
 
 	for _, n := range nodes {
-		if n == nil {
+		if n.Id == nil || n.Id == storj.EmptyNodeID {
 			errs <- nil
 			continue
 		}
 
-		go func(n *pb.Node) {
-			derivedPieceID, err := pieceID.Derive([]byte(n.GetId()))
+		go func(n storj.Node) {
+			derivedPieceID, err := pieceID.Derive(n.Id.Bytes())
 			if err != nil {
 				zap.S().Errorf("Failed deriving piece id for %s: %v", pieceID, err)
 				errs <- err
@@ -263,20 +264,21 @@ func collectErrors(errs <-chan error, size int) []error {
 	return result
 }
 
-func unique(nodes []*pb.Node) bool {
+func unique(nodes []storj.Node) bool {
 	if len(nodes) < 2 {
 		return true
 	}
 
-	ids := make([]string, len(nodes))
+	ids := make(storj.NodeIDList, len(nodes))
 	for i, n := range nodes {
-		ids[i] = n.GetId()
+		ids[i] = n.Id
 	}
 
 	// sort the ids and check for identical neighbors
-	sort.Strings(ids)
+	sort.Sort(ids)
 	for i := 1; i < len(ids); i++ {
-		if ids[i] != "" && ids[i] == ids[i-1] {
+		id1, id2 := ids[i], ids[i - 1]
+		if id1 == id2 && !(id1 == nil || id1 == storj.EmptyNodeID && id2 == nil || id2 == storj.EmptyNodeID) {
 			return false
 		}
 	}
@@ -295,7 +297,7 @@ func calcPadded(size int64, blockSize int) int64 {
 type lazyPieceRanger struct {
 	ranger            ranger.Ranger
 	newPSClientHelper psClientHelper
-	node              *pb.Node
+	node              storj.Node
 	id                psclient.PieceID
 	size              int64
 	pba               *pb.PayerBandwidthAllocation
@@ -323,10 +325,10 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.
 	return lr.ranger.Range(ctx, offset, length)
 }
 
-func validCount(nodes []*pb.Node) int {
+func validCount(nodes []storj.Node) int {
 	total := 0
 	for _, node := range nodes {
-		if node != nil {
+		if node != (storj.Node{}) {
 			total++
 		}
 	}

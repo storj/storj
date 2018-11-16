@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/grpcauth"
@@ -30,7 +31,7 @@ import (
 type Planet struct {
 	directory string // TODO: ensure that everything is in-memory to speed things up
 
-	nodeInfos []pb.Node
+	nodeInfos []storj.Node
 	nodeLinks []string
 	nodes     []*Node
 
@@ -97,7 +98,7 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 
 	// init storage nodes
 	for _, node := range planet.StorageNodes {
-		storageDir := filepath.Join(planet.directory, node.ID())
+		storageDir := filepath.Join(planet.directory, node.ID().String())
 
 		serverdb, err := psdb.OpenInMemory(context.Background(), storageDir)
 		if err != nil {
@@ -179,17 +180,19 @@ func (planet *Planet) newNode() (*Node, error) {
 		return nil, utils.CombineErrors(err, listener.Close())
 	}
 
-	node.Info = pb.Node{
-		Id: node.Identity.ID.String(),
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   node.Listener.Addr().String(),
+	node.Info = storj.NewNodeWithID(
+		node.Identity.ID,
+		&pb.Node{
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   node.Listener.Addr().String(),
+			},
 		},
-	}
+	)
 
 	planet.nodes = append(planet.nodes, node)
 	planet.nodeInfos = append(planet.nodeInfos, node.Info)
-	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
+	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id.String()+":"+node.Listener.Addr().String())
 
 	return node, nil
 }

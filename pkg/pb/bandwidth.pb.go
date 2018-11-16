@@ -33,7 +33,7 @@ func (m *AgreementsSummary) Reset()         { *m = AgreementsSummary{} }
 func (m *AgreementsSummary) String() string { return proto.CompactTextString(m) }
 func (*AgreementsSummary) ProtoMessage()    {}
 func (*AgreementsSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_99a1cbdb0d6e51ae, []int{0}
+	return fileDescriptor_bandwidth_c1d6f056fe8fd53b, []int{0}
 }
 func (m *AgreementsSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AgreementsSummary.Unmarshal(m, b)
@@ -163,9 +163,9 @@ var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 	Metadata: "bandwidth.proto",
 }
 
-func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_99a1cbdb0d6e51ae) }
+func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_c1d6f056fe8fd53b) }
 
-var fileDescriptor_bandwidth_99a1cbdb0d6e51ae = []byte{
+var fileDescriptor_bandwidth_c1d6f056fe8fd53b = []byte{
 	// 146 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4a, 0xcc, 0x4b,
 	0x29, 0xcf, 0x4c, 0x29, 0xc9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,

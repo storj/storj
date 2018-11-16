@@ -30,7 +30,7 @@ func (m *SegmentMeta) Reset()         { *m = SegmentMeta{} }
 func (m *SegmentMeta) String() string { return proto.CompactTextString(m) }
 func (*SegmentMeta) ProtoMessage()    {}
 func (*SegmentMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_7cdcbfdcc9c518d5, []int{0}
+	return fileDescriptor_meta_f2973588633dae4c, []int{0}
 }
 func (m *SegmentMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentMeta.Unmarshal(m, b)
@@ -78,7 +78,7 @@ func (m *StreamInfo) Reset()         { *m = StreamInfo{} }
 func (m *StreamInfo) String() string { return proto.CompactTextString(m) }
 func (*StreamInfo) ProtoMessage()    {}
 func (*StreamInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_7cdcbfdcc9c518d5, []int{1}
+	return fileDescriptor_meta_f2973588633dae4c, []int{1}
 }
 func (m *StreamInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamInfo.Unmarshal(m, b)
@@ -140,7 +140,7 @@ func (m *StreamMeta) Reset()         { *m = StreamMeta{} }
 func (m *StreamMeta) String() string { return proto.CompactTextString(m) }
 func (*StreamMeta) ProtoMessage()    {}
 func (*StreamMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_7cdcbfdcc9c518d5, []int{2}
+	return fileDescriptor_meta_f2973588633dae4c, []int{2}
 }
 func (m *StreamMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StreamMeta.Unmarshal(m, b)
@@ -194,9 +194,9 @@ func init() {
 	proto.RegisterType((*StreamMeta)(nil), "streams.StreamMeta")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_7cdcbfdcc9c518d5) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_f2973588633dae4c) }
 
-var fileDescriptor_meta_7cdcbfdcc9c518d5 = []byte{
+var fileDescriptor_meta_f2973588633dae4c = []byte{
 	// 306 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x51, 0xcd, 0x4e, 0xf3, 0x30,
 	0x10, 0x54, 0xff, 0xbe, 0xaf, 0x6c, 0x03, 0x05, 0x03, 0x52, 0x04, 0x17, 0x14, 0x0e, 0x20, 0x84,

@@ -5,13 +5,9 @@ syntax = "proto3";
 option go_package = "pb";
 
 import "google/protobuf/duration.proto";
+import "node.proto";
 
 package overlay;
-
-// NodeTransport is an enum of possible transports for the overlay network
-enum NodeTransport {
-    TCP_TLS_GRPC = 0;
-}
 
 // Overlay defines the interface for communication with the overlay network
 service Overlay {
@@ -30,12 +26,12 @@ service Nodes {
 
 // LookupRequest is is request message for the lookup rpc call
 message LookupRequest {
-    string nodeID = 1;
+    bytes node_id = 1;
 }
 
 // LookupResponse is is response message for the lookup rpc call
 message LookupResponse {
-    Node node = 1;
+    node.Node node = 1;
 }
 
 //LookupRequests is a list of LookupRequest
@@ -51,7 +47,7 @@ message LookupResponses {
 
 // FindStorageNodesResponse is is response message for the FindStorageNodes rpc call
 message FindStorageNodesResponse {
-    repeated Node nodes = 1;
+    repeated node.Node nodes = 1;
 }
 
 // FindStorageNodesRequest is is request message for the FindStorageNodes rpc call
@@ -63,20 +59,14 @@ message FindStorageNodesRequest {
     int64 maxNodes = 5;
 }
 
-// NodeAddress contains the information needed to communicate with a node on the network
-message NodeAddress {
-    NodeTransport transport = 1;
-    string address = 2;
-}
-
 // OverlayOptions is a set of criteria that a node must meet to be considered for a storage opportunity
 message OverlayOptions {
     google.protobuf.Duration maxLatency = 1;
     NodeRep minReputation = 2;
     int64 minSpeedKbps = 3;
     int64 amount = 4;
-    NodeRestrictions restrictions = 5;
-    repeated string excluded_nodes = 6;
+    node.NodeRestrictions restrictions = 5;
+    repeated bytes excluded_nodes = 6;
 }
 
 // NodeRep is the reputation characteristics of a node
@@ -86,37 +76,17 @@ message NodeRep {
     int64 minAuditCount = 3;
 }
 
-//  NodeRestrictions contains all relevant data about a nodes ability to store data
-message NodeRestrictions {
-    int64 freeBandwidth = 1;
-    int64 freeDisk = 2;
-}
-
-// Node represents a node in the overlay network
-message Node {
-    string id = 1;
-    NodeAddress address = 2;
-    NodeType type = 3;
-    NodeRestrictions restrictions = 4;
-}
-
-// NodeType is an enum of possible node types
-enum NodeType {
-    ADMIN = 0;
-    STORAGE = 1;
-}
-
 message QueryRequest {
-    overlay.Node sender = 1;
-    overlay.Node target = 2;
+    node.Node sender = 1;
+    bytes target_id = 2;
     int64 limit = 3;
     bool pingback = 4;
 }
 
 message QueryResponse {
-    overlay.Node sender = 1;
+    node.Node sender = 1;
 
-    repeated overlay.Node response = 2;
+    repeated node.Node response = 2;
 }
 
 message PingRequest {};

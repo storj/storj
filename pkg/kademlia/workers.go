@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -26,22 +25,22 @@ var (
 
 // worker pops work off a priority queue and does lookups on the work received
 type worker struct {
-	contacted      map[string]bool
+	contacted      map[storj.NodeID]bool
 	pq             *XorQueue
 	mu             *sync.Mutex
 	maxResponse    time.Duration
 	cancel         context.CancelFunc
 	nodeClient     node.Client
-	find           dht.NodeID
+	find           storj.NodeID
 	workInProgress int
 	k              int
 }
 
-func newWorker(ctx context.Context, rt *RoutingTable, nodes []*pb.Node, nc node.Client, target dht.NodeID, k int) *worker {
+func newWorker(ctx context.Context, rt *RoutingTable, nodes []storj.Node, nc node.Client, target storj.NodeID, k int) *worker {
 	pq := NewXorQueue(k)
 	pq.Insert(target, nodes)
 	return &worker{
-		contacted:      map[string]bool{},
+		contacted:      map[storj.NodeID]bool{},
 		pq:             pq,
 		mu:             &sync.Mutex{},
 		maxResponse:    0 * time.Millisecond,
@@ -58,7 +57,7 @@ func newWorker(ctx context.Context, rt *RoutingTable, nodes []*pb.Node, nc node.
 // have workers get work available off channel
 // after queue is empty and no work is in progress, close channel.
 
-func (w *worker) work(ctx context.Context, ch chan *pb.Node) {
+func (w *worker) work(ctx context.Context, ch chan storj.Node) {
 	// grab uncontacted node from working set
 	// change status to inprogress
 	// ask node for target
@@ -76,7 +75,7 @@ func (w *worker) work(ctx context.Context, ch chan *pb.Node) {
 	}
 }
 
-func (w *worker) getWork(ctx context.Context, ch chan *pb.Node) {
+func (w *worker) getWork(ctx context.Context, ch chan storj.Node) {
 	for {
 		if ctx.Err() != nil {
 			return
@@ -111,23 +110,23 @@ func (w *worker) getWork(ctx context.Context, ch chan *pb.Node) {
 
 }
 
-func (w *worker) lookup(ctx context.Context, node *pb.Node) []*pb.Node {
+func (w *worker) lookup(ctx context.Context, node storj.Node) []storj.Node {
 	start := time.Now()
 	if node.GetAddress() == nil {
 		return nil
 	}
 
-	nodes, err := w.nodeClient.Lookup(ctx, *node, pb.Node{Id: w.find.String()})
+	nodes, err := w.nodeClient.Lookup(ctx, node, w.find)
 	if err != nil {
 		// TODO(coyle): I think we might want to do another look up on this node or update something
 		// but for now let's just log and ignore.
 		log.Printf("Error occurred during lookup for %s on %s :: error = %s", w.find.String(), node.GetId(), err.Error())
-		return []*pb.Node{}
+		return []storj.Node{}
 	}
 
 	// add node to the previously contacted list so we don't duplicate lookups
 	w.mu.Lock()
-	w.contacted[node.GetId()] = true
+	w.contacted[node.Id] = true
 	w.mu.Unlock()
 
 	latency := time.Since(start)
@@ -138,14 +137,14 @@ func (w *worker) lookup(ctx context.Context, node *pb.Node) []*pb.Node {
 	return nodes
 }
 
-func (w *worker) update(nodes []*pb.Node) {
+func (w *worker) update(nodes []storj.Node) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	uncontactedNodes := []*pb.Node{}
+	uncontactedNodes := []storj.Node{}
 	for _, v := range nodes {
 		// if we have already done a lookup on this node we don't want to do it again for this lookup loop
-		if !w.contacted[v.GetId()] {
+		if !w.contacted[v.Id] {
 			uncontactedNodes = append(uncontactedNodes, v)
 		}
 	}

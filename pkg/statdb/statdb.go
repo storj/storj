@@ -13,9 +13,10 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/pointerdb/auth"
 	dbx "storj.io/storj/pkg/statdb/dbx"
-	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/pb"
 )
 
 var (
@@ -71,7 +72,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 
 	dbNode, err := s.DB.Create_Node(
 		ctx,
-		dbx.Node_Id(node.NodeId),
+		dbx.Node_Id(node.Id),
 		dbx.Node_AuditSuccessCount(auditSuccessCount),
 		dbx.Node_TotalAuditCount(totalAuditCount),
 		dbx.Node_AuditSuccessRatio(auditSuccessRatio),
@@ -82,7 +83,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	s.logger.Debug("created in the db: " + string(node.NodeId))
+	s.logger.Debug("created in the db: " + string(node.Id))
 
 	nodeStats := &pb.NodeStats{
 		NodeId:            dbNode.Id,
@@ -95,7 +96,7 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 }
 
 // Get a storagenode's stats from the db
-func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+func (s *Server) Get(ctx context.Context, getReq *pb.GetStatRequest) (resp *pb.GetStatResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	s.logger.Debug("entering statdb Get")
 
@@ -115,7 +116,7 @@ func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetRe
 		AuditSuccessRatio: dbNode.AuditSuccessRatio,
 		UptimeRatio:       dbNode.UptimeRatio,
 	}
-	return &pb.GetResponse{
+	return &pb.GetStatResponse{
 		Stats: nodeStats,
 	}, nil
 }
@@ -199,7 +200,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		return nil, err
 	}
 
-	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.NodeId))
+	dbNode, err := s.DB.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -236,7 +237,7 @@ func (s *Server) Update(ctx context.Context, updateReq *pb.UpdateRequest) (resp 
 		updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 	}
 
-	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.NodeId), updateFields)
+	dbNode, err = s.DB.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id), updateFields)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -258,10 +259,17 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 
 	APIKeyBytes := updateBatchReq.APIKey
 	var nodeStatsList []*pb.NodeStats
-	var failedNodes []*pb.Node
-	for _, node := range updateBatchReq.NodeList {
+	var failedNodes []storj.Node
+	nodes, err := storj.NewNodes(updateBatchReq.NodeList)
+	if err != nil {
+		s.logger.Warn("node id errors:", zap.Error(err))
+		if len(nodes) == 0 {
+			return nil, err
+		}
+	}
+	for _, node := range nodes {
 		updateReq := &pb.UpdateRequest{
-			Node:   node,
+			Node:   node.Node,
 			APIKey: APIKeyBytes,
 		}
 
@@ -275,7 +283,7 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 	}
 
 	updateBatchRes := &pb.UpdateBatchResponse{
-		FailedNodes: failedNodes,
+		FailedNodes: storj.ProtoNodes(failedNodes),
 		StatsList:   nodeStatsList,
 	}
 	return updateBatchRes, nil
@@ -284,8 +292,8 @@ func (s *Server) UpdateBatch(ctx context.Context, updateBatchReq *pb.UpdateBatch
 // CreateEntryIfNotExists creates a statdb node entry and saves to statdb if it didn't already exist
 func (s *Server) CreateEntryIfNotExists(ctx context.Context, createIfReq *pb.CreateEntryIfNotExistsRequest) (resp *pb.CreateEntryIfNotExistsResponse, err error) {
 	APIKeyBytes := createIfReq.APIKey
-	getReq := &pb.GetRequest{
-		NodeId: createIfReq.Node.NodeId,
+	getReq := &pb.GetStatRequest{
+		NodeId: createIfReq.Node.Id,
 		APIKey: APIKeyBytes,
 	}
 	getRes, err := s.Get(ctx, getReq)

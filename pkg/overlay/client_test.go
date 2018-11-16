@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"testing"
@@ -13,13 +14,15 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis/redisserver"
 )
+
+var emptyNode = storj.Node{}
 
 type mockNodeID struct {
 }
@@ -30,6 +33,10 @@ func (m mockNodeID) String() string {
 
 func (m mockNodeID) Bytes() []byte {
 	return []byte("foobar")
+}
+
+func (m mockNodeID) Difficulty() uint16 {
+	return 12
 }
 
 func TestNewOverlayClient(t *testing.T) {
@@ -58,34 +65,37 @@ func TestNewOverlayClient(t *testing.T) {
 	}
 }
 
+var (
+	id1 = teststorj.NodeIDFromString("n1")
+	id2 = teststorj.NodeIDFromString("n2")
+	id3 = teststorj.NodeIDFromString("n3")
+	id4 = teststorj.NodeIDFromString("n4")
+	id5 = teststorj.NodeIDFromString("n5")
+	id6 = teststorj.NodeIDFromString("n6")
+	id7 = teststorj.NodeIDFromString("n7")
+	id8 = teststorj.NodeIDFromString("n8")
+	n1  = storj.NewNodeWithID(id1, &pb.Node{})
+	n2  = storj.NewNodeWithID(id2, &pb.Node{})
+	n3  = storj.NewNodeWithID(id3, &pb.Node{})
+	n4  = storj.NewNodeWithID(id4, &pb.Node{})
+	n5  = storj.NewNodeWithID(id5, &pb.Node{})
+	n6  = storj.NewNodeWithID(id6, &pb.Node{})
+	n7  = storj.NewNodeWithID(id7, &pb.Node{})
+	n8  = storj.NewNodeWithID(id8, &pb.Node{})
+)
+
 func TestChoose(t *testing.T) {
 	cases := []struct {
 		limit    int
 		space    int64
-		allNodes []*pb.Node
-		excluded []dht.NodeID
+		allNodes []storj.Node
+		excluded []storj.NodeID
 	}{
 		{
 			limit: 4,
 			space: 0,
-			allNodes: func() []*pb.Node {
-				n1 := &pb.Node{Id: "n1"}
-				n2 := &pb.Node{Id: "n2"}
-				n3 := &pb.Node{Id: "n3"}
-				n4 := &pb.Node{Id: "n4"}
-				n5 := &pb.Node{Id: "n5"}
-				n6 := &pb.Node{Id: "n6"}
-				n7 := &pb.Node{Id: "n7"}
-				n8 := &pb.Node{Id: "n8"}
-				return []*pb.Node{n1, n2, n3, n4, n5, n6, n7, n8}
-			}(),
-			excluded: func() []dht.NodeID {
-				id1 := node.IDFromString("n1")
-				id2 := node.IDFromString("n2")
-				id3 := node.IDFromString("n3")
-				id4 := node.IDFromString("n4")
-				return []dht.NodeID{id1, id2, id3, id4}
-			}(),
+			allNodes: []storj.Node{n1, n2, n3, n4, n5, n6, n7, n8},
+			excluded: []storj.NodeID{id1, id2, id3, id4},
 		},
 	}
 
@@ -98,7 +108,7 @@ func TestChoose(t *testing.T) {
 			data, err := proto.Marshal(n)
 			assert.NoError(t, err)
 			listItems = append(listItems, storage.ListItem{
-				Key:   storage.Key(n.Id),
+				Key:   storage.Key(n.Id.Bytes()),
 				Value: data,
 			})
 		}
@@ -137,7 +147,7 @@ func TestChoose(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	cases := []struct {
-		nodeID        dht.NodeID
+		nodeID        storj.NodeID
 		expectedCalls int
 	}{
 		{
@@ -176,11 +186,11 @@ func TestLookup(t *testing.T) {
 }
 func TestBulkLookup(t *testing.T) {
 	cases := []struct {
-		nodeIDs       []dht.NodeID
+		nodeIDs       storj.NodeIDList
 		expectedCalls int
 	}{
 		{
-			nodeIDs:       []dht.NodeID{mockNodeID{}, mockNodeID{}, mockNodeID{}},
+			nodeIDs:       storj.NodeIDList{mockNodeID{}, mockNodeID{}, mockNodeID{}},
 			expectedCalls: 1,
 		},
 	}
@@ -239,55 +249,40 @@ func TestBulkLookupV2(t *testing.T) {
 	overlay, ok := oc.(*Overlay)
 	assert.True(t, ok)
 	assert.NotEmpty(t, overlay.client)
-	n1 := &pb.Node{Id: "n1"}
-	n2 := &pb.Node{Id: "n2"}
-	n3 := &pb.Node{Id: "n3"}
-	nodes := []*pb.Node{n1, n2, n3}
+	nodes := []storj.Node{n1, n2, n3}
 	for _, n := range nodes {
-		assert.NoError(t, s.cache.Put(n.Id, *n))
+		assert.NoError(t, s.cache.Put(n))
 	}
 
 	cases := []struct {
 		testID    string
-		nodeIDs   []dht.NodeID
-		responses []*pb.Node
+		nodeIDs   storj.NodeIDList
+		responses []storj.Node
 		errors    *errs.Class
 	}{
 		{testID: "empty id",
-			nodeIDs:   []dht.NodeID{},
+			nodeIDs:   storj.NodeIDList{},
 			responses: nil,
 			errors:    &ClientError,
 		},
+		{testID: "empty id",
+			nodeIDs:   storj.NodeIDList{storj.EmptyNodeID},
+			responses: []storj.Node{emptyNode},
+			errors:    nil,
+		},
 		{testID: "valid ids",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n1")
-				id2 := node.IDFromString("n2")
-				id3 := node.IDFromString("n3")
-				return []dht.NodeID{id1, id2, id3}
-			}(),
+			nodeIDs: storj.NodeIDList{id1, id2, id3},
 			responses: nodes,
 			errors:    nil,
 		},
 		{testID: "missing ids",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n4")
-				id2 := node.IDFromString("n5")
-				return []dht.NodeID{id1, id2}
-			}(),
-			responses: []*pb.Node{nil, nil},
+			nodeIDs: storj.NodeIDList{id4, id5},
+			responses: []storj.Node{emptyNode, emptyNode},
 			errors:    nil,
 		},
 		{testID: "random order and nil",
-			nodeIDs: func() []dht.NodeID {
-				id1 := node.IDFromString("n1")
-				id2 := node.IDFromString("n2")
-				id3 := node.IDFromString("n3")
-				id4 := node.IDFromString("n4")
-				return []dht.NodeID{id2, id1, id3, id4}
-			}(),
-			responses: func() []*pb.Node {
-				return []*pb.Node{nodes[1], nodes[0], nodes[2], nil}
-			}(),
+			nodeIDs: storj.NodeIDList{id2, id1, id3, id4},
+			responses: []storj.Node{nodes[1], nodes[0], nodes[2], emptyNode},
 			errors: nil,
 		},
 	}
@@ -295,7 +290,17 @@ func TestBulkLookupV2(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			ns, err := oc.BulkLookup(ctx, c.nodeIDs)
 			assertErrClass(t, c.errors, err)
-			assert.Equal(t, c.responses, ns)
+			if ok := assert.Equal(t, len(ns), len(c.responses)); !ok {
+				t.FailNow()
+			}
+			for i, n := range c.responses {
+				assert.True(t, proto.Equal(ns[i].Node, n.Node))
+				if n == emptyNode {
+					assert.Nil(t, ns[i].Id)
+					continue
+				}
+				assert.True(t, bytes.Compare(ns[i].Id.Bytes(), n.Id.Bytes()) == 0)
+			}
 		})
 	}
 }

@@ -12,9 +12,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
-	proto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
@@ -29,7 +31,7 @@ func initializeFlags() {
 	flag.Parse()
 }
 
-func printNodeStats(ns proto.NodeStats, logger zap.Logger) {
+func printNodeStats(ns pb.NodeStats, logger zap.Logger) {
 	nodeID := ns.NodeId
 	latency90 := ns.Latency_90
 	auditSuccess := ns.AuditSuccessRatio
@@ -61,27 +63,34 @@ func main() {
 
 	logger.Debug(fmt.Sprintf("client dialed port %s", port))
 
+	testNodeID1 := teststorj.NodeIDFromString("nodeid1")
+	testNodeID2 := teststorj.NodeIDFromString("nodeid2")
+
 	// Test farmers
-	farmer1 := proto.Node{
-		NodeId:             []byte("nodeid1"),
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
-	}
-	farmer2 := proto.Node{
-		NodeId:             []byte("nodeid2"),
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
-	}
+	farmer1 := storj.NewNodeWithID(
+		testNodeID1,
+		&pb.Node{
+			UpdateAuditSuccess: false,
+			UpdateUptime:       false,
+		},
+	)
+	farmer2 := storj.NewNodeWithID(
+		testNodeID2,
+		&pb.Node{
+			UpdateAuditSuccess: false,
+			UpdateUptime:       false,
+		},
+	)
 
 	// Example Creates
-	err = client.Create(ctx, farmer1.NodeId)
+	err = client.Create(ctx, farmer1.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 		os.Exit(1)
 	}
 	logger.Info("Farmer 1 created successfully")
 
-	err = client.Create(ctx, farmer2.NodeId)
+	err = client.Create(ctx, farmer2.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to create", zap.Error(err))
 		os.Exit(1)
@@ -94,7 +103,7 @@ func main() {
 	farmer1.UpdateAuditSuccess = true
 	farmer1.UpdateUptime = true
 
-	nodeStats, err := client.Update(ctx, farmer1.NodeId, farmer1.AuditSuccess, farmer1.IsUp, nil,
+	nodeStats, err := client.Update(ctx, farmer1.Id, farmer1.AuditSuccess, farmer1.IsUp, nil,
 		farmer1.UpdateAuditSuccess, farmer1.UpdateUptime, false)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
@@ -112,7 +121,7 @@ func main() {
 	farmer2.UpdateAuditSuccess = true
 	farmer2.UpdateUptime = true
 
-	nodeList := []*proto.Node{&farmer1, &farmer2}
+	nodeList := []storj.Node{farmer1, farmer2}
 
 	statsList, _, err := client.UpdateBatch(ctx, nodeList)
 	if err != nil || status.Code(err) == codes.Internal {
@@ -125,7 +134,7 @@ func main() {
 	}
 
 	// Example Get
-	nodeStats, err = client.Get(ctx, farmer1.NodeId)
+	nodeStats, err = client.Get(ctx, farmer1.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)
@@ -133,7 +142,7 @@ func main() {
 	logger.Info("Farmer 1 after Get 1")
 	printNodeStats(*nodeStats, *logger)
 
-	nodeStats, err = client.Get(ctx, farmer2.NodeId)
+	nodeStats, err = client.Get(ctx, farmer2.Id)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)

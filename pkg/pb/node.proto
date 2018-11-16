@@ -1,0 +1,46 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+package node;
+
+// Node represents a node in the overlay network
+// Node is info for a updating a single storagenode, used in the Update rpc calls
+message Node {
+    bytes id = 1;
+    NodeAddress address = 2;
+    NodeType type = 3;
+    NodeRestrictions restrictions = 4;
+    repeated int64 latency_list = 5;
+    bool audit_success = 6;
+    bool is_up = 7;
+    bool update_latency = 8;
+    bool update_audit_success = 9;
+    bool update_uptime = 10;
+}
+
+// NodeAddress contains the information needed to communicate with a node on the network
+message NodeAddress {
+    NodeTransport transport = 1;
+    string address = 2;
+}
+
+// NodeTransport is an enum of possible transports for the overlay network
+enum NodeTransport {
+    TCP_TLS_GRPC = 0;
+}
+
+// NodeType is an enum of possible node types
+enum NodeType {
+    ADMIN = 0;
+    STORAGE = 1;
+}
+
+//  NodeRestrictions contains all relevant data about a nodes ability to store data
+message NodeRestrictions {
+    int64 freeBandwidth = 1;
+    int64 freeDisk = 2;
+}
+
+

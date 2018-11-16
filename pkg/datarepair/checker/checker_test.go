@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -14,11 +15,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
@@ -37,12 +38,16 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	repairQueue := queue.NewQueue(teststore.New())
 
 	const N = 25
-	nodes := []*pb.Node{}
+	nodes := []storj.Node{}
 	segs := []*pb.InjuredSegment{}
 	//fill a pointerdb
 	for i := 0; i < N; i++ {
 		s := strconv.Itoa(i)
-		ids := []string{s + "a", s + "b", s + "c", s + "d"}
+		idStrings := []string{s + "a", s + "b", s + "c", s + "d"}
+		var nodeIDs storj.NodeIDList
+		for _, s := range idStrings {
+			nodeIDs = append(nodeIDs, teststorj.NodeIDFromString(s))
+		}
 
 		p := &pb.Pointer{
 			Remote: &pb.RemoteSegment{
@@ -51,10 +56,10 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 				},
 				PieceId: strconv.Itoa(i),
 				RemotePieces: []*pb.RemotePiece{
-					{PieceNum: 0, NodeId: ids[0]},
-					{PieceNum: 1, NodeId: ids[1]},
-					{PieceNum: 2, NodeId: ids[2]},
-					{PieceNum: 3, NodeId: ids[3]},
+					{PieceNum: 0, NodeId: nodeIDs[0].Bytes()},
+					{PieceNum: 1, NodeId: nodeIDs[1].Bytes()},
+					{PieceNum: 2, NodeId: nodeIDs[2].Bytes()},
+					{PieceNum: 3, NodeId: nodeIDs[3].Bytes()},
 				},
 			},
 		}
@@ -69,13 +74,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 		//nodes for cache
 		selection := rand.Intn(4)
-		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: v}}
+		for _, v := range nodeIDs[:selection] {
+			n := storj.NewNodeWithID(v, &pb.Node{Address: &pb.NodeAddress{Address: ""}})
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}
 		//expected injured segments
-		if len(ids[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
+		if len(nodeIDs[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
 			seg := &pb.InjuredSegment{
 				Path:       p.Remote.PieceId,
 				LostPieces: pieces[selection:],
@@ -112,20 +117,21 @@ func TestOfflineAndOnlineNodes(t *testing.T) {
 
 	repairQueue := queue.NewQueue(teststore.New())
 	const N = 50
-	nodes := []*pb.Node{}
-	nodeIDs := []dht.NodeID{}
-	expectedOffline := []int32{}
+	var (
+		nodes           []storj.Node
+		nodeIDs         storj.NodeIDList
+		expectedOffline []int32
+	)
 	for i := 0; i < N; i++ {
-		str := strconv.Itoa(i)
-		n := &pb.Node{Id: str, Address: &pb.NodeAddress{Address: str}}
+		nodeID := teststorj.NodeIDFromString(strconv.Itoa(i))
+		n := storj.NewNodeWithID(nodeID, &pb.Node{Address: &pb.NodeAddress{Address: ""}})
 		nodes = append(nodes, n)
 		if i%(rand.Intn(5)+2) == 0 {
-			id := node.IDFromString("id" + str)
+			id := teststorj.NodeIDFromString(fmt.Sprintf("offline-%d", i))
 			nodeIDs = append(nodeIDs, id)
 			expectedOffline = append(expectedOffline, int32(i))
 		} else {
-			id := node.IDFromString(str)
-			nodeIDs = append(nodeIDs, id)
+			nodeIDs = append(nodeIDs, nodeID)
 		}
 	}
 	overlayServer := mocks.NewOverlay(nodes)
@@ -149,12 +155,16 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	repairQueue := queue.NewQueue(client)
 
 	const N = 25
-	nodes := []*pb.Node{}
+	nodes := []storj.Node{}
 	segs := []*pb.InjuredSegment{}
 	//fill a pointerdb
 	for i := 0; i < N; i++ {
 		s := strconv.Itoa(i)
-		ids := []string{s + "a", s + "b", s + "c", s + "d"}
+		idStrings := []string{s + "a", s + "b", s + "c", s + "d"}
+		var nodeIDs storj.NodeIDList
+		for _, s := range idStrings {
+			nodeIDs = append(nodeIDs, teststorj.NodeIDFromString(s))
+		}
 
 		p := &pb.Pointer{
 			Remote: &pb.RemoteSegment{
@@ -163,10 +173,10 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 				},
 				PieceId: strconv.Itoa(i),
 				RemotePieces: []*pb.RemotePiece{
-					{PieceNum: 0, NodeId: ids[0]},
-					{PieceNum: 1, NodeId: ids[1]},
-					{PieceNum: 2, NodeId: ids[2]},
-					{PieceNum: 3, NodeId: ids[3]},
+					{PieceNum: 0, NodeId: nodeIDs[0].Bytes()},
+					{PieceNum: 1, NodeId: nodeIDs[1].Bytes()},
+					{PieceNum: 2, NodeId: nodeIDs[2].Bytes()},
+					{PieceNum: 3, NodeId: nodeIDs[3].Bytes()},
 				},
 			},
 		}
@@ -181,13 +191,13 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 
 		//nodes for cache
 		selection := rand.Intn(4)
-		for _, v := range ids[:selection] {
-			n := &pb.Node{Id: v, Address: &pb.NodeAddress{Address: v}}
+		for _, nodeID := range nodeIDs[:selection] {
+			n := storj.NewNodeWithID(nodeID, &pb.Node{Address: &pb.NodeAddress{Address: ""}})
 			nodes = append(nodes, n)
 		}
 		pieces := []int32{0, 1, 2, 3}
 		//expected injured segments
-		if len(ids[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
+		if len(nodeIDs[:selection]) < int(p.Remote.Redundancy.RepairThreshold) {
 			seg := &pb.InjuredSegment{
 				Path:       p.Remote.PieceId,
 				LostPieces: pieces[selection:],

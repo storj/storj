@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
@@ -18,16 +19,16 @@ import (
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
 // Returns true if node was added successfully
-func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
+func (rt *RoutingTable) addNode(node storj.Node) (bool, error) {
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
-	nodeKey := storage.Key(node.Id)
-	if bytes.Equal(nodeKey, storage.Key(rt.self.Id)) {
+	nodeKey := storage.Key(node.Id.Bytes())
+	if bytes.Equal(nodeKey, storage.Key(rt.self.Id.Bytes())) {
 		err := rt.createOrUpdateKBucket(rt.createFirstBucketID(), time.Now())
 		if err != nil {
 			return false, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
-		nodeValue, err := marshalNode(*node)
+		nodeValue, err := marshalNode(node)
 		if err != nil {
 			return false, RoutingErr.New("could not marshal initial node: %s", err)
 		}
@@ -83,7 +84,7 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 			return false, nil
 		}
 	}
-	nodeValue, err := marshalNode(*node)
+	nodeValue, err := marshalNode(node)
 	if err != nil {
 		return false, RoutingErr.New("could not marshal node: %s", err)
 	}
@@ -100,12 +101,12 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 
 // updateNode will update the node information given that
 // the node is already in the routing table.
-func (rt *RoutingTable) updateNode(node *pb.Node) error {
-	marshaledNode, err := marshalNode(*node)
+func (rt *RoutingTable) updateNode(node storj.Node) error {
+	marshaledNode, err := marshalNode(node)
 	if err != nil {
 		return err
 	}
-	err = rt.putNode(storage.Key(node.Id), marshaledNode)
+	err = rt.putNode(storage.Key(node.Id.Bytes()), marshaledNode)
 	if err != nil {
 		return RoutingErr.New("could not update node: %v", err)
 	}
@@ -129,11 +130,11 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 		return nil
 	}
 	last := nodes[len(nodes)-1]
-	val, err := marshalNode(*last)
+	val, err := marshalNode(last)
 	if err != nil {
 		return err
 	}
-	err = rt.putNode(storage.Key(last.Id), val)
+	err = rt.putNode(storage.Key(last.Id.Bytes()), val)
 	if err != nil {
 		return err
 	}
@@ -142,9 +143,10 @@ func (rt *RoutingTable) removeNode(kadBucketID storage.Key, nodeID storage.Key) 
 }
 
 // marshalNode: helper, sanitizes Node for db insertion
-func marshalNode(node pb.Node) ([]byte, error) {
-	node.Id = "-"
-	nodeVal, err := proto.Marshal(&node)
+func marshalNode(node storj.Node) ([]byte, error) {
+	pbNode := proto.Clone(node.Node).(*pb.Node)
+	pbNode.Id = nil
+	nodeVal, err := proto.Marshal(node.Node)
 	if err != nil {
 		return nil, RoutingErr.New("could not marshal node: %s", err)
 	}
@@ -226,7 +228,7 @@ func sortByXOR(nodeIDs storage.Keys, ref storage.Key) {
 
 // determineFurthestIDWithinK: helper, determines the furthest node within the k closest to local node
 func (rt *RoutingTable) determineFurthestIDWithinK(nodeIDs storage.Keys) ([]byte, error) {
-	sortByXOR(nodeIDs, []byte(rt.self.Id))
+	sortByXOR(nodeIDs, []byte(rt.self.Id.Bytes()))
 	if len(nodeIDs) < rt.bucketSize+1 { //adding 1 since we're not including local node in closest k
 		return nodeIDs[len(nodeIDs)-1], nil
 	}
@@ -263,8 +265,8 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 		return false, RoutingErr.New("could not determine furthest id within k: %s", err)
 	}
 	localNodeID := rt.self.Id
-	existingXor := xorTwoIds(furthestIDWithinK, []byte(localNodeID))
-	newXor := xorTwoIds(nodeID, []byte(localNodeID))
+	existingXor := xorTwoIds(furthestIDWithinK, localNodeID.Bytes())
+	newXor := xorTwoIds(nodeID, localNodeID.Bytes())
 	if bytes.Compare(newXor, existingXor) < 0 {
 		return true, nil
 	}
@@ -273,7 +275,7 @@ func (rt *RoutingTable) nodeIsWithinNearestK(nodeID storage.Key) (bool, error) {
 
 // kadBucketContainsLocalNode returns true if the kbucket in question contains the local node
 func (rt *RoutingTable) kadBucketContainsLocalNode(bucketID storage.Key) (bool, error) {
-	key := storage.Key(rt.self.Id)
+	key := storage.Key(rt.self.Id.Bytes())
 	bucket, err := rt.getKBucketID(key)
 	if err != nil {
 		return false, err
@@ -335,36 +337,36 @@ func (rt *RoutingTable) getNodesFromIDs(nodeIDs storage.Keys) (storage.Keys, []s
 }
 
 // unmarshalNodes: helper, returns slice of reconstructed node pointers given a map of nodeIDs:serialized nodes
-func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]*pb.Node, error) {
+func unmarshalNodes(nodeIDs storage.Keys, nodes []storage.Value) ([]storj.Node, error) {
 	if len(nodeIDs) != len(nodes) {
-		return []*pb.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
+		return []storj.Node{}, RoutingErr.New("length mismatch between nodeIDs and nodes")
 	}
 	var unmarshaled []*pb.Node
 	for i, n := range nodes {
-		node := &pb.Node{}
-		err := proto.Unmarshal(n, node)
+		pbNode := &pb.Node{}
+		err := proto.Unmarshal(n, pbNode)
 		if err != nil {
-			return unmarshaled, RoutingErr.New("could not unmarshal node %s", err)
+			return []storj.Node{}, RoutingErr.New("could not unmarshal node %s", err)
 		}
-		node.Id = string(nodeIDs[i])
-		unmarshaled = append(unmarshaled, node)
+		pbNode.Id = nodeIDs[i]
+		unmarshaled = append(unmarshaled, pbNode)
 	}
-	return unmarshaled, nil
+	return storj.NewNodes(unmarshaled)
 }
 
 // getUnmarshaledNodesFromBucket: helper, gets nodes within kbucket
-func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]*pb.Node, error) {
+func (rt *RoutingTable) getUnmarshaledNodesFromBucket(bucketID storage.Key) ([]storj.Node, error) {
 	nodeIDs, err := rt.getNodeIDsWithinKBucket(bucketID)
 	if err != nil {
-		return []*pb.Node{}, RoutingErr.New("could not get nodeIds within kbucket %s", err)
+		return []storj.Node{}, RoutingErr.New("could not get nodeIds within kbucket %s", err)
 	}
 	ids, serializedNodes, err := rt.getNodesFromIDs(nodeIDs)
 	if err != nil {
-		return []*pb.Node{}, RoutingErr.New("could not get node values %s", err)
+		return []storj.Node{}, RoutingErr.New("could not get node values %s", err)
 	}
 	unmarshaledNodes, err := unmarshalNodes(ids, serializedNodes)
 	if err != nil {
-		return []*pb.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
+		return []storj.Node{}, RoutingErr.New("could not unmarshal nodes %s", err)
 	}
 	return unmarshaledNodes, nil
 }

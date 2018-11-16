@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -202,17 +204,19 @@ func TestCalcPadded(t *testing.T) {
 }
 
 func (m *mockDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
+	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []storj.Node, err error) {
 	for _, share := range m.shares {
 		shares = append(shares, share)
 	}
 	for i := 0; i < 30; i++ {
-		node := &pb.Node{
-			Id: strconv.Itoa(i),
-			Address: &pb.NodeAddress{
-				Address: strconv.Itoa(i),
+		node := storj.NewNodeWithID(
+			teststorj.NodeIDFromString(strconv.Itoa(i)),
+			&pb.Node{
+				Address: &pb.NodeAddress{
+					Address: strconv.Itoa(i),
+				},
 			},
-		}
+		)
 		nodes = append(nodes, node)
 	}
 	return shares, nodes, nil
@@ -223,7 +227,7 @@ func makePointer(nodeAmt int) *pb.Pointer {
 	for i := 0; i < nodeAmt; i++ {
 		rps = append(rps, &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   "test" + strconv.Itoa(i),
+			NodeId:   teststorj.NodeIDFromString("test" + strconv.Itoa(i)).Bytes(),
 		})
 	}
 	pr := &pb.Pointer{

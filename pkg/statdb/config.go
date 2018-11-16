@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/provider"
-	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/pb"
 )
 
 // Config is a configuration struct that is everything you need to start a

@@ -9,9 +9,9 @@ import (
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
 	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
@@ -19,7 +19,7 @@ import (
 
 // Node is a general purpose
 type Node struct {
-	Info      pb.Node
+	Info      storj.Node
 	Identity  *provider.FullIdentity
 	Transport transport.Client
 	Listener  net.Listener
@@ -32,7 +32,7 @@ type Node struct {
 
 // ID returns node id
 // TODO: switch to storj.NodeID
-func (node *Node) ID() string { return node.Info.Id }
+func (node *Node) ID() storj.NodeID { return node.Info.Id }
 
 // Addr retursn node address
 func (node *Node) Addr() string { return node.Info.Address.Address }

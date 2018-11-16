@@ -17,7 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/pb"
@@ -52,11 +52,11 @@ type PieceStore struct {
 	client           pb.PieceStoreRoutesClient // PieceStore for interacting with Storage Node
 	prikey           crypto.PrivateKey         // Uplink private key
 	bandwidthMsgSize int                       // max bandwidth message size in bytes
-	nodeID           *node.ID                  // Storage node being connected to
+	nodeID           storj.NodeID              // Storage node being connected to
 }
 
 // NewPSClient initilizes a piecestore client
-func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidthMsgSize int) (Client, error) {
+func NewPSClient(ctx context.Context, tc transport.Client, n storj.Node, bandwidthMsgSize int) (Client, error) {
 	conn, err := tc.DialNode(ctx, n)
 	if err != nil {
 		return nil, err
@@ -75,16 +75,15 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 		client:           pb.NewPieceStoreRoutesClient(conn),
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           tc.Identity().Key,
-		nodeID:           node.IDFromString(n.GetId()),
+		nodeID:           n.Id,
 	}, nil
 }
 
 // NewCustomRoute creates new PieceStore with custom client interface
-func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
+func NewCustomRoute(client pb.PieceStoreRoutesClient, target storj.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
 		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
 	}
-
 	if bandwidthMsgSize == 0 {
 		bandwidthMsgSize = *defaultBandwidthMsgSize
 	}
@@ -93,7 +92,7 @@ func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidth
 		client:           client,
 		bandwidthMsgSize: bandwidthMsgSize,
 		prikey:           prikey,
-		nodeID:           node.IDFromString(target.GetId()),
+		nodeID:           target.Id,
 	}, nil
 }
 

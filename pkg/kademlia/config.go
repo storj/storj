@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -63,8 +64,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
 	// itself
-	in.Id = "foo"
-	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
+	// TODO@bryanchriswhite: this is not correct
+	identity, _ := node.NewFullIdentity(ctx, 12, 4)
+	in.Id = identity.ID
+	kad, err := NewKademlia(server.Identity().ID, []storj.Node{in}, c.TODOListenAddr, server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}

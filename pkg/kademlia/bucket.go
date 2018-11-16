@@ -3,21 +3,23 @@
 
 package kademlia
 
-import "storj.io/storj/pkg/pb"
+import (
+	"storj.io/storj/pkg/storj"
+)
 
 // KBucket implements the Bucket interface
 type KBucket struct {
-	nodes []*pb.Node
+	nodes []storj.Node
 }
 
 // Routing __ (TODO) still not entirely sure what the bucket methods are supposed to do
-func (b *KBucket) Routing() []pb.Node {
-	return []pb.Node{}
+func (b *KBucket) Routing() []storj.Node {
+	return []storj.Node{}
 }
 
 // Cache __ (TODO) still not entirely sure what the bucket methods are supposed to do
-func (b *KBucket) Cache() []pb.Node {
-	return []pb.Node{}
+func (b *KBucket) Cache() []storj.Node {
+	return []storj.Node{}
 }
 
 // Midpoint __ (TODO) still not entirely sure what the bucket methods are supposed to do
@@ -26,6 +28,6 @@ func (b *KBucket) Midpoint() string {
 }
 
 // Nodes returns the set of all nodes in a bucket
-func (b *KBucket) Nodes() []*pb.Node {
+func (b *KBucket) Nodes() []storj.Node {
 	return b.nodes
 }

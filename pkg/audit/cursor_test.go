@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/teststorj"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
@@ -247,7 +248,7 @@ func makePutRequest(path storj.Path) pb.PutRequest {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
-		NodeId:   "testId",
+		NodeId:   teststorj.NodeIDFromString("testId").Bytes(),
 	})
 	pr := pb.PutRequest{
 		Path: path,

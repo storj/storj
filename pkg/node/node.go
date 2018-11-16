@@ -8,23 +8,24 @@ import (
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // Node is the storj definition for a node in the network
 type Node struct {
 	dht  dht.DHT
-	self pb.Node
+	self storj.Node
 	pool *ConnectionPool
 }
 
 // Lookup queries nodes looking for a particular node in the network
-func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node, error) {
-	c, err := n.pool.Dial(ctx, &to)
+func (n *Node) Lookup(ctx context.Context, to storj.Node, findID storj.NodeID) ([]storj.Node, error) {
+	c, err := n.pool.Dial(ctx, to)
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: &n.self, Target: &find, Pingback: true})
+	resp, err := c.Query(ctx, &pb.QueryRequest{Limit: 20, Sender: n.self.Node, TargetId: findID.Bytes(), Pingback: true})
 	if err != nil {
 		return nil, NodeClientErr.Wrap(err)
 	}
@@ -34,17 +35,17 @@ func (n *Node) Lookup(ctx context.Context, to pb.Node, find pb.Node) ([]*pb.Node
 		return nil, NodeClientErr.Wrap(err)
 	}
 
-	if err := rt.ConnectionSuccess(&to); err != nil {
+	if err := rt.ConnectionSuccess(to); err != nil {
 		return nil, NodeClientErr.Wrap(err)
 
 	}
 
-	return resp.Response, nil
+	return storj.NewNodes(resp.Response)
 }
 
 // Ping attempts to establish a connection with a node to verify it is alive
-func (n *Node) Ping(ctx context.Context, to pb.Node) (bool, error) {
-	c, err := n.pool.Dial(ctx, &to)
+func (n *Node) Ping(ctx context.Context, to storj.Node) (bool, error) {
+	c, err := n.pool.Dial(ctx, to)
 	if err != nil {
 		return false, NodeClientErr.Wrap(err)
 	}

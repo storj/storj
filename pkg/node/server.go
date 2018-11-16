@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/pb"
 )
@@ -37,28 +38,36 @@ func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 	}
 
 	if req.GetPingback() {
-		_, err = s.dht.Ping(ctx, *req.Sender)
+		sender, err := storj.NewNode(req.Sender)
 		if err != nil {
-			err = rt.ConnectionFailed(req.Sender)
+			return nil, err
+		}
+
+		_, err = s.dht.Ping(ctx, sender)
+		if err != nil {
+			err = rt.ConnectionFailed(sender)
 			if err != nil {
 				s.logger.Error("could not respond to connection failed", zap.Error(err))
 			}
-			s.logger.Error("connection to node failed", zap.Error(err), zap.String("nodeID", req.Sender.Id))
+			s.logger.Error("connection to node failed", zap.Error(err), zap.ByteString("nodeID", req.Sender.Id))
 		}
 
-		err = rt.ConnectionSuccess(req.Sender)
+		err = rt.ConnectionSuccess(sender)
 		if err != nil {
 			s.logger.Error("could not respond to connection success", zap.Error(err))
 		}
 	}
 
-	id := IDFromString(req.Target.Id)
+	id, err := storj.NodeIDFromBytes(req.TargetId)
+	if err != nil {
+		return &pb.QueryResponse{}, NodeClientErr.Wrap(err)
+	}
 	nodes, err := rt.FindNear(id, int(req.Limit))
 	if err != nil {
 		return &pb.QueryResponse{}, NodeClientErr.New("could not find near %s", err)
 	}
 
-	return &pb.QueryResponse{Sender: req.Sender, Response: nodes}, nil
+	return &pb.QueryResponse{Sender: req.Sender, Response: storj.ProtoNodes(nodes)}, nil
 }
 
 // Ping provides an easy way to verify a node is online and accepting requests

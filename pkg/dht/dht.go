@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // NodeID is the unique identifier used for Nodes in the DHT
@@ -18,38 +19,38 @@ type NodeID interface {
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
-	GetNodes(ctx context.Context, start string, limit int, restrictions ...pb.Restriction) ([]*pb.Node, error)
+	GetNodes(ctx context.Context, start storj.NodeID, limit int, restrictions ...pb.Restriction) ([]storj.Node, error)
 	GetRoutingTable(ctx context.Context) (RoutingTable, error)
 	Bootstrap(ctx context.Context) error
-	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
-	FindNode(ctx context.Context, ID NodeID) (pb.Node, error)
+	Ping(ctx context.Context, node storj.Node) (storj.Node, error)
+	FindNode(ctx context.Context, ID storj.NodeID) (storj.Node, error)
 	Disconnect() error
 }
 
 // RoutingTable contains information on nodes we have locally
 type RoutingTable interface {
 	// local params
-	Local() pb.Node
+	Local() storj.Node
 	K() int
 	CacheSize() int
 
-	GetBucket(id string) (bucket Bucket, ok bool)
+	GetBucket(id storj.NodeID) (bucket Bucket, ok bool)
 	GetBuckets() ([]Bucket, error)
 
-	FindNear(id NodeID, limit int) ([]*pb.Node, error)
+	FindNear(id storj.NodeID, limit int) ([]storj.Node, error)
 
-	ConnectionSuccess(node *pb.Node) error
-	ConnectionFailed(node *pb.Node) error
+	ConnectionSuccess(node storj.Node) error
+	ConnectionFailed(node storj.Node) error
 
 	// these are for refreshing
-	SetBucketTimestamp(id string, now time.Time) error
-	GetBucketTimestamp(id string, bucket Bucket) (time.Time, error)
+	SetBucketTimestamp(id storj.NodeID, now time.Time) error
+	GetBucketTimestamp(id storj.NodeID, bucket Bucket) (time.Time, error)
 }
 
 // Bucket is a set of methods to act on kademlia k buckets
 type Bucket interface {
-	Routing() []pb.Node
-	Cache() []pb.Node
+	Routing() []storj.Node
+	Cache() []storj.Node
 	Midpoint() string
-	Nodes() []*pb.Node
+	Nodes() []storj.Node
 }

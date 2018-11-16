@@ -11,9 +11,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -66,82 +66,81 @@ func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
 }
 
 // Get looks up the provided nodeID from the overlay cache
-func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
-	b, err := o.DB.Get([]byte(key))
+func (o *Cache) Get(ctx context.Context, nodeID storj.NodeID) (storj.Node, error) {
+	b, err := o.DB.Get(nodeID.Bytes())
 	if err != nil {
-		return nil, err
+		return storj.Node{}, err
 	}
 	if b.IsZero() {
 		// TODO: log? return an error?
-		return nil, nil
+		return storj.Node{}, nil
 	}
 
-	na := &pb.Node{}
-	if err := proto.Unmarshal(b, na); err != nil {
-		return nil, err
+	pbNode := &pb.Node{}
+	if err := proto.Unmarshal(b, pbNode); err != nil {
+		return storj.Node{}, err
 	}
 
-	return na, nil
+	return storj.NewNodeWithID(nodeID, pbNode), nil
 }
 
 // GetAll looks up the provided nodeIDs from the overlay cache
-func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
-	if len(keys) == 0 {
-		return nil, OverlayError.New("no keys provided")
+func (o *Cache) GetAll(ctx context.Context, nodeIDs storj.NodeIDList) ([]storj.Node, error) {
+	if len(nodeIDs) == 0 {
+		return nil, OverlayError.New("no nodeIDs provided")
 	}
 	var ks storage.Keys
-	for _, v := range keys {
-		ks = append(ks, storage.Key(v))
+	for _, v := range nodeIDs {
+		ks = append(ks, storage.Key(v.Bytes()))
 	}
 	vs, err := o.DB.GetAll(ks)
 	if err != nil {
 		return nil, err
 	}
-	var ns []*pb.Node
+	var pbNodes []*pb.Node
 	for _, v := range vs {
 		if v == nil {
-			ns = append(ns, nil)
+			pbNodes = append(pbNodes, nil)
 			continue
 		}
-		na := &pb.Node{}
-		err := proto.Unmarshal(v, na)
+		pbNode := &pb.Node{}
+		err := proto.Unmarshal(v, pbNode)
 		if err != nil {
 			return nil, OverlayError.New("could not unmarshal non-nil node: %v", err)
 		}
-		ns = append(ns, na)
+		pbNodes = append(pbNodes, pbNode)
 	}
-	return ns, nil
+	return storj.NewNodes(pbNodes)
 }
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
-func (o *Cache) Put(nodeID string, value pb.Node) error {
-	data, err := proto.Marshal(&value)
+func (o *Cache) Put(node storj.Node) error {
+	data, err := proto.Marshal(node.Node)
 	if err != nil {
 		return err
 	}
-
-	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
+	return o.DB.Put(node.Id.Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
-	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
+	nodes, err := o.DHT.GetNodes(ctx, storj.EmptyNodeID, 1280)
 	if err != nil {
 		zap.Error(OverlayError.New("Error getting nodes from DHT: %v", err))
 	}
 
 	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
+		found, err := o.DHT.FindNode(ctx, v.Id)
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 		}
 
-		n, err := proto.Marshal(&found)
+		data, err := proto.Marshal(found.Node)
 		if err != nil {
 			return err
 		}
 
-		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
+		if err := o.DB.Put(found.Id.Bytes(), data); err != nil {
 			return err
 		}
 	}
@@ -159,36 +158,35 @@ func (o *Cache) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	rid := node.ID(r)
-	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
+	near, err := o.DHT.GetNodes(ctx, r, 128)
 	if err != nil {
 		return err
 	}
 
 	for _, node := range near {
-		pinged, err := o.DHT.Ping(ctx, *node)
+		pinged, err := o.DHT.Ping(ctx, node)
 		if err != nil {
 			return err
 		}
-		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		err = o.DB.Put(pinged.Id.Bytes(), []byte(pinged.Address.Address))
 		if err != nil {
 			return err
 		}
 	}
 
 	// TODO: Kademlia hooks to do this automatically rather than at interval
-	nodes, err := o.DHT.GetNodes(ctx, "", 128)
+	nodes, err := o.DHT.GetNodes(ctx, storj.EmptyNodeID, 128)
 	if err != nil {
 		return err
 	}
 
 	for _, node := range nodes {
-		pinged, err := o.DHT.Ping(ctx, *node)
+		pinged, err := o.DHT.Ping(ctx, node)
 		if err != nil {
 			zap.Error(ErrNodeNotFound)
 			return err
 		}
-		err = o.DB.Put([]byte(pinged.Id), []byte(pinged.Address.Address))
+		err = o.DB.Put(pinged.Id.Bytes(), []byte(pinged.Address.Address))
 		if err != nil {
 			return err
 		}
@@ -204,8 +202,13 @@ func (o *Cache) Walk(ctx context.Context) error {
 	return nil
 }
 
-func randomID() ([]byte, error) {
-	result := make([]byte, 64)
-	_, err := rand.Read(result)
-	return result, err
+func randomID() (storj.NodeID, error) {
+	r := make([]byte, storj.IdentityLength)
+	_, err := rand.Read(r)
+	id, err := storj.NodeIDFromBytes(r)
+	if err != nil {
+		return storj.EmptyNodeID, err
+	}
+
+	return id, err
 }

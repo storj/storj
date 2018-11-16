@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/overlay"
@@ -147,7 +148,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	nodes := []*pb.Node{}
+	nodes := []storj.Node{}
 
 	var r = &pb.GetResponse{
 		Pointer:       pointer,
@@ -161,7 +162,13 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 	}
 
 	for _, piece := range pointer.Remote.RemotePieces {
-		node, err := s.cache.Get(ctx, piece.NodeId)
+		nodeID, err := storj.NodeIDFromBytes(piece.NodeId)
+		if err != nil {
+			s.logger.Error("", zap.Error(err))
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		node, err := s.cache.Get(ctx, nodeID)
 		if err != nil {
 			s.logger.Error("Error getting node from cache")
 		}
@@ -170,7 +177,7 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (resp *pb.GetRespo
 
 	r = &pb.GetResponse{
 		Pointer:       pointer,
-		Nodes:         nodes,
+		Nodes:         storj.ProtoNodes(nodes),
 		Pba:           pba,
 		Authorization: authorization,
 	}

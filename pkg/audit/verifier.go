@@ -10,15 +10,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
-	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 )
@@ -37,7 +35,8 @@ type Verifier struct {
 }
 
 type downloader interface {
-	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error)
+	// Download Shares downloads shares from the nodes where remote pieces are located
+	DownloadShares(ctx context.Context, pointer *pb.Pointer, stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []storj.Node, err error)
 }
 
 // defaultDownloader downloads shares from networked storage nodes
@@ -60,7 +59,7 @@ func NewVerifier(transport transport.Client, overlay overlay.Client, id provider
 
 // getShare use piece store clients to download shares from a given node
 func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize, pieceNumber int,
-	id psclient.PieceID, pieceSize int64, fromNode *pb.Node, authorization *pb.SignedMessage) (s share, err error) {
+	id psclient.PieceID, pieceSize int64, fromNode storj.Node, authorization *pb.SignedMessage) (s share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ps, err := psclient.NewPSClient(ctx, d.transport, fromNode, 0)
@@ -68,8 +67,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 		return s, err
 	}
 
-	nodeID := node.IDFromString(fromNode.GetId())
-	derivedPieceID, err := id.Derive(nodeID.Bytes())
+	derivedPieceID, err := id.Derive(fromNode.Id.Bytes())
 	if err != nil {
 		return s, err
 	}
@@ -116,13 +114,24 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 
 // Download Shares downloads shares from the nodes where remote pieces are located
 func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Pointer,
-	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []*pb.Node, err error) {
+	stripeIndex int, authorization *pb.SignedMessage) (shares []share, nodes []storj.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var nodeIds []dht.NodeID
+
+	var (
+		nodeIds  storj.NodeIDList
+		nodeErrs []error
+	)
 	pieces := pointer.Remote.GetRemotePieces()
 
 	for _, p := range pieces {
-		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
+		nodeID, err := storj.NodeIDFromBytes(p.GetNodeId())
+		if err != nil {
+			nodeErrs = append(nodeErrs, err)
+		}
+		nodeIds = append(nodeIds, nodeID)
+	}
+	err = utils.CombineErrors(nodeErrs...); if err != nil {
+		return nil, nodes, err
 	}
 	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
 	if err != nil {
@@ -200,7 +209,7 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 // verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []*sdbproto.Node, err error) {
+func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *pb.Pointer, authorization *pb.SignedMessage) (verifiedNodes []storj.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares, nodes, err := verifier.downloader.DownloadShares(ctx, pointer, stripeIndex, authorization)
@@ -208,23 +217,23 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 		return nil, err
 	}
 
-	var offlineNodes []string
+	var offlineNodes storj.NodeIDList
 	for i, share := range shares {
 		if shares[i].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[share.PieceNumber].GetId())
+			offlineNodes = append(offlineNodes, nodes[share.PieceNumber].Id)
 		}
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
-	pieceNums, err := auditShares(ctx, required, total, shares)
+	failedPieceNums, err := auditShares(ctx, required, total, shares)
 	if err != nil {
 		return nil, err
 	}
 
-	var failedNodes []string
-	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum].GetId())
+	var failedNodes storj.NodeIDList
+	for _, pieceNum := range failedPieceNums {
+		failedNodes = append(failedNodes, nodes[pieceNum].Id)
 	}
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
@@ -234,8 +243,8 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 }
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offlineNodes []string) (successNodes []string) {
-	fails := make(map[string]bool)
+func getSuccessNodes(ctx context.Context, nodes []storj.Node, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
 	}
@@ -244,15 +253,15 @@ func getSuccessNodes(ctx context.Context, nodes []*pb.Node, failedNodes, offline
 	}
 
 	for _, node := range nodes {
-		if !fails[node.GetId()] {
-			successNodes = append(successNodes, node.GetId())
+		if !fails[node.Id] {
+			successNodes = append(successNodes, node.Id)
 		}
 	}
 	return successNodes
 }
 
 // setVerifiedNodes creates a combined array of offline nodes, failed audit nodes, and success nodes with their stats set to the statdb proto Node type
-func setVerifiedNodes(ctx context.Context, nodes []*pb.Node, offlineNodes, failedNodes, successNodes []string) (verifiedNodes []*sdbproto.Node) {
+func setVerifiedNodes(ctx context.Context, nodes []storj.Node, offlineNodes, failedNodes, successNodes storj.NodeIDList) (verifiedNodes []storj.Node) {
 	offlineStatusNodes := setOfflineStatus(ctx, offlineNodes)
 	failStatusNodes := setAuditFailStatus(ctx, failedNodes)
 	successStatusNodes := setSuccessStatus(ctx, successNodes)

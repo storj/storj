@@ -10,13 +10,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
+)
+
+var (
+	fooID = teststorj.NodeIDFromString("foo")
 )
 
 func TestGet(t *testing.T) {
 	cases := []struct {
 		pool          *ConnectionPool
-		key           string
+		key           storj.NodeID
 		expected      Conn
 		expectedError error
 	}{
@@ -24,10 +30,10 @@ func TestGet(t *testing.T) {
 			pool: func() *ConnectionPool {
 				p := NewConnectionPool(newTestIdentity(t))
 				p.Init()
-				p.items["foo"] = &Conn{addr: "foo"}
+				p.items[fooID] = &Conn{addr: "foo"}
 				return p
 			}(),
-			key:           "foo",
+			key:           fooID,
 			expected:      Conn{addr: "foo"},
 			expectedError: nil,
 		},
@@ -43,22 +49,21 @@ func TestGet(t *testing.T) {
 }
 
 func TestDisconnect(t *testing.T) {
-
 	conn, err := grpc.Dial("127.0.0.1:0", grpc.WithInsecure())
 	assert.NoError(t, err)
 	// gc.Close = func() error { return nil }
 	cases := []struct {
 		pool          ConnectionPool
-		key           string
+		key           storj.NodeID
 		expected      interface{}
 		expectedError error
 	}{
 		{
 			pool: ConnectionPool{
 				mu:    sync.RWMutex{},
-				items: map[string]*Conn{"foo": &Conn{grpc: conn}},
+				items: map[storj.NodeID]*Conn{fooID: &Conn{grpc: conn}},
 			},
-			key:           "foo",
+			key:           fooID,
 			expected:      nil,
 			expectedError: nil,
 		},
@@ -79,13 +84,16 @@ func TestDisconnect(t *testing.T) {
 func TestDial(t *testing.T) {
 	cases := []struct {
 		pool          *ConnectionPool
-		node          *pb.Node
+		node          storj.Node
 		expectedError error
 		expected      *Conn
 	}{
 		{
 			pool:          NewConnectionPool(newTestIdentity(t)),
-			node:          &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
+			node: storj.NewNodeWithID(
+				fooID,
+				&pb.Node{Address: &pb.NodeAddress{Address: "127.0.0.1:0"}},
+			),
 			expected:      nil,
 			expectedError: nil,
 		},
@@ -103,7 +111,7 @@ func TestDial(t *testing.T) {
 
 }
 
-func testDial(t *testing.T, wg *sync.WaitGroup, p *ConnectionPool, n *pb.Node, eerr error) {
+func testDial(t *testing.T, wg *sync.WaitGroup, p *ConnectionPool, n storj.Node, eerr error) {
 	defer wg.Done()
 	ctx := context.Background()
 	actual, err := p.Dial(ctx, n)

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
@@ -27,10 +28,10 @@ func TestFindStorageNodes(t *testing.T) {
 
 	srv := NewMockServer([]storage.ListItem{
 		{
-			Key:   storage.Key(fid.ID.String()),
+			Key:   storage.Key(fid.ID.Bytes()),
 			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		}, {
-			Key:   storage.Key(fid2.ID.String()),
+			Key:   storage.Key(fid2.ID.Bytes()),
 			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
@@ -60,7 +61,7 @@ func TestOverlayLookup(t *testing.T) {
 
 	srv := NewMockServer([]storage.ListItem{
 		{
-			Key:   storage.Key(fid.ID.String()),
+			Key:   storage.Key(fid.ID.Bytes()),
 			Value: newNodeStorageValue(t, "127.0.0.1:9090"),
 		},
 	})
@@ -71,7 +72,7 @@ func TestOverlayLookup(t *testing.T) {
 	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
-	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeID: fid.ID.String()})
+	r, err := c.Lookup(context.Background(), &pb.LookupRequest{NodeId: fid.ID.Bytes()})
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 }
@@ -98,8 +99,8 @@ func TestOverlayBulkLookup(t *testing.T) {
 	c, err := NewTestClient(address)
 	assert.NoError(t, err)
 
-	req1 := &pb.LookupRequest{NodeID: fid.ID.String()}
-	req2 := &pb.LookupRequest{NodeID: fid2.ID.String()}
+	req1 := &pb.LookupRequest{NodeId: fid.ID.Bytes()}
+	req2 := &pb.LookupRequest{NodeId: fid2.ID.Bytes()}
 	rs := &pb.LookupRequests{Lookuprequest: []*pb.LookupRequest{req1, req2}}
 	r, err := c.BulkLookup(context.Background(), rs)
 	assert.NoError(t, err)
@@ -108,8 +109,8 @@ func TestOverlayBulkLookup(t *testing.T) {
 
 // newNodeStorageValue provides a convient way to create a node as a storage.Value for testing purposes
 func newNodeStorageValue(t *testing.T, address string) storage.Value {
-	na := &pb.Node{Id: "", Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}}
-	d, err := proto.Marshal(na)
+	na := storj.NewNodeWithID(storj.EmptyNodeID, &pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: address}})
+	d, err := proto.Marshal(na.Node)
 	assert.NoError(t, err)
 	return d
 }

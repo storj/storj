@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -25,35 +27,36 @@ func TestDialNode(t *testing.T) {
 	}
 
 	// node.Address.Address == "" condition test
-	node := pb.Node{
-		Id: "DUMMYID1",
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   "",
+	node := storj.NewNodeWithID(
+		teststorj.NodeIDFromString("DUMMYID1"),
+		&pb.Node{
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   "",
+			},
 		},
-	}
-	conn, err := oc.DialNode(ctx, &node)
+	)
+	conn, err := oc.DialNode(ctx, node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
 	// node.Address == nil condition test
-	node = pb.Node{
-		Id:      "DUMMYID2",
-		Address: nil,
-	}
-	conn, err = oc.DialNode(ctx, &node)
+	node = storj.NewNodeWithID(teststorj.NodeIDFromString("DUMMYID2"), &pb.Node{})
+	conn, err = oc.DialNode(ctx, node)
 	assert.Error(t, err)
 	assert.Nil(t, conn)
 
 	// node is valid argument condition test
-	node = pb.Node{
-		Id: "DUMMYID3",
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   "127.0.0.0:9000",
+	node = storj.NewNodeWithID(
+		teststorj.NodeIDFromString("DUMMYID3"),
+		&pb.Node{
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   "127.0.0.0:9000",
+			},
 		},
-	}
-	conn, err = oc.DialNode(ctx, &node)
+	)
+	conn, err = oc.DialNode(ctx, node)
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 }

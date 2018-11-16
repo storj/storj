@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/utils"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/pb"
@@ -56,17 +58,21 @@ func cmdList(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
+	nodeIDs, err := storj.NodeIDsFromBytes(keys.ByteSlices())
+	if err != nil {
+		return err
+	}
 
-	for _, k := range keys {
-		n, err := c.Get(process.Ctx(cmd), string(k))
+	for _, nodeID := range nodeIDs {
+		n, err := c.Get(process.Ctx(cmd), nodeID)
 		if err != nil {
-			zap.S().Infof("ID: %s; error getting value\n", k)
+			zap.S().Infof("ID: %s; error getting value\n", nodeID.String())
 		}
-		if n != nil {
-			zap.S().Infof("ID: %s; Address: %s\n", k, n.Address.Address)
+		if n != (storj.Node{}) {
+			zap.S().Infof("ID: %s; Address: %s\n", nodeID.String(), n.Address.Address)
 			continue
 		}
-		zap.S().Infof("ID: %s: nil\n", k)
+		zap.S().Infof("ID: %s: nil\n", nodeID.String())
 	}
 
 	return nil
@@ -78,8 +84,8 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	var nodes map[string]string
-	if err := json.Unmarshal(j, &nodes); err != nil {
+	var nodeStrs map[string]string
+	if err := json.Unmarshal(j, &nodeStrs); err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -88,24 +94,37 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	for i, a := range nodes {
-		zap.S().Infof("adding node ID: %s; Address: %s", i, a)
-		err := c.Put(i, pb.Node{
-			Id: i,
-			Address: &pb.NodeAddress{
-				Transport: 0,
-				Address:   a,
+	var nodeErrs []error
+	for nidString, address := range nodeStrs {
+		zap.S().Infof("adding node ID: %s; Address: %s", nidString, address)
+		nodeID, err := storj.NodeIDFromString(nidString)
+		if err != nil {
+			nodeErrs = append(nodeErrs, err)
+		}
+
+		node := storj.NewNodeWithID(
+			nodeID,
+			&pb.Node{
+				Address: &pb.NodeAddress{
+					Transport: 0,
+					Address:   address,
+				},
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: 2000000000,
+					FreeDisk:      2000000000,
+				},
+				Type: 1,
 			},
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: 2000000000,
-				FreeDisk:      2000000000,
-			},
-			Type: 1,
-		})
+		)
+		err = c.Put(node)
 		if err != nil {
 			return err
 		}
 	}
+	if err = utils.CombineErrors(nodeErrs...); err != nil {
+		return err
+	}
+
 	return nil
 }
 

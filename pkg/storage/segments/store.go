@@ -13,9 +13,7 @@ import (
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -155,15 +153,15 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // makeRemotePointer creates a pointer of type remote
-func (s *segmentStore) makeRemotePointer(nodes []*pb.Node, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func (s *segmentStore) makeRemotePointer(nodes []storj.Node, pieceID psclient.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
 	var remotePieces []*pb.RemotePiece
 	for i := range nodes {
-		if nodes[i] == nil {
+		if nodes[i].Id == nil || nodes[i].Id == storj.EmptyNodeID {
 			continue
 		}
 		remotePieces = append(remotePieces, &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   nodes[i].Id,
+			NodeId:   nodes[i].Id.Bytes(),
 		})
 	}
 
@@ -219,7 +217,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		needed := rs.GetMinReq() + ((rs.GetTotal()-rs.GetSuccessThreshold())*rs.GetMinReq())/rs.GetSuccessThreshold()
 
 		for i, v := range nodes {
-			if v != nil {
+			if v != (storj.Node{}) {
 				needed--
 				if needed <= 0 {
 					nodes = nodes[:i+1]
@@ -310,13 +308,15 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	}
 
 	// get the nodes list that needs to be excluded
-	var excludeNodeIDs []dht.NodeID
+	var (
+		excludeNodeIDs storj.NodeIDList
+	)
 
 	// count the number of nil nodes thats needs to be repaired
 	totalNilNodes := 0
 	for j, v := range originalNodes {
-		if v != nil {
-			excludeNodeIDs = append(excludeNodeIDs, node.IDFromString(v.GetId()))
+		if v != (storj.Node{}) {
+			excludeNodeIDs = append(excludeNodeIDs, v.Id)
 		} else {
 			totalNilNodes++
 		}
@@ -339,10 +339,10 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 	totalRepairCount := len(newNodes)
 
 	//make a repair nodes list just with new unique ids
-	repairNodesList := make([]*pb.Node, len(originalNodes))
+	repairNodesList := make([]storj.Node, len(originalNodes))
 	for j, vr := range originalNodes {
 		// find the nil in the original node list
-		if vr == nil {
+		if vr.Id == nil || vr.Id == storj.EmptyNodeID {
 			// replace the location with the newNode Node info
 			totalRepairCount--
 			repairNodesList[j] = newNodes[totalRepairCount]
@@ -380,7 +380,7 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 
 	// merge the successful nodes list into the originalNodes list
 	for i, v := range originalNodes {
-		if v == nil {
+		if v.Id == nil || v.Id == storj.EmptyNodeID {
 			// copy the successfuNode info
 			originalNodes[i] = successfulNodes[i]
 		}
@@ -397,20 +397,32 @@ func (s *segmentStore) Repair(ctx context.Context, path storj.Path, lostPieces [
 }
 
 // lookupNodes calls Lookup to get node addresses from the overlay
-func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []*pb.Node, err error) {
+func (s *segmentStore) lookupNodes(ctx context.Context, seg *pb.RemoteSegment) (nodes []storj.Node, err error) {
 	// Get list of all nodes IDs storing a piece from the segment
-	var nodeIds []dht.NodeID
+	var (
+		nodeIds storj.NodeIDList
+		nodeErrs []error
+	)
 	for _, p := range seg.RemotePieces {
-		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
+		nodeID, err := storj.NodeIDFromBytes(p.GetNodeId())
+		if err != nil {
+			nodeErrs = append(nodeErrs, err)
+		}
+		nodeIds = append(nodeIds, nodeID)
 	}
+	if err := utils.CombineErrors(nodeErrs...); err != nil {
+		return nil, err
+	}
+
 	// Lookup the node info from node IDs
 	n, err := s.oc.BulkLookup(ctx, nodeIds)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
 	// Create an indexed list of nodes based on the piece number.
 	// Missing pieces are represented by a nil node.
-	nodes = make([]*pb.Node, seg.GetRedundancy().GetTotal())
+	nodes = make([]storj.Node, seg.GetRedundancy().GetTotal())
 	for i, p := range seg.GetRemotePieces() {
 		nodes[p.PieceNum] = n[i]
 	}

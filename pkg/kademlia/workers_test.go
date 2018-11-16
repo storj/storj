@@ -13,6 +13,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/node"
@@ -20,30 +22,52 @@ import (
 	"storj.io/storj/pkg/provider"
 )
 
+var (
+	fooID    = teststorj.NodeIDFromString("foo")
+	one001ID = teststorj.NodeIDFromBytes([]byte{1, 0, 0, 1})
+	one000ID = teststorj.NodeIDFromBytes([]byte{1, 0, 0, 0})
+	zeroID   = teststorj.NodeIDFromBytes([]byte{0, 0, 0, 0})
+	node1001 = storj.NewNodeWithID(one001ID, &pb.Node{})
+	node1000 = storj.NewNodeWithID(one001ID, &pb.Node{})
+	nodeFoo  = storj.NewNodeWithID(one001ID, &pb.Node{})
+	nodeZero = storj.NewNodeWithID(zeroID, &pb.Node{})
+	aID      = teststorj.NodeIDFromString("a")
+	fID      = teststorj.NodeIDFromString("f")
+	gID      = teststorj.NodeIDFromString("g")
+	hID      = teststorj.NodeIDFromString("h")
+	nodeA = storj.NewNodeWithID(aID, &pb.Node{})
+	nodeF = storj.NewNodeWithID(fID, &pb.Node{})
+	nodeG = storj.NewNodeWithID(gID, &pb.Node{})
+	nodeH = storj.NewNodeWithID(hID, &pb.Node{})
+)
+
 func TestGetWork(t *testing.T) {
 	cases := []struct {
 		name     string
 		worker   *worker
-		expected *pb.Node
-		ch       chan *pb.Node
+		expected storj.Node
+		ch       chan storj.Node
 	}{
 		{
 			name:     "test valid chore returned",
-			worker:   newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.IDFromString("1000"), 5),
-			expected: &pb.Node{Id: "1001"},
-			ch:       make(chan *pb.Node, 2),
+			worker:   func() *worker {
+				w := newWorker(context.Background(), nil, []storj.Node{node1001}, nil, node1001.Id, 5)
+				return w
+			}(),
+			expected: node1001,
+			ch:       make(chan storj.Node, 2),
 		},
 		{
 			name: "test no chore left",
 			worker: func() *worker {
-				w := newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nil, node.IDFromString("foo"), 5)
+				w := newWorker(context.Background(), nil, []storj.Node{nodeFoo}, nil, nodeFoo.Id, 5)
 				w.maxResponse = 0
 				w.pq.Closest()
 				assert.Equal(t, w.pq.Len(), 0)
 				return w
 			}(),
-			expected: nil,
-			ch:       make(chan *pb.Node, 2),
+			expected: storj.Node{},
+			ch:       make(chan storj.Node, 2),
 		},
 	}
 
@@ -54,7 +78,7 @@ func TestGetWork(t *testing.T) {
 		v.worker.cancel = cf
 		v.worker.getWork(ctx, v.ch)
 
-		if v.expected != nil {
+		if v.expected != (storj.Node{}) {
 			actual := <-v.ch
 			assert.Equal(t, v.expected, actual)
 		} else {
@@ -65,10 +89,10 @@ func TestGetWork(t *testing.T) {
 
 func TestWorkCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	worker := newWorker(ctx, nil, []*pb.Node{&pb.Node{Id: "1001"}}, nil, node.IDFromString("1000"), 5)
+	worker := newWorker(ctx, nil, []storj.Node{node1001}, nil, node1000.Id, 5)
 	// TODO: ensure this also works when running
 	cancel()
-	worker.work(ctx, make(chan *pb.Node))
+	worker.work(ctx, make(chan storj.Node))
 }
 
 func TestWorkerLookup(t *testing.T) {
@@ -86,23 +110,31 @@ func TestWorkerLookup(t *testing.T) {
 	cases := []struct {
 		name     string
 		worker   *worker
-		work     *pb.Node
-		expected []*pb.Node
+		work     storj.Node
+		expected []storj.Node
 	}{
 		{
 			name: "test valid chore returned",
 			worker: func() *worker {
 				ca, err := provider.NewTestCA(context.Background())
 				assert.NoError(t, err)
+
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: "127.0.0.1:0"}}, mockDHT)
+
+				n := storj.NewNodeWithID(fooID, &pb.Node{
+					Address: &pb.NodeAddress{Address: "127.0.0.1:0"},
+				})
+				nc, err := node.NewNodeClient(identity, n, mockDHT)
 				assert.NoError(t, err)
-				mock.returnValue = []*pb.Node{&pb.Node{Id: "foo"}}
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "foo"}}, nc, node.IDFromString("foo"), 5)
+
+				mock.returnValue = []storj.Node{nodeFoo}
+				return newWorker(context.Background(), nil, []storj.Node{nodeFoo}, nc, fooID, 5)
 			}(),
-			work:     &pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: lis.Addr().String()}},
-			expected: []*pb.Node{&pb.Node{Id: "foo"}},
+			work:     storj.NewNodeWithID(fooID, &pb.Node{
+				Address: &pb.NodeAddress{Address: lis.Addr().String()},
+			}),
+			expected: []storj.Node{nodeFoo},
 		},
 	}
 
@@ -130,9 +162,9 @@ func TestUpdate(t *testing.T) {
 	cases := []struct {
 		name                string
 		worker              *worker
-		input               []*pb.Node
+		input               []storj.Node
 		expectedQueueLength int
-		expected            []*pb.Node
+		expected            []storj.Node
 		expectedErr         error
 	}{
 		{
@@ -142,14 +174,16 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "foo", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, storj.NewNodeWithID(fooID, &pb.Node{
+					Address: &pb.NodeAddress{Address: ":7070"},
+				}), mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "0000"}}, nc, node.IDFromString("foo"), 2)
+				return newWorker(context.Background(), nil, []storj.Node{nodeZero}, nc, fooID, 2)
 			}(),
 			expectedQueueLength: 1,
 			input:               nil,
 			expectedErr:         WorkerError.New("nodes must not be empty"),
-			expected:            []*pb.Node{&pb.Node{Id: "0000"}},
+			expected:            []storj.Node{nodeZero},
 		},
 		{
 			name: "test combined less than k",
@@ -158,13 +192,15 @@ func TestUpdate(t *testing.T) {
 				assert.NoError(t, err)
 				identity, err := ca.NewIdentity()
 				assert.NoError(t, err)
-				nc, err := node.NewNodeClient(identity, pb.Node{Id: "a", Address: &pb.NodeAddress{Address: ":7070"}}, mockDHT)
+				nc, err := node.NewNodeClient(identity, storj.NewNodeWithID(aID, &pb.Node{
+					Address: &pb.NodeAddress{Address: ":7070"},
+				}), mockDHT)
 				assert.NoError(t, err)
-				return newWorker(context.Background(), nil, []*pb.Node{&pb.Node{Id: "h"}}, nc, node.IDFromString("a"), 2)
+				return newWorker(context.Background(), nil, []storj.Node{nodeH}, nc, aID, 2)
 			}(),
 			expectedQueueLength: 2,
-			expected:            []*pb.Node{&pb.Node{Id: "g"}, &pb.Node{Id: "f"}},
-			input:               []*pb.Node{&pb.Node{Id: "f"}, &pb.Node{Id: "g"}},
+			expected:            []storj.Node{nodeG, nodeF},
+			input:               []storj.Node{nodeF, nodeG},
 			expectedErr:         nil,
 		},
 	}
@@ -181,7 +217,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
+func newTestServer(nn []storj.Node) (*grpc.Server, *mockNodeServer) {
 	ca, err := provider.NewTestCA(context.Background())
 	if err != nil {
 		return nil, nil
@@ -205,12 +241,12 @@ func newTestServer(nn []*pb.Node) (*grpc.Server, *mockNodeServer) {
 type mockNodeServer struct {
 	queryCalled int32
 	pingCalled  int32
-	returnValue []*pb.Node
+	returnValue []storj.Node
 }
 
 func (mn *mockNodeServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
-	return &pb.QueryResponse{Response: mn.returnValue}, nil
+	return &pb.QueryResponse{Response: storj.ProtoNodes(mn.returnValue)}, nil
 }
 
 func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {

@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -51,7 +51,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 	zap.S().Info("AgreementSender is starting up")
 
 	type agreementGroup struct {
-		satellite  string
+		satellite  storj.NodeID
 		agreements []*psdb.Agreement
 	}
 
@@ -83,7 +83,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				zap.S().Info("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
-				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
+				satellite, err := as.overlay.Lookup(ctx, agreementGroup.satellite)
 				if err != nil {
 					zap.S().Error(err)
 					return

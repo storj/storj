@@ -9,20 +9,27 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
 )
 
+var (
+	testIDA = teststorj.NodeIDFromString("AA")
+	testIDB = teststorj.NodeIDFromString("BB")
+	testIDC = teststorj.NodeIDFromString("CC")
+)
+
 func TestLocal(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	assert.Equal(t, rt.Local().Id, "AA")
 }
 
 func TestK(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	k := rt.K()
 	assert.Equal(t, rt.bucketSize, k)
@@ -30,7 +37,7 @@ func TestK(t *testing.T) {
 }
 
 func TestCacheSize(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	expected := rt.rcBucketSize
 	result := rt.CacheSize()
@@ -38,29 +45,30 @@ func TestCacheSize(t *testing.T) {
 }
 
 func TestGetBucket(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
-	node := mockNode("AA")
-	node2 := mockNode("BB")
+	node := newNodeFromID(testIDA)
+	node2 := newNodeFromID(testIDB)
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	cases := []struct {
-		nodeID   string
+		nodeID   storj.NodeID
 		expected *KBucket
 		ok       bool
 	}{
 		{nodeID: node.Id,
-			expected: &KBucket{nodes: []*pb.Node{node, node2}},
+			expected: &KBucket{nodes: []storj.Node{node, node2}},
 			ok:       true,
 		},
 		{nodeID: node2.Id,
-			expected: &KBucket{nodes: []*pb.Node{node, node2}},
+			expected: &KBucket{nodes: []storj.Node{node, node2}},
 			ok:       true,
 		},
 	}
 	for i, v := range cases {
+		assert.NoError(t, err)
 		b, e := rt.GetBucket(node2.Id)
 		for j, w := range v.expected.nodes {
 			if !assert.True(t, proto.Equal(w, b.Nodes()[j])) {
@@ -74,14 +82,14 @@ func TestGetBucket(t *testing.T) {
 }
 
 func TestGetBuckets(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
-	node := mockNode("AA")
-	node2 := mockNode("BB")
+	node := newNodeFromID(testIDA)
+	node2 := newNodeFromID(testIDB)
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
-	expected := []*pb.Node{node, node2}
+	expected := []storj.Node{node, node2}
 	buckets, err := rt.GetBuckets()
 	assert.NoError(t, err)
 	for _, v := range buckets {
@@ -92,45 +100,45 @@ func TestGetBuckets(t *testing.T) {
 }
 
 func TestFindNear(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
-	node1 := mockNode("AA")
-	node2 := mockNode("BB")
-	node3 := mockNode("CC")
+	node1 := newNodeFromID(testIDA)
+	node2 := newNodeFromID(testIDB)
+	node3 := newNodeFromID(testIDC)
 	ok, err := rt.addNode(node2)
 	assert.True(t, ok)
 	assert.NoError(t, err)
 
 	cases := []struct {
 		testID        string
-		node          pb.Node
-		expectedNodes []*pb.Node
+		node          storj.Node
+		expectedNodes []storj.Node
 		limit         int
 	}{
 		{testID: "limit 1 on node1: return node1",
-			node:          *node1,
-			expectedNodes: []*pb.Node{node1},
+			node:          node1,
+			expectedNodes: []storj.Node{node1},
 			limit:         1,
 		},
 		{testID: "limit 2 on node3: return nodes2, node1",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2, node1},
+			node:          node3,
+			expectedNodes: []storj.Node{node2, node1},
 			limit:         2,
 		},
 		{testID: "limit 1 on node3: return node2",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2},
+			node:          node3,
+			expectedNodes: []storj.Node{node2},
 			limit:         1,
 		},
 		{testID: "limit 3 on node3: return node2, node1",
-			node:          *node3,
-			expectedNodes: []*pb.Node{node2, node1},
+			node:          node3,
+			expectedNodes: []storj.Node{node2, node1},
 			limit:         3,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			ns, err := rt.FindNear(node.IDFromString(c.node.Id), c.limit)
+			ns, err := rt.FindNear(c.node.Id, c.limit)
 			assert.NoError(t, err)
 			assert.Equal(t, c.expectedNodes, ns)
 		})
@@ -138,28 +146,27 @@ func TestFindNear(t *testing.T) {
 }
 
 func TestConnectionSuccess(t *testing.T) {
-	id := "AA"
-	rt, cleanup := createRoutingTable(t, []byte(id))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
-	id2 := "BB"
+	
 	address1 := &pb.NodeAddress{Address: "a"}
 	address2 := &pb.NodeAddress{Address: "b"}
-	node1 := &pb.Node{Id: id, Address: address1}
-	node2 := &pb.Node{Id: id2, Address: address2}
+	node1 := storj.NewNodeWithID(testIDA, &pb.Node{Address: address1})
+	node2 := storj.NewNodeWithID(testIDB, &pb.Node{Address: address2})
 	cases := []struct {
 		testID  string
-		node    *pb.Node
-		id      string
+		node    storj.Node
+		id      storj.NodeID
 		address *pb.NodeAddress
 	}{
 		{testID: "Update Node",
 			node:    node1,
-			id:      id,
+			id:      testIDA,
 			address: address1,
 		},
 		{testID: "Add Node",
 			node:    node2,
-			id:      id2,
+			id:      testIDB,
 			address: address2,
 		},
 	}
@@ -167,9 +174,9 @@ func TestConnectionSuccess(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			err := rt.ConnectionSuccess(c.node)
 			assert.NoError(t, err)
-			v, err := rt.nodeBucketDB.Get([]byte(c.id))
+			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
 			assert.NoError(t, err)
-			n, err := unmarshalNodes(storage.Keys{storage.Key(c.id)}, []storage.Value{v})
+			n, err := unmarshalNodes(storage.Keys{storage.Key(c.id.Bytes())}, []storage.Value{v})
 			assert.NoError(t, err)
 			assert.Equal(t, c.address.Address, n[0].Address.Address)
 		})
@@ -177,45 +184,41 @@ func TestConnectionSuccess(t *testing.T) {
 }
 
 func TestConnectionFailed(t *testing.T) {
-	id := "AA"
-	node := mockNode(id)
-	rt, cleanup := createRoutingTable(t, []byte(id))
+	node := newNodeFromID(testIDA)
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	err := rt.ConnectionFailed(node)
 	assert.NoError(t, err)
-	v, err := rt.nodeBucketDB.Get([]byte(id))
+	v, err := rt.nodeBucketDB.Get(testIDA.Bytes())
 	assert.Error(t, err)
 	assert.Nil(t, v)
 }
 
 func TestSetBucketTimestamp(t *testing.T) {
-	id := []byte("AA")
-	idStr := string(id)
-	rt, cleanup := createRoutingTable(t, id)
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	now := time.Now().UTC()
 
-	err := rt.createOrUpdateKBucket(id, now)
+	err := rt.createOrUpdateKBucket(testIDA.Bytes(), now)
 	assert.NoError(t, err)
-	ti, err := rt.GetBucketTimestamp(idStr, nil)
+	ti, err := rt.GetBucketTimestamp(testIDA, nil)
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 	now = time.Now().UTC()
-	err = rt.SetBucketTimestamp(idStr, now)
+	err = rt.SetBucketTimestamp(testIDA, now)
 	assert.NoError(t, err)
-	ti, err = rt.GetBucketTimestamp(idStr, nil)
+	ti, err = rt.GetBucketTimestamp(testIDA, nil)
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 }
 
 func TestGetBucketTimestamp(t *testing.T) {
-	rt, cleanup := createRoutingTable(t, []byte("AA"))
+	rt, cleanup := createRoutingTable(t, testIDA)
 	defer cleanup()
 	now := time.Now().UTC()
-	id := "AA"
-	err := rt.createOrUpdateKBucket([]byte(id), now)
+	err := rt.createOrUpdateKBucket(testIDA.Bytes(), now)
 	assert.NoError(t, err)
-	ti, err := rt.GetBucketTimestamp(id, nil)
+	ti, err := rt.GetBucketTimestamp(testIDA, nil)
 	assert.Equal(t, now, ti)
 	assert.NoError(t, err)
 }

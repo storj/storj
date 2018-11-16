@@ -18,6 +18,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // register sqlite to sql
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore"
@@ -266,7 +267,7 @@ func (db *DB) GetBandwidthAllocationBySignature(signature []byte) ([][]byte, err
 }
 
 // GetBandwidthAllocations all bandwidth agreements and sorts by satellite
-func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
+func (db *DB) GetBandwidthAllocations() (map[storj.NodeID][]*Agreement, error) {
 	defer db.locked()()
 
 	rows, err := db.DB.Query(`SELECT * FROM bandwidth_agreements ORDER BY satellite`)
@@ -279,16 +280,25 @@ func (db *DB) GetBandwidthAllocations() (map[string][]*Agreement, error) {
 		}
 	}()
 
-	agreements := make(map[string][]*Agreement)
+	var nodeErrs []error
+	agreements := make(map[storj.NodeID][]*Agreement)
 	for rows.Next() {
 		agreement := &Agreement{}
-		var satellite string
-		err := rows.Scan(&satellite, &agreement.Agreement, &agreement.Signature)
+		var satelliteIDBytes []byte
+		err := rows.Scan(&satelliteIDBytes, &agreement.Agreement, &agreement.Signature)
 		if err != nil {
 			return nil, err
 		}
-		agreements[satellite] = append(agreements[satellite], agreement)
+		satelliteID, err := storj.NodeIDFromBytes(satelliteIDBytes)
+		if err != nil {
+			nodeErrs = append(nodeErrs)
+		}
+		agreements[satelliteID] = append(agreements[satelliteID], agreement)
 	}
+	if err := utils.CombineErrors(nodeErrs...); err != nil {
+		return nil, err
+	}
+
 	return agreements, nil
 }
 

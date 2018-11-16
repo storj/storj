@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -23,7 +24,7 @@ var Error = errs.Class("connection pool error")
 type ConnectionPool struct {
 	tc    transport.Client
 	mu    sync.RWMutex
-	items map[string]*Conn
+	items map[storj.NodeID]*Conn
 }
 
 // Conn is the connection that is stored in the connection pool
@@ -43,18 +44,18 @@ func NewConn(addr string) *Conn { return &Conn{addr: addr} }
 func NewConnectionPool(identity *provider.FullIdentity) *ConnectionPool {
 	return &ConnectionPool{
 		tc:    transport.NewClient(identity),
-		items: make(map[string]*Conn),
+		items: make(map[storj.NodeID]*Conn),
 		mu:    sync.RWMutex{},
 	}
 }
 
 // Get retrieves a node connection with the provided nodeID
 // nil is returned if the NodeID is not in the connection pool
-func (pool *ConnectionPool) Get(key string) (interface{}, error) {
+func (pool *ConnectionPool) Get(nodeID storj.NodeID) (interface{}, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	i, ok := pool.items[key]
+	i, ok := pool.items[nodeID]
 	if !ok {
 		return nil, nil
 	}
@@ -63,28 +64,27 @@ func (pool *ConnectionPool) Get(key string) (interface{}, error) {
 }
 
 // Disconnect deletes a connection associated with the provided NodeID
-func (pool *ConnectionPool) Disconnect(key string) error {
+func (pool *ConnectionPool) Disconnect(nodeID storj.NodeID) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	i, ok := pool.items[key]
+	i, ok := pool.items[nodeID]
 	if !ok {
 		return nil
 	}
 
-	delete(pool.items, key)
+	delete(pool.items, nodeID)
 
 	return i.grpc.Close()
 }
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
-func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClient, error) {
-	id := n.GetId()
+func (pool *ConnectionPool) Dial(ctx context.Context, n storj.Node) (pb.NodesClient, error) {
 	pool.mu.Lock()
-	conn, ok := pool.items[id]
+	conn, ok := pool.items[n.Id]
 	if !ok {
 		conn = NewConn(n.GetAddress().Address)
-		pool.items[id] = conn
+		pool.items[n.Id] = conn
 	}
 	pool.mu.Unlock()
 
@@ -106,7 +106,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 
 // DisconnectAll closes all connections nodes and removes them from the connection pool
 func (pool *ConnectionPool) DisconnectAll() error {
-	errs := []error{}
+	var errs []error
 	for k := range pool.items {
 		if err := pool.Disconnect(k); err != nil {
 			errs = append(errs, Error.Wrap(err))
@@ -119,5 +119,5 @@ func (pool *ConnectionPool) DisconnectAll() error {
 
 // Init initializes the cache
 func (pool *ConnectionPool) Init() {
-	pool.items = make(map[string]*Conn)
+	pool.items = make(map[storj.NodeID]*Conn)
 }

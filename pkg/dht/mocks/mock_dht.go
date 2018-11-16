@@ -6,13 +6,12 @@ package mock_dht
 
 import (
 	context "context"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
-
+	reflect "reflect"
 	dht "storj.io/storj/pkg/dht"
 	pb "storj.io/storj/pkg/pb"
+	storj "storj.io/storj/pkg/storj"
+	time "time"
 )
 
 // MockDHT is a mock of DHT interface
@@ -63,9 +62,9 @@ func (mr *MockDHTMockRecorder) Disconnect() *gomock.Call {
 }
 
 // FindNode mocks base method
-func (m *MockDHT) FindNode(arg0 context.Context, arg1 dht.NodeID) (pb.Node, error) {
+func (m *MockDHT) FindNode(arg0 context.Context, arg1 storj.NodeID) (storj.Node, error) {
 	ret := m.ctrl.Call(m, "FindNode", arg0, arg1)
-	ret0, _ := ret[0].(pb.Node)
+	ret0, _ := ret[0].(storj.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -76,13 +75,13 @@ func (mr *MockDHTMockRecorder) FindNode(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // GetNodes mocks base method
-func (m *MockDHT) GetNodes(arg0 context.Context, arg1 string, arg2 int, arg3 ...pb.Restriction) ([]*pb.Node, error) {
+func (m *MockDHT) GetNodes(arg0 context.Context, arg1 storj.NodeID, arg2 int, arg3 ...pb.Restriction) ([]storj.Node, error) {
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetNodes", varargs...)
-	ret0, _ := ret[0].([]*pb.Node)
+	ret0, _ := ret[0].([]storj.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -107,9 +106,9 @@ func (mr *MockDHTMockRecorder) GetRoutingTable(arg0 interface{}) *gomock.Call {
 }
 
 // Ping mocks base method
-func (m *MockDHT) Ping(arg0 context.Context, arg1 pb.Node) (pb.Node, error) {
+func (m *MockDHT) Ping(arg0 context.Context, arg1 storj.Node) (storj.Node, error) {
 	ret := m.ctrl.Call(m, "Ping", arg0, arg1)
-	ret0, _ := ret[0].(pb.Node)
+	ret0, _ := ret[0].(storj.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -155,7 +154,7 @@ func (mr *MockRoutingTableMockRecorder) CacheSize() *gomock.Call {
 }
 
 // ConnectionFailed mocks base method
-func (m *MockRoutingTable) ConnectionFailed(arg0 *pb.Node) error {
+func (m *MockRoutingTable) ConnectionFailed(arg0 storj.Node) error {
 	ret := m.ctrl.Call(m, "ConnectionFailed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -167,7 +166,7 @@ func (mr *MockRoutingTableMockRecorder) ConnectionFailed(arg0 interface{}) *gomo
 }
 
 // ConnectionSuccess mocks base method
-func (m *MockRoutingTable) ConnectionSuccess(arg0 *pb.Node) error {
+func (m *MockRoutingTable) ConnectionSuccess(arg0 storj.Node) error {
 	ret := m.ctrl.Call(m, "ConnectionSuccess", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -179,9 +178,9 @@ func (mr *MockRoutingTableMockRecorder) ConnectionSuccess(arg0 interface{}) *gom
 }
 
 // FindNear mocks base method
-func (m *MockRoutingTable) FindNear(arg0 dht.NodeID, arg1 int) ([]*pb.Node, error) {
+func (m *MockRoutingTable) FindNear(arg0 storj.NodeID, arg1 int) ([]storj.Node, error) {
 	ret := m.ctrl.Call(m, "FindNear", arg0, arg1)
-	ret0, _ := ret[0].([]*pb.Node)
+	ret0, _ := ret[0].([]storj.Node)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -192,7 +191,7 @@ func (mr *MockRoutingTableMockRecorder) FindNear(arg0, arg1 interface{}) *gomock
 }
 
 // GetBucket mocks base method
-func (m *MockRoutingTable) GetBucket(arg0 string) (dht.Bucket, bool) {
+func (m *MockRoutingTable) GetBucket(arg0 storj.NodeID) (dht.Bucket, bool) {
 	ret := m.ctrl.Call(m, "GetBucket", arg0)
 	ret0, _ := ret[0].(dht.Bucket)
 	ret1, _ := ret[1].(bool)
@@ -205,7 +204,7 @@ func (mr *MockRoutingTableMockRecorder) GetBucket(arg0 interface{}) *gomock.Call
 }
 
 // GetBucketTimestamp mocks base method
-func (m *MockRoutingTable) GetBucketTimestamp(arg0 string, arg1 dht.Bucket) (time.Time, error) {
+func (m *MockRoutingTable) GetBucketTimestamp(arg0 storj.NodeID, arg1 dht.Bucket) (time.Time, error) {
 	ret := m.ctrl.Call(m, "GetBucketTimestamp", arg0, arg1)
 	ret0, _ := ret[0].(time.Time)
 	ret1, _ := ret[1].(error)
@@ -243,9 +242,9 @@ func (mr *MockRoutingTableMockRecorder) K() *gomock.Call {
 }
 
 // Local mocks base method
-func (m *MockRoutingTable) Local() pb.Node {
+func (m *MockRoutingTable) Local() storj.Node {
 	ret := m.ctrl.Call(m, "Local")
-	ret0, _ := ret[0].(pb.Node)
+	ret0, _ := ret[0].(storj.Node)
 	return ret0
 }
 
@@ -255,7 +254,7 @@ func (mr *MockRoutingTableMockRecorder) Local() *gomock.Call {
 }
 
 // SetBucketTimestamp mocks base method
-func (m *MockRoutingTable) SetBucketTimestamp(arg0 string, arg1 time.Time) error {
+func (m *MockRoutingTable) SetBucketTimestamp(arg0 storj.NodeID, arg1 time.Time) error {
 	ret := m.ctrl.Call(m, "SetBucketTimestamp", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

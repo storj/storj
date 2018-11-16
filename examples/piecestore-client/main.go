@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
@@ -38,13 +39,17 @@ func main() {
 	}
 
 	// Set up connection with rpc server
-	n := &pb.Node{
+	n, err := storj.NewNode(&pb.Node{
 		Address: &pb.NodeAddress{
 			Address:   ":7777",
 			Transport: 0,
 		},
-		Id: "test-node-id-1234567",
+		Id: identity.ID.Bytes(),
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
+
 	tc := transport.NewClient(identity)
 	psClient, err := psclient.NewPSClient(ctx, tc, n, 0)
 	if err != nil {

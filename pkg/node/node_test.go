@@ -5,14 +5,17 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/dht/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
@@ -21,19 +24,27 @@ import (
 var ctx = context.Background()
 
 func TestLookup(t *testing.T) {
+	fmt.Println("starting!")
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	helloID := teststorj.NodeIDFromString("hello")
 	cases := []struct {
-		self        pb.Node
-		to          pb.Node
-		find        pb.Node
+		self        storj.Node
+		to          storj.Node
+		find        storj.Node
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
-			to:          pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":8080"}},
-			find:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":9090"}},
+			self: storj.NewNodeWithID(helloID,
+				&pb.Node{Address: &pb.NodeAddress{Address: ":7070"},
+				}),
+			to: storj.NewNodeWithID(helloID,
+				&pb.Node{Address: &pb.NodeAddress{Address: ":8080"},
+				}),
+			find: storj.NewNodeWithID(helloID,
+				&pb.Node{Address: &pb.NodeAddress{Address: ":9090"},
+				}),
 			expectedErr: nil,
 		},
 	}
@@ -42,7 +53,9 @@ func TestLookup(t *testing.T) {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		assert.NoError(t, err)
 
-		v.to = pb.Node{Id: NewNodeID(t), Address: &pb.NodeAddress{Address: lis.Addr().String()}}
+		v.to = storj.NewNodeWithID(newTestIdentity(t).ID, &pb.Node{
+				Address: &pb.NodeAddress{Address: lis.Addr().String()},
+		})
 
 		id := newTestIdentity(t)
 		srv, mock, err := newTestServer(ctx, &mockNodeServer{queryCalled: 0}, id)
@@ -67,7 +80,7 @@ func TestLookup(t *testing.T) {
 		nc, err := NewNodeClient(identity, v.self, mdht)
 		assert.NoError(t, err)
 
-		_, err = nc.Lookup(ctx, v.to, v.find)
+		_, err = nc.Lookup(ctx, v.to, v.find.Id)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, 1, mock.(*mockNodeServer).queryCalled)
 	}
@@ -78,13 +91,16 @@ func TestPing(t *testing.T) {
 	defer ctx.Cleanup()
 
 	cases := []struct {
-		self        pb.Node
+		self        storj.Node
 		toID        string
 		toIdentity  *provider.FullIdentity
 		expectedErr error
 	}{
 		{
-			self:        pb.Node{Id: "hello", Address: &pb.NodeAddress{Address: ":7070"}},
+			self: storj.NewNodeWithID(
+				teststorj.NodeIDFromString("hello"),
+				&pb.Node{Address: &pb.NodeAddress{Address: ":7070"}},
+			),
 			toID:        "",
 			toIdentity:  newTestIdentity(t),
 			expectedErr: nil,
@@ -109,8 +125,10 @@ func TestPing(t *testing.T) {
 		nc, err := NewNodeClient(v.toIdentity, v.self, mdht)
 		assert.NoError(t, err)
 
-		id := ID(v.toIdentity.ID)
-		ok, err := nc.Ping(ctx, pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}})
+		ok, err := nc.Ping(ctx, storj.NewNodeWithID(
+			v.toIdentity.ID,
+			&pb.Node{Address: &pb.NodeAddress{Address: lis.Addr().String()}},
+		))
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, ok, true)
 	}
@@ -144,20 +162,10 @@ func (mn *mockNodeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.Pi
 	return &pb.PingResponse{}, nil
 }
 
-// NewNodeID returns the string representation of a dht node ID
-func NewNodeID(t *testing.T) string {
-	fid, err := NewFullIdentity(ctx, 12, 4)
-	id := ID(fid.ID)
-	assert.NoError(t, err)
-
-	return id.String()
-}
-
+// newTestIdentity returns the string representation of a dht node ID
 func newTestIdentity(t *testing.T) *provider.FullIdentity {
-	ca, err := provider.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
+	fid, err := NewFullIdentity(ctx, 12, 4)
 	assert.NoError(t, err)
 
-	return identity
+	return fid
 }

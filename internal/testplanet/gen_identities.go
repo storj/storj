@@ -38,7 +38,11 @@ func main() {
 
 	for k := 0; k < *count; k++ {
 		fmt.Println("Creating", k)
-		ca, err := provider.NewCA(context.Background(), 14, 4)
+		ca, err := provider.NewCA(context.Background(),
+			provider.NewCAOptions{
+			Difficulty: 14,
+			Concurrency: 4,
+		})
 		if err != nil {
 			panic(err)
 		}

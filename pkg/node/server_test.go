@@ -10,6 +10,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/dht/mocks"
@@ -17,23 +19,24 @@ import (
 )
 
 func TestQuery(t *testing.T) {
+	nodeIDB := teststorj.NodeIDFromString("B")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockDHT := mock_dht.NewMockDHT(ctrl)
 	mockRT := mock_dht.NewMockRoutingTable(ctrl)
 	s := &Server{dht: mockDHT}
-	sender := &pb.Node{Id: "A"}
-	target := &pb.Node{Id: "B"}
-	node := &pb.Node{Id: "C"}
+	sender := storj.NewNodeWithID(teststorj.NodeIDFromString("A"), &pb.Node{})
+	target := storj.NewNodeWithID(nodeIDB, &pb.Node{})
+	node := storj.NewNodeWithID(teststorj.NodeIDFromString("C"), &pb.Node{})
 	cases := []struct {
 		caseName   string
 		rt         dht.RoutingTable
 		getRTErr   error
-		pingNode   pb.Node
+		pingNode   storj.Node
 		pingErr    error
 		successErr error
 		failErr    error
-		findNear   []*pb.Node
+		findNear   []storj.Node
 		limit      int
 		nearErr    error
 		res        *pb.QueryResponse
@@ -42,32 +45,32 @@ func TestQuery(t *testing.T) {
 		{caseName: "ping success, return sender",
 			rt:         mockRT,
 			getRTErr:   nil,
-			pingNode:   *sender,
+			pingNode:   sender,
 			pingErr:    nil,
 			successErr: nil,
 			failErr:    nil,
-			findNear:   []*pb.Node{target},
+			findNear:   []storj.Node{target},
 			limit:      2,
 			nearErr:    nil,
-			res:        &pb.QueryResponse{Sender: sender, Response: []*pb.Node{target}},
+			res:        &pb.QueryResponse{Sender: sender.Node, Response: []*pb.Node{target.Node}},
 			err:        nil,
 		},
 		{caseName: "ping success, return nearest",
 			rt:         mockRT,
 			getRTErr:   nil,
-			pingNode:   *sender,
+			pingNode:   sender,
 			pingErr:    nil,
 			successErr: nil,
 			failErr:    nil,
-			findNear:   []*pb.Node{sender, node},
+			findNear:   []storj.Node{sender, node},
 			limit:      2,
 			nearErr:    nil,
-			res:        &pb.QueryResponse{Sender: sender, Response: []*pb.Node{sender, node}},
+			res:        &pb.QueryResponse{Sender: sender.Node, Response: []*pb.Node{sender.Node, node.Node}},
 			err:        nil,
 		},
 	}
 	for i, v := range cases {
-		req := pb.QueryRequest{Pingback: true, Sender: sender, Target: &pb.Node{Id: "B"}, Limit: int64(2)}
+		req := pb.QueryRequest{Pingback: true, Sender: sender.Node, TargetId: nodeIDB.Bytes(), Limit: int64(2)}
 		mockDHT.EXPECT().GetRoutingTable(gomock.Any()).Return(v.rt, v.getRTErr)
 		mockDHT.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(v.pingNode, v.pingErr)
 		if v.pingErr != nil {

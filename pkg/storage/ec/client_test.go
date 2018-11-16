@@ -18,12 +18,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
-
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/piecestore/psclient"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -38,10 +39,11 @@ var (
 )
 
 var (
-	node0 = &pb.Node{Id: "node-0"}
-	node1 = &pb.Node{Id: "node-1"}
-	node2 = &pb.Node{Id: "node-2"}
-	node3 = &pb.Node{Id: "node-3"}
+	node0 = storj.NewNodeWithID(teststorj.NodeIDFromString("node-0"), &pb.Node{})
+	node1 = storj.NewNodeWithID(teststorj.NodeIDFromString("node-1"), &pb.Node{})
+	node2 = storj.NewNodeWithID(teststorj.NodeIDFromString("node-2"), &pb.Node{})
+	node3 = storj.NewNodeWithID(teststorj.NodeIDFromString("node-3"), &pb.Node{})
+	emptyNode = storj.Node{Id: storj.EmptyNodeID}
 )
 
 func TestNewECClient(t *testing.T) {
@@ -80,53 +82,54 @@ func TestPut(t *testing.T) {
 
 TestLoop:
 	for i, tt := range []struct {
-		nodes     []*pb.Node
+		nodes     []storj.Node
 		min       int
 		mbm       int
 		badInput  bool
 		errs      []error
 		errString string
 	}{
-		{[]*pb.Node{}, 0, 0, true, []error{},
+		{[]storj.Node{}, 0, 0, true, []error{},
 			fmt.Sprintf("ecclient error: number of nodes (0) do not match total count (%v) of erasure scheme", n)},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, -1, true,
+		{[]storj.Node{node0, node1, node2, node3}, 0, -1, true,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]*pb.Node{node0, node1, node0, node3}, 0, 0, true,
+		{[]storj.Node{node0, node1, node0, node3}, 0, 0, true,
 			[]error{nil, nil, nil, nil},
 			"ecclient error: duplicated nodes are not allowed"},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]storj.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]storj.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil},
 			"ecclient error: successful puts (3) less than repair threshold (4)"},
-		{[]*pb.Node{node0, node1, node2, node3}, 0, 0, false,
+		{[]storj.Node{node0, node1, node2, node3}, 0, 0, false,
 			[]error{nil, ErrOpFailed, nil, nil},
 			"ecclient error: successful puts (3) less than repair threshold (4)"},
-		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
+		{[]storj.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 2, 0, false,
+		{[]storj.Node{node0, node1, node2, node3}, 2, 0, false,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed},
 			"ecclient error: successful puts (1) less than repair threshold (2)"},
-		{[]*pb.Node{nil, nil, node2, node3}, 0, 0, false,
+		{[]storj.Node{emptyNode, emptyNode, node2, node3}, 0, 0, false,
 			[]error{nil, nil, nil, nil}, ""},
 	} {
+		fmt.Printf("starting test case %d\n", i)
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := psclient.NewPieceID()
 		ttl := time.Now()
 
-		errs := make(map[*pb.Node]error, len(tt.nodes))
+		errs := make(map[storj.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[storj.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if n == nil || tt.badInput {
+			if n.Id == nil || n.Id == storj.EmptyNodeID || tt.badInput {
 				continue
 			}
-			derivedID, err := id.Derive([]byte(n.GetId()))
+			derivedID, err := id.Derive(n.Id.Bytes())
 			if !assert.NoError(t, err, errTag) {
 				continue TestLoop
 			}
@@ -158,7 +161,7 @@ TestLoop:
 			assert.Equal(t, len(tt.nodes), len(successfulNodes), errTag)
 			for i := range tt.nodes {
 				if tt.errs[i] != nil {
-					assert.Nil(t, successfulNodes[i], errTag)
+					assert.Equal(t, storj.Node{}, successfulNodes[i], errTag)
 				} else {
 					assert.Equal(t, tt.nodes[i], successfulNodes[i], errTag)
 				}
@@ -167,8 +170,8 @@ TestLoop:
 	}
 }
 
-func mockNewPSClient(clients map[*pb.Node]psclient.Client) psClientFunc {
-	return func(_ context.Context, _ transport.Client, n *pb.Node, _ int) (psclient.Client, error) {
+func mockNewPSClient(clients map[storj.Node]psclient.Client) psClientFunc {
+	return func(_ context.Context, _ transport.Client, n storj.Node, _ int) (psclient.Client, error) {
 		c, ok := clients[n]
 		if !ok {
 			return nil, ErrDialFailed
@@ -194,42 +197,42 @@ func TestGet(t *testing.T) {
 
 TestLoop:
 	for i, tt := range []struct {
-		nodes     []*pb.Node
+		nodes     []storj.Node
 		mbm       int
 		errs      []error
 		errString string
 	}{
-		{[]*pb.Node{}, 0, []error{}, "ecclient error: " +
+		{[]storj.Node{}, 0, []error{}, "ecclient error: " +
 			fmt.Sprintf("number of nodes (0) do not match minimum required count (%v) of erasure scheme", k)},
-		{[]*pb.Node{node0, node1, node2, node3}, -1,
+		{[]storj.Node{node0, node1, node2, node3}, -1,
 			[]error{nil, nil, nil, nil},
 			"eestream error: negative max buffer memory"},
-		{[]*pb.Node{node0, node1, node2, node3}, 0,
+		{[]storj.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, nil, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0,
+		{[]storj.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, ErrDialFailed, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0,
+		{[]storj.Node{node0, node1, node2, node3}, 0,
 			[]error{nil, ErrOpFailed, nil, nil}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0,
+		{[]storj.Node{node0, node1, node2, node3}, 0,
 			[]error{ErrOpFailed, ErrDialFailed, nil, ErrDialFailed}, ""},
-		{[]*pb.Node{node0, node1, node2, node3}, 0,
+		{[]storj.Node{node0, node1, node2, node3}, 0,
 			[]error{ErrDialFailed, ErrOpFailed, ErrOpFailed, ErrDialFailed}, ""},
-		{[]*pb.Node{nil, nil, node2, node3}, 0,
+		{[]storj.Node{emptyNode, emptyNode, node2, node3}, 0,
 			[]error{nil, nil, nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := psclient.NewPieceID()
 
-		errs := make(map[*pb.Node]error, len(tt.nodes))
+		errs := make(map[storj.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[storj.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
 			if errs[n] == ErrOpFailed {
-				derivedID, err := id.Derive([]byte(n.GetId()))
+				derivedID, err := id.Derive(n.Id.Bytes())
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
 				}
@@ -260,35 +263,35 @@ func TestDelete(t *testing.T) {
 
 TestLoop:
 	for i, tt := range []struct {
-		nodes     []*pb.Node
+		nodes     []storj.Node
 		errs      []error
 		errString string
 	}{
-		{[]*pb.Node{}, []error{}, ""},
-		{[]*pb.Node{node0}, []error{nil}, ""},
-		{[]*pb.Node{node0}, []error{ErrDialFailed}, dialFailed},
-		{[]*pb.Node{node0}, []error{ErrOpFailed}, opFailed},
-		{[]*pb.Node{node0, node1}, []error{nil, nil}, ""},
-		{[]*pb.Node{node0, node1}, []error{ErrDialFailed, nil}, ""},
-		{[]*pb.Node{node0, node1}, []error{nil, ErrOpFailed}, ""},
-		{[]*pb.Node{node0, node1}, []error{ErrDialFailed, ErrDialFailed}, dialFailed},
-		{[]*pb.Node{node0, node1}, []error{ErrOpFailed, ErrOpFailed}, opFailed},
-		{[]*pb.Node{nil, node1}, []error{nil, nil}, ""},
-		{[]*pb.Node{nil, nil}, []error{nil, nil}, ""},
+		{[]storj.Node{}, []error{}, ""},
+		{[]storj.Node{node0}, []error{nil}, ""},
+		{[]storj.Node{node0}, []error{ErrDialFailed}, dialFailed},
+		{[]storj.Node{node0}, []error{ErrOpFailed}, opFailed},
+		{[]storj.Node{node0, node1}, []error{nil, nil}, ""},
+		{[]storj.Node{node0, node1}, []error{ErrDialFailed, nil}, ""},
+		{[]storj.Node{node0, node1}, []error{nil, ErrOpFailed}, ""},
+		{[]storj.Node{node0, node1}, []error{ErrDialFailed, ErrDialFailed}, dialFailed},
+		{[]storj.Node{node0, node1}, []error{ErrOpFailed, ErrOpFailed}, opFailed},
+		{[]storj.Node{emptyNode, node1}, []error{nil, nil}, ""},
+		{[]storj.Node{emptyNode, emptyNode}, []error{nil, nil}, ""},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		id := psclient.NewPieceID()
 
-		errs := make(map[*pb.Node]error, len(tt.nodes))
+		errs := make(map[storj.Node]error, len(tt.nodes))
 		for i, n := range tt.nodes {
 			errs[n] = tt.errs[i]
 		}
 
-		clients := make(map[*pb.Node]psclient.Client, len(tt.nodes))
+		clients := make(map[storj.Node]psclient.Client, len(tt.nodes))
 		for _, n := range tt.nodes {
-			if n != nil && errs[n] != ErrDialFailed {
-				derivedID, err := id.Derive([]byte(n.GetId()))
+			if n != emptyNode && errs[n] != ErrDialFailed {
+				derivedID, err := id.Derive([]byte(n.GetId().Bytes()))
 				if !assert.NoError(t, err, errTag) {
 					continue TestLoop
 				}
@@ -314,21 +317,21 @@ TestLoop:
 
 func TestUnique(t *testing.T) {
 	for i, tt := range []struct {
-		nodes  []*pb.Node
+		nodes  []storj.Node
 		unique bool
 	}{
 		{nil, true},
-		{[]*pb.Node{}, true},
-		{[]*pb.Node{node0}, true},
-		{[]*pb.Node{node0, node1}, true},
-		{[]*pb.Node{node0, node0}, false},
-		{[]*pb.Node{node0, node1, node0}, false},
-		{[]*pb.Node{node1, node0, node0}, false},
-		{[]*pb.Node{node0, node0, node1}, false},
-		{[]*pb.Node{node2, node0, node1}, true},
-		{[]*pb.Node{node2, node0, node3, node1}, true},
-		{[]*pb.Node{node2, node0, node2, node1}, false},
-		{[]*pb.Node{node1, node0, node3, node1}, false},
+		{[]storj.Node{}, true},
+		{[]storj.Node{node0}, true},
+		{[]storj.Node{node0, node1}, true},
+		{[]storj.Node{node0, node0}, false},
+		{[]storj.Node{node0, node1, node0}, false},
+		{[]storj.Node{node1, node0, node0}, false},
+		{[]storj.Node{node0, node0, node1}, false},
+		{[]storj.Node{node2, node0, node1}, true},
+		{[]storj.Node{node2, node0, node3, node1}, true},
+		{[]storj.Node{node2, node0, node2, node1}, false},
+		{[]storj.Node{node1, node0, node3, node1}, false},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		assert.Equal(t, tt.unique, unique(tt.nodes), errTag)

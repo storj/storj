@@ -16,11 +16,19 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/storj"
 
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
+)
+
+var (
+	// testIDA   = teststorj.NodeIDFromString("AAAAA")
+	// testIDB   = teststorj.NodeIDFromString("BBBBB")
+	// testIDC   = teststorj.NodeIDFromString("CCCCC")
+	testIDD   = teststorj.NodeIDFromString("DDDDD")
 )
 
 // helper function to generate new node identities with
@@ -34,29 +42,27 @@ func TestNewKademlia(t *testing.T) {
 	rootdir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	cases := []struct {
-		id          dht.NodeID
-		bn          []pb.Node
+		id          storj.NodeID
+		bn          []storj.Node
 		addr        string
 		expectedErr error
 	}{
 		{
-			id: func() *node.ID {
+			id: func() storj.NodeID {
 				id, err := newTestIdentity()
 				assert.NoError(t, err)
-				n := node.ID(id.ID)
-				return &n
+				return id.ID
 			}(),
-			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			bn:   []storj.Node{nodeFoo},
 			addr: "127.0.0.1:8080",
 		},
 		{
-			id: func() *node.ID {
+			id: func() storj.NodeID {
 				id, err := newTestIdentity()
 				assert.NoError(t, err)
-				n := node.ID(id.ID)
-				return &n
+				return id.ID
 			}(),
-			bn:   []pb.Node{pb.Node{Id: "foo"}},
+			bn:   []storj.Node{nodeFoo},
 			addr: "127.0.0.1:8080",
 		},
 	}
@@ -86,26 +92,28 @@ func TestPeerDiscovery(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	srv, mns := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
+	srv, mns := newTestServer([]storj.Node{nodeFoo})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
 	k := func() *Kademlia {
-		// make new identity
+		// create two new unique identities
 		fid, err := newTestIdentity()
 		assert.NoError(t, err)
 		fid2, err := newTestIdentity()
 		assert.NoError(t, err)
+		assert.NotEqual(t, fid.ID, fid2.ID)
 
-		// create two new unique identities
-		id := fid.ID
-		id2 := fid2.ID
-		assert.NotEqual(t, id, id2)
-
-		kid := dht.NodeID(fid.ID)
-		k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, defaultAlpha)
+		k, err := NewKademlia(fid.ID, []storj.Node{
+			storj.NewNodeWithID(
+				fid2.ID,
+				&pb.Node{
+					Address: &pb.NodeAddress{Address: lis.Addr().String()},
+				},
+			),
+		}, lis.Addr().String(), fid, dir, defaultAlpha)
 		assert.NoError(t, err)
 		return k
 	}()
@@ -115,31 +123,30 @@ func TestPeerDiscovery(t *testing.T) {
 	}()
 
 	cases := []struct {
-		target      dht.NodeID
+		target      storj.NodeID
 		opts        discoveryOptions
-		expected    *pb.Node
+		expected    storj.Node
 		expectedErr error
 	}{
-		{target: func() *node.ID {
+		{target: func() storj.NodeID {
 			fid, err := newTestIdentity()
-			id := dht.NodeID(fid.ID)
-			nid := node.ID(fid.ID)
 			assert.NoError(t, err)
-			mns.returnValue = []*pb.Node{&pb.Node{Id: id.String(), Address: &pb.NodeAddress{Address: addr}}}
-			return &nid
+			mns.returnValue = []storj.Node{
+				storj.NewNodeWithID(fid.ID, &pb.Node{Address: &pb.NodeAddress{Address: addr}}),
+			}
+			return fid.ID
 		}(),
 			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
-			expected:    &pb.Node{},
+			expected:    storj.Node{},
 			expectedErr: nil,
 		},
-		{target: func() *node.ID {
+		{target: func() storj.NodeID {
 			id, err := newTestIdentity()
 			assert.NoError(t, err)
-			n := node.ID(id.ID)
-			return &n
+			return id.ID
 		}(),
 			opts:        discoveryOptions{concurrency: 3, bootstrap: true, retries: 1},
-			expected:    nil,
+			expected:    storj.Node{},
 			expectedErr: nil,
 		},
 	}
@@ -151,18 +158,18 @@ func TestPeerDiscovery(t *testing.T) {
 }
 
 func TestBootstrap(t *testing.T) {
-	bn, s, clean := testNode(t, []pb.Node{})
+	bn, s, clean := testNode(t, []storj.Node{})
 	defer clean()
 	defer s.Stop()
 
-	n1, s1, clean1 := testNode(t, []pb.Node{bn.routingTable.self})
+	n1, s1, clean1 := testNode(t, []storj.Node{bn.routingTable.self})
 	defer clean1()
 	defer s1.Stop()
 
 	err := n1.Bootstrap(context.Background())
 	assert.NoError(t, err)
 
-	n2, s2, clean2 := testNode(t, []pb.Node{bn.routingTable.self})
+	n2, s2, clean2 := testNode(t, []storj.Node{bn.routingTable.self})
 	defer clean2()
 	defer s2.Stop()
 
@@ -174,19 +181,18 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
+func testNode(t *testing.T, bn []storj.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
 	// new config
 	// new identity
 	fid, err := newTestIdentity()
-	id := dht.NodeID(fid.ID)
 	assert.NoError(t, err)
 	// new kademlia
 	dir, cleanup := mktempdir(t, "kademlia")
 
-	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, bn, lis.Addr().String(), fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	s := node.NewServer(k)
 	// new ident opts
@@ -210,7 +216,7 @@ func TestGetNodes(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	srv, _ := newTestServer([]*pb.Node{&pb.Node{Id: "foo"}})
+	srv, _ := newTestServer([]storj.Node{nodeFoo})
 	go func() { assert.NoError(t, srv.Serve(lis)) }()
 	defer srv.Stop()
 
@@ -219,35 +225,43 @@ func TestGetNodes(t *testing.T) {
 	assert.NoError(t, err)
 	fid2, err := newTestIdentity()
 	assert.NoError(t, err)
-	fid.ID = "AAAAA"
-	fid2.ID = "BBBBB"
+	fid.ID = testIDA
+	fid2.ID = testIDB
 	// create two new unique identities
-	id := node.ID(fid.ID)
-	id2 := node.ID(fid2.ID)
-	assert.NotEqual(t, id, id2)
-	kid := dht.NodeID(fid.ID)
+	assert.NotEqual(t, fid.ID, fid2.ID)
 
 	dir, cleanup := mktempdir(t, "kademlia")
 	defer cleanup()
-	k, err := NewKademlia(kid, []pb.Node{pb.Node{Id: id2.String(), Address: &pb.NodeAddress{Address: lis.Addr().String()}}}, lis.Addr().String(), fid, dir, defaultAlpha)
+	k, err := NewKademlia(fid.ID, []storj.Node{
+		storj.NewNodeWithID(
+			fid2.ID,
+			&pb.Node{Address: &pb.NodeAddress{Address: lis.Addr().String()}},
+	)}, lis.Addr().String(), fid, dir, defaultAlpha)
 	assert.NoError(t, err)
 	defer func() {
 		assert.NoError(t, k.Disconnect())
 	}()
 
 	// add nodes
-	ids := []string{"AAAAA", "BBBBB", "CCCCC", "DDDDD"}
+	ids := storj.NodeIDList{
+		testIDA,
+		testIDB,
+		testIDC,
+		testIDD,
+	}
 	bw := []int64{1, 2, 3, 4}
 	disk := []int64{4, 3, 2, 1}
-	nodes := []*pb.Node{}
+	var nodes []storj.Node
 	for i, v := range ids {
-		n := &pb.Node{
-			Id: v,
-			Restrictions: &pb.NodeRestrictions{
-				FreeBandwidth: bw[i],
-				FreeDisk:      disk[i],
+		n := storj.NewNodeWithID(
+			v,
+			&pb.Node{
+				Restrictions: &pb.NodeRestrictions{
+					FreeBandwidth: bw[i],
+					FreeDisk:      disk[i],
+				},
 			},
-		}
+		)
 		nodes = append(nodes, n)
 		err = k.routingTable.ConnectionSuccess(n)
 		assert.NoError(t, err)
@@ -255,16 +269,16 @@ func TestGetNodes(t *testing.T) {
 
 	cases := []struct {
 		testID       string
-		start        string
+		start        storj.NodeID
 		limit        int
 		restrictions []pb.Restriction
-		expected     []*pb.Node
+		expected     []storj.Node
 	}{
 		{testID: "one",
-			start: "BBBBB",
+			start: testIDB,
 			limit: 2,
 			restrictions: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(2),
@@ -273,15 +287,15 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[2:],
 		},
 		{testID: "two",
-			start: "AAAAA",
+			start: testIDA,
 			limit: 3,
 			restrictions: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_freeDisk,
 					Value:    int64(2),
@@ -290,7 +304,7 @@ func TestGetNodes(t *testing.T) {
 			expected: nodes[3:],
 		},
 		{testID: "three",
-			start:        "AAAAA",
+			start:        testIDA,
 			limit:        4,
 			restrictions: []pb.Restriction{},
 			expected:     nodes,
@@ -302,7 +316,7 @@ func TestGetNodes(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(c.expected), len(ns))
 			for i, n := range ns {
-				assert.True(t, proto.Equal(c.expected[i], n))
+				assert.True(t, proto.Equal(c.expected[i].Node, n.Node))
 			}
 		})
 	}
@@ -312,18 +326,18 @@ func TestMeetsRestrictions(t *testing.T) {
 	cases := []struct {
 		testID string
 		r      []pb.Restriction
-		n      pb.Node
+		n      *pb.Node
 		expect bool
 	}{
 		{testID: "pass one",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_EQ,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(1),
 				},
 			},
-			n: pb.Node{
+			n: &pb.Node{
 				Restrictions: &pb.NodeRestrictions{
 					FreeBandwidth: int64(1),
 				},
@@ -332,18 +346,18 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "pass multiple",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LTE,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GTE,
 					Operand:  pb.Restriction_freeDisk,
 					Value:    int64(2),
 				},
 			},
-			n: pb.Node{
+			n: &pb.Node{
 				Restrictions: &pb.NodeRestrictions{
 					FreeBandwidth: int64(1),
 					FreeDisk:      int64(3),
@@ -353,18 +367,18 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "fail one",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_freeDisk,
 					Value:    int64(2),
 				},
 			},
-			n: pb.Node{
+			n: &pb.Node{
 				Restrictions: &pb.NodeRestrictions{
 					FreeBandwidth: int64(2),
 					FreeDisk:      int64(3),
@@ -374,18 +388,18 @@ func TestMeetsRestrictions(t *testing.T) {
 		},
 		{testID: "fail multiple",
 			r: []pb.Restriction{
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_LT,
 					Operand:  pb.Restriction_freeBandwidth,
 					Value:    int64(2),
 				},
-				pb.Restriction{
+				{
 					Operator: pb.Restriction_GT,
 					Operand:  pb.Restriction_freeDisk,
 					Value:    int64(2),
 				},
 			},
-			n: pb.Node{
+			n: &pb.Node{
 				Restrictions: &pb.NodeRestrictions{
 					FreeBandwidth: int64(2),
 					FreeDisk:      int64(2),
@@ -396,7 +410,7 @@ func TestMeetsRestrictions(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.testID, func(t *testing.T) {
-			result := meetsRestrictions(c.r, c.n)
+			result := meetsRestrictions(c.r, storj.Node{Node: c.n})
 			assert.Equal(t, c.expect, result)
 		})
 	}

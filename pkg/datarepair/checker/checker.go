@@ -9,10 +9,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"storj.io/storj/pkg/storj"
 
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/storage"
@@ -83,15 +82,20 @@ func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 				pieces := pointer.Remote.RemotePieces
-				var nodeIDs []dht.NodeID
+				var nodeIDsBytes [][]byte
 				for _, p := range pieces {
-					nodeIDs = append(nodeIDs, node.IDFromString(p.NodeId))
+					nodeIDsBytes = append(nodeIDsBytes, p.NodeId)
+				}
+
+				nodeIDs, err := storj.NodeIDsFromBytes(nodeIDsBytes)
+				if err != nil {
+					return Error.Wrap(err)
 				}
 				missingPieces, err := c.offlineNodes(ctx, nodeIDs)
 				if err != nil {
 					return Error.New("error getting missing offline nodes %s", err)
 				}
-				numHealthy := len(nodeIDs) - len(missingPieces)
+				numHealthy := len(nodeIDsBytes) - len(missingPieces)
 				if int32(numHealthy) < pointer.Remote.Redundancy.RepairThreshold {
 					err = c.repairQueue.Enqueue(&pb.InjuredSegment{
 						Path:       string(item.Key),
@@ -109,34 +113,37 @@ func (c *checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 }
 
 // returns the indices of offline and online nodes
-func (c *checker) offlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (offline []int32, err error) {
+func (c *checker) offlineNodes(ctx context.Context, nodeIDs storj.NodeIDList) (offline []int32, err error) {
 	responses, err := c.overlay.BulkLookup(ctx, nodeIDsToLookupRequests(nodeIDs))
 	if err != nil {
 		return []int32{}, err
 	}
-	nodes := lookupResponsesToNodes(responses)
+	nodes, err := lookupResponsesToNodes(responses)
+	if err != nil {
+		return []int32{}, err
+	}
 	for i, n := range nodes {
-		if n == nil {
+		if n.Id == nil {
 			offline = append(offline, int32(i))
 		}
 	}
 	return offline, nil
 }
 
-func nodeIDsToLookupRequests(nodeIDs []dht.NodeID) *pb.LookupRequests {
+func nodeIDsToLookupRequests(nodeIDs storj.NodeIDList) *pb.LookupRequests {
 	var rq []*pb.LookupRequest
 	for _, v := range nodeIDs {
-		r := &pb.LookupRequest{NodeID: v.String()}
+		r := &pb.LookupRequest{NodeId: v.Bytes()}
 		rq = append(rq, r)
 	}
 	return &pb.LookupRequests{Lookuprequest: rq}
 }
 
-func lookupResponsesToNodes(responses *pb.LookupResponses) []*pb.Node {
-	var nodes []*pb.Node
+func lookupResponsesToNodes(responses *pb.LookupResponses) ([]storj.Node, error) {
+	var pbNodes []*pb.Node
 	for _, v := range responses.Lookupresponse {
 		n := v.Node
-		nodes = append(nodes, n)
+		pbNodes = append(pbNodes, n)
 	}
-	return nodes
+	return storj.NewNodes(pbNodes)
 }

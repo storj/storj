@@ -48,7 +48,7 @@ type ListItem struct {
 // Client services offerred for the interface
 type Client interface {
 	Put(ctx context.Context, path storj.Path, pointer *pb.Pointer) error
-	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []*pb.Node, error)
+	Get(ctx context.Context, path storj.Path) (*pb.Pointer, []storj.Node, error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 	Delete(ctx context.Context, path storj.Path) error
 
@@ -87,7 +87,7 @@ func (pdb *PointerDB) Put(ctx context.Context, path storj.Path, pointer *pb.Poin
 }
 
 // Get is the interface to make a GET request, needs PATH and APIKey
-func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []*pb.Node, err error) {
+func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Pointer, nodes []storj.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res, err := pdb.client.Get(ctx, &pb.GetRequest{Path: path})
@@ -101,7 +101,10 @@ func (pdb *PointerDB) Get(ctx context.Context, path storj.Path) (pointer *pb.Poi
 	pdb.pba = res.GetPba()
 	pdb.authorization = res.GetAuthorization()
 
-	return res.GetPointer(), res.GetNodes(), nil
+	if nodes, err = storj.NewNodes(res.GetNodes()); err != nil {
+		return nil, nil, err
+	}
+	return res.GetPointer(), nodes, nil
 }
 
 // List is the interface to make a LIST request, needs StartingPathKey, Limit, and APIKey

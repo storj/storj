@@ -7,7 +7,7 @@ option go_package = "pb";
 package pointerdb;
 
 import "google/protobuf/timestamp.proto";
-import "overlay.proto";
+import "node.proto";
 import "piecestore.proto";
 
 // PointerDB defines the interface for interacting with the network state persistence layer
@@ -39,7 +39,7 @@ message RedundancyScheme {
 
 message RemotePiece {
   int32 piece_num = 1;
-  string node_id = 2;
+  bytes node_id = 2;
 }
 
 message RemoteSegment {
@@ -96,7 +96,7 @@ message PutResponse {
 // GetResponse is a response message for the Get rpc call
 message GetResponse {
   Pointer pointer = 1;
-  repeated overlay.Node nodes = 2;
+  repeated node.Node nodes = 2;
   piecestoreroutes.PayerBandwidthAllocation pba = 3;
   piecestoreroutes.SignedMessage authorization = 4;
 }
