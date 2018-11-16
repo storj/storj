@@ -1,38 +1,37 @@
 <template>
-    <router-link to="/dashboard/account" exact>
-        <div class="abContainer">
-            <div class="abToggleContainer">
-                <!-- background of this div generated and stores in store -->
-                <div class="abAvatar" :style="style">
-                    <!-- First digit of firstName after Registration -->
-                    <!-- img if avatar was set -->
-                    <h1>{{avatarLetter}}</h1>
-                </div>
-                <h1>{{userName}}</h1>
-                <div class="abExpanderArea">
-                    <img v-if="!isMatchesWithPath" src="../../../../static/images/register/BlueExpand.svg" />
-                    <img v-if="isMatchesWithPath" src="../../../../static/images/register/BlueHide.svg" />
-                </div>
+    <div class="abContainer" >
+        <div class="abToggleContainer" v-on:click="toggleSelection" >
+            <!-- background of this div generated and stores in store -->
+            <div class="abAvatar" :style="style">
+                <!-- First digit of firstName after Registration -->
+                <!-- img if avatar was set -->
+                <h1>{{avatarLetter}}</h1>
+            </div>
+            <h1>{{userName}}</h1>
+            <div class="abExpanderArea">
+                <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
+                <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
             </div>
         </div>
-    </router-link>
+        <AccountDropdown v-if="isChoiceShown" @onClose="toggleSelection" />
+    </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import AccountDropdown from "./AccountDropdown.vue";
 
 @Component(
     { 
         data: function() {
             return {
-                // check if this.$router.history.current mathes with path 
-                isMatchesWithPath: false,
                 // this.$store.userName
-                userName: "User Name"
+                userName: "User Name",
+                isChoiceShown: false
             }
         },
         computed: {
-            style: function() {
+            style: function() : object {
                 //color from $store
 				return { background: "#95D486" }
             },
@@ -40,6 +39,14 @@ import { Component, Vue } from 'vue-property-decorator';
             avatarLetter: function() : string {
                 return this.$data.userName.slice(0,1).toUpperCase();
             }
+        },
+        methods: {
+            toggleSelection: function() : void {
+                this.$data.isChoiceShown = !this.$data.isChoiceShown;
+            }
+        },
+        components: {
+            AccountDropdown
         }
     }
 )
@@ -53,9 +60,11 @@ export default class AccountButton extends Vue {}
         outline: none;
     }
     .abContainer {
+        position: relative;
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
+        cursor: pointer;
         h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;

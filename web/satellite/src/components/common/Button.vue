@@ -59,7 +59,7 @@ export default class Button extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .buttonContainer {
+    .container {
         display: flex;
         align-items: center;
         justify-content: center;
