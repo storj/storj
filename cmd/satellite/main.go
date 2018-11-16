@@ -20,7 +20,9 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
@@ -29,8 +31,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
+	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -60,14 +61,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity      provider.IdentityConfig
-		Kademlia      kademlia.Config
-		PointerDB     pointerdb.Config
-		Overlay       overlay.Config
-		MockOverlay   mockOverlay.Config
-		StatDB        statdb.Config
-		Checker       checker.Config
-		Repairer      repairer.Config
+		Identity    provider.IdentityConfig
+		Kademlia    kademlia.Config
+		PointerDB   pointerdb.Config
+		Overlay     overlay.Config
+		MockOverlay mockOverlay.Config
+		StatDB      statdb.Config
+		Checker     checker.Config
+		Repairer    repairer.Config
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
 	}

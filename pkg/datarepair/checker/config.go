@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/datarepair/queue"
@@ -27,7 +26,6 @@ type Config struct {
 
 // Initialize a Checker struct
 func (c Config) initialize(ctx context.Context) (Checker, error) {
-	spew.Dump(ctx)
 	pdb := pointerdb.LoadFromContext(ctx)
 	var o pb.OverlayServer
 	x := overlay.LoadServerFromContext(ctx)

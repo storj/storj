@@ -84,10 +84,12 @@ func (c *checker) identifyInjuredSegments(ctx context.Context) (err error) {
 				}
 				remote := pointer.GetRemote()
 				if remote == nil {
+					c.logger.Debug("no remote segment on pointer")
 					continue
 				}
 				pieces := remote.GetRemotePieces()
 				if pieces == nil {
+					c.logger.Debug("no pieces on remote segment")
 					continue
 				}
 				var nodeIDs []dht.NodeID
