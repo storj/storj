@@ -28,6 +28,13 @@ const (
 	applicationGraphql = "application/graphql"
 )
 
+// JSON request from graphql clients
+type graphqlJSON struct {
+	Query         string
+	OperationName string
+	Variables     map[string]interface{}
+}
+
 func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
@@ -39,9 +46,11 @@ func (gw *gateway) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	result := graphql.Do(graphql.Params{
-		Schema:        gw.schema,
-		Context:       auth.WithAPIKey(context.Background(), []byte(token)),
-		RequestString: query,
+		Schema:         gw.schema,
+		Context:        auth.WithAPIKey(context.Background(), []byte(token)),
+		RequestString:  query.Query,
+		VariableValues: query.Variables,
+		OperationName:  query.OperationName,
 	})
 
 	err = json.NewEncoder(w).Encode(result)
@@ -68,32 +77,29 @@ func getToken(req *http.Request) string {
 }
 
 // getQuery retrieves graphql query from request
-func getQuery(req *http.Request) (query string, err error) {
+func getQuery(req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
-		return req.URL.Query().Get(satelliteql.Query), nil
+		query.Query = req.URL.Query().Get(satelliteql.Query)
+		return query, nil
 	case http.MethodPost:
 		return queryPOST(req)
 	default:
-		return "", errs.New("wrong http request type")
+		return query, errs.New("wrong http request type")
 	}
 }
 
-// queryPOST retrieves query from POST request
-func queryPOST(req *http.Request) (query string, err error) {
+// queryPOST retrieves graphql query from POST request
+func queryPOST(req *http.Request) (query graphqlJSON, err error) {
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
 		body, err := ioutil.ReadAll(req.Body)
-		return string(body), utils.CombineErrors(err, req.Body.Close())
-	//TODO(yar): test more precisely
+		query.Query = string(body)
+		return query, utils.CombineErrors(err, req.Body.Close())
 	case applicationJSON:
-		var query struct {
-			Query string
-		}
-
 		err := json.NewDecoder(req.Body).Decode(&query)
-		return query.Query, utils.CombineErrors(err, req.Body.Close())
+		return query, utils.CombineErrors(err, req.Body.Close())
 	default:
-		return "", errs.New("can't parse request body of type %s", typ)
+		return query, errs.New("can't parse request body of type %s", typ)
 	}
 }
