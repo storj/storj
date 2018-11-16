@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -614,7 +615,7 @@ func TestRefresh(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			dhts, b := bootstrapTestNetwork(t, "127.0.0.1", "1024")
 			ctx := context.Background()
-			
+
 			db := teststore.New()
 			if err := storage.PutAll(db, c.data...); err != nil {
 				t.Fatal(err)
