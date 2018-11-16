@@ -36,8 +36,6 @@ const (
 	ctxKeyMockOverlay CtxKey = iota
 )
 
-
-
 // FindStorageNodes is the mock implementation
 func (mo *Overlay) FindStorageNodes(ctx context.Context, req *pb.FindStorageNodesRequest) (resp *pb.FindStorageNodesResponse, err error) {
 	nodes := make([]*pb.Node, 0, len(mo.nodes))

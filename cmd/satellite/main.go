@@ -112,6 +112,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.PointerDB,
 		o,
 		runCfg.StatDB,
+		runCfg.Checker,
+		runCfg.Repairer,
 		// runCfg.Audit,
 		runCfg.BwAgreement,
 	)
