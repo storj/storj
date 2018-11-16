@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/statdb/sdbclient"
+	pb "storj.io/storj/pkg/statdb/proto"
 )
 
 func main() {
@@ -87,6 +88,58 @@ func main() {
 		},
 	}
 
+	var cmdCreateStats = &cobra.Command{
+		// create node stats from csv
+		Use:   "create",
+		Short: "Create node with stats",
+		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
+		Run: func(cmd *cobra.Command, args []string) {
+			client, err := getSdbClient(ctx, port, apiKey)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+
+			idStr := args[0]
+			nodeID := node.IDFromString(idStr)
+
+			auditCount, err := strconv.ParseInt(args[1], 10, 64)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+			auditSuccessCount, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+			uptimeCount, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+			uptimeSuccessCount, err := strconv.ParseInt(args[4], 10, 64)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+
+			stats := &pb.NodeStats{
+				AuditCount: auditCount,
+				AuditSuccessCount: auditSuccessCount,
+				UptimeCount: uptimeCount,
+				UptimeSuccessCount: uptimeSuccessCount,
+			}
+			err = client.CreateWithStats(ctx, nodeID.Bytes(), stats)
+			if err != nil {
+				fmt.Println("Error", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("Created statdb entry for ID %s\n", nodeID.String())
+		},
+	}
+
 	var cmdCreateCSVStats = &cobra.Command{
 		// create node stats from csv
 		Use:   "createcsv",
@@ -136,7 +189,13 @@ func main() {
 					os.Exit(1)
 				}
 
-				err = client.CreateWithStats(ctx, nodeID.Bytes(), auditCount, auditSuccessCount, uptimeCount, uptimeSuccessCount)
+				stats := &pb.NodeStats{
+					AuditCount: auditCount,
+					AuditSuccessCount: auditSuccessCount,
+					UptimeCount: uptimeCount,
+					UptimeSuccessCount: uptimeSuccessCount,
+				}
+				err = client.CreateWithStats(ctx, nodeID.Bytes(), stats)
 				if err != nil {
 					fmt.Println("Error", err)
 					os.Exit(1)
@@ -151,11 +210,13 @@ func main() {
 	cmdGetStats.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "statdb api key")
 	cmdGetCSVStats.Flags().StringVarP(&port, "port", "p", ":7778", "statdb port")
 	cmdGetCSVStats.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "statdb api key")
+	cmdCreateStats.Flags().StringVarP(&port, "port", "p", ":7778", "statdb port")
+	cmdCreateStats.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "statdb api key")
 	cmdCreateCSVStats.Flags().StringVarP(&port, "port", "p", ":7778", "statdb port")
 	cmdCreateCSVStats.Flags().StringVarP(&apiKey, "apikey", "a", "abc123", "statdb api key")
 
 	var rootCmd = &cobra.Command{Use: "sdbinspect"}
-	rootCmd.AddCommand(cmdGetStats, cmdGetCSVStats, cmdCreateCSVStats)
+	rootCmd.AddCommand(cmdGetStats, cmdGetCSVStats, cmdCreateStats, cmdCreateCSVStats)
 	rootCmd.Execute()
 }
 
