@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sort"
 	"time"
 
@@ -189,7 +188,7 @@ func (rt *RoutingTable) getKBucketID(nodeID storage.Key) (storage.Key, error) {
 			return keys[i+1], nil
 		}
 	}
-	fmt.Printf("\n\nNODEID == %#v\n\n", nodeID)
+
 	//shouldn't happen BUT return error if no matching kbucket...
 	return nil, RoutingErr.New("could not find k bucket")
 }

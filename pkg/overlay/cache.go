@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 	"crypto/rand"
-	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -51,12 +50,6 @@ func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
 	}
 
 	oc := NewOverlayCache(storelogger.New(zap.L(), db), dht)
-
-	oc.DHT.SetNotify(
-		func(n *pb.Node) error {
-			return oc.Put(n.GetId(), *n)
-		})
-
 	return oc, nil
 
 }
@@ -123,95 +116,36 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 	if err != nil {
 		return err
 	}
+	// If we get a Node without an ID (i.e. bootstrap node)
+	// we don't want to add to the routing tbale
+	if nodeID == "" {
+		return nil
+	}
 
 	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
 // Bootstrap walks the initialized network and populates the cache
 func (o *Cache) Bootstrap(ctx context.Context) error {
+	// TODO(coyle): make Bootstrap work
 	// look in our routing table
 	// get every node we know about
 	// ask every node for every node they know about
 	// for each newly known node, ask those nodes for every node they know about
 	// continue until no new nodes are found
-	nodes, err := o.DHT.GetNodes(ctx, "", 1280)
-	if err != nil {
-		return OverlayError.New("Error getting nodes from DHT: %v", err)
-	}
-
-	for _, v := range nodes {
-		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
-		if err != nil {
-			zap.L().Info("Node find failed", zap.String("nodeID", v.Id))
-			continue
-		}
-		n, err := proto.Marshal(&found)
-		if err != nil {
-			zap.L().Error("Node marshall failed", zap.String("nodeID", v.Id))
-			continue
-		}
-
-		if err := o.DB.Put(node.IDFromString(found.Id).Bytes(), n); err != nil {
-			zap.L().Error("Node cache put failed", zap.String("nodeID", v.Id))
-			continue
-		}
-	}
-	return err
+	return nil
 }
 
 // Refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
-	log.Print("starting cache refresh")
-	r, err := randomID()
-	if err != nil {
-		return err
-	}
+	// TODO(coyle): make refresh work by looking on the network for new ndoes
+	nodes := o.DHT.Seen()
 
-	rid := node.ID(r)
-	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
-	if err != nil {
-		return err
-	}
-	for _, n := range near {
-		pinged, err := o.DHT.Ping(ctx, *n)
-		if err != nil {
-			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
-			continue
-		}
-		data, err := proto.Marshal(&pinged)
-		if err != nil {
-			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
-			continue
-		}
-		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
-		if err != nil {
-			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
-			continue
-		}
-	}
-
-	// TODO: Kademlia hooks to do this automatically rather than at interval
-	nodes, err := o.DHT.GetNodes(ctx, "", 128)
-	if err != nil {
-		return err
-	}
-	for _, n := range nodes {
-		pinged, err := o.DHT.Ping(ctx, *n)
-		if err != nil {
-			zap.L().Info("Node ping failed", zap.String("nodeID", n.GetId()))
-			continue
-		}
-		data, err := proto.Marshal(&pinged)
-		if err != nil {
-			zap.L().Error("Node marshall failed", zap.String("nodeID", n.GetId()))
-			continue
-		}
-		err = o.DB.Put(node.IDFromString(pinged.Id).Bytes(), data)
-		if err != nil {
-			zap.L().Error("Node cache put failed", zap.String("nodeID", n.GetId()))
-			continue
+	for _, v := range nodes {
+		if err := o.Put(v.GetId(), *v); err != nil {
+			return err
 		}
 	}
 	return nil

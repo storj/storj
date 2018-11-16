@@ -90,14 +90,18 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	}
 	pool.mu.Unlock()
 
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 	conn.dial.Do(func() {
 		conn.grpc, conn.err = pool.tc.DialNode(ctx, n)
 		if conn.err != nil {
 			return
 		}
 
-		for conn.grpc.GetState() != connectivity.Ready {
-			time.Sleep(500 * time.Millisecond)
+		// loop until we get a ready connection or allow for the default
+		// behavior if server is in transient failure
+		for conn.grpc.GetState() != connectivity.Ready && conn.grpc.GetState() != connectivity.TransientFailure {
+			<-ticker.C
 		}
 
 		conn.client = pb.NewNodesClient(conn.grpc)

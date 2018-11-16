@@ -16,15 +16,13 @@ import (
 type Server struct {
 	dht    dht.DHT
 	logger *zap.Logger
-	notify *func(*pb.Node) error
 }
 
 // NewServer returns a newly instantiated Node Server
-func NewServer(dht dht.DHT, notify *func(*pb.Node) error) *Server {
+func NewServer(dht dht.DHT) *Server {
 	return &Server{
 		dht:    dht,
 		logger: zap.L(),
-		notify: notify,
 	}
 }
 
@@ -32,11 +30,6 @@ func NewServer(dht dht.DHT, notify *func(*pb.Node) error) *Server {
 func (s *Server) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	if s.logger == nil {
 		s.logger = zap.L()
-	}
-
-	ss := *s.notify
-	if err := ss(req.Sender); err != nil {
-		s.logger.Error("could not notify of connection success", zap.Error(err))
 	}
 
 	rt, err := s.dht.GetRoutingTable(ctx)

@@ -45,9 +45,7 @@ const (
 type Config struct {
 	BootstrapAddr string `help:"the kademlia node to bootstrap against" default:"bootstrap-dev.storj.io:8080"`
 	DBPath        string `help:"the path for our db services to be created on" default:"$CONFDIR/kademlia"`
-	// TODO(jt): remove this! kademlia should just use the grpc server
-	// TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
-	Alpha int `help:"alpha is a system wide concurrency parameter." default:"5"`
+	Alpha         int    `help:"alpha is a system wide concurrency parameter." default:"5"`
 }
 
 // Run implements provider.Responsibility
@@ -62,16 +60,13 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return err
 	}
 
-	in.Id = server.Identity().ID.String()
-
 	kad, err := NewKademlia(server.Identity().ID, []pb.Node{*in}, server.Addr().String(), server.Identity(), c.DBPath, c.Alpha)
 	if err != nil {
 		return err
 	}
 	defer func() { err = utils.CombineErrors(err, kad.Disconnect()) }()
 
-	mn := node.NewServer(kad, &kad.notify)
-	pb.RegisterNodesServer(server.GRPC(), mn)
+	pb.RegisterNodesServer(server.GRPC(), node.NewServer(kad))
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {

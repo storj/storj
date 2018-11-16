@@ -56,7 +56,7 @@ func (k *MockKademlia) Disconnect() error {
 	return nil
 }
 
-//SetNotify __
-func (k *MockKademlia) SetNotify(func(*pb.Node) error) {
-
+//Seen __
+func (k *MockKademlia) Seen() []*pb.Node {
+	return nil
 }

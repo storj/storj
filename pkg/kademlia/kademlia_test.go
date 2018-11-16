@@ -170,8 +170,7 @@ func testNode(t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 
 	k, err := NewKademlia(id, bn, lis.Addr().String(), fid, dir, defaultAlpha)
 	assert.NoError(t, err)
-	nilFunc := func(*pb.Node) error { return nil }
-	s := node.NewServer(k, &nilFunc)
+	s := node.NewServer(k)
 	// new ident opts
 	identOpt, err := fid.ServerOption()
 	assert.NoError(t, err)

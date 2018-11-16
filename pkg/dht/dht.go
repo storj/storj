@@ -23,8 +23,8 @@ type DHT interface {
 	Bootstrap(ctx context.Context) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID NodeID) (pb.Node, error)
-	SetNotify(func(*pb.Node) error)
 	Disconnect() error
+	Seen() []*pb.Node
 }
 
 // RoutingTable contains information on nodes we have locally

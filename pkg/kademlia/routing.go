@@ -35,10 +35,12 @@ type RoutingTable struct {
 	nodeBucketDB     storage.KeyValueStore
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
+	seen             map[string]*pb.Node
 	replacementCache map[string][]*pb.Node
 	idLength         int // kbucket and node id bit length (SHA256) = 256
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
+
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -53,6 +55,7 @@ func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*Routin
 		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
 		bucketSize:       *flagBucketSize,
 		rcBucketSize:     *flagReplacementCacheSize,
+		seen:             map[string]*pb.Node{},
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
@@ -152,6 +155,9 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
+	rt.mutex.Lock()
+	rt.seen[node.GetId()] = node
+	rt.mutex.Unlock()
 	v, err := rt.nodeBucketDB.Get(storage.Key(node.Id))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)
@@ -160,15 +166,23 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
+			// fmt.Printf("IN ERROR UPDATE NODE NODE==%#v\n", node.GetAddress().Address)
 			return RoutingErr.New("could not update node %s", err)
 		}
+		// fmt.Printf("RETURNING FROM UPDATE NODE NODE==%#v\n", node.GetAddress().Address)
+		return nil
+	}
+
+	if node.GetId() == "" {
 		return nil
 	}
 
 	_, err = rt.addNode(node)
 	if err != nil {
+		// fmt.Printf("IN ERROR ADD NODE NODE==%#v\n", node.GetAddress().Address)
 		return RoutingErr.New("could not add node %s", err)
 	}
+
 	return nil
 }
 

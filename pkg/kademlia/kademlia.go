@@ -37,9 +37,10 @@ var (
 )
 
 type discoveryOptions struct {
-	concurrency int
-	retries     int
-	bootstrap   bool
+	concurrency    int
+	retries        int
+	bootstrap      bool
+	bootstrapNodes []pb.Node
 }
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
@@ -50,7 +51,6 @@ type Kademlia struct {
 	address        string
 	nodeClient     node.Client
 	identity       *provider.FullIdentity
-	notify         func(*pb.Node) error
 }
 
 // NewKademlia returns a newly configured Kademlia instance
@@ -82,23 +82,12 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
 func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
-	for _, v := range bootstrapNodes {
-		ok, err := rt.addNode(&v)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
-		}
-	}
-
 	k := &Kademlia{
 		alpha:          alpha,
 		routingTable:   rt,
 		bootstrapNodes: bootstrapNodes,
 		address:        self.Address.Address,
 		identity:       identity,
-		notify:         func(*pb.Node) error { return nil },
 	}
 
 	nc, err := node.NewNodeClient(identity, self, k)
@@ -172,7 +161,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	}
 
 	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
-		concurrency: k.alpha, retries: defaultRetries, bootstrap: true,
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
 	})
 }
 
@@ -182,6 +171,13 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discovery
 	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
 		return err
+	}
+
+	if opts.bootstrap {
+		for _, v := range opts.bootstrapNodes {
+			n := v
+			nodes = append(nodes, &n)
+		}
 	}
 
 	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
@@ -230,8 +226,7 @@ func (k *Kademlia) ListenAndServe() error {
 	}
 
 	grpcServer := grpc.NewServer(identOpt)
-	nilFunc := func(*pb.Node) error { return nil }
-	mn := node.NewServer(k, &nilFunc)
+	mn := node.NewServer(k)
 
 	pb.RegisterNodesServer(grpcServer, mn)
 	lis, err := net.Listen("tcp", k.address)
@@ -246,9 +241,13 @@ func (k *Kademlia) ListenAndServe() error {
 	return nil
 }
 
-// SetNotify adds a notify function to kademlia
-func (k *Kademlia) SetNotify(f func(*pb.Node) error) {
-	k.notify = f
+// Seen returns all nodes that this kademlia instance has succesfully communicated with
+func (k *Kademlia) Seen() []*pb.Node {
+	nodes := []*pb.Node{}
+	for _, v := range k.routingTable.seen {
+		nodes = append(nodes, v)
+	}
+	return nodes
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
