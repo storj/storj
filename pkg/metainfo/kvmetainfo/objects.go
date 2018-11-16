@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -28,13 +29,18 @@ const (
 )
 
 // GetObject returns information about an object
-func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
-	_, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
+func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, info, err = db.getInfo(ctx, committedPrefix, bucket, path)
+
 	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (stream storj.ReadOnlyStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	meta, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	if err != nil {
 		return nil, err
@@ -54,37 +60,50 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (storj.MutableObject, error) {
+func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // ModifyObject modifies a committed object
-func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // DeleteObject deletes an object from database
-func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
-	objects, err := db.buckets.GetObjectStore(ctx, bucket)
+func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	store, err := db.buckets.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return err
 	}
 
-	return objects.Delete(ctx, path)
+	err = store.Delete(ctx, path)
+	if objects.NoPathError.Has(err) {
+		return storage.ErrEmptyKey.Wrap(err)
+	}
+
+	return err
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
-func (db *DB) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // ListPendingObjects lists pending objects in bucket based on the ListOptions
-func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return storj.ObjectList{}, errors.New("not implemented")
 }
 
 // ListObjects lists objects in bucket based on the ListOptions
-func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	objects, err := db.buckets.GetObjectStore(ctx, bucket)
 	if err != nil {
 		return storj.ObjectList{}, err
@@ -118,7 +137,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, err
 	}
 
-	list := storj.ObjectList{
+	list = storj.ObjectList{
 		Bucket: bucket,
 		Prefix: options.Prefix,
 		More:   more,
@@ -140,10 +159,16 @@ type object struct {
 	streamMeta      pb.StreamMeta
 }
 
-func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
+func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
 		return object{}, storj.Object{}, err
+	}
+
+	if path == "" {
+		return object{}, storj.Object{}, storage.ErrEmptyKey.New("")
 	}
 
 	fullpath := bucket + "/" + path
@@ -197,7 +222,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, err
 	}
 
-	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
+	info = objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 
 	return object{
 		fullpath:        fullpath,

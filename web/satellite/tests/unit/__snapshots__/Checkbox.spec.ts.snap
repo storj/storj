@@ -1,3 +1,0 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`Checkbox.vue renders correctly 1`] = `<label class="container"><input type="checkbox"> <span class="checkmark"></span></label>`;

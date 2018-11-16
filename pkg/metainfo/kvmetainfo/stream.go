@@ -27,6 +27,8 @@ type readonlyStream struct {
 func (stream *readonlyStream) Info() storj.Object { return stream.info }
 
 func (stream *readonlyStream) SegmentsAt(ctx context.Context, byteOffset int64, limit int64) (infos []storj.Segment, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if stream.info.FixedSegmentSize <= 0 {
 		return nil, false, errors.New("not implemented")
 	}
@@ -35,7 +37,9 @@ func (stream *readonlyStream) SegmentsAt(ctx context.Context, byteOffset int64, 
 	return stream.Segments(ctx, index, limit)
 }
 
-func (stream *readonlyStream) segment(ctx context.Context, index int64) (storj.Segment, error) {
+func (stream *readonlyStream) segment(ctx context.Context, index int64) (info storj.Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	segment := storj.Segment{
 		Index: index,
 	}
@@ -64,7 +68,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (storj.S
 	}
 
 	var nonce storj.Nonce
-	_, err := encryption.Increment(&nonce, index+1)
+	_, err = encryption.Increment(&nonce, index+1)
 	if err != nil {
 		return segment, err
 	}
@@ -73,6 +77,8 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (storj.S
 }
 
 func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit int64) (infos []storj.Segment, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if index < 0 {
 		return nil, false, errors.New("invalid argument")
 	}
@@ -93,6 +99,6 @@ func (stream *readonlyStream) Segments(ctx context.Context, index int64, limit i
 		infos = append(infos, segment)
 	}
 
-	more = index+limit >= stream.info.SegmentCount
+	more = index < stream.info.SegmentCount
 	return infos, more, nil
 }

@@ -5,6 +5,7 @@ package kvmetainfo
 
 import (
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pointerdb/pdbclient"
@@ -14,6 +15,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
+
+var mon = monkit.Package()
 
 var errClass = errs.Class("kvmetainfo")
 
