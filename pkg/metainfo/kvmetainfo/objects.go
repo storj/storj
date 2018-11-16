@@ -253,7 +253,7 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 }
 
 func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
-	var nonce storj.Nonce
+	nonce := new(storj.Nonce)
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 	return storj.Object{
 		Version:  0, // TODO:
