@@ -29,11 +29,14 @@
                     @setData="setInputValue" />
             </div>
             <div class="aaSaveButtonArea">
+                <!-- v-if we are editing this area -->
                 <div class="termsArea">
                     <Checkbox class="checkBox" @setData="setTermsAccepted"/>
                     <h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
                 </div>
-                <Button label="Save" width="14vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
+                <!-- v-if we are editing this area -->
+                <Button class="aaCancelButton" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
+                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isDisabled/> 
             </div>
         </div>
         <!--end of Account settings area -->
@@ -86,7 +89,9 @@
                     @setData="setInputValue" />
             </div>
             <div class="aaSaveButtonArea">
-                <Button label="Save" width="14vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
+                <!-- v-if we are editing this area -->
+                <Button class="aaCancelButton" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
+                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
             </div>
         </div>
         <!--end of Company area -->
@@ -120,12 +125,14 @@
                     @setData="setInputValue" />
             </div>
             <div class="aaSaveButtonArea">
-                <Button label="Save" width="14vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
+                <!-- v-if we are editing this area -->
+                <Button class="aaCancelButton" label="Cancel" width="10vw" height="5vh" :onPress="onCancel" isWhite/>
+                <Button label="Save" width="10vw" height="5vh" :onPress="onSave" isWhite isDisabled/> 
             </div>
         </div>
         <!--end of Password area -->
         <div class="aaButtonArea">
-            <Button label="Delete account" width="14vw" height="5vh" :onPress="onDeleteAccountClick" isWhite/> 
+            <Button label="Delete account" width="10vw" height="5vh" :onPress="onDeleteAccountClick" isWhite/> 
         </div>
     </div>
 </template>
@@ -220,8 +227,8 @@ export default class AccountArea extends Vue {}
 		flex-direction: row;
 		justify-content: center;
         align-items: center;
-        margin-top: -20px;
-        margin-right: 30vw;
+        margin-top: -1vh;
+        margin-right: 22vw;
 		.checkBox {
 			align-self: center;
 		};
@@ -229,11 +236,15 @@ export default class AccountArea extends Vue {}
 			font-family: 'montserrat_regular';
 			font-size: 14px;
 			line-height: 20px;
-			margin-left: 10px;
+            margin-left: 10px;
+            margin-top: 3vh;
 		};
 		a {
 			color: #2683FF;
 			font-family: 'montserrat_bold';
 		}
-	}
+    }
+    .aaCancelButton {
+        margin-right: 2vw;
+    }
 </style>
