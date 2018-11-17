@@ -1,0 +1,36 @@
+// Copyright (C) 2018 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+package irreparabledb;
+
+// IrreparableDB defines the interface for retrieving and updating irreparable segments 
+service IrreparableDB {
+  // Create a db entry for the provided segment info 
+  rpc Create(CreateRequest) returns (CreateResponse);
+}
+
+// RmtSegInfo is info about a single  stored in the irreparable db
+message RmtSegInfo {
+  bytes rmt_seg_key = 1;  // Remote segment path info
+  bytes rmt_seg_val = 2;  // Remote segment remotepiece info
+  int64 rmt_seg_lost_pieces_count = 3; // Number of remote segment lost pieces 
+  int64 rmt_seg_repair_unix_sec = 4; // Remote segment first repair attempt time
+  int64 rmt_seg_repair_attempt_count = 5; // Number of remote segment reapir attempts 
+}
+
+// CreateRequest is a request message for the Create rpc call
+message CreateRequest {
+  RmtSegInfo rmtseginfo = 1;
+  bytes APIKey = 2;
+}
+
+// CreateResponse is a response message for the Create rpc call
+message CreateResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  Status status = 1;
+}
