@@ -136,3 +136,49 @@ func (o *Cache) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
 }
+
+/*
+// getNodeRep gets a node's stats from statdb and returns a node with reputation attached
+func (o *Cache) getNodeRep(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	stats, err := o.StatDB.CreateEntryIfNotExists(ctx, node.IDFromString(n.Id).Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	n.Reputation = &pb.NodeRep{
+		UptimeRatio:       stats.UptimeRatio,
+		AuditSuccessRatio: stats.AuditSuccessRatio,
+		AuditCount:        stats.AuditCount,
+	}
+
+	return n, err
+}
+
+// pingNode pings a node, updates its uptime stats in statdb,
+// and returns the node with reputation attached
+func (o *Cache) pingNode(ctx context.Context, n *pb.Node) (*pb.Node, error) {
+	id := node.ID(n.Id)
+
+	pinged, err := o.DHT.Ping(ctx, *n)
+	if err != nil {
+		_, err := o.StatDB.UpdateUptime(ctx, id.Bytes(), false)
+		if err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+
+	stats, err := o.StatDB.UpdateUptime(ctx, id.Bytes(), true)
+	if err != nil {
+		return nil, err
+	}
+
+	pinged.Reputation = &pb.NodeRep{
+		UptimeRatio:       stats.UptimeRatio,
+		AuditSuccessRatio: stats.AuditSuccessRatio,
+		AuditCount:        stats.AuditCount,
+	}
+
+	return &pinged, nil
+}
+*/
