@@ -32,7 +32,14 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	kad := kademlia.LoadFromContext(ctx)
+	if kad == nil {
+		return Error.New("programmer error: kademlia responsibility unstarted")
+	}
+
 	ol := overlay.LoadFromContext(ctx)
+	if ol == nil {
+		return Error.New("programmer error: overlay responsibility unstarted")
+	}
 
 	srv := &Server{
 		dht:     kad,

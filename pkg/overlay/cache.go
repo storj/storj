@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -186,42 +185,6 @@ func (o *Cache) Refresh(ctx context.Context) error {
 // Walk iterates over each node in each bucket to traverse the network
 func (o *Cache) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
-	return nil
-}
-
-/*
-* Kademlia bucket interaction methods
-*	These methods allow external inspection of the kademlia service via gRPC
- */
-
-// DumpBuckets returns a list of buckets in the current Kademlia instance
-func (o *Cache) DumpBuckets(ctx context.Context) error {
-	table, err := o.DHT.GetRoutingTable(ctx)
-	if err != nil {
-		return err
-	}
-	buckets, err := table.GetBuckets()
-	if err != nil {
-		return err
-	}
-	zap.S().Info(fmt.Printf("Buckets: %+v\n", buckets))
-	return nil
-}
-
-// GetBucket returns all the nodes in a given bucket
-func (o *Cache) GetBucket(ctx context.Context, id string) error {
-	table, err := o.DHT.GetRoutingTable(ctx)
-	if err != nil {
-		return err
-	}
-
-	bucket, ok := table.GetBucket(id)
-	if !ok {
-		return ErrBucketNotFound
-	}
-
-	zap.S().Info(fmt.Printf("Bucket: %+v\n", bucket))
-
 	return nil
 }
 

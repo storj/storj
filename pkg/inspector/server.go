@@ -40,7 +40,7 @@ func (srv *Server) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*
 func (srv *Server) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (*pb.GetBucketsResponse, error) {
 	rt, err := srv.dht.GetRoutingTable(ctx)
 	if err != nil {
-		return &pb.GetBucketsResponse{}, ServerError.New("")
+		return &pb.GetBucketsResponse{}, ServerError.Wrap(err)
 	}
 	b, err := rt.GetBucketIds()
 	if err != nil {
@@ -61,7 +61,7 @@ func (srv *Server) GetBucket(ctx context.Context, req *pb.GetBucketRequest) (*pb
 	}
 	bucket, ok := rt.GetBucket(req.Id)
 	if !ok {
-		return &pb.GetBucketResponse{}, nil
+		return &pb.GetBucketResponse{}, ServerError.New("GetBuckets returned non-OK response")
 	}
 
 	return &pb.GetBucketResponse{
