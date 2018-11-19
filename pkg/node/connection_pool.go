@@ -100,7 +100,10 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 
 		// loop until we get a ready connection or allow for the default
 		// behavior if server is in transient failure
-		for conn.grpc.GetState() != connectivity.Ready {
+		retry := 0
+		threshold := 10
+		for conn.grpc.GetState() != connectivity.Ready && retry < threshold {
+			retry++
 			<-ticker.C
 		}
 

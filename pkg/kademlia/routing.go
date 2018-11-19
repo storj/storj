@@ -46,16 +46,18 @@ type RoutingTable struct {
 // NewRoutingTable returns a newly configured instance of a RoutingTable
 func NewRoutingTable(localNode pb.Node, kdb, ndb storage.KeyValueStore) (*RoutingTable, error) {
 	rt := &RoutingTable{
-		self:             localNode,
-		kadBucketDB:      kdb,
-		nodeBucketDB:     ndb,
-		transport:        &defaultTransport,
+		self:         localNode,
+		kadBucketDB:  kdb,
+		nodeBucketDB: ndb,
+		transport:    &defaultTransport,
+
 		mutex:            &sync.Mutex{},
+		seen:             make(map[string]*pb.Node),
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         len(storj.NodeID{}) * 8, // NodeID length in bits
-		bucketSize:       *flagBucketSize,
-		rcBucketSize:     *flagReplacementCacheSize,
-		seen:             map[string]*pb.Node{},
+
+		idLength:     len(storj.NodeID{}) * 8, // NodeID length in bits
+		bucketSize:   *flagBucketSize,
+		rcBucketSize: *flagReplacementCacheSize,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {
