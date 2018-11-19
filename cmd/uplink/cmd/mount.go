@@ -101,7 +101,7 @@ func newStorjFs(ctx context.Context, store objects.Store) *storjFs {
 	return &storjFs{
 		ctx:          ctx,
 		store:        store,
-		createdFiles: make(map[string]*storjFile, 0),
+		createdFiles: make(map[string]*storjFile),
 		FileSystem:   pathfs.NewDefaultFileSystem(),
 	}
 }
