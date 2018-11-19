@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/transport"
 
 	"storj.io/storj/pkg/dht"
@@ -56,6 +57,9 @@ func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, 
 		client: pb.NewOverlayClient(conn),
 	}, nil
 }
+
+// NewClientFrom returns a new overlay.Client from a connection
+func NewClientFrom(conn pb.OverlayClient) Client { return &Overlay{conn} }
 
 // a compiler trick to make sure *Overlay implements Client
 var _ Client = (*Overlay)(nil)

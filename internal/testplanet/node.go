@@ -121,15 +121,15 @@ func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Cli
 	return pdbclient.NewClient(node.Identity, destination.Addr(), apikey)
 }
 
-// DialOverlay dials destination with apikey and returns pointerdb Client
-func (node *Node) DialOverlay(destination *Node) (pb.OverlayClient, error) {
+// DialOverlay dials destination and returns an overlay.Client
+func (node *Node) DialOverlay(destination *Node) (overlay.Client, error) {
 	conn, err := node.Transport.DialNode(context.Background(), &destination.Info, grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: handle disconnect
-	return pb.NewOverlayClient(conn), nil
+	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
 
 // initOverlay creates overlay for a given planet
