@@ -23,6 +23,8 @@ func TestOverlay(t *testing.T) {
 	}
 	defer ctx.Check(planet.Shutdown)
 
+	planet.Start(ctx)
+
 	overlay, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
 	if err != nil {
 		t.Fatal(err)
