@@ -1,8 +1,8 @@
 <template>
-    <div class="dashboardContainer">
+    <div class="dashboard-container">
         <NavigationArea />
         <DashboardHeader />
-        <div class="dMainAreaContainer">
+        <div class="dashboard-container__main-area">
             <router-view />
         </div>
     </div>
@@ -24,7 +24,7 @@ export default class Dashboard extends Vue {}
 </script>
 
 <style scoped lang="scss">
-	.dashboardContainer {
+	.dashboard-container {
         position: fixed;
 		width: 100%;
 		height: 100%;
@@ -32,12 +32,13 @@ export default class Dashboard extends Vue {}
 		top: 0;
         background-color: #F5F6FA;
         z-index: 10;
-    }
-    .dMainAreaContainer {
-        position: fixed;
-        width: 80vw;
-		height: 100%;
-		left: 20vw;
-		top: 10vh;
+
+        &__main-area {
+            position: fixed;
+            width: 80vw;
+            height: 100%;
+            left: 20vw;
+            top: 10vh;
+        }
     }
 </style>

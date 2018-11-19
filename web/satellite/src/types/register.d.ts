@@ -16,7 +16,5 @@ declare type RegisterData = {
 	state: string,
 	postalCode: string,
 	isTermsAccepted: boolean,
-	optionalAreaShown: boolean,
-	optionalArea: string,
-	optionalAreaActive: string
+	optionalAreaShown: boolean
 }
