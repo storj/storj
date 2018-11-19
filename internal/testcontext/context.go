@@ -50,7 +50,7 @@ func New(test testing.TB) *Context {
 	return NewWithTimeout(test, defaultTimeout)
 }
 
-// New creates a new test context with a given timeout
+// NewWithTimeout creates a new test context with a given timeout
 func NewWithTimeout(test testing.TB, timeout time.Duration) *Context {
 	timedctx, cancel := context.WithTimeout(context.Background(), timeout)
 	group, errctx := errgroup.WithContext(timedctx)
