@@ -12,8 +12,8 @@ import (
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storage"
 	"storj.io/storj/pkg/statdb/sdbclient"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -26,14 +26,14 @@ var OverlayError = errs.Class("Overlay Error")
 
 // Cache is used to store overlay data in Redis
 type Cache struct {
-	DB  storage.KeyValueStore
-	DHT dht.DHT
-	statdb sdbclient.Client
+	DB     storage.KeyValueStore
+	DHT    dht.DHT
+	StatDB sdbclient.Client
 }
 
 // NewOverlayCache returns a new Cache
 func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, statdb sdbclient.Client) *Cache {
-	return &Cache{DB: db, DHT: dht, statdb: statdb}
+	return &Cache{DB: db, DHT: dht, StatDB: statdb}
 }
 
 // Get looks up the provided nodeID from the overlay cache

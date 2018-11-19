@@ -48,7 +48,7 @@ type Options struct {
 // NewOverlayClient returns a new intialized Overlay Client
 func NewOverlayClient(identity *provider.FullIdentity, address string) (Client, error) {
 	tc := transport.NewClient(identity)
-	conn, err := tc.DialAddress(context.Background(), address)
+	conn, err := tc.DialAddress(context.Background(), address) // TODO(moby) shouldn't be using context.Background here?
 	if err != nil {
 		return nil, err
 	}

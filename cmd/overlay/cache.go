@@ -4,25 +4,25 @@
 package main
 
 import (
-	"net/url"
 	"context"
+	"net/url"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/provider"
+	"storj.io/storj/pkg/statdb/sdbclient"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/storelogger"
-	"storj.io/storj/pkg/statdb/sdbclient"
-	"storj.io/storj/pkg/provider"
 )
 
 type cacheConfig struct {
 	NodesPath   string `help:"the path to a JSON file containing an object with IP keys and nodeID values"`
 	DatabaseURL string `help:"the database connection string to use"`
 	StatDBPort  string `help:"the statdb connection port to use" default:":7778"`
-	StatDBKey string `help:"the statdb api key to use"`
+	StatDBKey   string `help:"the statdb api key to use"`
 }
 
 func (c cacheConfig) open() (*overlay.Cache, error) {
@@ -65,7 +65,6 @@ func (c cacheConfig) open() (*overlay.Cache, error) {
 
 	return overlay.NewOverlayCache(db, nil, statdb), nil
 }
-
 
 // TODO(moby) this is a temporary function
 func getNewIdentity() (*provider.FullIdentity, error) {
