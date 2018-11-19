@@ -22,13 +22,3 @@ func TestBasic(t *testing.T) {
 	t.Log(ctx.Dir("a", "b", "c"))
 	t.Log(ctx.File("a", "w", "c.txt"))
 }
-
-func TestFailure(t *testing.T) {
-	ctx := testcontext.NewWithTimeout(t, 1*time.Second)
-	defer ctx.Cleanup()
-
-	ctx.Go(func() error {
-		time.Sleep(10 * time.Second)
-		return nil
-	})
-}
