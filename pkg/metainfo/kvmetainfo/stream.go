@@ -69,7 +69,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
 	}
 
-	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, segment.EncryptedKeyNonce)
+	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
 	if err != nil {
 		return segment, err
 	}
