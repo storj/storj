@@ -93,7 +93,7 @@ func TestGetObjectStream(t *testing.T) {
 
 		stream, err := db.GetObjectStream(ctx, bucket.Name, "empty-file")
 		if assert.NoError(t, err) {
-			assertStream(ctx, t, stream, "empty-file", []byte(nil))
+			assertStream(ctx, t, stream, "empty-file", []byte{})
 		}
 
 		stream, err = db.GetObjectStream(ctx, bucket.Name, "test-file")
@@ -119,8 +119,7 @@ func assertStream(ctx context.Context, t *testing.T, stream storj.ReadOnlyStream
 	assert.EqualValues(t, 0, segments[0].Index)
 	assert.EqualValues(t, len(content), segments[0].Size)
 
-	// TODO: Currently Inline is always empty
-	// assert.Equal(t, content, segments[0].Inline)
+	assert.Equal(t, content, segments[0].Inline)
 
 	return true
 }

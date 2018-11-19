@@ -99,16 +99,18 @@ input {
 }
 .input-wrap {
     position: relative;
-}
-.input-wrap svg {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 20;
-    cursor: pointer;
-}
-.input-wrap svg:hover path {
-    fill: #2683FF !important;
+
+	svg {
+		position: absolute;
+		right: 15px;
+		top: 50%;
+		transform: translateY(-50%);
+		z-index: 20;
+		cursor: pointer;
+
+		&:hover path {
+			fill: #2683FF !important;
+		}
+	}
 }
 </style>

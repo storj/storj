@@ -1,16 +1,16 @@
 <template>
 	<div class="register">
-		<div class="registerArea">
-			<div class="scrollable">
-				<div class="navLabel">
+		<div class="register-area">
+			<div class="register-area__scrollable">
+				<div class="register-area__scrollable__navLabel">
 					<router-link to="/" exact>
-						<svg class="backImage" width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<svg class="register-area__scrollable__navLabel__back-image" width="19" height="19" viewBox="0 0 19 19" fill="none" xmlns="http://www.w3.org/2000/svg">
 							<path fill-rule="evenodd" clip-rule="evenodd" d="M10.5607 0.43934C11.1464 1.02513 11.1464 1.97487 10.5607 2.56066L5.12132 8H17.5C18.3284 8 19 8.67157 19 9.5C19 10.3284 18.3284 11 17.5 11H5.12132L10.5607 16.4393C11.1464 17.0251 11.1464 17.9749 10.5607 18.5607C9.97487 19.1464 9.02513 19.1464 8.43934 18.5607L0.43934 10.5607C-0.146447 9.97487 -0.146447 9.02513 0.43934 8.43934L8.43934 0.43934C9.02513 -0.146447 9.97487 -0.146447 10.5607 0.43934Z" fill="#384B65"/>
 						</svg>
 					</router-link>
 					<h1>Sign Up</h1>
 				</div>
-				<div class="formArea">
+				<div class="register-area__scrollable__form-area">
 					<HeaderedInput 
 						label="First name" 
 						placeholder ="Enter First Name" 
@@ -43,12 +43,12 @@
 						@setData="setRepeatedPassword"
 						isPassword>
 					</HeaderedInput>
-					<div class="companyArea">
+					<div class="register-area__scrollable__form-area__company-area">
 						<h2>Company</h2>
-						<div class="detailsArea" v-on:click="showOptional">
-							<h2 v-if="!optionalAreaShown" class="detailsText">Details</h2>
-							<h2 v-if="optionalAreaShown" class="detailsText">Hide Details</h2>
-							<div class="expanderArea">
+						<div class="register-area__scrollable__form-area__company-area__details-area" v-on:click="showOptional">
+							<h2 v-if="!optionalAreaShown" class="register-area__scrollable__form-area__company-area__details-area__text">Details</h2>
+							<h2 v-if="optionalAreaShown" class="register-area__scrollable__form-area__company-area__details-area__text">Hide Details</h2>
+							<div class="register-area__scrollable__form-area__company-area__details-area__expander-area">
 								<img v-if="!optionalAreaShown" src="../../static/images/register/BlueExpand.svg" />
 								<img v-if="optionalAreaShown" src="../../static/images/register/BlueHide.svg" />
 							</div>
@@ -62,7 +62,7 @@
 					</HeaderedInput>
 					<!-- start of optional area -->
 						<transition name="fade">
-							<div id="optionalArena" v-bind:class="[optionalAreaShown ? optionalAreaActive : optionalArea]">
+							<div id="optional-area" v-bind:class="[optionalAreaShown ? 'optional-area--active' : 'optional-area']">
 								<HeaderedInput 
 									label="Company Address" 
 									placeholder ="Enter Company Address" 
@@ -98,17 +98,17 @@
 							</div>
 						</transition>
 					<!-- end of optional area -->
-					<div class="termsArea">
-						<Checkbox class="checkBox" @setData="setTermsAccepted"/>
+					<div class="register-area__scrollable__form-area__terms-area">
+						<Checkbox class="register-area__scrollable__form-area__terms-area__checkbox" @setData="setTermsAccepted"/>
 						<h2>I agree to the Storj Bridge Hosting <a>Terms & Conditions</a></h2>
 					</div>
-					<Button class="createButton" label="Create Account" width="100%" height="48px" :onPress="onCreate"/>
+					<Button class="register-area__scrollable__form-area__create-button" label="Create Account" width="100%" height="48px" :onPress="onCreate"/>
 				</div>
 			</div>
 			
 		</div>
 		
-		<img class="layoutImage" src ="../../static/images/register/RegisterImage.svg"/>
+		<img class="layout-image" src ="../../static/images/register/RegisterImage.svg"/>
 	</div>
 </template>
 
@@ -217,9 +217,7 @@ import { validateEmail } from "@/utils/validation"
 			state: '',
 			postalCode: '',
 			isTermsAccepted: false,
-			optionalAreaShown: false,
-			optionalArea: "optionalArea",
-			optionalAreaActive: "optionalAreaActive"
+			optionalAreaShown: false
 		}
 	},
 	computed: {
@@ -250,145 +248,161 @@ export default class Register extends Vue {}
 		max-height: 100vh;
 		overflow: hidden;
 	}
-	.registerArea {
+	.register-area {
 		background-color: white;
 		width: 59vw;
 		max-height: 100vh;
+
+		&__scrollable {
+			height: 100vh;
+			overflow-y: scroll;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+
+			&__navLabel {
+				display: flex;
+				align-items: center;
+				flex-direction: row;
+				justify-content: flex-start;
+				align-self: center;
+				width: 68%;
+				margin-top: 70px;
+				h1 {
+					color: #384B65;
+					margin-left: 24px;
+					font-family: 'montserrat_bold'
+				}
+
+				&__back-image {
+					width: 21px;
+					height: 21px;
+
+					&:hover path  {
+						fill: #2683FF !important;
+					}
+				}
+			}
+
+			&__form-area {
+				margin-top: 50px;
+				align-self: center;
+				width: 35vw;
+
+				&__company-area {
+					display: flex;
+					flex-direction: row;
+					justify-content: space-between;
+					align-items: center;
+					width: 100%;
+					margin-top: 32px;
+					h2 {
+						font-family: 'montserrat_bold';
+						font-size: 20px;
+						line-height: 27px;
+						margin-right: 11px;
+					};
+					&__details-area {
+						cursor: pointer;
+						display: flex;
+						flex-direction: row;
+						justify-content: center;
+						align-items: center;
+
+						&__text {
+							font-size: 16px;
+							line-height: 23px;
+						}
+
+						&__expander-area {
+							display: flex;
+							align-items: center;
+							justify-content: center;
+							width: 28px;
+							height: 28px;
+							border-radius: 4px;
+
+							&:hover {
+								background-color: #E2ECF7;
+							}
+						}
+					};
+				}
+
+				&__terms-area {
+					display: flex;
+					flex-direction: row;
+					justify-content: flex-start;
+					margin-top: 20px;
+
+					&__checkbox {
+						align-self: center;
+					};
+
+					h2 {
+						font-family: 'montserrat_regular';
+						font-size: 14px;
+						line-height: 20px;
+						margin-top: 30px;
+						margin-left: 10px;
+					};
+					a {
+						color: #2683FF;
+						font-family: 'montserrat_bold';
+					}
+				}
+
+				&__create-button {
+					margin-top: 30px;
+					margin-bottom: 100px;
+				}
+			}
+		}
 	}
-	.scrollable {
-		height: 100vh;
-		overflow-y: scroll;
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
-	}
-	.layoutImage {
+	.layout-image {
 		background-color: #2683FF;
 		display: block;
 		width: auto;
 		height: 100vh;
 	}
-	.navLabel {
-		display: flex;
-		align-items: center;
-		flex-direction: row;
-		justify-content: flex-start;
-		align-self: center;
-		width: 68%;
-		margin-top: 70px;
-		margin-bottom: 32px;
-		h1 {
-			color: #384B65;
-			margin-left: 24px;
-			font-family: 'montserrat_bold'
-		}
-	}
-	.formArea {
-		margin-top: 50px;
-		align-self: center;
-		width: 35vw;
-	}
-	.companyArea {
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: center;
-		width: 100%;
-		margin-top: 32px;
-		h2 {
-			font-family: 'montserrat_bold';
-			font-size: 20px;
-			line-height: 27px;
-			margin-right: 11px;
-		};
-		.detailsArea {
-			cursor: pointer;
-			display: flex;
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-		};
-		.detailsText {
-			font-size: 16px;
-			line-height: 23px;
-		}
-	}
-	.backImage {
-		width: 21px;
-		height: 21px;
-	}
-	.backImage:hover path  {
-		fill: #2683FF !important;
-	}
-	.termsArea {
-		display: flex;
-		flex-direction: row;
-		justify-content: flex-start;
-		margin-top: 20px;
-		.checkBox {
-			align-self: center;
-		};
-		h2 {
-			font-family: 'montserrat_regular';
-			font-size: 14px;
-			line-height: 20px;
-			margin-top: 30px;
-			margin-left: 10px;
-		};
-		a {
-			color: #2683FF;
-			font-family: 'montserrat_bold';
-		}
-	}
-	.createButton {
-		margin-top: 30px;
-		margin-bottom: 100px;
-	}
 	a {
 		cursor: pointer;
 	}
-	.expanderArea {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 4px;
-	}
-	.expanderArea:hover {
-		background-color: #E2ECF7;
-	}
-	#optionalArena {
+	#optional-area {
 		height: auto;
 		visibility: visible;
 		opacity: 1;
 		transition: 0.5s;
 	}
-	#optionalArena.optionalAreaActive {
+	#optional-area.optional-area--active {
 		animation: mymove 0.5s ease-in-out;
 	}
-	#optionalArena.optionalArea {
+	#optional-area.optional-area {
 		height: 0px;
 		visibility: hidden;
 		position: absolute;
 		animation: mymoveout 0.5s ease-in-out;
 	}
 	@keyframes mymove {
-		from {height: 0px;
-			  visibility: hidden;
-			  opacity: 0;
+		from {
+			height: 0px;
+			visibility: hidden;
+			opacity: 0;
 		}
-		to {height: 100%;
+		to {
+			height: 100%;
 			visibility: visible;
 			opacity: 1;
 		}
 	}
 	@keyframes mymoveout {
-		from {height: 100%;
-			  visibility: visible;
-			  opacity: 1;
+		from {
+			height: 100%;
+			visibility: visible;
+			opacity: 1;
 		}
-		to {height: 0px;
+		to {
+			height: 0px;
 			visibility: hidden;
 			opacity: 0;
 		}
