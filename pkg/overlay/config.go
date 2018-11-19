@@ -88,9 +88,6 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	go func() {
 		for {
 			select {
@@ -114,9 +111,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		metrics: monkit.Default,
 	}
 	pb.RegisterOverlayServer(server.GRPC(), srv)
-	ctx = context.WithValue(ctx, ctxKeyOverlay, cache)
-	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)
-	return server.Run(ctx)
+
+	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
+	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)
+	return server.Run(ctx2)
 }
 
 // LoadFromContext gives access to the cache from the context, or returns nil
