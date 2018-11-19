@@ -72,7 +72,7 @@ type Stream struct {
 // TODO: remove
 type LastSegment struct {
 	Size              int64
-	EncryptedKeyNonce *Nonce
+	EncryptedKeyNonce Nonce
 	EncryptedKey      EncryptedPrivateKey
 }
 
@@ -89,7 +89,7 @@ type Segment struct {
 	PieceID PieceID
 	Pieces  []Piece
 	// Encryption
-	EncryptedKeyNonce *Nonce
+	EncryptedKeyNonce Nonce
 	EncryptedKey      EncryptedPrivateKey
 }
 
