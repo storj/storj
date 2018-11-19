@@ -108,7 +108,11 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			node.Identity)
 		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
 		// bootstrap satellite kademlia node
-		go node.Kademlia.Bootstrap(context.Background())
+		go func(n *Node) {
+			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+				return nil, utils.CombineErrors(err, planet.Shutdown())
+			}
+		}(node)
 
 		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
@@ -119,14 +123,14 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				return nil
 			}))
 
-		go func() {
+		go func(n *Node) {
 			// refresh the interval every 500ms
 			t := time.NewTicker(500 * time.Millisecond).C
 			for {
 				<-t
-				node.Overlay.Refresh(context.Background())
+				nn.Overlay.Refresh(context.Background())
 			}
-		}()
+		}(node)
 	}
 
 	// init storage nodes
@@ -151,7 +155,11 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				return server.Stop(context.Background())
 			}))
 		// bootstrap all the kademlia nodes
-		go node.Kademlia.Bootstrap(context.Background())
+		go func(n *Node) {
+			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
+				return nil, utils.CombineErrors(err, planet.Shutdown())
+			}
+		}(node)
 	}
 
 	// init Uplinks
