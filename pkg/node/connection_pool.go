@@ -100,7 +100,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 
 		// loop until we get a ready connection or allow for the default
 		// behavior if server is in transient failure
-		for conn.grpc.GetState() != connectivity.Ready && conn.grpc.GetState() != connectivity.TransientFailure {
+		for conn.grpc.GetState() != connectivity.Ready {
 			<-ticker.C
 		}
 

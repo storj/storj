@@ -77,10 +77,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
 
-	err = cache.Bootstrap(ctx)
-	if err != nil {
-		return err
-	}
+	go func() {
+		err = cache.Bootstrap(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()

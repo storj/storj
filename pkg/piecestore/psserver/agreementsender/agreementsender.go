@@ -96,7 +96,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					return
 				}
 
-				conn, err := grpc.Dial(satellite.GetAddress().String(), identOpt)
+				conn, err := grpc.Dial(satellite.GetAddress().Address, identOpt)
 				if err != nil {
 					zap.S().Error(err)
 					return

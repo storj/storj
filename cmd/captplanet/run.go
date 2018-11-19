@@ -106,7 +106,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
 			runCfg.Satellite.Overlay,
-			// TODO(coyle): re-enable the checker after we determine why it is panicing
+			// TODO(coyle): re-enable the checker after we determine why it is erroring
 			// runCfg.Satellite.Checker,
 			// runCfg.Satellite.Repairer,
 			runCfg.Satellite.Web,

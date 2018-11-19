@@ -244,9 +244,11 @@ func (k *Kademlia) ListenAndServe() error {
 // Seen returns all nodes that this kademlia instance has succesfully communicated with
 func (k *Kademlia) Seen() []*pb.Node {
 	nodes := []*pb.Node{}
+	k.routingTable.mutex.Lock()
 	for _, v := range k.routingTable.seen {
 		nodes = append(nodes, v)
 	}
+	k.routingTable.mutex.Unlock()
 	return nodes
 }
 
