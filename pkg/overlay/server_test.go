@@ -10,10 +10,11 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 )
 
-func TestOverlay(t *testing.T) {
+func TestServer(t *testing.T) {
 	t.Skip("Not working right now.")
 
 	ctx := testcontext.New(t)
@@ -27,27 +28,26 @@ func TestOverlay(t *testing.T) {
 
 	planet.Start(ctx)
 
-	overlay, err := planet.Uplinks[0].DialOverlay(planet.Satellites[0])
-	if err != nil {
-		t.Fatal(err)
-	}
+	satellite := planet.Satellites[0]
+	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, satellite.Kademlia)
+	// TODO: handle cleanup
 
 	{ // FindStorageNodes
-		result, err := overlay.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
+		result, err := server.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
 		if assert.NoError(t, err) && assert.NotNil(t, result) {
 			assert.Len(t, result.Nodes, 2)
 		}
 	}
 
 	{ // Lookup
-		result, err := overlay.Lookup(ctx, &pb.LookupRequest{NodeID: planet.StorageNodes[0].ID()})
+		result, err := server.Lookup(ctx, &pb.LookupRequest{NodeID: planet.StorageNodes[0].ID()})
 		if assert.NoError(t, err) && assert.NotNil(t, result) {
 			assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
 		}
 	}
 
 	{ // BulkLookup
-		result, err := overlay.BulkLookup(ctx, &pb.LookupRequests{
+		result, err := server.BulkLookup(ctx, &pb.LookupRequests{
 			Lookuprequest: []*pb.LookupRequest{
 				{NodeID: planet.StorageNodes[0].ID()},
 				{NodeID: planet.StorageNodes[1].ID()},
