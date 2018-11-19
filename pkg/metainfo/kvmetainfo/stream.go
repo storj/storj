@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -37,16 +38,17 @@ func (stream *readonlyStream) SegmentsAt(ctx context.Context, byteOffset int64, 
 	return stream.Segments(ctx, index, limit)
 }
 
-func (stream *readonlyStream) segment(ctx context.Context, index int64) (info storj.Segment, err error) {
+func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment storj.Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segment := storj.Segment{
+	segment = storj.Segment{
 		Index: index,
 	}
 
+	var segmentPath storj.Path
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		segmentPath := getSegmentPath(stream.encryptedPath, index+1)
+		segmentPath = getSegmentPath(stream.encryptedPath, index)
 		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
 		if err != nil {
 			return segment, err
@@ -62,15 +64,38 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (info st
 		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
 		segment.EncryptedKey = segmentMeta.EncryptedKey
 	} else {
+		segmentPath = storj.JoinPaths("l", stream.encryptedPath)
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
 	}
 
-	var nonce storj.Nonce
-	_, err = encryption.Increment(&nonce, index+1)
+	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
 	if err != nil {
 		return segment, err
+	}
+
+	nonce := new(storj.Nonce)
+	_, err = encryption.Increment(nonce, index+1)
+	if err != nil {
+		return segment, err
+	}
+
+	pointer, _, err := stream.db.pointers.Get(ctx, segmentPath)
+	if err != nil {
+		return segment, err
+	}
+
+	if pointer.GetType() == pb.Pointer_INLINE {
+		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
+	} else {
+		segment.PieceID = storj.PieceID(pointer.Remote.PieceId)
+		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))
+		for _, piece := range pointer.Remote.RemotePieces {
+			var nodeID storj.NodeID
+			copy(nodeID[:], node.IDFromString(piece.NodeId).Bytes())
+			segment.Pieces = append(segment.Pieces, storj.Piece{Number: byte(piece.PieceNum), Location: nodeID})
+		}
 	}
 
 	return segment, nil
