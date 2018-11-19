@@ -53,7 +53,7 @@ require (
 	github.com/minio/minio-go v6.0.3+incompatible
 	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da // indirect
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
-	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
+	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff
 	github.com/mr-tron/base58 v0.0.0-20180922112544-9ad991d48a42
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
