@@ -22,13 +22,14 @@ import (
 
 func TestRun(t *testing.T) {
 	bctx := context.Background()
-	bctx = auth.WithAPIKey(bctx, []byte(""))
-	prv, address, err := getProvider(bctx)
-	assert.NoError(t, err)
+	ctxWithAPIKey := auth.WithAPIKey(bctx, []byte(""))
 
 	kad := &kademlia.Kademlia{}
 	var kadKey kademlia.CtxKey
-	ctxWithKad := context.WithValue(bctx, kadKey, kad)
+	ctxWithKad := context.WithValue(ctxWithAPIKey, kadKey, kad)
+
+	prv, address, err := getProvider(ctxWithKad)
+	assert.NoError(t, err)
 
 	// run with nil
 	err = Config{}.Run(context.Background(), prv)
@@ -62,11 +63,24 @@ func registerStatDBServer(srv *grpc.Server) (err error) {
 }
 
 func getProvider(ctx context.Context) (*provider.Provider, string, error) {
+	ca, err := provider.NewTestCA(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	identity, err := ca.NewIdentity()
+	if err != nil {
+		return nil, "", err
+	}
+	identOpt, err := identity.ServerOption()
+	if err != nil {
+		return nil, "", err
+	}
+
 	lis, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
 		return nil, "", err
 	}
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(identOpt)
 	err = registerStatDBServer(srv)
 	if err != nil {
 		return nil, "", err
@@ -78,14 +92,7 @@ func getProvider(ctx context.Context) (*provider.Provider, string, error) {
 		_ = lis.Close()
 	}()
 	address := lis.Addr().String()
-	ca, err := provider.NewTestCA(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-	identity, err := ca.NewIdentity()
-	if err != nil {
-		return nil, "", err
-	}
+
 	prv, err := provider.NewProvider(identity, lis, nil)
 	if err != nil {
 		return nil, "", err
