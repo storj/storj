@@ -20,14 +20,10 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-const (
-	testNetSize = 30
-)
-
 func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	cache := overlay.Cache{DB: store}
 
-	t.Run("Put", func(t *testing.T) {
+	{ // Put
 		err := cache.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
@@ -36,9 +32,9 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	})
+	}
 
-	t.Run("Get", func(t *testing.T) {
+	{ // Get
 		valid2, err := cache.Get(ctx, "valid2")
 		if assert.NoError(t, err) {
 			assert.Equal(t, valid2.Address.Address, "127.0.0.1:9002")
@@ -53,9 +49,9 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 			_, err := cache.Get(ctx, "valid1")
 			assert.Error(t, err)
 		}
-	})
+	}
 
-	t.Run("GetAll", func(t *testing.T) {
+	{ // GetAll
 		nodes, err := cache.GetAll(ctx, []string{"valid2", "valid1", "valid2"})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9002")
@@ -83,7 +79,7 @@ func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 			_, err := cache.GetAll(ctx, []string{"valid1", "valid2"})
 			assert.Error(t, err)
 		}
-	})
+	}
 }
 
 func TestCache_Redis(t *testing.T) {
@@ -129,11 +125,13 @@ func TestCache_Refresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 4, 0)
+	planet, err := testplanet.New(t, 1, 30, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
 
 	err = planet.Satellites[0].Overlay.Refresh(ctx)
 	assert.NoError(t, err)
