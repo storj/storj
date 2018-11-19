@@ -54,7 +54,7 @@ message GetResponse {
 
 // DeleteRequest is a request message for the Delete rpc call
 message DeleteRequest {
-  RmtSegInfo rmtseginfo = 1;
+  bytes rmt_seg_key = 1; 
   bytes APIKey = 2;
 }
 

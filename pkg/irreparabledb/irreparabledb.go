@@ -124,7 +124,7 @@ func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteRequest) (resp *pb
 		return nil, err
 	}
 
-	dbSegInfo, err := s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetRmtSegKey()))
+	_, err = s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetRmtSegKey()))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
