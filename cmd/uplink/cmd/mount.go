@@ -64,7 +64,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	nfs := pathfs.NewPathNodeFs(newStorjFs(ctx, store), nil)
+	nfs := pathfs.NewPathNodeFs(newStorjFS(ctx, store), nil)
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 
 	// workaround to avoid async (unordered) reading
@@ -89,16 +89,16 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-type storjFs struct {
+type storjFS struct {
 	ctx          context.Context
 	store        objects.Store
 	createdFiles map[string]*storjFile
-	nodeFs       *pathfs.PathNodeFs
+	nodeFS       *pathfs.PathNodeFs
 	pathfs.FileSystem
 }
 
-func newStorjFs(ctx context.Context, store objects.Store) *storjFs {
-	return &storjFs{
+func newStorjFS(ctx context.Context, store objects.Store) *storjFS {
+	return &storjFS{
 		ctx:          ctx,
 		store:        store,
 		createdFiles: make(map[string]*storjFile),
@@ -106,11 +106,11 @@ func newStorjFs(ctx context.Context, store objects.Store) *storjFs {
 	}
 }
 
-func (sf *storjFs) OnMount(nodeFs *pathfs.PathNodeFs) {
-	sf.nodeFs = nodeFs
+func (sf *storjFS) OnMount(nodeFS *pathfs.PathNodeFs) {
+	sf.nodeFS = nodeFS
 }
 
-func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
+func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
 	zap.S().Debug("GetAttr: ", name)
 
 	if name == "" {
@@ -125,7 +125,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 		return attr, status
 	}
 
-	node := sf.nodeFs.Node(name)
+	node := sf.nodeFS.Node(name)
 	if node != nil && node.IsDir() {
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
@@ -158,7 +158,7 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}, fuse.OK
 }
 
-func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
+func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
 	zap.S().Debug("OpenDir: ", name)
 
 	entries, err := sf.listFiles(sf.ctx, name, sf.store)
@@ -169,27 +169,27 @@ func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 	return entries, fuse.OK
 }
 
-func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
+func (sf *storjFS) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	zap.S().Debug("Open: ", name)
 	return newStorjFile(sf.ctx, name, sf.store, false, sf), fuse.OK
 }
 
-func (sf *storjFs) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
+func (sf *storjFS) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	zap.S().Debug("Create: ", name)
 
 	return sf.addCreatedFile(name, newStorjFile(sf.ctx, name, sf.store, true, sf)), fuse.OK
 }
 
-func (sf *storjFs) addCreatedFile(name string, file *storjFile) *storjFile {
+func (sf *storjFS) addCreatedFile(name string, file *storjFile) *storjFile {
 	sf.createdFiles[name] = file
 	return file
 }
 
-func (sf *storjFs) removeCreatedFile(name string) {
+func (sf *storjFS) removeCreatedFile(name string) {
 	delete(sf.createdFiles, name)
 }
 
-func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
+func (sf *storjFS) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
 	var entries []fuse.DirEntry
 
 	startAfter := ""
@@ -221,7 +221,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 	return entries, nil
 }
 
-func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
+func (sf *storjFS) Unlink(name string, context *fuse.Context) (code fuse.Status) {
 	zap.S().Debug("Unlink: ", name)
 
 	err := sf.store.Delete(sf.ctx, name)
@@ -245,19 +245,19 @@ type storjFile struct {
 	reader          io.ReadCloser
 	writer          *io.PipeWriter
 	predictedOffset int64
-	fs              *storjFs
+	FS              *storjFS
 
 	nodefs.File
 }
 
-func newStorjFile(ctx context.Context, name string, store objects.Store, created bool, fs *storjFs) *storjFile {
+func newStorjFile(ctx context.Context, name string, store objects.Store, created bool, FS *storjFS) *storjFile {
 	return &storjFile{
 		name:    name,
 		ctx:     ctx,
 		store:   store,
 		mtime:   uint64(time.Now().Unix()),
 		created: created,
-		fs:      fs,
+		FS:      FS,
 		File:    nodefs.NewDefaultFile(),
 	}
 }
@@ -340,6 +340,13 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 		go func() {
 			zap.S().Debug("Starts writting: ", f.name)
 
+			defer func() {
+				utils.LogClose(reader)
+				if f.created {
+					f.FS.removeCreatedFile(f.name)
+				}
+			}()
+
 			meta := objects.SerializableMeta{}
 			expTime := time.Time{}
 
@@ -349,14 +356,6 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 			}
 
 			f.size = uint64(m.Size)
-
-			if err := reader.Close(); err != nil {
-				zap.S().Errorf("Failed to close reader: %s", err)
-			}
-
-			if f.created {
-				f.fs.removeCreatedFile(f.name)
-			}
 
 			zap.S().Debug("Stops writting: ", f.name)
 		}()
@@ -381,9 +380,7 @@ func (f *storjFile) closeReader() {
 
 func (f *storjFile) closeWriter() {
 	if f.writer != nil {
-		if err := f.writer.Close(); err != nil {
-			zap.S().Errorf("Failed to close writer: %s", err)
-		}
+		utils.LogClose(f.writer)
 		f.writer = nil
 	}
 }
