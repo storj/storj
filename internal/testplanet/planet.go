@@ -6,6 +6,7 @@ package testplanet
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -18,6 +19,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/node"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pieceserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -31,6 +33,7 @@ import (
 type Planet struct {
 	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
+	started   bool
 
 	nodeInfos []pb.Node
 	nodeLinks []string
@@ -93,7 +96,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	// init Satellites
 	for _, node := range planet.Satellites {
-		server := pointerdb.NewServer(
+		pointerServer := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
 			node.Log.Named("pdb"),
 			pointerdb.Config{
@@ -102,7 +105,10 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				Overlay:              true,
 			},
 			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), server)
+		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
+		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
@@ -157,11 +163,16 @@ func (planet *Planet) Start(ctx context.Context) {
 			}
 		}(node)
 	}
+	planet.started = true
 }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	var errs []error
+	if !planet.started {
+		errs = append(errs, errors.New("Start was never called"))
+	}
+
 	// shutdown in reverse order
 	for i := len(planet.nodes) - 1; i >= 0; i-- {
 		node := planet.nodes[i]
