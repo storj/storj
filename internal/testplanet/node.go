@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -33,6 +34,46 @@ type Node struct {
 	Overlay   *overlay.Cache
 
 	Dependencies []io.Closer
+}
+
+// newNode creates a new node.
+func (planet *Planet) newNode(name string) (*Node, error) {
+	identity, err := planet.newIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	listener, err := planet.newListener()
+	if err != nil {
+		return nil, err
+	}
+
+	node := &Node{
+		Log:      planet.log.Named(name),
+		Identity: identity,
+		Listener: listener,
+	}
+
+	node.Transport = transport.NewClient(identity)
+
+	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
+	if err != nil {
+		return nil, utils.CombineErrors(err, listener.Close())
+	}
+
+	node.Info = pb.Node{
+		Id: node.Identity.ID.String(),
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   node.Listener.Addr().String(),
+		},
+	}
+
+	planet.nodes = append(planet.nodes, node)
+	planet.nodeInfos = append(planet.nodeInfos, node.Info)
+	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
+
+	return node, nil
 }
 
 // ID returns node id
