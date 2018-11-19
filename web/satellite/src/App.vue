@@ -21,7 +21,6 @@
 
 a{
   cursor: pointer;
-  text-decoration: none;
 }
 
 input,

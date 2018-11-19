@@ -23,17 +23,41 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type AgreementsSummary_Status int32
+
+const (
+	AgreementsSummary_FAIL AgreementsSummary_Status = 0
+	AgreementsSummary_OK   AgreementsSummary_Status = 1
+)
+
+var AgreementsSummary_Status_name = map[int32]string{
+	0: "FAIL",
+	1: "OK",
+}
+var AgreementsSummary_Status_value = map[string]int32{
+	"FAIL": 0,
+	"OK":   1,
+}
+
+func (x AgreementsSummary_Status) String() string {
+	return proto.EnumName(AgreementsSummary_Status_name, int32(x))
+}
+func (AgreementsSummary_Status) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_bandwidth_01db992f91c47bae, []int{0, 0}
+}
+
 type AgreementsSummary struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Status               AgreementsSummary_Status `protobuf:"varint,1,opt,name=status,proto3,enum=bandwidth.AgreementsSummary_Status" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
 func (m *AgreementsSummary) Reset()         { *m = AgreementsSummary{} }
 func (m *AgreementsSummary) String() string { return proto.CompactTextString(m) }
 func (*AgreementsSummary) ProtoMessage()    {}
 func (*AgreementsSummary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bandwidth_99a1cbdb0d6e51ae, []int{0}
+	return fileDescriptor_bandwidth_01db992f91c47bae, []int{0}
 }
 func (m *AgreementsSummary) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AgreementsSummary.Unmarshal(m, b)
@@ -53,8 +77,16 @@ func (m *AgreementsSummary) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AgreementsSummary proto.InternalMessageInfo
 
+func (m *AgreementsSummary) GetStatus() AgreementsSummary_Status {
+	if m != nil {
+		return m.Status
+	}
+	return AgreementsSummary_FAIL
+}
+
 func init() {
 	proto.RegisterType((*AgreementsSummary)(nil), "bandwidth.AgreementsSummary")
+	proto.RegisterEnum("bandwidth.AgreementsSummary_Status", AgreementsSummary_Status_name, AgreementsSummary_Status_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -69,7 +101,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type BandwidthClient interface {
-	BandwidthAgreements(ctx context.Context, opts ...grpc.CallOption) (Bandwidth_BandwidthAgreementsClient, error)
+	BandwidthAgreements(ctx context.Context, in *RenterBandwidthAllocation, opts ...grpc.CallOption) (*AgreementsSummary, error)
 }
 
 type bandwidthClient struct {
@@ -80,101 +112,70 @@ func NewBandwidthClient(cc *grpc.ClientConn) BandwidthClient {
 	return &bandwidthClient{cc}
 }
 
-func (c *bandwidthClient) BandwidthAgreements(ctx context.Context, opts ...grpc.CallOption) (Bandwidth_BandwidthAgreementsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Bandwidth_serviceDesc.Streams[0], "/bandwidth.Bandwidth/BandwidthAgreements", opts...)
+func (c *bandwidthClient) BandwidthAgreements(ctx context.Context, in *RenterBandwidthAllocation, opts ...grpc.CallOption) (*AgreementsSummary, error) {
+	out := new(AgreementsSummary)
+	err := c.cc.Invoke(ctx, "/bandwidth.Bandwidth/BandwidthAgreements", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &bandwidthBandwidthAgreementsClient{stream}
-	return x, nil
-}
-
-type Bandwidth_BandwidthAgreementsClient interface {
-	Send(*RenterBandwidthAllocation) error
-	CloseAndRecv() (*AgreementsSummary, error)
-	grpc.ClientStream
-}
-
-type bandwidthBandwidthAgreementsClient struct {
-	grpc.ClientStream
-}
-
-func (x *bandwidthBandwidthAgreementsClient) Send(m *RenterBandwidthAllocation) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *bandwidthBandwidthAgreementsClient) CloseAndRecv() (*AgreementsSummary, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(AgreementsSummary)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 // BandwidthServer is the server API for Bandwidth service.
 type BandwidthServer interface {
-	BandwidthAgreements(Bandwidth_BandwidthAgreementsServer) error
+	BandwidthAgreements(context.Context, *RenterBandwidthAllocation) (*AgreementsSummary, error)
 }
 
 func RegisterBandwidthServer(s *grpc.Server, srv BandwidthServer) {
 	s.RegisterService(&_Bandwidth_serviceDesc, srv)
 }
 
-func _Bandwidth_BandwidthAgreements_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(BandwidthServer).BandwidthAgreements(&bandwidthBandwidthAgreementsServer{stream})
-}
-
-type Bandwidth_BandwidthAgreementsServer interface {
-	SendAndClose(*AgreementsSummary) error
-	Recv() (*RenterBandwidthAllocation, error)
-	grpc.ServerStream
-}
-
-type bandwidthBandwidthAgreementsServer struct {
-	grpc.ServerStream
-}
-
-func (x *bandwidthBandwidthAgreementsServer) SendAndClose(m *AgreementsSummary) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *bandwidthBandwidthAgreementsServer) Recv() (*RenterBandwidthAllocation, error) {
-	m := new(RenterBandwidthAllocation)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _Bandwidth_BandwidthAgreements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenterBandwidthAllocation)
+	if err := dec(in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	if interceptor == nil {
+		return srv.(BandwidthServer).BandwidthAgreements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/bandwidth.Bandwidth/BandwidthAgreements",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BandwidthServer).BandwidthAgreements(ctx, req.(*RenterBandwidthAllocation))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _Bandwidth_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "bandwidth.Bandwidth",
 	HandlerType: (*BandwidthServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
+	Methods: []grpc.MethodDesc{
 		{
-			StreamName:    "BandwidthAgreements",
-			Handler:       _Bandwidth_BandwidthAgreements_Handler,
-			ClientStreams: true,
+			MethodName: "BandwidthAgreements",
+			Handler:    _Bandwidth_BandwidthAgreements_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "bandwidth.proto",
 }
 
-func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_99a1cbdb0d6e51ae) }
+func init() { proto.RegisterFile("bandwidth.proto", fileDescriptor_bandwidth_01db992f91c47bae) }
 
-var fileDescriptor_bandwidth_99a1cbdb0d6e51ae = []byte{
-	// 146 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_bandwidth_01db992f91c47bae = []byte{
+	// 196 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0x4a, 0xcc, 0x4b,
 	0x29, 0xcf, 0x4c, 0x29, 0xc9, 0xd0, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x48,
-	0x09, 0x14, 0x64, 0xa6, 0x26, 0xa7, 0x16, 0x97, 0xe4, 0x17, 0xa5, 0x42, 0x24, 0x95, 0x84, 0xb9,
+	0x09, 0x14, 0x64, 0xa6, 0x26, 0xa7, 0x16, 0x97, 0xe4, 0x17, 0xa5, 0x42, 0x24, 0x95, 0x72, 0xb8,
 	0x04, 0x1d, 0xd3, 0x8b, 0x52, 0x53, 0x73, 0x53, 0xf3, 0x4a, 0x8a, 0x83, 0x4b, 0x73, 0x73, 0x13,
-	0x8b, 0x2a, 0x8d, 0x0a, 0xb9, 0x38, 0x9d, 0x60, 0x7a, 0x84, 0x52, 0xb8, 0x84, 0xe1, 0x1c, 0x84,
-	0x52, 0x21, 0x6d, 0x3d, 0x84, 0x59, 0x45, 0xf9, 0xa5, 0x25, 0xa9, 0xc5, 0x7a, 0x41, 0xa9, 0x79,
-	0x25, 0xa9, 0x45, 0x08, 0xc5, 0x39, 0x39, 0xf9, 0xc9, 0x89, 0x25, 0x99, 0xf9, 0x79, 0x52, 0x32,
-	0x7a, 0x08, 0x47, 0x61, 0x58, 0xa7, 0xc4, 0xa0, 0xc1, 0xe8, 0xc4, 0x12, 0xc5, 0x54, 0x90, 0x94,
-	0xc4, 0x06, 0x76, 0x94, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x47, 0x9f, 0xcd, 0x7b, 0xc4, 0x00,
-	0x00, 0x00,
+	0x8b, 0x2a, 0x85, 0xac, 0xb9, 0xd8, 0x8a, 0x4b, 0x12, 0x4b, 0x4a, 0x8b, 0x25, 0x18, 0x15, 0x18,
+	0x35, 0xf8, 0x8c, 0x94, 0xf5, 0x10, 0x66, 0x62, 0xa8, 0xd6, 0x0b, 0x06, 0x2b, 0x0d, 0x82, 0x6a,
+	0x51, 0x92, 0xe2, 0x62, 0x83, 0x88, 0x08, 0x71, 0x70, 0xb1, 0xb8, 0x39, 0x7a, 0xfa, 0x08, 0x30,
+	0x08, 0xb1, 0x71, 0x31, 0xf9, 0x7b, 0x0b, 0x30, 0x1a, 0xe5, 0x73, 0x71, 0x3a, 0xc1, 0x4c, 0x12,
+	0x4a, 0xe2, 0x12, 0x86, 0x73, 0x10, 0xa6, 0x0a, 0x69, 0xeb, 0x21, 0x1c, 0x59, 0x94, 0x5f, 0x5a,
+	0x92, 0x5a, 0xac, 0x17, 0x94, 0x9a, 0x57, 0x92, 0x5a, 0x84, 0x50, 0x9c, 0x93, 0x93, 0x9f, 0x9c,
+	0x58, 0x92, 0x99, 0x9f, 0x27, 0x25, 0x83, 0xcf, 0x65, 0x4a, 0x0c, 0x4e, 0x2c, 0x51, 0x4c, 0x05,
+	0x49, 0x49, 0x6c, 0x60, 0xbf, 0x1a, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xdc, 0x38, 0x8e, 0x59,
+	0x1b, 0x01, 0x00, 0x00,
 }

@@ -11,7 +11,9 @@ import (
 )
 
 // CreateBucket creates a new bucket with the specified information
-func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (storj.Bucket, error) {
+func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
@@ -25,7 +27,9 @@ func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucke
 }
 
 // DeleteBucket deletes bucket
-func (db *DB) DeleteBucket(ctx context.Context, bucket string) error {
+func (db *DB) DeleteBucket(ctx context.Context, bucket string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return storj.ErrNoBucket.New("")
 	}
@@ -34,7 +38,9 @@ func (db *DB) DeleteBucket(ctx context.Context, bucket string) error {
 }
 
 // GetBucket gets bucket information
-func (db *DB) GetBucket(ctx context.Context, bucket string) (storj.Bucket, error) {
+func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
@@ -48,7 +54,9 @@ func (db *DB) GetBucket(ctx context.Context, bucket string) (storj.Bucket, error
 }
 
 // ListBuckets lists buckets
-func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (storj.BucketList, error) {
+func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var startAfter, endBefore string
 	switch options.Direction {
 	case storj.Before:
@@ -77,7 +85,7 @@ func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) 
 		return storj.BucketList{}, err
 	}
 
-	list := storj.BucketList{
+	list = storj.BucketList{
 		More:  more,
 		Items: make([]storj.Bucket, 0, len(items)),
 	}

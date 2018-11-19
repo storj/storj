@@ -38,7 +38,7 @@ func NewClient(identity *provider.FullIdentity) Client {
 }
 
 // DialNode returns a grpc connection with tls to a node
-func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
@@ -46,27 +46,31 @@ func (o *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.Di
 	}
 
 	// add ID of node we are wanting to connect to
-	dialOpt, err := o.identity.DialOption(node.GetId())
+	dialOpt, err := transport.identity.DialOption(node.GetId())
 	if err != nil {
 		return nil, err
 	}
-	return grpc.Dial(node.GetAddress().Address, append([]grpc.DialOption{dialOpt}, opts...)...)
+
+	options := append([]grpc.DialOption{dialOpt}, opts...)
+	return grpc.Dial(node.GetAddress().Address, options...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address
-func (o *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dialOpt, err := o.identity.DialOption("")
+	dialOpt, err := transport.identity.DialOption("")
 	if err != nil {
 		return nil, err
 	}
-	return grpc.Dial(address, append([]grpc.DialOption{dialOpt}, opts...)...)
+
+	options := append([]grpc.DialOption{dialOpt}, opts...)
+	return grpc.Dial(address, options...)
 }
 
 // Identity is a getter for the transport's identity
-func (o *Transport) Identity() *provider.FullIdentity {
-	return o.identity
+func (transport *Transport) Identity() *provider.FullIdentity {
+	return transport.identity
 }
 
 // Close implements io.closer, closing the transport connection(s)
