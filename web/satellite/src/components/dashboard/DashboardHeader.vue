@@ -37,6 +37,9 @@ export default class DashboardHeader extends Vue {}
         justify-content: flex-start;
         padding-left: 4vw;
         padding-right: 4vw;
+        img {
+            cursor: pointer;
+        }
     }
     .hLogo {
         width: 10vw;

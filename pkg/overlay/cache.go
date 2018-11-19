@@ -11,13 +11,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -32,24 +30,6 @@ var OverlayError = errs.Class("Overlay Error")
 type Cache struct {
 	DB  storage.KeyValueStore
 	DHT dht.DHT
-}
-
-// NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
-func NewRedisOverlayCache(address, password string, dbindex int, dht dht.DHT) (*Cache, error) {
-	db, err := redis.NewClient(address, password, dbindex)
-	if err != nil {
-		return nil, err
-	}
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
-}
-
-// NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
-	db, err := boltdb.New(dbPath, OverlayBucket)
-	if err != nil {
-		return nil, err
-	}
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
 }
 
 // NewOverlayCache returns a new Cache
