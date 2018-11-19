@@ -157,6 +157,7 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
+	// valid to connect to node without ID but don't store connection
 	if node.GetId() == "" {
 		return nil
 	}

@@ -205,7 +205,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
-	// TODO(coyle)
+	// TODO(coyle): actually Find Node not just perform a lookup
 	err := k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
 	})

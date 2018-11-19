@@ -6,9 +6,9 @@ package kademlia
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/node"
@@ -70,7 +70,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	go func() {
 		if err = kad.Bootstrap(ctx); err != nil {
-			fmt.Printf("ERROR :: %v\n", err)
+			zap.L().Error("Failed to bootstrap Kademlia", zap.String("ID", server.Identity().ID.String()))
 		}
 	}()
 

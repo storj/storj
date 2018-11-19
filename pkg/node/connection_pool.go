@@ -100,6 +100,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 
 		// loop until we get a ready connection or allow for the default
 		// behavior if server is in transient failure
+		// TODO(coyle): determine best way to configure or save as consts
 		retry := 0
 		threshold := 10
 		for conn.grpc.GetState() != connectivity.Ready && retry < threshold {
