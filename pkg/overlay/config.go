@@ -12,6 +12,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/statdb/sdbclient"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
@@ -31,6 +33,7 @@ var (
 type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
 	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
+	StatDBPort      string        `help:"port to contact statDB client" default:":7778"`
 }
 
 // CtxKey used for assigning cache
@@ -57,6 +60,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.Wrap(err)
 	}
 
+	apiKey, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return Error.New("invalid API credentials")
+	}
+	statdb, err := sdbclient.NewClient(server.Identity(), c.StatDBPort, apiKey)
+	if err != nil {
+		return err
+	}
+
 	var db storage.KeyValueStore
 
 	switch dburl.Scheme {
@@ -76,7 +88,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
 
-	cache := NewOverlayCache(db, kad)
+	cache := NewOverlayCache(db, kad, statdb)
 
 	err = cache.Bootstrap(ctx)
 	if err != nil {
