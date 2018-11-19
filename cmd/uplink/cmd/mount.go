@@ -64,7 +64,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	nfs := pathfs.NewPathNodeFs(&storjFs{FileSystem: pathfs.NewDefaultFileSystem(), ctx: ctx, store: store}, nil)
+	nfs := pathfs.NewPathNodeFs(newStorjFs(ctx, store), nil)
 	conn := nodefs.NewFileSystemConnector(nfs.Root(), nil)
 
 	// workaround to avoid async (unordered) reading
@@ -90,11 +90,20 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 }
 
 type storjFs struct {
-	ctx         context.Context
-	store       objects.Store
-	createdFile string
-	nodeFs      *pathfs.PathNodeFs
+	ctx          context.Context
+	store        objects.Store
+	createdFiles map[string]*storjFile
+	nodeFs       *pathfs.PathNodeFs
 	pathfs.FileSystem
+}
+
+func newStorjFs(ctx context.Context, store objects.Store) *storjFs {
+	return &storjFs{
+		ctx:          ctx,
+		store:        store,
+		createdFiles: make(map[string]*storjFile, 0),
+		FileSystem:   pathfs.NewDefaultFileSystem(),
+	}
 }
 
 func (sf *storjFs) OnMount(nodeFs *pathfs.PathNodeFs) {
@@ -108,12 +117,12 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 		return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 	}
 
-	if name == sf.createdFile {
-		sf.createdFile = ""
-		return &fuse.Attr{
-			Owner: *fuse.CurrentOwner(),
-			Mode:  fuse.S_IFREG | 0644,
-		}, fuse.OK
+	// special case for just created files e.g. while coping into directory
+	createdFile, ok := sf.createdFiles[name]
+	if ok {
+		attr := &fuse.Attr{}
+		status := createdFile.GetAttr(attr)
+		return attr, status
 	}
 
 	node := sf.nodeFs.Node(name)
@@ -162,14 +171,22 @@ func (sf *storjFs) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 
 func (sf *storjFs) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
 	zap.S().Debug("Open: ", name)
-	return newStorjFile(sf.ctx, name, sf.store, false), fuse.OK
+	return newStorjFile(sf.ctx, name, sf.store, false, sf), fuse.OK
 }
 
 func (sf *storjFs) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
-	zap.S().Debug("Debug: ", name)
+	zap.S().Debug("Create: ", name)
 
-	sf.createdFile = name
-	return newStorjFile(sf.ctx, name, sf.store, true), fuse.OK
+	return sf.addCreatedFile(name, newStorjFile(sf.ctx, name, sf.store, true, sf)), fuse.OK
+}
+
+func (sf *storjFs) addCreatedFile(name string, file *storjFile) *storjFile {
+	sf.createdFiles[name] = file
+	return file
+}
+
+func (sf *storjFs) removeCreatedFile(name string) {
+	delete(sf.createdFiles, name)
 }
 
 func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
@@ -228,17 +245,19 @@ type storjFile struct {
 	reader          io.ReadCloser
 	writer          *io.PipeWriter
 	predictedOffset int64
+	fs              *storjFs
 
 	nodefs.File
 }
 
-func newStorjFile(ctx context.Context, name string, store objects.Store, created bool) *storjFile {
+func newStorjFile(ctx context.Context, name string, store objects.Store, created bool, fs *storjFs) *storjFile {
 	return &storjFile{
 		name:    name,
 		ctx:     ctx,
 		store:   store,
 		mtime:   uint64(time.Now().Unix()),
 		created: created,
+		fs:      fs,
 		File:    nodefs.NewDefaultFile(),
 	}
 }
@@ -333,6 +352,10 @@ func (f *storjFile) getWriter(off int64) (*io.PipeWriter, error) {
 
 			if err := reader.Close(); err != nil {
 				zap.S().Errorf("Failed to close reader: %s", err)
+			}
+
+			if f.created {
+				f.fs.removeCreatedFile(f.name)
 			}
 
 			zap.S().Debug("Stops writting: ", f.name)
