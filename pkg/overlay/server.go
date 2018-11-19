@@ -24,10 +24,20 @@ var ServerError = errs.Class("Server Error")
 
 // Server implements our overlay RPC service
 type Server struct {
+	logger  *zap.Logger
 	dht     dht.DHT
 	cache   *Cache
-	logger  *zap.Logger
 	metrics *monkit.Registry
+}
+
+// NewServer creates a new Overlay Server
+func NewServer(log *zap.Logger, cache *Cache, dht dht.DHT) *Server {
+	return &Server{
+		dht:     dht,
+		cache:   cache,
+		logger:  log,
+		metrics: monkit.Default,
+	}
 }
 
 // Lookup finds the address of a node in our overlay network
