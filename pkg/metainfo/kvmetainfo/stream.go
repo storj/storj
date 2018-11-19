@@ -87,7 +87,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 	}
 
 	if pointer.GetType() == pb.Pointer_INLINE {
-		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.Info().EncryptionScheme.Cipher, contentKey, nonce)
+		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
 	} else {
 		segment.PieceID = storj.PieceID(pointer.Remote.PieceId)
 		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))
