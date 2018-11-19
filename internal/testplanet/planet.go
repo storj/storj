@@ -6,6 +6,7 @@ package testplanet
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -33,6 +34,7 @@ import (
 type Planet struct {
 	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
+	started   bool
 
 	nodeInfos []pb.Node
 	nodeLinks []string
@@ -156,11 +158,16 @@ func (planet *Planet) Start(ctx context.Context) {
 			}
 		}(node)
 	}
+	planet.started = true
 }
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	var errs []error
+	if !planet.started {
+		errs = append(errs, errors.New("Start was never called"))
+	}
+
 	// shutdown in reverse order
 	for i := len(planet.nodes) - 1; i >= 0; i-- {
 		node := planet.nodes[i]
