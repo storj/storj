@@ -91,9 +91,9 @@ func (projects *projects) Update(ctx context.Context, project *satellite.Project
 	_, err := projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		dbx.Project_Update_Fields{
-			Name:              dbx.Project_Name(project.Name),
-			Description:       dbx.Project_Description(project.Description),
-			TermsAccepted: 	   dbx.Project_TermsAccepted(project.TermsAccepted),
+			Name:          dbx.Project_Name(project.Name),
+			Description:   dbx.Project_Description(project.Description),
+			TermsAccepted: dbx.Project_TermsAccepted(project.TermsAccepted),
 		})
 
 	return err
