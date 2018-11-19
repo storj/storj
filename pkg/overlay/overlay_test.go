@@ -32,16 +32,14 @@ func TestOverlay(t *testing.T) {
 
 	{ // FindStorageNodes
 		result, err := overlay.FindStorageNodes(ctx, &pb.FindStorageNodesRequest{Opts: &pb.OverlayOptions{Amount: 2}})
-		if assert.NoError(t, err) {
-			assert.NotNil(t, result)
+		if assert.NoError(t, err) && assert.NotNil(t, result) {
 			assert.Len(t, result.Nodes, 2)
 		}
 	}
 
 	{ // Lookup
 		result, err := overlay.Lookup(ctx, &pb.LookupRequest{NodeID: planet.StorageNodes[0].ID()})
-		if assert.NoError(t, err) {
-			assert.NotNil(t, result)
+		if assert.NoError(t, err) && assert.NotNil(t, result) {
 			assert.Equal(t, result.Node.Address.Address, planet.StorageNodes[0].Addr())
 		}
 	}
@@ -55,12 +53,12 @@ func TestOverlay(t *testing.T) {
 			},
 		})
 
-		if assert.NoError(t, err) {
-			assert.NotNil(t, result)
-			assert.Len(t, result.Lookupresponse, 3)
-			assert.Equal(t, result.Lookupresponse[0].Node.Address.Address, planet.StorageNodes[0].Addr())
-			assert.Equal(t, result.Lookupresponse[1].Node.Address.Address, planet.StorageNodes[1].Addr())
-			assert.Equal(t, result.Lookupresponse[2].Node.Address.Address, planet.StorageNodes[2].Addr())
+		if assert.NoError(t, err) && assert.NotNil(t, result) && assert.Len(t, result.Lookupresponse, 3) {
+			for i, resp := range result.Lookupresponse {
+				if assert.NotNil(t, resp.Node) {
+					assert.Equal(t, resp.Node.Address.Address, planet.StorageNodes[i].Addr())
+				}
+			}
 		}
 	}
 }
