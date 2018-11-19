@@ -39,6 +39,12 @@ const (
 	ctxKeyKad CtxKey = iota
 )
 
+// FarmerConfig defines properites related to farmer metadata
+type FarmerConfig struct {
+	Email  string `help:"Farmer email address" default:""`
+	Wallet string `help:"Farmer wallet adress" default:""`
+}
+
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
@@ -47,10 +53,7 @@ type Config struct {
 	// TODO(jt): remove this! kademlia should just use the grpc server
 	TODOListenAddr string `help:"the host/port for kademlia to listen on. TODO(jt): this should be removed!" default:"127.0.0.1:7776"`
 	Alpha          int    `help:"alpha is a system wide concurrency parameter." default:"5"`
-
-	// TODO(michal) move it to place more related to storage node
-	FarmerEmail  string `help:"Farmer email address" default:""`
-	FarmerWallet string `help:"Farmer wallet adress" default:""`
+	Farmer         FarmerConfig
 }
 
 // Run implements provider.Responsibility
@@ -66,8 +69,8 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	}
 
 	metadata := &pb.NodeMetadata{
-		Email:  c.FarmerEmail,
-		Wallet: c.FarmerWallet,
+		Email:  c.Farmer.Email,
+		Wallet: c.Farmer.Wallet,
 	}
 
 	// TODO(jt): kademlia should register on server.GRPC() instead of listening
