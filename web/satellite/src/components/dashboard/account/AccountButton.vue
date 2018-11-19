@@ -1,14 +1,14 @@
 <template>
-    <div class="abContainer" >
-        <div class="abToggleContainer" v-on:click="toggleSelection" >
+    <div class="account-button-container" >
+        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
-            <div class="abAvatar" :style="style">
+            <div class="account-button-toggle-container__avatar" :style="style">
                 <!-- First digit of firstName after Registration -->
                 <!-- img if avatar was set -->
                 <h1>{{avatarLetter}}</h1>
             </div>
             <h1>{{userName}}</h1>
-            <div class="abExpanderArea">
+            <div class="account-button-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
             </div>
@@ -59,7 +59,7 @@ export default class AccountButton extends Vue {}
         text-decoration: none;
         outline: none;
     }
-    .abContainer {
+    .account-button-container {
         position: relative;
         padding-left: 10px;
         padding-right: 10px;
@@ -72,33 +72,35 @@ export default class AccountButton extends Vue {}
             color: #354049;
         }
     }
-    .abToggleContainer {
+    .account-button-toggle-container {
         display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
         width: 12.5vw;
         height: 5vh;
-    }
-    .abAvatar {
-        width: 2.8vw;
-        height: 100%;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        h1 {
-            font-family: 'montserrat_medium';
-		    font-size: 16px;
-		    line-height: 23px;
-            color: #354049;
+
+        &__avatar {
+            width: 2.8vw;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            h1 {
+                font-family: 'montserrat_medium';
+                font-size: 16px;
+                line-height: 23px;
+                color: #354049;
+            }
         }
-    }
-    .abExpanderArea {
-        display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
+
+        &__expander-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
     }
 </style>

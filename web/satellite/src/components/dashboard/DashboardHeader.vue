@@ -1,9 +1,9 @@
 <template>
-    <div class="headerContainer">
-        <img class="hLogo" src="../../../static/images/dashboard/Logo.png" alt="">
-        <ProjectSelectionArea class="hPSD"/>
-        <AccountButton class="hAccButton" />
-        <NewProjectArea class="hNewProjArea" />
+    <div class="header-container">
+        <img class="header-container__logo" src="../../../static/images/dashboard/Logo.png" alt="">
+        <ProjectSelectionArea class="header-container__project-selection"/>
+        <AccountButton class="header-container__account-button" />
+        <NewProjectArea class="header-container__new-project" />
     </div>
 </template>
 
@@ -27,7 +27,7 @@ export default class DashboardHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .headerContainer {
+    .header-container {
         width: 100%;
         height: 10vh;
         background-color: white;
@@ -37,21 +37,26 @@ export default class DashboardHeader extends Vue {}
         justify-content: flex-start;
         padding-left: 4vw;
         padding-right: 4vw;
+
         img {
             cursor: pointer;
         }
-    }
-    .hLogo {
-        width: 10vw;
-        height: 7.5vh;
-    }
-    .hPSD {
-        margin-left: 10vw;
-    }
-    .hAccButton {
-        margin-left: 32vw;
-    }
-    .hNewProjArea {
-        margin-left: 20px;
+
+        &__logo {
+            width: 10vw;
+            height: 7.5vh;
+        }
+
+        &__project-selection {
+            margin-left: 10vw;
+        }
+        
+        &__account-button {
+            margin-left: 32vw;
+        }
+        
+        &__new-project {
+            margin-left: 20px;
+        }
     }
 </style>
