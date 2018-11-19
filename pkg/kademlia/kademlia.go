@@ -174,8 +174,7 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discovery
 
 	if opts.bootstrap {
 		for _, v := range opts.bootstrapNodes {
-			n := v
-			nodes = append(nodes, &n)
+			nodes = append(nodes, &v)
 		}
 	}
 
