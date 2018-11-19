@@ -162,9 +162,21 @@ func (sf *storjFS) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntry, code fuse.Status) {
 	zap.S().Debug("OpenDir: ", name)
 
-	entries, err := sf.listFiles(sf.ctx, name, sf.store)
+	objects, err := sf.listObjects(sf.ctx, name, false)
 	if err != nil {
 		return nil, fuse.EIO
+	}
+
+	var entries []fuse.DirEntry
+	for _, object := range objects {
+		path := object.Path
+
+		mode := fuse.S_IFREG
+		if object.IsPrefix {
+			path = strings.TrimSuffix(path, "/")
+			mode = fuse.S_IFDIR
+		}
+		entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
 	}
 
 	return entries, fuse.OK
@@ -180,6 +192,26 @@ func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.S
 	_, err := sf.store.Put(sf.ctx, name+"/", reader, meta, expTime)
 	if err != nil {
 		return fuse.EIO
+	}
+
+	return fuse.OK
+}
+
+func (sf *storjFS) Rmdir(name string, context *fuse.Context) (code fuse.Status) {
+	zap.S().Debug("Rmdir: ", name)
+
+	objects, err := sf.listObjects(sf.ctx, name, true)
+	if err != nil {
+		zap.S().Errorf("error during listing: %v", err)
+		return fuse.EIO
+	}
+
+	for _, object := range objects {
+		err := sf.store.Delete(sf.ctx, name+"/"+object.Path)
+		if err != nil {
+			zap.S().Errorf("error during deleting: %v", err)
+			return fuse.EIO
+		}
 	}
 
 	return fuse.OK
@@ -205,27 +237,18 @@ func (sf *storjFS) removeCreatedFile(name string) {
 	delete(sf.createdFiles, name)
 }
 
-func (sf *storjFS) listFiles(ctx context.Context, name string, store objects.Store) (c []fuse.DirEntry, err error) {
-	var entries []fuse.DirEntry
+func (sf *storjFS) listObjects(ctx context.Context, name string, recursive bool) (c []objects.ListItem, err error) {
+	var entries []objects.ListItem
 
 	startAfter := ""
 
 	for {
-		items, more, err := store.List(ctx, name, startAfter, "", false, 0, meta.None)
+		items, more, err := sf.store.List(sf.ctx, name, startAfter, "", recursive, 0, meta.None)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, object := range items {
-			path := object.Path
-
-			mode := fuse.S_IFREG
-			if object.IsPrefix {
-				path = strings.TrimSuffix(path, "/")
-				mode = fuse.S_IFDIR
-			}
-			entries = append(entries, fuse.DirEntry{Name: path, Mode: uint32(mode)})
-		}
+		entries = append(entries, items...)
 
 		if !more {
 			break
