@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 	"crypto/rand"
-	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -121,16 +120,18 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
-	log.Print("starting cache refresh")
+	zap.L().Info("starting cache refresh")
 	r, err := randomID()
 	if err != nil {
 		return err
 	}
 	rid := node.ID(r)
+
 	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
 		return err
 	}
+
 	for _, n := range near {
 		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
@@ -148,6 +149,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			continue
 		}
 	}
+
 	// TODO: Kademlia hooks to do this automatically rather than at interval
 	nodes, err := o.DHT.GetNodes(ctx, "", 128)
 	if err != nil {

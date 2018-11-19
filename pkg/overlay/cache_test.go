@@ -1,24 +1,18 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package overlay_test
 
 import (
 	"context"
-	"math/rand"
-	"net"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/node"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -26,73 +20,69 @@ import (
 	"storj.io/storj/storage/teststore"
 )
 
-const (
-	testNetSize = 30
-)
+func testCache(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
+	cache := overlay.Cache{DB: store}
 
-func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
-	overlay := Cache{DB: store}
-
-	t.Run("Put", func(t *testing.T) {
-		err := overlay.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
+	{ // Put
+		err := cache.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = overlay.Put("valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
+		err = cache.Put("valid2", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9002"}})
 		if err != nil {
 			t.Fatal(err)
 		}
-	})
+	}
 
-	t.Run("Get", func(t *testing.T) {
-		valid2, err := overlay.Get(ctx, "valid2")
+	{ // Get
+		valid2, err := cache.Get(ctx, "valid2")
 		if assert.NoError(t, err) {
 			assert.Equal(t, valid2.Address.Address, "127.0.0.1:9002")
 		}
 
-		invalid2, err := overlay.Get(ctx, "invalid2")
+		invalid2, err := cache.Get(ctx, "invalid2")
 		assert.Error(t, err)
 		assert.Nil(t, invalid2)
 
 		if storeClient, ok := store.(*teststore.Client); ok {
 			storeClient.ForceError++
-			_, err := overlay.Get(ctx, "valid1")
+			_, err := cache.Get(ctx, "valid1")
 			assert.Error(t, err)
 		}
-	})
+	}
 
-	t.Run("GetAll", func(t *testing.T) {
-		nodes, err := overlay.GetAll(ctx, []string{"valid2", "valid1", "valid2"})
+	{ // GetAll
+		nodes, err := cache.GetAll(ctx, []string{"valid2", "valid1", "valid2"})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9002")
 			assert.Equal(t, nodes[1].Address.Address, "127.0.0.1:9001")
 			assert.Equal(t, nodes[2].Address.Address, "127.0.0.1:9002")
 		}
 
-		nodes, err = overlay.GetAll(ctx, []string{"valid1", "invalid"})
+		nodes, err = cache.GetAll(ctx, []string{"valid1", "invalid"})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9001")
 			assert.Nil(t, nodes[1])
 		}
 
-		nodes, err = overlay.GetAll(ctx, []string{"", ""})
+		nodes, err = cache.GetAll(ctx, []string{"", ""})
 		if assert.NoError(t, err) {
 			assert.Nil(t, nodes[0])
 			assert.Nil(t, nodes[1])
 		}
 
-		_, err = overlay.GetAll(ctx, []string{})
-		assert.True(t, OverlayError.Has(err))
+		_, err = cache.GetAll(ctx, []string{})
+		assert.True(t, overlay.OverlayError.Has(err))
 
 		if storeClient, ok := store.(*teststore.Client); ok {
 			storeClient.ForceError++
-			_, err := overlay.GetAll(ctx, []string{"valid1", "valid2"})
+			_, err := cache.GetAll(ctx, []string{"valid1", "valid2"})
 			assert.Error(t, err)
 		}
-	})
+	}
 }
 
-func TestRedis(t *testing.T) {
+func TestCache_Redis(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -108,10 +98,10 @@ func TestRedis(t *testing.T) {
 	}
 	defer ctx.Check(store.Close)
 
-	testOverlay(ctx, t, store)
+	testCache(ctx, t, store)
 }
 
-func TestBolt(t *testing.T) {
+func TestCache_Bolt(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -121,123 +111,28 @@ func TestBolt(t *testing.T) {
 	}
 	defer ctx.Check(client.Close)
 
-	testOverlay(ctx, t, client)
+	testCache(ctx, t, client)
 }
 
-func TestStore(t *testing.T) {
+func TestCache_Store(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testOverlay(ctx, t, teststore.New())
+	testCache(ctx, t, teststore.New())
 }
 
-func TestRefresh(t *testing.T) {
-	ctx := context.Background()
+func TestCache_Refresh(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	dhts, bootstrap := bootstrapTestNetwork(t, "127.0.0.1", "9999")
-	dht := newTestKademlia(t, "127.0.0.1", "9999", dhts[rand.Intn(testNetSize)], bootstrap)
-
-	cache := &Cache{
-		DB:  teststore.New(),
-		DHT: dht,
-	}
-
-	err := cache.Bootstrap(ctx)
-	assert.NoError(t, err)
-
-	err = cache.Refresh(ctx)
-	assert.NoError(t, err)
-}
-
-func newTestKademlia(t *testing.T, ip, port string, d dht.DHT, bootstrap pb.Node) *kademlia.Kademlia {
-	ctx := context.Background()
-	fid, err := node.NewFullIdentity(ctx, 12, 4)
-	assert.NoError(t, err)
-	bootstrapNodes := []pb.Node{bootstrap}
-
-	self := pb.Node{Id: fid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, port)}}
-
-	routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
+	planet, err := testplanet.New(t, 1, 30, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer ctx.Check(planet.Shutdown)
 
-	kad, err := kademlia.NewKademliaWithRoutingTable(self, bootstrapNodes, fid, 5, routing)
-	if err != nil {
-		t.Fatal(utils.CombineErrors(err, routing.Close()))
-	}
+	planet.Start(ctx)
 
-	return kad
-}
-
-func bootstrapTestNetwork(t *testing.T, ip, port string) ([]dht.DHT, pb.Node) {
-	ctx := context.Background()
-	bid, err := node.NewFullIdentity(ctx, 12, 4)
+	err = planet.Satellites[0].Overlay.Refresh(ctx)
 	assert.NoError(t, err)
-
-	dhts := []dht.DHT{}
-
-	p, err := strconv.Atoi(port)
-	pm := strconv.Itoa(p)
-	assert.NoError(t, err)
-	intro, err := kademlia.GetIntroNode(net.JoinHostPort(ip, pm))
-	intro.Id = "test"
-	assert.NoError(t, err)
-
-	ca, err := provider.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
-
-	self := pb.Node{Id: bid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, port)}}
-
-	routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	boot, err := kademlia.NewKademliaWithRoutingTable(self, []pb.Node{*intro}, identity, 5, routing)
-	if err != nil {
-		t.Fatal(utils.CombineErrors(err, routing.Close()))
-	}
-
-	bootNode := routing.Local()
-
-	go func() {
-		err = boot.ListenAndServe()
-		assert.NoError(t, err)
-	}()
-	p++
-
-	err = boot.Bootstrap(context.Background())
-	assert.NoError(t, err)
-	for i := 0; i < testNetSize; i++ {
-		gg := strconv.Itoa(p)
-
-		fid, err := node.NewFullIdentity(ctx, 12, 4)
-		assert.NoError(t, err)
-
-		self := pb.Node{Id: fid.ID.String(), Address: &pb.NodeAddress{Address: net.JoinHostPort(ip, gg)}}
-
-		routing, err := kademlia.NewRoutingTable(self, teststore.New(), teststore.New())
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		dht, err := kademlia.NewKademliaWithRoutingTable(self, []pb.Node{bootNode}, fid, 5, routing)
-		if err != nil {
-			t.Fatal(utils.CombineErrors(err, routing.Close()))
-		}
-
-		p++
-		dhts = append(dhts, dht)
-		go func() {
-			err = dht.ListenAndServe()
-			assert.NoError(t, err)
-		}()
-		err = dht.Bootstrap(context.Background())
-		assert.NoError(t, err)
-	}
-
-	return dhts, bootNode
 }
