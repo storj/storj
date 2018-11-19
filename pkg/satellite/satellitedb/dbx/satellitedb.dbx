@@ -59,11 +59,11 @@ model project (
     key id
 
     field id                   blob
-    field user_id              user.id   cascade
+    field owner_id             user.id   setnull ( nullable, updatable )
 
-    field name                 text ( updatable )
-    field description          text ( updatable )
-    field is_agreed_with_terms bool ( updatable )
+    field name                 text      ( updatable )
+    field description          text      ( updatable )
+    field is_agreed_with_terms bool      ( updatable )
 
     field created_at           timestamp ( autoinsert )
 )
@@ -73,9 +73,9 @@ read one (
     select project
     where project.id = ?
 )
-read one (
+read all (
     select project
-    where project.user_id = ?
+    where project.owner_id = ?
 )
 create project ( )
 update project ( where project.id = ? )

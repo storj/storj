@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/satellite"
 
 	"storj.io/storj/pkg/satellite/satellitedb/dbx"
@@ -46,13 +47,7 @@ func (db *Database) Projects() satellite.Projects {
 
 // CreateTables is a method for creating all tables for satellitedb
 func (db *Database) CreateTables() error {
-	//TODO: this code will be returned in the new commit
-	//return migrate.Create("satellitedb", db.db)
-
-	//TODO: this code should be removed in the new commit
-	_, err := db.db.Exec(db.db.Schema())
-
-	return err
+	return migrate.Create("satellitedb", db.db)
 }
 
 // Close is used to close db connection

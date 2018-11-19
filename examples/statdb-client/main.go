@@ -94,8 +94,7 @@ func main() {
 	farmer1.UpdateAuditSuccess = true
 	farmer1.UpdateUptime = true
 
-	nodeStats, err := client.Update(ctx, farmer1.NodeId, farmer1.AuditSuccess, farmer1.IsUp, nil,
-		farmer1.UpdateAuditSuccess, farmer1.UpdateUptime, false)
+	nodeStats, err := client.Update(ctx, farmer1.NodeId, farmer1.AuditSuccess, farmer1.IsUp, nil)
 	if err != nil || status.Code(err) == codes.Internal {
 		logger.Error("failed to update", zap.Error(err))
 		os.Exit(1)

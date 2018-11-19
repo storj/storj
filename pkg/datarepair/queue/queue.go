@@ -13,6 +13,7 @@ import (
 type RepairQueue interface {
 	Enqueue(qi *pb.InjuredSegment) error
 	Dequeue() (pb.InjuredSegment, error)
+	Peekqueue(limit int) ([]pb.InjuredSegment, error)
 }
 
 // Queue implements the RepairQueue interface
@@ -51,4 +52,24 @@ func (q *Queue) Dequeue() (pb.InjuredSegment, error) {
 		return pb.InjuredSegment{}, Error.New("error unmarshalling segment %s", err)
 	}
 	return *seg, nil
+}
+
+// Peekqueue returns upto 'limit' of the entries from the repair queue
+func (q *Queue) Peekqueue(limit int) ([]pb.InjuredSegment, error) {
+	if limit < 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+	result, err := q.db.Peekqueue(limit)
+	if err != nil {
+		return []pb.InjuredSegment{}, Error.New("error peeking into repair queue %s", err)
+	}
+	segs := make([]pb.InjuredSegment, 0)
+	for _, v := range result {
+		seg := &pb.InjuredSegment{}
+		if err = proto.Unmarshal(v, seg); err != nil {
+			return nil, err
+		}
+		segs = append(segs, *seg)
+	}
+	return segs, nil
 }

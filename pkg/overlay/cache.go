@@ -6,18 +6,15 @@ package overlay
 import (
 	"context"
 	"crypto/rand"
-	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
-	"storj.io/storj/storage/storelogger"
 )
 
 const (
@@ -34,31 +31,9 @@ type Cache struct {
 	DHT dht.DHT
 }
 
-// NewRedisOverlayCache returns a pointer to a new Cache instance with an initialized connection to Redis.
-func NewRedisOverlayCache(address, password string, dbindex int, dht dht.DHT) (*Cache, error) {
-	db, err := redis.NewClient(address, password, dbindex)
-	if err != nil {
-		return nil, err
-	}
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
-}
-
-// NewBoltOverlayCache returns a pointer to a new Cache instance with an initialized connection to a Bolt db.
-func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
-	db, err := boltdb.New(dbPath, OverlayBucket)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewOverlayCache(storelogger.New(zap.L(), db), dht), nil
-}
-
 // NewOverlayCache returns a new Cache
 func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{
-		DB:  db,
-		DHT: dht,
-	}
+	return &Cache{DB: db, DHT: dht}
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -71,12 +46,10 @@ func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
 		// TODO: log? return an error?
 		return nil, nil
 	}
-
 	na := &pb.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
 	}
-
 	return na, nil
 }
 
@@ -115,7 +88,6 @@ func (o *Cache) Put(nodeID string, value pb.Node) error {
 	if err != nil {
 		return err
 	}
-
 	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
 }
 
@@ -125,7 +97,6 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 	if err != nil {
 		return OverlayError.New("Error getting nodes from DHT: %v", err)
 	}
-
 	for _, v := range nodes {
 		found, err := o.DHT.FindNode(ctx, node.IDFromString(v.Id))
 		if err != nil {
@@ -149,17 +120,18 @@ func (o *Cache) Bootstrap(ctx context.Context) error {
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
 func (o *Cache) Refresh(ctx context.Context) error {
-	log.Print("starting cache refresh")
+	zap.L().Info("starting cache refresh")
 	r, err := randomID()
 	if err != nil {
 		return err
 	}
-
 	rid := node.ID(r)
+
 	near, err := o.DHT.GetNodes(ctx, rid.String(), 128)
 	if err != nil {
 		return err
 	}
+
 	for _, n := range near {
 		pinged, err := o.DHT.Ping(ctx, *n)
 		if err != nil {
@@ -200,6 +172,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			continue
 		}
 	}
+
 	return nil
 }
 

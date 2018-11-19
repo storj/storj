@@ -5,7 +5,6 @@ package testqueue
 
 import (
 	"container/list"
-	"fmt"
 	"sync"
 
 	"storj.io/storj/storage"
@@ -39,7 +38,25 @@ func (q *Queue) Dequeue() (storage.Value, error) {
 		q.s.Remove(e)    // Dequeue
 		return e.Value.(storage.Value), nil
 	}
-	return nil, fmt.Errorf("queue empty")
+	return nil, storage.ErrEmptyQueue
+}
+
+//Peekqueue gets upto 'limit' entries from the list queue
+func (q *Queue) Peekqueue(limit int) ([]storage.Value, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if limit < 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+	result := make([]storage.Value, 0)
+	for e := q.s.Front(); e != nil; e = e.Next() {
+		result = append(result, e.Value.(storage.Value))
+		limit--
+		if limit <= 0 {
+			break
+		}
+	}
+	return result, nil
 }
 
 //Close closes the queue

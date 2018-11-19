@@ -507,7 +507,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		mockBS.EXPECT().Get(gomock.Any(), gomock.Any()).Return(buckets.Meta{Created: exp}, example.bucketStatus)
 		if storage.ErrKeyNotFound.Has(example.bucketStatus) {
-			mockBS.EXPECT().Put(gomock.Any(), example.bucket).Return(buckets.Meta{Created: example.meta}, nil)
+			mockBS.EXPECT().Put(gomock.Any(), example.bucket, gomock.Any()).Return(buckets.Meta{Created: example.meta}, nil)
 		}
 
 		err := storjObj.MakeBucketWithLocation(ctx, example.bucket, "location")

@@ -10,24 +10,26 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	pieceserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/provider"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage/teststore"
 )
 
 // Planet is a full storj system setup.
 type Planet struct {
+	log       *zap.Logger
 	directory string // TODO: ensure that everything is in-memory to speed things up
 
 	nodeInfos []pb.Node
@@ -42,8 +44,16 @@ type Planet struct {
 }
 
 // New creates a new full system with the given number of nodes.
-func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
+	var log *zap.Logger
+	if t == nil {
+		log = zap.NewNop()
+	} else {
+		log = zaptest.NewLogger(t)
+	}
+
 	planet := &Planet{
+		log:        log,
 		identities: pregeneratedIdentities.Clone(),
 	}
 
@@ -53,17 +63,17 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 		return nil, err
 	}
 
-	planet.Satellites, err = planet.newNodes(satelliteCount)
+	planet.Satellites, err = planet.newNodes("satellite", satelliteCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.StorageNodes, err = planet.newNodes(storageNodeCount)
+	planet.StorageNodes, err = planet.newNodes("storage", storageNodeCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newNodes(uplinkCount)
+	planet.Uplinks, err = planet.newNodes("uplink", uplinkCount)
 	if err != nil {
 		return nil, utils.CombineErrors(err, planet.Shutdown())
 	}
@@ -75,11 +85,17 @@ func New(satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 		}
 	}
 
+	for _, n := range planet.nodes {
+		server := node.NewServer(n.Kademlia)
+		pb.RegisterNodesServer(n.Provider.GRPC(), server)
+		// TODO: shutdown
+	}
+
 	// init Satellites
 	for _, node := range planet.Satellites {
 		server := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
-			zap.NewNop(),
+			node.Log.Named("pdb"),
 			pointerdb.Config{
 				MinRemoteSegmentSize: 1240,
 				MaxInlineSegmentSize: 8000,
@@ -155,50 +171,11 @@ func (planet *Planet) Shutdown() error {
 	return utils.CombineErrors(errs...)
 }
 
-// newNode creates a new node.
-func (planet *Planet) newNode() (*Node, error) {
-	identity, err := planet.newIdentity()
-	if err != nil {
-		return nil, err
-	}
-
-	listener, err := planet.newListener()
-	if err != nil {
-		return nil, err
-	}
-
-	node := &Node{
-		Identity: identity,
-		Listener: listener,
-	}
-
-	node.Transport = transport.NewClient(identity)
-
-	node.Provider, err = provider.NewProvider(node.Identity, node.Listener, grpcauth.NewAPIKeyInterceptor())
-	if err != nil {
-		return nil, utils.CombineErrors(err, listener.Close())
-	}
-
-	node.Info = pb.Node{
-		Id: node.Identity.ID.String(),
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   node.Listener.Addr().String(),
-		},
-	}
-
-	planet.nodes = append(planet.nodes, node)
-	planet.nodeInfos = append(planet.nodeInfos, node.Info)
-	planet.nodeLinks = append(planet.nodeLinks, node.Info.Id+":"+node.Listener.Addr().String())
-
-	return node, nil
-}
-
 // newNodes creates initializes multiple nodes
-func (planet *Planet) newNodes(count int) ([]*Node, error) {
+func (planet *Planet) newNodes(prefix string, count int) ([]*Node, error) {
 	var xs []*Node
 	for i := 0; i < count; i++ {
-		node, err := planet.newNode()
+		node, err := planet.newNode(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}

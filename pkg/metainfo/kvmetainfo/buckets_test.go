@@ -32,17 +32,15 @@ const (
 )
 
 func TestBucketsBasic(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
-
+	runTest(t, func(ctx context.Context, db *DB) {
 		// Create new bucket
-		bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
 		}
 
 		// Check that bucket list include the new bucket
-		bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 1, len(bucketList.Items))
@@ -50,38 +48,37 @@ func TestBucketsBasic(t *testing.T) {
 		}
 
 		// Check that we can get the new bucket explicitly
-		bucket, err = buckets.GetBucket(ctx, TestBucket)
+		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 		}
 
 		// Delete the bucket
-		err = buckets.DeleteBucket(ctx, TestBucket)
+		err = db.DeleteBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 
 		// Check that the bucket list is empty
-		bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 0, len(bucketList.Items))
 		}
 
 		// Check that the bucket cannot be get explicitly
-		bucket, err = buckets.GetBucket(ctx, TestBucket)
+		bucket, err = db.GetBucket(ctx, TestBucket)
 		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
 func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
-
+	runTest(t, func(ctx context.Context, db *DB) {
 		// (Old API) Create new bucket
-		_, err := bucketStore.Put(ctx, TestBucket)
+		_, err := db.buckets.Put(ctx, TestBucket, storj.AESGCM)
 		assert.NoError(t, err)
 
 		// (New API) Check that bucket list include the new bucket
-		bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 1, len(bucketList.Items))
@@ -89,40 +86,39 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 		}
 
 		// (New API) Check that we can get the new bucket explicitly
-		bucket, err := buckets.GetBucket(ctx, TestBucket)
+		bucket, err := db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 		}
 
 		// (Old API) Delete the bucket
-		err = bucketStore.Delete(ctx, TestBucket)
+		err = db.buckets.Delete(ctx, TestBucket)
 		assert.NoError(t, err)
 
 		// (New API) Check that the bucket list is empty
-		bucketList, err = buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
+		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 0, len(bucketList.Items))
 		}
 
 		// (New API) Check that the bucket cannot be get explicitly
-		bucket, err = buckets.GetBucket(ctx, TestBucket)
+		bucket, err = db.GetBucket(ctx, TestBucket)
 		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
 func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
-
+	runTest(t, func(ctx context.Context, db *DB) {
 		// (New API) Create new bucket
-		bucket, err := buckets.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
 		}
 
 		// (Old API) Check that bucket list include the new bucket
-		items, more, err := bucketStore.List(ctx, "", "", 0)
+		items, more, err := db.buckets.List(ctx, "", "", 0)
 		if assert.NoError(t, err) {
 			assert.False(t, more)
 			assert.Equal(t, 1, len(items))
@@ -130,46 +126,63 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 		}
 
 		// (Old API) Check that we can get the new bucket explicitly
-		_, err = bucketStore.Get(ctx, TestBucket)
-		assert.NoError(t, err)
+		meta, err := db.buckets.Get(ctx, TestBucket)
+		if assert.NoError(t, err) {
+			assert.Equal(t, storj.AESGCM, meta.PathEncryptionType)
+		}
 
 		// (New API) Delete the bucket
-		err = buckets.DeleteBucket(ctx, TestBucket)
+		err = db.DeleteBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 
 		// (Old API) Check that the bucket list is empty
-		items, more, err = bucketStore.List(ctx, "", "", 0)
+		items, more, err = db.buckets.List(ctx, "", "", 0)
 		if assert.NoError(t, err) {
 			assert.False(t, more)
 			assert.Equal(t, 0, len(items))
 		}
 
 		// (Old API) Check that the bucket cannot be get explicitly
-		_, err = bucketStore.Get(ctx, TestBucket)
+		_, err = db.buckets.Get(ctx, TestBucket)
 		assert.True(t, storage.ErrKeyNotFound.Has(err))
 	})
 }
 
 func TestErrNoBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
-
-		_, err := buckets.CreateBucket(ctx, "", nil)
+	runTest(t, func(ctx context.Context, db *DB) {
+		_, err := db.CreateBucket(ctx, "", nil)
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		_, err = buckets.GetBucket(ctx, "")
+		_, err = db.GetBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		err = buckets.DeleteBucket(ctx, "")
+		err = db.DeleteBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 	})
 }
 
-func TestListBucketsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
+func TestBucketCreateCipher(t *testing.T) {
+	runTest(t, func(ctx context.Context, db *DB) {
+		forAllCiphers(func(cipher storj.Cipher) {
+			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
+			if assert.NoError(t, err) {
+				assert.Equal(t, cipher, bucket.PathCipher)
+			}
 
-		_, err := buckets.ListBuckets(ctx, storj.BucketListOptions{})
+			bucket, err = db.GetBucket(ctx, "test")
+			if assert.NoError(t, err) {
+				assert.Equal(t, cipher, bucket.PathCipher)
+			}
+
+			err = db.DeleteBucket(ctx, "test")
+			assert.NoError(t, err)
+		})
+	})
+}
+
+func TestListBucketsEmpty(t *testing.T) {
+	runTest(t, func(ctx context.Context, db *DB) {
+		_, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
 		for _, direction := range []storj.ListDirection{
@@ -178,7 +191,7 @@ func TestListBucketsEmpty(t *testing.T) {
 			storj.Forward,
 			storj.After,
 		} {
-			bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
+			bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
 			if assert.NoError(t, err) {
 				assert.False(t, bucketList.More)
 				assert.Equal(t, 0, len(bucketList.Items))
@@ -188,13 +201,11 @@ func TestListBucketsEmpty(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, bucketStore buckets.Store) {
-		buckets := NewBuckets(bucketStore)
-
+	runTest(t, func(ctx context.Context, db *DB) {
 		bucketNames := []string{"a", "aa", "b", "bb", "c"}
 
 		for _, name := range bucketNames {
-			_, err := buckets.CreateBucket(ctx, name, nil)
+			_, err := db.CreateBucket(ctx, name, nil)
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -274,7 +285,7 @@ func TestListBuckets(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			bucketList, err := buckets.ListBuckets(ctx, storj.BucketListOptions{
+			bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{
 				Cursor:    tt.cursor,
 				Direction: tt.dir,
 				Limit:     tt.limit,
@@ -298,11 +309,11 @@ func getBucketNames(bucketList storj.BucketList) []string {
 	return names
 }
 
-func runTest(t *testing.T, test func(context.Context, buckets.Store)) {
+func runTest(t *testing.T, test func(context.Context, *DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(1, 4, 1)
+	planet, err := testplanet.New(t, 1, 4, 1)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -311,15 +322,15 @@ func runTest(t *testing.T, test func(context.Context, buckets.Store)) {
 
 	planet.Start(context.Background())
 
-	bucketStore, err := newBucketStore(planet)
+	db, err := newDB(planet)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	test(ctx, bucketStore)
+	test(ctx, db)
 }
 
-func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
+func newDB(planet *testplanet.Planet) (*DB, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	err := flag.Set("pointer-db.auth.api-key", TestAPIKey)
 	if err != nil {
@@ -352,10 +363,22 @@ func newBucketStore(planet *testplanet.Planet) (buckets.Store, error) {
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
-	stream, err := streams.NewStreamStore(segments, int64(64*memory.MB), key, int(1*memory.KB), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, int64(64*memory.MB), key, int(1*memory.KB), storj.AESGCM)
 	if err != nil {
 		return nil, err
 	}
 
-	return buckets.NewStore(stream, storj.Unencrypted), nil
+	buckets := buckets.NewStore(streams)
+
+	return New(buckets, streams, segments, pdb, key), nil
+}
+
+func forAllCiphers(test func(cipher storj.Cipher)) {
+	for _, cipher := range []storj.Cipher{
+		storj.Unencrypted,
+		storj.AESGCM,
+		storj.SecretBox,
+	} {
+		test(cipher)
+	}
 }

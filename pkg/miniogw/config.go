@@ -161,7 +161,7 @@ func (c Config) GetBucketStore(ctx context.Context, identity *provider.FullIdent
 		return nil, err
 	}
 
-	return buckets.NewStore(stream, storj.Cipher(c.PathEncType)), nil
+	return buckets.NewStore(stream), nil
 }
 
 // NewGateway creates a new minio Gateway
@@ -173,5 +173,5 @@ func (c Config) NewGateway(ctx context.Context, identity *provider.FullIdentity)
 		return nil, err
 	}
 
-	return NewStorjGateway(bs), nil
+	return NewStorjGateway(bs, storj.Cipher(c.PathEncType)), nil
 }

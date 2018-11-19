@@ -49,7 +49,7 @@ lint: check-copyrights ## Analyze and find programs in source code
 .PHONY: check-copyrights
 check-copyrights: ## Check source files for copyright headers
 	@echo "Running ${@}"
-	@./scripts/check-for-header.sh
+	@go run ./scripts/check-copyright.go
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
