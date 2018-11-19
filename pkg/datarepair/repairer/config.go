@@ -9,7 +9,6 @@ import (
 
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/miniogw"
@@ -32,12 +31,12 @@ type Config struct {
 
 // Run runs the repairer with configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	client, err := redis.NewClientFrom(c.QueueAddress)
+	redisQ, err := redis.NewQueueFrom(c.QueueAddress)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	queue := queue.NewQueue(client)
+	queue := queue.NewQueue(redisQ)
 
 	ss, err := c.getSegmentStore(ctx, server.Identity())
 	if err != nil {
@@ -46,9 +45,12 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) 
 
 	repairer := newRepairer(queue, ss, c.Interval, c.MaxRepair)
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	// TODO(coyle): we need to figure out how to propagate the error up to cancel the service
 	go func() {
 		if err := repairer.Run(ctx); err != nil {
+			defer cancel()
 			zap.L().Error("Error running repairer", zap.Error(err))
 		}
 	}()

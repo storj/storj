@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/vivint/infectious"
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/pkg/provider"
 	sdbproto "storj.io/storj/pkg/statdb/proto"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/utils"
 )
 
 var mon = monkit.Package()
@@ -74,7 +76,8 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	}
 
 	allocationData := &pb.PayerBandwidthAllocation_Data{
-		Action: pb.PayerBandwidthAllocation_GET,
+		Action:         pb.PayerBandwidthAllocation_GET,
+		CreatedUnixSec: time.Now().Unix(),
 	}
 
 	serializedAllocation, err := proto.Marshal(allocationData)
@@ -97,6 +100,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, stripeIndex, shareSize
 	if err != nil {
 		return s, err
 	}
+	defer utils.LogClose(rc)
 
 	buf := make([]byte, shareSize)
 	_, err = io.ReadFull(rc, buf)
@@ -122,6 +126,8 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 	for _, p := range pieces {
 		nodeIds = append(nodeIds, node.IDFromString(p.GetNodeId()))
 	}
+
+	// TODO(moby) nodes will not include offline nodes, so overlay should update uptime for these nodes
 	nodes, err = d.overlay.BulkLookup(ctx, nodeIds)
 	if err != nil {
 		return nil, nodes, err
@@ -135,11 +141,11 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 		paddedSize := calcPadded(pointer.GetSize(), shareSize)
 		pieceSize := paddedSize / int64(pointer.Remote.Redundancy.GetMinReq())
 
-		s, err := d.getShare(ctx, stripeIndex, shareSize, i, pieceID, pieceSize, node, authorization)
+		s, err := d.getShare(ctx, stripeIndex, shareSize, int(pieces[i].PieceNum), pieceID, pieceSize, node, authorization)
 		if err != nil {
 			s = share{
 				Error:       err,
-				PieceNumber: i,
+				PieceNumber: int(pieces[i].PieceNum),
 				Data:        nil,
 			}
 		}
@@ -151,20 +157,14 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, pointer *pb.Poin
 
 func makeCopies(ctx context.Context, originals []share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// Have to use []infectious.Share instead of []audit.Share
-	// in order to run the infectious Correct function.
-	copies = make([]infectious.Share, len(originals))
-	for i, original := range originals {
-
-		// If there was an error downloading a share before,
-		// this line makes it so that there will be an empty
-		// infectious.Share at the copies' index (same index
-		// as in the original slice).
+	copies = make([]infectious.Share, 0, len(originals))
+	for _, original := range originals {
 		if original.Error != nil {
 			continue
 		}
-		copies[i].Data = append([]byte(nil), original.Data...)
-		copies[i].Number = original.PieceNumber
+		copies = append(copies, infectious.Share{
+			Data:   append([]byte{}, original.Data...),
+			Number: original.PieceNumber})
 	}
 	return copies, nil
 }
@@ -177,6 +177,7 @@ func auditShares(ctx context.Context, required, total int, originals []share) (p
 	if err != nil {
 		return nil, err
 	}
+
 	copies, err := makeCopies(ctx, originals)
 	if err != nil {
 		return nil, err
@@ -212,9 +213,9 @@ func (verifier *Verifier) verify(ctx context.Context, stripeIndex int, pointer *
 	}
 
 	var offlineNodes []string
-	for i, share := range shares {
+	for i := range shares {
 		if shares[i].Error != nil {
-			offlineNodes = append(offlineNodes, nodes[share.PieceNumber].GetId())
+			offlineNodes = append(offlineNodes, nodes[i].GetId())
 		}
 	}
 

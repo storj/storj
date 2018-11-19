@@ -80,7 +80,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 			return utils.CombineErrors(as.errs...)
 		case agreementGroup := <-c:
 			go func() {
-				zap.S().Info("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
+				zap.S().Infof("Sending %v agreements to satellite %s\n", len(agreementGroup.agreements), agreementGroup.satellite)
 
 				// Get satellite ip from overlay by Lookup agreementGroup.satellite
 				satellite, err := as.overlay.Lookup(ctx, node.IDFromString(agreementGroup.satellite))
@@ -90,7 +90,7 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				// Create client from satellite ip
-				identOpt, err := as.identity.DialOption()
+				identOpt, err := as.identity.DialOption("")
 				if err != nil {
 					zap.S().Error(err)
 					return
@@ -103,17 +103,6 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 				}
 
 				client := pb.NewBandwidthClient(conn)
-				stream, err := client.BandwidthAgreements(ctx)
-				if err != nil {
-					zap.S().Error(err)
-					return
-				}
-
-				defer func() {
-					if _, closeErr := stream.CloseAndRecv(); closeErr != nil {
-						zap.S().Error("error closing stream %s :: %v.Send() = %v", closeErr, stream, closeErr)
-					}
-				}()
 
 				for _, agreement := range agreementGroup.agreements {
 
@@ -123,8 +112,9 @@ func (as *AgreementSender) Run(ctx context.Context) error {
 					}
 
 					// Send agreement to satellite
-					if err = stream.Send(msg); err != nil {
-						zap.S().Error(err)
+					r, err := client.BandwidthAgreements(ctx, msg)
+					if err != nil || r.GetStatus() != pb.AgreementsSummary_OK {
+						zap.S().Errorf("Failed to send agreement to satellite: %+v", err)
 						return
 					}
 

@@ -4,14 +4,21 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"text/tabwriter"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	psserver "storj.io/storj/pkg/piecestore/psserver"
+	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/provider"
 )
@@ -31,6 +38,11 @@ var (
 		Short: "Create config files",
 		RunE:  cmdSetup,
 	}
+	diagCmd = &cobra.Command{
+		Use:   "diag",
+		Short: "Diagnostic Tool support",
+		RunE:  cmdDiag,
+	}
 
 	runCfg struct {
 		Identity provider.IdentityConfig
@@ -42,15 +54,21 @@ var (
 		CA       provider.CASetupConfig
 		Identity provider.IdentitySetupConfig
 	}
+	diagCfg struct {
+		BasePath string `default:"$CONFDIR" help:"base path for setup"`
+	}
 
 	defaultConfDir = "$HOME/.storj/storagenode"
+	defaultDiagDir = "$HOME/.storj/capt/f37/data"
 )
 
 func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(diagCmd)
 	cfgstruct.Bind(runCmd.Flags(), &runCfg, cfgstruct.ConfDir(defaultConfDir))
 	cfgstruct.Bind(setupCmd.Flags(), &setupCfg, cfgstruct.ConfDir(defaultConfDir))
+	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -86,6 +104,98 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	return process.SaveConfig(runCmd.Flags(),
 		filepath.Join(setupCfg.BasePath, "config.yaml"), overrides)
+}
+
+func cmdDiag(cmd *cobra.Command, args []string) (err error) {
+	diagCfg.BasePath, err = filepath.Abs(diagCfg.BasePath)
+	if err != nil {
+		return err
+	}
+
+	// check if the directory exists
+	_, err = os.Stat(diagCfg.BasePath)
+	if err != nil {
+		fmt.Println("Storagenode directory doesn't exist", diagCfg.BasePath)
+		return err
+	}
+
+	// open the sql db
+	dbpath := filepath.Join(diagCfg.BasePath, "piecestore.db")
+	db, err := psdb.Open(context.Background(), "", dbpath)
+	if err != nil {
+		fmt.Println("Storagenode database couldnt open:", dbpath)
+		return err
+	}
+
+	//get all bandwidth aggrements entries already ordered
+	bwAgreements, err := db.GetBandwidthAllocations()
+	if err != nil {
+		fmt.Println("stroage node 'bandwidth_agreements' table read error:", dbpath)
+		return err
+	}
+
+	// Agreement is a struct that contains a bandwidth agreement and the associated signature
+	type SatelliteSummary struct {
+		TotalBytes        int64
+		PutActionCount    int64
+		GetActionCount    int64
+		TotalTransactions int64
+		// additional attributes add here ...
+	}
+
+	// attributes per satelliteid
+	summaries := make(map[string]*SatelliteSummary)
+	satelliteIDs := []string{}
+
+	for _, rbaVal := range bwAgreements {
+		for _, rbaDataVal := range rbaVal {
+			// deserializing rbad you get payerbwallocation, total & storage node id
+			rbad := &pb.RenterBandwidthAllocation_Data{}
+			if err := proto.Unmarshal(rbaDataVal.Agreement, rbad); err != nil {
+				return err
+			}
+
+			// deserializing pbad you get satelliteID, uplinkID, max size, exp, serial# & action
+			pbad := &pb.PayerBandwidthAllocation_Data{}
+			if err := proto.Unmarshal(rbad.GetPayerAllocation().GetData(), pbad); err != nil {
+				return err
+			}
+
+			satelliteID := string(pbad.GetSatelliteId())
+			summary, ok := summaries[satelliteID]
+			if !ok {
+				summaries[satelliteID] = &SatelliteSummary{}
+				satelliteIDs = append(satelliteIDs, satelliteID)
+				summary = summaries[satelliteID]
+			}
+
+			// fill the summary info
+			summary.TotalBytes += rbad.GetTotal()
+			summary.TotalTransactions++
+			if pbad.GetAction() == pb.PayerBandwidthAllocation_PUT {
+				summary.PutActionCount++
+			} else {
+				summary.GetActionCount++
+			}
+
+		}
+	}
+
+	// initialize the table header (fields)
+	const padding = 3
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "SatelliteID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
+
+	// populate the row fields
+	sort.Strings(satelliteIDs)
+	for _, satelliteID := range satelliteIDs {
+		summary := summaries[satelliteID]
+		fmt.Fprint(w, satelliteID, "\t", summary.TotalBytes, "\t", summary.TotalTransactions, "\t", summary.PutActionCount, "\t", summary.GetActionCount, "\t\n")
+	}
+
+	// display the data
+	err = w.Flush()
+	return err
 }
 
 func main() {

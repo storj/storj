@@ -49,7 +49,7 @@ lint: check-copyrights ## Analyze and find programs in source code
 .PHONY: check-copyrights
 check-copyrights: ## Check source files for copyright headers
 	@echo "Running ${@}"
-	@./scripts/check-for-header.sh
+	@go run ./scripts/check-copyright.go
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -128,6 +128,9 @@ binary:
 	cd release/${TAG}; zip ${COMPONENT}_${GOOS}_${GOARCH}.zip ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT}
 
+.PHONY: gateway_%
+gateway_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=gateway $(MAKE) binary
 .PHONY: satellite_%
 satellite_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
@@ -138,11 +141,11 @@ storagenode_%:
 uplink_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=uplink $(MAKE) binary
 
-COMPONENTLIST := uplink satellite storagenode
+COMPONENTLIST := gateway satellite storagenode uplink
 OSARCHLIST    := linux_amd64 windows_amd64 darwin_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build uplink, satellite, and storagenode binaries (jenkins)
+binaries: ${BINARIES} ## Build gateway, satellite, storagenode, and uplink binaries (jenkins)
 
 ##@ Deploy
 

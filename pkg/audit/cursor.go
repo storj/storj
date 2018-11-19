@@ -20,8 +20,9 @@ import (
 
 // Stripe keeps track of a stripe's index and its parent segment
 type Stripe struct {
-	Index   int
-	Segment *pb.Pointer
+	Index         int
+	Segment       *pb.Pointer
+	Authorization *pb.SignedMessage
 }
 
 // Cursor keeps track of audit location in pointer db
@@ -50,18 +51,19 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 	} else {
 		pointerItems, more, err = cursor.pointers.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
 	}
-
 	if err != nil {
 		return nil, err
 	}
 
-	// get random pointer
+	if len(pointerItems) == 0 {
+		return nil, nil
+	}
+
 	pointerItem, err := getRandomPointer(pointerItems)
 	if err != nil {
 		return nil, err
 	}
 
-	// get path
 	path = pointerItem.Path
 
 	// keep track of last path listed
@@ -77,24 +79,35 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, err error
 		return nil, err
 	}
 
+	if pointer.GetType() != pb.Pointer_REMOTE {
+		return nil, nil
+	}
+
 	// create the erasure scheme so we can get the stripe size
 	es, err := makeErasureScheme(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return nil, err
 	}
 
-	//get random stripe
+	if pointer.GetSize() == 0 {
+		return nil, nil
+	}
+
 	index, err := getRandomStripe(es, pointer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Stripe{Index: index, Segment: pointer}, nil
+	authorization := cursor.pointers.SignedMessage()
+
+	return &Stripe{Index: index, Segment: pointer, Authorization: authorization}, nil
 }
 
-// create the erasure scheme
 func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) {
-	fc, err := infectious.NewFEC(int(rs.GetMinReq()), int(rs.GetTotal()))
+	required := int(rs.GetMinReq())
+	total := int(rs.GetTotal())
+
+	fc, err := infectious.NewFEC(required, total)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +117,12 @@ func makeErasureScheme(rs *pb.RedundancyScheme) (eestream.ErasureScheme, error) 
 
 func getRandomStripe(es eestream.ErasureScheme, pointer *pb.Pointer) (index int, err error) {
 	stripeSize := es.StripeSize()
+
+	// the last segment could be smaller than stripe size
+	if pointer.GetSize() < int64(stripeSize) {
+		return 0, nil
+	}
+
 	randomStripeIndex, err := rand.Int(rand.Reader, big.NewInt(pointer.GetSize()/int64(stripeSize)))
 	if err != nil {
 		return -1, err

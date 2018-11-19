@@ -16,7 +16,7 @@ before_script:
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then 
       sudo sh -c 'echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6';
       sudo sh -c 'echo "\n::1 localhost\n" >> /etc/hosts';
-      psql -c 'create database pointerdb' -U postgres;
+      psql -c 'create database teststorj' -U postgres;
     fi;
 
 before_install:
@@ -28,7 +28,7 @@ matrix:
     ### tests ###
     - env:
         - MODE=tests
-        - STORJ_POSTGRESKV_TEST=postgres://postgres@localhost/pointerdb?sslmode=disable
+        - STORJ_POSTGRES_TEST=postgres://postgres@localhost/teststorj?sslmode=disable
       services:
         - redis
         - postgresql
@@ -41,14 +41,17 @@ matrix:
       script:
         - go test -race -cover -coverprofile=.coverprofile -json ./... | tparse -all
         - goveralls -coverprofile=.coverprofile -service=travis-ci
+        - rm .coverprofile
+        - go run scripts/check-clean-directory.go
     
     ### run linters ###
     - env: MODE=lint
       install:
-        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.10.2
+        - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.12.2
       script:
-        - ./scripts/check-for-header.sh
+        - go run ./scripts/check-copyright.go
         - golangci-lint run
+        - gospace istidy
     
     ### captplanet tests ###
     - env: MODE=integration

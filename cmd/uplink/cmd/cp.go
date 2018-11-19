@@ -36,7 +36,7 @@ func init() {
 }
 
 // upload transfers src from local machine to s3 compatible object dst
-func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
@@ -78,7 +78,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 
 	r := io.Reader(f)
 	var bar *pb.ProgressBar
-	if *progress {
+	if showProgress {
 		bar = pb.New(int(fi.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -102,7 +102,7 @@ func upload(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FP
 }
 
 // download transfers s3 compatible object src to dst on local machine
-func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath) error {
+func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.FPath, showProgress bool) error {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
 	}
@@ -128,7 +128,7 @@ func download(ctx context.Context, bs buckets.Store, src fpath.FPath, dst fpath.
 	defer utils.LogClose(r)
 
 	var bar *pb.ProgressBar
-	if *progress {
+	if showProgress {
 		bar = pb.New(int(rr.Size())).SetUnits(pb.U_BYTES)
 		bar.Start()
 		r = bar.NewProxyReader(r)
@@ -259,12 +259,12 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if uploading
 	if src.IsLocal() {
-		return upload(ctx, bs, src, dst)
+		return upload(ctx, bs, src, dst, *progress)
 	}
 
 	// if downloading
 	if dst.IsLocal() {
-		return download(ctx, bs, src, dst)
+		return download(ctx, bs, src, dst, *progress)
 	}
 
 	// if copying from one remote location to another

@@ -11,15 +11,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage/redis"
 	"storj.io/storj/storage/redis/redisserver"
-	"storj.io/storj/storage/teststore"
+	"storj.io/storj/storage/testqueue"
 )
 
 func TestEnqueueDequeue(t *testing.T) {
-	db := teststore.New()
+	db := testqueue.New()
 	q := NewQueue(db)
 	seg := &pb.InjuredSegment{
 		Path:       "abc",
@@ -34,26 +33,15 @@ func TestEnqueueDequeue(t *testing.T) {
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	db := teststore.New()
+	db := testqueue.New()
 	q := NewQueue(db)
 	s, err := q.Dequeue()
 	assert.Error(t, err)
 	assert.Equal(t, pb.InjuredSegment{}, s)
 }
 
-func TestForceError(t *testing.T) {
-	db := teststore.New()
-	q := NewQueue(db)
-	err := q.Enqueue(&pb.InjuredSegment{Path: "abc", LostPieces: []int32{int32(0)}})
-	assert.NoError(t, err)
-	db.ForceError++
-	item, err := q.Dequeue()
-	assert.Equal(t, pb.InjuredSegment{}, item)
-	assert.Error(t, err)
-}
-
 func TestSequential(t *testing.T) {
-	db := teststore.New()
+	db := testqueue.New()
 	q := NewQueue(db)
 	const N = 100
 	var addSegs []*pb.InjuredSegment
@@ -66,6 +54,11 @@ func TestSequential(t *testing.T) {
 		assert.NoError(t, err)
 		addSegs = append(addSegs, seg)
 	}
+	list, err := q.Peekqueue(100)
+	assert.NoError(t, err)
+	for i := 0; i < N; i++ {
+		assert.True(t, proto.Equal(addSegs[i], &list[i]))
+	}
 	for i := 0; i < N; i++ {
 		dqSeg, err := q.Dequeue()
 		assert.NoError(t, err)
@@ -74,7 +67,7 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	queue := NewQueue(teststore.New())
+	queue := NewQueue(testqueue.New())
 	const N = 100
 	errs := make(chan error, N*2)
 	entries := make(chan *pb.InjuredSegment, N*2)
@@ -132,14 +125,14 @@ func BenchmarkRedisSequential(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
-	client, err := redis.NewClient(addr, "", 1)
+	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
 	q := NewQueue(client)
 	benchmarkSequential(b, q)
 }
 
 func BenchmarkTeststoreSequential(b *testing.B) {
-	q := NewQueue(teststore.New())
+	q := NewQueue(testqueue.New())
 	benchmarkSequential(b, q)
 }
 
@@ -169,14 +162,14 @@ func BenchmarkRedisParallel(b *testing.B) {
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
 	assert.NoError(b, err)
-	client, err := redis.NewClient(addr, "", 1)
+	client, err := redis.NewQueue(addr, "", 1)
 	assert.NoError(b, err)
 	q := NewQueue(client)
 	benchmarkParallel(b, q)
 }
 
 func BenchmarkTeststoreParallel(b *testing.B) {
-	q := NewQueue(teststore.New())
+	q := NewQueue(testqueue.New())
 	benchmarkParallel(b, q)
 }
 

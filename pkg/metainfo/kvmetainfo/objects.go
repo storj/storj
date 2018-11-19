@@ -6,8 +6,12 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
@@ -16,40 +20,27 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
-
-// Objects implements storj.Metainfo bucket handling
-type Objects struct {
-	objects  objects.Store
-	streams  streams.Store
-	segments segments.Store
-
-	rootKey *storj.Key
-}
 
 const (
 	// commitedPrefix is prefix where completed object info is stored
 	committedPrefix = "l/"
 )
 
-// NewObjects creates Objects
-func NewObjects(objects objects.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key) *Objects {
-	return &Objects{
-		objects:  objects,
-		streams:  streams,
-		segments: segments,
-		rootKey:  rootKey,
-	}
-}
-
 // GetObject returns information about an object
-func (db *Objects) GetObject(ctx context.Context, bucket string, path storj.Path) (storj.Object, error) {
-	_, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
+func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, info, err = db.getInfo(ctx, committedPrefix, bucket, path)
+
 	return info, err
 }
 
 // GetObjectStream returns interface for reading the object stream
-func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (storj.ReadOnlyStream, error) {
+func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (stream storj.ReadOnlyStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	meta, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
 	if err != nil {
 		return nil, err
@@ -69,32 +60,55 @@ func (db *Objects) GetObjectStream(ctx context.Context, bucket string, path stor
 }
 
 // CreateObject creates an uploading object and returns an interface for uploading Object information
-func (db *Objects) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (storj.MutableObject, error) {
+func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, createInfo *storj.CreateObject) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // ModifyObject modifies a committed object
-func (db *Objects) ModifyObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // DeleteObject deletes an object from database
-func (db *Objects) DeleteObject(ctx context.Context, bucket string, path storj.Path) error {
-	return db.objects.Delete(ctx, bucket+"/"+path)
+func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	store, err := db.buckets.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return err
+	}
+
+	err = store.Delete(ctx, path)
+	if objects.NoPathError.Has(err) {
+		return storage.ErrEmptyKey.Wrap(err)
+	}
+
+	return err
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
-func (db *Objects) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (storj.MutableObject, error) {
+func (db *DB) ModifyPendingObject(ctx context.Context, bucket string, path storj.Path) (object storj.MutableObject, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
 // ListPendingObjects lists pending objects in bucket based on the ListOptions
-func (db *Objects) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListPendingObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return storj.ObjectList{}, errors.New("not implemented")
 }
 
 // ListObjects lists objects in bucket based on the ListOptions
-func (db *Objects) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (storj.ObjectList, error) {
+func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.ListOptions) (list storj.ObjectList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objects, err := db.buckets.GetObjectStore(ctx, bucket)
+	if err != nil {
+		return storj.ObjectList{}, err
+	}
+
 	var startAfter, endBefore string
 	switch options.Direction {
 	case storj.Before:
@@ -113,12 +127,17 @@ func (db *Objects) ListObjects(ctx context.Context, bucket string, options storj
 		return storj.ObjectList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
-	items, more, err := db.objects.List(ctx, bucket+"/"+options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
+	// TODO: remove this hack-fix of specifying the last key
+	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
+		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
+	}
+
+	items, more, err := objects.List(ctx, options.Prefix, startAfter, endBefore, options.Recursive, options.Limit, meta.All)
 	if err != nil {
 		return storj.ObjectList{}, err
 	}
 
-	list := storj.ObjectList{
+	list = storj.ObjectList{
 		Bucket: bucket,
 		Prefix: options.Prefix,
 		More:   more,
@@ -140,17 +159,50 @@ type object struct {
 	streamMeta      pb.StreamMeta
 }
 
-func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (object, storj.Object, error) {
-	fullpath := bucket + "/" + path
+func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, db.rootKey)
+	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
-	_, lastSegmentMeta, err := db.segments.Get(ctx, prefix+encryptedPath)
+	if path == "" {
+		return object{}, storj.Object{}, storage.ErrEmptyKey.New("")
+	}
+
+	fullpath := bucket + "/" + path
+
+	encryptedPath, err := streams.EncryptAfterBucket(fullpath, bucketInfo.PathCipher, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
+	}
+
+	pointer, _, err := db.pointers.Get(ctx, prefix+encryptedPath)
+	if err != nil {
+		return object{}, storj.Object{}, err
+	}
+
+	var redundancyScheme *pb.RedundancyScheme
+	if pointer.GetType() == pb.Pointer_REMOTE {
+		redundancyScheme = pointer.GetRemote().GetRedundancy()
+	} else {
+		// TODO: handle better
+		redundancyScheme = &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			MinReq:           -1,
+			Total:            -1,
+			RepairThreshold:  -1,
+			SuccessThreshold: -1,
+			ErasureShareSize: -1,
+		}
+	}
+
+	lastSegmentMeta := segments.Meta{
+		Modified:   convertTime(pointer.GetCreationDate()),
+		Expiration: convertTime(pointer.GetExpirationDate()),
+		Size:       pointer.GetSize(),
+		Data:       pointer.GetMetadata(),
 	}
 
 	streamInfoData, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta, fullpath, db.rootKey)
@@ -170,7 +222,7 @@ func (db *Objects) getInfo(ctx context.Context, prefix string, bucket string, pa
 		return object{}, storj.Object{}, err
 	}
 
-	info := objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta)
+	info = objectStreamFromMeta(bucket, path, lastSegmentMeta, streamInfo, streamMeta, redundancyScheme)
 
 	return object{
 		fullpath:        fullpath,
@@ -202,7 +254,7 @@ func objectFromMeta(bucket string, path storj.Path, isPrefix bool, meta objects.
 	}
 }
 
-func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) storj.Object {
+func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) storj.Object {
 	var nonce storj.Nonce
 	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
 	return storj.Object{
@@ -227,11 +279,11 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 
 			RedundancyScheme: storj.RedundancyScheme{
 				Algorithm:      storj.ReedSolomon,
-				ShareSize:      0, // TODO:
-				RequiredShares: 0, // TODO:
-				RepairShares:   0, // TODO:
-				OptimalShares:  0, // TODO:
-				TotalShares:    0, // TODO:
+				ShareSize:      int64(redundancyScheme.GetErasureShareSize()),
+				RequiredShares: int16(redundancyScheme.GetMinReq()),
+				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
+				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
+				TotalShares:    int16(redundancyScheme.GetTotal()),
 			},
 			EncryptionScheme: storj.EncryptionScheme{
 				Cipher:    storj.Cipher(streamMeta.EncryptionType),
@@ -244,4 +296,16 @@ func objectStreamFromMeta(bucket string, path storj.Path, lastSegment segments.M
 			},
 		},
 	}
+}
+
+// convertTime converts gRPC timestamp to Go time
+func convertTime(ts *timestamp.Timestamp) time.Time {
+	if ts == nil {
+		return time.Time{}
+	}
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
+	}
+	return t
 }

@@ -10,21 +10,15 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Buckets implements storj.Metainfo bucket handling
-type Buckets struct {
-	store buckets.Store
-}
-
-// NewBuckets creates Buckets
-func NewBuckets(store buckets.Store) *Buckets { return &Buckets{store} }
-
 // CreateBucket creates a new bucket with the specified information
-func (db *Buckets) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (storj.Bucket, error) {
+func (db *DB) CreateBucket(ctx context.Context, bucket string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
-		return storj.Bucket{}, buckets.NoBucketError.New("")
+		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	meta, err := db.store.Put(ctx, bucket)
+	meta, err := db.buckets.Put(ctx, bucket, getPathCipher(info))
 	if err != nil {
 		return storj.Bucket{}, err
 	}
@@ -33,21 +27,25 @@ func (db *Buckets) CreateBucket(ctx context.Context, bucket string, info *storj.
 }
 
 // DeleteBucket deletes bucket
-func (db *Buckets) DeleteBucket(ctx context.Context, bucket string) error {
+func (db *DB) DeleteBucket(ctx context.Context, bucket string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
-		return buckets.NoBucketError.New("")
+		return storj.ErrNoBucket.New("")
 	}
 
-	return db.store.Delete(ctx, bucket)
+	return db.buckets.Delete(ctx, bucket)
 }
 
 // GetBucket gets bucket information
-func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, error) {
+func (db *DB) GetBucket(ctx context.Context, bucket string) (bucketInfo storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
-		return storj.Bucket{}, buckets.NoBucketError.New("")
+		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	meta, err := db.store.Get(ctx, bucket)
+	meta, err := db.buckets.Get(ctx, bucket)
 	if err != nil {
 		return storj.Bucket{}, err
 	}
@@ -56,7 +54,9 @@ func (db *Buckets) GetBucket(ctx context.Context, bucket string) (storj.Bucket, 
 }
 
 // ListBuckets lists buckets
-func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOptions) (storj.BucketList, error) {
+func (db *DB) ListBuckets(ctx context.Context, options storj.BucketListOptions) (list storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var startAfter, endBefore string
 	switch options.Direction {
 	case storj.Before:
@@ -75,12 +75,17 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		return storj.BucketList{}, errClass.New("invalid direction %d", options.Direction)
 	}
 
-	items, more, err := db.store.List(ctx, startAfter, endBefore, options.Limit)
+	// TODO: remove this hack-fix of specifying the last key
+	if options.Cursor == "" && (options.Direction == storj.Before || options.Direction == storj.Backward) {
+		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
+	}
+
+	items, more, err := db.buckets.List(ctx, startAfter, endBefore, options.Limit)
 	if err != nil {
 		return storj.BucketList{}, err
 	}
 
-	list := storj.BucketList{
+	list = storj.BucketList{
 		More:  more,
 		Items: make([]storj.Bucket, 0, len(items)),
 	}
@@ -92,9 +97,17 @@ func (db *Buckets) ListBuckets(ctx context.Context, options storj.BucketListOpti
 	return list, nil
 }
 
+func getPathCipher(info *storj.Bucket) storj.Cipher {
+	if info == nil {
+		return storj.AESGCM
+	}
+	return info.PathCipher
+}
+
 func bucketFromMeta(bucket string, meta buckets.Meta) storj.Bucket {
 	return storj.Bucket{
-		Name:    bucket,
-		Created: meta.Created,
+		Name:       bucket,
+		Created:    meta.Created,
+		PathCipher: meta.PathEncryptionType,
 	}
 }

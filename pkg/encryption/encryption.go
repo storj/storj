@@ -30,6 +30,11 @@ func Increment(nonce *storj.Nonce, amount int64) (truncated bool, err error) {
 
 // Encrypt encrypts data with the given cipher, key and nonce
 func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (cipherData []byte, err error) {
+	// Don't encrypt empty slice
+	if len(data) == 0 {
+		return []byte{}, nil
+	}
+
 	switch cipher {
 	case storj.Unencrypted:
 		return data, nil
@@ -44,6 +49,11 @@ func Encrypt(data []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonc
 
 // Decrypt decrypts cipherData with the given cipher, key and nonce
 func Decrypt(cipherData []byte, cipher storj.Cipher, key *storj.Key, nonce *storj.Nonce) (data []byte, err error) {
+	// Don't decrypt empty slice
+	if len(cipherData) == 0 {
+		return []byte{}, nil
+	}
+
 	switch cipher {
 	case storj.Unencrypted:
 		return cipherData, nil

@@ -25,30 +25,41 @@ type Service struct {
 
 // Config contains configurable values for audit service
 type Config struct {
-	StatDBPort       string                `help:"port to contact statDB client" default:":9090"`
-	MaxRetriesStatDB int                   `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Pointers         pdbclient.Client      `help:"Pointers for a instantiation of a new service"`
-	Transport        transport.Client      `help:"Transport for a instantiation of a new service"`
-	Overlay          overlay.Client        `help:"Overlay for a instantiation of a new service"`
-	ID               provider.FullIdentity `help:"ID for a instantiation of a new service"`
-	Interval         time.Duration         `help:"how frequently segements should audited" default:"30s"`
+	APIKey           string        `help:"APIKey to access the statdb" default:"abc123"`
+	SatelliteAddr    string        `help:"address to contact services on the satellite"`
+	MaxRetriesStatDB int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval         time.Duration `help:"how frequently segments are audited" default:"30s"`
 }
 
 // Run runs the repairer with the configured values
 func (c Config) Run(ctx context.Context, server *provider.Provider) (err error) {
-	service, err := NewService(ctx, c.StatDBPort, c.Interval, c.MaxRetriesStatDB, c.Pointers, c.Transport, c.Overlay, c.ID)
+	identity := server.Identity()
+	pointers, err := pdbclient.NewClient(identity, c.SatelliteAddr, c.APIKey)
 	if err != nil {
 		return err
 	}
-	return service.Run(ctx)
+	overlay, err := overlay.NewOverlayClient(identity, c.SatelliteAddr)
+	if err != nil {
+		return err
+	}
+	transport := transport.NewClient(identity)
+	service, err := NewService(ctx, c.SatelliteAddr, c.Interval, c.MaxRetriesStatDB, pointers, transport, overlay, *identity, c.APIKey)
+	if err != nil {
+		return err
+	}
+	go func() {
+		err := service.Run(ctx)
+		zap.S().Error("audit service failed to run:", zap.Error(err))
+	}()
+	return server.Run(ctx)
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(ctx context.Context, statDBPort string, interval time.Duration, maxRetries int, pointers pdbclient.Client, transport transport.Client, overlay overlay.Client,
-	id provider.FullIdentity) (service *Service, err error) {
+	identity provider.FullIdentity, apiKey string) (service *Service, err error) {
 	cursor := NewCursor(pointers)
-	verifier := NewVerifier(transport, overlay, id)
-	reporter, err := NewReporter(ctx, statDBPort, maxRetries)
+	verifier := NewVerifier(transport, overlay, identity)
+	reporter, err := NewReporter(ctx, statDBPort, maxRetries, apiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +75,6 @@ func NewService(ctx context.Context, statDBPort string, interval time.Duration, 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	zap.S().Info("Audit cron is starting up")
 
 	for {
@@ -87,6 +97,9 @@ func (service *Service) process(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if stripe == nil {
+		return nil
+	}
 
 	authorization := service.Cursor.pointers.SignedMessage()
 	verifiedNodes, err := service.Verifier.verify(ctx, stripe.Index, stripe.Segment, authorization)
@@ -95,7 +108,6 @@ func (service *Service) process(ctx context.Context) error {
 	}
 
 	err = service.Reporter.RecordAudits(ctx, verifiedNodes)
-	// TODO: if Error.Has(err) then log the error because it means not all node stats updated
 	if err != nil {
 		return err
 	}

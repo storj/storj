@@ -17,11 +17,11 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"storj.io/storj/pkg/node"
-	"storj.io/storj/pkg/transport"
 
+	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/transport"
 )
 
 // ClientError is any error returned by the client
@@ -63,7 +63,7 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 	}
 
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
-		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
+		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
@@ -82,7 +82,7 @@ func NewPSClient(ctx context.Context, tc transport.Client, n *pb.Node, bandwidth
 // NewCustomRoute creates new PieceStore with custom client interface
 func NewCustomRoute(client pb.PieceStoreRoutesClient, target *pb.Node, bandwidthMsgSize int, prikey crypto.PrivateKey) (*PieceStore, error) {
 	if bandwidthMsgSize < 0 || bandwidthMsgSize > *maxBandwidthMsgSize {
-		return nil, ClientError.New(fmt.Sprintf("Invalid Bandwidth Message Size: %v", bandwidthMsgSize))
+		return nil, ClientError.New("invalid Bandwidth Message Size: %v", bandwidthMsgSize)
 	}
 
 	if bandwidthMsgSize == 0 {
@@ -172,7 +172,7 @@ func (ps *PieceStore) Delete(ctx context.Context, id PieceID, authorization *pb.
 	if err != nil {
 		return err
 	}
-	log.Printf("Route summary : %v", reply)
+	zap.S().Infof("Delete request route summary: %v", reply)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (ps *PieceStore) Stats(ctx context.Context) (*pb.StatSummary, error) {
 // sign a message using the clients private key
 func (ps *PieceStore) sign(msg []byte) (signature []byte, err error) {
 	if ps.prikey == nil {
-		return nil, ClientError.New("Failed to sign msg: Private Key not Set")
+		return nil, ClientError.New("failed to sign msg: Private Key not Set")
 	}
 
 	// use c.pkey to sign msg

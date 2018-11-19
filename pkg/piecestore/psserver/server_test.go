@@ -77,7 +77,7 @@ func TestPiece(t *testing.T) {
 			id:         "123",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = argError: Invalid id length",
+			err:        "rpc error: code = Unknown desc = argError: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:         "22222222222222222222",
@@ -89,7 +89,7 @@ func TestPiece(t *testing.T) {
 			id:         "22222222222222222222;DELETE*FROM TTL;;;;",
 			size:       5,
 			expiration: 9999999999,
-			err:        "rpc error: code = Unknown desc = PSServer error: Invalid ID",
+			err:        "rpc error: code = Unknown desc = PSServer error: invalid ID",
 		},
 	}
 
@@ -195,7 +195,7 @@ func TestRetrieve(t *testing.T) {
 			allocSize: 5,
 			offset:    0,
 			content:   []byte("butts"),
-			err:       "rpc error: code = Unknown desc = argError: Invalid id length",
+			err:       "rpc error: code = Unknown desc = argError: invalid id length",
 		},
 		{ // server should err with nonexistent file
 			id:        "22222222222222222222",
@@ -315,7 +315,7 @@ func TestStore(t *testing.T) {
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = argError: Invalid id length",
+			err:           "rpc error: code = Unknown desc = argError: invalid id length",
 		},
 		{ // should err with piece ID not specified
 			id:            "",
@@ -323,7 +323,7 @@ func TestStore(t *testing.T) {
 			content:       []byte("butts"),
 			message:       "",
 			totalReceived: 0,
-			err:           "rpc error: code = Unknown desc = store error: Piece ID not specified",
+			err:           "rpc error: code = Unknown desc = store error: piece ID not specified",
 		},
 	}
 
@@ -423,8 +423,8 @@ func TestDelete(t *testing.T) {
 		},
 		{ // should err with invalid id length
 			id:      "123",
-			message: "rpc error: code = Unknown desc = argError: Invalid id length",
-			err:     "rpc error: code = Unknown desc = argError: Invalid id length",
+			message: "rpc error: code = Unknown desc = argError: invalid id length",
+			err:     "rpc error: code = Unknown desc = argError: invalid id length",
 		},
 		{ // should return OK with nonexistent file
 			id:      "22222222222222222223",
@@ -546,7 +546,7 @@ func NewTestServer(t *testing.T) *TestServer {
 	check(err)
 	fiC, err := caC.NewIdentity()
 	check(err)
-	co, err := fiC.DialOption()
+	co, err := fiC.DialOption("")
 	check(err)
 
 	s, cleanup := newTestServerStruct(t)

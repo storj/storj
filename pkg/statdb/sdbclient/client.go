@@ -6,11 +6,11 @@ package sdbclient
 import (
 	"context"
 
-	"gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/transport"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/provider"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/pkg/transport"
 )
 
 var (
@@ -26,13 +26,15 @@ type StatDB struct {
 // Client services offerred for the interface
 type Client interface {
 	Create(ctx context.Context, nodeID []byte) error
+	CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) error
 	Get(ctx context.Context, nodeID []byte) (*pb.NodeStats, error)
-	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-		minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error)
-	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
-		updateAuditSuccess, updateUptime, updateLatency bool) (*pb.NodeStats, error)
+	FindValidNodes(ctx context.Context, nodeIDs [][]byte, minStats *pb.NodeStats) (passedIDs [][]byte, err error)
+	Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool,
+		latencyList []int64) (stats *pb.NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID []byte, isUp bool) (*pb.NodeStats, error)
+	UpdateAuditSuccess(ctx context.Context, nodeID []byte, passed bool) (*pb.NodeStats, error)
 	UpdateBatch(ctx context.Context, nodes []*pb.Node) ([]*pb.NodeStats, []*pb.Node, error)
-	CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error)
+	CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error)
 }
 
 // NewClient initializes a new statdb client
@@ -52,17 +54,33 @@ func NewClient(identity *provider.FullIdentity, address string, APIKey []byte) (
 // a compiler trick to make sure *StatDB implements Client
 var _ Client = (*StatDB)(nil)
 
-// Create is used for creating a new entry in the stats db
+// Create is used for creating a new entry in the stats db with default reputation
 func (sdb *StatDB) Create(ctx context.Context, nodeID []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
-		NodeId:             nodeID,
-		UpdateAuditSuccess: false,
-		UpdateUptime:       false,
+		NodeId: nodeID,
 	}
 	createReq := &pb.CreateRequest{
 		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+	_, err = sdb.client.Create(ctx, createReq)
+
+	return err
+}
+
+// CreateWithStats is used for creating a new entry in the stats db with a specific reputation
+// stats must have AuditCount, AuditSuccessCount, UptimeCount, UptimeSuccessCount
+func (sdb *StatDB) CreateWithStats(ctx context.Context, nodeID []byte, stats *pb.NodeStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := &pb.Node{
+		NodeId: nodeID,
+	}
+	createReq := &pb.CreateRequest{
+		Node:   node,
+		Stats:  stats,
 		APIKey: sdb.APIKey,
 	}
 	_, err = sdb.client.Create(ctx, createReq)
@@ -79,23 +97,23 @@ func (sdb *StatDB) Get(ctx context.Context, nodeID []byte) (stats *pb.NodeStats,
 		APIKey: sdb.APIKey,
 	}
 	res, err := sdb.client.Get(ctx, getReq)
+	if err != nil {
+		return nil, err
+	}
 
 	return res.Stats, err
 }
 
 // FindValidNodes is used for retrieving a subset of nodes that meet a minimum reputation requirement
-func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAuditCount int64,
-	minAuditSuccess, minUptime float64) (passedIDs [][]byte, err error) {
+// minStats must have AuditSuccessRatio, UptimeRatio, AuditCount
+func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte,
+	minStats *pb.NodeStats) (passedIDs [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	findValidNodesReq := &pb.FindValidNodesRequest{
-		NodeIds: nodeIDs,
-		MinStats: &pb.NodeStats{
-			AuditSuccessRatio: minAuditSuccess,
-			UptimeRatio:       minUptime,
-			AuditCount:        minAuditCount,
-		},
-		APIKey: sdb.APIKey,
+		NodeIds:  nodeIDs,
+		MinStats: minStats,
+		APIKey:   sdb.APIKey,
 	}
 
 	res, err := sdb.client.FindValidNodes(ctx, findValidNodesReq)
@@ -107,8 +125,8 @@ func (sdb *StatDB) FindValidNodes(ctx context.Context, nodeIDs [][]byte, minAudi
 }
 
 // Update is used for updating a node's stats in the stats db
-func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp bool, latencyList []int64,
-	updateAuditSuccess, updateUptime, updateLatency bool) (stats *pb.NodeStats, err error) {
+func (sdb *StatDB) Update(ctx context.Context, nodeID []byte,
+	auditSuccess, isUp bool, latencyList []int64) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node := pb.Node{
@@ -116,9 +134,56 @@ func (sdb *StatDB) Update(ctx context.Context, nodeID []byte, auditSuccess, isUp
 		AuditSuccess:       auditSuccess,
 		IsUp:               isUp,
 		LatencyList:        latencyList,
-		UpdateAuditSuccess: updateAuditSuccess,
-		UpdateUptime:       updateUptime,
-		UpdateLatency:      updateLatency,
+		UpdateAuditSuccess: true,
+		UpdateUptime:       true,
+		UpdateLatency:      true,
+	}
+	updateReq := &pb.UpdateRequest{
+		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+
+	res, err := sdb.client.Update(ctx, updateReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Stats, err
+}
+
+// UpdateUptime is used for updating a node's uptime in statdb
+func (sdb *StatDB) UpdateUptime(ctx context.Context, nodeID []byte,
+	isUp bool) (stats *pb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := pb.Node{
+		NodeId:             nodeID,
+		IsUp:               isUp,
+		UpdateAuditSuccess: false,
+		UpdateUptime:       true,
+		UpdateLatency:      false,
+	}
+	updateReq := &pb.UpdateRequest{
+		Node:   &node,
+		APIKey: sdb.APIKey,
+	}
+
+	res, err := sdb.client.Update(ctx, updateReq)
+
+	return res.Stats, err
+}
+
+// UpdateAuditSuccess is used for updating a node's audit success in statdb
+func (sdb *StatDB) UpdateAuditSuccess(ctx context.Context, nodeID []byte,
+	passed bool) (stats *pb.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node := pb.Node{
+		NodeId:             nodeID,
+		AuditSuccess:       passed,
+		UpdateAuditSuccess: true,
+		UpdateUptime:       false,
+		UpdateLatency:      false,
 	}
 	updateReq := &pb.UpdateRequest{
 		Node:   &node,
@@ -140,20 +205,27 @@ func (sdb *StatDB) UpdateBatch(ctx context.Context, nodes []*pb.Node) (statsList
 	}
 
 	res, err := sdb.client.UpdateBatch(ctx, updateBatchReq)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return res.StatsList, res.FailedNodes, err
 }
 
 // CreateEntryIfNotExists creates a db entry for a node if entry doesn't already exist
-func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, node *pb.Node) (stats *pb.NodeStats, err error) {
+func (sdb *StatDB) CreateEntryIfNotExists(ctx context.Context, nodeID []byte) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	node := &pb.Node{NodeId: nodeID}
 	createReq := &pb.CreateEntryIfNotExistsRequest{
 		Node:   node,
 		APIKey: sdb.APIKey,
 	}
 
 	res, err := sdb.client.CreateEntryIfNotExists(ctx, createReq)
+	if err != nil {
+		return nil, err
+	}
 
 	return res.Stats, err
 }

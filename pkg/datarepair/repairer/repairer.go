@@ -15,7 +15,7 @@ import (
 	segment "storj.io/storj/pkg/storage/segments"
 )
 
-// Repairer is the interface for the data repair queue
+// Repairer is the interface for the data repairer
 type Repairer interface {
 	Repair(ctx context.Context, seg *pb.InjuredSegment) error
 	Run(ctx context.Context) error

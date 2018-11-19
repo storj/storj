@@ -113,9 +113,10 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 
 // Put adds a value to the provided key in boltdb, returning an error on failure.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
-	if len(key) == 0 {
-		return Error.New("invalid key")
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
 	}
+
 	return client.update(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
@@ -123,6 +124,10 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 
 // Get looks up the provided key from boltdb returning either an error or the result.
 func (client *Client) Get(key storage.Key) (storage.Value, error) {
+	if key.IsZero() {
+		return nil, storage.ErrEmptyKey.New("")
+	}
+
 	var value storage.Value
 	err := client.view(func(bucket *bolt.Bucket) error {
 		data := bucket.Get([]byte(key))
@@ -137,6 +142,10 @@ func (client *Client) Get(key storage.Key) (storage.Value, error) {
 
 // Delete deletes a key/value pair from boltdb, for a given the key
 func (client *Client) Delete(key storage.Key) error {
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
 	return client.update(func(bucket *bolt.Bucket) error {
 		return bucket.Delete(key)
 	})

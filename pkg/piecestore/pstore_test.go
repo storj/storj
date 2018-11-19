@@ -33,7 +33,7 @@ func TestStore(t *testing.T) {
 			id:              "012",
 			content:         []byte("butts"),
 			expectedContent: []byte("butts"),
-			err:             "argError: Invalid id length",
+			err:             "argError: invalid id length",
 		},
 	}
 
@@ -129,7 +129,7 @@ func TestRetrieve(t *testing.T) {
 			offset:          -1337,
 			content:         []byte("butts"),
 			expectedContent: []byte(""),
-			err:             "argError: Invalid offset: -1337",
+			err:             "argError: invalid offset: -1337",
 		},
 		{
 			it:              "should successfully retrieve data with negative length",
@@ -227,7 +227,7 @@ func TestDelete(t *testing.T) {
 		{
 			it:  "should err with invalid id length",
 			id:  "111111",
-			err: "argError: Invalid id length",
+			err: "argError: invalid id length",
 		},
 	}
 
