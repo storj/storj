@@ -33,7 +33,7 @@ const (
 func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore) {
 	overlay := Cache{DB: store}
 
-	t.Run("Put", func(t *testing.T) {
+	{ // Put
 		err := overlay.Put("valid1", pb.Node{Address: &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC, Address: "127.0.0.1:9001"}})
 		if err != nil {
 			t.Fatal(err)
@@ -42,9 +42,9 @@ func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore)
 		if err != nil {
 			t.Fatal(err)
 		}
-	})
+	}
 
-	t.Run("Get", func(t *testing.T) {
+	{ // Get
 		valid2, err := overlay.Get(ctx, "valid2")
 		if assert.NoError(t, err) {
 			assert.Equal(t, valid2.Address.Address, "127.0.0.1:9002")
@@ -59,9 +59,9 @@ func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore)
 			_, err := overlay.Get(ctx, "valid1")
 			assert.Error(t, err)
 		}
-	})
+	}
 
-	t.Run("GetAll", func(t *testing.T) {
+	{ // GetAll
 		nodes, err := overlay.GetAll(ctx, []string{"valid2", "valid1", "valid2"})
 		if assert.NoError(t, err) {
 			assert.Equal(t, nodes[0].Address.Address, "127.0.0.1:9002")
@@ -89,7 +89,7 @@ func testOverlay(ctx context.Context, t *testing.T, store storage.KeyValueStore)
 			_, err := overlay.GetAll(ctx, []string{"valid1", "valid2"})
 			assert.Error(t, err)
 		}
-	})
+	}
 }
 
 func TestRedis(t *testing.T) {

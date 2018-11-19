@@ -103,14 +103,7 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		}
 	}()
 
-	srv := &Server{
-		dht:   kad,
-		cache: cache,
-
-		// TODO(jt): do something else
-		logger:  zap.L(),
-		metrics: monkit.Default,
-	}
+	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
 	ctx = context.WithValue(ctx, ctxKeyOverlay, cache)
 	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)

@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"context"
 	"io"
 	"net"
 
@@ -74,6 +75,16 @@ func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Cli
 		return piececlient.NewPSClient
 	*/
 	return pdbclient.NewClient(node.Identity, destination.Addr(), apikey)
+}
+
+// DialOverlay dials destination with apikey and returns pointerdb Client
+func (node *Node) DialOverlay(destination *Node) (pb.OverlayClient, error) {
+	conn, err := node.Transport.DialNode(context.Background(), &destination.Info)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: handle disconnection
+	return pb.NewOverlayClient(conn), nil
 }
 
 // initOverlay creates overlay for a given planet

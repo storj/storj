@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	pieceserver "storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/piecestore/psserver/psdb"
@@ -88,7 +89,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 
 	// init Satellites
 	for _, node := range planet.Satellites {
-		server := pointerdb.NewServer(
+		pointerServer := pointerdb.NewServer(
 			teststore.New(), node.Overlay,
 			node.Log.Named("pdb"),
 			pointerdb.Config{
@@ -97,7 +98,10 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				Overlay:              true,
 			},
 			node.Identity)
-		pb.RegisterPointerDBServer(node.Provider.GRPC(), server)
+		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+
+		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
+		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
 
 		node.Dependencies = append(node.Dependencies,
 			closerFunc(func() error {
