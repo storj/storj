@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/statdb/sdbclient"
 )
 
 const (
@@ -27,11 +28,12 @@ var OverlayError = errs.Class("Overlay Error")
 type Cache struct {
 	DB  storage.KeyValueStore
 	DHT dht.DHT
+	statdb sdbclient.Client
 }
 
 // NewOverlayCache returns a new Cache
-func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{DB: db, DHT: dht}
+func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT, statdb sdbclient.Client) *Cache {
+	return &Cache{DB: db, DHT: dht, statdb: statdb}
 }
 
 // Get looks up the provided nodeID from the overlay cache
