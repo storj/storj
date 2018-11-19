@@ -4,10 +4,12 @@
 package testplanet
 
 import (
+	"context"
 	"io"
 	"net"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/kademlia"
@@ -114,7 +116,20 @@ func (node *Node) DialPointerDB(destination *Node, apikey string) (pdbclient.Cli
 		}
 		return piececlient.NewPSClient
 	*/
+
+	// TODO: handle disconnect
 	return pdbclient.NewClient(node.Identity, destination.Addr(), apikey)
+}
+
+// DialOverlay dials destination and returns an overlay.Client
+func (node *Node) DialOverlay(destination *Node) (overlay.Client, error) {
+	conn, err := node.Transport.DialNode(context.Background(), &destination.Info, grpc.WithBlock())
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: handle disconnect
+	return overlay.NewClientFrom(pb.NewOverlayClient(conn)), nil
 }
 
 // initOverlay creates overlay for a given planet

@@ -1,8 +1,8 @@
 <template>
-    <div class="psContainer">
-        <div class="psToggleContainer" v-on:click="toggleSelection">
+    <div class="project-selection-container">
+        <div class="project-selection-toggle-container" v-on:click="toggleSelection">
             <h1>{{projectName}}</h1>
-            <div class="psExpanderArea">
+            <div class="project-selection-toggle-container__expander-area">
                 <img v-if="!isChoiceShown" src="../../../../static/images/register/BlueExpand.svg" />
                 <img v-if="isChoiceShown" src="../../../../static/images/register/BlueHide.svg" />
             </div>
@@ -39,7 +39,7 @@ export default class ProjectSelectionArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .psContainer {
+    .project-selection-container {
         position: relative;
         padding-left: 10px;
         padding-right: 10px;
@@ -52,19 +52,20 @@ export default class ProjectSelectionArea extends Vue {}
             color: #354049;
         }
     }
-    .psToggleContainer {
+    .project-selection-toggle-container {
         display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
         width: 12.5vw;
         height: 5vh;
-    }
-    .psExpanderArea {
-        display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
+
+        &__expander-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
     }
 </style>
