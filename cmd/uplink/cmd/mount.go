@@ -6,6 +6,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -167,6 +168,21 @@ func (sf *storjFS) OpenDir(name string, context *fuse.Context) (c []fuse.DirEntr
 	}
 
 	return entries, fuse.OK
+}
+
+func (sf *storjFS) Mkdir(name string, mode uint32, context *fuse.Context) fuse.Status {
+	zap.S().Debug("Mkdir: ", name)
+
+	reader := bytes.NewReader([]byte{})
+	meta := objects.SerializableMeta{ContentType: "application/directory"}
+	expTime := time.Time{}
+
+	_, err := sf.store.Put(sf.ctx, name+"/", reader, meta, expTime)
+	if err != nil {
+		return fuse.EIO
+	}
+
+	return fuse.OK
 }
 
 func (sf *storjFS) Open(name string, flags uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
