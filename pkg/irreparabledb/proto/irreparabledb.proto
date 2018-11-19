@@ -34,3 +34,36 @@ message CreateResponse {
 
   Status status = 1;
 }
+
+// GetRequest is a request message for the Get rpc call
+message GetRequest {
+  bytes rmt_seg_key = 1; 
+  bytes APIKey = 2;
+}
+
+// GetResponse is a response message for the Get rpc call
+message GetResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  RmtSegInfo rmtseginfo = 1;
+  Status status = 2;
+}
+
+// DeleteRequest is a request message for the Delete rpc call
+message DeleteRequest {
+  RmtSegInfo rmtseginfo = 1;
+  bytes APIKey = 2;
+}
+
+// DeleteRequest is a response message for the Delete rpc call
+message DeleteResponse {
+  enum Status {
+    FAIL = 0;
+    OK = 1;
+  }
+
+  Status status = 1;
+}

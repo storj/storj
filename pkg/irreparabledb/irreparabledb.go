@@ -83,3 +83,53 @@ func (s *Server) Create(ctx context.Context, createReq *pb.CreateRequest) (resp 
 		Status: pb.CreateResponse_OK,
 	}, nil
 }
+
+// Get a irreparable's segment info from the db
+func (s *Server) Get(ctx context.Context, getReq *pb.GetRequest) (resp *pb.GetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering irreparabaledb Get")
+
+	APIKeyBytes := getReq.APIKey
+	err = s.validateAuth(APIKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	dbSegInfo, err := s.DB.Get_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(getReq.GetRmtSegKey()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	rmtseginfo := &pb.RmtSegInfo{
+		RmtSegKey:                dbSegInfo.Segmentkey,
+		RmtSegVal:                dbSegInfo.Segmentval,
+		RmtSegLostPiecesCount:    dbSegInfo.PiecesLostCount,
+		RmtSegRepairUnixSec:      dbSegInfo.SegDamagedUnixSec,
+		RmtSegRepairAttemptCount: dbSegInfo.RepairAttemptCount,
+	}
+	return &pb.GetResponse{
+		Rmtseginfo: rmtseginfo,
+		Status:     pb.GetResponse_OK,
+	}, nil
+}
+
+// Delete a irreparable's segment info from the db
+func (s *Server) Delete(ctx context.Context, delReq *pb.DeleteRequest) (resp *pb.DeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	s.logger.Debug("entering irreparabaledb Delete")
+
+	APIKeyBytes := delReq.APIKey
+	err = s.validateAuth(APIKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	dbSegInfo, err := s.DB.Delete_Irreparabledb_By_Segmentkey(ctx, dbx.Irreparabledb_Segmentkey(delReq.GetRmtSegKey()))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.DeleteResponse{
+		Status: pb.DeleteResponse_OK,
+	}, nil
+}
