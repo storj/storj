@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -106,6 +107,8 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			},
 			node.Identity)
 		pb.RegisterPointerDBServer(node.Provider.GRPC(), pointerServer)
+		// bootstrap satellite kademlia node
+		go node.Kademlia.Bootstrap(context.Background())
 
 		overlayServer := overlay.NewServer(node.Log.Named("overlay"), node.Overlay, node.Kademlia)
 		pb.RegisterOverlayServer(node.Provider.GRPC(), overlayServer)
@@ -115,6 +118,15 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 				// TODO: implement
 				return nil
 			}))
+
+		go func() {
+			// refresh the interval every 500ms
+			t := time.NewTicker(500 * time.Millisecond).C
+			for {
+				<-t
+				node.Overlay.Refresh(context.Background())
+			}
+		}()
 	}
 
 	// init storage nodes
@@ -138,6 +150,8 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 			closerFunc(func() error {
 				return server.Stop(context.Background())
 			}))
+		// bootstrap all the kademlia nodes
+		go node.Kademlia.Bootstrap(context.Background())
 	}
 
 	// init Uplinks

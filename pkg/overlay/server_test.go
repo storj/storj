@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -15,7 +16,6 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	t.Skip("Not working right now.")
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -27,6 +27,8 @@ func TestServer(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+	// we wait a second for all the nodes to complete bootstrapping off the satellite
+	time.Sleep(1 * time.Second)
 
 	satellite := planet.Satellites[0]
 	server := overlay.NewServer(satellite.Log.Named("overlay"), satellite.Overlay, satellite.Kademlia)
