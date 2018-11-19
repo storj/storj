@@ -5,11 +5,21 @@ package testplanet_test
 
 import (
 	"context"
+	"net"
 	"strconv"
 	"testing"
 
 	"storj.io/storj/internal/testplanet"
 )
+
+func TestExampleFailure(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:8562")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = listener.Close()
+}
 
 func TestBasic(t *testing.T) {
 	t.Log("New")
