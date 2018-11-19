@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"
@@ -56,10 +57,7 @@ func NewBoltOverlayCache(dbPath string, dht dht.DHT) (*Cache, error) {
 
 // NewOverlayCache returns a new Cache
 func NewOverlayCache(db storage.KeyValueStore, dht dht.DHT) *Cache {
-	return &Cache{
-		DB:  db,
-		DHT: dht,
-	}
+	return &Cache{DB: db, DHT: dht}
 }
 
 // Get looks up the provided nodeID from the overlay cache
@@ -72,12 +70,10 @@ func (o *Cache) Get(ctx context.Context, key string) (*pb.Node, error) {
 		// TODO: log? return an error?
 		return nil, nil
 	}
-
 	na := &pb.Node{}
 	if err := proto.Unmarshal(b, na); err != nil {
 		return nil, err
 	}
-
 	return na, nil
 }
 
@@ -148,6 +144,7 @@ func (o *Cache) Refresh(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

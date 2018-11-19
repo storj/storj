@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/node"
 	"storj.io/storj/pkg/pb"

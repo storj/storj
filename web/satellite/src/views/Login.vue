@@ -34,8 +34,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/HeaderlessInput.vue';
-import Button from '@/components/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import Button from '@/components/common/Button.vue';
 
 @Component({
 	data: function() {

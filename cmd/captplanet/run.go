@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -33,15 +34,16 @@ const (
 
 // Satellite is for configuring client
 type Satellite struct {
-	Identity  provider.IdentityConfig
-	Kademlia  kademlia.Config
-	PointerDB pointerdb.Config
-	Overlay   overlay.Config
-	Checker   checker.Config
-	Repairer  repairer.Config
-	Audit     audit.Config
-	StatDB    statdb.Config
-	Web       satelliteweb.Config
+	Identity    provider.IdentityConfig
+	Kademlia    kademlia.Config
+	PointerDB   pointerdb.Config
+	Overlay     overlay.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	StatDB      statdb.Config
+	BwAgreement bwagreement.Config
+	Web         satelliteweb.Config
 }
 
 // StorageNode is for configuring storage nodes
@@ -109,6 +111,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			// TODO(coyle): re-enable the checker after we determine why it is erroring
 			// runCfg.Satellite.Checker,
 			// runCfg.Satellite.Repairer,
+			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
 		)
 	}()

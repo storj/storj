@@ -44,6 +44,7 @@ export default class ProjectSelectionArea extends Vue {}
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
+        cursor: pointer;
         h1 {
             font-family: 'montserrat_medium';
             font-size: 16px;

@@ -155,6 +155,10 @@ func (rt *RoutingTable) FindNear(id dht.NodeID, limit int) ([]*pb.Node, error) {
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
+	if node.GetId() == "" {
+		return nil
+	}
+
 	rt.mutex.Lock()
 	rt.seen[node.GetId()] = node
 	rt.mutex.Unlock()
@@ -166,20 +170,14 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 	if v != nil {
 		err = rt.updateNode(node)
 		if err != nil {
-			// fmt.Printf("IN ERROR UPDATE NODE NODE==%#v\n", node.GetAddress().Address)
 			return RoutingErr.New("could not update node %s", err)
 		}
-		// fmt.Printf("RETURNING FROM UPDATE NODE NODE==%#v\n", node.GetAddress().Address)
-		return nil
-	}
 
-	if node.GetId() == "" {
 		return nil
 	}
 
 	_, err = rt.addNode(node)
 	if err != nil {
-		// fmt.Printf("IN ERROR ADD NODE NODE==%#v\n", node.GetAddress().Address)
 		return RoutingErr.New("could not add node %s", err)
 	}
 

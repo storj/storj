@@ -38,6 +38,7 @@ export default class NewProjectArea extends Vue {}
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
+        cursor: pointer;
     }
     .npButtonContainer {
         display: flex;

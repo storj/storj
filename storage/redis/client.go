@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/utils"
 	"storj.io/storj/storage"
 )
@@ -69,6 +70,10 @@ func NewClientFrom(address string) (*Client, error) {
 
 // Get looks up the provided key from redis returning either an error or the result.
 func (client *Client) Get(key storage.Key) (storage.Value, error) {
+	if key.IsZero() {
+		return nil, storage.ErrEmptyKey.New("")
+	}
+
 	value, err := client.db.Get(string(key)).Bytes()
 	if err == redis.Nil {
 		return nil, storage.ErrKeyNotFound.New(key.String())
@@ -81,9 +86,10 @@ func (client *Client) Get(key storage.Key) (storage.Value, error) {
 
 // Put adds a value to the provided key in redis, returning an error on failure.
 func (client *Client) Put(key storage.Key, value storage.Value) error {
-	if len(key) == 0 {
-		return Error.New("invalid key")
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
 	}
+
 	err := client.db.Set(key.String(), []byte(value), client.TTL).Err()
 	if err != nil {
 		return Error.New("put error: %v", err)
@@ -104,6 +110,10 @@ func (client *Client) ReverseList(first storage.Key, limit int) (storage.Keys, e
 
 // Delete deletes a key/value pair from redis, for a given the key
 func (client *Client) Delete(key storage.Key) error {
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
 	err := client.db.Del(key.String()).Err()
 	if err != nil {
 		return Error.New("delete error: %v", err)

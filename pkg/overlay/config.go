@@ -5,17 +5,19 @@ package overlay
 
 import (
 	"context"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/provider"
 	"storj.io/storj/pkg/utils"
+	"storj.io/storj/storage"
+	"storj.io/storj/storage/boltdb"
+	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -55,27 +57,26 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 		return Error.Wrap(err)
 	}
 
-	var cache *Cache
+	var db storage.KeyValueStore
+
 	switch dburl.Scheme {
 	case "bolt":
-		cache, err = NewBoltOverlayCache(dburl.Path, kad)
+		db, err = boltdb.New(dburl.Path, OverlayBucket)
 		if err != nil {
 			return err
 		}
-		zap.L().Info("Starting overlay cache with BoltDB")
+		zap.S().Info("Starting overlay cache with BoltDB")
 	case "redis":
-		db, err := strconv.Atoi(dburl.Query().Get("db"))
-		if err != nil {
-			return Error.New("invalid db: %s", err)
-		}
-		cache, err = NewRedisOverlayCache(dburl.Host, GetUserPassword(dburl), db, kad)
+		db, err = redis.NewClientFrom(c.DatabaseURL)
 		if err != nil {
 			return err
 		}
-		zap.L().Info("Starting overlay cache with Redis")
+		zap.S().Info("Starting overlay cache with Redis")
 	default:
 		return Error.New("database scheme not supported: %s", dburl.Scheme)
 	}
+
+	cache := NewOverlayCache(db, kad)
 
 	go func() {
 		err = cache.Bootstrap(ctx)
@@ -132,15 +133,4 @@ func LoadServerFromContext(ctx context.Context) *Server {
 		return v
 	}
 	return nil
-}
-
-// GetUserPassword extracts password from scheme://user:password@hostname
-func GetUserPassword(u *url.URL) string {
-	if u == nil || u.User == nil {
-		return ""
-	}
-	if pw, ok := u.User.Password(); ok {
-		return pw
-	}
-	return ""
 }
