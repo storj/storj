@@ -110,7 +110,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		// bootstrap satellite kademlia node
 		go func(n *Node) {
 			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
-				return nil, utils.CombineErrors(err, planet.Shutdown())
+				return utils.CombineErrors(err, planet.Shutdown())
 			}
 		}(node)
 
@@ -157,7 +157,7 @@ func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) 
 		// bootstrap all the kademlia nodes
 		go func(n *Node) {
 			if err := n.Kademlia.Bootstrap(context.Background()); err != nil {
-				return nil, utils.CombineErrors(err, planet.Shutdown())
+				return utils.CombineErrors(err, planet.Shutdown())
 			}
 		}(node)
 	}
