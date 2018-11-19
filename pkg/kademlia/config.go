@@ -39,7 +39,7 @@ const (
 	ctxKeyKad CtxKey = iota
 )
 
-// FarmerConfig defines properites related to farmer metadata
+// FarmerConfig defines properties related to farmer metadata
 type FarmerConfig struct {
 	Email  string `help:"Farmer email address" default:""`
 	Wallet string `help:"Farmer wallet adress" default:""`
