@@ -240,7 +240,7 @@ func (k *Kademlia) ListenAndServe() error {
 	return nil
 }
 
-// Seen returns all nodes that this kademlia instance has succesfully communicated with
+// Seen returns all nodes that this kademlia instance has successfully communicated with
 func (k *Kademlia) Seen() []*pb.Node {
 	nodes := []*pb.Node{}
 	k.routingTable.mutex.Lock()

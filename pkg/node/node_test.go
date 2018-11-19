@@ -98,8 +98,7 @@ func TestPing(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mdht := mock_dht.NewMockDHT(ctrl)
 		// set up a node server
-		nilFunc := func(*pb.Node) error { return nil }
-		srv := NewServer(mdht, &nilFunc)
+		srv := NewServer(mdht)
 
 		msrv, _, err := newTestServer(ctx, srv, v.toIdentity)
 		assert.NoError(t, err)

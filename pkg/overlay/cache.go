@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"context"
-	"crypto/rand"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -152,10 +151,4 @@ func (o *Cache) Refresh(ctx context.Context) error {
 func (o *Cache) Walk(ctx context.Context) error {
 	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
-}
-
-func randomID() ([]byte, error) {
-	result := make([]byte, 64)
-	_, err := rand.Read(result)
-	return result, err
 }
