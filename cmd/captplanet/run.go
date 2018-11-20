@@ -117,21 +117,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	// start the storagenodes
-	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		identity, err := runCfg.StorageNodes[i].Identity.Load()
-		if err != nil {
-			return err
-		}
-		address := runCfg.StorageNodes[i].Identity.Address
-		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
-		go func(i int, storagenode string) {
-			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
-				i, storagenode,
-				runCfg.StorageNodes[i].Identity.Address)
-			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
-				runCfg.StorageNodes[i].Kademlia,
-				runCfg.StorageNodes[i].Storage)
-		}(i, storagenode)
+	for i, v := range runCfg.StorageNodes {
+		go func(i int, v StorageNode) {
+			identity, err := v.Identity.Load()
+			if err != nil {
+				return
+			}
+
+			address := v.Identity.Address
+			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
+
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n", i, storagenode, address)
+			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
+		}(i, v)
 	}
 
 	// start s3 uplink
