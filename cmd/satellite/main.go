@@ -20,7 +20,9 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	mockOverlay "storj.io/storj/pkg/overlay/mocks"
@@ -65,9 +67,8 @@ var (
 		Overlay     overlay.Config
 		MockOverlay mockOverlay.Config
 		StatDB      statdb.Config
-		// RepairQueue   queue.Config
-		// RepairChecker checker.Config
-		// Repairer      repairer.Config
+		Checker     checker.Config
+		Repairer    repairer.Config
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
 	}
@@ -111,6 +112,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		runCfg.PointerDB,
 		o,
 		runCfg.StatDB,
+		runCfg.Checker,
+		runCfg.Repairer,
 		// runCfg.Audit,
 		runCfg.BwAgreement,
 	)
