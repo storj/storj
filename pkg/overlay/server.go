@@ -57,7 +57,6 @@ func (o *Server) Lookup(ctx context.Context, req *pb.LookupRequest) (*pb.LookupR
 // BulkLookup finds the addresses of nodes in our overlay network
 func (o *Server) BulkLookup(ctx context.Context, reqs *pb.LookupRequests) (*pb.LookupResponses, error) {
 	ns, err := o.cache.GetAll(ctx, lookupRequestsToNodeIDs(reqs))
-
 	if err != nil {
 		return nil, ServerError.New("could not get nodes requested %s\n", err)
 	}
