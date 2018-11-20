@@ -201,7 +201,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 	lastSegmentMeta := segments.Meta{
 		Modified:   convertTime(pointer.GetCreationDate()),
 		Expiration: convertTime(pointer.GetExpirationDate()),
-		Size:       pointer.GetSize(),
+		Size:       pointer.GetSegmentSize(),
 		Data:       pointer.GetMetadata(),
 	}
 

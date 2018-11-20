@@ -20,10 +20,11 @@ import (
 	"storj.io/storj/pkg/bwagreement"
 	dbmanager "storj.io/storj/pkg/bwagreement/database-manager"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
-	mockOverlay "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -59,15 +60,14 @@ var (
 	}
 
 	runCfg struct {
-		Identity    provider.IdentityConfig
-		Kademlia    kademlia.Config
-		PointerDB   pointerdb.Config
-		Overlay     overlay.Config
-		MockOverlay mockOverlay.Config
-		StatDB      statdb.Config
-		// RepairQueue   queue.Config
-		// RepairChecker checker.Config
-		// Repairer      repairer.Config
+		Identity  provider.IdentityConfig
+		Kademlia  kademlia.Config
+		PointerDB pointerdb.Config
+		Overlay   overlay.Config
+		StatDB    statdb.Config
+		Checker   checker.Config
+		Repairer  repairer.Config
+
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
 	}
@@ -100,17 +100,15 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	var o provider.Responsibility = runCfg.Overlay
-	if runCfg.MockOverlay.Nodes != "" {
-		o = runCfg.MockOverlay
-	}
 	return runCfg.Identity.Run(
 		process.Ctx(cmd),
 		grpcauth.NewAPIKeyInterceptor(),
 		runCfg.Kademlia,
 		runCfg.PointerDB,
-		o,
+		runCfg.Overlay,
 		runCfg.StatDB,
+		runCfg.Checker,
+		runCfg.Repairer,
 		// runCfg.Audit,
 		runCfg.BwAgreement,
 	)

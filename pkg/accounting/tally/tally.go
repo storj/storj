@@ -33,7 +33,7 @@ type tally struct {
 	logger    *zap.Logger
 	ticker    *time.Ticker
 	//TODO:
-	//rawDB
+	//accountingDBServer
 }
 
 func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *kademlia.Kademlia, limit int, logger *zap.Logger, interval time.Duration) *tally {
@@ -45,7 +45,7 @@ func newTally(pointerdb *pointerdb.Server, overlay pb.OverlayServer, kademlia *k
 		logger:    logger,
 		ticker:    time.NewTicker(interval),
 		//TODO:
-		//rawDB
+		//accountingDBServer
 	}
 }
 
@@ -128,7 +128,7 @@ func (t *tally) onlineNodes(ctx context.Context, nodeIDs []dht.NodeID) (online [
 }
 
 func (t *tally) tallyAtRestStorage(ctx context.Context, pointer *pb.Pointer, nodes []*pb.Node, client node.Client) {
-	segmentSize := pointer.GetSize()
+	segmentSize := pointer.GetSegmentSize()
 	minReq := pointer.Remote.Redundancy.GetMinReq()
 	if minReq <= 0 {
 		zap.L().Error("minReq must be an int greater than 0")

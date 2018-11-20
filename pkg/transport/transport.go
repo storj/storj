@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -18,6 +19,8 @@ var (
 	mon = monkit.Package()
 	//Error is the errs class of standard Transport Client errors
 	Error = errs.Class("transport error")
+	// default time to wait for a connection to be established
+	timeout = 20 * time.Second
 )
 
 // Client defines the interface to an transport client.
@@ -52,7 +55,10 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 	}
 
 	options := append([]grpc.DialOption{dialOpt}, opts...)
-	return grpc.Dial(node.GetAddress().Address, options...)
+
+	ctx, cf := context.WithTimeout(ctx, timeout)
+	defer cf()
+	return grpc.DialContext(ctx, node.GetAddress().Address, options...)
 }
 
 // DialAddress returns a grpc connection with tls to an IP address

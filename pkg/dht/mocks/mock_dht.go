@@ -120,6 +120,18 @@ func (mr *MockDHTMockRecorder) Ping(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockDHT)(nil).Ping), arg0, arg1)
 }
 
+// Seen mocks base method
+func (m *MockDHT) Seen() []*pb.Node {
+	ret := m.ctrl.Call(m, "Seen")
+	ret0, _ := ret[0].([]*pb.Node)
+	return ret0
+}
+
+// Seen indicates an expected call of Seen
+func (mr *MockDHTMockRecorder) Seen() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seen", reflect.TypeOf((*MockDHT)(nil).Seen))
+}
+
 // MockRoutingTable is a mock of RoutingTable interface
 type MockRoutingTable struct {
 	ctrl     *gomock.Controller

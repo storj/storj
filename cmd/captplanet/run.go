@@ -5,8 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"strings"
 	"time"
 
 	"github.com/alicebob/miniredis"
@@ -22,7 +20,6 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/overlay"
-	mock "storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/piecestore/psserver"
 	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/process"
@@ -49,10 +46,6 @@ type Satellite struct {
 	StatDB      statdb.Config
 	BwAgreement bwagreement.Config
 	Web         satelliteweb.Config
-	MockOverlay struct {
-		Enabled bool   `default:"true" help:"if false, use real overlay"`
-		Host    string `default:"" help:"if set, the mock overlay will return storage nodes with this host"`
-	}
 }
 
 // StorageNode is for configuring storage nodes
@@ -86,35 +79,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(runCfg.StorageNodes)+2)
-	var storagenodes []string
-
-	// start the storagenodes
-	for i := 0; i < len(runCfg.StorageNodes); i++ {
-		identity, err := runCfg.StorageNodes[i].Identity.Load()
-		if err != nil {
-			return err
-		}
-		address := runCfg.StorageNodes[i].Identity.Address
-		if runCfg.Satellite.MockOverlay.Enabled &&
-			runCfg.Satellite.MockOverlay.Host != "" {
-			_, port, err := net.SplitHostPort(address)
-			if err != nil {
-				return err
-			}
-			address = net.JoinHostPort(runCfg.Satellite.MockOverlay.Host, port)
-		}
-		storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
-		storagenodes = append(storagenodes, storagenode)
-		go func(i int, storagenode string) {
-			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n",
-				i, storagenode,
-				runCfg.StorageNodes[i].Kademlia.TODOListenAddr)
-			errch <- runCfg.StorageNodes[i].Identity.Run(ctx, nil,
-				runCfg.StorageNodes[i].Kademlia,
-				runCfg.StorageNodes[i].Storage)
-		}(i, storagenode)
-	}
-
 	// start mini redis
 	m := miniredis.NewMiniRedis()
 	m.RequireAuth("abc123")
@@ -129,10 +93,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	go func() {
 		_, _ = fmt.Printf("starting satellite on %s\n",
 			runCfg.Satellite.Identity.Address)
-		var o provider.Responsibility = runCfg.Satellite.Overlay
-		if runCfg.Satellite.MockOverlay.Enabled {
-			o = mock.Config{Nodes: strings.Join(storagenodes, ",")}
-		}
 
 		if runCfg.Satellite.Audit.SatelliteAddr == "" {
 			runCfg.Satellite.Audit.SatelliteAddr = runCfg.Satellite.Identity.Address
@@ -141,17 +101,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if runCfg.Satellite.Web.SatelliteAddr == "" {
 			runCfg.Satellite.Web.SatelliteAddr = runCfg.Satellite.Identity.Address
 		}
-
 		// Run satellite
 		errch <- runCfg.Satellite.Identity.Run(ctx,
 			grpcauth.NewAPIKeyInterceptor(),
-			runCfg.Satellite.PointerDB,
 			runCfg.Satellite.Kademlia,
 			runCfg.Satellite.Audit,
 			runCfg.Satellite.StatDB,
-			o,
-			// TODO(coyle): re-enable the checker after we determine why it is panicing
-			// runCfg.Satellite.Checker,
+			runCfg.Satellite.Overlay,
+			runCfg.Satellite.PointerDB,
+			runCfg.Satellite.Checker,
 			runCfg.Satellite.Repairer,
 			runCfg.Satellite.BwAgreement,
 			runCfg.Satellite.Web,
@@ -161,6 +119,22 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			runCfg.Satellite.Inspector,
 		)
 	}()
+
+	// start the storagenodes
+	for i, v := range runCfg.StorageNodes {
+		go func(i int, v StorageNode) {
+			identity, err := v.Identity.Load()
+			if err != nil {
+				return
+			}
+
+			address := v.Identity.Address
+			storagenode := fmt.Sprintf("%s:%s", identity.ID.String(), address)
+
+			_, _ = fmt.Printf("starting storage node %d %s (kad on %s)\n", i, storagenode, address)
+			errch <- v.Identity.Run(ctx, nil, v.Kademlia, v.Storage)
+		}(i, v)
+	}
 
 	// start s3 uplink
 	go func() {
