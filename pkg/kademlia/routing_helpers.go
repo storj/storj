@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storage"
