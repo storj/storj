@@ -67,6 +67,7 @@ var (
 		StatDB    statdb.Config
 		Checker   checker.Config
 		Repairer  repairer.Config
+
 		// Audit audit.Config
 		BwAgreement bwagreement.Config
 	}
