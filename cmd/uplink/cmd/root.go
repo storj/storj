@@ -4,13 +4,13 @@
 package cmd
 
 import (
-	"storj.io/storj/internal/fpath"
 	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storage/buckets"
