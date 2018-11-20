@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/irreparabledb"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
@@ -88,7 +89,14 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
 	interval := time.Second
-	checker, err := newChecker(ctx, pointerdb, repairQueue, overlayServer, limit, logger, interval)
+	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() {
+		err := irrdb.Close()
+		assert.NoError(t, err)
+	}()
+	assert.NoError(t, err)
+	checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 	assert.NoError(t, err)
 	err = checker.identifyInjuredSegments(ctx)
 	assert.NoError(t, err)
@@ -131,7 +139,14 @@ func TestOfflineNodes(t *testing.T) {
 	overlayServer := mocks.NewOverlay(nodes)
 	limit := 0
 	interval := time.Second
-	checker, err := newChecker(ctx, pointerdb, repairQueue, overlayServer, limit, logger, interval)
+	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	assert.NoError(t, err)
+	defer func() {
+		err := irrdb.Close()
+		assert.NoError(t, err)
+	}()
+	assert.NoError(t, err)
+	checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
 	assert.NoError(t, err)
 	offline, err := checker.offlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
@@ -141,6 +156,12 @@ func TestOfflineNodes(t *testing.T) {
 func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
+	irrdb, err := irreparabledb.New("sqlite3://file::memory:?mode=memory&cache=shared")
+	assert.NoError(b, err)
+	defer func() {
+		err := irrdb.Close()
+		assert.NoError(b, err)
+	}()
 
 	addr, cleanup, err := redisserver.Start()
 	defer cleanup()
@@ -202,8 +223,9 @@ func BenchmarkIdentifyInjuredSegments(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		interval := time.Second
-		checker, err := newChecker(ctx, pointerdb, repairQueue, overlayServer, limit, logger, interval)
-		assert.NoError(t, err)
+		assert.NoError(b, err)
+		checker := newChecker(pointerdb, repairQueue, overlayServer, irrdb, limit, logger, interval)
+		assert.NoError(b, err)
 		err = checker.identifyInjuredSegments(ctx)
 		assert.NoError(b, err)
 
