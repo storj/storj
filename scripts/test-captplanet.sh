@@ -80,8 +80,6 @@ sed -i~ 's/interval:.*/interval: 1s/g' $HOME/.storj/capt/config.yaml
 captplanet run &
 CAPT_PID=$!
 
-sleep 25
-
 aws s3 --endpoint=http://localhost:7777/ mb s3://bucket
 aws s3 --endpoint=http://localhost:7777/ cp $TMP_DIR/big-upload-testfile s3://bucket/big-testfile
 aws s3 --endpoint=http://localhost:7777/ cp s3://bucket/big-testfile $CMP_DIR/big-download-testfile-ipv6
