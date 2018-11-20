@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/provider"
 )
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval time.Duration `help:"how frequently rollup should run" default:"30s"`
+	Interval       time.Duration `help:"how frequently rollup should run" default:"30s"`
+	DatabaseURL    string        `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
+	DatabaseDriver string        `help:"the database driver to use" default:"sqlite3"`
 }
 
 // Initialize a rollup struct
 func (c Config) initialize(ctx context.Context) (Rollup, error) {
-	return newRollup(zap.L(), c.Interval), nil
+	return newRollup(c.DatabaseDriver, c.DatabaseURL, zap.L(), c.Interval)
 }
 
 // Run runs the rollup with configured values

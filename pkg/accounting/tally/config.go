@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pointerdb"
@@ -17,7 +16,9 @@ import (
 
 // Config contains configurable values for tally
 type Config struct {
-	Interval time.Duration `help:"how frequently tally should run" default:"30s"`
+	Interval       time.Duration `help:"how frequently tally should run" default:"30s"`
+	DatabaseURL    string        `help:"the database connection string to use" default:"$CONFDIR/stats.db"`
+	DatabaseDriver string        `help:"the database driver to use" default:"sqlite3"`
 }
 
 // Initialize a tally struct
@@ -25,7 +26,7 @@ func (c Config) initialize(ctx context.Context) (Tally, error) {
 	pointerdb := pointerdb.LoadFromContext(ctx)
 	overlay := overlay.LoadServerFromContext(ctx)
 	kademlia := kademlia.LoadFromContext(ctx)
-	return newTally(pointerdb, overlay, kademlia, 0, zap.L(), c.Interval), nil
+	return newTally(c.DatabaseDriver, c.DatabaseURL, pointerdb, overlay, kademlia, 0, zap.L(), c.Interval)
 }
 
 // Run runs the tally with configured values
