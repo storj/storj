@@ -30,7 +30,7 @@ var (
 // Overlay cache responsibility.
 type Config struct {
 	DatabaseURL     string        `help:"the database connection string to use" default:"bolt://$CONFDIR/overlay.db"`
-	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"30s"`
+	RefreshInterval time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 }
 
 // CtxKey used for assigning cache and server
@@ -78,16 +78,15 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	cache := NewOverlayCache(db, kad)
 
-	err = cache.Bootstrap(ctx)
-	if err != nil {
-		return err
-	}
+	go func() {
+		err = cache.Bootstrap(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	ticker := time.NewTicker(c.RefreshInterval)
 	defer ticker.Stop()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	go func() {
 		for {
@@ -105,9 +104,10 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 
 	srv := NewServer(zap.L(), cache, kad)
 	pb.RegisterOverlayServer(server.GRPC(), srv)
-	ctx = context.WithValue(ctx, ctxKeyOverlay, cache)
-	ctx = context.WithValue(ctx, ctxKeyOverlayServer, srv)
-	return server.Run(ctx)
+
+	ctx2 := context.WithValue(ctx, ctxKeyOverlay, cache)
+	ctx2 = context.WithValue(ctx2, ctxKeyOverlayServer, srv)
+	return server.Run(ctx2)
 }
 
 // LoadFromContext gives access to the cache from the context, or returns nil

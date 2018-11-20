@@ -23,15 +23,18 @@ import (
 // newTestRoutingTable returns a newly configured instance of a RoutingTable
 func newTestRoutingTable(localNode pb.Node) (*RoutingTable, error) {
 	rt := &RoutingTable{
-		self:             localNode,
-		kadBucketDB:      storelogger.New(zap.L(), teststore.New()),
-		nodeBucketDB:     storelogger.New(zap.L(), teststore.New()),
-		transport:        &defaultTransport,
+		self:         localNode,
+		kadBucketDB:  storelogger.New(zap.L(), teststore.New()),
+		nodeBucketDB: storelogger.New(zap.L(), teststore.New()),
+		transport:    &defaultTransport,
+
 		mutex:            &sync.Mutex{},
+		seen:             make(map[string]*pb.Node),
 		replacementCache: make(map[string][]*pb.Node),
-		idLength:         16,
-		bucketSize:       6,
-		rcBucketSize:     2,
+
+		idLength:     16,
+		bucketSize:   6,
+		rcBucketSize: 2,
 	}
 	ok, err := rt.addNode(&localNode)
 	if !ok || err != nil {

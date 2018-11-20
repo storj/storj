@@ -36,9 +36,10 @@ var (
 )
 
 type discoveryOptions struct {
-	concurrency int
-	retries     int
-	bootstrap   bool
+	concurrency    int
+	retries        int
+	bootstrap      bool
+	bootstrapNodes []pb.Node
 }
 
 // Kademlia is an implementation of kademlia adhering to the DHT interface.
@@ -80,16 +81,6 @@ func NewKademlia(id dht.NodeID, bootstrapNodes []pb.Node, address string, identi
 
 // NewKademliaWithRoutingTable returns a newly configured Kademlia instance
 func NewKademliaWithRoutingTable(self pb.Node, bootstrapNodes []pb.Node, identity *provider.FullIdentity, alpha int, rt *RoutingTable) (*Kademlia, error) {
-	for _, v := range bootstrapNodes {
-		ok, err := rt.addNode(&v)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			zap.L().Warn("Failed to add node", zap.String("NodeID", v.Id))
-		}
-	}
-
 	k := &Kademlia{
 		alpha:          alpha,
 		routingTable:   rt,
@@ -150,6 +141,7 @@ func (k *Kademlia) GetNodes(ctx context.Context, start string, limit int, restri
 	if err != nil {
 		return []*pb.Node{}, Error.Wrap(err)
 	}
+
 	return nodes, nil
 }
 
@@ -168,7 +160,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	}
 
 	return k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
-		concurrency: k.alpha, retries: defaultRetries, bootstrap: true,
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: true, bootstrapNodes: k.bootstrapNodes,
 	})
 }
 
@@ -178,6 +170,12 @@ func (k *Kademlia) lookup(ctx context.Context, target dht.NodeID, opts discovery
 	nodes, err := k.routingTable.FindNear(target, kb)
 	if err != nil {
 		return err
+	}
+
+	if opts.bootstrap {
+		for _, v := range opts.bootstrapNodes {
+			nodes = append(nodes, &v)
+		}
 	}
 
 	lookup := newPeerDiscovery(nodes, k.nodeClient, target, opts)
@@ -206,8 +204,16 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
 func (k *Kademlia) FindNode(ctx context.Context, ID dht.NodeID) (pb.Node, error) {
-	//TODO(coyle)
-	return pb.Node{Id: ID.String()}, NodeErr.New("TODO FindNode")
+	// TODO(coyle): actually Find Node not just perform a lookup
+	err := k.lookup(ctx, node.IDFromString(k.routingTable.self.GetId()), discoveryOptions{
+		concurrency: k.alpha, retries: defaultRetries, bootstrap: false,
+	})
+	if err != nil {
+		return pb.Node{}, err
+	}
+
+	// k.routingTable.getNodesFromIDs()
+	return pb.Node{}, nil
 }
 
 // ListenAndServe connects the kademlia node to the network and listens for incoming requests
@@ -231,6 +237,17 @@ func (k *Kademlia) ListenAndServe() error {
 	defer grpcServer.Stop()
 
 	return nil
+}
+
+// Seen returns all nodes that this kademlia instance has successfully communicated with
+func (k *Kademlia) Seen() []*pb.Node {
+	nodes := []*pb.Node{}
+	k.routingTable.mutex.Lock()
+	for _, v := range k.routingTable.seen {
+		nodes = append(nodes, proto.Clone(v).(*pb.Node))
+	}
+	k.routingTable.mutex.Unlock()
+	return nodes
 }
 
 // GetIntroNode determines the best node to bootstrap a new node onto the network
