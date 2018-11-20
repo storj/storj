@@ -74,7 +74,11 @@ func (pool *ConnectionPool) Disconnect(key string) error {
 
 	delete(pool.items, key)
 
-	return i.grpc.Close()
+	if i.grpc != nil {
+		return i.grpc.Close()
+	}
+
+	return nil
 }
 
 // Dial connects to the node with the given ID and Address returning a gRPC Node Client
