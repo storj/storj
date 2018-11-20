@@ -6,7 +6,6 @@ package node
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -95,8 +94,7 @@ func (pool *ConnectionPool) Dial(ctx context.Context, n *pb.Node) (pb.NodesClien
 	pool.mu.Unlock()
 
 	conn.dial.Do(func() {
-
-		conn.grpc, conn.err = pool.tc.DialNode(ctx, n, grpc.WithBlock(), grpc.WithTimeout(time.Second))
+		conn.grpc, conn.err = pool.tc.DialNode(ctx, n, grpc.WithBlock())
 		if conn.err != nil {
 			return
 		}
