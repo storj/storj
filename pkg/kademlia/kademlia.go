@@ -244,7 +244,7 @@ func (k *Kademlia) Seen() []*pb.Node {
 	nodes := []*pb.Node{}
 	k.routingTable.mutex.Lock()
 	for _, v := range k.routingTable.seen {
-		nodes = append(nodes, v)
+		nodes = append(nodes, proto.Clone(v).(*pb.Node))
 	}
 	k.routingTable.mutex.Unlock()
 	return nodes

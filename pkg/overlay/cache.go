@@ -82,14 +82,15 @@ func (o *Cache) GetAll(ctx context.Context, keys []string) ([]*pb.Node, error) {
 
 // Put adds a nodeID to the redis cache with a binary representation of proto defined Node
 func (o *Cache) Put(nodeID string, value pb.Node) error {
-	data, err := proto.Marshal(&value)
-	if err != nil {
-		return err
-	}
 	// If we get a Node without an ID (i.e. bootstrap node)
 	// we don't want to add to the routing tbale
 	if nodeID == "" {
 		return nil
+	}
+
+	data, err := proto.Marshal(&value)
+	if err != nil {
+		return err
 	}
 
 	return o.DB.Put(node.IDFromString(nodeID).Bytes(), data)
