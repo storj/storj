@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/utils"
-	"storj.io/storj/storage"
 )
 
 func init() {
@@ -60,7 +60,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 
 	store, err := bs.GetObjectStore(ctx, src.Bucket())
 	if err != nil {
-		return err
+		return convertError(err, src)
 	}
 
 	nfs := pathfs.NewPathNodeFs(&storjFs{FileSystem: pathfs.NewDefaultFileSystem(), ctx: ctx, store: store}, nil)
@@ -102,18 +102,18 @@ func (sf *storjFs) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse
 	}
 
 	metadata, err := sf.store.Meta(sf.ctx, name)
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !storj.ErrObjectNotFound.Has(err) {
 		return nil, fuse.EIO
 	}
 
 	// file not found so maybe it's a prefix/directory
 	if err != nil {
 		items, _, err := sf.store.List(sf.ctx, name, "", "", false, 1, meta.None)
-		if err != nil && !storage.ErrKeyNotFound.Has(err) {
+		if err != nil {
 			return nil, fuse.EIO
 		}
 
-		// when at least one element has this prefix then it's directory
+		// if exactly one element has this prefix then it's directory
 		if len(items) == 1 {
 			return &fuse.Attr{Mode: fuse.S_IFDIR | 0755}, fuse.OK
 		}
@@ -184,7 +184,7 @@ func (sf *storjFs) listFiles(ctx context.Context, name string, store objects.Sto
 func (sf *storjFs) Unlink(name string, context *fuse.Context) (code fuse.Status) {
 	err := sf.store.Delete(sf.ctx, name)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return fuse.ENOENT
 		}
 		return fuse.EIO
@@ -210,7 +210,7 @@ func (f *storjFile) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.
 
 	reader, err := f.getReader(off)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
+		if storj.ErrObjectNotFound.Has(err) {
 			return nil, fuse.ENOENT
 		}
 		return nil, fuse.EIO

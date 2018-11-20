@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 )
 
 const (
@@ -67,7 +66,7 @@ func TestBucketsBasic(t *testing.T) {
 
 		// Check that the bucket cannot be get explicitly
 		bucket, err = db.GetBucket(ctx, TestBucket)
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 	})
 }
 
@@ -105,7 +104,7 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 
 		// (New API) Check that the bucket cannot be get explicitly
 		bucket, err = db.GetBucket(ctx, TestBucket)
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 	})
 }
 
@@ -144,7 +143,7 @@ func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
 
 		// (Old API) Check that the bucket cannot be get explicitly
 		_, err = db.buckets.Get(ctx, TestBucket)
-		assert.True(t, storage.ErrKeyNotFound.Has(err))
+		assert.True(t, storj.ErrBucketNotFound.Has(err))
 	})
 }
 

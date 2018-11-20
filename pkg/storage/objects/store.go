@@ -9,19 +9,16 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 var mon = monkit.Package()
-
-// NoPathError is an error class for missing object path
-var NoPathError = errs.Class("no object path specified")
 
 // Meta is the full object metadata
 type Meta struct {
@@ -62,10 +59,15 @@ func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return Meta{}, NoPathError.New("")
+		return Meta{}, storj.ErrNoPath.New("")
 	}
 
 	m, err := o.store.Meta(ctx, path, o.pathCipher)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+
 	return convertMeta(m), err
 }
 
@@ -74,10 +76,15 @@ func (o *objStore) Get(ctx context.Context, path storj.Path) (
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return nil, Meta{}, NoPathError.New("")
+		return nil, Meta{}, storj.ErrNoPath.New("")
 	}
 
 	rr, m, err := o.store.Get(ctx, path, o.pathCipher)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+
 	return rr, convertMeta(m), err
 }
 
@@ -85,7 +92,7 @@ func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, met
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return Meta{}, NoPathError.New("")
+		return Meta{}, storj.ErrNoPath.New("")
 	}
 
 	// TODO(kaloyan): autodetect content type
@@ -103,10 +110,16 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
-		return NoPathError.New("")
+		return storj.ErrNoPath.New("")
 	}
 
-	return o.store.Delete(ctx, path, o.pathCipher)
+	err = o.store.Delete(ctx, path, o.pathCipher)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrObjectNotFound.Wrap(err)
+	}
+
+	return err
 }
 
 func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (
