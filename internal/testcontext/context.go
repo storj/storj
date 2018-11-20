@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -28,7 +27,7 @@ type Context struct {
 	cancel   context.CancelFunc
 
 	group *errgroup.Group
-	test  testing.TB
+	test  TB
 
 	once      sync.Once
 	directory string
@@ -45,13 +44,21 @@ type caller struct {
 	done bool
 }
 
+// TB is a subset of testing.TB methods
+type TB interface {
+	Name() string
+	Helper()
+	Error(args ...interface{})
+	Fatal(args ...interface{})
+}
+
 // New creates a new test context
-func New(test testing.TB) *Context {
+func New(test TB) *Context {
 	return NewWithTimeout(test, defaultTimeout)
 }
 
 // NewWithTimeout creates a new test context with a given timeout
-func NewWithTimeout(test testing.TB, timeout time.Duration) *Context {
+func NewWithTimeout(test TB, timeout time.Duration) *Context {
 	timedctx, cancel := context.WithTimeout(context.Background(), timeout)
 	group, errctx := errgroup.WithContext(timedctx)
 
