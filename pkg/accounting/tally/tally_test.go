@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/node"
@@ -20,6 +19,7 @@ import (
 	"storj.io/storj/pkg/overlay/mocks"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pointerdb"
+	"storj.io/storj/storage/testsql"
 	"storj.io/storj/storage/teststore"
 )
 
@@ -28,7 +28,6 @@ var ctx = context.Background()
 func TestIdentifyActiveNodes(t *testing.T) {
 
 }
-
 func TestOnlineNodes(t *testing.T) {
 	logger := zap.NewNop()
 	pointerdb := pointerdb.NewServer(teststore.New(), &overlay.Cache{}, logger, pointerdb.Config{}, nil)
@@ -55,7 +54,8 @@ func TestOnlineNodes(t *testing.T) {
 	limit := 0
 	interval := time.Second
 
-	tally := newTally(pointerdb, overlayServer, kad, limit, logger, interval)
+	tally, err := newTally(testsql.Driver, testsql.Path(), pointerdb, overlayServer, kad, limit, logger, interval)
+	assert.NoError(t, err)
 	online, err := tally.onlineNodes(ctx, nodeIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOnline, online)

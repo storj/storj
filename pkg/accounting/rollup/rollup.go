@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"storj.io/storj/internal/migrate"
+	dbx "storj.io/storj/pkg/accounting/dbx"
 )
 
 // Rollup is the service for totalling data on storage nodes for 1, 7, 30 day intervals
@@ -18,17 +20,24 @@ type Rollup interface {
 type rollup struct {
 	logger *zap.Logger
 	ticker *time.Ticker
-	//TODO:
-	//accountingDBServer
+	db     *dbx.DB
 }
 
-func newRollup(logger *zap.Logger, interval time.Duration) *rollup {
+func newRollup(driver, source string, logger *zap.Logger, interval time.Duration) (*rollup, error) {
+	db, err := dbx.Open(driver, source)
+	if err != nil {
+		return nil, err
+	}
+	err = migrate.Create("accounting", db)
+	if err != nil {
+		return nil, err
+	}
+
 	return &rollup{
 		logger: logger,
 		ticker: time.NewTicker(interval),
-		//TODO:
-		//accountingDBServer
-	}
+		db:     db,
+	}, nil
 }
 
 // Run the rollup loop
@@ -44,6 +53,7 @@ func (r *rollup) Run(ctx context.Context) (err error) {
 		select {
 		case <-r.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or the rollup is canceled via context
+			r.db.Close()
 			return ctx.Err()
 		}
 	}

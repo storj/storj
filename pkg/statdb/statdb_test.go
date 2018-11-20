@@ -5,24 +5,21 @@ package statdb
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-
 	dbx "storj.io/storj/pkg/statdb/dbx"
 	pb "storj.io/storj/pkg/statdb/proto"
+	"storj.io/storj/storage/testsql"
 )
 
 var (
 	ctx = context.Background()
 )
 
-func TestCreateDoesNotExist(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+func TestCreateExists(t *testing.T) {
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -46,9 +43,8 @@ func TestCreateDoesNotExist(t *testing.T) {
 	assert.EqualValues(t, 0, nodeInfo.UptimeRatio)
 }
 
-func TestCreateExists(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+func TestCreateDuplicate(t *testing.T) {
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -69,8 +65,7 @@ func TestCreateExists(t *testing.T) {
 	assert.Error(t, err)
 }
 func TestCreateWithStats(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	auditSuccessCount, totalAuditCount, auditRatio := getRatio(4, 10)
@@ -104,8 +99,7 @@ func TestCreateWithStats(t *testing.T) {
 }
 
 func TestGetExists(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -131,8 +125,7 @@ func TestGetExists(t *testing.T) {
 }
 
 func TestGetDoesNotExist(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, _, err := getServerAndDB(dbPath)
+	statdb, _, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -147,8 +140,7 @@ func TestGetDoesNotExist(t *testing.T) {
 }
 
 func TestFindValidNodes(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -200,8 +192,7 @@ func TestFindValidNodes(t *testing.T) {
 }
 
 func TestUpdateExists(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -235,8 +226,7 @@ func TestUpdateExists(t *testing.T) {
 }
 
 func TestUpdateBatchExists(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -286,8 +276,7 @@ func TestUpdateBatchExists(t *testing.T) {
 }
 
 func TestUpdateBatchDoesNotExist(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -322,8 +311,7 @@ func TestUpdateBatchDoesNotExist(t *testing.T) {
 }
 
 func TestUpdateBatchEmpty(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -345,8 +333,7 @@ func TestUpdateBatchEmpty(t *testing.T) {
 }
 
 func TestCreateEntryIfNotExists(t *testing.T) {
-	dbPath := getDBPath()
-	statdb, db, err := getServerAndDB(dbPath)
+	statdb, db, err := getServerAndDB()
 	assert.NoError(t, err)
 
 	apiKey := []byte("")
@@ -388,16 +375,13 @@ func TestCreateEntryIfNotExists(t *testing.T) {
 	assert.EqualValues(t, 0, nodeInfo2.UptimeRatio)
 }
 
-func getDBPath() string {
-	return fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63())
-}
-
-func getServerAndDB(path string) (statdb *Server, db *dbx.DB, err error) {
-	statdb, err = NewServer("sqlite3", path, zap.NewNop())
+func getServerAndDB() (statdb *Server, db *dbx.DB, err error) {
+	path := testsql.Path()
+	statdb, err = NewServer(testsql.Driver, path, zap.NewNop())
 	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
-	db, err = dbx.Open("sqlite3", path)
+	db, err = dbx.Open(testsql.Driver, path)
 	if err != nil {
 		return &Server{}, &dbx.DB{}, err
 	}
