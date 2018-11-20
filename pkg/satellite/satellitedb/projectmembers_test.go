@@ -10,7 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/internal/testcontext"
-	stlt "storj.io/storj/pkg/satellite"
+	"storj.io/storj/pkg/satellite"
 )
 
 func TestProjectMembersRepository(t *testing.T) {
@@ -186,8 +186,8 @@ func TestProjectMembersRepository(t *testing.T) {
 	})
 }
 
-func prepareUsersAndProjects(ctx context.Context, t *testing.T, users stlt.Users, projects stlt.Projects) ([]stlt.User, []stlt.Project) {
-	usersList := []*stlt.User{{
+func prepareUsersAndProjects(ctx context.Context, t *testing.T, users satellite.Users, projects satellite.Projects) ([]*satellite.User, []*satellite.Project) {
+	usersList := []*satellite.User{{
 		Email:        "email1@ukr.net",
 		PasswordHash: []byte("some_readable_hash"),
 		LastName:     "LastName",
@@ -213,7 +213,7 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users stlt.Users
 		}
 	}
 
-	projectList := []*stlt.Project{
+	projectList := []*satellite.Project{
 		{
 			Name:          "projName1",
 			TermsAccepted: 1,
@@ -235,5 +235,5 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users stlt.Users
 		}
 	}
 
-	return []stlt.User{*usersList[0], *usersList[1], *usersList[2]}, []stlt.Project{*projectList[0], *projectList[1]}
+	return usersList, projectList
 }
