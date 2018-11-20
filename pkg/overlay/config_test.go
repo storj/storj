@@ -30,6 +30,7 @@ func TestRun(t *testing.T) {
 
 	prv, address, err := getProvider(ctxWithKad)
 	assert.NoError(t, err)
+	assert.NotNil(t, prv)
 
 	// run with nil
 	err = Config{}.Run(context.Background(), prv)
@@ -76,7 +77,7 @@ func getProvider(ctx context.Context) (*provider.Provider, string, error) {
 		return nil, "", err
 	}
 
-	lis, err := net.Listen("tcp", "127.0.0.1:8080")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, "", err
 	}

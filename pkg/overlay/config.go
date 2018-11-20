@@ -64,6 +64,9 @@ func (c Config) Run(ctx context.Context, server *provider.Provider) (
 	if !ok {
 		return Error.New("invalid API credentials")
 	}
+	if server == nil {
+		return Error.New("server cannot be nil")
+	}
 	statdb, err := sdbclient.NewClient(server.Identity(), c.StatDBPort, apiKey)
 	if err != nil {
 		return err
